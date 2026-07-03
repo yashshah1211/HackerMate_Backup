@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useNotification } from "@/context/NotificationContext";
 
 type Invite = {
   id: string;
@@ -19,6 +20,7 @@ type Invite = {
 };
 
 export default function InvitesPage() {
+  const { showToast } = useNotification();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +64,6 @@ export default function InvitesPage() {
     } catch (err) {
       console.error(err);
     }
-
     setLoading(false);
   }
 
@@ -79,16 +80,15 @@ export default function InvitesPage() {
       });
 
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
         return;
       }
 
-      alert("Invite accepted!");
-
+      showToast("Invite accepted!", "success");
       loadInvites();
     } catch (err) {
       console.error(err);
-      alert("Failed to accept invite.");
+      showToast("Failed to accept invite.", "error");
     }
   }
 
@@ -99,14 +99,15 @@ export default function InvitesPage() {
       });
 
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
         return;
       }
 
+      showToast("Invite rejected.", "info");
       loadInvites();
     } catch (err) {
       console.error(err);
-      alert("Failed to reject invite.");
+      showToast("Failed to reject invite.", "error");
     }
   }
 

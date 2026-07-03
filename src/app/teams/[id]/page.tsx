@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TeamDetailsView from "@/components/TeamDetailsView";
 import AuthGuard from "@/components/AuthGuard";
+import { useNotification } from "@/context/NotificationContext";
 
 type Team = {
   id: string;
@@ -30,6 +31,7 @@ type Member = {
 };
 
 function TeamDetailsContent() {
+  const { showToast, confirm } = useNotification();
   const params = useParams();
   const teamId = params.id as string;
 
@@ -113,10 +115,7 @@ function TeamDetailsContent() {
     setLoading(false);
   }
 
-  async function removeMember(memberId: string) {
-    const confirmed = confirm("Remove this member from the team?");
-    if (!confirmed) return;
-
+  async function performRemove(memberId: string) {
     const { error } = await supabase
       .from("team_members")
       .delete()
@@ -124,11 +123,24 @@ function TeamDetailsContent() {
 
     if (error) {
       console.error(error);
-      alert(error.message);
+      showToast(error.message, "error");
       return;
     }
 
+    showToast("Member removed from team", "success");
     loadTeam();
+  }
+
+  async function removeMember(memberId: string) {
+    confirm({
+      title: "Remove Team Member",
+      message: "Are you sure you want to remove this member from the team?",
+      confirmText: "Remove Member",
+      cancelText: "Keep Member",
+      onConfirm: () => {
+        performRemove(memberId);
+      }
+    });
   }
 
   async function checkExistingRequest() {
@@ -170,7 +182,7 @@ function TeamDetailsContent() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Please login first");
+      showToast("Please login first", "warning");
       setRequestLoading(false);
       return;
     }
@@ -183,7 +195,7 @@ function TeamDetailsContent() {
       .maybeSingle();
 
     if (membership) {
-      alert("You are already a member of this team");
+      showToast("You are already a member of this team", "warning");
       setRequestLoading(false);
       return;
     }
@@ -195,14 +207,15 @@ function TeamDetailsContent() {
     if (error) {
       console.error(error);
       if (error.code === "23505") {
-        alert("Request already sent");
+        showToast("Request already sent", "warning");
       } else {
-        alert(error.message);
+        showToast(error.message, "error");
       }
       setRequestLoading(false);
       return;
     }
 
+    showToast("Join request sent!", "success");
     setRequestSent(true);
     setRequestLoading(false);
   }

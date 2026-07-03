@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-
+import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 
 function EditProfileContent() {
   const router = useRouter();
+  const { showToast } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,57 +20,56 @@ function EditProfileContent() {
   const [githubUrl, setGithubUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  
 
   const SKILLS = [
-  "React",
-  "Next.js",
-  "TypeScript",
-  "JavaScript",
-  "Node.js",
-  "Express",
-  "Python",
-  "Java",
-  "C++",
-  "Flutter",
-  "React Native",
-  "AI/ML",
-  "TensorFlow",
-  "PyTorch",
-  "Docker",
-  "Kubernetes",
-  "AWS",
-  "Terraform",
-  "Supabase",
-  "PostgreSQL",
-  "MongoDB",
-  "UI/UX",
-  "Figma",
-  "DevOps",
-  "Pandas",
-  "MySQL",
-  "HTML",
-];
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "Express",
+    "Python",
+    "Java",
+    "C++",
+    "Flutter",
+    "React Native",
+    "AI/ML",
+    "TensorFlow",
+    "PyTorch",
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "Terraform",
+    "Supabase",
+    "PostgreSQL",
+    "MongoDB",
+    "UI/UX",
+    "Figma",
+    "DevOps",
+    "Pandas",
+    "MySQL",
+    "HTML",
+  ];
 
-const COLLEGES = [
-  "DJSCE",
-  "SPIT",
-  "VJTI",
-  "TSEC",
-  "COEP",
-  "PICT",
-  "DAIICT",
-  "Nirma University",
-  "PDEU",
-  "BITS Pilani",
-  "IIT Bombay",
-  "IIT Delhi",
-  "IIT Madras",
-  "NIT Trichy",
-  "NIT Surathkal",
-  "KJSIT",
-  "Other",
-];
+  const COLLEGES = [
+    "DJSCE",
+    "SPIT",
+    "VJTI",
+    "TSEC",
+    "COEP",
+    "PICT",
+    "DAIICT",
+    "Nirma University",
+    "PDEU",
+    "BITS Pilani",
+    "IIT Bombay",
+    "IIT Delhi",
+    "IIT Madras",
+    "NIT Trichy",
+    "NIT Surathkal",
+    "KJSIT",
+    "Other",
+  ];
 
   async function loadProfile() {
     const {
@@ -93,10 +93,7 @@ const COLLEGES = [
       return;
     }
 
-    if (
-      data.college &&
-      COLLEGES.includes(data.college)
-    ) {
+    if (data.college && COLLEGES.includes(data.college)) {
       setCollege(data.college);
     } else {
       setCollege("Other");
@@ -134,15 +131,18 @@ const COLLEGES = [
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return;
+    if (!user) {
+      setSaving(false);
+      return;
+    }
 
     const { error } = await supabase
       .from("profiles")
       .update({
         college: 
-          college === "other"
-          ? customCollege
-          : college,
+          college === "Other"
+            ? customCollege
+            : college,
         bio: bio,
         github_url: githubUrl,
         linkedin_url: linkedinUrl,
@@ -152,11 +152,12 @@ const COLLEGES = [
 
     if (error) {
       console.error(error);
-      alert(error.message);
+      showToast(error.message, "error");
       setSaving(false);
       return;
     }
 
+    showToast("Profile updated successfully!", "success");
     router.push("/dashboard");
   }
 
@@ -270,13 +271,32 @@ const COLLEGES = [
                     type="button"
                     key={skill}
                     onClick={() => toggleSkill(skill)}
-                    className={`text-[10px] py-1 px-2 font-medium border transition-colors cursor-pointer select-none rounded ${
+                    aria-pressed={selected}
+                    className={`profile-skill-chip text-[10px] py-1 px-2 font-semibold border transition-all cursor-pointer select-none rounded ${
                       selected
-                        ? "bg-white text-black border-white"
-                        : "bg-zinc-900/30 text-zinc-400 border-zinc-800/80 hover:border-zinc-700"
+                        ? "profile-skill-chip--selected bg-white text-black border-white"
+                        : "profile-skill-chip--unselected bg-zinc-900/30 text-zinc-400 border-zinc-800/80 hover:border-zinc-700"
                     }`}
                   >
-                    {skill}
+                    <span className="inline-flex items-center gap-1">
+                      {selected && (
+                        <svg
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                        >
+                          <path
+                            d="M2.25 6.25 4.75 8.5 9.75 3.5"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                      {skill}
+                    </span>
                   </button>
                 );
               })}

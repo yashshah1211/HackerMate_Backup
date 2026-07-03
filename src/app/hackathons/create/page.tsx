@@ -4,9 +4,11 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useRouter as useAppRouter } from "next/navigation";
+import { useNotification } from "@/context/NotificationContext";
 
 export default function CreateHackathonPage() {
   const router = useAppRouter();
+  const { showToast } = useNotification();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -23,7 +25,7 @@ export default function CreateHackathonPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
-      alert("Please enter a hackathon name");
+      showToast("Please enter a hackathon name", "warning");
       return;
     }
 
@@ -35,7 +37,7 @@ export default function CreateHackathonPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        alert("You must be logged in to create a hackathon.");
+        showToast("You must be logged in to create a hackathon.", "warning");
         setLoading(false);
         return;
       }
@@ -64,14 +66,14 @@ export default function CreateHackathonPage() {
         .single();
 
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       } else {
-        alert("Hackathon listed successfully!");
+        showToast("Hackathon listed successfully!", "success");
         router.push("/hackathons");
       }
     } catch (err) {
       console.error(err);
-      alert("An error occurred while listing the hackathon.");
+      showToast("An error occurred while listing the hackathon.", "error");
     }
 
     setLoading(false);

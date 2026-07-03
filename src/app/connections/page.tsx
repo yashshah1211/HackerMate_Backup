@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { useNotification } from "@/context/NotificationContext";
 
 type RequestRow = {
   id: string;
@@ -24,6 +25,7 @@ type Profile = {
 type EnrichedRequest = RequestRow & { profile: Profile };
 
 function ConnectionsContent() {
+  const { showToast } = useNotification();
   const [incoming, setIncoming] = useState<EnrichedRequest[]>([]);
   const [outgoing, setOutgoing] = useState<EnrichedRequest[]>([]);
   const [connections, setConnections] = useState<EnrichedRequest[]>([]);
@@ -107,11 +109,12 @@ function ConnectionsContent() {
     });
 
     if (error) {
-      alert(error.message);
+      showToast(error.message, "error");
       setActionLoadingId(null);
       return;
     }
 
+    showToast("Connection accepted!", "success");
     await loadAll();
     setActionLoadingId(null);
   }
@@ -124,11 +127,12 @@ function ConnectionsContent() {
       .eq("id", requestId);
 
     if (error) {
-      alert(error.message);
+      showToast(error.message, "error");
       setActionLoadingId(null);
       return;
     }
 
+    showToast("Request updated.", "info");
     await loadAll();
     setActionLoadingId(null);
   }

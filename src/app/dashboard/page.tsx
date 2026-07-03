@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
@@ -54,6 +55,30 @@ type RecentMessage = {
   timeLabel: string;
 };
 
+type SpotlightConnectionState =
+  | "not_connected"
+  | "request_sent"
+  | "request_received"
+  | "connected";
+
+function getHackathonTimelineLabel(startDateStr: string, endDateStr: string): { label: string; variant: "start" | "end" | "ended" } {
+  const now = new Date();
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  now.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  const startDiff = Math.round((start.getTime() - now.getTime()) / 86400000);
+  const endDiff = Math.round((end.getTime() - now.getTime()) / 86400000);
+  if (startDiff > 0) {
+    return { label: startDiff === 1 ? "Starts tomorrow" : `Starts in ${startDiff}d`, variant: "start" };
+  } else if (endDiff >= 0) {
+    if (endDiff === 0) return { label: "Ends today", variant: "end" };
+    return { label: endDiff === 1 ? "Ends tomorrow" : `Ends in ${endDiff}d`, variant: "end" };
+  }
+  return { label: "Ended", variant: "ended" };
+}
+
 function DashboardAvatar({ src, name, size = "md" }: { src?: string; name?: string; size?: "sm" | "md" | "lg" }) {
   const [error, setError] = useState(false);
   const fullName = name || "Builder";
@@ -91,6 +116,7 @@ function DashboardAvatar({ src, name, size = "md" }: { src?: string; name?: stri
 }
 
 function DashboardContent() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -99,6 +125,9 @@ function DashboardContent() {
   const [upcomingHackathons, setUpcomingHackathons] = useState<Hackathon[]>([]);
   const [activeTeams, setActiveTeams] = useState<Team[]>([]);
   const [recentMessages, setRecentMessages] = useState<RecentMessage[]>([]);
+  const [connectionStates, setConnectionStates] = useState<
+    Record<string, SpotlightConnectionState>
+  >({});
 
   // Statistics counters
   const [stats, setStats] = useState({
@@ -110,10 +139,42 @@ function DashboardContent() {
 
   const getGreeting = () => {
     const hr = new Date().getHours();
+    if (hr >= 0 && hr < 5) return "Still grinding";
     if (hr < 12) return "Good morning";
     if (hr < 17) return "Good afternoon";
     return "Good evening";
   };
+
+  async function loadConnectionStates(userId: string) {
+    const { data, error } = await supabase
+      .from("friend_requests")
+      .select("sender_id, receiver_id, status")
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const nextStates: Record<string, SpotlightConnectionState> = {};
+    (data || []).forEach((request) => {
+      const otherUserId =
+        request.sender_id === userId
+          ? request.receiver_id
+          : request.sender_id;
+
+      if (request.status === "accepted") {
+        nextStates[otherUserId] = "connected";
+      } else if (request.status === "pending") {
+        nextStates[otherUserId] =
+          request.sender_id === userId
+            ? "request_sent"
+            : "request_received";
+      }
+    });
+
+    setConnectionStates(nextStates);
+  }
 
   async function loadDashboardData() {
     try {
@@ -125,6 +186,8 @@ function DashboardContent() {
         return;
       }
 
+      await loadConnectionStates(user.id);
+
       // 1. Fetch current profile
       const { data: profileData } = await supabase
         .from("profiles")
@@ -135,6 +198,25 @@ function DashboardContent() {
       if (profileData) {
         setProfile(profileData);
 
+        // Fetch user blocklists
+        let blockedUserIds: string[] = [];
+        const { data: myBlocks } = await supabase
+          .from("blocked_users")
+          .select("blocked_id")
+          .eq("blocker_id", user.id);
+
+        const { data: theirBlocks } = await supabase
+          .from("blocked_users")
+          .select("blocker_id")
+          .eq("blocked_id", user.id);
+
+        if (myBlocks) {
+          blockedUserIds.push(...myBlocks.map((b) => b.blocked_id));
+        }
+        if (theirBlocks) {
+          blockedUserIds.push(...theirBlocks.map((b) => b.blocker_id));
+        }
+
         // 2. Fetch all other profiles for compatibility calculation
         const { data: otherProfiles } = await supabase
           .from("profiles")
@@ -142,8 +224,13 @@ function DashboardContent() {
           .neq("id", user.id);
 
         if (otherProfiles) {
+          // Filter out blocked users
+          const filteredProfiles = otherProfiles.filter(
+            (other) => !blockedUserIds.includes(other.id)
+          );
+
           // Calculate score and sort
-          const devsWithScore = otherProfiles.map((other) => {
+          const devsWithScore = filteredProfiles.map((other) => {
             let score = 30; // base
             if (
               profileData.college &&
@@ -324,6 +411,31 @@ function DashboardContent() {
     Promise.resolve().then(() => {
       loadDashboardData();
     });
+
+    const connectionChannel = supabase
+      .channel("dashboard-connections")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_requests",
+        },
+        async () => {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user) {
+            await loadConnectionStates(user.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(connectionChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Predefined icons list helper for active teams matching mockup aesthetics
@@ -366,16 +478,6 @@ function DashboardContent() {
   // Only render messages from DB - no hardcoded fallbacks
   const messagesToRender = recentMessages;
 
-  // Fallbacks for Teams list if empty
-  const defaultActiveTeams = [
-    { id: "t1", name: "Hack Warriors", memberCount: 4, max_members: 5, hackathons: { name: "Active" } },
-    { id: "t2", name: "Project Nova", memberCount: 3, max_members: 5, hackathons: { name: "Active" } },
-    { id: "t3", name: "Code Crafters", memberCount: 5, max_members: 5, hackathons: { name: "Active" } },
-    { id: "t4", name: "InnovateX", memberCount: 2, max_members: 6, hackathons: { name: "Planning" } },
-  ];
-
-  const teamsToRender = activeTeams.length > 0 ? activeTeams : defaultActiveTeams;
-
   // Initial colors for spotlight names matching mockup avatars
   const avatarColors = [
     "bg-amber-600/10 border-amber-500/20 text-amber-500",
@@ -406,6 +508,8 @@ function DashboardContent() {
         <p className="text-xs text-zinc-500 font-medium">Build together. Win together.</p>
       </section>
 
+
+
       {/* Dynamic Stats row */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in-up stagger-1">
         
@@ -420,7 +524,6 @@ function DashboardContent() {
             <div>
               <p className="text-[10px] text-zinc-500 font-mono uppercase mb-0.5 tracking-wider">Builders in Network</p>
               <h3 className="text-xl font-bold text-white mb-0.5">{stats.builders}</h3>
-              <p className="text-[9px] text-emerald-500 font-semibold mb-0">↗ +12 this week</p>
             </div>
           </div>
         </div>
@@ -474,19 +577,35 @@ function DashboardContent() {
 
             {spotlights.length > 0 ? (
               <div className="space-y-3.5">
-                {spotlights.map((dev, idx) => (
-                  <div key={dev.id} className="flex items-center justify-between gap-4 p-2 rounded-lg hover:bg-zinc-900/10 transition-colors">
+                {spotlights.map((dev, idx) => {
+                  const connectionState =
+                    connectionStates[dev.id] || "not_connected";
+                  const actionLabel =
+                    connectionState === "request_sent"
+                      ? "Request sent"
+                      : connectionState === "request_received"
+                        ? "Respond"
+                        : connectionState === "connected"
+                          ? "Connected"
+                          : "Connect";
+
+                  return (
+                  <div
+                    key={dev.id}
+                    onClick={() => router.push(`/profile/${dev.id}`)}
+                    className="flex items-center justify-between gap-4 p-2.5 -mx-1 rounded-xl border border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/20 transition-all cursor-pointer group"
+                  >
                     
                     {/* User profile layout */}
                     <div className="flex items-center gap-3.5 min-w-0">
-                      {/* colored avatar circle matching mockup initials */}
+                      {/* colored avatar circle */}
                       <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${avatarColors[idx % 4]}`}>
                         {dev.full_name.charAt(0).toUpperCase()}
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <h4 className="text-xs font-semibold text-white truncate leading-none">{dev.full_name}</h4>
+                          <h4 className="text-xs font-semibold text-white truncate leading-none group-hover:text-violet-300 transition-colors">{dev.full_name}</h4>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                         </div>
                         <p className="text-[10px] text-zinc-500 truncate mb-1">
@@ -506,19 +625,59 @@ function DashboardContent() {
                       </div>
                     </div>
 
-                    {/* Match Score & Connect Button */}
-                    <div className="flex items-center gap-4 shrink-0">
+                    {/* Match Score & Connect State */}
+                    <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
                         <p className="text-xs font-bold text-white leading-none">{dev.compatibility || 96}%</p>
                         <p className="text-[8px] text-emerald-500 font-semibold uppercase leading-none mt-0.5">Match</p>
                       </div>
-                      <Link href={`/profile/${dev.id}`} className="btn btn-secondary px-3 py-1.5 text-[9px] rounded-lg border border-zinc-800 bg-[#0E1017] hover:bg-zinc-900">
-                        Connect
-                      </Link>
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 text-[9px] font-semibold rounded-lg border transition-colors ${
+                          connectionState === "request_sent"
+                            ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                            : connectionState === "connected"
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                              : connectionState === "request_received"
+                                ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                : "border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:text-white hover:border-zinc-700"
+                        }`}
+                      >
+                        {connectionState === "connected" ? (
+                          <>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                            Connected
+                          </>
+                        ) : connectionState === "request_sent" ? (
+                          <>
+                            <svg className="w-3 h-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Sent
+                          </>
+                        ) : connectionState === "request_received" ? (
+                          <>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Respond
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Connect
+                          </>
+                        )}
+                      </div>
                     </div>
 
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-12 text-center bg-[var(--surface-2)] border border-dashed border-[var(--card-border)] rounded-lg">
@@ -547,8 +706,19 @@ function DashboardContent() {
                     "bg-red-500/10 border-red-500/20 text-red-400",
                     "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                   ];
+                  const timeline = getHackathonTimelineLabel(hack.start_date, hack.end_date);
+                  const timelineCls = timeline.variant === "start"
+                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                    : timeline.variant === "end"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                      : "bg-zinc-800/60 text-zinc-500 border-zinc-700/60";
+
                   return (
-                    <div key={hack.id} className="flex items-center justify-between gap-4">
+                    <div
+                      key={hack.id}
+                      onClick={() => router.push(`/hackathons/${hack.id}`)}
+                      className="flex items-center justify-between gap-4 p-2 -mx-2 rounded-xl border border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/20 transition-all cursor-pointer group"
+                    >
                       
                       {/* Logo and metadata */}
                       <div className="flex items-center gap-3.5 min-w-0">
@@ -556,10 +726,15 @@ function DashboardContent() {
                           {idx === 0 ? "🏆" : idx === 1 ? "🌐" : idx === 2 ? "💻" : "🛡️"}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-xs font-semibold text-white truncate mb-0.5">{hack.name}</h4>
-                          <p className="text-[9px] text-zinc-500 truncate uppercase tracking-wide">
-                            {new Date(hack.start_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} - {new Date(hack.end_date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })} | {hack.location}
-                          </p>
+                          <h4 className="text-xs font-semibold text-white truncate mb-0.5 group-hover:text-violet-300 transition-colors">{hack.name}</h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-[9px] text-zinc-500 uppercase tracking-wide">
+                              {new Date(hack.start_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} – {new Date(hack.end_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                            </p>
+                            <span className={`text-[8px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded border ${timelineCls}`}>
+                              {timeline.label}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -595,39 +770,88 @@ function DashboardContent() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {teamsToRender.slice(0, 4).map((team, idx) => {
-              const count = team.memberCount || 3;
-              const max = team.max_members || 5;
-              const percent = Math.min(Math.round((count / max) * 100), 100);
-              
-              return (
-                <div key={team.id} className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 transition-all">
-                  
-                  {/* Icon & title */}
-                  <div>
-                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[idx % 4]}`}>
-                      {renderTeamIcon(idx)}
+          {activeTeams.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {activeTeams.slice(0, 4).map((team, idx) => {
+                const count = team.memberCount || 0;
+                const max = team.max_members || 5;
+                const percent = Math.min(Math.round((count / max) * 100), 100);
+                
+                return (
+                  <div
+                    key={team.id}
+                    onClick={() => router.push(`/teams/${team.id}`)}
+                    className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 hover:bg-zinc-900/20 transition-all cursor-pointer group"
+                  >
+                    
+                    {/* Icon & title */}
+                    <div>
+                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[idx % 4]}`}>
+                        {renderTeamIcon(idx)}
+                      </div>
+                      <h4 className="text-xs font-semibold text-white truncate mb-1 group-hover:text-violet-300 transition-colors">{team.name}</h4>
+                      <p className="text-[9px] text-zinc-500 mb-4">{team.hackathons?.name || "Active"}</p>
                     </div>
-                    <h4 className="text-xs font-semibold text-white truncate mb-1">{team.name}</h4>
-                    <p className="text-[9px] text-zinc-500 mb-4">{count} members • {team.hackathons?.name || "Active"}</p>
-                  </div>
 
-                  {/* Progress bar wrapper */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
-                      <span>Capacity</span>
-                      <span>{percent}%</span>
+                    {/* Progress bar wrapper */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
+                        <span>{count} of {max} members</span>
+                        <span>{percent}%</span>
+                      </div>
+                      <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            percent >= 100
+                              ? "bg-emerald-500"
+                              : percent >= 60
+                                ? "bg-violet-500"
+                                : "bg-zinc-600"
+                          }`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                      <div className="progress-bar-fill h-full rounded-full" style={{ width: `${percent}%` }} />
-                    </div>
-                  </div>
 
-                </div>
-              );
-            })}
-          </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 gap-5">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584.036-.219.05-.44.05-.666l.001-.03m11.911 0a9.1 9.1 0 00-11.911 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <h4 className="text-xs font-semibold text-white mb-1">You&apos;re not in any teams yet</h4>
+                <p className="text-[10px] text-zinc-500 max-w-[260px] leading-relaxed">
+                  Join an existing team looking for members, or start your own and recruit builders.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/teams"
+                  className="flex items-center gap-1.5 text-[10px] font-semibold px-3.5 py-2 rounded-lg border border-zinc-700 bg-zinc-900/60 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-300 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                  </svg>
+                  Browse Teams
+                </Link>
+                <Link
+                  href="/teams/create"
+                  className="flex items-center gap-1.5 text-[10px] font-semibold px-3.5 py-2 rounded-lg border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Create Team
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Recent Messages list */}
@@ -668,10 +892,21 @@ function DashboardContent() {
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center">
-                <p className="text-xs text-zinc-600 mb-1">No messages yet.</p>
-                <Link href="/messages" className="text-[10px] text-violet-500 hover:text-violet-400 transition-colors underline underline-offset-2">
-                  Start a conversation
+              <div className="py-6 flex flex-col items-center text-center">
+                <div className="w-11 h-11 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 mb-3">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.999 5.999 0 011.523-3.678C3.963 15.116 3 13.665 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                  </svg>
+                </div>
+                <h4 className="text-xs font-semibold text-white mb-1">No messages yet</h4>
+                <p className="text-[10px] text-zinc-500 max-w-[180px] leading-relaxed mb-3.5">
+                  Reach out to compatible builders to collaborate on projects.
+                </p>
+                <Link
+                  href="/developers"
+                  className="text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors"
+                >
+                  Find Collaborators
                 </Link>
               </div>
             )}
@@ -680,24 +915,7 @@ function DashboardContent() {
 
       </section>
 
-      {/* Full-width call-to-action banner matching mockup style */}
-      <section className="animate-fade-in-up stagger-4">
-        <div
-          className="relative overflow-hidden rounded-2xl border border-violet-500/20 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6"
-          style={{ background: "linear-gradient(to right, rgba(124,58,237,0.12), rgba(99,102,241,0.06), transparent)" }}
-        >
-          <div className="space-y-1.5">
-            <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">Build better together</h2>
-            <p className="text-xs text-[var(--text-secondary)] max-w-lg leading-relaxed">Join a team or create your own and start building something amazing.</p>
-          </div>
-          <Link href="/teams" className="btn bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shrink-0 transition-colors">
-            Explore Teams
-          </Link>
-          
-          {/* Subtle background graphic */}
-          <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-20 pointer-events-none" style={{ background: "radial-gradient(circle at bottom right, rgba(139,92,246,0.4), transparent)" }} />
-        </div>
-      </section>
+
 
     </main>
   );

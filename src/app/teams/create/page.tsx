@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useNotification } from "@/context/NotificationContext";
 
 const COLLEGES = [
   "DJSCE", "SPIT", "VJTI", "TSEC", "COEP", "PICT", "DAIICT",
@@ -45,6 +46,7 @@ export default function CreateTeamPage() {
 
 function CreateTeamForm() {
   const router = useRouter();
+  const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const preselectedHackathonId = searchParams.get("hackathon");
 
@@ -93,18 +95,18 @@ function CreateTeamForm() {
   }
 
   async function handleCreateTeam() {
-    if (!name.trim()) { alert("Team name is required"); return; }
-    if (!description.trim()) { alert("Team description is required"); return; }
-    if (!college) { alert("College is required"); return; }
-    if (college === "Other" && !customCollege.trim()) { alert("Please enter your college name"); return; }
-    if (!hackathonId) { alert("Hackathon is required"); return; }
-    if (selectedSkills.length === 0) { alert("Please select at least one skill"); return; }
-    if (selectedRoles.length === 0) { alert("Please select at least one role"); return; }
+    if (!name.trim()) { showToast("Team name is required", "warning"); return; }
+    if (!description.trim()) { showToast("Team description is required", "warning"); return; }
+    if (!college) { showToast("College is required", "warning"); return; }
+    if (college === "Other" && !customCollege.trim()) { showToast("Please enter your college name", "warning"); return; }
+    if (!hackathonId) { showToast("Hackathon is required", "warning"); return; }
+    if (selectedSkills.length === 0) { showToast("Please select at least one skill", "warning"); return; }
+    if (selectedRoles.length === 0) { showToast("Please select at least one role", "warning"); return; }
 
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("You must be logged in"); setLoading(false); return; }
+    if (!user) { showToast("You must be logged in", "error"); setLoading(false); return; }
 
     const selectedHackathon = hackathons.find((h) => h.id === hackathonId);
 
@@ -121,11 +123,12 @@ function CreateTeamForm() {
 
     if (error) {
       console.error(error);
-      alert(error.message);
+      showToast(error.message, "error");
       setLoading(false);
       return;
     }
 
+    showToast("Team created successfully!", "success");
     setLoading(false);
     router.push("/teams");
   }

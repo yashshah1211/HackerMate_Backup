@@ -42,9 +42,28 @@ export default function ChatThread({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   async function loadMessages() {
+    // Check if direct message conversation has blocked participant relationships
+    const { data: participants } = await supabase
+      .from("conversation_participants")
+      .select("user_id")
+      .eq("conversation_id", conversationId);
+
+    const otherUser = (participants || []).find((p) => p.user_id !== currentUserId);
+
+    if (otherUser) {
+      const { data: block } = await supabase
+        .from("blocked_users")
+        .select("id")
+        .or(`and(blocker_id.eq.${currentUserId},blocked_id.eq.${otherUser.user_id}),and(blocker_id.eq.${otherUser.user_id},blocked_id.eq.${currentUserId})`)
+        .maybeSingle();
+
+      setIsBlocked(!!block);
+    }
+
     const { data, error } = await supabase
       .from("messages")
       .select("*")
@@ -135,6 +154,7 @@ export default function ChatThread({
   }, [messages]);
 
   async function sendMessage() {
+    if (isBlocked) return;
     const content = input.trim();
     if (!content) return;
 
@@ -223,23 +243,11 @@ export default function ChatThread({
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
-              <svg
-                className="w-5 h-5 text-zinc-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
-                />
+              <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
             </div>
-            <p className="text-zinc-500 text-xs">
-              No messages yet. Say hi 👋
-            </p>
+            <p className="text-zinc-500 text-xs">No messages yet. Say hi 👋</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -247,10 +255,7 @@ export default function ChatThread({
             const sender = profiles[msg.sender_id];
 
             return (
-              <div
-                key={msg.id}
-                className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}
-              >
+              <div key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}>
                 {sender?.avatar_url ? (
                   <img
                     src={sender.avatar_url}
@@ -300,28 +305,19 @@ export default function ChatThread({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            disabled={isBlocked}
+            placeholder={isBlocked ? "You cannot message this user." : "Type a message..."}
             rows={2}
-            className="input flex-1 resize-none py-1.5 px-3 text-xs bg-zinc-950/60 border-zinc-800 focus:border-zinc-700 min-h-[42px] max-h-[100px] overflow-y-auto"
+            className="input flex-1 resize-none py-1.5 px-3 text-xs bg-zinc-950/60 border-zinc-800 focus:border-zinc-700 min-h-[42px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || sending}
-            className="btn btn-primary flex-shrink-0"
+            disabled={!input.trim() || sending || isBlocked}
+            className="btn btn-primary flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ height: "36px", width: "36px", padding: 0 }}
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-              />
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
         </div>

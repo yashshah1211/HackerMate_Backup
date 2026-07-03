@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useNotification } from "@/context/NotificationContext";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { showToast } = useNotification();
 
   const [college, setCollege] = useState("");
   const [customCollege, setCustomCollege] = useState("");
@@ -87,43 +89,43 @@ const COLLEGES = [
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("User not found");
+      showToast("User not found", "error");
       setLoading(false);
       return;
     }
 
     if (!user.user_metadata?.full_name?.trim()) {
-  alert("Please enter your name");
-  setLoading(false);
-  return;
-}
+      showToast("Please enter your name", "warning");
+      setLoading(false);
+      return;
+    }
 
-if (!college) {
-  alert("Please select your college");
-  setLoading(false);
-  return;
-}
+    if (!college) {
+      showToast("Please select your college", "warning");
+      setLoading(false);
+      return;
+    }
 
-if (
-  college === "Other" &&
-  !customCollege.trim()
-) {
-  alert("Please enter your college name");
-  setLoading(false);
-  return;
-}
+    if (
+      college === "Other" &&
+      !customCollege.trim()
+    ) {
+      showToast("Please enter your college name", "warning");
+      setLoading(false);
+      return;
+    }
 
-if (!bio.trim()) {
-  alert("Please add a bio");
-  setLoading(false);
-  return;
-}
+    if (!bio.trim()) {
+      showToast("Please add a bio", "warning");
+      setLoading(false);
+      return;
+    }
 
-if (selectedSkills.length === 0) {
-  alert("Please select at least one skill");
-  setLoading(false);
-  return;
-}
+    if (selectedSkills.length === 0) {
+      showToast("Please select at least one skill", "warning");
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.from("profiles").insert({
       id: user.id,
@@ -144,10 +146,11 @@ if (selectedSkills.length === 0) {
 
     if (error) {
       console.error(error);
-      alert(error.message);
+      showToast(error.message, "error");
       return;
     }
 
+    showToast("Profile set up successfully!", "success");
     router.push("/dashboard");
   }
 

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { useNotification } from "@/context/NotificationContext";
 
 type Hackathon = {
   id: string;
@@ -48,6 +49,15 @@ type Registration = {
   } | null;
 };
 
+type MatchedBuilder = {
+  id: string;
+  full_name: string;
+  college: string | null;
+  avatar_url: string | null;
+  skills: string[];
+  matchedSkills: string[];
+};
+
 function formatDateRange(start: string | null, end: string | null) {
   if (!start) return "Date TBA";
   const opts: Intl.DateTimeFormatOptions = {
@@ -78,6 +88,7 @@ function htmlToPlainText(html: string) {
 }
 
 function HackathonDetailContent() {
+  const { showToast, confirm } = useNotification();
   const params = useParams();
   const hackathonId = params.id as string;
 
@@ -89,6 +100,7 @@ function HackathonDetailContent() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string }[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   
@@ -103,6 +115,9 @@ function HackathonDetailContent() {
   
   // Description expansion state
   const [isDescExpanded, setIsDescExpanded] = useState(false);
+
+  // Skill-matched builders
+  const [matchedBuilders, setMatchedBuilders] = useState<MatchedBuilder[]>([]);
 
   async function loadData() {
     try {
@@ -129,6 +144,16 @@ function HackathonDetailContent() {
         if (hackathonData.type === "native" && hackathonData.organizer_id === user.id) {
           setIsOrganizer(true);
         }
+
+        // Check if user has saved this hackathon
+        const { data: saveCheck } = await supabase
+          .from("saved_hackathons")
+          .select("id")
+          .eq("hackathon_id", hackathonId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        setIsSaved(!!saveCheck);
 
         // Check if user is registered for native hackathon
         const { data: regCheck } = await supabase
@@ -194,6 +219,59 @@ function HackathonDetailContent() {
     setLoading(false);
   }
 
+  async function fetchMatchedBuilders(hack: Hackathon, viewerUserId: string | null) {
+    // Build the text corpus to scan
+    const hackText = [
+      hack.name ?? "",
+      hack.description ? htmlToPlainText(hack.description) : "",
+    ].join(" ").toLowerCase();
+
+    // Fetch blocked lists so we can exclude them
+    let blockedIds: string[] = [];
+    if (viewerUserId) {
+      const { data: myBlocks } = await supabase
+        .from("blocked_users")
+        .select("blocked_id")
+        .eq("blocker_id", viewerUserId);
+      const { data: theirBlocks } = await supabase
+        .from("blocked_users")
+        .select("blocker_id")
+        .eq("blocked_id", viewerUserId);
+      if (myBlocks) blockedIds.push(...myBlocks.map((b) => b.blocked_id));
+      if (theirBlocks) blockedIds.push(...theirBlocks.map((b) => b.blocker_id));
+    }
+
+    // Fetch all profiles except the viewer
+    const query = supabase
+      .from("profiles")
+      .select("id, full_name, college, avatar_url, skills");
+    if (viewerUserId) query.neq("id", viewerUserId);
+    const { data: profiles } = await query;
+
+    if (!profiles) return;
+
+    const results: MatchedBuilder[] = [];
+
+    for (const profile of profiles) {
+      if (blockedIds.includes(profile.id)) continue;
+      if (!profile.skills || profile.skills.length === 0) continue;
+
+      const matchedSkills = profile.skills.filter((skill: string) => {
+        // Word-boundary-style match: skill appears as a standalone word/phrase
+        const escaped = skill.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`(?<![a-z])${escaped}(?![a-z])`, "i").test(hackText);
+      });
+
+      if (matchedSkills.length > 0) {
+        results.push({ ...profile, matchedSkills });
+      }
+    }
+
+    // Sort by number of matched skills descending
+    results.sort((a, b) => b.matchedSkills.length - a.matchedSkills.length);
+    setMatchedBuilders(results.slice(0, 6));
+  }
+
   useEffect(() => {
     if (hackathonId) {
       Promise.resolve().then(() => {
@@ -203,11 +281,17 @@ function HackathonDetailContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hackathonId]);
 
+  // Run matcher whenever hackathon data and user id are both available
+  useEffect(() => {
+    if (hackathon) {
+      fetchMatchedBuilders(hackathon, currentUserId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hackathon, currentUserId]);
+
   // Handle Native Registration Flow
   async function handleRegisterNatively() {
     if (!currentUserId || !hackathon) return;
-    setInviteLoading(true);
-
     try {
       // 1. Insert native registration row
       const { error: regError } = await supabase
@@ -219,7 +303,7 @@ function HackathonDetailContent() {
         });
 
       if (regError) {
-        alert(regError.message);
+        showToast(regError.message, "error");
         setInviteLoading(false);
         return;
       }
@@ -232,13 +316,13 @@ function HackathonDetailContent() {
           .eq("id", selectedTeam);
       }
 
-      alert("Successfully registered for the hackathon!");
+      showToast("Successfully registered for the hackathon!", "success");
       setShowRegisterModal(false);
       setSelectedTeam("");
       loadData();
     } catch (err) {
       console.error(err);
-      alert("Failed to register.");
+      showToast("Failed to register.", "error");
     }
     setInviteLoading(false);
   }
@@ -255,32 +339,28 @@ function HackathonDetailContent() {
         .eq("id", selectedTeam);
 
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       } else {
-        alert("Your team has been linked to this hackathon!");
+        showToast("Your team has been linked to this hackathon!", "success");
         setShowClaimModal(false);
         setSelectedTeam("");
         loadData();
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to claim team.");
+      showToast("Failed to claim team.", "error");
     }
     setInviteLoading(false);
   }
 
-  // Cancel Native Registration
-  async function handleCancelRegistration() {
-    if (!currentUserId || !hackathon) return;
-    if (!confirm("Are you sure you want to cancel your registration?")) return;
-
+  async function performCancel() {
     try {
       // Find team_id first to unlink if needed
       const { data: reg } = await supabase
         .from("hackathon_registrations")
         .select("team_id")
-        .eq("hackathon_id", hackathon.id)
-        .eq("user_id", currentUserId)
+        .eq("hackathon_id", hackathon!.id)
+        .eq("user_id", currentUserId!)
         .single();
 
       if (reg?.team_id) {
@@ -293,14 +373,70 @@ function HackathonDetailContent() {
       await supabase
         .from("hackathon_registrations")
         .delete()
-        .eq("hackathon_id", hackathon.id)
-        .eq("user_id", currentUserId);
+        .eq("hackathon_id", hackathon!.id)
+        .eq("user_id", currentUserId!);
 
-      alert("Registration cancelled.");
+      showToast("Registration cancelled.", "info");
       loadData();
     } catch (err) {
       console.error(err);
-      alert("Failed to cancel registration.");
+      showToast("Failed to cancel registration.", "error");
+    }
+  }
+
+  // Cancel Native Registration
+  async function handleCancelRegistration() {
+    if (!currentUserId || !hackathon) return;
+    confirm({
+      title: "Cancel Registration",
+      message: "Are you sure you want to cancel your registration?",
+      confirmText: "Cancel Registration",
+      cancelText: "Keep Registered",
+      onConfirm: () => {
+        performCancel();
+      }
+    });
+  }
+
+  async function handleToggleSave() {
+    if (!currentUserId || !hackathon) {
+      showToast("Please sign in to save this hackathon.", "warning");
+      return;
+    }
+
+    try {
+      if (isSaved) {
+        const { error } = await supabase
+          .from("saved_hackathons")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("hackathon_id", hackathon.id);
+
+        if (error) {
+          console.error("Error removing saved hackathon:", error);
+          showToast("Failed to unsave hackathon.", "error");
+        } else {
+          setIsSaved(false);
+          showToast("Hackathon unsaved", "info");
+        }
+      } else {
+        const { error } = await supabase
+          .from("saved_hackathons")
+          .insert({
+            user_id: currentUserId,
+            hackathon_id: hackathon.id,
+          });
+
+        if (error) {
+          console.error("Error saving hackathon:", error);
+          showToast("Failed to save hackathon.", "error");
+        } else {
+          setIsSaved(true);
+          showToast("Hackathon saved successfully!", "success");
+        }
+      }
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -553,6 +689,31 @@ function HackathonDetailContent() {
             >
               + Create a Team
             </Link>
+
+            <button
+              onClick={handleToggleSave}
+              className={`btn w-full btn-sm flex items-center justify-center gap-2 transition-all ${
+                isSaved
+                  ? "bg-violet-600/10 text-violet-400 border border-violet-500/30 hover:bg-violet-600/20"
+                  : "btn-secondary"
+              }`}
+            >
+              {isSaved ? (
+                <>
+                  <svg className="w-4 h-4 fill-violet-400 text-violet-400" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                  </svg>
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                  </svg>
+                  <span>Save Event</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </section>
@@ -778,6 +939,71 @@ function HackathonDetailContent() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* Skill-Matched Builders Panel */}
+      <section className="mt-8 animate-fade-in-up">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-white tracking-tight">Builders with Matching Skills</h2>
+            <p className="text-[10px] text-zinc-500 mt-0.5">Detected from this hackathon&apos;s description</p>
+          </div>
+          {matchedBuilders.length > 0 && (
+            <span className="text-[9px] font-mono font-semibold px-2 py-1 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400">
+              {matchedBuilders.length} match{matchedBuilders.length !== 1 ? "es" : ""}
+            </span>
+          )}
+        </div>
+
+        {matchedBuilders.length > 0 ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {matchedBuilders.map((builder) => (
+              <Link
+                key={builder.id}
+                href={`/profile/${builder.id}`}
+                className="group card card-static p-4 flex flex-col gap-3 hover:border-zinc-700 transition-all"
+              >
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs shrink-0 group-hover:border-violet-500/30 transition-colors">
+                    {builder.full_name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-semibold text-white truncate group-hover:text-violet-300 transition-colors">
+                      {builder.full_name}
+                    </h3>
+                    <p className="text-[10px] text-zinc-500 truncate">
+                      {builder.college || "Independent Builder"}
+                    </p>
+                  </div>
+                  <span className="ml-auto shrink-0 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                    {builder.matchedSkills.length} skill{builder.matchedSkills.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {/* Matched skills */}
+                <div className="flex flex-wrap gap-1">
+                  {builder.matchedSkills.slice(0, 4).map((skill) => (
+                    <span
+                      key={skill}
+                      className="text-[8px] font-semibold px-1.5 py-0.5 rounded border border-violet-500/30 bg-violet-500/10 text-violet-300"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {builder.matchedSkills.length > 4 && (
+                    <span className="text-[8px] text-zinc-500 px-1 py-0.5">+{builder.matchedSkills.length - 4} more</span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="card card-static p-8 text-center">
+            <p className="text-xs text-zinc-500">No skill matches detected for this hackathon yet.</p>
+            <p className="text-[10px] text-zinc-600 mt-1">Matches improve as more builders join and descriptions get richer.</p>
           </div>
         )}
       </section>

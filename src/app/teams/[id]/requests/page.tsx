@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useNotification } from "@/context/NotificationContext";
 
 type Request = {
   id: string;
@@ -18,6 +19,7 @@ type Request = {
 
 export default function TeamRequestsPage() {
   const params = useParams();
+  const { showToast } = useNotification();
   const teamId = params.id as string;
 
   const [requests, setRequests] = useState<Request[]>([]);
@@ -71,6 +73,8 @@ export default function TeamRequestsPage() {
 
     if (team.max_members && currentCount >= team.max_members) {
       setTeamFull(true);
+    } else {
+      setTeamFull(false);
     }
 
     setIsOwner(true);
@@ -113,32 +117,33 @@ export default function TeamRequestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
 
-
-
   async function acceptRequest(request: Request) {
     const { error } = await supabase.rpc("accept_team_join_request", {
       p_request_id: request.id,
     });
 
     if (error) {
-      alert(error.message);
+      showToast(error.message, "error");
       return;
     }
 
+    showToast("Join request accepted!", "success");
     await checkOwnership();
   }
 
   async function rejectRequest(requestId: string) {
     const { error } = await supabase
-  .from("team_join_requests")
-  .delete()
-  .eq("id", requestId);
+      .from("team_join_requests")
+      .delete()
+      .eq("id", requestId);
 
     if (error) {
       console.error(error);
+      showToast(error.message, "error");
       return;
     }
 
+    showToast("Join request rejected.", "info");
     loadRequests();
   }
 
@@ -272,7 +277,7 @@ export default function TeamRequestsPage() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M19.5 14.25v-2.7m0 0a2.25 2.25 0 10-4.5 0m4.5 0v2.7m0 0a2.25 2.25 0 01-2.25 2.25h-1.5a2.25 2.25 0 01-2.25-2.25v-2.7m0 0a2.25 2.25 0 10-4.5 0m4.5 0v2.7m0 0a2.25 2.25 0 01-2.25 2.25H5.25a2.25 2.25 0 01-2.25-2.25v-2.7m0 0a2.25 2.25 0 10-4.5 0m4.5 0v-2.7"
+                  d="M19.5 14.25v-2.7m0 0a2.25 2.25 0 10-4.5 0m4.5 0v2.7m0 0a2.25 2.25 0 01-2.25 2.25h-1.5a2.25 2.25 0 01-2.25-2.25v-2.7m0 0a2.25 2.25 0 10-4.5 0m4.5 0v-2.7"
                 />
               </svg>
             </div>

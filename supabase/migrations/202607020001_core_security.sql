@@ -3,6 +3,15 @@
 
 create extension if not exists pgcrypto;
 
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  user_email text,
+  type text not null,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
 create or replace function public.is_team_owner(p_team_id uuid)
 returns boolean
 language sql

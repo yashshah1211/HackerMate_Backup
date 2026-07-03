@@ -7,6 +7,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import ChatThread from "@/components/chatThread";
+import { useNotification } from "@/context/NotificationContext";
 
 type Profile = {
   id: string;
@@ -25,6 +26,7 @@ type DMConversation = {
 
 function MessagesContent() {
   const router = useRouter();
+  const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const targetUserId = searchParams.get("user"); // for "Message" button deep-link
 
@@ -43,27 +45,27 @@ function MessagesContent() {
   }, []);
 
   useEffect(() => {
-  if (!currentUserId) return;
+    if (!currentUserId) return;
 
-  const channel = supabase
-    .channel("messages-list")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-      },
-      async () => {
-        await loadConversations(currentUserId);
-      }
-    )
-    .subscribe();
+    const channel = supabase
+      .channel("messages-list")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        async () => {
+          await loadConversations(currentUserId);
+        }
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [currentUserId]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   async function init() {
     const {
@@ -85,18 +87,35 @@ function MessagesContent() {
     setLoading(false);
   }
 
-async function markConversationRead(
-  conversationId: string
-) {
-  const { error } = await supabase.rpc("mark_conversation_read", {
-    p_conversation_id: conversationId,
-  });
-  if (error) {
-    console.error(error);
+  async function markConversationRead(conversationId: string) {
+    const { error } = await supabase.rpc("mark_conversation_read", {
+      p_conversation_id: conversationId,
+    });
+    if (error) {
+      console.error(error);
+    }
   }
-}
 
   async function loadConversations(myId: string) {
+    // Fetch user blocklists
+    let blockedUserIds: string[] = [];
+    const { data: myBlocks } = await supabase
+      .from("blocked_users")
+      .select("blocked_id")
+      .eq("blocker_id", myId);
+
+    const { data: theirBlocks } = await supabase
+      .from("blocked_users")
+      .select("blocker_id")
+      .eq("blocked_id", myId);
+
+    if (myBlocks) {
+      blockedUserIds.push(...myBlocks.map((b) => b.blocked_id));
+    }
+    if (theirBlocks) {
+      blockedUserIds.push(...theirBlocks.map((b) => b.blocker_id));
+    }
+
     // Get all DM conversation_ids I'm part of
     const { data: myParticipantRows } = await supabase
       .from("conversation_participants")
@@ -109,18 +128,18 @@ async function markConversationRead(
     );
 
     const { data: unreadMessages } = await supabase
-  .from("messages")
-  .select("conversation_id")
-  .in("conversation_id", conversationIds)
-  .neq("sender_id", myId)
-  .eq("is_read", false);
+      .from("messages")
+      .select("conversation_id")
+      .in("conversation_id", conversationIds)
+      .neq("sender_id", myId)
+      .eq("is_read", false);
 
     const unreadByConversation: Record<string, number> = {};
 
-(unreadMessages || []).forEach((msg) => {
-  unreadByConversation[msg.conversation_id] =
-    (unreadByConversation[msg.conversation_id] || 0) + 1;
-});
+    (unreadMessages || []).forEach((msg) => {
+      unreadByConversation[msg.conversation_id] =
+        (unreadByConversation[msg.conversation_id] || 0) + 1;
+    });
 
     if (conversationIds.length === 0) {
       setConversations([]);
@@ -140,7 +159,9 @@ async function markConversationRead(
       }
     });
 
-    const otherUserIds = Array.from(new Set(Object.values(otherUserIdByConv)));
+    const otherUserIds = Array.from(new Set(Object.values(otherUserIdByConv))).filter(
+      (uid) => !blockedUserIds.includes(uid)
+    );
 
     const { data: profiles } = await supabase
       .from("profiles")
@@ -159,8 +180,7 @@ async function markConversationRead(
       .in("conversation_id", conversationIds)
       .order("created_at", { ascending: false });
 
-    const lastMsgByConv: Record<string, { content: string; created_at: string }> =
-      {};
+    const lastMsgByConv: Record<string, { content: string; created_at: string }> = {};
     (lastMessages || []).forEach((m) => {
       if (!lastMsgByConv[m.conversation_id]) {
         lastMsgByConv[m.conversation_id] = m;
@@ -197,11 +217,20 @@ async function markConversationRead(
   async function openOrCreateDM(myId: string, otherUserId: string) {
     setStartingChat(true);
 
-    // Atomically get the existing DM conversation for this pair, or create
-    // it if it doesn't exist. This single RPC call also verifies the two
-    // users are connected, and is race-condition-safe — no duplicate
-    // conversations can ever be created, even from rapid double-clicks
-    // or multiple tabs.
+    // Check block list first
+    const { data: blockCheck } = await supabase
+      .from("blocked_users")
+      .select("id")
+      .or(`and(blocker_id.eq.${myId},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${myId})`)
+      .maybeSingle();
+
+    if (blockCheck) {
+      showToast("This user is blocked.", "warning");
+      setStartingChat(false);
+      router.replace("/messages");
+      return;
+    }
+
     const { data: conversationId, error: rpcError } = await supabase.rpc(
       "get_or_create_dm",
       { other_user_id: otherUserId }
@@ -209,10 +238,11 @@ async function markConversationRead(
 
     if (rpcError || !conversationId) {
       console.error(rpcError);
-      alert(
+      showToast(
         rpcError?.message?.includes("connected")
           ? "You can only message users you're connected with."
-          : "Failed to start conversation"
+          : "Failed to start conversation",
+        "error"
       );
       setStartingChat(false);
       router.replace("/messages");
@@ -364,18 +394,8 @@ async function markConversationRead(
             <div className="card card-static flex items-center justify-center h-[480px]">
               <div className="text-center">
                 <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-400">
-                  <svg
-                    className="w-5 h-5 text-zinc-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
-                    />
+                  <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                   </svg>
                 </div>
                 <p className="text-zinc-500 text-xs">

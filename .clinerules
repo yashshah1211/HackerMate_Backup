@@ -1,0 +1,18 @@
+Project: HackerMate
+
+Tech Stack:
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
+- Supabase
+
+Rules:
+- Never remove existing functionality.
+- Always preserve TypeScript types.
+- Never create duplicate components.
+- Explain changes before making them.
+- Prefer modifying existing files over creating new ones.
+- Keep UI modern and startup-grade.
+- Use Supabase best practices.
+- Check for existing code before generating new code.

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { useNotification } from "@/context/NotificationContext";
 
 type Notification = {
   id: string;
@@ -123,6 +124,7 @@ function getNotifMeta(message: string): {
 /* ── component ──────────────────────────────────────────── */
 
 function NotificationsContent() {
+  const { showToast, confirm } = useNotification();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -161,6 +163,31 @@ function NotificationsContent() {
     loadNotifications();
   }
 
+  async function clearAllNotifications() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    confirm({
+      title: "Clear Notifications",
+      message: "Are you sure you want to delete all notifications? This action cannot be undone.",
+      confirmText: "Clear All",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("notifications")
+          .delete()
+          .eq("user_id", user.id);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          showToast("All notifications cleared.", "success");
+          loadNotifications();
+        }
+      }
+    });
+  }
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const todayNotifs = notifications.filter((n) => isToday(n.created_at));
   const earlierNotifs = notifications.filter((n) => !isToday(n.created_at));
@@ -181,7 +208,7 @@ function NotificationsContent() {
 
       {/* ── Page Header ── */}
       <section className="animate-fade-in-up">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest font-mono mb-2">Inbox</p>
             <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-3">
@@ -199,17 +226,31 @@ function NotificationsContent() {
             </p>
           </div>
 
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)] hover:text-violet-400 transition-colors mt-1 border border-[var(--card-border)] rounded-lg px-3 py-1.5 hover:border-violet-500/30 hover:bg-violet-500/5"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              Mark all read
-            </button>
-          )}
+          <div className="flex items-center gap-2 mt-1 shrink-0">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)] hover:text-violet-400 transition-colors border border-[var(--card-border)] rounded-lg px-3 py-1.5 hover:border-violet-500/30 hover:bg-violet-500/5 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                Mark all read
+              </button>
+            )}
+
+            {notifications.length > 0 && (
+              <button
+                onClick={clearAllNotifications}
+                className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)] hover:text-rose-400 transition-colors border border-[var(--card-border)] rounded-lg px-3 py-1.5 hover:border-rose-500/30 hover:bg-rose-500/5 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -322,7 +363,7 @@ function NotifCard({
                   await markAsRead(n.id);
                   if (n.link) window.location.href = n.link;
                 }}
-                className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 border border-violet-500/25 hover:border-violet-400/40 bg-violet-500/5 hover:bg-violet-500/10 px-3 py-1 rounded-lg transition-all"
+                className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 border border-violet-500/25 hover:border-violet-400/40 bg-violet-500/5 hover:bg-violet-500/10 px-3 py-1 rounded-lg transition-all cursor-pointer"
               >
                 Open →
               </button>
@@ -331,7 +372,7 @@ function NotifCard({
               <button
                 onClick={() => markAsRead(n.id)}
                 title="Mark as read"
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-[var(--card-border)] hover:border-emerald-500/30 hover:bg-emerald-500/5 text-[var(--text-muted)] hover:text-emerald-400 transition-all"
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-[var(--card-border)] hover:border-emerald-500/30 hover:bg-emerald-500/5 text-[var(--text-muted)] hover:text-emerald-400 transition-all cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { useNotification } from "@/context/NotificationContext";
 
 type Profile = {
   id: string;
@@ -23,6 +24,7 @@ type Team = {
 };
 
 function DevelopersContent() {
+  const { showToast } = useNotification();
   const [developers, setDevelopers] = useState<Profile[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [userOwnedTeams, setUserOwnedTeams] = useState<Team[]>([]);
@@ -41,6 +43,8 @@ function DevelopersContent() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      let blockedUserIds: string[] = [];
+
       if (user) {
         // Fetch current user profile
         const { data: profile } = await supabase
@@ -58,6 +62,24 @@ function DevelopersContent() {
           .eq("owner_id", user.id);
 
         setUserOwnedTeams(teams || []);
+
+        // Fetch user blocklists
+        const { data: myBlocks } = await supabase
+          .from("blocked_users")
+          .select("blocked_id")
+          .eq("blocker_id", user.id);
+
+        const { data: theirBlocks } = await supabase
+          .from("blocked_users")
+          .select("blocker_id")
+          .eq("blocked_id", user.id);
+
+        if (myBlocks) {
+          blockedUserIds.push(...myBlocks.map((b) => b.blocked_id));
+        }
+        if (theirBlocks) {
+          blockedUserIds.push(...theirBlocks.map((b) => b.blocker_id));
+        }
       }
 
       // Fetch all developers
@@ -69,7 +91,10 @@ function DevelopersContent() {
       if (error) {
         console.error(error);
       } else {
-        setDevelopers(data || []);
+        const filteredDevs = (data || []).filter(
+          (d) => d.id !== user?.id && !blockedUserIds.includes(d.id)
+        );
+        setDevelopers(filteredDevs);
       }
     } catch (err) {
       console.error(err);
@@ -123,7 +148,7 @@ function DevelopersContent() {
         .maybeSingle();
 
       if (existingMember) {
-        alert("This builder is already a member of that team.");
+        showToast("This builder is already a member of that team.", "warning");
         setInviteLoading(false);
         return;
       }
@@ -138,7 +163,7 @@ function DevelopersContent() {
         .maybeSingle();
 
       if (existingInvite) {
-        alert("An invite has already been sent to this builder.");
+        showToast("An invite has already been sent to this builder.", "warning");
         setInviteLoading(false);
         return;
       }
@@ -150,31 +175,30 @@ function DevelopersContent() {
       });
 
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
         setInviteLoading(false);
         return;
       }
 
-      alert("Invite sent successfully!");
+      showToast("Invite sent successfully!", "success");
       setShowInviteModal(false);
       setSelectedTeam("");
     } catch (err) {
       console.error(err);
-      alert("Failed to send invite.");
+      showToast("Failed to send invite.", "error");
     }
     setInviteLoading(false);
   }
 
-  // Filter developers: exclude current logged-in user
+  // Filter developers: exclude current logged-in user + apply search
   const filteredDevelopers = developers
     .filter((dev) => dev.id !== currentUserProfile?.id)
     .filter((dev) => {
+      if (!search.trim()) return true;
       const query = search.toLowerCase();
-
       return (
         dev.full_name?.toLowerCase().includes(query) ||
         dev.college?.toLowerCase().includes(query) ||
-        dev.bio?.toLowerCase().includes(query) ||
         dev.skills?.some((skill) => skill.toLowerCase().includes(query))
       );
     });
@@ -203,37 +227,35 @@ function DevelopersContent() {
         </p>
       </section>
 
-      {/* Stats & Search row */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 animate-fade-in-up stagger-1">
-        <div className="relative max-w-md w-full">
-          <input
-            type="text"
-            placeholder="Search builders, skills, college..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input !pl-10 text-xs"
-          />
-          <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.65 5.65a7.5 7.5 0 0011 11z" />
-          </svg>
-        </div>
 
-        {/* Stats inline */}
-        <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
-          <div>
-            Total Builders: <span className="text-white font-semibold">{filteredDevelopers.length}</span>
-          </div>
-          <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
-          <div>
-            Status: <span className="text-emerald-400 font-semibold">Active</span>
-          </div>
-        </div>
+      {/* Search bar */}
+      <div className="relative max-w-md mb-8 animate-fade-in-up stagger-1">
+        <input
+          type="text"
+          placeholder="Search by name, skill, or college..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input !pl-10 text-xs w-full"
+        />
+        <svg
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.65 5.65a7.5 7.5 0 0011 11z" />
+        </svg>
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Developers Grid */}
@@ -324,23 +346,19 @@ function DevelopersContent() {
             );
           })
         ) : (
-          <div className="col-span-full card card-static p-12 text-center">
-            <h3 className="text-sm font-semibold text-white mb-1.5">No builders found</h3>
-            <p className="text-xs text-zinc-500 mb-4">Try adjusting your query.</p>
-            <button onClick={() => setSearch("")} className="btn btn-secondary btn-sm">
-              Clear Search
-            </button>
+          <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-5">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584.036-.219.05-.44.05-.666l.001-.03m11.911 0a9.1 9.1 0 00-11.911 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-semibold text-white mb-1.5">No builders yet</h3>
+            <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+              You&apos;re the first one here. Share HackerMate with fellow builders to grow the network!
+            </p>
           </div>
         )}
       </div>
-
-      {/* Empty Database State */}
-      {developers.length === 0 && (
-        <div className="card card-static p-12 text-center mt-6">
-          <h3 className="text-sm font-semibold text-white mb-1">No builders yet</h3>
-          <p className="text-xs text-zinc-500">Be the first to join the network!</p>
-        </div>
-      )}
 
       {/* Invite Modal */}
       {showInviteModal && (

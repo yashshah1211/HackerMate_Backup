@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { useNotification } from "@/context/NotificationContext";
 
 type Hackathon = {
   id: string;
@@ -57,35 +58,116 @@ function getPlainPreview(html: string | null, maxLength: number = 145): string {
 
 function parsePrizeValue(prize: string | null): number {
   if (!prize) return 0;
-  // Remove commas, decimals, currency symbols, and extract first matching digits
-  const clean = prize.replace(/,/g, "").split(".")[0];
+  // Strip any HTML tags first (handles legacy DB values with markup)
+  const stripped = prize.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, "").trim();
+  const isUSD = stripped.includes("$");
+  // Remove commas and currency symbols, grab first number
+  const clean = stripped.replace(/,/g, "").split(".")[0];
   const match = clean.match(/\d+/);
-  return match ? parseInt(match[0], 10) : 0;
+  if (!match) return 0;
+  const value = parseInt(match[0], 10);
+  // Normalize to INR for fair cross-currency comparison (1 USD ≈ ₹83)
+  return isUSD ? value * 83 : value;
+}
+
+function stripHtml(str: string | null): string {
+  if (!str) return "";
+  return str.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, "").trim();
 }
 
 function HackathonsContent() {
+  const { showToast } = useNotification();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modeFilter, setModeFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
   const [sortBy, setSortBy] = useState("date");
   
-  // Tab controller for upcoming vs past
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  // Tab controller for upcoming vs saved vs past
+  const [activeTab, setActiveTab] = useState<"upcoming" | "saved" | "past">("upcoming");
 
   async function loadHackathons() {
-    const { data, error } = await supabase
+    // 1. Fetch hackathons
+    const { data: hackathonData, error: hackathonError } = await supabase
       .from("hackathons")
       .select("*")
       .order("start_date", { ascending: true });
 
-    if (error) {
-      console.error(error);
+    if (hackathonError) {
+      console.error(hackathonError);
     } else {
-      setHackathons(data || []);
+      setHackathons(hackathonData || []);
     }
+
+    // 2. Fetch saved hackathons for current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: savedData, error: savedError } = await supabase
+        .from("saved_hackathons")
+        .select("hackathon_id")
+        .eq("user_id", user.id);
+
+      if (savedError) {
+        console.error("Error loading saved hackathons:", savedError);
+      } else if (savedData) {
+        setSavedIds(new Set(savedData.map((s) => s.hackathon_id)));
+      }
+    }
+
     setLoading(false);
+  }
+
+  async function toggleSave(e: React.MouseEvent, hackathonId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      showToast("Please sign in to save hackathons.", "warning");
+      return;
+    }
+
+    const isSaved = savedIds.has(hackathonId);
+    if (isSaved) {
+      const { error } = await supabase
+        .from("saved_hackathons")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("hackathon_id", hackathonId);
+
+      if (error) {
+        console.error("Error removing saved hackathon:", error);
+        showToast("Failed to unsave hackathon.", "error");
+      } else {
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(hackathonId);
+          return next;
+        });
+        showToast("Hackathon unsaved", "info");
+      }
+    } else {
+      const { error } = await supabase
+        .from("saved_hackathons")
+        .insert({
+          user_id: user.id,
+          hackathon_id: hackathonId,
+        });
+
+      if (error) {
+        console.error("Error saving hackathon:", error);
+        showToast("Failed to save hackathon.", "error");
+      } else {
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.add(hackathonId);
+          return next;
+        });
+        showToast("Hackathon saved successfully!", "success");
+      }
+    }
   }
 
   useEffect(() => {
@@ -98,10 +180,14 @@ function HackathonsContent() {
     const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
 
     const result = hackathons.filter((h) => {
-      // 1. Date Tab Filter
-      const isPast = h.end_date && h.end_date < todayStr;
-      if (activeTab === "upcoming" && isPast) return false;
-      if (activeTab === "past" && !isPast) return false;
+      // 1. Date Tab & Save Filter
+      if (activeTab === "saved") {
+        if (!savedIds.has(h.id)) return false;
+      } else {
+        const isPast = h.end_date && h.end_date < todayStr;
+        if (activeTab === "upcoming" && isPast) return false;
+        if (activeTab === "past" && !isPast) return false;
+      }
 
       // 2. Search query filter
       const matchesSearch =
@@ -140,7 +226,7 @@ function HackathonsContent() {
         return activeTab === "past" ? timeB - timeA : timeA - timeB;
       });
     }
-  }, [hackathons, search, modeFilter, platformFilter, sortBy, activeTab]);
+  }, [hackathons, savedIds, search, modeFilter, platformFilter, sortBy, activeTab]);
 
   if (loading) {
     return (
@@ -236,6 +322,16 @@ function HackathonsContent() {
           Upcoming Events
         </button>
         <button
+          onClick={() => setActiveTab("saved")}
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
+            activeTab === "saved"
+              ? "border-white text-white"
+              : "border-transparent text-zinc-500 hover:text-white"
+          }`}
+        >
+          Saved Events
+        </button>
+        <button
           onClick={() => setActiveTab("past")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
             activeTab === "past"
@@ -277,108 +373,134 @@ function HackathonsContent() {
             </svg>
           </div>
           <h3 className="text-sm font-semibold text-white mb-2">No events found</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto text-xs">
-            {activeTab === "upcoming"
+          <p className="text-zinc-500 max-w-sm mx-auto text-xs leading-relaxed">
+            {activeTab === "saved"
+              ? "You haven't bookmarked any events yet. Click the bookmark icon on any hackathon to save it!"
+              : activeTab === "upcoming"
               ? "There are no upcoming events matches your query. Try checking Past Events!"
               : "No past events match your filters."}
           </p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((h, i) => (
-            <Link
-              key={h.id}
-              href={`/hackathons/${h.id}`}
-              className={`card p-6 group animate-fade-in-up stagger-${Math.min(i % 6, 6) + 1} ${
-                activeTab === "past" ? "opacity-75 hover:opacity-100 transition-opacity" : ""
-              }`}
-            >
-              {/* Top - Name & Mode */}
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <h2 className="text-base font-semibold text-white group-hover:text-gradient transition-all">
-                  {h.name}
-                </h2>
+          {filtered.map((h, i) => {
+            const todayStr = new Date().toISOString().split("T")[0];
+            const isEventPast = h.end_date && h.end_date < todayStr;
+            return (
+              <Link
+                key={h.id}
+                href={`/hackathons/${h.id}`}
+                className={`card p-6 group animate-fade-in-up stagger-${Math.min(i % 6, 6) + 1} ${
+                  isEventPast ? "opacity-75 hover:opacity-100 transition-opacity" : ""
+                }`}
+              >
+                {/* Top - Name & Mode */}
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <h2 className="text-base font-semibold text-white group-hover:text-gradient transition-all">
+                    {h.name}
+                  </h2>
 
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  {h.mode && (
-                    <span className="badge badge-primary capitalize text-[10px] py-0.5 px-1.5">
-                      {h.mode}
-                    </span>
-                  )}
-                  {activeTab === "past" ? (
-                    <span className="badge text-[10px] py-0.5 px-1.5 bg-zinc-800 text-zinc-500 border-zinc-700">
-                      Ended
-                    </span>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    {h.mode && (
+                      <span className="badge badge-primary capitalize text-[10px] py-0.5 px-1.5">
+                        {h.mode}
+                      </span>
+                    )}
+                    {isEventPast ? (
+                      <span className="badge text-[10px] py-0.5 px-1.5 bg-zinc-800 text-zinc-500 border-zinc-700">
+                        Ended
+                      </span>
+                    ) : (
+                      <span className={`badge text-[10px] py-0.5 px-1.5 ${
+                        h.type === "native" ? "badge-success" : "badge-warning"
+                      }`}>
+                        {h.type === "native" ? "Native" : "External"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Description */}
+                <p className="text-zinc-400 text-xs leading-relaxed mb-5 line-clamp-3">
+                  {getPlainPreview(h.description)}
+                </p>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {h.tags?.length ? (
+                    h.tags.slice(0, 3).map((tag) => (
+                      <span key={tag} className="badge text-[10px]">
+                        {tag}
+                      </span>
+                    ))
                   ) : (
-                    <span className={`badge text-[10px] py-0.5 px-1.5 ${
-                      h.type === "native" ? "badge-success" : "badge-warning"
-                    }`}>
-                      {h.type === "native" ? "Native" : "External"}
-                    </span>
+                    <span className="badge text-[10px] text-zinc-500">No tags</span>
+                  )}
+                  {h.tags && h.tags.length > 3 && (
+                    <span className="badge text-[10px]">+{h.tags.length - 3}</span>
                   )}
                 </div>
-              </div>
 
-              {/* Description */}
-              <p className="text-zinc-400 text-xs leading-relaxed mb-5 line-clamp-3">
-                {getPlainPreview(h.description)}
-              </p>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-5">
-                {h.tags?.length ? (
-                  h.tags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="badge text-[10px]">
-                      {tag}
-                    </span>
-                  ))
-                ) : (
-                  <span className="badge text-[10px] text-zinc-500">No tags</span>
-                )}
-                {h.tags && h.tags.length > 3 && (
-                  <span className="badge text-[10px]">+{h.tags.length - 3}</span>
-                )}
-              </div>
-
-              {/* Meta Info */}
-              <div className="space-y-2.5 mb-6 text-xs">
-                <div className="flex items-center gap-2 text-zinc-500">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                  </svg>
-                  <span>{formatDateRange(h.start_date, h.end_date)}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-zinc-500">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                  </svg>
-                  <span>{h.location || "Location TBA"}</span>
-                </div>
-
-                {h.prize_pool && (
+                {/* Meta Info */}
+                <div className="space-y-2.5 mb-6 text-xs">
                   <div className="flex items-center gap-2 text-zinc-500">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                     </svg>
-                    <span>{h.prize_pool}</span>
+                    <span>{formatDateRange(h.start_date, h.end_date)}</span>
                   </div>
-                )}
-              </div>
 
-              {/* CTA */}
-              <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
-                <span className="text-zinc-500">View Details</span>
-                <div className="flex items-center gap-1.5 font-medium text-white group-hover:text-primary-400 transition-colors">
-                  <span>Explore</span>
-                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
+                  <div className="flex items-center gap-2 text-zinc-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                    <span>{h.location || "Location TBA"}</span>
+                  </div>
+
+                  {h.prize_pool && (
+                    <div className="flex items-center gap-2 text-zinc-500">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>{stripHtml(h.prize_pool)}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </Link>
-          ))}
+
+                {/* CTA */}
+                <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
+                  <button
+                    onClick={(e) => toggleSave(e, h.id)}
+                    className="flex items-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-colors py-1 text-xs"
+                  >
+                    {savedIds.has(h.id) ? (
+                      <>
+                        <svg className="w-4 h-4 text-violet-500 fill-violet-500" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                        </svg>
+                        <span className="text-violet-400 font-medium">Saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                        </svg>
+                        <span>Save</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center gap-1.5 font-medium text-white group-hover:text-primary-400 transition-colors">
+                    <span>Explore</span>
+                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </main>

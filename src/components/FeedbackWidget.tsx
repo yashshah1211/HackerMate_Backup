@@ -11,6 +11,7 @@ export default function FeedbackWidget() {
   const [tab, setTab] = useState<Tab>("suggestion");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
   function close() {
     setOpen(false);
@@ -18,6 +19,7 @@ export default function FeedbackWidget() {
     setTimeout(() => {
       setMessage("");
       setStatus("idle");
+      setErrorMessage("");
       setTab("suggestion");
     }, 300);
   }
@@ -26,17 +28,27 @@ export default function FeedbackWidget() {
     e.preventDefault();
     if (!message.trim()) return;
     setStatus("submitting");
+    setErrorMessage("");
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setErrorMessage("Please sign in before sending feedback.");
+      setStatus("error");
+      return;
+    }
 
-    const { error } = await supabase.from("feedback").insert({
-      type: tab,
-      message: message.trim(),
-      user_id: user?.id ?? null,
-      user_email: user?.email ?? null,
+    const { error } = await supabase.rpc("submit_feedback", {
+      p_type: tab,
+      p_message: message.trim(),
     });
 
     if (error) {
+      console.error("Feedback submission failed:", error);
+      setErrorMessage(
+        error.message.includes("submit_feedback")
+          ? "Feedback storage is not configured yet. Apply the latest Supabase migration."
+          : error.message
+      );
       setStatus("error");
     } else {
       setStatus("success");
@@ -178,7 +190,7 @@ export default function FeedbackWidget() {
                       <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                       </svg>
-                      Something went wrong. Please try again.
+                      {errorMessage || "Something went wrong. Please try again."}
                     </p>
                   )}
 

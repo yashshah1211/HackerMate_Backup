@@ -792,6 +792,30 @@ a:focus-visible {
   box-shadow: 0 0 0 2px var(--primary-bg);
 }
 
+/* Profile skill selector: make selected state unmistakable in light mode. */
+.light .profile-skill-chip--selected {
+  background-color: #6d28d9 !important;
+  border-color: #6d28d9 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(76, 29, 149, 0.24);
+}
+
+.light .profile-skill-chip--selected:hover {
+  background-color: #5b21b6 !important;
+  border-color: #5b21b6 !important;
+}
+
+.light .profile-skill-chip--unselected {
+  background-color: #ffffff !important;
+  border-color: #d4d4d8 !important;
+  color: #3f3f46 !important;
+}
+
+.light .profile-skill-chip--unselected:hover {
+  background-color: #f4f4f5 !important;
+  border-color: #a1a1aa !important;
+}
+
 /* Explicit Modal Container Overrides in Light Mode */
 .light .fixed.inset-0 .card {
   background-color: #ffffff !important;
@@ -1032,4 +1056,31 @@ html.light .content-area {
 /* CTA banner - soften dark overlay in light mode */
 .light .from-violet-600\/20.via-indigo-600\/10 {
   background-image: linear-gradient(to right, rgba(124,58,237,0.08), rgba(99,102,241,0.04), transparent) !important;
+}
+
+/* Custom Notification Toast & Dialog Animations */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
