@@ -57,6 +57,19 @@ export default function Home() {
     });
   }
 
+  async function signInWithGithub() {
+    const requestedPath = new URLSearchParams(window.location.search).get("next");
+    const callbackUrl = new URL("/", window.location.origin);
+    if (requestedPath?.startsWith("/") && !requestedPath.startsWith("//")) {
+      callbackUrl.searchParams.set("next", requestedPath);
+    }
+
+    await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: { redirectTo: callbackUrl.toString() },
+    });
+  }
+
   if (loading && email) {
     return (
       <main className="min-h-screen flex items-center justify-center">
@@ -103,10 +116,10 @@ export default function Home() {
           </div>
 
           {/* CTA */}
-          <div className="mt-10 animate-fade-in-up stagger-2">
+          <div className="mt-10 animate-fade-in-up stagger-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto px-4">
             <button
               onClick={signInWithGoogle}
-              className="group inline-flex items-center gap-2.5 btn btn-lg btn-primary mx-auto"
+              className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 btn btn-lg btn-primary"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -126,13 +139,27 @@ export default function Home() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.19 15.01 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span className="font-medium">Continue with Google</span>
+              <span className="font-medium text-sm">Continue with Google</span>
             </button>
 
-            <p className="mt-4 text-xs text-zinc-500">
-              Join hundreds of builders already collaborating
-            </p>
+            <button
+              onClick={signInWithGithub}
+              className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 btn btn-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white transition-all duration-205"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"
+                />
+              </svg>
+              <span className="font-medium text-sm">Continue with GitHub</span>
+            </button>
           </div>
+
+          <p className="mt-6 text-xs text-zinc-500 animate-fade-in-up stagger-2">
+            Join hundreds of builders already collaborating
+          </p>
         </div>
       </div>
 

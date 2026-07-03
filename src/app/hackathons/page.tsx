@@ -84,9 +84,10 @@ function HackathonsContent() {
   const [modeFilter, setModeFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
   const [sortBy, setSortBy] = useState("date");
-  
-  // Tab controller for upcoming vs saved vs past
-  const [activeTab, setActiveTab] = useState<"upcoming" | "saved" | "past">("upcoming");
+  const [userSkills, setUserSkills] = useState<string[]>([]);
+
+  // Tab controller
+  const [activeTab, setActiveTab] = useState<"recommended" | "upcoming" | "saved" | "past">("recommended");
 
   async function loadHackathons() {
     // 1. Fetch hackathons
@@ -101,7 +102,7 @@ function HackathonsContent() {
       setHackathons(hackathonData || []);
     }
 
-    // 2. Fetch saved hackathons for current user
+    // 2. Fetch saved hackathons + user skills
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: savedData, error: savedError } = await supabase
@@ -113,6 +114,17 @@ function HackathonsContent() {
         console.error("Error loading saved hackathons:", savedError);
       } else if (savedData) {
         setSavedIds(new Set(savedData.map((s) => s.hackathon_id)));
+      }
+
+      // Fetch user skills for recommendations
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("skills")
+        .eq("id", user.id)
+        .single();
+
+      if (profileData?.skills) {
+        setUserSkills(profileData.skills.map((s: string) => s.toLowerCase()));
       }
     }
 
@@ -177,12 +189,23 @@ function HackathonsContent() {
   }, []);
 
   const filtered = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+    const todayStr = new Date().toISOString().split("T")[0];
 
     const result = hackathons.filter((h) => {
-      // 1. Date Tab & Save Filter
+      // 1. Tab filter
       if (activeTab === "saved") {
         if (!savedIds.has(h.id)) return false;
+      } else if (activeTab === "recommended") {
+        // Only upcoming hackathons with at least one tag matching user skills
+        const isPast = h.end_date && h.end_date < todayStr;
+        if (isPast) return false;
+        if (!h.tags || h.tags.length === 0) return false;
+        const hasMatch = h.tags.some((tag) =>
+          userSkills.some((skill) =>
+            tag.toLowerCase().includes(skill) || skill.includes(tag.toLowerCase())
+          )
+        );
+        if (!hasMatch) return false;
       } else {
         const isPast = h.end_date && h.end_date < todayStr;
         if (activeTab === "upcoming" && isPast) return false;
@@ -226,7 +249,7 @@ function HackathonsContent() {
         return activeTab === "past" ? timeB - timeA : timeA - timeB;
       });
     }
-  }, [hackathons, savedIds, search, modeFilter, platformFilter, sortBy, activeTab]);
+    }, [hackathons, savedIds, userSkills, search, modeFilter, platformFilter, sortBy, activeTab]);
 
   if (loading) {
     return (
@@ -309,8 +332,18 @@ function HackathonsContent() {
         </div>
       </div>
 
-      {/* Tabs / Sub-Sections */}
+      {/* Tabs */}
       <div className="flex border-b border-zinc-900 mb-6 animate-fade-in-up stagger-2">
+        <button
+          onClick={() => setActiveTab("recommended")}
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors flex items-center gap-1.5 ${
+            activeTab === "recommended"
+              ? "border-violet-500 text-violet-400"
+              : "border-transparent text-zinc-500 hover:text-white"
+          }`}
+        >
+          ✨ For You
+        </button>
         <button
           onClick={() => setActiveTab("upcoming")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
@@ -374,10 +407,14 @@ function HackathonsContent() {
           </div>
           <h3 className="text-sm font-semibold text-white mb-2">No events found</h3>
           <p className="text-zinc-500 max-w-sm mx-auto text-xs leading-relaxed">
-            {activeTab === "saved"
+            {activeTab === "recommended"
+              ? userSkills.length === 0
+                ? "Add skills to your profile so we can recommend hackathons tailored to you!"
+                : "No upcoming hackathons match your skills right now. Check back after the next weekly refresh!"
+              : activeTab === "saved"
               ? "You haven't bookmarked any events yet. Click the bookmark icon on any hackathon to save it!"
               : activeTab === "upcoming"
-              ? "There are no upcoming events matches your query. Try checking Past Events!"
+              ? "There are no upcoming events matching your query. Try checking Past Events!"
               : "No past events match your filters."}
           </p>
         </div>
