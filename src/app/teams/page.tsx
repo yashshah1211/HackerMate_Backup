@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import AuthGuard from "@/components/AuthGuard";
 
 type Team = {
   id: string;
@@ -11,9 +12,10 @@ type Team = {
   skills: string[] | null;
   college: string | null;
   hackathon_name: string | null;
+  max_members: number;
+  is_recruiting?: boolean;
+  team_members?: { id: string }[];
 };
-
-import AuthGuard from "@/components/AuthGuard";
 
 function TeamsContent() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -26,6 +28,7 @@ function TeamsContent() {
   const [hackathonFilter, setHackathonFilter] = useState("");
 
   async function loadTeams() {
+    setLoading(true);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -42,7 +45,7 @@ function TeamsContent() {
 
     const { data, error } = await supabase
       .from("teams")
-      .select("*")
+      .select("*, team_members(id)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -61,49 +64,47 @@ function TeamsContent() {
   }, []);
 
   const calculateMatchScore = useCallback((teamSkills: string[] = []) => {
-  if (!teamSkills.length) return 0;
-
-  const matchedSkills = teamSkills.filter((skill) =>
-    userSkills.includes(skill)
-  );
-
-  return Math.round(
-    (matchedSkills.length / teamSkills.length) * 100
-  );
-}, [userSkills]);
+    if (!teamSkills.length) return 0;
+    const matchedSkills = teamSkills.filter((skill) =>
+      userSkills.includes(skill)
+    );
+    return Math.round(
+      (matchedSkills.length / teamSkills.length) * 100
+    );
+  }, [userSkills]);
 
   const filteredTeams = useMemo(() => {
     return teams
-  .filter((team) => {
-      const matchesSearch =
-        !search ||
-        team.name.toLowerCase().includes(search.toLowerCase());
+      .filter((team) => {
+        const matchesSearch =
+          !search ||
+          team.name.toLowerCase().includes(search.toLowerCase());
 
-      const matchesSkill =
-        !skillFilter ||
-        team.skills?.some((skill) =>
-          skill.toLowerCase().includes(skillFilter.toLowerCase())
+        const matchesSkill =
+          !skillFilter ||
+          team.skills?.some((skill) =>
+            skill.toLowerCase().includes(skillFilter.toLowerCase())
+          );
+
+        const matchesCollege =
+          !collegeFilter ||
+          team.college?.toLowerCase().includes(collegeFilter.toLowerCase());
+
+        const matchesHackathon =
+          !hackathonFilter ||
+          team.hackathon_name
+            ?.toLowerCase()
+            .includes(hackathonFilter.toLowerCase());
+
+        return (
+          matchesSearch && matchesSkill && matchesCollege && matchesHackathon
         );
-
-      const matchesCollege =
-        !collegeFilter ||
-        team.college?.toLowerCase().includes(collegeFilter.toLowerCase());
-
-      const matchesHackathon =
-        !hackathonFilter ||
-        team.hackathon_name
-          ?.toLowerCase()
-          .includes(hackathonFilter.toLowerCase());
-
-      return (
-        matchesSearch && matchesSkill && matchesCollege && matchesHackathon
+      })
+      .sort(
+        (a, b) =>
+          calculateMatchScore(b.skills || []) -
+          calculateMatchScore(a.skills || [])
       );
-    })
-.sort(
-  (a, b) =>
-    calculateMatchScore(b.skills || []) -
-    calculateMatchScore(a.skills || [])
-);
   }, [teams, search, skillFilter, collegeFilter, hackathonFilter, calculateMatchScore]);
 
   if (loading) {
@@ -290,9 +291,23 @@ function TeamsContent() {
                   </h2>
 
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="badge badge-success text-[10px] py-0.5 px-1.5">
-                      Recruiting
-                    </span>
+                    {(() => {
+                      const currentCount = team.team_members?.length || 0;
+                      const isFull = team.max_members && currentCount >= team.max_members;
+                      const isClosed = team.is_recruiting === false;
+                      
+                      return (
+                        <span className={`badge text-[10px] py-0.5 px-1.5 ${
+                          isFull 
+                            ? "badge-error" 
+                            : isClosed 
+                              ? "bg-zinc-800 text-zinc-500 border border-zinc-800/80" 
+                              : "badge-success"
+                        }`}>
+                          {isFull ? "FULL" : isClosed ? "CLOSED" : "RECRUITING"}
+                        </span>
+                      );
+                    })()}
 
                     <span
                       className={`badge text-[10px] py-0.5 px-1.5 ${
@@ -377,7 +392,7 @@ function TeamsContent() {
                   <div className="flex items-center gap-1 text-[11px] font-medium text-zinc-300 group-hover:text-white transition-colors">
                     <span>View Profile</span>
                     <svg
-                      className="w-3 h-3 group-hover:translate-x-0.5 transition-transform"
+                      className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"

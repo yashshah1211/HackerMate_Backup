@@ -60,12 +60,43 @@ async function fetchUnstop(target = 1000) {
       }
     }
 
-    const tagsList = (opp.tags || []).filter((t) => t.name).map((t) => t.name.trim());
-    const titleLower = name.toLowerCase();
-    if (titleLower.includes("ai") || titleLower.includes("intelligence") || titleLower.includes("gpt")) tagsList.push("AI");
-    if (titleLower.includes("web3") || titleLower.includes("blockchain") || titleLower.includes("crypto")) tagsList.push("Web3");
-    if (titleLower.includes("design") || titleLower.includes("ui") || titleLower.includes("ux")) tagsList.push("Design");
-    if (titleLower.includes("code") || titleLower.includes("coding") || titleLower.includes("dev")) tagsList.push("Coding");
+    const tagsSet = new Set((opp.tags || []).filter((t) => t.name).map((t) => t.name.trim()));
+    const fullTextLower = `${name} ${description}`.toLowerCase();
+
+    // 1. Keyword-based matching from title & description text
+    const keywordRules = {
+      "AI": ["ai", "artificial intelligence", "ml", "machine learning", "deep learning", "nlp", "llm", "openai", "gpt", "generative", "vision", "chatgpt", "tensorflow", "pytorch"],
+      "Web3": ["web3", "blockchain", "solidity", "crypto", "ethereum", "smart contract", "polygon", "bitcoin", "nft", "dapp", "defi"],
+      "Design": ["design", "ui", "ux", "figma", "frontend", "wireframe", "prototype", "styling", "css"],
+      "Mobile": ["mobile", "android", "ios", "flutter", "react native", "swift", "kotlin", "app"],
+      "Cloud": ["cloud", "aws", "gcp", "azure", "devops", "docker", "kubernetes", "serverless"],
+      "Security": ["security", "cybersecurity", "hacking", "cryptography", "infosec", "penetration"],
+      "Fintech": ["fintech", "finance", "payment", "banking", "transaction", "ledger"],
+      "Edtech": ["edtech", "education", "learning", "classroom", "student"],
+      "Healthtech": ["health", "healthcare", "medical", "biotech", "fitness", "wellness"],
+      "IoT": ["iot", "hardware", "arduino", "raspberry pi", "sensor", "embedded"],
+      "AR/VR": ["ar/vr", "ar", "vr", "augmented reality", "virtual reality", "metaverse", "unity", "unreal"],
+      "GameDev": ["game", "gaming", "unreal engine", "unity3d", "playstation", "xbox"],
+      "Web": ["web", "website", "react", "next.js", "angular", "vue", "html", "javascript", "typescript", "backend", "api"],
+      "Coding": ["code", "coding", "programming", "developer", "software", "c++", "java", "python", "rust", "golang"]
+    };
+
+    for (const [tag, keywords] of Object.entries(keywordRules)) {
+      if (keywords.some(keyword => {
+        // Matches whole words or phrases to avoid false matches (e.g. "rain" in "train")
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`(?<![a-z])${escaped}(?![a-z])`, "i").test(fullTextLower);
+      })) {
+        tagsSet.add(tag);
+      }
+    }
+
+    // 2. Guarantee at least 3 tags by backfilling defaults if needed
+    const fallbacks = ["Coding", "Hackathon", "Innovation", "Web", "Design"];
+    for (const fallback of fallbacks) {
+      if (tagsSet.size >= 3) break;
+      tagsSet.add(fallback);
+    }
 
     return {
       id: uuid,
@@ -78,8 +109,9 @@ async function fetchUnstop(target = 1000) {
       prize_pool,
       website_url: `https://unstop.com/${opp.public_url}`,
       type: "external",
-      tags: [...new Set(tagsList)].slice(0, 5) || null,
+      tags: Array.from(tagsSet).slice(0, 5),
     };
+
   });
 }
 

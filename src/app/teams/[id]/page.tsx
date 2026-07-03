@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TeamDetailsView from "@/components/TeamDetailsView";
 import AuthGuard from "@/components/AuthGuard";
@@ -17,6 +17,7 @@ type Team = {
   hackathon_name: string | null;
   skills: string[] | null;
   roles_needed: string[] | null;
+  is_recruiting?: boolean;
 };
 
 type Member = {
@@ -32,8 +33,10 @@ type Member = {
 
 function TeamDetailsContent() {
   const { showToast, confirm } = useNotification();
+  const router = useRouter();
   const params = useParams();
   const teamId = params.id as string;
+
 
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -143,7 +146,44 @@ function TeamDetailsContent() {
     });
   }
 
+  async function disbandTeam() {
+    setLoading(true);
+    const { error } = await supabase
+      .from("teams")
+      .delete()
+      .eq("id", teamId);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      setLoading(false);
+      return;
+    }
+
+    showToast("Team disbanded successfully.", "info");
+    router.push("/teams");
+  }
+
+  async function toggleRecruiting() {
+    if (!team) return;
+    const nextVal = team.is_recruiting === false ? true : false;
+    const { error } = await supabase
+      .from("teams")
+      .update({ is_recruiting: nextVal })
+      .eq("id", team.id);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      return;
+    }
+
+    showToast(nextVal ? "Recruitment is now open!" : "Recruitment is now closed.", "info");
+    loadTeam();
+  }
+
   async function checkExistingRequest() {
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -260,11 +300,15 @@ function TeamDetailsContent() {
         requestSent={requestSent}
         requestToJoin={requestToJoin}
         removeMember={removeMember}
+        disbandTeam={disbandTeam}
+        toggleRecruiting={toggleRecruiting}
         matchScore={matchScore}
         matchedSkills={matchedSkills}
         missingSkills={missingSkills}
       />
   );
+
+
 }
 
 export default function TeamDetailsPage() {

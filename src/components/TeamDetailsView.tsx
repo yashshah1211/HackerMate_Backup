@@ -17,6 +17,7 @@ type Team = {
   hackathon_name: string | null;
   skills: string[] | null;
   roles_needed: string[] | null;
+  is_recruiting?: boolean;
 };
 
 type Member = {
@@ -40,8 +41,11 @@ type Props = {
   requestSent: boolean;
   requestToJoin: () => void;
   removeMember: (memberId: string) => void;
+  disbandTeam?: () => void;
+  toggleRecruiting?: () => void;
 
   matchScore?: number;
+
   matchedSkills?: string[];
   missingSkills?: string[];
 };
@@ -56,16 +60,55 @@ export default function TeamDetailsView({
   requestSent,
   requestToJoin,
   removeMember,
+  disbandTeam,
+  toggleRecruiting,
   matchScore,
   matchedSkills = [],
   missingSkills = [],
 }: Props) {
-  const { showToast } = useNotification();
+  const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
 
+  // Invite Builders Modal states
+  const [showInviteBuilderModal, setShowInviteBuilderModal] = useState(false);
+  const [inviteProfiles, setInviteProfiles] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [sessionInvitedIds, setSessionInvitedIds] = useState<Set<string>>(new Set());
+  const [existingPendingInvites, setExistingPendingInvites] = useState<Set<string>>(new Set());
+
   const canSeeChat = isMember || isOwner;
+
+  useEffect(() => {
+    if (!showInviteBuilderModal) return;
+
+    async function loadInviteData() {
+      setLoadingProfiles(true);
+      try {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, full_name, college, avatar_url, skills");
+        setInviteProfiles(profilesData || []);
+
+        const { data: pendingData } = await supabase
+          .from("team_invites")
+          .select("invited_user_id")
+          .eq("team_id", team.id)
+          .eq("status", "pending");
+
+        const inviteIds = new Set((pendingData || []).map((i) => i.invited_user_id));
+        setExistingPendingInvites(inviteIds);
+      } catch (err) {
+        console.error(err);
+      }
+      setLoadingProfiles(false);
+    }
+
+    loadInviteData();
+  }, [showInviteBuilderModal, team.id]);
+
 
   useEffect(() => {
     async function init() {
@@ -97,7 +140,34 @@ export default function TeamDetailsView({
     init();
   }, [team.id, canSeeChat]);
 
+
+  const handleLeaveTeam = (memberId: string) => {
+
+    if (isOwner) {
+      confirm({
+        title: "Disband Team",
+        message: "As the team leader, leaving will disband the team completely. Are you sure you want to proceed?",
+        confirmText: "Leave & Disband",
+        cancelText: "Cancel",
+        onConfirm: () => {
+          if (disbandTeam) disbandTeam();
+        },
+      });
+    } else {
+      confirm({
+        title: "Leave Team",
+        message: "Are you sure you want to leave this team?",
+        confirmText: "Leave",
+        cancelText: "Cancel",
+        onConfirm: () => {
+          removeMember(memberId);
+        },
+      });
+    }
+  };
+
   // Build known profiles map from members so ChatThread doesn't refetch
+
   const knownProfiles = members.reduce((acc, m) => {
     acc[m.profiles.id] = {
       id: m.profiles.id,
@@ -237,9 +307,16 @@ export default function TeamDetailsView({
         <div className="card card-static p-6 animate-fade-in-up stagger-1 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-6">
-              <span className={`badge text-[10px] ${teamFull ? "badge-error" : "badge-success"}`}>
-                {teamFull ? "FULL" : "RECRUITING"}
+              <span className={`badge text-[10px] ${
+                teamFull 
+                  ? "badge-error" 
+                  : (team.is_recruiting === false) 
+                    ? "bg-zinc-800 text-zinc-400 border border-zinc-700" 
+                    : "badge-success"
+              }`}>
+                {teamFull ? "FULL" : (team.is_recruiting === false) ? "CLOSED" : "RECRUITING"}
               </span>
+
 
               <div className="text-right">
                 <div className="text-xl font-bold text-white">
@@ -295,33 +372,46 @@ export default function TeamDetailsView({
             </div>
 
             {!isMember && !isOwner && !teamFull && (
-              <button
-                onClick={requestToJoin}
-                disabled={requestLoading || requestSent}
-                className="btn btn-primary w-full"
-              >
-                {requestSent ? (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                    <span>Request Sent</span>
-                  </>
-                ) : requestLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <span>Sending...</span>
-                  </div>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    <span>Request To Join</span>
-                  </>
-                )}
-              </button>
+              team.is_recruiting === false ? (
+                <button
+                  disabled
+                  className="btn bg-zinc-800 text-zinc-500 border border-zinc-800/80 w-full cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  <span>Recruitment Closed</span>
+                </button>
+              ) : (
+                <button
+                  onClick={requestToJoin}
+                  disabled={requestLoading || requestSent}
+                  className="btn btn-primary w-full"
+                >
+                  {requestSent ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                      <span>Request Sent</span>
+                    </>
+                  ) : requestLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      <span>Sending...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      <span>Request To Join</span>
+                    </>
+                  )}
+                </button>
+              )
             )}
+
 
             {isOwner && (
               <>
@@ -337,6 +427,39 @@ export default function TeamDetailsView({
 
                 <button
                   type="button"
+                  onClick={() => setShowInviteBuilderModal(true)}
+                  className="btn btn-secondary w-full mb-2 flex items-center justify-center gap-1.5"
+                >
+                  <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235A10.18 10.18 0 0112.5 15c2.2 0 4.254.688 5.94 1.855" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleRecruiting}
+                  className="btn btn-secondary w-full mb-2 flex items-center justify-center gap-1.5"
+                >
+                  {team.is_recruiting === false ? (
+                    <>
+                      <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Open Recruitment</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                      <span>Close Recruitment</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+
+                  type="button"
                   onClick={() => {
                     const link = `${window.location.origin}/teams/${team.id}`;
                     navigator.clipboard.writeText(link);
@@ -350,6 +473,7 @@ export default function TeamDetailsView({
                   </svg>
                   <span>Share Team Link</span>
                 </button>
+
               </>
             )}
           </div>
@@ -414,17 +538,30 @@ export default function TeamDetailsView({
                 </div>
               </div>
 
-              {isOwner && member.role !== "owner" && (
+              {member.profiles.id === currentUserId ? (
                 <button
-                  onClick={() => removeMember(member.id)}
+                  onClick={() => handleLeaveTeam(member.id)}
                   className="btn btn-danger btn-sm w-full mt-3"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
                   </svg>
-                  Remove Member
+                  {isOwner ? "Leave & Disband Team" : "Leave Team"}
                 </button>
+              ) : (
+                isOwner && member.profiles.id !== team.owner_id && (
+                  <button
+                    onClick={() => removeMember(member.id)}
+                    className="btn btn-danger btn-sm w-full mt-3"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Remove Member
+                  </button>
+                )
               )}
+
             </div>
           ))}
         </div>
@@ -470,6 +607,137 @@ export default function TeamDetailsView({
           )}
         </section>
       )}
+
+      {/* Invite Builder Modal */}
+      {showInviteBuilderModal && (
+
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="card card-static p-5 w-full max-w-md flex flex-col max-h-[80vh]">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-white mb-0.5">Invite Builder</h2>
+                <p className="text-[10px] text-zinc-500">Send team invitations to other builders on HackerMate.</p>
+              </div>
+              <button 
+                onClick={() => setShowInviteBuilderModal(false)}
+                className="text-zinc-500 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, college, or skills..."
+                className="input text-xs w-full"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-[250px] pr-1 space-y-2">
+              {loadingProfiles ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-2" />
+                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Loading builders...</p>
+                </div>
+              ) : (() => {
+                const memberUserIds = new Set(members.map((m) => m.profiles.id));
+                const filtered = inviteProfiles.filter((p) => {
+                  if (p.id === currentUserId || memberUserIds.has(p.id)) return false;
+                  
+                  if (!searchQuery) return true;
+                  const query = searchQuery.toLowerCase();
+                  const nameMatch = p.full_name?.toLowerCase().includes(query);
+                  const collegeMatch = p.college?.toLowerCase().includes(query);
+                  const skillsMatch = p.skills?.some((s: string) => s.toLowerCase().includes(query));
+                  return nameMatch || collegeMatch || skillsMatch;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-zinc-500 text-xs">
+                      No builders found matching your search.
+                    </div>
+                  );
+                }
+
+                return filtered.map((profile) => {
+                  const isAlreadyInvited = existingPendingInvites.has(profile.id) || sessionInvitedIds.has(profile.id);
+                  return (
+                    <div key={profile.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/30 border border-zinc-900/80 hover:border-zinc-800 transition-colors">
+                      <div className="min-w-0 flex-1 mr-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-white truncate">{profile.full_name}</span>
+                          {profile.college && (
+                            <span className="text-[9px] text-zinc-500 truncate">({profile.college})</span>
+                          )}
+                        </div>
+                        {profile.skills && profile.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {profile.skills.slice(0, 3).map((s: string) => (
+                              <span key={s} className="text-[8px] px-1 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">{s}</span>
+                            ))}
+                            {profile.skills.length > 3 && (
+                              <span className="text-[8px] text-zinc-600">+{profile.skills.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { error } = await supabase.rpc("send_team_invite", {
+                              p_team_id: team.id,
+                              p_invited_user_id: profile.id
+                            });
+
+                            if (error) {
+                              showToast(error.message, "error");
+                            } else {
+                              showToast(`Invite sent to ${profile.full_name}!`, "success");
+                              setSessionInvitedIds(prev => {
+                                const next = new Set(prev);
+                                next.add(profile.id);
+                                return next;
+                              });
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            showToast("Failed to send invite", "error");
+                          }
+                        }}
+                        disabled={isAlreadyInvited}
+                        className={`btn btn-sm text-[10px] py-1 px-3 ${
+                          isAlreadyInvited 
+                            ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border-transparent" 
+                            : "btn-primary"
+                        }`}
+                      >
+                        {isAlreadyInvited ? "Invited" : "Invite"}
+                      </button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-zinc-900 mt-4">
+              <button
+                onClick={() => setShowInviteBuilderModal(false)}
+                className="btn btn-secondary btn-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+

@@ -61,8 +61,9 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
     const { data: participantRows } = await supabase
       .from("conversation_participants")
-      .select("conversation_id")
-      .eq("user_id", user.id);
+      .select("conversation_id, conversations!inner(type)")
+      .eq("user_id", user.id)
+      .eq("conversations.type", "dm");
 
     const conversationIds =
       participantRows?.map(
@@ -74,18 +75,18 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { count } = await supabase
+    const { data: unreadMsgs } = await supabase
       .from("messages")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
+      .select("sender_id")
       .in("conversation_id", conversationIds)
       .neq("sender_id", user.id)
       .eq("is_read", false);
 
-    setUnreadMessages(count || 0);
+    const uniqueSenders = new Set(unreadMsgs?.map((m) => m.sender_id) || []);
+    setUnreadMessages(uniqueSenders.size);
   }
+
+
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;

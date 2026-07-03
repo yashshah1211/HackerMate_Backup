@@ -672,16 +672,18 @@ function HackathonDetailContent() {
                     Register Externally ↗
                   </a>
                 )}
-                {userOwnedTeams.length > 0 && (
-                  <button
-                    onClick={() => setShowClaimModal(true)}
-                    className="btn btn-secondary w-full"
-                  >
-                    Claim Team on HackerMate
-                  </button>
-                )}
               </>
             )}
+
+            {userOwnedTeams.length > 0 && (
+              <button
+                onClick={() => setShowClaimModal(true)}
+                className="btn btn-secondary w-full"
+              >
+                Claim Team on HackerMate
+              </button>
+            )}
+
 
             <Link
               href={`/teams/create?hackathon=${hackathon.id}`}

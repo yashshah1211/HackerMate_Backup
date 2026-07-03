@@ -78,6 +78,13 @@ export default function ChatThread({
 
     setMessages(data || []);
 
+    // Mark messages as read since we are actively viewing this conversation
+    supabase.rpc("mark_conversation_read", {
+      p_conversation_id: conversationId,
+    }).then(({ error: readErr }) => {
+      if (readErr) console.error("Error marking messages read:", readErr);
+    });
+
     const senderIds = Array.from(
       new Set((data || []).map((m) => m.sender_id))
     ).filter((id) => !profiles[id]);
@@ -132,6 +139,14 @@ export default function ChatThread({
         },
         (payload) => {
           const newMsg = payload.new as Message;
+          const isMine = newMsg.sender_id === currentUserId;
+          if (!isMine) {
+            supabase.rpc("mark_conversation_read", {
+              p_conversation_id: conversationId,
+            }).then(({ error: readErr }) => {
+              if (readErr) console.error("Error marking incoming message read:", readErr);
+            });
+          }
           setMessages((prev) =>
             prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
           );

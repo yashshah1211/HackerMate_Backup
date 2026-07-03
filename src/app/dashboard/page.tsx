@@ -41,6 +41,7 @@ type Team = {
   max_members?: number | null;
   memberCount?: number;
   hackathons: { name: string } | null;
+  owner_id?: string;
 };
 
 type RecentMessage = {
@@ -118,6 +119,7 @@ function DashboardAvatar({ src, name, size = "md" }: { src?: string; name?: stri
 function DashboardContent() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Custom dashboard data states
@@ -185,6 +187,7 @@ function DashboardContent() {
         setLoading(false);
         return;
       }
+      setCurrentUserId(user.id);
 
       await loadConnectionStates(user.id);
 
@@ -268,24 +271,26 @@ function DashboardContent() {
       // 4. Fetch active teams (where user is member OR owner)
       const { data: memberRows } = await supabase
         .from("team_members")
-        .select("team_id, teams(id, name, hackathon_id, max_members)")
+        .select("team_id, teams(id, name, hackathon_id, max_members, owner_id)")
         .eq("user_id", user.id);
 
       const { data: ownedTeams } = await supabase
         .from("teams")
-        .select("id, name, hackathon_id, max_members")
+        .select("id, name, hackathon_id, max_members, owner_id")
         .eq("owner_id", user.id);
 
       // Extract unique teams
-      const allTeamsMap = new Map<string, { id: string; name: string; hackathon_id: string; max_members: number | null }>();
+      const allTeamsMap = new Map<string, { id: string; name: string; hackathon_id: string; max_members: number | null; owner_id?: string }>();
       if (ownedTeams) {
         ownedTeams.forEach(t => allTeamsMap.set(t.id, t));
       }
       if (memberRows) {
         memberRows.forEach((m) => {
           if (m.teams) {
-            const teamList = m.teams as unknown as { id: string; name: string; hackathon_id: string; max_members: number | null }[];
-            const t = teamList[0];
+            const rawTeams = m.teams;
+            const t = Array.isArray(rawTeams)
+              ? rawTeams[0]
+              : (rawTeams as unknown as { id: string; name: string; hackathon_id: string; max_members: number | null; owner_id?: string });
             if (t) {
               allTeamsMap.set(t.id, t);
             }
@@ -771,51 +776,162 @@ function DashboardContent() {
           </div>
 
           {activeTeams.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {activeTeams.slice(0, 4).map((team, idx) => {
-                const count = team.memberCount || 0;
-                const max = team.max_members || 5;
-                const percent = Math.min(Math.round((count / max) * 100), 100);
-                
-                return (
-                  <div
-                    key={team.id}
-                    onClick={() => router.push(`/teams/${team.id}`)}
-                    className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 hover:bg-zinc-900/20 transition-all cursor-pointer group"
-                  >
-                    
-                    {/* Icon & title */}
-                    <div>
-                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[idx % 4]}`}>
-                        {renderTeamIcon(idx)}
-                      </div>
-                      <h4 className="text-xs font-semibold text-white truncate mb-1 group-hover:text-violet-300 transition-colors">{team.name}</h4>
-                      <p className="text-[9px] text-zinc-500 mb-4">{team.hackathons?.name || "Active"}</p>
-                    </div>
+            <div className="space-y-6">
+              {/* Teams You Lead */}
+              <div>
+                <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 font-mono">Teams You Lead</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {(() => {
+                    const owned = activeTeams.filter((t) => t.owner_id === currentUserId);
+                    if (owned.length === 0) {
+                      return (
+                        <Link
+                          href="/teams/create"
+                          className="border border-dashed border-zinc-850 bg-zinc-950/20 hover:bg-zinc-900/10 hover:border-zinc-700 transition-all rounded-xl p-4.5 flex flex-col justify-center items-center text-center min-h-[145px] group"
+                        >
+                          <svg className="w-5 h-5 text-zinc-600 group-hover:text-violet-400 transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                          </svg>
+                          <span className="text-xs font-semibold text-zinc-400 group-hover:text-white transition-colors">Create a Team</span>
+                          <span className="text-[9px] text-zinc-500 mt-1 leading-snug">Start your own project and recruit builders</span>
+                        </Link>
+                      );
+                    }
+                    return (
+                      <>
+                        {owned.slice(0, 2).map((team, idx) => {
+                          const count = team.memberCount || 0;
+                          const max = team.max_members || 5;
+                          const percent = Math.min(Math.round((count / max) * 100), 100);
+                          
+                          return (
+                            <div
+                              key={team.id}
+                              onClick={() => router.push(`/teams/${team.id}`)}
+                              className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 hover:bg-zinc-900/20 transition-all cursor-pointer group"
+                            >
+                              <div>
+                                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[idx % 4]}`}>
+                                  {renderTeamIcon(idx)}
+                                </div>
+                                <h4 className="text-xs font-semibold text-white truncate mb-1 group-hover:text-violet-300 transition-colors">{team.name}</h4>
+                                <p className="text-[9px] text-zinc-500 mb-4">{team.hackathons?.name || "Active"}</p>
+                              </div>
 
-                    {/* Progress bar wrapper */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
-                        <span>{count} of {max} members</span>
-                        <span>{percent}%</span>
-                      </div>
-                      <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            percent >= 100
-                              ? "bg-emerald-500"
-                              : percent >= 60
-                                ? "bg-violet-500"
-                                : "bg-zinc-600"
-                          }`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </div>
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
+                                  <span>{count} of {max} members</span>
+                                  <span>{percent}%</span>
+                                </div>
+                                <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      percent >= 100
+                                        ? "bg-emerald-500"
+                                        : percent >= 60
+                                          ? "bg-violet-500"
+                                          : "bg-zinc-600"
+                                    }`}
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
 
-                  </div>
-                );
-              })}
+                        {owned.length > 2 && (
+                          <div
+                            onClick={() => router.push("/my-teams")}
+                            className="bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl p-4.5 flex flex-col justify-center items-center min-h-[145px] hover:border-zinc-700 hover:bg-zinc-900/20 transition-all cursor-pointer group text-center"
+                          >
+                            <span className="text-xl font-bold text-violet-400 font-mono">+{owned.length - 2}</span>
+                            <span className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider font-mono">More Teams</span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Teams You've Joined */}
+              <div>
+                <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 font-mono">Teams You&apos;ve Joined</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {(() => {
+                    const joined = activeTeams.filter((t) => t.owner_id !== currentUserId);
+                    if (joined.length === 0) {
+                      return (
+                        <Link
+                          href="/teams"
+                          className="border border-dashed border-zinc-850 bg-zinc-950/20 hover:bg-zinc-900/10 hover:border-zinc-700 transition-all rounded-xl p-4.5 flex flex-col justify-center items-center text-center min-h-[145px] group"
+                        >
+                          <svg className="w-5 h-5 text-zinc-600 group-hover:text-indigo-400 transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                          </svg>
+                          <span className="text-xs font-semibold text-zinc-400 group-hover:text-white transition-colors">Join a Team</span>
+                          <span className="text-[9px] text-zinc-500 mt-1 leading-snug">Explore existing teams looking for members</span>
+                        </Link>
+                      );
+                    }
+                    return (
+                      <>
+                        {joined.slice(0, 2).map((team, idx) => {
+                          const count = team.memberCount || 0;
+                          const max = team.max_members || 5;
+                          const percent = Math.min(Math.round((count / max) * 100), 100);
+                          
+                          return (
+                            <div
+                              key={team.id}
+                              onClick={() => router.push(`/teams/${team.id}`)}
+                              className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 hover:bg-zinc-900/20 transition-all cursor-pointer group"
+                            >
+                              <div>
+                                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[(idx + 2) % 4]}`}>
+                                  {renderTeamIcon(idx + 2)}
+                                </div>
+                                <h4 className="text-xs font-semibold text-white truncate mb-1 group-hover:text-violet-300 transition-colors">{team.name}</h4>
+                                <p className="text-[9px] text-zinc-500 mb-4">{team.hackathons?.name || "Active"}</p>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
+                                  <span>{count} of {max} members</span>
+                                  <span>{percent}%</span>
+                                </div>
+                                <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      percent >= 100
+                                        ? "bg-emerald-500"
+                                        : percent >= 60
+                                          ? "bg-violet-500"
+                                          : "bg-zinc-600"
+                                    }`}
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {joined.length > 2 && (
+                          <div
+                            onClick={() => router.push("/my-teams")}
+                            className="bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl p-4.5 flex flex-col justify-center items-center min-h-[145px] hover:border-zinc-700 hover:bg-zinc-900/20 transition-all cursor-pointer group text-center"
+                          >
+                            <span className="text-xl font-bold text-indigo-400 font-mono">+{joined.length - 2}</span>
+                            <span className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider font-mono">More Teams</span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 gap-5">

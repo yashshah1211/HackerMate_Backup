@@ -97,9 +97,7 @@ function CreateTeamForm() {
   async function handleCreateTeam() {
     if (!name.trim()) { showToast("Team name is required", "warning"); return; }
     if (!description.trim()) { showToast("Team description is required", "warning"); return; }
-    if (!college) { showToast("College is required", "warning"); return; }
     if (college === "Other" && !customCollege.trim()) { showToast("Please enter your college name", "warning"); return; }
-    if (!hackathonId) { showToast("Hackathon is required", "warning"); return; }
     if (selectedSkills.length === 0) { showToast("Please select at least one skill", "warning"); return; }
     if (selectedRoles.length === 0) { showToast("Please select at least one role", "warning"); return; }
 
@@ -114,9 +112,9 @@ function CreateTeamForm() {
       p_name: name.trim(),
       p_description: description.trim(),
       p_max_members: maxMembers,
-      p_college: college === "Other" ? customCollege.trim() : college,
-      p_hackathon_id: hackathonId,
-      p_hackathon_name: selectedHackathon?.name ?? null,
+      p_college: college ? (college === "Other" ? customCollege.trim() : college) : null,
+      p_hackathon_id: hackathonId || null,
+      p_hackathon_name: selectedHackathon?.name || null,
       p_skills: selectedSkills,
       p_roles_needed: selectedRoles,
     });
@@ -137,9 +135,7 @@ function CreateTeamForm() {
     loading ||
     !name.trim() ||
     !description.trim() ||
-    !college ||
     (college === "Other" && !customCollege.trim()) ||
-    !hackathonId ||
     selectedSkills.length === 0 ||
     selectedRoles.length === 0;
 
@@ -193,7 +189,7 @@ function CreateTeamForm() {
           <SectionHeader label="Context" />
           <div className="grid md:grid-cols-2 gap-5">
             <div>
-              <Field label="College" required>
+              <Field label="College (Optional)">
                 <select
                   value={college}
                   onChange={(e) => setCollege(e.target.value)}
@@ -215,7 +211,7 @@ function CreateTeamForm() {
                 />
               )}
             </div>
-            <Field label="Hackathon" required>
+            <Field label="Hackathon (Optional)">
               <select
                 value={hackathonId}
                 onChange={(e) => setHackathonId(e.target.value)}
