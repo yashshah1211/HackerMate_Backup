@@ -10,6 +10,7 @@ type Message = {
   conversation_id: string;
   sender_id: string;
   content: string;
+  is_read: boolean;
   created_at: string;
 };
 
@@ -153,6 +154,21 @@ export default function ChatThread({
           ensureProfile(newMsg.sender_id);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const updatedMsg = payload.new as Message;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -248,7 +264,7 @@ export default function ChatThread({
       {/* Messages */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5"
+        className="overflow-y-auto px-4 py-4 space-y-3.5"
         style={{ height }}
       >
         {loading ? (
@@ -298,9 +314,29 @@ export default function ChatThread({
                   >
                     {renderMessageContent(msg.content, isMine)}
                   </div>
-                  <span className="text-[9px] text-zinc-600 mt-0.5 px-0.5">
-                    {formatTime(msg.created_at)}
-                  </span>
+                  <div className="flex items-center gap-1 mt-0.5 px-0.5">
+                    <span className="text-[9px] text-zinc-600">
+                      {formatTime(msg.created_at)}
+                    </span>
+                    {isMine && (
+                      <div className="flex items-center" title={msg.is_read ? "Read" : "Sent"}>
+                        {msg.is_read ? (
+                          <div className="flex items-center -space-x-1.5">
+                            <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                            <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <svg className="w-3.5 h-3.5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

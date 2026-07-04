@@ -7,6 +7,25 @@ import { supabase } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import { useNotification } from "@/context/NotificationContext";
 
+const COLLEGES = [
+  "DJSCE", "SPIT", "VJTI", "TSEC", "COEP", "PICT", "DAIICT",
+  "Nirma University", "PDEU", "BITS Pilani", "IIT Bombay", "IIT Delhi",
+  "IIT Madras", "NIT Trichy", "NIT Surathkal", "Other",
+];
+
+const SKILLS = [
+  "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
+  "Python", "Java", "C++", "Flutter", "React Native", "AI/ML",
+  "TensorFlow", "PyTorch", "Docker", "Kubernetes", "AWS", "Terraform",
+  "Supabase", "PostgreSQL", "MongoDB", "UI/UX", "Figma", "DevOps",
+];
+
+const ROLES = [
+  "Frontend Developer", "Backend Developer", "Full Stack Developer",
+  "UI/UX Designer", "AI/ML Engineer", "Data Scientist", "Mobile Developer",
+  "DevOps Engineer", "Cloud Engineer", "Product Manager", "Blockchain Developer",
+];
+
 type Team = {
   id: string;
   name: string;
@@ -31,6 +50,14 @@ type Member = {
   };
 };
 
+type InviteProfile = {
+  id: string;
+  full_name: string | null;
+  college: string | null;
+  avatar_url?: string | null;
+  skills: string[] | null;
+};
+
 type Props = {
   team: Team;
   members: Member[];
@@ -48,6 +75,7 @@ type Props = {
 
   matchedSkills?: string[];
   missingSkills?: string[];
+  refreshTeam?: () => void;
 };
 
 export default function TeamDetailsView({
@@ -65,15 +93,88 @@ export default function TeamDetailsView({
   matchScore,
   matchedSkills = [],
   missingSkills = [],
+  refreshTeam,
 }: Props) {
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
 
+  // Edit Team Details states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState(team.name);
+  const [editDesc, setEditDesc] = useState(team.description || "");
+  const [editCollege, setEditCollege] = useState("");
+  const [editCustomCollege, setEditCustomCollege] = useState("");
+  const [editMaxMembers, setEditMaxMembers] = useState(team.max_members || 4);
+  const [editSkills, setEditSkills] = useState<string[]>(team.skills || []);
+  const [editRoles, setEditRoles] = useState<string[]>(team.roles_needed || []);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      setEditName(team.name);
+      setEditDesc(team.description || "");
+      const isCustom = team.college && !COLLEGES.includes(team.college);
+      setEditCollege(isCustom ? "Other" : (team.college || ""));
+      setEditCustomCollege(isCustom ? team.college! : "");
+      setEditMaxMembers(team.max_members || 4);
+      setEditSkills(team.skills || []);
+      setEditRoles(team.roles_needed || []);
+    });
+  }, [team]);
+
+  const toggleEditSkill = (skill: string) => {
+    setEditSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+    );
+  };
+
+  const toggleEditRole = (role: string) => {
+    setEditRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
+
+  const handleSaveTeamDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) { showToast("Team name is required", "warning"); return; }
+    if (!editDesc.trim()) { showToast("Team description is required", "warning"); return; }
+    if (editCollege === "Other" && !editCustomCollege.trim()) { showToast("Please enter your college name", "warning"); return; }
+    if (editSkills.length === 0) { showToast("Please select at least one skill", "warning"); return; }
+    if (editRoles.length === 0) { showToast("Please select at least one role", "warning"); return; }
+
+    setSavingEdit(true);
+    const finalCollege = editCollege === "Other" ? editCustomCollege.trim() : editCollege || null;
+
+    const { error } = await supabase
+      .from("teams")
+      .update({
+        name: editName.trim(),
+        description: editDesc.trim(),
+        college: finalCollege,
+        max_members: editMaxMembers,
+        skills: editSkills,
+        roles_needed: editRoles,
+      })
+      .eq("id", team.id);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      setSavingEdit(false);
+      return;
+    }
+
+    showToast("Team details updated successfully!", "success");
+    setSavingEdit(false);
+    setShowEditModal(false);
+    if (refreshTeam) refreshTeam();
+  };
+
   // Invite Builders Modal states
   const [showInviteBuilderModal, setShowInviteBuilderModal] = useState(false);
-  const [inviteProfiles, setInviteProfiles] = useState<any[]>([]);
+  const [inviteProfiles, setInviteProfiles] = useState<InviteProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [sessionInvitedIds, setSessionInvitedIds] = useState<Set<string>>(new Set());
@@ -415,6 +516,17 @@ export default function TeamDetailsView({
 
             {isOwner && (
               <>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(true)}
+                  className="btn btn-secondary w-full mb-2 flex items-center justify-center gap-1.5"
+                >
+                  <svg className="w-4.5 h-4.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                  </svg>
+                  <span>Edit Team Details</span>
+                </button>
+
                 <Link
                   href={`/teams/${team.id}/requests`}
                   className="btn btn-secondary w-full mb-2"
@@ -433,6 +545,7 @@ export default function TeamDetailsView({
                   <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235A10.18 10.18 0 0112.5 15c2.2 0 4.254.688 5.94 1.855" />
                   </svg>
+                  <span>Invite builders to team</span>
                 </button>
 
                 <button
@@ -573,38 +686,46 @@ export default function TeamDetailsView({
         )}
       </section>
 
-      {/* Team Chat Section — members & owner only */}
+      {/* Team Collaborate & Workspace Section — members & owner only */}
       {canSeeChat && (
-        <section className="animate-fade-in-up stagger-3">
-          <div className="flex items-center justify-between mb-4">
+        <section className="animate-fade-in-up stagger-3 space-y-6">
+          {/* Tab Selector */}
+          <div className="flex items-center justify-between border-b border-[var(--card-border)] pb-3 flex-wrap gap-3">
             <div>
-              <p className="section-label mb-1">COLLABORATE</p>
-              <h2 className="text-lg font-semibold text-white">Team Chat</h2>
+              <p className="section-label mb-0.5 font-mono uppercase tracking-wider">Workspace</p>
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Collaborate</h2>
             </div>
-            <span className="badge badge-success text-[10px] py-0.5 px-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
-              Live
-            </span>
           </div>
 
-          {chatLoading ? (
-            <div className="card card-static p-8 text-center">
-              <p className="text-zinc-500 text-xs">Loading chat...</p>
-            </div>
-          ) : conversationId && currentUserId ? (
-            <ChatThread
-              conversationId={conversationId}
-              currentUserId={currentUserId}
-              knownProfiles={knownProfiles}
-              height="400px"
-            />
-          ) : (
-            <div className="card card-static p-8 text-center">
-              <p className="text-zinc-500 text-xs">
-                Chat isn&apos;t available for this team yet.
-              </p>
-            </div>
-          )}
+          {/* Tab Contents */}
+          <div className="animate-fade-in">
+            {chatLoading ? (
+              <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
+                <p className="text-[var(--text-tertiary)] text-xs">Loading chat...</p>
+              </div>
+            ) : conversationId && currentUserId ? (
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <span className="badge badge-success text-[10px] py-0.5 px-1.5 bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                    <div className="w-1 h-1 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                    Live Chat Thread
+                  </span>
+                </div>
+                <ChatThread
+                  conversationId={conversationId}
+                  currentUserId={currentUserId}
+                  knownProfiles={knownProfiles}
+                  height="400px"
+                />
+              </div>
+            ) : (
+              <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
+                <p className="text-[var(--text-tertiary)] text-xs">
+                  Chat isn&apos;t available for this team yet.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
       )}
 
@@ -734,6 +855,179 @@ export default function TeamDetailsView({
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Team Details Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="card card-static p-5 w-full max-w-lg flex flex-col max-h-[85vh] bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
+              <div>
+                <h2 className="text-sm font-semibold text-white mb-0.5">Edit Team Details</h2>
+                <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Update name, mission, context, target skills, needed roles, and capacity.</p>
+              </div>
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="text-zinc-500 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTeamDetails} className="flex-1 overflow-y-auto pr-1 space-y-5">
+              {/* Basics */}
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-zinc-300">Team name <span className="text-rose-400">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="input text-xs"
+                    placeholder="e.g. Hack Warriors"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-zinc-300">Description <span className="text-rose-400">*</span></label>
+                  <textarea
+                    required
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    rows={3}
+                    className="input text-xs"
+                    placeholder="What's your team's mission?"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.06]" />
+
+              {/* Context */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-zinc-300">College (Optional)</label>
+                  <select
+                    value={editCollege}
+                    onChange={(e) => setEditCollege(e.target.value)}
+                    className="input text-xs px-4"
+                  >
+                    <option value="">Select college</option>
+                    {COLLEGES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  {editCollege === "Other" && (
+                    <input
+                      type="text"
+                      placeholder="Enter your college name"
+                      value={editCustomCollege}
+                      onChange={(e) => setEditCustomCollege(e.target.value)}
+                      className="input text-xs mt-2"
+                    />
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-zinc-300">Team size (Max Members)</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="2"
+                      max="10"
+                      value={editMaxMembers}
+                      onChange={(e) => setEditMaxMembers(Number(e.target.value))}
+                      className="flex-1 h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary-500"
+                    />
+                    <div className="flex items-center justify-center w-9 h-9 rounded bg-white/[0.04] border border-white/[0.06] text-xs font-medium text-white shrink-0">
+                      {editMaxMembers}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.06]" />
+
+              {/* Skills */}
+              <div>
+                <span className="text-[10px] uppercase tracking-widest font-medium text-zinc-500 block mb-2">Skills needed <span className="text-rose-400">*</span></span>
+                <div className="flex flex-wrap gap-1.5">
+                  {SKILLS.map((skill) => {
+                    const active = editSkills.includes(skill);
+                    return (
+                      <button
+                        type="button"
+                        key={skill}
+                        onClick={() => toggleEditSkill(skill)}
+                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border ${
+                          active
+                            ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
+                            : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
+                        }`}
+                      >
+                        {skill}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.06]" />
+
+              {/* Roles */}
+              <div>
+                <span className="text-[10px] uppercase tracking-widest font-medium text-zinc-500 block mb-2">Roles needed <span className="text-rose-400">*</span></span>
+                <div className="flex flex-wrap gap-1.5">
+                  {ROLES.map((role) => {
+                    const active = editRoles.includes(role);
+                    return (
+                      <button
+                        type="button"
+                        key={role}
+                        onClick={() => toggleEditRole(role)}
+                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border ${
+                          active
+                            ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
+                            : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn btn-secondary btn-sm"
+                  disabled={savingEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

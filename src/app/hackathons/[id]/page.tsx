@@ -227,7 +227,7 @@ function HackathonDetailContent() {
     ].join(" ").toLowerCase();
 
     // Fetch blocked lists so we can exclude them
-    let blockedIds: string[] = [];
+    const blockedIds: string[] = [];
     if (viewerUserId) {
       const { data: myBlocks } = await supabase
         .from("blocked_users")
@@ -284,9 +284,10 @@ function HackathonDetailContent() {
   // Run matcher whenever hackathon data and user id are both available
   useEffect(() => {
     if (hackathon) {
-      fetchMatchedBuilders(hackathon, currentUserId);
+      Promise.resolve().then(() => {
+        fetchMatchedBuilders(hackathon, currentUserId);
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hackathon, currentUserId]);
 
   // Handle Native Registration Flow

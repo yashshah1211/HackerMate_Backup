@@ -305,6 +305,7 @@ function TeamDetailsContent() {
         matchScore={matchScore}
         matchedSkills={matchedSkills}
         missingSkills={missingSkills}
+        refreshTeam={loadTeam}
       />
   );
 

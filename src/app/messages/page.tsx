@@ -98,7 +98,7 @@ function MessagesContent() {
 
   async function loadConversations(myId: string) {
     // Fetch user blocklists
-    let blockedUserIds: string[] = [];
+    const blockedUserIds: string[] = [];
     const { data: myBlocks } = await supabase
       .from("blocked_users")
       .select("blocked_id")

@@ -43,7 +43,7 @@ function DevelopersContent() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      let blockedUserIds: string[] = [];
+      const blockedUserIds: string[] = [];
 
       if (user) {
         // Fetch current user profile

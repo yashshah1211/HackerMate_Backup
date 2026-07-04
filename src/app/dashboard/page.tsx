@@ -202,7 +202,7 @@ function DashboardContent() {
         setProfile(profileData);
 
         // Fetch user blocklists
-        let blockedUserIds: string[] = [];
+        const blockedUserIds: string[] = [];
         const { data: myBlocks } = await supabase
           .from("blocked_users")
           .select("blocked_id")
@@ -585,14 +585,6 @@ function DashboardContent() {
                 {spotlights.map((dev, idx) => {
                   const connectionState =
                     connectionStates[dev.id] || "not_connected";
-                  const actionLabel =
-                    connectionState === "request_sent"
-                      ? "Request sent"
-                      : connectionState === "request_received"
-                        ? "Respond"
-                        : connectionState === "connected"
-                          ? "Connected"
-                          : "Connect";
 
                   return (
                   <div
