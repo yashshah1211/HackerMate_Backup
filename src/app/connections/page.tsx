@@ -33,9 +33,50 @@ function ConnectionsContent() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      loadAll();
+    let senderChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+    let receiverChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+
+    loadAll();
+
+    Promise.resolve().then(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      senderChannel = supabase.channel(`friend_requests-sender:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "friend_requests",
+            filter: `sender_id=eq.${user.id}`,
+          },
+          () => {
+            loadAll();
+          }
+        )
+        .subscribe();
+
+      receiverChannel = supabase.channel(`friend_requests-receiver:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "friend_requests",
+            filter: `receiver_id=eq.${user.id}`,
+          },
+          () => {
+            loadAll();
+          }
+        )
+        .subscribe();
     });
+
+    return () => {
+      if (senderChannel) supabase.removeChannel(senderChannel);
+      if (receiverChannel) supabase.removeChannel(receiverChannel);
+    };
   }, []);
 
   async function loadAll() {

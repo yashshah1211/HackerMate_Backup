@@ -101,7 +101,41 @@ export default function TeamDetailsView({
   const [chatLoading, setChatLoading] = useState(true);
 
   // Workspace tab states
-  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources">("chat");
+  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources" | "submission">("chat");
+  const [draggedOverColumn, setDraggedOverColumn] = useState<"todo" | "in_progress" | "completed" | null>(null);
+
+  // Project Submission Tab State
+  type ChecklistItem = {
+    id: string;
+    label: string;
+    checked: boolean;
+  };
+  type SubmissionData = {
+    projectTitle: string;
+    demoUrl: string;
+    githubUrl: string;
+    pitchVideoUrl: string;
+    checklist: ChecklistItem[];
+  };
+
+  const DEFAULT_CHECKLIST: ChecklistItem[] = [
+    { id: "1", label: "Code committed to main branch", checked: false },
+    { id: "2", label: "Project README created", checked: false },
+    { id: "3", label: "Pitch deck slides finalized", checked: false },
+    { id: "4", label: "Live demo link deployed", checked: false },
+    { id: "5", label: "Pitch video recorded & uploaded", checked: false },
+    { id: "6", label: "Submission created on Devpost/Portal", checked: false },
+  ];
+
+  const [submission, setSubmission] = useState<SubmissionData>({
+    projectTitle: "",
+    demoUrl: "",
+    githubUrl: "",
+    pitchVideoUrl: "",
+    checklist: DEFAULT_CHECKLIST,
+  });
+
+  const [newChecklistItem, setNewChecklistItem] = useState("");
 
   // Tasks Tab State
   type Task = {
@@ -352,6 +386,20 @@ export default function TeamDetailsView({
       showToast(error.message, "error");
     } else {
       showToast("Task created!", "success");
+
+      // Send notification if assigned to someone else
+      if (taskAssignee && taskAssignee !== currentUserId) {
+        const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
+        const currentUserName = currentUserMember?.profiles?.full_name || "A teammate";
+        await supabase
+          .from("notifications")
+          .insert({
+            user_id: taskAssignee,
+            message: `${currentUserName} assigned you to task "${taskTitle.trim()}" in team "${team.name}"`,
+            link: `/teams/${team.id}`,
+          });
+      }
+
       setShowAddTaskModal(false);
       setTaskTitle("");
       setTaskDesc("");
@@ -362,8 +410,116 @@ export default function TeamDetailsView({
     setSavingTask(false);
   };
 
+  // Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData("text/plain", taskId);
+  };
+
+  const handleDrop = async (e: React.DragEvent, status: "todo" | "in_progress" | "completed") => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData("text/plain");
+    if (!taskId) return;
+
+    const currentTask = tasks.find((t) => t.id === taskId);
+    if (currentTask && currentTask.status === status) return;
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+
+    const { error } = await supabase
+      .from("team_tasks")
+      .update({ status })
+      .eq("id", taskId);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      fetchTasks();
+    } else {
+      if (currentTask && currentTask.assignee_id && currentTask.assignee_id !== currentUserId) {
+        const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
+        const currentUserName = currentUserMember?.profiles?.full_name || "A teammate";
+        const statusLabels: Record<string, string> = {
+          todo: "To Do",
+          in_progress: "In Progress",
+          completed: "Completed",
+        };
+        await supabase
+          .from("notifications")
+          .insert({
+            user_id: currentTask.assignee_id,
+            message: `${currentUserName} moved your task "${currentTask.title}" to "${statusLabels[status] || status}" in team "${team.name}"`,
+            link: `/teams/${team.id}`,
+          });
+      }
+    }
+  };
+
+  // Load and save submission checklist
+  useEffect(() => {
+    if (!team.id) return;
+    Promise.resolve().then(() => {
+      const saved = localStorage.getItem(`hackermate:submission:${team.id}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (!parsed.checklist) parsed.checklist = DEFAULT_CHECKLIST;
+          setSubmission(parsed);
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        setSubmission({
+          projectTitle: "",
+          demoUrl: "",
+          githubUrl: "",
+          pitchVideoUrl: "",
+          checklist: DEFAULT_CHECKLIST,
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team.id]);
+
+  const handleSaveSubmission = () => {
+    localStorage.setItem(`hackermate:submission:${team.id}`, JSON.stringify(submission));
+    showToast("Submission checklist saved successfully!", "success");
+  };
+
+  const handleToggleChecklist = (itemId: string) => {
+    setSubmission((prev) => ({
+      ...prev,
+      checklist: prev.checklist.map((item) =>
+        item.id === itemId ? { ...item, checked: !item.checked } : item
+      ),
+    }));
+  };
+
+  const handleAddChecklistItem = () => {
+    if (!newChecklistItem.trim()) return;
+    const newItem: ChecklistItem = {
+      id: Date.now().toString(),
+      label: newChecklistItem.trim(),
+      checked: false,
+    };
+    setSubmission((prev) => ({
+      ...prev,
+      checklist: [...prev.checklist, newItem],
+    }));
+    setNewChecklistItem("");
+  };
+
+  const handleDeleteChecklistItem = (itemId: string) => {
+    setSubmission((prev) => ({
+      ...prev,
+      checklist: prev.checklist.filter((item) => item.id !== itemId),
+    }));
+  };
+
   // Update Task Status
   const handleUpdateTaskStatus = async (taskId: string, status: "todo" | "in_progress" | "completed") => {
+    const currentTask = tasks.find((t) => t.id === taskId);
+    if (currentTask && currentTask.status === status) return;
+
     const { error } = await supabase
       .from("team_tasks")
       .update({ status })
@@ -373,6 +529,54 @@ export default function TeamDetailsView({
       showToast(error.message, "error");
     } else {
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+
+      if (currentTask && currentTask.assignee_id && currentTask.assignee_id !== currentUserId) {
+        const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
+        const currentUserName = currentUserMember?.profiles?.full_name || "A teammate";
+        const statusLabels: Record<string, string> = {
+          todo: "To Do",
+          in_progress: "In Progress",
+          completed: "Completed",
+        };
+        await supabase
+          .from("notifications")
+          .insert({
+            user_id: currentTask.assignee_id,
+            message: `${currentUserName} updated your task "${currentTask.title}" status to "${statusLabels[status] || status}" in team "${team.name}"`,
+            link: `/teams/${team.id}`,
+          });
+      }
+    }
+  };
+
+  // Update Task Assignee
+  const handleUpdateTaskAssignee = async (taskId: string, assigneeId: string | null) => {
+    const currentTask = tasks.find((t) => t.id === taskId);
+    if (currentTask && currentTask.assignee_id === assigneeId) return;
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, assignee_id: assigneeId } : t)));
+
+    const { error } = await supabase
+      .from("team_tasks")
+      .update({ assignee_id: assigneeId })
+      .eq("id", taskId);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      fetchTasks();
+    } else {
+      if (assigneeId && assigneeId !== currentUserId) {
+        const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
+        const currentUserName = currentUserMember?.profiles?.full_name || "A teammate";
+        await supabase
+          .from("notifications")
+          .insert({
+            user_id: assigneeId,
+            message: `${currentUserName} assigned you to task "${currentTask?.title || "Task"}" in team "${team.name}"`,
+            link: `/teams/${team.id}`,
+          });
+      }
     }
   };
 
@@ -624,7 +828,12 @@ export default function TeamDetailsView({
   const renderTaskCard = (task: Task) => {
     const assignee = members.find((m) => m.profiles.id === task.assignee_id);
     return (
-      <div key={task.id} className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-3 relative group/card hover:border-zinc-700 transition-colors">
+      <div
+        key={task.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, task.id)}
+        className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-3 relative group/card hover:border-zinc-700 transition-colors cursor-grab active:cursor-grabbing"
+      >
         <div className="flex justify-between items-start gap-2">
           <h4 className="text-xs font-semibold text-white break-words pr-4">{task.title}</h4>
           <button
@@ -664,25 +873,36 @@ export default function TeamDetailsView({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 max-w-[120px]">
             {assignee ? (
-              <>
-                {assignee.profiles.avatar_url ? (
-                  <img
-                    src={assignee.profiles.avatar_url}
-                    alt={assignee.profiles.full_name}
-                    className="w-4 h-4 rounded-full object-cover border border-zinc-800 shrink-0"
-                  />
-                ) : (
-                  <div className="w-4 h-4 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center font-bold text-zinc-400 text-[8px] shrink-0">
-                    {assignee.profiles.full_name.charAt(0)}
-                  </div>
-                )}
-                <span className="text-[9px] text-zinc-400 truncate max-w-[60px]">{assignee.profiles.full_name.split(" ")[0]}</span>
-              </>
+              assignee.profiles.avatar_url ? (
+                <img
+                  src={assignee.profiles.avatar_url}
+                  alt={assignee.profiles.full_name}
+                  className="w-4 h-4 rounded-full object-cover border border-zinc-800 shrink-0"
+                />
+              ) : (
+                <div className="w-4 h-4 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center font-bold text-zinc-400 text-[8px] shrink-0">
+                  {assignee.profiles.full_name.charAt(0)}
+                </div>
+              )
             ) : (
-              <span className="text-[9px] text-zinc-600 italic">Unassigned</span>
+              <div className="w-4 h-4 rounded-full bg-zinc-950 border border-zinc-900 flex items-center justify-center text-zinc-600 text-[8px] shrink-0">
+                👤
+              </div>
             )}
+            <select
+              value={task.assignee_id || ""}
+              onChange={(e) => handleUpdateTaskAssignee(task.id, e.target.value || null)}
+              className="text-[9px] font-semibold bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700 truncate max-w-[85px] cursor-pointer"
+            >
+              <option value="">Assignee</option>
+              {members.map((m) => (
+                <option key={m.profiles.id} value={m.profiles.id}>
+                  {m.profiles.full_name.split(" ")[0]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -1233,6 +1453,16 @@ export default function TeamDetailsView({
               >
                 Resources
               </button>
+              <button
+                onClick={() => setWorkspaceTab("submission")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "submission"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Submission
+              </button>
             </div>
           </div>
 
@@ -1299,7 +1529,20 @@ export default function TeamDetailsView({
                           {tasks.filter((t) => t.status === "todo").length}
                         </span>
                       </div>
-                      <div className="bg-zinc-950/40 border border-zinc-900/60 p-3 rounded-xl min-h-[300px] space-y-2">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnter={() => setDraggedOverColumn("todo")}
+                        onDragLeave={() => setDraggedOverColumn(null)}
+                        onDrop={(e) => {
+                          setDraggedOverColumn(null);
+                          handleDrop(e, "todo");
+                        }}
+                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
+                          draggedOverColumn === "todo"
+                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
+                            : "bg-zinc-950/40 border border-zinc-900/60"
+                        }`}
+                      >
                         {tasks.filter((t) => t.status === "todo").map((task) => renderTaskCard(task))}
                         {tasks.filter((t) => t.status === "todo").length === 0 && (
                           <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
@@ -1315,7 +1558,20 @@ export default function TeamDetailsView({
                           {tasks.filter((t) => t.status === "in_progress").length}
                         </span>
                       </div>
-                      <div className="bg-zinc-950/40 border border-zinc-900/60 p-3 rounded-xl min-h-[300px] space-y-2">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnter={() => setDraggedOverColumn("in_progress")}
+                        onDragLeave={() => setDraggedOverColumn(null)}
+                        onDrop={(e) => {
+                          setDraggedOverColumn(null);
+                          handleDrop(e, "in_progress");
+                        }}
+                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
+                          draggedOverColumn === "in_progress"
+                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
+                            : "bg-zinc-950/40 border border-zinc-900/60"
+                        }`}
+                      >
                         {tasks.filter((t) => t.status === "in_progress").map((task) => renderTaskCard(task))}
                         {tasks.filter((t) => t.status === "in_progress").length === 0 && (
                           <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
@@ -1331,7 +1587,20 @@ export default function TeamDetailsView({
                           {tasks.filter((t) => t.status === "completed").length}
                         </span>
                       </div>
-                      <div className="bg-zinc-950/40 border border-zinc-900/60 p-3 rounded-xl min-h-[300px] space-y-2">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnter={() => setDraggedOverColumn("completed")}
+                        onDragLeave={() => setDraggedOverColumn(null)}
+                        onDrop={(e) => {
+                          setDraggedOverColumn(null);
+                          handleDrop(e, "completed");
+                        }}
+                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
+                          draggedOverColumn === "completed"
+                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
+                            : "bg-zinc-950/40 border border-zinc-900/60"
+                        }`}
+                      >
                         {tasks.filter((t) => t.status === "completed").map((task) => renderTaskCard(task))}
                         {tasks.filter((t) => t.status === "completed").length === 0 && (
                           <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
@@ -1424,6 +1693,147 @@ export default function TeamDetailsView({
                     {renderCategoryPanel("other", "General / Other", "M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244")}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 5. SUBMISSION TAB */}
+            {workspaceTab === "submission" && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Submission Deck</h3>
+                  <button
+                    onClick={handleSaveSubmission}
+                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Save Submission</span>
+                  </button>
+                </div>
+
+                {/* Progress bar */}
+                {(() => {
+                  const completedCount = submission.checklist.filter((item) => item.checked).length;
+                  const totalCount = submission.checklist.length;
+                  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                  return (
+                    <div className="card card-static p-6 bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl">
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider mb-1">Submission Readiness</h4>
+                          <p className="text-xs text-zinc-400">Track your project completion checklist before the final hackathon deadline.</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-48 bg-zinc-955 rounded-full h-2.5 overflow-hidden border border-zinc-800">
+                            <div className="bg-gradient-to-r from-violet-500 to-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
+                          </div>
+                          <span className="text-sm font-bold text-white font-mono">{percent}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Inputs */}
+                  <div className="card card-static p-6 space-y-4">
+                    <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">Project Metadata</h4>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-zinc-300">Project Title</label>
+                      <input
+                        type="text"
+                        value={submission.projectTitle}
+                        onChange={(e) => setSubmission(prev => ({ ...prev, projectTitle: e.target.value }))}
+                        placeholder="e.g. HackerMate OS"
+                        className="input text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-zinc-300">GitHub Repository Link</label>
+                      <input
+                        type="text"
+                        value={submission.githubUrl}
+                        onChange={(e) => setSubmission(prev => ({ ...prev, githubUrl: e.target.value }))}
+                        placeholder="https://github.com/..."
+                        className="input text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-zinc-300">Live Demo URL</label>
+                      <input
+                        type="text"
+                        value={submission.demoUrl}
+                        onChange={(e) => setSubmission(prev => ({ ...prev, demoUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className="input text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-zinc-300">Video Pitch Link</label>
+                      <input
+                        type="text"
+                        value={submission.pitchVideoUrl}
+                        onChange={(e) => setSubmission(prev => ({ ...prev, pitchVideoUrl: e.target.value }))}
+                        placeholder="https://youtube.com/watch?v=... or Loom"
+                        className="input text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Checklist */}
+                  <div className="card card-static p-6 flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 mb-4">Milestones Checklist</h4>
+                      
+                      <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                        {submission.checklist.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between group/check p-2 rounded-lg bg-zinc-950/60 border border-zinc-900/60 hover:border-zinc-800/80 transition-colors">
+                            <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300 hover:text-white select-none min-w-0 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={item.checked}
+                                onChange={() => handleToggleChecklist(item.id)}
+                                className="w-3.5 h-3.5 rounded border-zinc-800 bg-zinc-900 text-primary-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                              />
+                              <span className={`truncate ${item.checked ? "line-through text-zinc-500" : ""}`}>{item.label}</span>
+                            </label>
+                            <button
+                              onClick={() => handleDeleteChecklistItem(item.id)}
+                              className="opacity-0 group-hover/check:opacity-100 text-zinc-600 hover:text-rose-400 transition-opacity ml-2 shrink-0"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-zinc-800/60 flex gap-2">
+                      <input
+                        type="text"
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        placeholder="Add custom task..."
+                        className="input text-xs flex-1 py-1 px-3 bg-zinc-950 border-zinc-900 focus:border-zinc-800"
+                        onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
+                      />
+                      <button
+                        onClick={handleAddChecklistItem}
+                        disabled={!newChecklistItem.trim()}
+                        className="btn btn-secondary text-xs px-3 py-1 flex items-center justify-center disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

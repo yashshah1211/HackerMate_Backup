@@ -46,6 +46,12 @@ export default function ChatThread({
   const [isBlocked, setIsBlocked] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(30);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const isInitialLoad = useRef(true);
+  const prevLastMessageId = useRef<string | null>(null);
+
   async function loadMessages() {
     // Check if direct message conversation has blocked participant relationships
     const { data: participants } = await supabase
@@ -69,7 +75,8 @@ export default function ChatThread({
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false })
+      .range(0, 29);
 
     if (error) {
       console.error(error);
@@ -77,7 +84,10 @@ export default function ChatThread({
       return;
     }
 
-    setMessages(data || []);
+    const fetchedMessages = [...(data || [])].reverse();
+    setMessages(fetchedMessages);
+    setHasMore(data ? data.length === 30 : false);
+    setOffset(30);
 
     // Mark messages as read since we are actively viewing this conversation
     supabase.rpc("mark_conversation_read", {
@@ -177,12 +187,83 @@ export default function ChatThread({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
+  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollTop === 0 && hasMore && !loadingMore && messages.length > 0) {
+      setLoadingMore(true);
+      const prevScrollHeight = target.scrollHeight;
+
+      const { data: moreData, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + 29);
+
+      if (error) {
+        console.error(error);
+      } else if (moreData) {
+        if (moreData.length < 30) {
+          setHasMore(false);
+        }
+        const olderMessages = [...moreData].reverse();
+
+        const missingSenders = Array.from(
+          new Set(olderMessages.map((m) => m.sender_id))
+        ).filter((id) => !profiles[id]);
+
+        if (missingSenders.length > 0) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("id, full_name, avatar_url")
+            .in("id", missingSenders);
+
+          if (profileData) {
+            setProfiles((prev) => {
+              const next = { ...prev };
+              profileData.forEach((p) => {
+                next[p.id] = p;
+              });
+              return next;
+            });
+          }
+        }
+
+        setMessages((prev) => [...olderMessages, ...prev]);
+        setOffset((prev) => prev + 30);
+
+        setTimeout(() => {
+          target.scrollTop = target.scrollHeight - prevScrollHeight;
+        }, 0);
+      }
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages]);
+    if (loading) {
+      isInitialLoad.current = true;
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+
+    if (isInitialLoad.current) {
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+      });
+      isInitialLoad.current = false;
+    } else if (lastMsg.id !== prevLastMessageId.current) {
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+
+    prevLastMessageId.current = lastMsg.id;
+  }, [messages, loading]);
 
   async function sendMessage() {
     if (isBlocked) return;
@@ -264,9 +345,15 @@ export default function ChatThread({
       {/* Messages */}
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         className="overflow-y-auto px-4 py-4 space-y-3.5"
         style={{ height }}
       >
+        {loadingMore && (
+          <div className="flex justify-center py-2">
+            <div className="w-4 h-4 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />

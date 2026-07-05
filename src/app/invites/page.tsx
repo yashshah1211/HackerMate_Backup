@@ -25,7 +25,33 @@ export default function InvitesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let inviteChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+
     loadInvites();
+
+    Promise.resolve().then(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      inviteChannel = supabase.channel(`team_invites:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "team_invites",
+            filter: `invited_user_id=eq.${user.id}`,
+          },
+          () => {
+            loadInvites();
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (inviteChannel) supabase.removeChannel(inviteChannel);
+    };
   }, []);
 
   async function loadInvites() {

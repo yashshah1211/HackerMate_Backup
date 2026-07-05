@@ -524,6 +524,16 @@ declare
     'devpost.com'
   ];
 begin
+  -- Rate limiting check: max 5 messages per 10 seconds per user
+  if (
+    select count(*)
+    from public.messages
+    where sender_id = auth.uid()
+      and created_at > now() - interval '10 seconds'
+  ) >= 5 then
+    raise exception 'You are sending messages too fast. Please wait a moment.';
+  end if;
+
   if not public.can_access_conversation(p_conversation_id) then
     raise exception 'Conversation access denied';
   end if;

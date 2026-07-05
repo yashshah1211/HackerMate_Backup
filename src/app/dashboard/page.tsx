@@ -37,7 +37,7 @@ type Hackathon = {
 type Team = {
   id: string;
   name: string;
-  hackathon_id: string;
+  hackathon_id: string | null;
   max_members?: number | null;
   memberCount?: number;
   hackathons: { name: string } | null;
