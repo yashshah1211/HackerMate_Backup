@@ -241,11 +241,14 @@ function HackathonDetailContent() {
       if (theirBlocks) blockedIds.push(...theirBlocks.map((b) => b.blocker_id));
     }
 
-    // Fetch all profiles except the viewer
-    const query = supabase
+    // Fetch profiles whose skills overlap with hackathon tags (to avoid massive over-fetching)
+    let query = supabase
       .from("profiles")
       .select("id, full_name, college, avatar_url, skills");
-    if (viewerUserId) query.neq("id", viewerUserId);
+    if (viewerUserId) query = query.neq("id", viewerUserId);
+    if (hack.tags && hack.tags.length > 0) {
+      query = query.overlaps("skills", hack.tags);
+    }
     const { data: profiles } = await query;
 
     if (!profiles) return;
@@ -293,6 +296,7 @@ function HackathonDetailContent() {
   // Handle Native Registration Flow
   async function handleRegisterNatively() {
     if (!currentUserId || !hackathon) return;
+    setInviteLoading(true);
     try {
       // 1. Insert native registration row
       const { error: regError } = await supabase

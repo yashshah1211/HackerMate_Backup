@@ -146,31 +146,30 @@ export default function ProfilePage() {
           setHasBlockedMe(!!theirBlock);
         }
 
-        const { data: teams } = await supabase
+        const { data: teamsData } = await supabase
           .from("teams")
-          .select("id,name,max_members")
+          .select("id, name, max_members, team_members(count)")
           .eq("owner_id", user.id);
 
-        const teamsWithCounts = await Promise.all(
-          (teams || []).map(async (team) => {
-            const { count } = await supabase
-              .from("team_members")
-              .select("*", {
-                count: "exact",
-                head: true,
-              })
-              .eq("team_id", team.id);
-
-            return {
-              ...team,
-              memberCount: count || 0,
-            };
-          })
-        );
+        const teamsWithCounts = (teamsData as unknown as {
+          id: string;
+          name: string;
+          max_members: number;
+          team_members: { count: number }[] | { count: number };
+        }[] || []).map((t) => {
+          const countObj = Array.isArray(t.team_members) ? t.team_members[0] : t.team_members;
+          const memberCount = countObj ? countObj.count : 0;
+          return {
+            id: t.id,
+            name: t.name,
+            max_members: t.max_members,
+            memberCount: memberCount || 0,
+          };
+        });
 
         setOwnedTeams(teamsWithCounts);
-        if (teams && teams.length > 0) {
-          const teamIds = teams.map((team) => team.id);
+        if (teamsData && teamsData.length > 0) {
+          const teamIds = teamsData.map((team) => team.id);
 
           const { data: existingInvite } = await supabase
             .from("team_invites")

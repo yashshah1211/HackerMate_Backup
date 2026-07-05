@@ -37,7 +37,7 @@ function DevelopersContent() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  async function loadData() {
+  async function loadData(searchQuery?: string) {
     try {
       const {
         data: { user },
@@ -82,11 +82,20 @@ function DevelopersContent() {
         }
       }
 
-      // Fetch all developers
-      const { data, error } = await supabase
+      // Fetch developers with database-level filters and a limit of 60
+      let queryBuilder = supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
+
+      const term = (searchQuery !== undefined ? searchQuery : search).trim();
+      if (term) {
+        queryBuilder = queryBuilder.or(`full_name.ilike.%${term}%,college.ilike.%${term}%,skills.cs.{${term}}`);
+      }
+
+      queryBuilder = queryBuilder.limit(60);
+
+      const { data, error } = await queryBuilder;
 
       if (error) {
         console.error(error);
@@ -103,10 +112,15 @@ function DevelopersContent() {
   }
 
   useEffect(() => {
-    Promise.resolve().then(() => {
+    const handler = setTimeout(() => {
       loadData();
-    });
-  }, []);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   // Calculate compatibility score between current user and other builder
   function calculateCompatibility(other: Profile) {

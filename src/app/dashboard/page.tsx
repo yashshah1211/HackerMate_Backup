@@ -299,28 +299,50 @@ function DashboardContent() {
       }
       const uniqueTeams = Array.from(allTeamsMap.values());
 
-      // Fetch hackathon and member count details for these teams
-      const teamsWithDetails = await Promise.all(uniqueTeams.map(async (t) => {
-        const { count } = await supabase
-          .from("team_members")
-          .select("*", { count: "exact", head: true })
-          .eq("team_id", t.id);
+      // Fetch hackathon and member count details in a single query to avoid N+1 queries
+      const teamIds = uniqueTeams.map((team) => team.id);
+      interface TeamWithDetails {
+        id: string;
+        name: string;
+        hackathon_id: string | null;
+        max_members: number;
+        owner_id: string;
+        hackathons: { name: string } | null;
+        memberCount: number;
+      }
+      let teamsWithDetails: TeamWithDetails[] = [];
+      if (teamIds.length > 0) {
+        const { data: batchTeams, error: batchErr } = await supabase
+          .from("teams")
+          .select("id, name, hackathon_id, max_members, owner_id, team_members(count), hackathons(name)")
+          .in("id", teamIds);
 
-        let hackData = null;
-        if (t.hackathon_id) {
-          const { data } = await supabase
-            .from("hackathons")
-            .select("name")
-            .eq("id", t.hackathon_id)
-            .single();
-          hackData = data;
+        if (batchErr) {
+          console.error("Error batch loading teams details:", batchErr);
+        } else if (batchTeams) {
+          teamsWithDetails = (batchTeams as unknown as {
+            id: string;
+            name: string;
+            hackathon_id: string | null;
+            max_members: number;
+            owner_id: string;
+            hackathons: { name: string } | null;
+            team_members: { count: number }[] | { count: number };
+          }[]).map((d) => {
+            const countObj = Array.isArray(d.team_members) ? d.team_members[0] : d.team_members;
+            const memberCount = countObj ? countObj.count : 0;
+            return {
+              id: d.id,
+              name: d.name,
+              hackathon_id: d.hackathon_id,
+              max_members: d.max_members,
+              owner_id: d.owner_id,
+              hackathons: d.hackathons,
+              memberCount: memberCount || 0,
+            };
+          });
         }
-        return {
-          ...t,
-          hackathons: hackData,
-          memberCount: count || 0,
-        };
-      }));
+      }
 
       setActiveTeams(teamsWithDetails);
 
@@ -335,7 +357,6 @@ function DashboardContent() {
         .gte("end_date", today);
 
       // Fetch unread messages
-      const teamIds = uniqueTeams.map((team) => team.id);
       let conversationIds: string[] = [];
       if (teamIds.length > 0) {
         const { data: teamConversations } = await supabase

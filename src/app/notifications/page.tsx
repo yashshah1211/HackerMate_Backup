@@ -129,14 +129,34 @@ function NotificationsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let activeChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+
     loadNotifications();
-    const channel = supabase
-      .channel("notifications-page")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
-        loadNotifications();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    Promise.resolve().then(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      activeChannel = supabase
+        .channel(`notifications-page:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            loadNotifications();
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (activeChannel) supabase.removeChannel(activeChannel);
+    };
   }, []);
 
   async function loadNotifications() {

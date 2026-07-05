@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,22 +17,23 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
-  async function loadUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    if (user) {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  const [conversationIds, setConversationIds] = useState<string[]>([]);
+
+  async function loadUser(userObj?: import("@supabase/supabase-js").User) {
+    const activeUser = userObj || (await supabase.auth.getUser()).data.user;
+    setUser(activeUser);
+    if (activeUser) {
+      const { data } = await supabase.from("profiles").select("*").eq("id", activeUser.id).single();
       setProfile(data);
     }
+    return activeUser;
   }
 
-  async function loadUnreadCount() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  async function loadUnreadCount(userId: string) {
     const { count } = await supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("is_read", false)
       .not("message", "ilike", "%sent you a message%")
       .not("message", "ilike", "%new message%")
@@ -40,21 +41,20 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     setUnreadCount(count || 0);
   }
 
-  async function loadUnreadMessages() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  async function loadUnreadMessages(userId: string) {
     const { data: participantRows } = await supabase
       .from("conversation_participants")
       .select("conversation_id, conversations!inner(type)")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("conversations.type", "dm");
-    const conversationIds = participantRows?.map((row) => row.conversation_id) || [];
-    if (!conversationIds.length) { setUnreadMessages(0); return; }
+    const ids = participantRows?.map((row) => row.conversation_id) || [];
+    setConversationIds(ids);
+    if (!ids.length) { setUnreadMessages(0); return; }
     const { data: unreadMsgs } = await supabase
       .from("messages")
       .select("sender_id")
-      .in("conversation_id", conversationIds)
-      .neq("sender_id", user.id)
+      .in("conversation_id", ids)
+      .neq("sender_id", userId)
       .eq("is_read", false);
     const uniqueSenders = new Set(unreadMsgs?.map((m) => m.sender_id) || []);
     setUnreadMessages(uniqueSenders.size);
@@ -75,17 +75,73 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      loadUser(); loadUnreadCount(); loadUnreadMessages();
+    let notifChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+    let participantChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+
+    Promise.resolve().then(async () => {
+      const { data: { user: sessionUser } } = await supabase.auth.getUser();
+      if (!sessionUser) return;
+      
+      await loadUser(sessionUser);
+      await loadUnreadCount(sessionUser.id);
+      await loadUnreadMessages(sessionUser.id);
+
+      notifChannel = supabase.channel(`notifications-navbar:${sessionUser.id}`)
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${sessionUser.id}`
+        }, () => {
+          loadUnreadCount(sessionUser.id);
+        })
+        .subscribe();
+
+      participantChannel = supabase.channel(`participants-navbar:${sessionUser.id}`)
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "conversation_participants",
+          filter: `user_id=eq.${sessionUser.id}`
+        }, () => {
+          loadUnreadMessages(sessionUser.id);
+        })
+        .subscribe();
     });
-    const channel = supabase.channel("notifications-navbar")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => { loadUnreadCount(); })
-      .subscribe();
-    const messagesChannel = supabase.channel("messages-navbar")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => { loadUnreadMessages(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); supabase.removeChannel(messagesChannel); };
+
+    return () => {
+      if (notifChannel) supabase.removeChannel(notifChannel);
+      if (participantChannel) supabase.removeChannel(participantChannel);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!user || !conversationIds.length) return;
+
+    const activeChannels = conversationIds.map((id) => {
+      const channel = supabase.channel(`messages-navbar:${id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${id}`
+          },
+          () => {
+            loadUnreadMessages(user.id);
+          }
+        )
+        .subscribe();
+      return channel;
+    });
+
+    return () => {
+      activeChannels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [conversationIds, user]);
 
   async function handleLogout() {
     await supabase.auth.signOut();

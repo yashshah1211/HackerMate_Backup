@@ -38,6 +38,7 @@ function MessagesContent() {
   const [activeUser, setActiveUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
+  const [conversationIds, setConversationIds] = useState<string[]>([]);
 
   useEffect(() => {
     init();
@@ -47,25 +48,53 @@ function MessagesContent() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    const channel = supabase
-      .channel("messages-list")
+    const participantChannel = supabase
+      .channel(`participants-list:${currentUserId}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
-          table: "messages",
+          table: "conversation_participants",
+          filter: `user_id=eq.${currentUserId}`,
         },
-        async () => {
-          await loadConversations(currentUserId);
+        () => {
+          loadConversations(currentUserId);
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(participantChannel);
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId || !conversationIds.length) return;
+
+    const activeChannels = conversationIds.map((id) => {
+      const channel = supabase
+        .channel(`messages-list:${id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${id}`,
+          },
+          () => {
+            loadConversations(currentUserId);
+          }
+        )
+        .subscribe();
+      return channel;
+    });
+
+    return () => {
+      activeChannels.forEach((c) => supabase.removeChannel(c));
+    };
+  }, [conversationIds, currentUserId]);
 
   async function init() {
     const {
@@ -141,6 +170,7 @@ function MessagesContent() {
         (unreadByConversation[msg.conversation_id] || 0) + 1;
     });
 
+    setConversationIds(conversationIds);
     if (conversationIds.length === 0) {
       setConversations([]);
       return;

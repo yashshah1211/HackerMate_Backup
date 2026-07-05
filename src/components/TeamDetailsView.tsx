@@ -100,6 +100,53 @@ export default function TeamDetailsView({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
 
+  // Workspace tab states
+  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources">("chat");
+
+  // Tasks Tab State
+  type Task = {
+    id: string;
+    team_id: string;
+    title: string;
+    description: string | null;
+    status: "todo" | "in_progress" | "completed";
+    priority: "low" | "medium" | "high";
+    assignee_id: string | null;
+    created_at: string;
+  };
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDesc, setTaskDesc] = useState("");
+  const [taskPriority, setTaskPriority] = useState<"low" | "medium" | "high">("medium");
+  const [taskAssignee, setTaskAssignee] = useState("");
+  const [savingTask, setSavingTask] = useState(false);
+
+  // Brainstorm Tab State
+  const [documentContent, setDocumentContent] = useState("");
+  const [loadingDocument, setLoadingDocument] = useState(false);
+  const [savingDocument, setSavingDocument] = useState(false);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+
+  // Resources Tab State
+  type LinkType = {
+    id: string;
+    team_id: string;
+    title: string;
+    url: string;
+    category: "design" | "repo" | "document" | "other";
+    created_by: string | null;
+    created_at: string;
+  };
+  const [links, setLinks] = useState<LinkType[]>([]);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+  const [showAddLinkModal, setShowAddLinkModal] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkCategory, setLinkCategory] = useState<"design" | "repo" | "document" | "other">("other");
+  const [savingLink, setSavingLink] = useState(false);
+
   // Edit Team Details states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState(team.name);
@@ -211,6 +258,221 @@ export default function TeamDetailsView({
   }, [showInviteBuilderModal, team.id]);
 
 
+  // Fetch Tasks
+  const fetchTasks = async () => {
+    setLoadingTasks(true);
+    const { data, error } = await supabase
+      .from("team_tasks")
+      .select("*")
+      .eq("team_id", team.id)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error(error);
+    } else {
+      setTasks(data || []);
+    }
+    setLoadingTasks(false);
+  };
+
+  // Fetch Brainstorm Document
+  const fetchDocument = async () => {
+    setLoadingDocument(true);
+    const { data, error } = await supabase
+      .from("team_documents")
+      .select("*")
+      .eq("team_id", team.id)
+      .maybeSingle();
+    if (error) {
+      console.error(error);
+    } else if (data) {
+      setDocumentId(data.id);
+      setDocumentContent(data.content || "");
+    } else {
+      // Document row doesn't exist, create default
+      const { data: newDoc, error: insertError } = await supabase
+        .from("team_documents")
+        .insert({ team_id: team.id, content: "# Brainstorm\nStart sharing ideas here..." })
+        .select()
+        .maybeSingle();
+      if (insertError) {
+        if (insertError.code === "23505") {
+          // Concurrently created by another render/session, fetch it again
+          const { data: retryDoc } = await supabase
+            .from("team_documents")
+            .select("*")
+            .eq("team_id", team.id)
+            .maybeSingle();
+          if (retryDoc) {
+            setDocumentId(retryDoc.id);
+            setDocumentContent(retryDoc.content || "");
+          }
+        } else {
+          console.error(insertError);
+        }
+      } else if (newDoc) {
+        setDocumentId(newDoc.id);
+        setDocumentContent(newDoc.content || "");
+      }
+    }
+    setLoadingDocument(false);
+  };
+
+  // Fetch Resources (Links)
+  const fetchLinks = async () => {
+    setLoadingLinks(true);
+    const { data, error } = await supabase
+      .from("team_links")
+      .select("*")
+      .eq("team_id", team.id)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error(error);
+    } else {
+      setLinks(data || []);
+    }
+    setLoadingLinks(false);
+  };
+
+  // Add Task
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle.trim()) return;
+    setSavingTask(true);
+    const { error } = await supabase
+      .from("team_tasks")
+      .insert({
+        team_id: team.id,
+        title: taskTitle.trim(),
+        description: taskDesc.trim() || null,
+        priority: taskPriority,
+        assignee_id: taskAssignee || null,
+      });
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Task created!", "success");
+      setShowAddTaskModal(false);
+      setTaskTitle("");
+      setTaskDesc("");
+      setTaskPriority("medium");
+      setTaskAssignee("");
+      fetchTasks();
+    }
+    setSavingTask(false);
+  };
+
+  // Update Task Status
+  const handleUpdateTaskStatus = async (taskId: string, status: "todo" | "in_progress" | "completed") => {
+    const { error } = await supabase
+      .from("team_tasks")
+      .update({ status })
+      .eq("id", taskId);
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+    }
+  };
+
+  // Delete Task
+  const handleDeleteTask = async (taskId: string) => {
+    confirm({
+      title: "Delete Task",
+      message: "Are you sure you want to delete this task?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("team_tasks")
+          .delete()
+          .eq("id", taskId);
+        if (error) {
+          console.error(error);
+          showToast(error.message, "error");
+        } else {
+          showToast("Task deleted", "success");
+          setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        }
+      }
+    });
+  };
+
+  // Save Document
+  const handleSaveDocument = async () => {
+    if (!documentId) return;
+    setSavingDocument(true);
+    const { error } = await supabase
+      .from("team_documents")
+      .update({ content: documentContent, updated_by: currentUserId })
+      .eq("id", documentId);
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Document saved!", "success");
+    }
+    setSavingDocument(false);
+  };
+
+  // Add Link
+  const handleAddLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkTitle.trim() || !linkUrl.trim()) return;
+
+    let formattedUrl = linkUrl.trim();
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    setSavingLink(true);
+    const { error } = await supabase
+      .from("team_links")
+      .insert({
+        team_id: team.id,
+        title: linkTitle.trim(),
+        url: formattedUrl,
+        category: linkCategory,
+        created_by: currentUserId,
+      });
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Link added!", "success");
+      setShowAddLinkModal(false);
+      setLinkTitle("");
+      setLinkUrl("");
+      setLinkCategory("other");
+      fetchLinks();
+    }
+    setSavingLink(false);
+  };
+
+  // Delete Link
+  const handleDeleteLink = async (linkId: string) => {
+    confirm({
+      title: "Delete Resource Link",
+      message: "Are you sure you want to delete this resource link?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("team_links")
+          .delete()
+          .eq("id", linkId);
+        if (error) {
+          console.error(error);
+          showToast(error.message, "error");
+        } else {
+          showToast("Link deleted", "success");
+          setLinks((prev) => prev.filter((l) => l.id !== linkId));
+        }
+      }
+    });
+  };
+
   useEffect(() => {
     async function init() {
       const {
@@ -233,13 +495,242 @@ export default function TeamDetailsView({
           .maybeSingle();
 
         setConversationId(conv?.id || null);
+
+        // Fetch initial workspace data
+        fetchTasks();
+        fetchDocument();
+        fetchLinks();
       }
 
       setChatLoading(false);
     }
 
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team.id, canSeeChat]);
+
+  // Realtime subscription for workspace updates
+  useEffect(() => {
+    if (!canSeeChat) return;
+
+    const tasksChannel = supabase
+      .channel(`team_tasks:${team.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "team_tasks",
+          filter: `team_id=eq.${team.id}`,
+        },
+        () => {
+          supabase
+            .from("team_tasks")
+            .select("*")
+            .eq("team_id", team.id)
+            .order("created_at", { ascending: true })
+            .then(({ data }) => {
+              if (data) setTasks(data);
+            });
+        }
+      )
+      .subscribe();
+
+    const docChannel = supabase
+      .channel(`team_documents:${team.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "team_documents",
+          filter: `team_id=eq.${team.id}`,
+        },
+        (payload) => {
+          const updatedDoc = payload.new as { content: string; updated_by: string };
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user && updatedDoc.updated_by !== user.id) {
+              setDocumentContent(updatedDoc.content);
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    const linksChannel = supabase
+      .channel(`team_links:${team.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "team_links",
+          filter: `team_id=eq.${team.id}`,
+        },
+        () => {
+          supabase
+            .from("team_links")
+            .select("*")
+            .eq("team_id", team.id)
+            .order("created_at", { ascending: false })
+            .then(({ data }) => {
+              if (data) setLinks(data);
+            });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(docChannel);
+      supabase.removeChannel(linksChannel);
+    };
+  }, [team.id, canSeeChat]);
+
+  // Markdown renderer helper
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    const lines = text.split("\n");
+    return lines.map((line, idx) => {
+      if (line.startsWith("# ")) {
+        return <h1 key={idx} className="text-sm font-bold text-white mt-4 mb-2">{line.slice(2)}</h1>;
+      }
+      if (line.startsWith("## ")) {
+        return <h2 key={idx} className="text-xs font-bold text-white mt-3 mb-2">{line.slice(3)}</h2>;
+      }
+      if (line.startsWith("### ")) {
+        return <h3 key={idx} className="text-[11px] font-semibold text-white mt-2 mb-1">{line.slice(4)}</h3>;
+      }
+      if (line.startsWith("- ") || line.startsWith("* ")) {
+        return <li key={idx} className="list-disc ml-5 text-zinc-300 text-xs mb-1">{line.slice(2)}</li>;
+      }
+
+      let content: React.ReactNode = line;
+      if (line.includes("**")) {
+        const parts = line.split("**");
+        content = parts.map((part, pIdx) => {
+          if (pIdx % 2 === 1) {
+            return <strong key={pIdx} className="font-bold text-white">{part}</strong>;
+          }
+          return part;
+        });
+      }
+
+      return <p key={idx} className="text-zinc-300 text-xs min-h-[1.2em] leading-relaxed mb-1">{content}</p>;
+    });
+  };
+
+  // Helper renderers for tasks and links
+  const renderTaskCard = (task: Task) => {
+    const assignee = members.find((m) => m.profiles.id === task.assignee_id);
+    return (
+      <div key={task.id} className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-3 relative group/card hover:border-zinc-700 transition-colors">
+        <div className="flex justify-between items-start gap-2">
+          <h4 className="text-xs font-semibold text-white break-words pr-4">{task.title}</h4>
+          <button
+            onClick={() => handleDeleteTask(task.id)}
+            className="opacity-0 group-hover/card:opacity-100 absolute top-2 right-2 text-zinc-600 hover:text-rose-400 transition-opacity"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {task.description && (
+          <p className="text-[10px] text-zinc-400 leading-relaxed break-words">{task.description}</p>
+        )}
+
+        <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+          <div className="flex items-center gap-1">
+            <select
+              value={task.status}
+              onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value as "todo" | "in_progress" | "completed")}
+              className="text-[9px] font-semibold bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700"
+            >
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+
+            <span className={`text-[8px] font-semibold px-1 py-0.5 rounded border uppercase ${
+              task.priority === "high"
+                ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                : task.priority === "medium"
+                  ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                  : "bg-zinc-800 border-zinc-700 text-zinc-400"
+            }`}>
+              {task.priority}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 min-w-0">
+            {assignee ? (
+              <>
+                {assignee.profiles.avatar_url ? (
+                  <img
+                    src={assignee.profiles.avatar_url}
+                    alt={assignee.profiles.full_name}
+                    className="w-4 h-4 rounded-full object-cover border border-zinc-800 shrink-0"
+                  />
+                ) : (
+                  <div className="w-4 h-4 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center font-bold text-zinc-400 text-[8px] shrink-0">
+                    {assignee.profiles.full_name.charAt(0)}
+                  </div>
+                )}
+                <span className="text-[9px] text-zinc-400 truncate max-w-[60px]">{assignee.profiles.full_name.split(" ")[0]}</span>
+              </>
+            ) : (
+              <span className="text-[9px] text-zinc-600 italic">Unassigned</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCategoryPanel = (cat: "design" | "repo" | "document" | "other", title: string, iconPath: string) => {
+    const catLinks = links.filter((l) => l.category === cat);
+    return (
+      <div className="card card-static p-4 flex flex-col justify-between min-h-[220px]">
+        <div>
+          <div className="flex items-center gap-2 mb-4 border-b border-zinc-900 pb-2">
+            <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
+            </svg>
+            <h4 className="text-xs font-semibold text-white truncate">{title}</h4>
+          </div>
+
+          <div className="space-y-2 overflow-y-auto max-h-[140px] pr-0.5">
+            {catLinks.map((link) => (
+              <div key={link.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-900 hover:border-zinc-850 transition-colors group/link">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-zinc-300 hover:text-white truncate font-medium flex-1 underline underline-offset-2"
+                >
+                  {link.title}
+                </a>
+                <button
+                  onClick={() => handleDeleteLink(link.id)}
+                  className="opacity-0 group-hover/link:opacity-100 text-zinc-600 hover:text-rose-400 transition-opacity shrink-0"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+
+            {catLinks.length === 0 && (
+              <p className="text-[9px] text-zinc-600 italic py-8 text-center font-mono">No links saved</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
 
   const handleLeaveTeam = (memberId: string) => {
@@ -574,9 +1065,14 @@ export default function TeamDetailsView({
 
                   type="button"
                   onClick={() => {
-                    const link = `${window.location.origin}/teams/${team.id}`;
+                    const link = `${window.location.origin}/teams/${team.id}${isOwner ? "?join=true" : ""}`;
                     navigator.clipboard.writeText(link);
-                    showToast("Team link copied. Builders can view it and request to join.", "success");
+                    showToast(
+                      isOwner
+                        ? "Auto-join link copied! Share this with builders to let them join instantly."
+                        : "Team link copied. Builders can view it and request to join.",
+                      "success"
+                    );
                   }}
                   className="btn btn-secondary w-full flex items-center justify-center gap-1.5"
                 >
@@ -693,36 +1189,241 @@ export default function TeamDetailsView({
           <div className="flex items-center justify-between border-b border-[var(--card-border)] pb-3 flex-wrap gap-3">
             <div>
               <p className="section-label mb-0.5 font-mono uppercase tracking-wider">Workspace</p>
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Collaborate</h2>
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Workspace Hub</h2>
+            </div>
+
+            <div className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-800">
+              <button
+                onClick={() => setWorkspaceTab("chat")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "chat"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => setWorkspaceTab("tasks")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "tasks"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Tasks
+              </button>
+              <button
+                onClick={() => setWorkspaceTab("brainstorm")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "brainstorm"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Brainstorm
+              </button>
+              <button
+                onClick={() => setWorkspaceTab("resources")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "resources"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Resources
+              </button>
             </div>
           </div>
 
           {/* Tab Contents */}
           <div className="animate-fade-in">
-            {chatLoading ? (
-              <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
-                <p className="text-[var(--text-tertiary)] text-xs">Loading chat...</p>
-              </div>
-            ) : conversationId && currentUserId ? (
-              <div className="space-y-4">
-                <div className="flex justify-end">
-                  <span className="badge badge-success text-[10px] py-0.5 px-1.5 bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                    <div className="w-1 h-1 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                    Live Chat Thread
-                  </span>
+            {/* 1. CHAT TAB */}
+            {workspaceTab === "chat" && (
+              chatLoading ? (
+                <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
+                  <p className="text-[var(--text-tertiary)] text-xs">Loading chat...</p>
                 </div>
-                <ChatThread
-                  conversationId={conversationId}
-                  currentUserId={currentUserId}
-                  knownProfiles={knownProfiles}
-                  height="400px"
-                />
+              ) : conversationId && currentUserId ? (
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <span className="badge badge-success text-[10px] py-0.5 px-1.5 bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                      Live Chat Thread
+                    </span>
+                  </div>
+                  <ChatThread
+                    conversationId={conversationId}
+                    currentUserId={currentUserId}
+                    knownProfiles={knownProfiles}
+                    height="400px"
+                  />
+                </div>
+              ) : (
+                <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
+                  <p className="text-[var(--text-tertiary)] text-xs">
+                    Chat isn&apos;t available for this team yet.
+                  </p>
+                </div>
+              )
+            )}
+
+            {/* 2. TASKS TAB */}
+            {workspaceTab === "tasks" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Collaborative Kanban</h3>
+                  <button
+                    onClick={() => setShowAddTaskModal(true)}
+                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add Task
+                  </button>
+                </div>
+
+                {loadingTasks ? (
+                  <div className="card card-static p-12 text-center">
+                    <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-zinc-500 text-xs font-mono uppercase">Loading tasks...</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-3 gap-5">
+                    {/* TO DO COLUMN */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold text-zinc-300">To Do</span>
+                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                          {tasks.filter((t) => t.status === "todo").length}
+                        </span>
+                      </div>
+                      <div className="bg-zinc-950/40 border border-zinc-900/60 p-3 rounded-xl min-h-[300px] space-y-2">
+                        {tasks.filter((t) => t.status === "todo").map((task) => renderTaskCard(task))}
+                        {tasks.filter((t) => t.status === "todo").length === 0 && (
+                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* IN PROGRESS COLUMN */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold text-zinc-300">In Progress</span>
+                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                          {tasks.filter((t) => t.status === "in_progress").length}
+                        </span>
+                      </div>
+                      <div className="bg-zinc-950/40 border border-zinc-900/60 p-3 rounded-xl min-h-[300px] space-y-2">
+                        {tasks.filter((t) => t.status === "in_progress").map((task) => renderTaskCard(task))}
+                        {tasks.filter((t) => t.status === "in_progress").length === 0 && (
+                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* COMPLETED COLUMN */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold text-zinc-300">Completed</span>
+                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                          {tasks.filter((t) => t.status === "completed").length}
+                        </span>
+                      </div>
+                      <div className="bg-zinc-950/40 border border-zinc-900/60 p-3 rounded-xl min-h-[300px] space-y-2">
+                        {tasks.filter((t) => t.status === "completed").map((task) => renderTaskCard(task))}
+                        {tasks.filter((t) => t.status === "completed").length === 0 && (
+                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
-                <p className="text-[var(--text-tertiary)] text-xs">
-                  Chat isn&apos;t available for this team yet.
-                </p>
+            )}
+
+            {/* 3. BRAINSTORM TAB */}
+            {workspaceTab === "brainstorm" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Shared Brainstorm Pad</h3>
+                  <button
+                    onClick={handleSaveDocument}
+                    disabled={savingDocument || loadingDocument}
+                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                  >
+                    {savingDocument ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    )}
+                    <span>Sync Document</span>
+                  </button>
+                </div>
+
+                {loadingDocument ? (
+                  <div className="card card-static p-12 text-center">
+                    <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-zinc-500 text-xs font-mono uppercase">Loading document...</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Edit Markdown</label>
+                      <textarea
+                        value={documentContent}
+                        onChange={(e) => setDocumentContent(e.target.value)}
+                        rows={16}
+                        className="input font-mono text-xs w-full h-[350px] resize-none leading-relaxed p-4 bg-zinc-950/60 border border-zinc-900 focus:border-zinc-850"
+                        placeholder="# Brainstorming Ideas&#10;- Idea 1: Custom mobile app for matching builders&#10;- Idea 2: SaaS platform for collaborative hackathon workspaces"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Live Preview</label>
+                      <div className="w-full h-[350px] overflow-y-auto p-4 bg-zinc-950/20 border border-zinc-900 rounded-xl space-y-3 prose prose-invert max-w-none">
+                        {renderMarkdown(documentContent) || (
+                          <p className="text-zinc-600 text-[10px] italic font-mono">Empty document</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 4. RESOURCES TAB */}
+            {workspaceTab === "resources" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Links Directory</h3>
+                  <button
+                    onClick={() => setShowAddLinkModal(true)}
+                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    <span>Add Link</span>
+                  </button>
+                </div>
+
+                {loadingLinks ? (
+                  <div className="card card-static p-12 text-center">
+                    <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-zinc-500 text-xs font-mono uppercase">Loading links...</p>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {renderCategoryPanel("design", "Figma / Design", "M9.813 15.904L9 21m0 0l-.813-5.096M9 21h3.75m-3.75 0H5.25m3.935-10.957a3.75 3.75 0 11-7.37 1.29l1.625 10.155A3.75 3.75 0 007.125 18h3.75a3.75 3.75 0 003.625-2.512l1.625-10.155a3.75 3.75 0 11-7.37-1.29z")}
+                    {renderCategoryPanel("repo", "GitHub / Code", "M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5")}
+                    {renderCategoryPanel("document", "Documents / Slides", "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z")}
+                    {renderCategoryPanel("other", "General / Other", "M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244")}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1024,6 +1725,190 @@ export default function TeamDetailsView({
                     </>
                   ) : (
                     <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Task Modal */}
+      {showAddTaskModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="card card-static p-5 w-full max-w-md flex flex-col bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
+              <div>
+                <h2 className="text-sm font-semibold text-white mb-0.5">Create New Task</h2>
+                <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Assign tasks to builders on your team.</p>
+              </div>
+              <button 
+                onClick={() => setShowAddTaskModal(false)}
+                className="text-zinc-500 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTask} className="space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-zinc-300">Task Title <span className="text-rose-400">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="e.g. Design Landing Page"
+                  className="input text-xs"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-zinc-300">Description</label>
+                <textarea
+                  value={taskDesc}
+                  onChange={(e) => setTaskDesc(e.target.value)}
+                  placeholder="What needs to be done?"
+                  rows={2}
+                  className="input text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-zinc-300">Priority</label>
+                  <select
+                    value={taskPriority}
+                    onChange={(e) => setTaskPriority(e.target.value as "low" | "medium" | "high")}
+                    className="input text-xs px-4"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-zinc-300">Assign To</label>
+                  <select
+                    value={taskAssignee}
+                    onChange={(e) => setTaskAssignee(e.target.value)}
+                    className="input text-xs px-4"
+                  >
+                    <option value="">Unassigned</option>
+                    {members.map((m) => (
+                      <option key={m.profiles.id} value={m.profiles.id}>
+                        {m.profiles.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTaskModal(false)}
+                  className="btn btn-secondary btn-sm"
+                  disabled={savingTask}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  disabled={savingTask}
+                >
+                  {savingTask ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>Create Task</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Link Modal */}
+      {showAddLinkModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="card card-static p-5 w-full max-w-md flex flex-col bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
+              <div>
+                <h2 className="text-sm font-semibold text-white mb-0.5">Add Resource Link</h2>
+                <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Save important workspace links for your team.</p>
+              </div>
+              <button 
+                onClick={() => setShowAddLinkModal(false)}
+                className="text-zinc-500 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddLink} className="space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-zinc-300">Link Title <span className="text-rose-400">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={linkTitle}
+                  onChange={(e) => setLinkTitle(e.target.value)}
+                  placeholder="e.g. Figma Design File"
+                  className="input text-xs"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-zinc-300">URL <span className="text-rose-400">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="e.g. figma.com/file/..."
+                  className="input text-xs"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-zinc-300">Category</label>
+                <select
+                  value={linkCategory}
+                  onChange={(e) => setLinkCategory(e.target.value as "design" | "repo" | "document" | "other")}
+                  className="input text-xs px-4"
+                >
+                  <option value="other">General / Other</option>
+                  <option value="design">Figma / Design</option>
+                  <option value="repo">GitHub / Repository</option>
+                  <option value="document">Document / Slides</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddLinkModal(false)}
+                  className="btn btn-secondary btn-sm"
+                  disabled={savingLink}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  disabled={savingLink}
+                >
+                  {savingLink ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>Add Link</span>
                   )}
                 </button>
               </div>

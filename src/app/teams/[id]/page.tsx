@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TeamDetailsView from "@/components/TeamDetailsView";
 import AuthGuard from "@/components/AuthGuard";
@@ -35,8 +35,9 @@ function TeamDetailsContent() {
   const { showToast, confirm } = useNotification();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const teamId = params.id as string;
-
+  const joinParam = searchParams.get("join") === "true";
 
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -48,6 +49,7 @@ function TeamDetailsContent() {
   const [isOwner, setIsOwner] = useState(false);
   const [teamFull, setTeamFull] = useState(false);
   const [userSkills, setUserSkills] = useState<string[]>([]);
+  const [processedJoin, setProcessedJoin] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -56,6 +58,36 @@ function TeamDetailsContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
+
+  useEffect(() => {
+    if (!loading && team && joinParam && !isOwner && !isMember && !teamFull && !processedJoin) {
+      setTimeout(() => setProcessedJoin(true), 0);
+      confirm({
+        title: "Join Team Instantly",
+        message: `Would you like to instantly join team "${team.name}"?`,
+        confirmText: "Join Team",
+        cancelText: "Cancel",
+        onConfirm: async () => {
+          try {
+            const { error } = await supabase.rpc("join_team_instantly", {
+              p_team_id: teamId,
+            });
+
+            if (error) {
+              showToast(error.message, "error");
+            } else {
+              showToast(`You have successfully joined "${team.name}"!`, "success");
+              loadTeam();
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Failed to join team instantly.", "error");
+          }
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, team, isOwner, isMember, teamFull, joinParam, processedJoin, teamId, confirm, showToast]);
 
   async function loadTeam() {
     const { data: teamData, error: teamError } = await supabase
