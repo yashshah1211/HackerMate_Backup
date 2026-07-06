@@ -136,19 +136,12 @@ async function runDirectSeed() {
     process.exit(1);
   }
 
-  // 2. Read Supabase URL from .env.local
-  const envPath = path.join(__dirname, "..", ".env.local");
-  if (!fs.existsSync(envPath)) {
-    console.error("ERROR: .env.local file not found in frontend directory.");
-    process.exit(1);
-  }
-  const envContent = fs.readFileSync(envPath, "utf8");
-  const urlMatch = envContent.match(/NEXT_PUBLIC_SUPABASE_URL=(.+)/);
-  if (!urlMatch?.[1]) {
-    console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL not found in .env.local");
-    process.exit(1);
-  }
-  const supabaseUrl = urlMatch[1].trim();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+if (!supabaseUrl) {
+  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL environment variable not found.");
+  process.exit(1);
+}
 
   console.log(`Supabase URL: ${supabaseUrl}`);
   console.log("Initializing Supabase Admin Client...");
