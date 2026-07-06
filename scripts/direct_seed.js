@@ -136,10 +136,23 @@ async function runDirectSeed() {
     process.exit(1);
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 if (!supabaseUrl) {
-  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL environment variable not found.");
+  const envPath = path.join(__dirname, "..", ".env.local");
+
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, "utf8");
+    const urlMatch = envContent.match(/NEXT_PUBLIC_SUPABASE_URL=(.+)/);
+
+    if (urlMatch?.[1]) {
+      supabaseUrl = urlMatch[1].trim();
+    }
+  }
+}
+
+if (!supabaseUrl) {
+  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL not found.");
   process.exit(1);
 }
 
@@ -149,8 +162,19 @@ if (!supabaseUrl) {
 
   try {
     // 3. Fetch from Unstop
-const all = await fetchUnstop(1000);
+const all = await fetchUnstop(2000);
 const today = new Date().toISOString().split("T")[0];
+
+const stats = {};
+
+all.forEach((h) => {
+  const status = h.registration_status || "NULL";
+  stats[status] = (stats[status] || 0) + 1;
+});
+
+console.log("Registration status breakdown:");
+console.log(stats);
+
 const now = new Date();
 
 // Only keep hackathons whose registrations are currently open
