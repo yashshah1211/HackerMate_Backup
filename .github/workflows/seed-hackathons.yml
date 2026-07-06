@@ -1,4 +1,4 @@
-name: Weekly Hackathon Seed
+name: Daily Hackathon Seed
 
 on:
   schedule:
@@ -20,7 +20,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: frontend
 
       - name: Run hackathon seed script
         run: node scripts/direct_seed.js ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
