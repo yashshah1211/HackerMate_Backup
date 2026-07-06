@@ -23,11 +23,13 @@ export default function Home() {
 
       setEmail(user.email ?? null);
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("id")
         .eq("id", user.id)
         .single();
+
+      console.log("Landing page - Profile check:", { userId: user.id, data, error });
 
       if (data) {
         const requestedPath = new URLSearchParams(window.location.search).get("next");
@@ -35,8 +37,10 @@ export default function Home() {
           requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
             ? requestedPath
             : "/dashboard";
+        console.log("Landing page - Redirecting to:", safePath);
         router.push(safePath);
       } else {
+        console.log("Landing page - Redirecting to onboarding");
         router.push("/onboarding");
       }
     }
