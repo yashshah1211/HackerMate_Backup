@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
@@ -86,8 +87,17 @@ function HackathonsContent() {
   const [sortBy, setSortBy] = useState("date");
   const [userSkills, setUserSkills] = useState<string[]>([]);
 
+  const searchParams = useSearchParams();
+
   // Tab controller
   const [activeTab, setActiveTab] = useState<"recommended" | "upcoming" | "saved" | "past">("recommended");
+
+  useEffect(() => {
+    const tabParam = searchParams?.get("tab");
+    if (tabParam && ["recommended", "upcoming", "saved", "past"].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [searchParams]);
 
   async function loadHackathons() {
     // 1. Fetch hackathons
@@ -547,7 +557,14 @@ function HackathonsContent() {
 export default function HackathonsPage() {
   return (
     <AuthGuard>
-      <HackathonsContent />
+      <Suspense fallback={
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 border-2 border-zinc-800 border-t-violet-500 rounded-full animate-spin mb-4" />
+          <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest">Loading hackathons...</p>
+        </div>
+      }>
+        <HackathonsContent />
+      </Suspense>
     </AuthGuard>
   );
 }

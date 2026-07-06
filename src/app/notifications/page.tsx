@@ -129,13 +129,20 @@ function NotificationsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     let activeChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
 
     loadNotifications();
 
-    Promise.resolve().then(async () => {
+    async function initRealtime() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !active) return;
+
+      // Clean up previous channel from global client if exists
+      const existingChannel = supabase.channel(`notifications-page:${user.id}`);
+      await supabase.removeChannel(existingChannel);
+
+      if (!active) return;
 
       activeChannel = supabase
         .channel(`notifications-page:${user.id}`)
@@ -150,11 +157,15 @@ function NotificationsContent() {
           () => {
             loadNotifications();
           }
-        )
-        .subscribe();
-    });
+        );
+
+      activeChannel.subscribe();
+    }
+
+    initRealtime();
 
     return () => {
+      active = false;
       if (activeChannel) supabase.removeChannel(activeChannel);
     };
   }, []);

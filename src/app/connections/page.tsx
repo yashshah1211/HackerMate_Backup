@@ -33,14 +33,23 @@ function ConnectionsContent() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     let senderChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
     let receiverChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
 
     loadAll();
 
-    Promise.resolve().then(async () => {
+    async function initRealtime() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !active) return;
+
+      // Clean up previous channel from global client if exists
+      const existingSender = supabase.channel(`friend_requests-sender:${user.id}`);
+      await supabase.removeChannel(existingSender);
+      const existingReceiver = supabase.channel(`friend_requests-receiver:${user.id}`);
+      await supabase.removeChannel(existingReceiver);
+
+      if (!active) return;
 
       senderChannel = supabase.channel(`friend_requests-sender:${user.id}`)
         .on(
@@ -54,8 +63,7 @@ function ConnectionsContent() {
           () => {
             loadAll();
           }
-        )
-        .subscribe();
+        );
 
       receiverChannel = supabase.channel(`friend_requests-receiver:${user.id}`)
         .on(
@@ -69,11 +77,16 @@ function ConnectionsContent() {
           () => {
             loadAll();
           }
-        )
-        .subscribe();
-    });
+        );
+
+      senderChannel.subscribe();
+      receiverChannel.subscribe();
+    }
+
+    initRealtime();
 
     return () => {
+      active = false;
       if (senderChannel) supabase.removeChannel(senderChannel);
       if (receiverChannel) supabase.removeChannel(receiverChannel);
     };

@@ -234,23 +234,29 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const gradientIndex = (profile?.full_name?.charCodeAt(0) || 0) % avatarGradients.length;
   const avatarGradient = avatarGradients[gradientIndex];
 
+  const sidebarAvatarGradients = [
+    ["#FF6B8B", "#B0304F"],
+    ["#7C6FF0", "#4A3FB0"],
+    ["#B4F461", "#6B7F3A"],
+    ["#FFB627", "#B8894A"]
+  ];
+  const sidebarGradientIndex = (profile?.full_name?.charCodeAt(0) || 0) % sidebarAvatarGradients.length;
+  const sidebarColorsGradient = sidebarAvatarGradients[sidebarGradientIndex];
+
   return (
-    <div className="layout-root flex h-screen overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200">
+    <div className="layout-root flex h-screen overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200 dashboard-redesign">
 
       {/* Sidebar */}
       <aside
-        className={`sidebar-panel fixed inset-y-0 left-0 z-40 w-[220px] flex flex-col border-r border-[var(--card-border)] bg-[var(--surface-1)] transition-all duration-300 md:translate-x-0 md:static md:flex-shrink-0 ${showMobileSidebar ? "translate-x-0" : "-translate-x-full"}`}
+        className={`sidebar-panel fixed inset-y-0 left-0 z-40 w-[248px] flex flex-col border-r border-[var(--border-soft)] bg-[var(--bg)] transition-all duration-300 md:translate-x-0 md:static md:flex-shrink-0 ${showMobileSidebar ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Logo */}
-        <div className="px-5 py-5 flex items-center justify-between shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="relative w-8 h-8 rounded-lg overflow-hidden shrink-0">
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500 via-indigo-500 to-cyan-500" />
-              <div className="absolute inset-0 flex items-center justify-center font-black text-[11px] text-white tracking-tight">HM</div>
-            </div>
-            <div>
-              <p className="text-[13px] font-bold text-[var(--text-primary)] tracking-tight leading-none">HackerMate</p>
-              <p className="text-[9px] text-[var(--text-muted)] font-mono uppercase tracking-[0.15em] mt-0.5">Team OS</p>
+        <div className="logo px-5 py-5 flex items-center justify-between shrink-0">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <div className="logo-mark">HM</div>
+            <div className="logo-text text-left">
+              <h1>HackerMate</h1>
+              <span>TEAM OS</span>
             </div>
           </Link>
           <button className="md:hidden text-zinc-500 hover:text-white p-1" onClick={() => setShowMobileSidebar(false)}>
@@ -258,95 +264,100 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <div className="mx-5 h-px bg-gradient-to-r from-transparent via-[var(--card-border)] to-transparent shrink-0" />
-
         {/* Nav links */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-          <p className="px-3 pb-2 text-[9px] font-semibold text-[var(--text-tertiary)] uppercase tracking-[0.18em] font-mono">Navigate</p>
+        <nav className="flex-1 overflow-y-auto">
+          <div className="nav-label">NAVIGATE</div>
 
           {sidebarLinks.map((link) => {
-            const active = pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(link.href));
+            const isSaved = pathname === "/hackathons" && typeof window !== "undefined" && window.location.search.includes("tab=saved");
+            const active = (link.href === "/hackathons" && isSaved)
+              ? false
+              : (pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(link.href)));
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setShowMobileSidebar(false)}
-                className={`group relative flex items-center justify-between px-3 py-2 rounded-lg text-[12.5px] font-medium transition-all duration-150 ease-out ${active ? `${link.activeBg} border border-[var(--card-border)] ${link.color}` : "text-[var(--text-secondary)] hover:bg-[var(--surface-2)] border border-transparent"}`}
+                className={`nav-item ${active ? "active" : ""}`}
               >
-                {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full ${link.activeBar}`} />}
-                <span className="flex items-center gap-3">
-                  <span className={`transition-colors duration-150 ${active ? link.color : "text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]"}`}>{link.icon}</span>
-                  {link.label}
-                </span>
+                {link.href === "/dashboard" && "▤ "}
+                {link.href === "/developers" && "◎ "}
+                {link.href === "/connections" && "⛓ "}
+                {link.href === "/teams" && "👥 "}
+                {link.href === "/hackathons" && "🏆 "}
+                {link.href === "/messages" && "💬 "}
+                {link.label}
                 {link.href === "/messages" && unreadMessages > 0 && (
-                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500/20 text-cyan-500 dark:text-cyan-400 border border-cyan-500/30 text-[9px] flex items-center justify-center font-bold">{unreadMessages}</span>
+                  <span className="nav-badge">{unreadMessages}</span>
                 )}
               </Link>
             );
           })}
 
-          <div className="py-3"><div className="h-px bg-gradient-to-r from-transparent via-[var(--card-border)] to-transparent" /></div>
-
-          <p className="px-3 pb-2 text-[9px] font-semibold text-[var(--text-tertiary)] uppercase tracking-[0.18em] font-mono">Your Stuff</p>
+          <div className="nav-label">YOUR STUFF</div>
 
           <Link
             href="/my-teams"
             onClick={() => setShowMobileSidebar(false)}
-            className={`group relative flex items-center gap-3 px-3 py-2 rounded-lg text-[12.5px] font-medium transition-all duration-150 ease-out ${pathname === "/my-teams" ? "bg-violet-500/5 dark:bg-violet-500/10 border border-[var(--card-border)] text-violet-600 dark:text-violet-400" : "text-[var(--text-secondary)] hover:bg-[var(--surface-2)] border border-transparent"}`}
+            className={`nav-item ${pathname === "/my-teams" ? "active" : ""}`}
           >
-            {pathname === "/my-teams" && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-violet-600 dark:bg-violet-500" />}
-            <span className={`transition-colors duration-150 ${pathname === "/my-teams" ? "text-violet-600 dark:text-violet-400" : "text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]"}`}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
-            </span>
-            My Teams
+            ⚙ My Teams
+          </Link>
+
+          <Link
+            href="/hackathons?tab=saved"
+            onClick={() => setShowMobileSidebar(false)}
+            className={`nav-item ${pathname === "/hackathons" && typeof window !== "undefined" && window.location.search.includes("tab=saved") ? "active" : ""}`}
+          >
+            🔖 Saved Hackathons
           </Link>
         </nav>
 
-        {/* Profile footer */}
-        <div className="shrink-0 p-3 border-t border-[var(--card-border)]">
-          <div className="relative">
-            <button
-              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--surface-2)] transition-colors group"
-            >
-              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white shrink-0`}>{userInitials}</div>
-              <div className="min-w-0 text-left flex-1">
-                <p className="text-[12px] font-semibold text-[var(--text-primary)] truncate leading-none mb-0.5">{profile?.full_name || "Builder"}</p>
-                <p className="text-[10px] text-[var(--text-tertiary)] truncate leading-none">{user?.email}</p>
-              </div>
-              <svg className={`w-3.5 h-3.5 text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)] transition-transform duration-200 shrink-0 ${profileDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {profileDropdownOpen && (
-              <div className="absolute bottom-14 left-0 right-0 rounded-xl border border-[var(--card-border)] bg-[var(--surface-1)] shadow-2xl overflow-hidden z-50">
-                <div className="p-1">
-                  <Link href="/profile/edit" onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.219-.044-7.499-.12a.75.75 0 01-.5-.18z" /></svg>
-                    Edit Profile
-                  </Link>
-                  <Link href={`/profile/${user?.id}`} onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    View Profile
-                  </Link>
-                </div>
-                <div className="h-px bg-[var(--card-border)] mx-1" />
-                <div className="p-1">
-                  <button onClick={() => { setProfileDropdownOpen(false); handleLogout(); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-colors text-left">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            )}
+        {/* Profile footer with dropdown */}
+        <div className="relative mt-auto">
+          <div
+            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+            className="sidebar-footer"
+          >
+            <div className="avatar-sm font-bold text-xs" style={{ background: `linear-gradient(135deg, ${sidebarColorsGradient[0]}, ${sidebarColorsGradient[1]})` }}>
+              {userInitials}
+            </div>
+            <div className="who text-left flex-1 min-w-0">
+              <b className="truncate block">{profile?.full_name || "Builder"}</b>
+              <small className="truncate block text-zinc-500">{user?.email}</small>
+            </div>
+            <svg className={`w-3.5 h-3.5 text-[var(--text-faint)] hover:text-white transition-transform duration-200 shrink-0 ${profileDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+
+          {profileDropdownOpen && (
+            <div className="absolute bottom-16 left-0 right-0 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] shadow-2xl overflow-hidden z-50">
+              <div className="p-1">
+                <Link href="/profile/edit" onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.219-.044-7.499-.12a.75.75 0 01-.5-.18z" /></svg>
+                  Edit Profile
+                </Link>
+                <Link href={`/profile/${user?.id}`} onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  View Profile
+                </Link>
+              </div>
+              <div className="h-px bg-[var(--border-soft)] mx-1" />
+              <div className="p-1">
+                <button onClick={() => { setProfileDropdownOpen(false); handleLogout(); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-colors text-left">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
       {/* Main Content */}
       <div className="content-area flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <header className="topbar-panel h-14 border-b border-[var(--card-border)] flex items-center justify-between px-6 bg-[var(--background)]/80 backdrop-blur-md shrink-0">
+        <header className={`topbar-panel h-14 border-b border-[var(--card-border)] flex items-center justify-between px-6 bg-[var(--background)]/80 backdrop-blur-md shrink-0 ${pathname === "/dashboard" ? "md:hidden" : ""}`}>
           <div className="flex items-center gap-4">
             <button className="md:hidden text-zinc-500 hover:text-white" onClick={() => setShowMobileSidebar(true)}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>

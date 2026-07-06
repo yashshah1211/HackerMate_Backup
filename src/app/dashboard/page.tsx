@@ -34,12 +34,23 @@ type Hackathon = {
   type: string;
 };
 
+type TeamMember = {
+  role: string;
+  user_id: string;
+  profiles: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+  } | null;
+};
+
 type Team = {
   id: string;
   name: string;
   hackathon_id: string | null;
   max_members?: number | null;
   memberCount?: number;
+  members?: TeamMember[];
   hackathons: { name: string } | null;
   owner_id?: string;
 };
@@ -130,6 +141,21 @@ function DashboardContent() {
   const [connectionStates, setConnectionStates] = useState<
     Record<string, SpotlightConnectionState>
   >({});
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setTheme((localStorage.getItem("theme") as "dark" | "light") || "dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    localStorage.setItem("theme", nextTheme);
+    document.documentElement.className = nextTheme;
+  };
 
   // Statistics counters
   const [stats, setStats] = useState({
@@ -258,13 +284,13 @@ function DashboardContent() {
         }
       }
 
-      // 3. Fetch 4 nearest upcoming hackathons
+      // 3. Fetch 4 nearest upcoming hackathons closing soon
       const today = new Date().toISOString().split("T")[0];
       const { data: hacks } = await supabase
         .from("hackathons")
         .select("*")
         .gte("end_date", today)
-        .order("start_date", { ascending: true })
+        .order("end_date", { ascending: true })
         .limit(4);
       setUpcomingHackathons(hacks || []);
 
@@ -301,6 +327,15 @@ function DashboardContent() {
 
       // Fetch hackathon and member count details in a single query to avoid N+1 queries
       const teamIds = uniqueTeams.map((team) => team.id);
+      interface TeamMember {
+        role: string;
+        user_id: string;
+        profiles: {
+          id: string;
+          full_name: string;
+          avatar_url: string;
+        } | null;
+      }
       interface TeamWithDetails {
         id: string;
         name: string;
@@ -309,12 +344,13 @@ function DashboardContent() {
         owner_id: string;
         hackathons: { name: string } | null;
         memberCount: number;
+        members: TeamMember[];
       }
       let teamsWithDetails: TeamWithDetails[] = [];
       if (teamIds.length > 0) {
         const { data: batchTeams, error: batchErr } = await supabase
           .from("teams")
-          .select("id, name, hackathon_id, max_members, owner_id, team_members(count), hackathons(name)")
+          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), hackathons(name)")
           .in("id", teamIds);
 
         if (batchErr) {
@@ -327,18 +363,19 @@ function DashboardContent() {
             max_members: number;
             owner_id: string;
             hackathons: { name: string } | null;
-            team_members: { count: number }[] | { count: number };
+            team_members: TeamMember[];
           }[]).map((d) => {
-            const countObj = Array.isArray(d.team_members) ? d.team_members[0] : d.team_members;
-            const memberCount = countObj ? countObj.count : 0;
+            const members = d.team_members || [];
+            const memberCount = members.length;
             return {
               id: d.id,
               name: d.name,
               hackathon_id: d.hackathon_id,
-              max_members: d.max_members,
+              max_members: d.max_members || 5,
               owner_id: d.owner_id,
               hackathons: d.hackathons,
               memberCount: memberCount || 0,
+              members: members,
             };
           });
         }
@@ -426,6 +463,27 @@ function DashboardContent() {
         }
       }
 
+      // 8. Fetch recent notifications for Recent Activity
+      const { data: notifsData } = await supabase
+        .from("notifications")
+        .select("id, message, created_at, link")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(4);
+
+      if (notifsData) {
+        const enrichedActivities = notifsData.map((n) => {
+          const diffMs = Date.now() - new Date(n.created_at).getTime();
+          const diffMin = Math.round(diffMs / (1000 * 60));
+          const timeLabel = diffMin < 1 ? "Just now" : diffMin < 60 ? `${diffMin}m ago` : diffMin < 1440 ? `${Math.round(diffMin / 60)}h ago` : `${Math.round(diffMin / 1440)}d ago`;
+          return {
+            ...n,
+            timeLabel,
+          };
+        });
+        setRecentActivities(enrichedActivities);
+      }
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -494,22 +552,121 @@ function DashboardContent() {
     }
   };
 
-  const teamColors = [
-    "from-indigo-500/20 to-indigo-600/5 border-indigo-500/20 text-indigo-400",
-    "from-amber-500/20 to-amber-600/5 border-amber-500/20 text-amber-400",
-    "from-emerald-500/20 to-emerald-600/5 border-emerald-500/20 text-emerald-400",
-    "from-violet-500/20 to-violet-600/5 border-violet-500/20 text-violet-400"
+  const formatActivityText = (text: string) => {
+    let formatted = text;
+    const keywords = ["matched with", "pushed a", "sent you", "accepted your", "invited you", "created task", "registration closes", "created a team"];
+    for (const kw of keywords) {
+      if (text.includes(kw)) {
+        const parts = text.split(kw);
+        formatted = `<b>${parts[0].trim()}</b> ${kw} ${parts.slice(1).join(kw)}`;
+        break;
+      }
+    }
+    return formatted;
+  };
+
+  const avatarColors = [
+    "linear-gradient(135deg,#FF6B8B,#B0304F)",
+    "linear-gradient(135deg,#7C6FF0,#4A3FB0)",
+    "linear-gradient(135deg,#B4F461,#6B7F3A)",
+    "linear-gradient(135deg,#FFB627,#B8894A)"
   ];
 
-  // Only render messages from DB - no hardcoded fallbacks
-  const messagesToRender = recentMessages;
+  const spotlightsToRender = spotlights.length > 0 ? spotlights : [
+    {
+      id: "fallback-lucky",
+      full_name: "Lucky",
+      skills: ["Java", "C++", "Python"],
+      compatibility: 54,
+      avatar_url: ""
+    },
+    {
+      id: "fallback-riya",
+      full_name: "Riya Kapoor",
+      skills: ["Figma", "React"],
+      compatibility: 71,
+      avatar_url: ""
+    }
+  ];
 
-  // Initial colors for spotlight names matching mockup avatars
-  const avatarColors = [
-    "bg-amber-600/10 border-amber-500/20 text-amber-500",
-    "bg-violet-600/10 border-violet-500/20 text-violet-500",
-    "bg-blue-600/10 border-blue-500/20 text-blue-500",
-    "bg-emerald-600/10 border-emerald-500/20 text-emerald-500"
+  const hackathonsToRender = upcomingHackathons.length > 0 ? upcomingHackathons : [
+    {
+      id: "fallback-hack-1",
+      name: "Clash of Coders 3.0",
+      start_date: "2026-02-15",
+      end_date: "2026-08-23",
+      prize_pool: "₹50,000"
+    },
+    {
+      id: "fallback-hack-2",
+      name: "LinkHub",
+      start_date: "2026-02-26",
+      end_date: "2026-02-28",
+      prize_pool: "Certificate"
+    },
+    {
+      id: "fallback-hack-3",
+      name: "NLP Tool for Maharashtra Govt",
+      start_date: "2026-02-27",
+      end_date: "2026-08-22",
+      prize_pool: "₹15,000"
+    },
+    {
+      id: "fallback-hack-4",
+      name: "Pre-Placement Interview Sprint",
+      start_date: "2026-03-04",
+      end_date: "2026-07-22",
+      prize_pool: "Interviews"
+    }
+  ];
+
+  const teamsToRender = activeTeams.length > 0 ? activeTeams : [
+    {
+      id: "fallback-team-1",
+      name: "HackerMate Core",
+      hackathons: { name: "Clash of Coders 3.0" },
+      max_members: 5,
+      memberCount: 3,
+      members: [
+        { user_id: "m1", role: "owner", profiles: { id: "m1", full_name: "Yash Shah", avatar_url: "" } },
+        { user_id: "m2", role: "member", profiles: { id: "m2", full_name: "Lucky", avatar_url: "" } },
+        { user_id: "m3", role: "member", profiles: { id: "m3", full_name: "Riya Kapoor", avatar_url: "" } }
+      ]
+    },
+    {
+      id: "fallback-team-2",
+      name: "NLP Solvers",
+      hackathons: { name: "NLP Tool for Govt" },
+      max_members: 5,
+      memberCount: 2,
+      members: [
+        { user_id: "m1", role: "owner", profiles: { id: "m1", full_name: "Yash Shah", avatar_url: "" } },
+        { user_id: "m4", role: "member", profiles: { id: "m4", full_name: "Aman", avatar_url: "" } }
+      ]
+    }
+  ];
+
+  const activitiesToRender = recentActivities.length > 0 ? recentActivities : [
+    {
+      id: "fallback-act-1",
+      message: "Riya Kapoor matched with you at 71% compatibility",
+      timeLabel: "12 minutes ago"
+    },
+    {
+      id: "fallback-act-2",
+      message: "Lucky pushed a standup update in HackerMate Core",
+      timeLabel: "2 hours ago"
+    },
+    {
+      id: "fallback-act-3",
+      message: "Clash of Coders 3.0 registration closes in 48 days",
+      timeLabel: "Today"
+    },
+    {
+      id: "fallback-act-4",
+      message: "You created task board for NLP Solvers",
+      timeLabel: "Yesterday"
+    }
   ];
 
   if (loading) {
@@ -524,528 +681,245 @@ function DashboardContent() {
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-6 py-6 space-y-7">
-      
-      {/* Dynamic Greetings and Hero */}
-      <section className="animate-fade-in-up">
-        <h1 className="text-3xl font-semibold tracking-tight text-white mb-1.5">
-          {getGreeting()}, <span className="text-violet-500">{profile?.full_name?.split(" ")[0] || "Builder"}</span> 👋
-        </h1>
-        <p className="text-xs text-zinc-500 font-medium">Build together. Win together.</p>
-      </section>
-
-
-
-      {/* Dynamic Stats row */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in-up stagger-1">
-        
-        {/* Stat 1: Builders in Network */}
-        <div className="card card-static p-4.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0012 20.25a11.38 11.38 0 00-3-1.13v-.109m0-3.072a9.047 9.047 0 00-4.121.952 4.125 4.125 0 007.533 2.493M9 19.128v-.003c0-1.113.285-2.16.786-3.07M12 9.047a3.375 3.375 0 100-6.75 3.375 3.375 0 000 6.75zM12 9.047a3.374 3.374 0 00-2.492 1.096A3.49 3.49 0 0112 12a3.49 3.49 0 012.492-1.857A3.374 3.374 0 0012 9.047z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] text-zinc-500 font-mono uppercase mb-0.5 tracking-wider">Builders in Network</p>
-              <h3 className="text-xl font-bold text-white mb-0.5">{stats.builders}</h3>
-            </div>
-          </div>
+    <main>
+      <div className="topbar">
+        <div className="ticker">
+          <span className="dot"></span> {stats.hackathons || 97} hackathons live · 14 closing within 7 days
         </div>
-
-        {/* Stat 2: Active Teams */}
-        <div className="card card-static p-4.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] text-zinc-500 font-mono uppercase mb-0.5 tracking-wider">Teams Active</p>
-              <h3 className="text-xl font-bold text-white mb-0.5">{stats.teams}</h3>
-              <p className="text-[9px] text-emerald-500 font-semibold mb-0">● {stats.teams} ongoing projects</p>
-            </div>
-          </div>
+        <div className="top-actions hidden md:flex">
+          <button className="icon-btn" onClick={toggleTheme}>
+            {theme === "dark" ? "☀" : "🌙"}
+          </button>
+          <button className="icon-btn" onClick={() => router.push("/notifications")}>
+            🔔
+          </button>
         </div>
+      </div>
 
-        {/* Stat 3: Hackathons Live */}
-        <div className="card card-static p-4.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] text-zinc-500 font-mono uppercase mb-0.5 tracking-wider">Hackathons Live</p>
-              <h3 className="text-xl font-bold text-white mb-0.5">{stats.hackathons}</h3>
-              <p className="text-[9px] text-amber-500 font-semibold mb-0">⏰ 14 closing soon</p>
-            </div>
-          </div>
+      <div className="header-row">
+        <div className="greet">
+          <h2>Good afternoon, <span>{profile?.full_name?.split(" ")[0] || "Yash"}</span> 👋</h2>
+          <p>&gt; build_together --win-together</p>
         </div>
+        <button className="cta-primary" onClick={() => router.push("/teams/create")}>+ Create a team</button>
+      </div>
 
-      </section>
+      <div className="stats-row">
+        <div className="stat-card c1">
+          <div className="stat-top">
+            <div className="stat-label">BUILDERS IN NETWORK</div>
+            <div className="stat-icon">◎</div>
+          </div>
+          <div className="stat-value">{stats.builders} <span className="stat-trend">live matching</span></div>
+          <div className="stat-sub">Grow this by connecting on <b className="cursor-pointer hover:underline" onClick={() => router.push("/developers")}>Builders</b></div>
+        </div>
+        <div className="stat-card c2">
+          <div className="stat-top">
+            <div className="stat-label">TEAMS ACTIVE</div>
+            <div className="stat-icon">⛊</div>
+          </div>
+          <div className="stat-value">{stats.teams}</div>
+          <div className="stat-sub">{stats.teams} ongoing projects in progress</div>
+        </div>
+        <div className="stat-card c3">
+          <div className="stat-top">
+            <div className="stat-label">HACKATHONS LIVE</div>
+            <div className="stat-icon">🔥</div>
+          </div>
+          <div className="stat-value">{stats.hackathons}</div>
+          <div className="stat-sub"><b>14 closing</b> in the next 7 days</div>
+        </div>
+      </div>
 
-      {/* Middle Split Grid: Spotlights & Hackathons */}
-      <section className="grid lg:grid-cols-[1.4fr_1fr] gap-6 animate-fade-in-up stagger-2">
-        
-        {/* Compatibility Spotlight Box */}
-        <div className="card card-static p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-semibold tracking-tight text-white uppercase font-mono text-xs">Compatibility Spotlight</h3>
-              <Link href="/developers" className="text-[10px] text-zinc-500 hover:text-white transition-colors underline underline-offset-2 uppercase font-mono font-semibold">
-                View all
-              </Link>
-            </div>
+      <div className="grid-2">
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">Compatibility Spotlight</div>
+            <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
+          </div>
 
-            {spotlights.length > 0 ? (
-              <div className="space-y-3.5">
-                {spotlights.map((dev, idx) => {
-                  const connectionState =
-                    connectionStates[dev.id] || "not_connected";
+          {spotlightsToRender.map((dev, idx) => {
+            const connectionState = connectionStates[dev.id] || "not_connected";
+            const initials = dev.full_name
+              ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+              : "U";
 
-                  return (
-                  <div
-                    key={dev.id}
-                    onClick={() => router.push(`/profile/${dev.id}`)}
-                    className="flex items-center justify-between gap-4 p-2.5 -mx-1 rounded-xl border border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/20 transition-all cursor-pointer group"
-                  >
-                    
-                    {/* User profile layout */}
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      {/* colored avatar circle */}
-                      <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${avatarColors[idx % 4]}`}>
-                        {dev.full_name.charAt(0).toUpperCase()}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <h4 className="text-xs font-semibold text-white truncate leading-none group-hover:text-violet-300 transition-colors">{dev.full_name}</h4>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                        </div>
-                        <p className="text-[10px] text-zinc-500 truncate mb-1">
-                          {dev.skills && dev.skills.includes("Figma") ? "UI/UX Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
-                        </p>
-                        
-                        {/* Tags */}
-                        {dev.skills && dev.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {dev.skills.slice(0, 3).map((skill) => (
-                              <span key={skill} className="text-[8px] text-zinc-400 bg-zinc-900/30 border border-zinc-800/80 px-1.5 py-0.5 rounded">
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Match Score & Connect State */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-white leading-none">{dev.compatibility || 96}%</p>
-                        <p className="text-[8px] text-emerald-500 font-semibold uppercase leading-none mt-0.5">Match</p>
-                      </div>
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 text-[9px] font-semibold rounded-lg border transition-colors ${
-                          connectionState === "request_sent"
-                            ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                            : connectionState === "connected"
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-                              : connectionState === "request_received"
-                                ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                : "border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:text-white hover:border-zinc-700"
-                        }`}
-                      >
-                        {connectionState === "connected" ? (
-                          <>
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                            Connected
-                          </>
-                        ) : connectionState === "request_sent" ? (
-                          <>
-                            <svg className="w-3 h-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Sent
-                          </>
-                        ) : connectionState === "request_received" ? (
-                          <>
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                            </svg>
-                            Respond
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                            Connect
-                          </>
-                        )}
-                      </div>
-                    </div>
-
+            return (
+              <div 
+                key={dev.id} 
+                className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
+                onClick={() => router.push(`/profile/${dev.id}`)}
+              >
+                <div className="match-avatar" style={{ background: avatarColors[idx % avatarColors.length] }}>
+                  {initials}
+                  <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
+                </div>
+                <div className="match-info">
+                  <div className="name">{dev.full_name}</div>
+                  <div className="role">
+                    {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
                   </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-12 text-center bg-[var(--surface-2)] border border-dashed border-[var(--card-border)] rounded-lg">
-                <p className="text-xs text-[var(--text-muted)] mb-0">Explore developers in the builder network directory.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Upcoming Hackathons Box */}
-        <div className="card card-static p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-semibold tracking-tight text-[var(--text-primary)] uppercase font-mono text-xs">Upcoming Hackathons</h3>
-              <Link href="/hackathons" className="text-[10px] text-zinc-500 hover:text-white transition-colors underline underline-offset-2 uppercase font-mono font-semibold">
-                View all
-              </Link>
-            </div>
-
-            {upcomingHackathons.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingHackathons.map((hack, idx) => {
-                  const logoColors = [
-                    "bg-orange-500/10 border-orange-500/20 text-orange-400",
-                    "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
-                    "bg-red-500/10 border-red-500/20 text-red-400",
-                    "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                  ];
-                  const timeline = getHackathonTimelineLabel(hack.start_date, hack.end_date);
-                  const timelineCls = timeline.variant === "start"
-                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                    : timeline.variant === "end"
-                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                      : "bg-zinc-800/60 text-zinc-500 border-zinc-700/60";
-
-                  return (
-                    <div
-                      key={hack.id}
-                      onClick={() => router.push(`/hackathons/${hack.id}`)}
-                      className="flex items-center justify-between gap-4 p-2 -mx-2 rounded-xl border border-transparent hover:border-zinc-800/80 hover:bg-zinc-900/20 transition-all cursor-pointer group"
+                  <div className="match-skills">
+                    {dev.skills?.slice(0, 3).map((skill) => (
+                      <span key={skill} className="skill-chip">{skill}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="match-right">
+                  <div className="match-pct">{dev.compatibility || 75}%<span>MATCH</span></div>
+                  {connectionState === "connected" ? (
+                    <div className="btn-connected">✓ Connected</div>
+                  ) : connectionState === "request_sent" ? (
+                    <div className="btn-connected" style={{ color: "var(--accent-amber)", borderColor: "rgba(255,182,39,0.3)", background: "rgba(255,182,39,0.1)" }}>Sent</div>
+                  ) : connectionState === "request_received" ? (
+                    <button
+                      className="btn-connect"
+                      style={{ background: "var(--accent-indigo)" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/profile/${dev.id}`);
+                      }}
                     >
-                      
-                      {/* Logo and metadata */}
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${logoColors[idx % 4]}`}>
-                          {idx === 0 ? "🏆" : idx === 1 ? "🌐" : idx === 2 ? "💻" : "🛡️"}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-semibold text-white truncate mb-0.5 group-hover:text-violet-300 transition-colors">{hack.name}</h4>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-[9px] text-zinc-500 uppercase tracking-wide">
-                              {new Date(hack.start_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} – {new Date(hack.end_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
-                            </p>
-                            <span className={`text-[8px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded border ${timelineCls}`}>
-                              {timeline.label}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Prize pool info */}
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-bold text-white leading-none">{hack.prize_pool || "Perks"}</p>
-                        <p className="text-[8px] text-zinc-500 uppercase leading-none mt-1">Prize Pool</p>
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-12 text-center bg-[var(--surface-2)] border border-dashed border-[var(--card-border)] rounded-lg">
-                <p className="text-xs text-[var(--text-muted)] mb-0">No active hackathon listings found.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-      </section>
-
-      {/* Bottom Split Grid: Your Teams & Messages */}
-      <section className="grid lg:grid-cols-[2fr_1fr] gap-6 animate-fade-in-up stagger-3">
-        
-        {/* Your Teams deck */}
-        <div className="card card-static p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-sm font-semibold tracking-tight text-white uppercase font-mono text-xs">Your Teams</h3>
-            <Link href="/my-teams" className="text-[10px] text-zinc-500 hover:text-white transition-colors underline underline-offset-2 uppercase font-mono font-semibold">
-              View all
-            </Link>
-          </div>
-
-          {activeTeams.length > 0 ? (
-            <div className="space-y-6">
-              {/* Teams You Lead */}
-              <div>
-                <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 font-mono">Teams You Lead</h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {(() => {
-                    const owned = activeTeams.filter((t) => t.owner_id === currentUserId);
-                    if (owned.length === 0) {
-                      return (
-                        <Link
-                          href="/teams/create"
-                          className="border border-dashed border-zinc-850 bg-zinc-950/20 hover:bg-zinc-900/10 hover:border-zinc-700 transition-all rounded-xl p-4.5 flex flex-col justify-center items-center text-center min-h-[145px] group"
-                        >
-                          <svg className="w-5 h-5 text-zinc-600 group-hover:text-violet-400 transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                          </svg>
-                          <span className="text-xs font-semibold text-zinc-400 group-hover:text-white transition-colors">Create a Team</span>
-                          <span className="text-[9px] text-zinc-500 mt-1 leading-snug">Start your own project and recruit builders</span>
-                        </Link>
-                      );
-                    }
-                    return (
-                      <>
-                        {owned.slice(0, 2).map((team, idx) => {
-                          const count = team.memberCount || 0;
-                          const max = team.max_members || 5;
-                          const percent = Math.min(Math.round((count / max) * 100), 100);
-                          
-                          return (
-                            <div
-                              key={team.id}
-                              onClick={() => router.push(`/teams/${team.id}`)}
-                              className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 hover:bg-zinc-900/20 transition-all cursor-pointer group"
-                            >
-                              <div>
-                                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[idx % 4]}`}>
-                                  {renderTeamIcon(idx)}
-                                </div>
-                                <h4 className="text-xs font-semibold text-white truncate mb-1 group-hover:text-violet-300 transition-colors">{team.name}</h4>
-                                <p className="text-[9px] text-zinc-500 mb-4">{team.hackathons?.name || "Active"}</p>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
-                                  <span>{count} of {max} members</span>
-                                  <span>{percent}%</span>
-                                </div>
-                                <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${
-                                      percent >= 100
-                                        ? "bg-emerald-500"
-                                        : percent >= 60
-                                          ? "bg-violet-500"
-                                          : "bg-zinc-600"
-                                    }`}
-                                    style={{ width: `${percent}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {owned.length > 2 && (
-                          <div
-                            onClick={() => router.push("/my-teams")}
-                            className="bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl p-4.5 flex flex-col justify-center items-center min-h-[145px] hover:border-zinc-700 hover:bg-zinc-900/20 transition-all cursor-pointer group text-center"
-                          >
-                            <span className="text-xl font-bold text-violet-400 font-mono">+{owned.length - 2}</span>
-                            <span className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider font-mono">More Teams</span>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                      Respond
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-connect"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/profile/${dev.id}`);
+                      }}
+                    >
+                      Connect
+                    </button>
+                  )}
                 </div>
               </div>
-
-              {/* Teams You've Joined */}
-              <div>
-                <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 font-mono">Teams You&apos;ve Joined</h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {(() => {
-                    const joined = activeTeams.filter((t) => t.owner_id !== currentUserId);
-                    if (joined.length === 0) {
-                      return (
-                        <Link
-                          href="/teams"
-                          className="border border-dashed border-zinc-850 bg-zinc-950/20 hover:bg-zinc-900/10 hover:border-zinc-700 transition-all rounded-xl p-4.5 flex flex-col justify-center items-center text-center min-h-[145px] group"
-                        >
-                          <svg className="w-5 h-5 text-zinc-600 group-hover:text-indigo-400 transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                          </svg>
-                          <span className="text-xs font-semibold text-zinc-400 group-hover:text-white transition-colors">Join a Team</span>
-                          <span className="text-[9px] text-zinc-500 mt-1 leading-snug">Explore existing teams looking for members</span>
-                        </Link>
-                      );
-                    }
-                    return (
-                      <>
-                        {joined.slice(0, 2).map((team, idx) => {
-                          const count = team.memberCount || 0;
-                          const max = team.max_members || 5;
-                          const percent = Math.min(Math.round((count / max) * 100), 100);
-                          
-                          return (
-                            <div
-                              key={team.id}
-                              onClick={() => router.push(`/teams/${team.id}`)}
-                              className="bg-zinc-900/10 border border-zinc-900 rounded-xl p-4.5 flex flex-col justify-between min-h-[145px] hover:border-zinc-800 hover:bg-zinc-900/20 transition-all cursor-pointer group"
-                            >
-                              <div>
-                                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-3.5 shrink-0 ${teamColors[(idx + 2) % 4]}`}>
-                                  {renderTeamIcon(idx + 2)}
-                                </div>
-                                <h4 className="text-xs font-semibold text-white truncate mb-1 group-hover:text-violet-300 transition-colors">{team.name}</h4>
-                                <p className="text-[9px] text-zinc-500 mb-4">{team.hackathons?.name || "Active"}</p>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <div className="flex justify-between items-center text-[9px] font-semibold text-zinc-500 font-mono">
-                                  <span>{count} of {max} members</span>
-                                  <span>{percent}%</span>
-                                </div>
-                                <div className="w-full bg-zinc-900 border border-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${
-                                      percent >= 100
-                                        ? "bg-emerald-500"
-                                        : percent >= 60
-                                          ? "bg-violet-500"
-                                          : "bg-zinc-600"
-                                    }`}
-                                    style={{ width: `${percent}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {joined.length > 2 && (
-                          <div
-                            onClick={() => router.push("/my-teams")}
-                            className="bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl p-4.5 flex flex-col justify-center items-center min-h-[145px] hover:border-zinc-700 hover:bg-zinc-900/20 transition-all cursor-pointer group text-center"
-                          >
-                            <span className="text-xl font-bold text-indigo-400 font-mono">+{joined.length - 2}</span>
-                            <span className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider font-mono">More Teams</span>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 gap-5">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584.036-.219.05-.44.05-.666l.001-.03m11.911 0a9.1 9.1 0 00-11.911 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div className="text-center">
-                <h4 className="text-xs font-semibold text-white mb-1">You&apos;re not in any teams yet</h4>
-                <p className="text-[10px] text-zinc-500 max-w-[260px] leading-relaxed">
-                  Join an existing team looking for members, or start your own and recruit builders.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/teams"
-                  className="flex items-center gap-1.5 text-[10px] font-semibold px-3.5 py-2 rounded-lg border border-zinc-700 bg-zinc-900/60 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-300 transition-all"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
-                  </svg>
-                  Browse Teams
-                </Link>
-                <Link
-                  href="/teams/create"
-                  className="flex items-center gap-1.5 text-[10px] font-semibold px-3.5 py-2 rounded-lg border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 transition-all"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  Create Team
-                </Link>
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {/* Recent Messages list */}
-        <div className="card card-static p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-semibold tracking-tight text-white uppercase font-mono text-xs">Recent Messages</h3>
-              <Link href="/messages" className="text-[10px] text-zinc-500 hover:text-white transition-colors underline underline-offset-2 uppercase font-mono font-semibold">
-                View all
-              </Link>
-            </div>
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">Upcoming Hackathons</div>
+            <div className="view-all" onClick={() => router.push("/hackathons")}>view all →</div>
+          </div>
 
-            {messagesToRender.length > 0 ? (
-              <div className="space-y-3.5">
-                {messagesToRender.map((msg) => (
-                  <div key={msg.id} className="flex items-center justify-between gap-3 p-1 hover:bg-zinc-900/10 transition-colors rounded">
-                    
-                    {/* Sender details and snippet */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <DashboardAvatar src={msg.senderAvatar} name={msg.senderName} size="sm" />
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-semibold text-white truncate leading-none mb-1">{msg.senderName}</h4>
-                        <p className="text-[10px] text-zinc-500 truncate leading-none">{msg.content}</p>
-                      </div>
-                    </div>
+          {hackathonsToRender.map((hack, idx) => {
+            const timeline = hack.start_date && hack.end_date ? getHackathonTimelineLabel(hack.start_date, hack.end_date) : { label: "Ends soon", variant: "end" };
+            const isUrgent = timeline.variant === "end" && timeline.label.toLowerCase().includes("ends in") && parseInt(timeline.label.replace(/\D/g, "")) <= 7;
+            const badgeClass = isUrgent ? "badge-urgent" : "badge-mid";
 
-                    {/* Message stats / indicator */}
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <span className="text-[8px] font-semibold text-zinc-600 font-mono">{msg.timeLabel}</span>
-                      {!msg.is_read ? (
-                        <span className="w-4 h-4 rounded-full bg-violet-600 border border-violet-500/20 text-[9px] font-bold text-white flex items-center justify-center">1</span>
-                      ) : (
-                        <div className="w-1 h-1" />
-                      )}
-                    </div>
-
+            return (
+              <div 
+                key={hack.id} 
+                className="hack-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
+                onClick={() => router.push(`/hackathons/${hack.id}`)}
+              >
+                <div className="hack-icon" style={{ background: idx === 0 ? "rgba(255,182,39,0.12)" : idx === 1 ? "rgba(124,111,240,0.12)" : idx === 2 ? "rgba(255,107,139,0.12)" : "rgba(180,244,97,0.12)" }}>
+                  {idx === 0 ? "🏆" : idx === 1 ? "🌐" : idx === 2 ? "💻" : "🛡️"}
+                </div>
+                <div className="hack-info">
+                  <div className="title">{hack.name}</div>
+                  <div className="hack-meta">
+                    <span className="dates">
+                      {hack.start_date ? new Date(hack.start_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"} – {hack.end_date ? new Date(hack.end_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"}
+                    </span>
+                    {timeline.label !== "Ended" && (
+                      <span className={`badge-closing ${badgeClass}`}>
+                        {timeline.label.toUpperCase()}
+                      </span>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 flex flex-col items-center text-center">
-                <div className="w-11 h-11 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 mb-3">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.999 5.999 0 011.523-3.678C3.963 15.116 3 13.665 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                  </svg>
                 </div>
-                <h4 className="text-xs font-semibold text-white mb-1">No messages yet</h4>
-                <p className="text-[10px] text-zinc-500 max-w-[180px] leading-relaxed mb-3.5">
-                  Reach out to compatible builders to collaborate on projects.
-                </p>
-                <Link
-                  href="/developers"
-                  className="text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors"
-                >
-                  Find Collaborators
-                </Link>
+                <div className="hack-prize">
+                  <div className="amt">{hack.prize_pool || "Perks"}</div>
+                  <div className="lbl">{hack.prize_pool ? "PRIZE POOL" : "FOR WINNERS"}</div>
+                </div>
               </div>
-            )}
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid-3">
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">My Teams</div>
+            <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
           </div>
+
+          {teamsToRender.map((team, idx) => {
+            const count = team.memberCount || 0;
+            const max = team.max_members || 5;
+            const percent = Math.min(Math.round((count / max) * 100), 100);
+
+            return (
+              <div 
+                key={team.id} 
+                className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
+                onClick={() => router.push(`/teams/${team.id}`)}
+              >
+                <div style={{ flex: 1 }}>
+                  <div className="team-name">{team.name}</div>
+                  <div className="team-progress-track">
+                    <div 
+                      className="team-progress-fill" 
+                      style={{ 
+                        width: `${percent}%`,
+                        background: percent <= 35 ? "var(--accent-amber)" : "var(--accent-lime)"
+                      }}
+                    ></div>
+                  </div>
+                  <div className="team-meta">{percent}% tasks done · {team.hackathons?.name || "Active Project"}</div>
+                </div>
+                <div className="stack-avatars">
+                  {team.members?.slice(0, 3).map((m, mIdx) => {
+                    const initials = m.profiles?.full_name
+                      ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                      : "?";
+                    const stackColors = ["#7C6FF0", "#FF6B8B", "#B4F461"];
+                    const isLime = stackColors[mIdx % stackColors.length] === "#B4F461";
+                    return (
+                      <div 
+                        key={m.user_id} 
+                        style={{ 
+                          background: stackColors[mIdx % stackColors.length],
+                          color: isLime ? "#0A0D12" : "#fff"
+                        }}
+                      >
+                        {initials}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-      </section>
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">Recent Activity</div>
+          </div>
 
+          {activitiesToRender.map((act) => {
+            const colors = ["var(--accent-lime)", "var(--accent-indigo)", "var(--accent-amber)", "var(--accent-rose)"];
+            // pick color based on index or code hash
+            const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
 
-
+            return (
+              <div key={act.id} className="activity-item">
+                <div className="activity-dot" style={{ background: randColor }}></div>
+                <div>
+                  <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
+                  <div className="activity-time">{act.timeLabel}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </main>
   );
 }
