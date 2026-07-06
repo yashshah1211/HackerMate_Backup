@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import { useNotification } from "@/context/NotificationContext";
 
@@ -737,8 +737,7 @@ export default function TeamDetailsView({
               if (data) setTasks(data);
             });
         }
-      )
-      .subscribe();
+      );
 
     const docChannel = supabase
       .channel(`team_documents:${team.id}`)
@@ -758,8 +757,7 @@ export default function TeamDetailsView({
             }
           });
         }
-      )
-      .subscribe();
+      );
 
     const linksChannel = supabase
       .channel(`team_links:${team.id}`)
@@ -781,13 +779,16 @@ export default function TeamDetailsView({
               if (data) setLinks(data);
             });
         }
-      )
-      .subscribe();
+      );
+
+    const unsubTasks = subscribeWithRetry(tasksChannel);
+    const unsubDoc = subscribeWithRetry(docChannel);
+    const unsubLinks = subscribeWithRetry(linksChannel);
 
     return () => {
-      supabase.removeChannel(tasksChannel);
-      supabase.removeChannel(docChannel);
-      supabase.removeChannel(linksChannel);
+      unsubTasks();
+      unsubDoc();
+      unsubLinks();
     };
   }, [team.id, canSeeChat]);
 
@@ -1937,6 +1938,20 @@ export default function TeamDetailsView({
                                 next.add(profile.id);
                                 return next;
                               });
+
+                              // Trigger email alert
+                              if (currentUserId) {
+                                fetch("/api/send-email", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    senderId: currentUserId,
+                                    recipientId: profile.id,
+                                    type: "team_invite",
+                                    teamId: team.id,
+                                  }),
+                                }).catch((err) => console.error("Failed to send fallback notification email:", err));
+                              }
                             }
                           } catch (err) {
                             console.error(err);

@@ -7,6 +7,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 
+import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
+
 type Profile = {
   id: string;
   full_name: string;
@@ -17,6 +19,19 @@ type Profile = {
   linkedin_url: string;
   avatar_url: string;
   skills: string[];
+  github_stats?: {
+    followers: number;
+    public_repos: number;
+    top_languages: Record<string, number>;
+    repos: Array<{
+      name: string;
+      description: string | null;
+      language: string | null;
+      stars: number;
+      url: string;
+    }>;
+  } | null;
+  github_stats_updated_at?: string | null;
 };
 
 type ConnectionState =
@@ -40,6 +55,8 @@ export default function ProfilePage() {
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [alreadyInvited, setAlreadyInvited] = useState(false);
+
+  const [syncing, setSyncing] = useState(false);
 
   // ── Block & Report states ──
   const [isBlockedByMe, setIsBlockedByMe] = useState(false);
@@ -194,6 +211,48 @@ export default function ProfilePage() {
     setLoading(false);
   }
 
+  async function syncGithubData() {
+    if (!profile?.github_url) return;
+    const username = parseGithubUsername(profile.github_url);
+    if (!username) {
+      showToast("Could not parse a valid GitHub username from the URL.", "error");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      showToast("Fetching GitHub data...", "info");
+      const stats = await fetchGithubStats(username);
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          github_stats: stats,
+          github_stats_updated_at: new Date().toISOString()
+        })
+        .eq("id", profile.id);
+
+      if (error) {
+        throw error;
+      }
+
+      showToast("GitHub stats synced successfully!", "success");
+      await loadProfile();
+    } catch (err: any) {
+      console.error(err);
+      if (err.message?.includes("column") && err.message?.includes("does not exist")) {
+        showToast(
+          "Database migration pending. Please run supabase db push to create github_stats column.",
+          "error"
+        );
+      } else {
+        showToast(err.message || "Failed to sync GitHub statistics.", "error");
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   useEffect(() => {
     if (id) {
       Promise.resolve().then(() => {
@@ -230,6 +289,17 @@ export default function ProfilePage() {
     setConnectionState("request_sent");
     showToast("Connection request sent", "success");
     setConnectionLoading(false);
+
+    // Trigger email alert
+    fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        senderId: currentUserId,
+        recipientId: profile.id,
+        type: "connection_request",
+      }),
+    }).catch((err) => console.error("Failed to send fallback notification email:", err));
   }
 
   async function acceptConnectionRequest() {
@@ -401,6 +471,18 @@ export default function ProfilePage() {
       setAlreadyInvited(true);
       setShowInviteModal(false);
       setSelectedTeam("");
+
+      // Trigger email alert
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          senderId: user.id,
+          recipientId: profile.id,
+          type: "team_invite",
+          teamId: selectedTeam,
+        }),
+      }).catch((err) => console.error("Failed to send fallback notification email:", err));
     } catch (err) {
       console.error(err);
       showToast("Failed to send invite", "error");
@@ -724,8 +806,147 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
+                {/* GitHub Repositories & Language Insights */}
+                {profile.github_url && (
+                  <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-3">
+                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                      <div>
+                        <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">GitHub Repository Insights</p>
+                        {profile.github_stats_updated_at && (
+                          <span className="text-[9px] text-zinc-600 font-mono">
+                            Synced {new Date(profile.github_stats_updated_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {isOwnProfile && (
+                        <button
+                          onClick={syncGithubData}
+                          disabled={syncing}
+                          className="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-800 bg-zinc-900/20 animate-fade-in"
+                        >
+                          {syncing ? (
+                            <>
+                              <div className="w-2.5 h-2.5 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
+                              Syncing...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                              </svg>
+                              Sync Stats
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {profile.github_stats ? (
+                      <div className="space-y-6">
+                        {/* Stats count badges */}
+                        <div className="flex items-center gap-6 border-b border-zinc-900/50 pb-4">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-zinc-500 text-[10px] font-mono">Followers:</span>
+                            <span className="text-white text-sm font-bold font-mono">{profile.github_stats.followers}</span>
+                          </div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-zinc-500 text-[10px] font-mono">Public Repos:</span>
+                            <span className="text-white text-sm font-bold font-mono">{profile.github_stats.public_repos}</span>
+                          </div>
+                        </div>
+
+                        {/* Languages Breakdown */}
+                        {Object.keys(profile.github_stats.top_languages || {}).length > 0 && (
+                          <div>
+                            <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-2.5">Top Languages</p>
+                            {/* Distribution Bar */}
+                            <div className="w-full h-2 rounded-full overflow-hidden flex bg-zinc-900">
+                              {renderLanguageBar(profile.github_stats.top_languages)}
+                            </div>
+                            {/* Legends list */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+                              {renderLanguageLegends(profile.github_stats.top_languages)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top Repos list */}
+                        {profile.github_stats.repos && profile.github_stats.repos.length > 0 && (
+                          <div>
+                            <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Featured Repositories</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {profile.github_stats.repos.map((repo) => (
+                                <a
+                                  key={repo.name}
+                                  href={repo.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-3.5 rounded-lg bg-zinc-950/40 border border-zinc-900/60 hover:border-zinc-800 hover:bg-zinc-900/30 transition-all flex flex-col justify-between group"
+                                >
+                                  <div>
+                                    <h4 className="text-xs font-semibold text-white group-hover:text-indigo-400 transition-colors truncate">
+                                      {repo.name}
+                                    </h4>
+                                    {repo.description && (
+                                      <p className="text-[10px] text-zinc-500 line-clamp-2 mt-1 leading-normal">
+                                        {repo.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between mt-3.5 pt-2 border-t border-zinc-900/40">
+                                    {repo.language ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span
+                                          className="w-2 h-2 rounded-full"
+                                          style={{ backgroundColor: getLanguageColor(repo.language) }}
+                                        />
+                                        <span className="text-[10px] text-zinc-400 font-medium">{repo.language}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-zinc-600">Unknown</span>
+                                    )}
+
+                                    <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                                      <svg className="w-3 h-3 text-amber-500/70" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                      <span className="text-[10px] font-mono font-medium">{repo.stars}</span>
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20">
+                        <svg className="w-8 h-8 text-zinc-700 mx-auto mb-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253" />
+                        </svg>
+                        {isOwnProfile ? (
+                          <>
+                            <p className="text-zinc-500 text-xs mb-3">Enrich your builder card with public repository and language insights.</p>
+                            <button
+                              onClick={syncGithubData}
+                              disabled={syncing}
+                              className="btn btn-primary btn-xs py-1.5 px-4 font-mono uppercase tracking-wider text-[9px]"
+                            >
+                              {syncing ? "Syncing..." : "Sync GitHub Data"}
+                            </button>
+                          </>
+                        ) : (
+                          <p className="text-zinc-600 text-xs">No repository insights synced for this builder yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Skills Grid Section */}
-                <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-3">
+                <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
                   <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-4">Skills & Technologies</p>
 
                   <div className="flex flex-wrap gap-2">
@@ -902,4 +1123,66 @@ function ConnectionButton({
       {loading ? "..." : "Connect"}
     </button>
   );
+}
+
+function getLanguageColor(lang: string): string {
+  const colors: Record<string, string> = {
+    TypeScript: "#3178c6",
+    JavaScript: "#f1e05a",
+    Python: "#3572A5",
+    HTML: "#e34c26",
+    CSS: "#563d7c",
+    Rust: "#dea584",
+    Go: "#00ADD8",
+    C: "#555555",
+    "C++": "#f34b7d",
+    "C#": "#178600",
+    Ruby: "#701516",
+    Java: "#b07219",
+    Swift: "#F05138",
+    Kotlin: "#A97BFF",
+    PHP: "#4F5D95",
+    Shell: "#89e051",
+    Vue: "#41b883",
+    Svelte: "#ff3e00",
+  };
+  return colors[lang] || "#8b949e";
+}
+
+function renderLanguageBar(topLanguages: Record<string, number>) {
+  const total = Object.values(topLanguages).reduce((a, b) => a + b, 0);
+  if (total === 0) return null;
+
+  return Object.entries(topLanguages).map(([lang, count]) => {
+    const pct = ((count / total) * 100).toFixed(1);
+    return (
+      <span
+        key={lang}
+        style={{
+          width: `${pct}%`,
+          backgroundColor: getLanguageColor(lang),
+        }}
+        title={`${lang}: ${pct}%`}
+      />
+    );
+  });
+}
+
+function renderLanguageLegends(topLanguages: Record<string, number>) {
+  const total = Object.values(topLanguages).reduce((a, b) => a + b, 0);
+  if (total === 0) return null;
+
+  return Object.entries(topLanguages).map(([lang, count]) => {
+    const pct = ((count / total) * 100).toFixed(0);
+    return (
+      <div key={lang} className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: getLanguageColor(lang) }}
+        />
+        <span className="font-semibold text-zinc-300">{lang}</span>
+        <span className="text-zinc-500 font-mono">{pct}%</span>
+      </div>
+    );
+  });
 }

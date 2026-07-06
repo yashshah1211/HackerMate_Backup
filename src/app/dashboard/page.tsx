@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 
@@ -513,11 +513,12 @@ function DashboardContent() {
             await loadConnectionStates(user.id);
           }
         }
-      )
-      .subscribe();
+      );
+
+    const unsubscribe = subscribeWithRetry(connectionChannel);
 
     return () => {
-      supabase.removeChannel(connectionChannel);
+      unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
+import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -145,6 +146,23 @@ const COLLEGES = [
       return;
     }
 
+    let stats = null;
+    let statsUpdated = null;
+    const trimmedGithub = github.trim();
+    if (trimmedGithub !== "") {
+      const username = parseGithubUsername(trimmedGithub);
+      if (username) {
+        try {
+          showToast("Syncing GitHub statistics...", "info");
+          stats = await fetchGithubStats(username);
+          statsUpdated = new Date().toISOString();
+        } catch (e: any) {
+          console.error("Failed to auto-sync GitHub statistics during onboarding:", e);
+          showToast("Profile set up, but could not retrieve GitHub repository stats.", "warning");
+        }
+      }
+    }
+
     const { error } = await supabase.from("profiles").insert({
       id: user.id,
       email: user.email,
@@ -158,6 +176,8 @@ const COLLEGES = [
       github_url: github,
       linkedin_url: linkedin,
       skills: selectedSkills,
+      github_stats: stats,
+      github_stats_updated_at: statsUpdated,
     });
 
     setLoading(false);

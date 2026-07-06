@@ -4,7 +4,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import ChatThread from "@/components/chatThread";
 import { useNotification } from "@/context/NotificationContext";
@@ -61,18 +61,19 @@ function MessagesContent() {
         () => {
           loadConversations(currentUserId);
         }
-      )
-      .subscribe();
+      );
+
+    const unsubscribe = subscribeWithRetry(participantChannel);
 
     return () => {
-      supabase.removeChannel(participantChannel);
+      unsubscribe();
     };
   }, [currentUserId]);
 
   useEffect(() => {
     if (!currentUserId || !conversationIds.length) return;
 
-    const activeChannels = conversationIds.map((id) => {
+    const unsubs = conversationIds.map((id) => {
       const channel = supabase
         .channel(`messages-list:${id}`)
         .on(
@@ -86,13 +87,12 @@ function MessagesContent() {
           () => {
             loadConversations(currentUserId);
           }
-        )
-        .subscribe();
-      return channel;
+        );
+      return subscribeWithRetry(channel);
     });
 
     return () => {
-      activeChannels.forEach((c) => supabase.removeChannel(c));
+      unsubs.forEach((unsub) => unsub());
     };
   }, [conversationIds, currentUserId]);
 

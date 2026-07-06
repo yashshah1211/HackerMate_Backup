@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/safety";
 
 type Message = {
@@ -47,8 +47,8 @@ export default function ChatThread({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(30);
   const [loadingMore, setLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
   const isInitialLoad = useRef(true);
   const prevLastMessageId = useRef<string | null>(null);
 
@@ -87,7 +87,6 @@ export default function ChatThread({
     const fetchedMessages = [...(data || [])].reverse();
     setMessages(fetchedMessages);
     setHasMore(data ? data.length === 30 : false);
-    setOffset(30);
 
     // Mark messages as read since we are actively viewing this conversation
     supabase.rpc("mark_conversation_read", {
@@ -178,27 +177,30 @@ export default function ChatThread({
             prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
           );
         }
-      )
-      .subscribe();
+      );
+
+    const unsubscribe = subscribeWithRetry(channel);
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
-    if (target.scrollTop === 0 && hasMore && !loadingMore && messages.length > 0) {
+    if (target.scrollTop === 0 && hasMore && !isLoadingMoreRef.current && messages.length > 0) {
+      isLoadingMoreRef.current = true;
       setLoadingMore(true);
       const prevScrollHeight = target.scrollHeight;
+      const currentOffset = messages.length;
 
       const { data: moreData, error } = await supabase
         .from("messages")
         .select("*")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: false })
-        .range(offset, offset + 29);
+        .range(currentOffset, currentOffset + 29);
 
       if (error) {
         console.error(error);
@@ -230,12 +232,12 @@ export default function ChatThread({
         }
 
         setMessages((prev) => [...olderMessages, ...prev]);
-        setOffset((prev) => prev + 30);
 
         setTimeout(() => {
           target.scrollTop = target.scrollHeight - prevScrollHeight;
         }, 0);
       }
+      isLoadingMoreRef.current = false;
       setLoadingMore(false);
     }
   };

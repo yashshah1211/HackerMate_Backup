@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 
 type Invite = {
@@ -25,15 +25,17 @@ export default function InvitesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let inviteChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+    let active = true;
+    let unsub: (() => void) | null = null;
 
     loadInvites();
 
     Promise.resolve().then(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      if (!active) return;
 
-      inviteChannel = supabase.channel(`team_invites:${user.id}`)
+      const inviteChannel = supabase.channel(`team_invites:${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -45,12 +47,13 @@ export default function InvitesPage() {
           () => {
             loadInvites();
           }
-        )
-        .subscribe();
+        );
+      unsub = subscribeWithRetry(inviteChannel);
     });
 
     return () => {
-      if (inviteChannel) supabase.removeChannel(inviteChannel);
+      active = false;
+      if (unsub) unsub();
     };
   }, []);
 

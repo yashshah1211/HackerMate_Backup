@@ -197,6 +197,21 @@ function DevelopersContent() {
       showToast("Invite sent successfully!", "success");
       setShowInviteModal(false);
       setSelectedTeam("");
+
+      // Trigger email alert
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            senderId: user.id,
+            recipientId: selectedDevId,
+            type: "team_invite",
+            teamId: selectedTeam,
+          }),
+        }).catch((err) => console.error("Failed to send fallback notification email:", err));
+      }
     } catch (err) {
       console.error(err);
       showToast("Failed to send invite.", "error");

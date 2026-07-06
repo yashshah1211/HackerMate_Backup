@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 
@@ -130,7 +130,7 @@ function NotificationsContent() {
 
   useEffect(() => {
     let active = true;
-    let activeChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+    let unsub: (() => void) | null = null;
 
     loadNotifications();
 
@@ -144,7 +144,7 @@ function NotificationsContent() {
 
       if (!active) return;
 
-      activeChannel = supabase
+      const activeChannel = supabase
         .channel(`notifications-page:${user.id}`)
         .on(
           "postgres_changes",
@@ -159,14 +159,14 @@ function NotificationsContent() {
           }
         );
 
-      activeChannel.subscribe();
+      unsub = subscribeWithRetry(activeChannel);
     }
 
     initRealtime();
 
     return () => {
       active = false;
-      if (activeChannel) supabase.removeChannel(activeChannel);
+      if (unsub) unsub();
     };
   }, []);
 

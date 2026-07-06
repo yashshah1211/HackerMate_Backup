@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import FeedbackWidget from "@/components/FeedbackWidget";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
@@ -75,18 +75,20 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    let notifChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
-    let participantChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+    let active = true;
+    let unsubNotif: (() => void) | null = null;
+    let unsubParticipant: (() => void) | null = null;
 
     Promise.resolve().then(async () => {
       const { data: { user: sessionUser } } = await supabase.auth.getUser();
       if (!sessionUser) return;
+      if (!active) return;
       
       await loadUser(sessionUser);
       await loadUnreadCount(sessionUser.id);
       await loadUnreadMessages(sessionUser.id);
 
-      notifChannel = supabase.channel(`notifications-navbar:${sessionUser.id}`)
+      const notifChannel = supabase.channel(`notifications-navbar:${sessionUser.id}`)
         .on("postgres_changes", {
           event: "*",
           schema: "public",
@@ -94,10 +96,9 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           filter: `user_id=eq.${sessionUser.id}`
         }, () => {
           loadUnreadCount(sessionUser.id);
-        })
-        .subscribe();
+        });
 
-      participantChannel = supabase.channel(`participants-navbar:${sessionUser.id}`)
+      const participantChannel = supabase.channel(`participants-navbar:${sessionUser.id}`)
         .on("postgres_changes", {
           event: "*",
           schema: "public",
@@ -105,20 +106,23 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           filter: `user_id=eq.${sessionUser.id}`
         }, () => {
           loadUnreadMessages(sessionUser.id);
-        })
-        .subscribe();
+        });
+
+      unsubNotif = subscribeWithRetry(notifChannel);
+      unsubParticipant = subscribeWithRetry(participantChannel);
     });
 
     return () => {
-      if (notifChannel) supabase.removeChannel(notifChannel);
-      if (participantChannel) supabase.removeChannel(participantChannel);
+      active = false;
+      if (unsubNotif) unsubNotif();
+      if (unsubParticipant) unsubParticipant();
     };
   }, []);
 
   useEffect(() => {
     if (!user || !conversationIds.length) return;
 
-    const activeChannels = conversationIds.map((id) => {
+    const unsubs = conversationIds.map((id) => {
       const channel = supabase.channel(`messages-navbar:${id}`)
         .on(
           "postgres_changes",
@@ -131,15 +135,12 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           () => {
             loadUnreadMessages(user.id);
           }
-        )
-        .subscribe();
-      return channel;
+        );
+      return subscribeWithRetry(channel);
     });
 
     return () => {
-      activeChannels.forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
+      unsubs.forEach((unsub) => unsub());
     };
   }, [conversationIds, user]);
 

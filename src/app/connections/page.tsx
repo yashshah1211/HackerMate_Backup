@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 
@@ -34,8 +34,8 @@ function ConnectionsContent() {
 
   useEffect(() => {
     let active = true;
-    let senderChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
-    let receiverChannel: import("@supabase/supabase-js").RealtimeChannel | null = null;
+    let unsubSender: (() => void) | null = null;
+    let unsubReceiver: (() => void) | null = null;
 
     loadAll();
 
@@ -51,7 +51,7 @@ function ConnectionsContent() {
 
       if (!active) return;
 
-      senderChannel = supabase.channel(`friend_requests-sender:${user.id}`)
+      const senderChannel = supabase.channel(`friend_requests-sender:${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -65,7 +65,7 @@ function ConnectionsContent() {
           }
         );
 
-      receiverChannel = supabase.channel(`friend_requests-receiver:${user.id}`)
+      const receiverChannel = supabase.channel(`friend_requests-receiver:${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -79,16 +79,16 @@ function ConnectionsContent() {
           }
         );
 
-      senderChannel.subscribe();
-      receiverChannel.subscribe();
+      unsubSender = subscribeWithRetry(senderChannel);
+      unsubReceiver = subscribeWithRetry(receiverChannel);
     }
 
     initRealtime();
 
     return () => {
       active = false;
-      if (senderChannel) supabase.removeChannel(senderChannel);
-      if (receiverChannel) supabase.removeChannel(receiverChannel);
+      if (unsubSender) unsubSender();
+      if (unsubReceiver) unsubReceiver();
     };
   }, []);
 

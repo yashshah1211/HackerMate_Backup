@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
+import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
 function EditProfileContent() {
   const router = useRouter();
@@ -18,6 +19,7 @@ function EditProfileContent() {
   const [customCollege, setCustomCollege] = useState("");
   const [bio, setBio] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
+  const [initialGithubUrl, setInitialGithubUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
@@ -116,6 +118,7 @@ function EditProfileContent() {
     }
     setBio(data.bio || "");
     setGithubUrl(data.github_url || "");
+    setInitialGithubUrl(data.github_url || "");
     setLinkedinUrl(data.linkedin_url || "");
     setSelectedSkills(data.skills || []);
 
@@ -151,6 +154,23 @@ function EditProfileContent() {
       return;
     }
 
+    let stats = null;
+    let statsUpdated = null;
+    const trimmedGithub = githubUrl.trim();
+    if (trimmedGithub !== initialGithubUrl.trim() && trimmedGithub !== "") {
+      const username = parseGithubUsername(trimmedGithub);
+      if (username) {
+        try {
+          showToast("Syncing new GitHub statistics...", "info");
+          stats = await fetchGithubStats(username);
+          statsUpdated = new Date().toISOString();
+        } catch (e: any) {
+          console.error("Failed to auto-sync GitHub statistics:", e);
+          showToast("Profile saved, but could not retrieve GitHub repository stats.", "warning");
+        }
+      }
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -162,6 +182,7 @@ function EditProfileContent() {
         github_url: githubUrl,
         linkedin_url: linkedinUrl,
         skills: selectedSkills,
+        ...(stats ? { github_stats: stats, github_stats_updated_at: statsUpdated } : {})
       })
       .eq("id", user.id);
 
