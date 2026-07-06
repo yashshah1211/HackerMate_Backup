@@ -25,25 +25,25 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id")
+        .select("onboarding_completed")
         .eq("id", user.id)
         .single();
 
       console.log("Landing page - Profile check:", { userId: user.id, data, error });
 
-      if (data) {
-        const requestedPath = new URLSearchParams(window.location.search).get("next");
-        const safePath =
-          requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
-            ? requestedPath
-            : "/dashboard";
-        console.log("Landing page - Redirecting to:", safePath);
-        router.push(safePath);
-      } else {
-        console.log("Landing page - Redirecting to onboarding");
-        router.push("/onboarding");
-      }
-    }
+      if (data?.onboarding_completed) {
+  const requestedPath = new URLSearchParams(window.location.search).get("next");
+  const safePath =
+    requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+      ? requestedPath
+      : "/dashboard";
+
+  console.log("Landing page - Redirecting to:", safePath);
+  router.push(safePath);
+} else {
+  console.log("Landing page - Redirecting to onboarding");
+  router.push("/onboarding");
+}}
 
     checkUser();
   }, [router]);

@@ -225,6 +225,10 @@ function DashboardContent() {
         .single();
 
       if (profileData) {
+        if (!profileData.onboarding_completed) {
+          router.push("/onboarding");
+          return;
+        }
         setProfile(profileData);
 
         // Fetch user blocklists

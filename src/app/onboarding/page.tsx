@@ -163,22 +163,22 @@ const COLLEGES = [
       }
     }
 
-    const { error } = await supabase.from("profiles").insert({
-      id: user.id,
-      email: user.email,
-      full_name: user.user_metadata?.full_name || "",
-      avatar_url: user.user_metadata?.avatar_url || "",
-      college:
-        college === "Other"
-          ? customCollege
-          : college,
-      bio,
-      github_url: github,
-      linkedin_url: linkedin,
-      skills: selectedSkills,
-      github_stats: stats,
-      github_stats_updated_at: statsUpdated,
-    });
+    const { error } = await supabase
+  .from("profiles")
+  .update({
+    college:
+      college === "Other"
+        ? customCollege
+        : college,
+    bio,
+    github_url: github,
+    linkedin_url: linkedin,
+    skills: selectedSkills,
+    github_stats: stats,
+    github_stats_updated_at: statsUpdated,
+    onboarding_completed: true,
+  })
+  .eq("id", user.id);
 
     setLoading(false);
 
