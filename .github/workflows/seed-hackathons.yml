@@ -24,7 +24,6 @@ jobs:
 
       - name: Run hackathon seed script
         run: node scripts/direct_seed.js ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        working-directory: frontend
 
       - name: Log completion
         run: echo "✅ Hackathon seed completed on $(date)"
