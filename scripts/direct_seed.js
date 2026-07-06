@@ -41,6 +41,14 @@ async function fetchUnstop(target = 1000) {
     const description = (opp.details || "No description provided.").trim();
     const start_date = opp.start_date || null;
     const end_date = opp.end_date || null;
+    const registration_start =
+      opp.regnRequirements?.start_regn_dt || null;
+
+    const registration_end =
+      opp.regnRequirements?.end_regn_dt || null;
+
+    const registration_status =
+      opp.regnRequirements?.reg_status || null;
 
     let location = "Online", mode = "online";
     if (opp.locations?.length > 0) {
@@ -104,6 +112,9 @@ async function fetchUnstop(target = 1000) {
       description,
       start_date,
       end_date,
+      registration_start,
+      registration_end,
+      registration_status,
       location,
       mode,
       prize_pool,
@@ -144,15 +155,25 @@ async function runDirectSeed() {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    // 3. Fetch from Unstop (fetch broadly, filter to upcoming only)
-    const all = await fetchUnstop(1000);
-    const today = new Date().toISOString().split("T")[0];
+    // 3. Fetch from Unstop
+const all = await fetchUnstop(1000);
+const today = new Date().toISOString().split("T")[0];
+const now = new Date();
 
-    // Only keep hackathons that are upcoming or active (end_date >= today or no end_date)
-    const hackathons = all.filter((h) => !h.end_date || h.end_date >= today);
-    const pastCount = all.length - hackathons.length;
+// Only keep hackathons whose registrations are currently open
+const hackathons = all.filter((h) => {
+  return (
+    h.registration_status === "STARTED" &&
+    h.registration_end &&
+    new Date(h.registration_end) > now
+  );
+});
 
-    console.log(`\n📊 Fetched ${all.length} total  →  ${hackathons.length} upcoming  |  ${pastCount} past (skipped)`);
+const filteredCount = all.length - hackathons.length;
+
+console.log(
+  `\n📊 Fetched ${all.length} total  →  ${hackathons.length} open for registration  |  ${filteredCount} filtered out`
+);
 
     if (hackathons.length === 0) {
       console.error("\nNo upcoming hackathons found. Aborting.");
@@ -165,7 +186,7 @@ async function runDirectSeed() {
       .from("hackathons")
       .delete()
       .eq("type", "external")
-      .lt("end_date", today);
+      .lt("registration_end", new Date().toISOString());
 
     if (deleteError) {
       console.warn("  ⚠️  Could not clean up expired hackathons:", deleteError.message);

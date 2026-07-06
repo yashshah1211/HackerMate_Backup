@@ -1,0 +1,30 @@
+name: Weekly Hackathon Seed
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Everyday at 2:00 AM UTC (7:30 AM IST)
+  workflow_dispatch:       # Allows manual trigger from GitHub Actions UI
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Run hackathon seed script
+        run: node scripts/direct_seed.js ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        working-directory: frontend
+
+      - name: Log completion
+        run: echo "✅ Hackathon seed completed on $(date)"

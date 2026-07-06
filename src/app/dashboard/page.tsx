@@ -573,103 +573,6 @@ function DashboardContent() {
     "linear-gradient(135deg,#FFB627,#B8894A)"
   ];
 
-  const spotlightsToRender = spotlights.length > 0 ? spotlights : [
-    {
-      id: "fallback-lucky",
-      full_name: "Lucky",
-      skills: ["Java", "C++", "Python"],
-      compatibility: 54,
-      avatar_url: ""
-    },
-    {
-      id: "fallback-riya",
-      full_name: "Riya Kapoor",
-      skills: ["Figma", "React"],
-      compatibility: 71,
-      avatar_url: ""
-    }
-  ];
-
-  const hackathonsToRender = upcomingHackathons.length > 0 ? upcomingHackathons : [
-    {
-      id: "fallback-hack-1",
-      name: "Clash of Coders 3.0",
-      start_date: "2026-02-15",
-      end_date: "2026-08-23",
-      prize_pool: "₹50,000"
-    },
-    {
-      id: "fallback-hack-2",
-      name: "LinkHub",
-      start_date: "2026-02-26",
-      end_date: "2026-02-28",
-      prize_pool: "Certificate"
-    },
-    {
-      id: "fallback-hack-3",
-      name: "NLP Tool for Maharashtra Govt",
-      start_date: "2026-02-27",
-      end_date: "2026-08-22",
-      prize_pool: "₹15,000"
-    },
-    {
-      id: "fallback-hack-4",
-      name: "Pre-Placement Interview Sprint",
-      start_date: "2026-03-04",
-      end_date: "2026-07-22",
-      prize_pool: "Interviews"
-    }
-  ];
-
-  const teamsToRender = activeTeams.length > 0 ? activeTeams : [
-    {
-      id: "fallback-team-1",
-      name: "HackerMate Core",
-      hackathons: { name: "Clash of Coders 3.0" },
-      max_members: 5,
-      memberCount: 3,
-      members: [
-        { user_id: "m1", role: "owner", profiles: { id: "m1", full_name: "Yash Shah", avatar_url: "" } },
-        { user_id: "m2", role: "member", profiles: { id: "m2", full_name: "Lucky", avatar_url: "" } },
-        { user_id: "m3", role: "member", profiles: { id: "m3", full_name: "Riya Kapoor", avatar_url: "" } }
-      ]
-    },
-    {
-      id: "fallback-team-2",
-      name: "NLP Solvers",
-      hackathons: { name: "NLP Tool for Govt" },
-      max_members: 5,
-      memberCount: 2,
-      members: [
-        { user_id: "m1", role: "owner", profiles: { id: "m1", full_name: "Yash Shah", avatar_url: "" } },
-        { user_id: "m4", role: "member", profiles: { id: "m4", full_name: "Aman", avatar_url: "" } }
-      ]
-    }
-  ];
-
-  const activitiesToRender = recentActivities.length > 0 ? recentActivities : [
-    {
-      id: "fallback-act-1",
-      message: "Riya Kapoor matched with you at 71% compatibility",
-      timeLabel: "12 minutes ago"
-    },
-    {
-      id: "fallback-act-2",
-      message: "Lucky pushed a standup update in HackerMate Core",
-      timeLabel: "2 hours ago"
-    },
-    {
-      id: "fallback-act-3",
-      message: "Clash of Coders 3.0 registration closes in 48 days",
-      timeLabel: "Today"
-    },
-    {
-      id: "fallback-act-4",
-      message: "You created task board for NLP Solvers",
-      timeLabel: "Yesterday"
-    }
-  ];
-
   if (loading) {
     return (
       <main className="max-w-7xl mx-auto px-6 py-12">
@@ -739,65 +642,73 @@ function DashboardContent() {
             <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
           </div>
 
-          {spotlightsToRender.map((dev, idx) => {
-            const connectionState = connectionStates[dev.id] || "not_connected";
-            const initials = dev.full_name
-              ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-              : "U";
+          {spotlights.length > 0 ? (
+            spotlights.map((dev, idx) => {
+              const connectionState = connectionStates[dev.id] || "not_connected";
+              const initials = dev.full_name
+                ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                : "U";
 
-            return (
-              <div 
-                key={dev.id} 
-                className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
-                onClick={() => router.push(`/profile/${dev.id}`)}
-              >
-                <div className="match-avatar" style={{ background: avatarColors[idx % avatarColors.length] }}>
-                  {initials}
-                  <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
-                </div>
-                <div className="match-info">
-                  <div className="name">{dev.full_name}</div>
-                  <div className="role">
-                    {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+              return (
+                <div 
+                  key={dev.id} 
+                  className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
+                  onClick={() => router.push(`/profile/${dev.id}`)}
+                >
+                  <div className="match-avatar" style={{ background: avatarColors[idx % avatarColors.length] }}>
+                    {initials}
+                    <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
                   </div>
-                  <div className="match-skills">
-                    {dev.skills?.slice(0, 3).map((skill) => (
-                      <span key={skill} className="skill-chip">{skill}</span>
-                    ))}
+                  <div className="match-info">
+                    <div className="name">{dev.full_name}</div>
+                    <div className="role">
+                      {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+                    </div>
+                    <div className="match-skills">
+                      {dev.skills?.slice(0, 3).map((skill) => (
+                        <span key={skill} className="skill-chip">{skill}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="match-right">
+                    <div className="match-pct">{dev.compatibility || 75}%<span>MATCH</span></div>
+                    {connectionState === "connected" ? (
+                      <div className="btn-connected">✓ Connected</div>
+                    ) : connectionState === "request_sent" ? (
+                      <div className="btn-connected" style={{ color: "var(--accent-amber)", borderColor: "rgba(255,182,39,0.3)", background: "rgba(255,182,39,0.1)" }}>Sent</div>
+                    ) : connectionState === "request_received" ? (
+                      <button
+                        className="btn-connect"
+                        style={{ background: "var(--accent-indigo)" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/profile/${dev.id}`);
+                        }}
+                      >
+                        Respond
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-connect"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/profile/${dev.id}`);
+                        }}
+                      >
+                        Connect
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="match-right">
-                  <div className="match-pct">{dev.compatibility || 75}%<span>MATCH</span></div>
-                  {connectionState === "connected" ? (
-                    <div className="btn-connected">✓ Connected</div>
-                  ) : connectionState === "request_sent" ? (
-                    <div className="btn-connected" style={{ color: "var(--accent-amber)", borderColor: "rgba(255,182,39,0.3)", background: "rgba(255,182,39,0.1)" }}>Sent</div>
-                  ) : connectionState === "request_received" ? (
-                    <button
-                      className="btn-connect"
-                      style={{ background: "var(--accent-indigo)" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/profile/${dev.id}`);
-                      }}
-                    >
-                      Respond
-                    </button>
-                  ) : (
-                    <button
-                      className="btn-connect"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/profile/${dev.id}`);
-                      }}
-                    >
-                      Connect
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <span className="text-zinc-600 text-lg mb-2">◎</span>
+              <p className="text-zinc-500 text-xs font-mono">NO COMPATIBLE BUILDERS FOUND</p>
+              <p className="text-[10px] text-zinc-600 mt-1 max-w-[200px] mx-auto">Update your skills on your profile to find matching teammates.</p>
+            </div>
+          )}
         </div>
 
         <div className="panel">
@@ -806,40 +717,48 @@ function DashboardContent() {
             <div className="view-all" onClick={() => router.push("/hackathons")}>view all →</div>
           </div>
 
-          {hackathonsToRender.map((hack, idx) => {
-            const timeline = hack.start_date && hack.end_date ? getHackathonTimelineLabel(hack.start_date, hack.end_date) : { label: "Ends soon", variant: "end" };
-            const isUrgent = timeline.variant === "end" && timeline.label.toLowerCase().includes("ends in") && parseInt(timeline.label.replace(/\D/g, "")) <= 7;
-            const badgeClass = isUrgent ? "badge-urgent" : "badge-mid";
+          {upcomingHackathons.length > 0 ? (
+            upcomingHackathons.map((hack, idx) => {
+              const timeline = hack.start_date && hack.end_date ? getHackathonTimelineLabel(hack.start_date, hack.end_date) : { label: "Ends soon", variant: "end" };
+              const isUrgent = timeline.variant === "end" && timeline.label.toLowerCase().includes("ends in") && parseInt(timeline.label.replace(/\D/g, "")) <= 7;
+              const badgeClass = isUrgent ? "badge-urgent" : "badge-mid";
 
-            return (
-              <div 
-                key={hack.id} 
-                className="hack-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
-                onClick={() => router.push(`/hackathons/${hack.id}`)}
-              >
-                <div className="hack-icon" style={{ background: idx === 0 ? "rgba(255,182,39,0.12)" : idx === 1 ? "rgba(124,111,240,0.12)" : idx === 2 ? "rgba(255,107,139,0.12)" : "rgba(180,244,97,0.12)" }}>
-                  {idx === 0 ? "🏆" : idx === 1 ? "🌐" : idx === 2 ? "💻" : "🛡️"}
-                </div>
-                <div className="hack-info">
-                  <div className="title">{hack.name}</div>
-                  <div className="hack-meta">
-                    <span className="dates">
-                      {hack.start_date ? new Date(hack.start_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"} – {hack.end_date ? new Date(hack.end_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"}
-                    </span>
-                    {timeline.label !== "Ended" && (
-                      <span className={`badge-closing ${badgeClass}`}>
-                        {timeline.label.toUpperCase()}
+              return (
+                <div 
+                  key={hack.id} 
+                  className="hack-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
+                  onClick={() => router.push(`/hackathons/${hack.id}`)}
+                >
+                  <div className="hack-icon" style={{ background: idx === 0 ? "rgba(255,182,39,0.12)" : idx === 1 ? "rgba(124,111,240,0.12)" : idx === 2 ? "rgba(255,107,139,0.12)" : "rgba(180,244,97,0.12)" }}>
+                    {idx === 0 ? "🏆" : idx === 1 ? "🌐" : idx === 2 ? "💻" : "🛡️"}
+                  </div>
+                  <div className="hack-info">
+                    <div className="title">{hack.name}</div>
+                    <div className="hack-meta">
+                      <span className="dates">
+                        {hack.start_date ? new Date(hack.start_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"} – {hack.end_date ? new Date(hack.end_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"}
                       </span>
-                    )}
+                      {timeline.label !== "Ended" && (
+                        <span className={`badge-closing ${badgeClass}`}>
+                          {timeline.label.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="hack-prize">
+                    <div className="amt">{hack.prize_pool || "Perks"}</div>
+                    <div className="lbl">{hack.prize_pool ? "PRIZE POOL" : "FOR WINNERS"}</div>
                   </div>
                 </div>
-                <div className="hack-prize">
-                  <div className="amt">{hack.prize_pool || "Perks"}</div>
-                  <div className="lbl">{hack.prize_pool ? "PRIZE POOL" : "FOR WINNERS"}</div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <span className="text-zinc-600 text-lg mb-2">🏆</span>
+              <p className="text-zinc-500 text-xs font-mono">NO UPCOMING HACKATHONS</p>
+              <p className="text-[10px] text-zinc-600 mt-1">Check back later for newly published events.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -850,53 +769,61 @@ function DashboardContent() {
             <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
           </div>
 
-          {teamsToRender.map((team, idx) => {
-            const count = team.memberCount || 0;
-            const max = team.max_members || 5;
-            const percent = Math.min(Math.round((count / max) * 100), 100);
+          {activeTeams.length > 0 ? (
+            activeTeams.map((team, idx) => {
+              const count = team.memberCount || 0;
+              const max = team.max_members || 5;
+              const percent = Math.min(Math.round((count / max) * 100), 100);
 
-            return (
-              <div 
-                key={team.id} 
-                className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
-                onClick={() => router.push(`/teams/${team.id}`)}
-              >
-                <div style={{ flex: 1 }}>
-                  <div className="team-name">{team.name}</div>
-                  <div className="team-progress-track">
-                    <div 
-                      className="team-progress-fill" 
-                      style={{ 
-                        width: `${percent}%`,
-                        background: percent <= 35 ? "var(--accent-amber)" : "var(--accent-lime)"
-                      }}
-                    ></div>
-                  </div>
-                  <div className="team-meta">{percent}% tasks done · {team.hackathons?.name || "Active Project"}</div>
-                </div>
-                <div className="stack-avatars">
-                  {team.members?.slice(0, 3).map((m, mIdx) => {
-                    const initials = m.profiles?.full_name
-                      ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                      : "?";
-                    const stackColors = ["#7C6FF0", "#FF6B8B", "#B4F461"];
-                    const isLime = stackColors[mIdx % stackColors.length] === "#B4F461";
-                    return (
+              return (
+                <div 
+                  key={team.id} 
+                  className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
+                  onClick={() => router.push(`/teams/${team.id}`)}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div className="team-name">{team.name}</div>
+                    <div className="team-progress-track">
                       <div 
-                        key={m.user_id} 
+                        className="team-progress-fill" 
                         style={{ 
-                          background: stackColors[mIdx % stackColors.length],
-                          color: isLime ? "#0A0D12" : "#fff"
+                          width: `${percent}%`,
+                          background: percent <= 35 ? "var(--accent-amber)" : "var(--accent-lime)"
                         }}
-                      >
-                        {initials}
-                      </div>
-                    );
-                  })}
+                      ></div>
+                    </div>
+                    <div className="team-meta">{percent}% tasks done · {team.hackathons?.name || "Active Project"}</div>
+                  </div>
+                  <div className="stack-avatars">
+                    {team.members?.slice(0, 3).map((m, mIdx) => {
+                      const initials = m.profiles?.full_name
+                        ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                        : "?";
+                      const stackColors = ["#7C6FF0", "#FF6B8B", "#B4F461"];
+                      const isLime = stackColors[mIdx % stackColors.length] === "#B4F461";
+                      return (
+                        <div 
+                          key={m.user_id} 
+                          style={{ 
+                            background: stackColors[mIdx % stackColors.length],
+                            color: isLime ? "#0A0D12" : "#fff"
+                          }}
+                        >
+                          {initials}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <span className="text-zinc-600 text-lg mb-2">⛊</span>
+              <p className="text-zinc-500 text-xs font-mono">NO ACTIVE TEAMS</p>
+              <p className="text-[10px] text-zinc-600 mt-1">Create a team or request to join one to get started.</p>
+            </div>
+          )}
         </div>
 
         <div className="panel">
@@ -904,21 +831,28 @@ function DashboardContent() {
             <div className="panel-title">Recent Activity</div>
           </div>
 
-          {activitiesToRender.map((act) => {
-            const colors = ["var(--accent-lime)", "var(--accent-indigo)", "var(--accent-amber)", "var(--accent-rose)"];
-            // pick color based on index or code hash
-            const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
+          {recentActivities.length > 0 ? (
+            recentActivities.map((act) => {
+              const colors = ["var(--accent-lime)", "var(--accent-indigo)", "var(--accent-amber)", "var(--accent-rose)"];
+              const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
 
-            return (
-              <div key={act.id} className="activity-item">
-                <div className="activity-dot" style={{ background: randColor }}></div>
-                <div>
-                  <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
-                  <div className="activity-time">{act.timeLabel}</div>
+              return (
+                <div key={act.id} className="activity-item">
+                  <div className="activity-dot" style={{ background: randColor }}></div>
+                  <div>
+                    <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
+                    <div className="activity-time">{act.timeLabel}</div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <span className="text-zinc-600 text-lg mb-2">🔔</span>
+              <p className="text-zinc-500 text-xs font-mono">NO RECENT ACTIVITY</p>
+              <p className="text-[10px] text-zinc-600 mt-1">Notifications and network matches will appear here.</p>
+            </div>
+          )}
         </div>
       </div>
     </main>
