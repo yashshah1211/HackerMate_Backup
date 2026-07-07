@@ -36,8 +36,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       .eq("user_id", userId)
       .eq("is_read", false)
       .not("message", "ilike", "%sent you a message%")
-      .not("message", "ilike", "%new message%")
-      .not("link", "ilike", "%/messages%");
+      .not("message", "ilike", "%new message%");
     setUnreadCount(count || 0);
   }
 

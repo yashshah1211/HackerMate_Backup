@@ -691,14 +691,17 @@ export default function TeamDetailsView({
       setCurrentUserId(user.id);
 
       if (canSeeChat) {
-        const { data: conv } = await supabase
-          .from("conversations")
-          .select("id")
-          .eq("team_id", team.id)
-          .eq("type", "team")
-          .maybeSingle();
+        // Use the RPC which handles missing conversation rows safely via
+        // SECURITY DEFINER — direct table inserts are blocked by RLS.
+        const { data: convId, error: convError } = await supabase
+          .rpc("ensure_team_conversation", { p_team_id: team.id });
 
-        setConversationId(conv?.id || null);
+        if (convError) {
+          console.error("Failed to ensure team conversation:", convError);
+          setConversationId(null);
+        } else {
+          setConversationId(convId ?? null);
+        }
 
         // Fetch initial workspace data
         fetchTasks();

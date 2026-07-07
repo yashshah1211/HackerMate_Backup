@@ -177,8 +177,9 @@ function NotificationsContent() {
       .from("notifications")
       .select("*")
       .eq("user_id", user.id)
-      // Exclude chat message notifications — these are tracked via the
-      // unread-message badge in the Navbar, not the notifications feed.
+      // Exclude generic per-message chat notifications (tracked via the
+      // unread-message badge in the Navbar). Mention notifications use
+      // "mentioned" in the message text and are intentionally kept visible.
       .not("message", "ilike", "%sent you a message%")
       .not("message", "ilike", "%new message%")
       .order("created_at", { ascending: false });

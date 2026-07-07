@@ -22,18 +22,15 @@ export default function AuthGuard({
         return;
       }
 
-      // Check if user has completed onboarding (has a profile)
+      // Check if user has completed onboarding
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, onboarding_completed")
         .eq("id", user.id)
         .single();
 
-      console.log("AuthGuard - Profile check:", { userId: user.id, profile, error });
-
-      if (!profile || error) {
-        // User hasn't completed onboarding, redirect to onboarding page
-        console.log("AuthGuard - Redirecting to onboarding");
+      if (!profile || error || !profile.onboarding_completed) {
+        // Profile missing or onboarding not finished — send to onboarding
         window.location.href = "/onboarding";
         return;
       }

@@ -304,6 +304,13 @@ export default function ChatThread({
     const content = input.trim();
     if (!content) return;
 
+    // Enforce message length limit
+    if (content.length > 2000) {
+      setSafetyError("Message is too long (max 2000 characters).");
+      setTimeout(() => setSafetyError(null), 5000);
+      return;
+    }
+
     // Run safety moderation filters
     const safetyResult = moderateMessage(content);
     if (!safetyResult.isValid) {
@@ -314,25 +321,27 @@ export default function ChatThread({
       return;
     }
 
-    const mentionIds: string[] = [];
-
-participants.forEach((user) => {
-  if (
-    safetyResult.sanitized.includes(`@${user.full_name}`)
-  ) {
-    mentionIds.push(user.id);
-  }
-});
+    // Use the IDs collected via the dropdown. Deduplicate and remove any
+    // mention IDs whose @name no longer appears in the final message text
+    // (e.g. user selected then deleted the @name before sending).
+    const resolvedMentionIds = Array.from(new Set(
+      mentionIds.filter((id) => {
+        const user = participants.find((p) => p.id === id);
+        return user ? safetyResult.sanitized.includes(`@${user.full_name}`) : false;
+      })
+    ));
 
     setSending(true);
     setInput("");
+    setMentionIds([]);
+    setShowMentions(false);
     setSafetyError(null);
 
     const { error } = await supabase.rpc("send_message_with_mentions", {
-  p_conversation_id: conversationId,
-  p_content: safetyResult.sanitized,
-  p_mentions: mentionIds,
-});
+      p_conversation_id: conversationId,
+      p_content: safetyResult.sanitized,
+      p_mentions: resolvedMentionIds,
+    });
 
     if (error) {
       console.error(error);
@@ -405,8 +414,7 @@ async function unpinMessage(messageId: string) {
     });
   }
 
-  const pinnedMessage =
-  messages.find((m) => m.is_pinned) || null;
+  const pinnedMessage = [...messages].reverse().find((m) => m.is_pinned) ?? null;
 
   return (
     <div className="card card-static flex flex-col overflow-hidden">
@@ -539,7 +547,7 @@ async function unpinMessage(messageId: string) {
             ⚠️ {safetyError}
           </div>
         )}
-        <div className="flex items-end gap-2.5">
+        <div className="relative flex items-end gap-2.5">
           <textarea
             value={input}
             onChange={(e) => {
