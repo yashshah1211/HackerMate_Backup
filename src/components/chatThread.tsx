@@ -11,6 +11,8 @@ type Message = {
   sender_id: string;
   content: string;
   is_read: boolean;
+  is_pinned?: boolean;
+  mentions?: string[] | null;
   created_at: string;
 };
 
@@ -51,6 +53,13 @@ export default function ChatThread({
   const isLoadingMoreRef = useRef(false);
   const isInitialLoad = useRef(true);
   const prevLastMessageId = useRef<string | null>(null);
+  const [participants, setParticipants] = useState<SenderProfile[]>([]);
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const filteredParticipants = participants.filter((p) =>
+  p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
+);
 
   async function loadMessages() {
     // Check if direct message conversation has blocked participant relationships
@@ -131,11 +140,34 @@ export default function ChatThread({
     }
   }
 
+  async function loadParticipants() {
+  const { data: members } = await supabase
+    .from("conversation_participants")
+    .select("user_id")
+    .eq("conversation_id", conversationId);
+
+  if (!members?.length) return;
+
+  const ids = members.map((m) => m.user_id);
+
+  const { data: users } = await supabase
+    .from("profiles")
+    .select("id, full_name, avatar_url")
+    .in("id", ids);
+
+  if (users) {
+  setParticipants(
+    users.filter((user) => user.id !== currentUserId)
+  );
+}
+  }
+
   useEffect(() => {
     if (!conversationId) return;
     Promise.resolve().then(() => {
-      loadMessages();
-    });
+  loadMessages();
+  loadParticipants();
+});
 
     const channel = supabase
       .channel(`messages:${conversationId}`)
@@ -282,14 +314,25 @@ export default function ChatThread({
       return;
     }
 
+    const mentionIds: string[] = [];
+
+participants.forEach((user) => {
+  if (
+    safetyResult.sanitized.includes(`@${user.full_name}`)
+  ) {
+    mentionIds.push(user.id);
+  }
+});
+
     setSending(true);
     setInput("");
     setSafetyError(null);
 
-    const { error } = await supabase.rpc("send_message", {
-      p_conversation_id: conversationId,
-      p_content: safetyResult.sanitized,
-    });
+    const { error } = await supabase.rpc("send_message_with_mentions", {
+  p_conversation_id: conversationId,
+  p_content: safetyResult.sanitized,
+  p_mentions: mentionIds,
+});
 
     if (error) {
       console.error(error);
@@ -299,6 +342,26 @@ export default function ChatThread({
 
     setSending(false);
   }
+
+  async function pinMessage(messageId: string) {
+  const { error } = await supabase.rpc("pin_message", {
+    p_message_id: messageId,
+  });
+
+  if (error) {
+    console.error(error);
+  }
+}
+
+async function unpinMessage(messageId: string) {
+  const { error } = await supabase.rpc("unpin_message", {
+    p_message_id: messageId,
+  });
+
+  if (error) {
+    console.error(error);
+  }
+}
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -342,6 +405,9 @@ export default function ChatThread({
     });
   }
 
+  const pinnedMessage =
+  messages.find((m) => m.is_pinned) || null;
+
   return (
     <div className="card card-static flex flex-col overflow-hidden">
       {/* Messages */}
@@ -351,6 +417,25 @@ export default function ChatThread({
         className="overflow-y-auto px-4 py-4 space-y-3.5"
         style={{ height }}
       >
+        {pinnedMessage && (
+  <div className="mb-4 sticky top-0 z-10">
+    <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="text-amber-400">📌</span>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-amber-400">
+            Pinned Message
+          </p>
+
+          <p className="text-xs text-zinc-200 truncate">
+            {pinnedMessage.content}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         {loadingMore && (
           <div className="flex justify-center py-2">
             <div className="w-4 h-4 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
@@ -394,15 +479,29 @@ export default function ChatThread({
                       {sender?.full_name || "Unknown"}
                     </span>
                   )}
-                  <div
-                    className={`px-3 py-1.5 rounded text-xs leading-relaxed ${
-                      isMine
-                        ? "bg-white text-black"
-                        : "bg-zinc-900 border border-zinc-800 text-zinc-200"
-                    }`}
-                  >
-                    {renderMessageContent(msg.content, isMine)}
-                  </div>
+                  <div className="group relative">
+  <div
+    className={`px-3 py-1.5 rounded text-xs leading-relaxed ${
+      isMine
+        ? "bg-white text-black"
+        : "bg-zinc-900 border border-zinc-800 text-zinc-200"
+    }`}
+  >
+    {renderMessageContent(msg.content, isMine)}
+  </div>
+
+  <button
+    onClick={() =>
+      msg.is_pinned
+        ? unpinMessage(msg.id)
+        : pinMessage(msg.id)
+    }
+    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-[10px]"
+  >
+    {msg.is_pinned ? "📍" : "📌"}
+  </button>
+</div>
+
                   <div className="flex items-center gap-1 mt-0.5 px-0.5">
                     <span className="text-[9px] text-zinc-600">
                       {formatTime(msg.created_at)}
@@ -443,7 +542,20 @@ export default function ChatThread({
         <div className="flex items-end gap-2.5">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+  const value = e.target.value;
+
+  setInput(value);
+
+  const match = value.match(/@([a-zA-Z\s]*)$/);
+
+  if (match) {
+    setMentionQuery(match[1]);
+    setShowMentions(true);
+  } else {
+    setShowMentions(false);
+  }
+}}
             onKeyDown={handleKeyDown}
             disabled={isBlocked}
             placeholder={isBlocked ? "You cannot message this user." : "Type a message..."}
@@ -460,6 +572,40 @@ export default function ChatThread({
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
+          {showMentions && filteredParticipants.length > 0 && (
+  <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg max-h-48 overflow-y-auto z-50">
+    {filteredParticipants.map((user) => (
+      <button
+        key={user.id}
+        type="button"
+        onClick={() => {
+          const updated = input.replace(
+            /@[a-zA-Z\s]*$/,
+            `@${user.full_name} `
+          );
+
+          setInput(updated);
+          setShowMentions(false);
+
+          setMentionIds((prev) =>
+            prev.includes(user.id)
+              ? prev
+              : [...prev, user.id]
+          );
+        }}
+        className="w-full px-3 py-2 text-left hover:bg-zinc-900 flex items-center gap-2"
+      >
+        <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center text-xs">
+          {user.full_name.charAt(0)}
+        </div>
+
+        <span className="text-sm text-zinc-200">
+          {user.full_name}
+        </span>
+      </button>
+    ))}
+  </div>
+)}
         </div>
       </div>
     </div>
