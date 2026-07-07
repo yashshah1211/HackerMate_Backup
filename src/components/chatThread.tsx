@@ -57,6 +57,8 @@ export default function ChatThread({
   const [mentionIds, setMentionIds] = useState<string[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
+  const [clearedAt, setClearedAt] = useState<string | null>(null);
+  const clearedAtRef = useRef<string | null>(null);
   const filteredParticipants = participants.filter((p) =>
   p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
 );
@@ -80,12 +82,29 @@ export default function ChatThread({
       setIsBlocked(!!block);
     }
 
-    const { data, error } = await supabase
+    // Fetch user's own cleared_at timestamp for this conversation
+    const { data: participantData } = await supabase
+      .from("conversation_participants")
+      .select("cleared_at")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", currentUserId)
+      .maybeSingle();
+
+    const currentClearedAt = participantData?.cleared_at || null;
+    setClearedAt(currentClearedAt);
+    clearedAtRef.current = currentClearedAt;
+
+    let query = supabase
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .range(0, 29);
+      .order("created_at", { ascending: false });
+
+    if (currentClearedAt) {
+      query = query.gt("created_at", currentClearedAt);
+    }
+
+    const { data, error } = await query.range(0, 29);
 
     if (error) {
       console.error(error);
@@ -181,6 +200,8 @@ export default function ChatThread({
         },
         (payload) => {
           const newMsg = payload.new as Message;
+          const activeClearedAt = clearedAtRef.current;
+          if (activeClearedAt && new Date(newMsg.created_at) <= new Date(activeClearedAt)) return;
           const isMine = newMsg.sender_id === currentUserId;
           if (!isMine) {
             supabase.rpc("mark_conversation_read", {
@@ -227,12 +248,17 @@ export default function ChatThread({
       const prevScrollHeight = target.scrollHeight;
       const currentOffset = messages.length;
 
-      const { data: moreData, error } = await supabase
+      let query = supabase
         .from("messages")
         .select("*")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: false })
-        .range(currentOffset, currentOffset + 29);
+        .order("created_at", { ascending: false });
+
+      if (clearedAt) {
+        query = query.gt("created_at", clearedAt);
+      }
+
+      const { data: moreData, error } = await query.range(currentOffset, currentOffset + 29);
 
       if (error) {
         console.error(error);
@@ -372,6 +398,24 @@ async function unpinMessage(messageId: string) {
   }
 }
 
+  async function clearChat() {
+    const nowStr = new Date().toISOString();
+    const { error } = await supabase
+      .from("conversation_participants")
+      .update({ cleared_at: nowStr })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error("Error clearing chat:", error);
+    } else {
+      setClearedAt(nowStr);
+      clearedAtRef.current = nowStr;
+      setMessages([]);
+      setHasMore(false);
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -418,6 +462,19 @@ async function unpinMessage(messageId: string) {
 
   return (
     <div className="card card-static flex flex-col overflow-hidden">
+      <div className="px-4 py-2 border-b border-zinc-900 bg-zinc-950/40 flex items-center justify-between shrink-0">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Team Chat</span>
+        <button
+          onClick={clearChat}
+          className="text-[10px] font-mono text-zinc-500 hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+          </svg>
+          Clear Chat
+        </button>
+      </div>
+
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -466,6 +523,7 @@ async function unpinMessage(messageId: string) {
           messages.map((msg) => {
             const isMine = msg.sender_id === currentUserId;
             const sender = profiles[msg.sender_id];
+            const isMentioned = msg.mentions && msg.mentions.includes(currentUserId);
 
             return (
               <div key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}>
@@ -492,7 +550,9 @@ async function unpinMessage(messageId: string) {
     className={`px-3 py-1.5 rounded text-xs leading-relaxed ${
       isMine
         ? "bg-white text-black"
-        : "bg-zinc-900 border border-zinc-800 text-zinc-200"
+        : isMentioned
+          ? "bg-violet-950/30 border border-violet-500/40 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+          : "bg-zinc-900 border border-zinc-800 text-zinc-200"
     }`}
   >
     {renderMessageContent(msg.content, isMine)}

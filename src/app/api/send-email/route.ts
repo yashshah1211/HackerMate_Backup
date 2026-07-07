@@ -10,7 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { senderId, recipientId, type, teamId } = body;
+    const { senderId, recipientId, type, teamId, warningMessage } = body;
 
     if (!senderId || !recipientId || !type) {
       return NextResponse.json(
@@ -88,6 +88,12 @@ export async function POST(req: NextRequest) {
       textBody = `${sender.full_name} has requested to join your team "${teamName || "HackerMate Team"}". Check out their developer profile to review their skills!`;
       actionLabel = "Manage Team Requests";
       actionUrl = teamId ? `${baseUrl}/teams/${teamId}/requests` : `${baseUrl}/dashboard`;
+    } else if (type === "moderation_warning") {
+      subject = `[HackerMate] Account Behavior Warning Alert`;
+      title = "Moderation Warning";
+      textBody = warningMessage || "We have received reports from other community members regarding inappropriate behavior or content on your HackerMate profile. Please review our community guidelines to avoid account suspension.";
+      actionLabel = "Review Profile";
+      actionUrl = `${baseUrl}/profile/edit`;
     } else {
       return NextResponse.json({ error: "Unsupported notification type" }, { status: 400 });
     }

@@ -105,15 +105,10 @@ begin
   )
   returning id into v_team_id;
 
+  -- conversation created by trg_create_team_conversation
+  -- participant row created by trg_add_member_to_team_conversation
   insert into public.team_members (team_id, user_id, role)
   values (v_team_id, v_user_id, 'owner');
-
-  insert into public.conversations (type, team_id)
-  values ('team', v_team_id)
-  returning id into v_conversation_id;
-
-  insert into public.conversation_participants (conversation_id, user_id)
-  values (v_conversation_id, v_user_id);
 
   return v_team_id;
 end;

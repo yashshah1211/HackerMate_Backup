@@ -220,10 +220,11 @@ function HackathonDetailContent() {
   }
 
   async function fetchMatchedBuilders(hack: Hackathon, viewerUserId: string | null) {
-    // Build the text corpus to scan
+    // Build the text corpus to scan (including tags)
     const hackText = [
       hack.name ?? "",
       hack.description ? htmlToPlainText(hack.description) : "",
+      ...(hack.tags || []),
     ].join(" ").toLowerCase();
 
     // Fetch blocked lists so we can exclude them
@@ -241,14 +242,12 @@ function HackathonDetailContent() {
       if (theirBlocks) blockedIds.push(...theirBlocks.map((b) => b.blocker_id));
     }
 
-    // Fetch profiles whose skills overlap with hackathon tags (to avoid massive over-fetching)
+    // Fetch profiles to scan for matches (limited to 100 to prevent over-fetching)
     let query = supabase
       .from("profiles")
-      .select("id, full_name, college, avatar_url, skills");
+      .select("id, full_name, college, avatar_url, skills")
+      .limit(100);
     if (viewerUserId) query = query.neq("id", viewerUserId);
-    if (hack.tags && hack.tags.length > 0) {
-      query = query.overlaps("skills", hack.tags);
-    }
     const { data: profiles } = await query;
 
     if (!profiles) return;

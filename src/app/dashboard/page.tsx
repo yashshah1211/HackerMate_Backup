@@ -397,6 +397,10 @@ function DashboardContent() {
         .select("*", { count: "exact", head: true })
         .gte("end_date", today);
 
+      const { count: globalTeamsCount } = await supabase
+        .from("teams")
+        .select("*", { count: "exact", head: true });
+
       // Fetch unread messages
       let conversationIds: string[] = [];
       if (teamIds.length > 0) {
@@ -420,7 +424,7 @@ function DashboardContent() {
 
       setStats({
         builders: buildersCount ?? 0,
-        teams: teamsWithDetails.length,
+        teams: globalTeamsCount ?? 0,
         hackathons: liveHacksCount ?? 0,
         unread: unreadMsgCount,
       });
@@ -594,14 +598,6 @@ function DashboardContent() {
         <div className="ticker">
           <span className="dot"></span> {stats.hackathons || 97} hackathons live · 14 closing within 7 days
         </div>
-        <div className="top-actions hidden md:flex">
-          <button className="icon-btn" onClick={toggleTheme}>
-            {theme === "dark" ? "☀" : "🌙"}
-          </button>
-          <button className="icon-btn" onClick={() => router.push("/notifications")}>
-            🔔
-          </button>
-        </div>
       </div>
 
       <div className="header-row">
@@ -724,7 +720,11 @@ function DashboardContent() {
           {upcomingHackathons.length > 0 ? (
             upcomingHackathons.map((hack, idx) => {
               const timeline = hack.start_date && hack.end_date ? getHackathonTimelineLabel(hack.start_date, hack.end_date) : { label: "Ends soon", variant: "end" };
-              const isUrgent = timeline.variant === "end" && timeline.label.toLowerCase().includes("ends in") && parseInt(timeline.label.replace(/\D/g, "")) <= 7;
+              const isUrgent = timeline.variant === "end" && (
+                timeline.label.toLowerCase().includes("today") ||
+                timeline.label.toLowerCase().includes("tomorrow") ||
+                (timeline.label.toLowerCase().includes("ends in") && parseInt(timeline.label.replace(/\D/g, "")) <= 1)
+              );
               const badgeClass = isUrgent ? "badge-urgent" : "badge-mid";
 
               return (

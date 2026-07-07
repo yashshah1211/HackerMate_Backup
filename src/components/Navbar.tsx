@@ -5,14 +5,16 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import { useNotification } from "@/context/NotificationContext";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { showToast } = useNotification();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [user, setUser] = useState<import("@supabase/supabase-js").User | null>(null);
-  const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string | null; role?: string | null } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -93,8 +95,12 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           schema: "public",
           table: "notifications",
           filter: `user_id=eq.${sessionUser.id}`
-        }, () => {
+        }, (payload) => {
           loadUnreadCount(sessionUser.id);
+          if (payload.eventType === "INSERT") {
+            const newNotif = payload.new as { message: string };
+            showToast(newNotif.message, "info");
+          }
         });
 
       const participantChannel = supabase.channel(`participants-navbar:${sessionUser.id}`)
@@ -296,6 +302,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
           <div className="nav-label">YOUR STUFF</div>
 
+          {profile?.role === "admin" && (
+            <Link
+              href="/admin"
+              onClick={() => setShowMobileSidebar(false)}
+              className={`nav-item ${pathname === "/admin" ? "active" : ""}`}
+            >
+              🛡️ Admin Panel
+            </Link>
+          )}
+
           <Link
             href="/my-teams"
             onClick={() => setShowMobileSidebar(false)}
@@ -357,7 +373,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <div className="content-area flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <header className={`topbar-panel h-14 border-b border-[var(--card-border)] flex items-center justify-between px-6 bg-[var(--background)]/80 backdrop-blur-md shrink-0 ${pathname === "/dashboard" ? "md:hidden" : ""}`}>
+        <header className="topbar-panel h-14 border-b border-[var(--card-border)] flex items-center justify-between px-6 bg-[var(--background)]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-4">
             <button className="md:hidden text-zinc-500 hover:text-white" onClick={() => setShowMobileSidebar(true)}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
