@@ -203,18 +203,28 @@ export default function ChatThread({
   const clearedAtRef = useRef<string | null>(null);
   const [recipientId, setRecipientId] = useState<string | null>(null);
   const [ownedTeams, setOwnedTeams] = useState<{ id: string; name: string }[]>([]);
+  const [conversationType, setConversationType] = useState<string | null>(null);
   const filteredParticipants = participants.filter((p) =>
   p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
 );
 
   async function loadMessages() {
+    // Fetch conversation type
+    const { data: conversation } = await supabase
+      .from("conversations")
+      .select("type")
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    setConversationType(conversation?.type || null);
+
     // Check if direct message conversation has blocked participant relationships
-    const { data: participants } = await supabase
+    const { data: participantsData } = await supabase
       .from("conversation_participants")
       .select("user_id")
       .eq("conversation_id", conversationId);
 
-    const otherUser = (participants || []).find((p) => p.user_id !== currentUserId);
+    const otherUser = (participantsData || []).find((p) => p.user_id !== currentUserId);
 
     if (otherUser) {
       setRecipientId(otherUser.user_id);
@@ -822,7 +832,7 @@ async function unpinMessage(messageId: string) {
 
       {/* Input */}
       <div className="border-t border-zinc-900 bg-zinc-950/20 p-3">
-        {recipientId && ownedTeams.length > 0 && (
+        {conversationType === "dm" && recipientId && ownedTeams.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-zinc-900/60">
             <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 mr-1 select-none">Quick Invites:</span>
             {ownedTeams.map((team) => (

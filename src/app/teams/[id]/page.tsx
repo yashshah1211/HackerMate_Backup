@@ -52,6 +52,7 @@ function TeamDetailsContent() {
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [processedJoin, setProcessedJoin] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{ id: string; status: string } | null>(null);
+  const [listedHackathons, setListedHackathons] = useState<any[]>([]);
 
   useEffect(() => {
     if (teamId) {
@@ -159,6 +160,32 @@ function TeamDetailsContent() {
       
       const isFull = teamData.max_members && activeMembers.length >= teamData.max_members;
       setTeamFull(!!isFull);
+    }
+
+    // Load listed hackathons from team_hackathons junction table
+    const { data: hackData, error: hackError } = await supabase
+      .from("team_hackathons")
+      .select(`
+        hackathon_id,
+        hackathons (
+          id,
+          name,
+          start_date,
+          end_date
+        )
+      `)
+      .eq("team_id", teamId);
+
+    if (hackError) {
+      console.error("Error loading team hackathons:", hackError);
+      setListedHackathons([]);
+    } else if (hackData) {
+      const list = hackData
+        .map((h: any) => h.hackathons)
+        .filter(Boolean);
+      setListedHackathons(list);
+    } else {
+      setListedHackathons([]);
     }
 
     setLoading(false);
@@ -320,6 +347,35 @@ function TeamDetailsContent() {
     }
   }
 
+  async function unlinkHackathon(hackathonId: string) {
+    if (!team) return;
+    confirm({
+      title: "Remove from Hackathon Listing",
+      message: "Are you sure you want to remove this team from the hackathon listing?",
+      confirmText: "Remove Listing",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from("team_hackathons")
+            .delete()
+            .eq("team_id", team.id)
+            .eq("hackathon_id", hackathonId);
+
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast("Team unlinked from hackathon.", "success");
+            loadTeam();
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to unlink team.", "error");
+        }
+      }
+    });
+  }
+
   const teamSkills = team?.skills || [];
   const matchedSkills = teamSkills.filter((skill) => userSkills.includes(skill));
   const missingSkills = teamSkills.filter((skill) => !userSkills.includes(skill));
@@ -367,6 +423,8 @@ function TeamDetailsContent() {
         missingSkills={missingSkills}
         refreshTeam={loadTeam}
         pendingInvite={pendingInvite}
+        listedHackathons={listedHackathons}
+        unlinkHackathon={unlinkHackathon}
       />
   );
 

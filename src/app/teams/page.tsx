@@ -15,6 +15,7 @@ type Team = {
   max_members: number;
   is_recruiting?: boolean;
   team_members?: { id: string }[];
+  team_hackathons?: { hackathons: { id: string; name: string } | null }[];
 };
 
 function TeamsContent() {
@@ -45,7 +46,7 @@ function TeamsContent() {
 
     const { data, error } = await supabase
       .from("teams")
-      .select("*, team_members(id)")
+      .select("*, team_members(id), team_hackathons(hackathons(id, name))")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -92,6 +93,9 @@ function TeamsContent() {
 
         const matchesHackathon =
           !hackathonFilter ||
+          team.team_hackathons?.some((th: any) =>
+            th.hackathons?.name?.toLowerCase().includes(hackathonFilter.toLowerCase())
+          ) ||
           team.hackathon_name
             ?.toLowerCase()
             .includes(hackathonFilter.toLowerCase());
@@ -381,7 +385,11 @@ function TeamsContent() {
                         d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.5 18h1.5m4.5-13.764c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.5 18h-1.5"
                       />
                     </svg>
-                    <span className="truncate">{team.hackathon_name || "No Hackathon Listed"}</span>
+                    <span className="truncate">
+                      {team.team_hackathons && team.team_hackathons.length > 0
+                        ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
+                        : (team.hackathon_name || "No Hackathon Listed")}
+                    </span>
                   </div>
                 </div>
 

@@ -80,6 +80,8 @@ type Props = {
   missingSkills?: string[];
   refreshTeam?: () => void;
   pendingInvite?: { id: string; status: string } | null;
+  listedHackathons?: { id: string; name: string; start_date?: string; end_date?: string }[];
+  unlinkHackathon?: (hackathonId: string) => void;
 };
 
 export default function TeamDetailsView({
@@ -99,6 +101,8 @@ export default function TeamDetailsView({
   missingSkills = [],
   refreshTeam,
   pendingInvite,
+  listedHackathons = [],
+  unlinkHackathon,
 }: Props) {
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -1221,71 +1225,74 @@ export default function TeamDetailsView({
             </div>
           </div>
         </div>
-
         {/* Right - Stats & Actions */}
-        <div className="card card-static p-6 animate-fade-in-up stagger-1 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <span className={`badge text-[10px] ${
-                teamFull 
-                  ? "badge-error" 
-                  : (team.is_recruiting === false) 
-                    ? "bg-zinc-800 text-zinc-400 border border-zinc-700" 
-                    : "badge-success"
-              }`}>
-                {teamFull ? "FULL" : (team.is_recruiting === false) ? "CLOSED" : "RECRUITING"}
-              </span>
+        <div className="space-y-6">
+          <div className="card card-static p-6 animate-fade-in-up stagger-1 flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <span className={`badge text-[10px] ${
+                  teamFull 
+                    ? "badge-error" 
+                    : (team.is_recruiting === false) 
+                      ? "bg-zinc-800 text-zinc-400 border border-zinc-700" 
+                      : "badge-success"
+                }`}>
+                  {teamFull ? "FULL" : (team.is_recruiting === false) ? "CLOSED" : "RECRUITING"}
+                </span>
 
 
-              <div className="text-right">
-                <div className="text-xl font-bold text-white">
-                  {members.length}/{team.max_members}
-                </div>
-                <div className="text-zinc-500 text-xs font-mono uppercase">Members</div>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="space-y-4 mb-6 border-t border-zinc-900 pt-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.485a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
-                  </svg>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">College</p>
-                  <p className="text-xs font-medium text-white truncate">
-                    {team.college || "N/A"}
-                  </p>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-white">
+                    {members.length}/{team.max_members}
+                  </div>
+                  <div className="text-zinc-500 text-xs font-mono uppercase">Members</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.5 18h1.5m4.5-13.764c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.5 18h-1.5" />
-                  </svg>
+              {/* Stats */}
+              <div className="space-y-4 mb-6 border-t border-zinc-900 pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.485a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">College</p>
+                    <p className="text-xs font-medium text-white truncate">
+                      {team.college || "N/A"}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Hackathon</p>
-                  <p className="text-xs font-medium text-white truncate">
-                    {team.hackathon_name || "N/A"}
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" />
-                  </svg>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.5 18h1.5m4.5-13.764c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.5 18h-1.5" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">Hackathon</p>
+                    <p className="text-xs font-medium text-white truncate">
+                      {listedHackathons.length > 0
+                        ? (listedHackathons.length === 1 ? listedHackathons[0].name : `${listedHackathons.length} Hackathons`)
+                        : (team.hackathon_name || "N/A")}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Open Spots</p>
-                  <p className="text-xs font-medium text-white">
-                    {Math.max(team.max_members - members.length, 0)}
-                  </p>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">Open Spots</p>
+                    <p className="text-xs font-medium text-white">
+                      {Math.max(team.max_members - members.length, 0)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1411,6 +1418,53 @@ export default function TeamDetailsView({
                 </button>
 
               </>
+            )}
+          </div>
+
+          {/* Hackathons Section */}
+          <div className="card card-static p-6 animate-fade-in-up stagger-2">
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-900">
+              <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-violet-400">
+                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.5 18h1.5m4.5-13.764c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.5 18h-1.5" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-zinc-500 font-mono uppercase">Hackathon Listings</p>
+                <p className="text-xs font-semibold text-white">
+                  Listed in {listedHackathons.length} hackathon{listedHackathons.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+
+            {listedHackathons.length > 0 ? (
+              <div className="space-y-3">
+                {listedHackathons.map((hackathon) => (
+                  <div key={hackathon.id} className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700/80 transition-all flex flex-col gap-2">
+                    <Link
+                      href={`/hackathons/${hackathon.id}`}
+                      className="text-xs font-medium text-white hover:text-violet-400 transition-colors line-clamp-2"
+                    >
+                      {hackathon.name}
+                    </Link>
+                    {isOwner && unlinkHackathon && (
+                      <button
+                        onClick={() => unlinkHackathon(hackathon.id)}
+                        className="btn btn-danger btn-sm py-1 px-2 text-[10px] w-full flex items-center justify-center gap-1 mt-1"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                        </svg>
+                        Remove Listing
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500 text-center py-2">
+                This team is not currently listed in any hackathons.
+              </p>
             )}
           </div>
         </div>

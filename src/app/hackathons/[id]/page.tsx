@@ -253,6 +253,8 @@ function HackathonDetailContent() {
 
       setHackathon(hackathonData);
 
+      let teamsData: any[] = [];
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -286,10 +288,21 @@ function HackathonDetailContent() {
         // Load user-owned teams to support linking/registering
         const { data: ownedTeams } = await supabase
           .from("teams")
-          .select("id, name, hackathon_id, owner_id")
+          .select("id, name, owner_id")
           .eq("owner_id", user.id);
 
-        setUserOwnedTeams(ownedTeams || []);
+        const { data: linkedRelations } = await supabase
+          .from("team_hackathons")
+          .select("team_id")
+          .eq("hackathon_id", hackathonId);
+
+        const linkedTeamIds = new Set(linkedRelations?.map((r) => r.team_id) || []);
+        const enrichedOwnedTeams = (ownedTeams || []).map((t) => ({
+          ...t,
+          hackathon_id: linkedTeamIds.has(t.id) ? hackathonId : null,
+        }));
+
+        setUserOwnedTeams(enrichedOwnedTeams);
 
         const { data: currentUserProfile } = await supabase
           .from("profiles")
@@ -300,16 +313,32 @@ function HackathonDetailContent() {
       }
 
       // Load teams participating in this hackathon
-      const { data: teamsData, error: teamsError } = await supabase
-        .from("teams")
-        .select("*")
-        .eq("hackathon_id", hackathonId)
-        .order("created_at", { ascending: false });
+      const { data: teamRelations, error: teamsError } = await supabase
+        .from("team_hackathons")
+        .select(`
+          teams (
+            id,
+            name,
+            description,
+            college,
+            skills,
+            roles_needed,
+            max_members,
+            is_recruiting,
+            owner_id,
+            created_at
+          )
+        `)
+        .eq("hackathon_id", hackathonId);
 
       if (teamsError) {
         console.error(teamsError);
       } else {
-        setTeams(teamsData || []);
+        teamsData = (teamRelations || [])
+          .map((r: any) => r.teams)
+          .filter(Boolean)
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setTeams(teamsData);
       }
 
       const { data: regData } = await supabase
@@ -349,7 +378,7 @@ function HackathonDetailContent() {
       setResources(resourcesData || []);
 
       // Load all builders of all registered teams for this hackathon
-      const registeredTeamIds = (teamsData || []).map((t) => t.id);
+      const registeredTeamIds = (teamsData || []).map((t: any) => t.id);
       const computedBuilders: BuilderWithMatch[] = [];
 
       if (registeredTeamIds.length > 0) {
@@ -379,7 +408,7 @@ function HackathonDetailContent() {
             if (profile && !uniqueBuildersMap.has(profile.id)) {
               const reg = (regData as unknown as Registration[])?.find((r) => r.user_id === profile.id);
               const isRegistered = !!reg;
-              const teamName = (teamsData || []).find((t) => t.id === tm.team_id)?.name || "";
+              const teamName = (teamsData || []).find((t: any) => t.id === tm.team_id)?.name || "";
 
               uniqueBuildersMap.set(profile.id, {
                 id: profile.id,
@@ -549,9 +578,8 @@ function HackathonDetailContent() {
 
     try {
       const { error } = await supabase
-        .from("teams")
-        .update({ hackathon_id: hackathon.id })
-        .eq("id", selectedTeam);
+        .from("team_hackathons")
+        .insert({ team_id: selectedTeam, hackathon_id: hackathon.id });
 
       if (error) {
         showToast(error.message, "error");
@@ -568,6 +596,39 @@ function HackathonDetailContent() {
     setInviteLoading(false);
   }
 
+  async function handleUnlinkTeam() {
+    const linkedTeam = userOwnedTeams.find((t) => t.hackathon_id === hackathon?.id);
+    if (!linkedTeam || !hackathon) return;
+
+    confirm({
+      title: "Remove Team from Listing",
+      message: `Are you sure you want to remove your team "${linkedTeam.name}" from the listing of "${hackathon.name}"?`,
+      confirmText: "Remove Listing",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setInviteLoading(true);
+        try {
+          const { error } = await supabase
+            .from("team_hackathons")
+            .delete()
+            .eq("team_id", linkedTeam.id)
+            .eq("hackathon_id", hackathon.id);
+
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast("Your team has been unlinked from this hackathon.", "success");
+            loadData();
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to unlink team.", "error");
+        }
+        setInviteLoading(false);
+      }
+    });
+  }
+
   async function performCancel() {
     try {
       // Find team_id first to unlink if needed
@@ -580,9 +641,10 @@ function HackathonDetailContent() {
 
       if (reg?.team_id) {
         await supabase
-          .from("teams")
-          .update({ hackathon_id: null })
-          .eq("id", reg.team_id);
+          .from("team_hackathons")
+          .delete()
+          .eq("team_id", reg.team_id)
+          .eq("hackathon_id", hackathon!.id);
       }
 
       await supabase
@@ -1072,14 +1134,38 @@ function HackathonDetailContent() {
               </>
             )}
 
-            {userOwnedTeams.length > 0 && (
-              <button
-                onClick={() => setShowClaimModal(true)}
-                className="btn btn-secondary w-full"
-              >
-                Claim Team on HackerMate
-              </button>
-            )}
+            {(() => {
+              const linkedTeam = userOwnedTeams.find((t) => t.hackathon_id === hackathon?.id);
+              if (linkedTeam) {
+                return (
+                  <div className="p-3 rounded-lg bg-violet-600/10 border border-violet-500/20 text-center space-y-2">
+                    <p className="text-xs text-zinc-300">
+                      Your team <span className="font-semibold text-white">{linkedTeam.name}</span> is linked to this hackathon.
+                    </p>
+                    <button
+                      onClick={handleUnlinkTeam}
+                      disabled={inviteLoading}
+                      className="btn btn-danger btn-sm w-full flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                      </svg>
+                      <span>Remove Team from Listing</span>
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                userOwnedTeams.length > 0 && (
+                  <button
+                    onClick={() => setShowClaimModal(true)}
+                    className="btn btn-secondary w-full"
+                  >
+                    Claim Team on HackerMate
+                  </button>
+                )
+              );
+            })()}
 
 
             <Link

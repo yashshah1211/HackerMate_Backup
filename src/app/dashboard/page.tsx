@@ -289,6 +289,7 @@ function DashboardContent() {
         max_members: number;
         owner_id: string;
         hackathons: { name: string } | null;
+        team_hackathons?: { hackathons: { name: string } | null }[];
         memberCount: number;
         members: TeamMember[];
       }
@@ -296,7 +297,7 @@ function DashboardContent() {
       if (teamIds.length > 0) {
         const { data: batchTeams, error: batchErr } = await supabase
           .from("teams")
-          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), hackathons(name)")
+          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathons(name))")
           .in("id", teamIds);
 
         if (batchErr) {
@@ -308,18 +309,21 @@ function DashboardContent() {
             hackathon_id: string | null;
             max_members: number;
             owner_id: string;
-            hackathons: { name: string } | null;
+            team_hackathons: { hackathons: { name: string } | null }[];
             team_members: TeamMember[];
           }[]).map((d) => {
             const members = d.team_members || [];
             const memberCount = members.length;
+            const hackathonsData = d.team_hackathons && d.team_hackathons.length > 0 
+              ? d.team_hackathons[0].hackathons 
+              : null;
             return {
               id: d.id,
               name: d.name,
               hackathon_id: d.hackathon_id,
               max_members: d.max_members || 5,
               owner_id: d.owner_id,
-              hackathons: d.hackathons,
+              hackathons: hackathonsData,
               memberCount: memberCount || 0,
               members: members,
             };
