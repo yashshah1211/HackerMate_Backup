@@ -31,6 +31,141 @@ type Props = {
   height?: string;
 };
 
+function TeamInviteCard({ 
+  inviteId, 
+  teamName, 
+  teamId, 
+  isMine,
+  currentUserId 
+}: { 
+  inviteId: string; 
+  teamName: string; 
+  teamId: string; 
+  isMine: boolean;
+  currentUserId: string;
+}) {
+  const [status, setStatus] = useState<string>("loading");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    let active = true;
+    async function fetchStatus() {
+      const { data } = await supabase
+        .from("team_invites")
+        .select("status")
+        .eq("id", inviteId)
+        .maybeSingle();
+      
+      if (active) {
+        if (data) {
+          setStatus(data.status);
+        } else {
+          setStatus("invalid");
+        }
+        setLoading(false);
+      }
+    }
+    fetchStatus();
+    return () => { active = false; };
+  }, [inviteId]);
+
+  const handleAccept = async () => {
+    setActionLoading(true);
+    const { error } = await supabase.rpc("accept_team_invite", {
+      p_invite_id: inviteId,
+    });
+    if (error) {
+      console.error(error);
+    } else {
+      setStatus("accepted");
+    }
+    setActionLoading(false);
+  };
+
+  const handleDecline = async () => {
+    setActionLoading(true);
+    const { error } = await supabase.rpc("reject_team_invite", {
+      p_invite_id: inviteId,
+    });
+    if (error) {
+      console.error(error);
+    } else {
+      setStatus("rejected");
+    }
+    setActionLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <div className="w-3.5 h-3.5 border border-zinc-800 border-t-white rounded-full animate-spin" />
+        <span className="text-[10px] text-zinc-500 font-mono">Loading invitation...</span>
+      </div>
+    );
+  }
+
+  if (status === "invalid") {
+    return (
+      <div className="text-zinc-500 font-mono text-[10px] py-1">
+        ⚠️ Invitation no longer exists
+      </div>
+    );
+  }
+
+  return (
+    <div className={`p-3.5 rounded-xl border my-1 max-w-[280px] shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all ${
+      isMine 
+        ? "bg-zinc-950/80 border-zinc-850 text-zinc-200" 
+        : "bg-violet-950/20 border-violet-500/25 text-violet-100"
+    }`}>
+      <div className="text-[9px] font-mono uppercase tracking-wider text-violet-400 mb-1 flex items-center gap-1">
+        <span>✉</span>
+        <span>Team Invitation</span>
+      </div>
+      <p className="text-xs font-medium leading-relaxed mb-3">
+        {isMine 
+          ? `You invited them to join team "${teamName}"` 
+          : `You are invited to join team "${teamName}"`}
+      </p>
+
+      {status === "pending" ? (
+        isMine ? (
+          <span className="text-[10px] font-mono text-zinc-500 uppercase font-semibold flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse" />
+            Pending Response
+          </span>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={handleAccept}
+              disabled={actionLoading}
+              className="px-3 py-1 text-[10px] font-bold bg-white text-black hover:bg-zinc-200 rounded transition-colors disabled:opacity-50"
+            >
+              {actionLoading ? "Joining..." : "Accept"}
+            </button>
+            <button
+              onClick={handleDecline}
+              disabled={actionLoading}
+              className="px-3 py-1 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded transition-colors disabled:opacity-50"
+            >
+              {actionLoading ? "Declining..." : "Decline"}
+            </button>
+          </div>
+        )
+      ) : status === "accepted" ? (
+        <span className="text-[10px] font-mono text-emerald-400 uppercase font-semibold flex items-center gap-1">
+          ✓ Joined
+        </span>
+      ) : (
+        <span className="text-[10px] font-mono text-zinc-500 uppercase flex items-center gap-1">
+          ✗ Declined
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ChatThread({
   conversationId,
   currentUserId,
@@ -59,6 +194,8 @@ export default function ChatThread({
   const [mentionQuery, setMentionQuery] = useState("");
   const [clearedAt, setClearedAt] = useState<string | null>(null);
   const clearedAtRef = useRef<string | null>(null);
+  const [recipientId, setRecipientId] = useState<string | null>(null);
+  const [ownedTeams, setOwnedTeams] = useState<{ id: string; name: string }[]>([]);
   const filteredParticipants = participants.filter((p) =>
   p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
 );
@@ -73,6 +210,7 @@ export default function ChatThread({
     const otherUser = (participants || []).find((p) => p.user_id !== currentUserId);
 
     if (otherUser) {
+      setRecipientId(otherUser.user_id);
       const { data: block } = await supabase
         .from("blocked_users")
         .select("id")
@@ -80,6 +218,8 @@ export default function ChatThread({
         .maybeSingle();
 
       setIsBlocked(!!block);
+    } else {
+      setRecipientId(null);
     }
 
     // Fetch user's own cleared_at timestamp for this conversation
@@ -240,6 +380,17 @@ export default function ChatThread({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
+  useEffect(() => {
+    if (!currentUserId) return;
+    supabase
+      .from("teams")
+      .select("id, name")
+      .eq("owner_id", currentUserId)
+      .then(({ data }) => {
+        setOwnedTeams(data || []);
+      });
+  }, [currentUserId]);
+
   const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (target.scrollTop === 0 && hasMore && !isLoadingMoreRef.current && messages.length > 0) {
@@ -324,6 +475,46 @@ export default function ChatThread({
 
     prevLastMessageId.current = lastMsg.id;
   }, [messages, loading]);
+
+  async function handleSendQuickInvite(teamId: string, teamName: string) {
+    if (!recipientId || isBlocked || sending) return;
+
+    setSending(true);
+    setSafetyError(null);
+
+    const { data: inviteId, error: rpcError } = await supabase.rpc("send_team_invite", {
+      p_team_id: teamId,
+      p_invited_user_id: recipientId,
+    });
+
+    if (rpcError || !inviteId) {
+      console.error("RPC send_team_invite error:", rpcError);
+      setSafetyError(rpcError?.message || "Failed to create team invitation.");
+      setSending(false);
+      setTimeout(() => setSafetyError(null), 5000);
+      return;
+    }
+
+    const cardContent = `__TEAM_INVITE__::${JSON.stringify({ 
+      invite_id: inviteId, 
+      team_name: teamName, 
+      team_id: teamId 
+    })}`;
+
+    const { error: msgError } = await supabase.rpc("send_message_with_mentions", {
+      p_conversation_id: conversationId,
+      p_content: cardContent,
+      p_mentions: [recipientId],
+    });
+
+    if (msgError) {
+      console.error("Message send error:", msgError);
+      setSafetyError(msgError.message || "Failed to post invite message in chat.");
+      setTimeout(() => setSafetyError(null), 5000);
+    }
+
+    setSending(false);
+  }
 
   async function sendMessage() {
     if (isBlocked) return;
@@ -431,6 +622,24 @@ async function unpinMessage(messageId: string) {
   }
 
   function renderMessageContent(content: string, isMine: boolean) {
+    if (content.startsWith("__TEAM_INVITE__::")) {
+      try {
+        const payloadStr = content.substring("__TEAM_INVITE__::".length);
+        const payload = JSON.parse(payloadStr);
+        return (
+          <TeamInviteCard
+            inviteId={payload.invite_id}
+            teamName={payload.team_name}
+            teamId={payload.team_id}
+            isMine={isMine}
+            currentUserId={currentUserId}
+          />
+        );
+      } catch (err) {
+        console.error("Failed to parse team invite payload", err);
+      }
+    }
+
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.(?:com|org|net|in|co|io|edu|gov|us|xyz|info|biz|me|cc|tv)\b[^\s]*)/gi;
     const parts = content.split(urlRegex);
     if (parts.length === 1) return content;
@@ -524,6 +733,7 @@ async function unpinMessage(messageId: string) {
             const isMine = msg.sender_id === currentUserId;
             const sender = profiles[msg.sender_id];
             const isMentioned = msg.mentions && msg.mentions.includes(currentUserId);
+            const isInviteCard = msg.content.startsWith("__TEAM_INVITE__::");
 
             return (
               <div key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}>
@@ -545,30 +755,34 @@ async function unpinMessage(messageId: string) {
                       {sender?.full_name || "Unknown"}
                     </span>
                   )}
-                  <div className="group relative">
-  <div
-    className={`px-3 py-1.5 rounded text-xs leading-relaxed ${
-      isMine
-        ? "bg-white text-black"
-        : isMentioned
-          ? "bg-violet-950/30 border border-violet-500/40 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
-          : "bg-zinc-900 border border-zinc-800 text-zinc-200"
-    }`}
-  >
-    {renderMessageContent(msg.content, isMine)}
-  </div>
+                  {isInviteCard ? (
+                    renderMessageContent(msg.content, isMine)
+                  ) : (
+                    <div className="group relative">
+                      <div
+                        className={`px-3 py-1.5 rounded text-xs leading-relaxed ${
+                          isMine
+                            ? "bg-white text-black"
+                            : isMentioned
+                              ? "bg-violet-950/30 border border-violet-500/40 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                              : "bg-zinc-900 border border-zinc-800 text-zinc-200"
+                        }`}
+                      >
+                        {renderMessageContent(msg.content, isMine)}
+                      </div>
 
-  <button
-    onClick={() =>
-      msg.is_pinned
-        ? unpinMessage(msg.id)
-        : pinMessage(msg.id)
-    }
-    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-[10px]"
-  >
-    {msg.is_pinned ? "📍" : "📌"}
-  </button>
-</div>
+                      <button
+                        onClick={() =>
+                          msg.is_pinned
+                            ? unpinMessage(msg.id)
+                            : pinMessage(msg.id)
+                        }
+                        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-[10px]"
+                      >
+                        {msg.is_pinned ? "📍" : "📌"}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-1 mt-0.5 px-0.5">
                     <span className="text-[9px] text-zinc-600">
@@ -602,6 +816,22 @@ async function unpinMessage(messageId: string) {
 
       {/* Input */}
       <div className="border-t border-zinc-900 bg-zinc-950/20 p-3">
+        {recipientId && ownedTeams.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-zinc-900/60">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 mr-1 select-none">Quick Invites:</span>
+            {ownedTeams.map((team) => (
+              <button
+                key={team.id}
+                onClick={() => handleSendQuickInvite(team.id, team.name)}
+                disabled={sending}
+                className="px-2.5 py-1 text-[10px] rounded-full border border-violet-500/25 hover:border-violet-500/50 bg-violet-500/5 hover:bg-violet-500/15 text-violet-300 hover:text-white transition-all font-medium disabled:opacity-50 flex items-center gap-1"
+              >
+                <span>➕ Invite to {team.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {safetyError && (
           <div className="mb-2 p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] leading-normal animate-fade-in">
             ⚠️ {safetyError}

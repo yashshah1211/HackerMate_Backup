@@ -75,7 +75,7 @@ async function fetchUnstopHackathons() {
             prize_pool += " + Job Offer/PPI";
           }
         } else if (topPrize.others) {
-          prize_pool = topPrize.others.replace(/'/g, "''").slice(0, 50);
+          prize_pool = topPrize.others.replace(/'/g, "''").slice(0, 300);
         }
       }
 

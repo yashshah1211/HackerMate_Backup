@@ -27,6 +27,8 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     if (activeUser) {
       const { data } = await supabase.from("profiles").select("*").eq("id", activeUser.id).single();
       setProfile(data);
+      // Immediately set user active status
+      await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", activeUser.id);
     }
     return activeUser;
   }
@@ -79,6 +81,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     let active = true;
     let unsubNotif: (() => void) | null = null;
     let unsubParticipant: (() => void) | null = null;
+    let heartbeatInterval: NodeJS.Timeout | null = null;
 
     Promise.resolve().then(async () => {
       const { data: { user: sessionUser } } = await supabase.auth.getUser();
@@ -88,6 +91,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       await loadUser(sessionUser);
       await loadUnreadCount(sessionUser.id);
       await loadUnreadMessages(sessionUser.id);
+
+      // Start periodic 30-second heartbeat to track user activity/online status
+      heartbeatInterval = setInterval(async () => {
+        if (active) {
+          await supabase
+            .from("profiles")
+            .update({ last_seen_at: new Date().toISOString() })
+            .eq("id", sessionUser.id);
+        }
+      }, 30000);
 
       const notifChannel = supabase.channel(`notifications-navbar:${sessionUser.id}`)
         .on("postgres_changes", {
@@ -121,6 +134,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       active = false;
       if (unsubNotif) unsubNotif();
       if (unsubParticipant) unsubParticipant();
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
     };
   }, []);
 

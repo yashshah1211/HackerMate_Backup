@@ -750,7 +750,13 @@ function DashboardContent() {
                     </div>
                   </div>
                   <div className="hack-prize">
-                    <div className="amt">{hack.prize_pool || "Perks"}</div>
+                    <div className="amt">
+                      {hack.prize_pool 
+                        ? (hack.prize_pool.length > 25 
+                          ? `${hack.prize_pool.slice(0, 22)}...` 
+                          : hack.prize_pool) 
+                        : "Perks"}
+                    </div>
                     <div className="lbl">{hack.prize_pool ? "PRIZE POOL" : "FOR WINNERS"}</div>
                   </div>
                 </div>

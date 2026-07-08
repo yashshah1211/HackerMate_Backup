@@ -106,6 +106,7 @@ function HackathonDetailContent() {
   
   // Modals & form states
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showExternalRegisterModal, setShowExternalRegisterModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -327,6 +328,51 @@ function HackathonDetailContent() {
     } catch (err) {
       console.error(err);
       showToast("Failed to register.", "error");
+    }
+    setInviteLoading(false);
+  }
+
+  // Handle External Registration Flow
+  function handleRegisterExternally() {
+    if (!hackathon || !hackathon.website_url) return;
+    window.open(hackathon.website_url, "_blank", "noopener,noreferrer");
+    setShowExternalRegisterModal(true);
+  }
+
+  async function handleRegisterExternallyConfirm() {
+    if (!currentUserId || !hackathon) return;
+    setInviteLoading(true);
+    try {
+      // 1. Insert registration row
+      const { error: regError } = await supabase
+        .from("hackathon_registrations")
+        .insert({
+          hackathon_id: hackathon.id,
+          user_id: currentUserId,
+          team_id: selectedTeam || null,
+        });
+
+      if (regError) {
+        showToast(regError.message, "error");
+        setInviteLoading(false);
+        return;
+      }
+
+      // 2. If registering with a team, update the team's hackathon_id association
+      if (selectedTeam) {
+        await supabase
+          .from("teams")
+          .update({ hackathon_id: hackathon.id })
+          .eq("id", selectedTeam);
+      }
+
+      showToast("Successfully registered and confirmed on HackerMate!", "success");
+      setShowExternalRegisterModal(false);
+      setSelectedTeam("");
+      loadData();
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to confirm registration.", "error");
     }
     setInviteLoading(false);
   }
@@ -590,31 +636,31 @@ function HackathonDetailContent() {
             {/* Stats row */}
             <div className="space-y-4 mb-8">
               {/* Date */}
-              <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500">
+              <div className="flex items-start gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                   </svg>
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-zinc-500 font-mono uppercase">Dates</p>
-                  <p className="text-xs font-semibold text-white">
+                  <p className="text-xs font-semibold text-white break-words">
                     {formatDateRange(hackathon.start_date, hackathon.end_date)}
                   </p>
                 </div>
               </div>
 
               {/* Location */}
-              <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500">
+              <div className="flex items-start gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
                   </svg>
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-zinc-500 font-mono uppercase">Location</p>
-                  <p className="text-xs font-semibold text-white">
+                  <p className="text-xs font-semibold text-white break-words">
                     {hackathon.location || "TBA"}
                   </p>
                 </div>
@@ -622,15 +668,15 @@ function HackathonDetailContent() {
 
               {/* Prize Pool */}
               {hackathon.prize_pool && (
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Prize Pool</p>
-                    <p className="text-xs font-semibold text-white">
+                    <p className="text-xs font-semibold text-white break-words whitespace-pre-wrap">
                       {hackathon.prize_pool}
                     </p>
                   </div>
@@ -666,15 +712,27 @@ function HackathonDetailContent() {
               </>
             ) : (
               <>
-                {hackathon.website_url && (
-                  <a
-                    href={hackathon.website_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary w-full"
-                  >
-                    Register Externally ↗
-                  </a>
+                {isRegistered ? (
+                  <div className="space-y-2">
+                    <div className="badge badge-success w-full justify-center py-2 text-xs font-semibold">
+                      Registered Externally ✓
+                    </div>
+                    <button
+                      onClick={handleCancelRegistration}
+                      className="btn btn-danger btn-sm w-full"
+                    >
+                      Cancel Registration
+                    </button>
+                  </div>
+                ) : (
+                  hackathon.website_url && (
+                    <button
+                      onClick={handleRegisterExternally}
+                      className="btn btn-primary w-full"
+                    >
+                      Register Externally ↗
+                    </button>
+                  )
                 )}
               </>
             )}
@@ -1104,6 +1162,57 @@ function HackathonDetailContent() {
                 className="btn btn-primary btn-sm"
               >
                 {inviteLoading ? "Linking..." : "Link Team"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Confirm External Registration */}
+      {showExternalRegisterModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="card card-static p-5 w-full max-w-sm">
+            <h2 className="text-sm font-semibold text-white mb-1.5">
+              Confirm External Registration
+            </h2>
+
+            <p className="text-xs text-zinc-400 mb-4 font-light leading-relaxed">
+              We opened the registration page for <strong className="text-white font-semibold">{hackathon.name}</strong> in a new tab. Please complete your registration there, then confirm below to log your status on HackerMate.
+            </p>
+
+            <label className="section-label block mb-1.5">Register with Team (Optional)</label>
+            <select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              className="input text-xs w-full mb-4"
+            >
+              <option value="">No team (Individual)</option>
+              {userOwnedTeams
+                .filter((t) => !t.hackathon_id)
+                .map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+            </select>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
+              <button
+                onClick={() => {
+                  setShowExternalRegisterModal(false);
+                  setSelectedTeam("");
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleRegisterExternallyConfirm}
+                disabled={inviteLoading}
+                className="btn btn-primary btn-sm"
+              >
+                {inviteLoading ? "Confirming..." : "I Have Registered"}
               </button>
             </div>
           </div>
