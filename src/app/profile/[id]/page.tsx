@@ -19,6 +19,7 @@ type Profile = {
   linkedin_url: string;
   avatar_url: string;
   skills: string[];
+  is_available?: boolean;
   github_stats?: {
     followers: number;
     public_repos: number;
@@ -582,10 +583,16 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </div>
-                {!isBlockedByMe && (
-                  <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Available for teams">
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                  </div>
+                 {!isBlockedByMe && (
+                  profile.is_available !== false ? (
+                    <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Available for teams">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                    </div>
+                  ) : (
+                    <div className="absolute -bottom-1.5 -right-1.5 bg-zinc-600 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Busy / Team Full">
+                      <span className="w-1.5 h-1.5 bg-zinc-450 rounded-full" />
+                    </div>
+                  )
                 )}
               </div>
 
@@ -603,9 +610,15 @@ export default function ProfilePage() {
                   <span className={`text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border ${
                     isBlockedByMe
                       ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : profile.is_available !== false
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
                   }`}>
-                    {isBlockedByMe ? "Blocked" : "Available for Teams"}
+                    {isBlockedByMe 
+                      ? "Blocked" 
+                      : profile.is_available !== false 
+                        ? "Available for Teams" 
+                        : "Busy / Team Full"}
                   </span>
                 </div>
               </div>

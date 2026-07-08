@@ -23,6 +23,7 @@ type Team = {
 type Member = {
   id: string;
   role: string;
+  project_role?: string;
   profiles: {
     id: string;
     full_name: string;
@@ -140,6 +141,7 @@ function TeamDetailsContent() {
       .select(`
         id,
         role,
+        project_role,
         profiles (
           id,
           full_name,

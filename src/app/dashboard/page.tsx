@@ -97,21 +97,7 @@ function DashboardContent() {
     Record<string, SpotlightConnectionState>
   >({});
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTheme((localStorage.getItem("theme") as "dark" | "light") || "dark");
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("theme", nextTheme);
-    document.documentElement.className = nextTheme;
-  };
 
   // Statistics counters
   const [stats, setStats] = useState({
@@ -485,14 +471,6 @@ function DashboardContent() {
       <div className="topbar">
         <div className="ticker">
           <span className="dot"></span> {stats.hackathons || 97} hackathons live · 14 closing within 7 days
-        </div>
-        <div className="top-actions hidden md:flex">
-          <button className="icon-btn" onClick={toggleTheme}>
-            {theme === "dark" ? "☀" : "🌙"}
-          </button>
-          <button className="icon-btn" onClick={() => router.push("/notifications")}>
-            🔔
-          </button>
         </div>
       </div>
 

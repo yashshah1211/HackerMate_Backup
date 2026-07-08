@@ -22,6 +22,7 @@ function EditProfileContent() {
   const [initialGithubUrl, setInitialGithubUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [isAvailable, setIsAvailable] = useState(true);
 
   const SKILLS = [
     "React",
@@ -127,6 +128,7 @@ function EditProfileContent() {
     setInitialGithubUrl(data.github_url || "");
     setLinkedinUrl(data.linkedin_url || "");
     setSelectedSkills(data.skills || []);
+    setIsAvailable(data.is_available ?? true);
 
     setLoading(false);
   }
@@ -188,6 +190,7 @@ function EditProfileContent() {
         github_url: githubUrl,
         linkedin_url: linkedinUrl,
         skills: selectedSkills,
+        is_available: isAvailable,
         ...(stats ? { github_stats: stats, github_stats_updated_at: statsUpdated } : {})
       })
       .eq("id", user.id);
@@ -393,6 +396,25 @@ function EditProfileContent() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Availability Status */}
+          <div className="pt-4 border-t border-zinc-900 mt-4">
+            <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+              Hackathon Team Availability
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer select-none bg-zinc-950/30 border border-zinc-800 p-3 rounded-lg hover:border-zinc-700 transition-colors">
+              <input
+                type="checkbox"
+                checked={isAvailable}
+                onChange={(e) => setIsAvailable(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-zinc-950"
+              />
+              <div>
+                <p className="text-xs font-bold text-white">Available for Teams</p>
+                <p className="text-[10px] text-zinc-500">Toggle this off if your team is full or you are not looking to connect.</p>
+              </div>
+            </label>
           </div>
 
           {/* Submit */}

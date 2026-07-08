@@ -15,6 +15,7 @@ type Profile = {
   bio: string;
   avatar_url: string;
   skills: string[];
+  is_available?: boolean;
 };
 
 type Team = {
@@ -319,8 +320,12 @@ function DevelopersContent() {
                     </Link>
 
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="badge badge-success text-[9px] py-0.5 px-1.5">
-                        Available
+                      <span className={`badge text-[9px] py-0.5 px-1.5 ${
+                        dev.is_available !== false
+                          ? "badge-success"
+                          : "bg-zinc-800 text-zinc-500 border-zinc-700"
+                      }`}>
+                        {dev.is_available !== false ? "Available" : "Busy"}
                       </span>
                       {matchScore > 0 && (
                         <span className="text-[9px] text-emerald-400 font-semibold font-mono bg-emerald-500/5 border border-emerald-500/10 rounded px-1 py-0.5">

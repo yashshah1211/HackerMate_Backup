@@ -44,6 +44,7 @@ type Team = {
 type Member = {
   id: string;
   role: string;
+  project_role?: string;
   profiles: {
     id: string;
     full_name: string;
@@ -230,6 +231,11 @@ export default function TeamDetailsView({
   const [linkCategory, setLinkCategory] = useState<"design" | "repo" | "document" | "other">("other");
   const [savingLink, setSavingLink] = useState(false);
 
+  // Project Role editing states
+  const [isEditingProjectRoleForMemberId, setIsEditingProjectRoleForMemberId] = useState<string | null>(null);
+  const [projectRoleInput, setProjectRoleInput] = useState("");
+  const [isCustomProjectRole, setIsCustomProjectRole] = useState(false);
+
   // Edit Team Details states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState(team.name);
@@ -253,6 +259,27 @@ export default function TeamDetailsView({
       setEditRoles(team.roles_needed || []);
     });
   }, [team]);
+
+  const handleSaveProjectRole = async (memberId: string) => {
+    const roleToSave = projectRoleInput.trim() || "Developer";
+    try {
+      const { error } = await supabase
+        .from("team_members")
+        .update({ project_role: roleToSave })
+        .eq("id", memberId);
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        showToast("Project role updated successfully", "success");
+        setIsEditingProjectRoleForMemberId(null);
+        if (refreshTeam) refreshTeam();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update project role", "error");
+    }
+  };
 
   const toggleEditSkill = (skill: string) => {
     setEditSkills((prev) =>
@@ -1441,9 +1468,87 @@ export default function TeamDetailsView({
                     </span>
                   </div>
 
-                  <p className="text-zinc-500 text-xs truncate">
+                  <p className="text-zinc-500 text-xs truncate font-mono">
                     {member.profiles?.email}
                   </p>
+
+                  {/* Project Role Badge */}
+                  <div className="mt-2 flex items-center gap-1.5 min-h-[24px]">
+                    {isEditingProjectRoleForMemberId === member.id ? (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <select
+                          value={isCustomProjectRole ? "Custom..." : projectRoleInput}
+                          onChange={(e) => {
+                            if (e.target.value === "Custom...") {
+                              setIsCustomProjectRole(true);
+                              setProjectRoleInput("");
+                            } else {
+                              setIsCustomProjectRole(false);
+                              setProjectRoleInput(e.target.value);
+                            }
+                          }}
+                          className="bg-zinc-950 border border-zinc-800 text-[10px] text-white rounded px-1.5 py-0.5 focus:outline-none focus:border-zinc-700"
+                        >
+                          <option value="Developer">Developer</option>
+                          <option value="Frontend Developer">Frontend Developer</option>
+                          <option value="Backend Developer">Backend Developer</option>
+                          <option value="Full Stack Developer">Full Stack Developer</option>
+                          <option value="UI/UX Designer">UI/UX Designer</option>
+                          <option value="AI/ML Engineer">AI/ML Engineer</option>
+                          <option value="AI Lead">AI Lead</option>
+                          <option value="Project Manager">Project Manager</option>
+                          <option value="Custom...">Custom...</option>
+                        </select>
+                        
+                        {isCustomProjectRole && (
+                          <input
+                            type="text"
+                            placeholder="Role..."
+                            value={projectRoleInput}
+                            onChange={(e) => setProjectRoleInput(e.target.value)}
+                            className="bg-zinc-950 border border-zinc-800 text-[10px] text-white rounded px-1.5 py-0.5 w-20 focus:outline-none focus:border-zinc-700"
+                          />
+                        )}
+                        
+                        <button
+                          onClick={() => handleSaveProjectRole(member.id)}
+                          className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5 font-semibold"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setIsEditingProjectRoleForMemberId(null)}
+                          className="text-[9px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700 rounded px-1.5 py-0.5"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 group/role">
+                        <span className="text-[10px] font-semibold font-mono uppercase bg-zinc-900 border border-zinc-800/80 text-zinc-400 rounded px-2 py-0.5">
+                          {member.project_role || "Developer"}
+                        </span>
+                        
+                        {isOwner && (
+                          <button
+                            onClick={() => {
+                              setIsEditingProjectRoleForMemberId(member.id);
+                              setProjectRoleInput(member.project_role || "Developer");
+                              setIsCustomProjectRole(
+                                !["Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "UI/UX Designer", "AI/ML Engineer", "AI Lead", "Project Manager"].includes(member.project_role || "Developer")
+                              );
+                            }}
+                            className="p-1 text-zinc-600 hover:text-white transition-colors opacity-0 group-hover/role:opacity-100 focus:opacity-100"
+                            title="Edit project role"
+                          >
+                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

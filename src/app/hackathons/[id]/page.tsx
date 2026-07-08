@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
@@ -30,32 +30,53 @@ type Team = {
   skills: string[] | null;
   roles_needed: string[] | null;
   max_members: number;
+  is_recruiting?: boolean;
+  owner_id?: string;
 };
 
 type Registration = {
   id: string;
   user_id: string;
   team_id: string | null;
+  looking_for_team?: boolean;
   created_at: string;
   profiles: {
     id: string;
     full_name: string;
     email: string;
     college: string | null;
+    avatar_url: string | null;
+    skills: string[] | null;
+    is_available?: boolean;
   };
-  teams?: {
+  teams: {
     id: string;
     name: string;
   } | null;
 };
 
-type MatchedBuilder = {
+
+type Resource = {
+  id: string;
+  hackathon_id: string;
+  title: string;
+  url: string;
+  category: string;
+  created_by: string;
+  created_at: string;
+};
+
+type BuilderWithMatch = {
   id: string;
   full_name: string;
+  email: string;
   college: string | null;
   avatar_url: string | null;
   skills: string[];
+  is_available?: boolean;
   matchedSkills: string[];
+  isRegistered: boolean;
+  teamName?: string | null;
 };
 
 function formatDateRange(start: string | null, end: string | null) {
@@ -90,6 +111,7 @@ function htmlToPlainText(html: string) {
 function HackathonDetailContent() {
   const { showToast, confirm } = useNotification();
   const params = useParams();
+  const router = useRouter();
   const hackathonId = params.id as string;
 
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
@@ -103,7 +125,12 @@ function HackathonDetailContent() {
   const [isSaved, setIsSaved] = useState(false);
   const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string }[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [userSkills, setUserSkills] = useState<string[]>([]);
+  const [buildersList, setBuildersList] = useState<BuilderWithMatch[]>([]);
   
+  // Tab controls
+  const [activeTab, setActiveTab] = useState<"teams" | "builders" | "looking_for_teams" | "looking_for_builders" | "resources" | "organizer">("teams");
+
   // Modals & form states
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showExternalRegisterModal, setShowExternalRegisterModal] = useState(false);
@@ -111,14 +138,16 @@ function HackathonDetailContent() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  // Tab controls
-  const [activeTab, setActiveTab] = useState<"teams" | "participants" | "organizer">("teams");
-  
+  // Resources states
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [showAddResourceModal, setShowAddResourceModal] = useState(false);
+  const [resourceTitle, setResourceTitle] = useState("");
+  const [resourceUrl, setResourceUrl] = useState("");
+  const [resourceCategory, setResourceCategory] = useState<"boilerplates" | "apis" | "docs" | "other">("other");
+  const [savingResource, setSavingResource] = useState(false);
+
   // Description expansion state
   const [isDescExpanded, setIsDescExpanded] = useState(false);
-
-  // Skill-matched builders
-  const [matchedBuilders, setMatchedBuilders] = useState<MatchedBuilder[]>([]);
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
 
   const formatTimezoneIndependentDate = (dateString: string | null, isEnd: boolean = false, format: "date-only" | "timed" = "timed") => {
@@ -261,6 +290,13 @@ function HackathonDetailContent() {
           .eq("owner_id", user.id);
 
         setUserOwnedTeams(ownedTeams || []);
+
+        const { data: currentUserProfile } = await supabase
+          .from("profiles")
+          .select("skills")
+          .eq("id", user.id)
+          .single();
+        setUserSkills(currentUserProfile?.skills || []);
       }
 
       // Load teams participating in this hackathon
@@ -276,92 +312,142 @@ function HackathonDetailContent() {
         setTeams(teamsData || []);
       }
 
-      // Load native registrations if it's a native hackathon
-      if (hackathonData.type === "native") {
-        const { data: regData } = await supabase
-          .from("hackathon_registrations")
+      const { data: regData } = await supabase
+        .from("hackathon_registrations")
+        .select(`
+          id,
+          user_id,
+          team_id,
+          looking_for_team,
+          created_at,
+          profiles (
+            id,
+            full_name,
+            email,
+            college,
+            avatar_url,
+            skills,
+            is_available
+          ),
+          teams (
+            id,
+            name
+          )
+        `)
+        .eq("hackathon_id", hackathonId)
+        .order("created_at", { ascending: false });
+
+      setRegistrations((regData as unknown as Registration[]) || []);
+
+      // Load resources
+      const { data: resourcesData } = await supabase
+        .from("hackathon_resources")
+        .select("*")
+        .eq("hackathon_id", hackathonId)
+        .order("created_at", { ascending: false });
+
+      setResources(resourcesData || []);
+
+      // Load all builders of all registered teams for this hackathon
+      const registeredTeamIds = (teamsData || []).map((t) => t.id);
+      const computedBuilders: BuilderWithMatch[] = [];
+
+      if (registeredTeamIds.length > 0) {
+        const { data: teamMembersData } = await supabase
+          .from("team_members")
           .select(`
             id,
-            user_id,
             team_id,
-            created_at,
+            user_id,
+            project_role,
             profiles (
               id,
               full_name,
+              college,
+              avatar_url,
+              skills,
               email,
-              college
-            ),
-            teams (
-              id,
-              name
+              is_available
             )
           `)
-          .eq("hackathon_id", hackathonId)
-          .order("created_at", { ascending: false });
+          .in("team_id", registeredTeamIds);
 
-        setRegistrations((regData as unknown as Registration[]) || []);
+        const uniqueBuildersMap = new Map();
+        if (teamMembersData) {
+          teamMembersData.forEach((tm: any) => {
+            const profile = Array.isArray(tm.profiles) ? tm.profiles[0] : tm.profiles;
+            if (profile && !uniqueBuildersMap.has(profile.id)) {
+              const reg = (regData as unknown as Registration[])?.find((r) => r.user_id === profile.id);
+              const isRegistered = !!reg;
+              const teamName = (teamsData || []).find((t) => t.id === tm.team_id)?.name || "";
+
+              uniqueBuildersMap.set(profile.id, {
+                id: profile.id,
+                full_name: profile.full_name,
+                email: profile.email,
+                college: profile.college,
+                avatar_url: profile.avatar_url,
+                skills: profile.skills || [],
+                is_available: profile.is_available,
+                matchedSkills: [], // Loaded team builders list is displayed directly
+                isRegistered,
+                teamName,
+              });
+            }
+          });
+        }
+        computedBuilders.push(...Array.from(uniqueBuildersMap.values()));
       }
+
+      setBuildersList(computedBuilders);
     } catch (err) {
       console.error(err);
     }
-
     setLoading(false);
   }
 
-  async function fetchMatchedBuilders(hack: Hackathon, viewerUserId: string | null) {
-    // Build the text corpus to scan (including tags)
-    const hackText = [
-      hack.name ?? "",
-      hack.description ? htmlToPlainText(hack.description) : "",
-      ...(hack.tags || []),
-    ].join(" ").toLowerCase();
+  const handleToggleLookingForTeam = async () => {
+    if (!currentUserId || !hackathonId) return;
+    const currentStatus = registrations.find(r => r.user_id === currentUserId)?.looking_for_team || false;
+    const newStatus = !currentStatus;
 
-    // Fetch blocked lists so we can exclude them
-    const blockedIds: string[] = [];
-    if (viewerUserId) {
-      const { data: myBlocks } = await supabase
-        .from("blocked_users")
-        .select("blocked_id")
-        .eq("blocker_id", viewerUserId);
-      const { data: theirBlocks } = await supabase
-        .from("blocked_users")
-        .select("blocker_id")
-        .eq("blocked_id", viewerUserId);
-      if (myBlocks) blockedIds.push(...myBlocks.map((b) => b.blocked_id));
-      if (theirBlocks) blockedIds.push(...theirBlocks.map((b) => b.blocker_id));
-    }
+    try {
+      const { error } = await supabase
+        .from("hackathon_registrations")
+        .update({ looking_for_team: newStatus })
+        .eq("hackathon_id", hackathonId)
+        .eq("user_id", currentUserId);
 
-    // Fetch profiles to scan for matches (limited to 100 to prevent over-fetching)
-    let query = supabase
-      .from("profiles")
-      .select("id, full_name, college, avatar_url, skills")
-      .limit(100);
-    if (viewerUserId) query = query.neq("id", viewerUserId);
-    const { data: profiles } = await query;
-
-    if (!profiles) return;
-
-    const results: MatchedBuilder[] = [];
-
-    for (const profile of profiles) {
-      if (blockedIds.includes(profile.id)) continue;
-      if (!profile.skills || profile.skills.length === 0) continue;
-
-      const matchedSkills = profile.skills.filter((skill: string) => {
-        // Word-boundary-style match: skill appears as a standalone word/phrase
-        const escaped = skill.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`(?<![a-z])${escaped}(?![a-z])`, "i").test(hackText);
-      });
-
-      if (matchedSkills.length > 0) {
-        results.push({ ...profile, matchedSkills });
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        showToast(newStatus ? "Profile listed under 'Looking for Teams'!" : "Stopped listing profile.", "success");
+        loadData(); // Refresh list
       }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update status.", "error");
     }
+  };
 
-    // Sort by number of matched skills descending
-    results.sort((a, b) => b.matchedSkills.length - a.matchedSkills.length);
-    setMatchedBuilders(results.slice(0, 6));
-  }
+  const handleToggleTeamRecruiting = async (teamId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("teams")
+        .update({ is_recruiting: !currentStatus })
+        .eq("id", teamId);
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        showToast(!currentStatus ? "Team listed under 'Looking for Builders'!" : "Team stopped recruiting.", "success");
+        loadData();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update recruiting status.", "error");
+    }
+  };
 
   useEffect(() => {
     if (hackathonId) {
@@ -371,15 +457,6 @@ function HackathonDetailContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hackathonId]);
-
-  // Run matcher whenever hackathon data and user id are both available
-  useEffect(() => {
-    if (hackathon) {
-      Promise.resolve().then(() => {
-        fetchMatchedBuilders(hackathon, currentUserId);
-      });
-    }
-  }, [hackathon, currentUserId]);
 
   // Handle Native Registration Flow
   async function handleRegisterNatively() {
@@ -577,6 +654,176 @@ function HackathonDetailContent() {
       console.error(err);
     }
   }
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = resourceTitle.trim();
+    const url = resourceUrl.trim();
+    if (!title || !url) {
+      showToast("Please fill in all fields", "warning");
+      return;
+    }
+
+    setSavingResource(true);
+    try {
+      const { error } = await supabase
+        .from("hackathon_resources")
+        .insert({
+          hackathon_id: hackathonId,
+          title,
+          url,
+          category: resourceCategory,
+          created_by: currentUserId,
+        });
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        setResourceTitle("");
+        setResourceUrl("");
+        setShowAddResourceModal(false);
+        showToast("Resource link added successfully!", "success");
+        // Reload resources
+        const { data: resourcesData } = await supabase
+          .from("hackathon_resources")
+          .select("*")
+          .eq("hackathon_id", hackathonId)
+          .order("created_at", { ascending: false });
+        setResources(resourcesData || []);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to add resource.", "error");
+    }
+    setSavingResource(false);
+  };
+
+  const handleDeleteResource = async (resourceId: string) => {
+    confirm({
+      title: "Delete Resource",
+      message: "Are you sure you want to remove this resource link?",
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from("hackathon_resources")
+            .delete()
+            .eq("id", resourceId);
+
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast("Resource removed.", "info");
+            setResources(resources.filter((r) => r.id !== resourceId));
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to remove resource.", "error");
+        }
+      }
+    });
+  };
+
+  const getAutoResources = (tags: string[] | null) => {
+    const autoList: { title: string; url: string; category: string }[] = [];
+    const tagsLower = (tags || []).map((t) => t.toLowerCase());
+
+    autoList.push({
+      title: "GitHub Hackathon Starter Template",
+      url: "https://github.com/sahat/hackathon-starter",
+      category: "boilerplates",
+    });
+    autoList.push({
+      title: "Vercel Deployment Quickstart Guide",
+      url: "https://vercel.com/docs",
+      category: "docs",
+    });
+
+    if (tagsLower.includes("ai") || tagsLower.includes("artificial intelligence") || tagsLower.some(t => t.includes("ai")) || tagsLower.some(t => t.includes("ml"))) {
+      autoList.push({
+        title: "Google Gemini API Reference Docs",
+        url: "https://ai.google.dev/gemini-api/docs",
+        category: "apis",
+      });
+      autoList.push({
+        title: "Hugging Face Models Directory",
+        url: "https://huggingface.co/models",
+        category: "apis",
+      });
+      autoList.push({
+        title: "LangChain Orchestration Documentation",
+        url: "https://python.langchain.com/docs/get_started/introduction",
+        category: "docs",
+      });
+    }
+
+    if (tagsLower.includes("web3") || tagsLower.includes("blockchain") || tagsLower.includes("crypto") || tagsLower.some(t => t.includes("solana")) || tagsLower.some(t => t.includes("eth"))) {
+      autoList.push({
+        title: "Ethereum Developer Portal",
+        url: "https://ethereum.org/en/developers/",
+        category: "docs",
+      });
+      autoList.push({
+        title: "Solana Cookbook & Web3 API reference",
+        url: "https://solanacookbook.com/",
+        category: "docs",
+      });
+      autoList.push({
+        title: "Thirdweb Web3 React Starter Boilerplates",
+        url: "https://thirdweb.com/templates",
+        category: "boilerplates",
+      });
+    }
+
+    if (tagsLower.includes("design") || tagsLower.includes("ui") || tagsLower.includes("ux") || tagsLower.some(t => t.includes("figma"))) {
+      autoList.push({
+        title: "Figma Community UI Resource Kits",
+        url: "https://www.figma.com/community",
+        category: "boilerplates",
+      });
+      autoList.push({
+        title: "Tailwind UI Components Hub",
+        url: "https://tailwindui.com/components",
+        category: "boilerplates",
+      });
+    }
+
+    autoList.push({
+      title: "Supabase Backend-as-a-Service Guide",
+      url: "https://supabase.com/docs",
+      category: "docs",
+    });
+
+    return autoList;
+  };
+
+  const handleDeleteHackathon = () => {
+    confirm({
+      title: "Delete Hackathon",
+      message: `Are you sure you want to delete the hackathon "${hackathon?.name}"? This action is permanent and cannot be undone.`,
+      confirmText: "Delete Permanently",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from("hackathons")
+            .delete()
+            .eq("id", hackathonId);
+
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast("Hackathon deleted successfully.", "success");
+            router.push("/hackathons");
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to delete hackathon.", "error");
+        }
+      }
+    });
+  };
 
   if (loading) {
     return (
@@ -868,7 +1115,7 @@ function HackathonDetailContent() {
             </button>
 
             {/* Add to Calendar Button */}
-            <div className="relative">
+            <div className="relative mb-4">
               <button
                 onClick={() => {
                   if (hackathon.start_date && hackathon.end_date) {
@@ -928,52 +1175,95 @@ function HackathonDetailContent() {
                 </>
               )}
             </div>
+
+            {isOrganizer && (
+              <button
+                onClick={handleDeleteHackathon}
+                className="btn btn-danger w-full btn-sm flex items-center justify-center gap-2 mt-4"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+                <span>Delete Hackathon</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
 
       {/* Tabs / Sub-Sections */}
       <section className="animate-fade-in-up stagger-2">
-        <div className="flex border-b border-zinc-900 mb-6">
+        <div className="flex border-b border-zinc-900 mb-6 flex-wrap gap-y-2">
           <button
             onClick={() => setActiveTab("teams")}
-            className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
               activeTab === "teams"
-                ? "border-white text-white"
+                ? "border-white text-white bg-white/[0.02]"
                 : "border-transparent text-zinc-500 hover:text-white"
             }`}
           >
-            Teams ({teams.length})
+            👥 Teams ({teams.length})
           </button>
 
-          {hackathon.type === "native" && (
-            <button
-              onClick={() => setActiveTab("participants")}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
-                activeTab === "participants"
-                  ? "border-white text-white"
-                  : "border-transparent text-zinc-500 hover:text-white"
-              }`}
-            >
-              Registered Builders ({registrations.length})
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab("builders")}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+              activeTab === "builders"
+                ? "border-white text-white bg-white/[0.02]"
+                : "border-transparent text-zinc-500 hover:text-white"
+            }`}
+          >
+            🛠️ Builders ({buildersList.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("looking_for_teams")}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+              activeTab === "looking_for_teams"
+                ? "border-white text-white bg-white/[0.02]"
+                : "border-transparent text-zinc-500 hover:text-white"
+            }`}
+          >
+            🔍 Looking for Teams ({registrations.filter((r) => r.looking_for_team === true).length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("looking_for_builders")}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+              activeTab === "looking_for_builders"
+                ? "border-white text-white bg-white/[0.02]"
+                : "border-transparent text-zinc-500 hover:text-white"
+            }`}
+          >
+            🎯 Looking for Builders ({teams.filter((t) => t.is_recruiting === true).length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("resources")}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+              activeTab === "resources"
+                ? "border-white text-white bg-white/[0.02]"
+                : "border-transparent text-zinc-500 hover:text-white"
+            }`}
+          >
+            📚 Resources
+          </button>
 
           {isOrganizer && (
             <button
               onClick={() => setActiveTab("organizer")}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
+              className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
                 activeTab === "organizer"
-                  ? "border-white text-white"
+                  ? "border-white text-white bg-white/[0.02]"
                   : "border-transparent text-zinc-500 hover:text-white"
               }`}
             >
-              Organizer Portal (Dashboard)
+              💼 Organizer Portal
             </button>
           )}
         </div>
 
-        {/* Tab 1: Teams Grid */}
+        {/* Tab CONTENT 2: Teams Grid */}
         {activeTab === "teams" && (
           <>
             {teams.length === 0 ? (
@@ -1003,9 +1293,15 @@ function HackathonDetailContent() {
                       <h3 className="font-semibold text-sm text-white group-hover:text-white truncate">
                         {team.name}
                       </h3>
-                      <span className="badge badge-primary text-[9px] py-0.5 px-1.5 flex-shrink-0">
-                        Recruiting
-                      </span>
+                      {team.is_recruiting !== false ? (
+                        <span className="badge badge-primary text-[9px] py-0.5 px-1.5 flex-shrink-0">
+                          Recruiting
+                        </span>
+                      ) : (
+                        <span className="badge bg-zinc-800 text-zinc-500 border border-zinc-700 text-[9px] py-0.5 px-1.5 flex-shrink-0">
+                          Full
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">
@@ -1039,39 +1335,93 @@ function HackathonDetailContent() {
           </>
         )}
 
-        {/* Tab 2: Registered Builders */}
-        {activeTab === "participants" && (
+        {/* Tab CONTENT 3: Builders Directory */}
+        {activeTab === "builders" && (
           <>
-            {registrations.length === 0 ? (
+            {buildersList.length === 0 ? (
               <div className="card card-static p-12 text-center">
-                <p className="text-xs text-zinc-500">No builders registered natively yet.</p>
+                <p className="text-xs text-zinc-500">No matching builders found for this hackathon yet.</p>
               </div>
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {registrations.map((reg) => (
+                {buildersList.map((builder) => (
                   <Link
-                    key={reg.id}
-                    href={`/profile/${reg.profiles.id}`}
-                    className="card card-static p-4 flex items-center justify-between group"
+                    key={builder.id}
+                    href={`/profile/${builder.id}`}
+                    className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-700 transition-all min-h-[135px]"
                   >
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-sm text-white truncate group-hover:text-zinc-300 transition-colors">
-                        {reg.profiles.full_name}
-                      </h3>
-                      <p className="text-zinc-500 text-[10px] truncate">
-                        {reg.profiles.college || "Independent Builder"}
-                      </p>
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          {builder.avatar_url ? (
+                            <img
+                              src={builder.avatar_url}
+                              alt={builder.full_name}
+                              className="w-9 h-9 rounded object-cover border border-zinc-800 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs shrink-0">
+                              {builder.full_name?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-xs text-white truncate group-hover:text-violet-300 transition-colors">
+                              {builder.full_name}
+                            </h3>
+                            <p className="text-zinc-500 text-[10px] truncate">
+                              {builder.college || "Independent Builder"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {builder.matchedSkills.length > 0 && (
+                          <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">
+                            ✨ {builder.matchedSkills.length} Match{builder.matchedSkills.length !== 1 ? "es" : ""}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {builder.skills?.length ? (
+                          builder.skills.slice(0, 4).map((skill) => {
+                            const isMatched = builder.matchedSkills.map(s => s.toLowerCase()).includes(skill.toLowerCase());
+                            return (
+                              <span 
+                                key={skill} 
+                                className={`text-[8px] font-semibold px-1.5 py-0.5 rounded border ${
+                                  isMatched
+                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                    : "border-zinc-800/80 bg-zinc-900/30 text-zinc-455"
+                                }`}
+                              >
+                                {skill}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="text-[8px] text-zinc-650">No skills added</span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className="badge badge-success text-[8px] font-mono py-0.5 px-1 uppercase">
-                        Registered
-                      </span>
-                      {reg.teams && (
-                        <span className="text-[9px] text-zinc-400 font-semibold truncate max-w-[80px]">
-                          Team: {reg.teams.name}
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {builder.isRegistered && (
+                          <span className="badge badge-success text-[8px] font-mono py-0.5 px-1 uppercase">
+                            ✓ Registered
+                          </span>
+                        )}
+                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border ${
+                          builder.teamName 
+                            ? "bg-zinc-800/20 text-zinc-500 border-zinc-800" 
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        }`}>
+                          {builder.teamName ? `In Team: ${builder.teamName}` : "Looking for Team"}
                         </span>
-                      )}
+                      </div>
+                      <span className="text-[9px] text-zinc-500 group-hover:text-white transition-colors">
+                        View Profile →
+                      </span>
                     </div>
                   </Link>
                 ))}
@@ -1080,7 +1430,341 @@ function HackathonDetailContent() {
           </>
         )}
 
-        {/* Tab 3: Organizer Dashboard */}
+        {/* Tab CONTENT 4: Looking for Teams */}
+        {activeTab === "looking_for_teams" && (
+          <>
+            {currentUserId && (
+              <div className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold text-white">List your profile as Looking for Teams</h4>
+                  <p className="text-[10px] text-zinc-500 mt-1">Let other registered teams know you are looking to join a team for this hackathon.</p>
+                </div>
+                <button
+                  onClick={handleToggleLookingForTeam}
+                  className={`btn btn-sm shrink-0 ${
+                    registrations.find(r => r.user_id === currentUserId)?.looking_for_team
+                      ? "btn-secondary"
+                      : "btn-primary"
+                  }`}
+                >
+                  {registrations.find(r => r.user_id === currentUserId)?.looking_for_team
+                    ? "Stop Listing Profile"
+                    : "🔍 List My Profile"}
+                </button>
+              </div>
+            )}
+
+            {registrations.filter((r) => r.looking_for_team === true).length === 0 ? (
+              <div className="card card-static p-12 text-center">
+                <p className="text-xs text-zinc-500">No builders are currently looking for teams. Be the first to list!</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {registrations
+                  .filter((reg) => reg.looking_for_team === true)
+                  .map((reg) => {
+                    // Match score based on user skills vs participant skills
+                    const sharedSkills = reg.profiles.skills?.filter((s) =>
+                      userSkills.map((sk) => sk.toLowerCase()).includes(s.toLowerCase())
+                    ) || [];
+                    const matchScore = reg.profiles.skills?.length
+                      ? Math.min(Math.round((sharedSkills.length / Math.max(userSkills.length, 1)) * 100) + 30, 98)
+                      : 0;
+
+                    return (
+                      <Link
+                        key={reg.id}
+                        href={`/profile/${reg.profiles.id}`}
+                        className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-700 transition-all min-h-[140px]"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              {reg.profiles.avatar_url ? (
+                                <img
+                                  src={reg.profiles.avatar_url}
+                                  alt={reg.profiles.full_name}
+                                  className="w-9 h-9 rounded object-cover border border-zinc-800 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs shrink-0">
+                                  {reg.profiles.full_name?.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <h3 className="font-semibold text-xs text-white truncate group-hover:text-violet-300 transition-colors">
+                                  {reg.profiles.full_name}
+                                </h3>
+                                <p className="text-zinc-500 text-[10px] truncate">
+                                  {reg.profiles.college || "Independent Builder"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {matchScore > 0 && (
+                              <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">
+                                ✨ {matchScore}% Match
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {reg.profiles.skills?.length ? (
+                              reg.profiles.skills.slice(0, 3).map((skill) => {
+                                const isMatched = userSkills.map(s => s.toLowerCase()).includes(skill.toLowerCase());
+                                return (
+                                  <span 
+                                    key={skill} 
+                                    className={`text-[8px] font-semibold px-1.5 py-0.5 rounded border ${
+                                      isMatched
+                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                        : "border-zinc-800/80 bg-zinc-900/30 text-zinc-450"
+                                    }`}
+                                  >
+                                    {skill}
+                                  </span>
+                                );
+                              })
+                            ) : (
+                              <span className="text-[8px] text-zinc-650">No skills added</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60">
+                          <span className="text-[8px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">
+                            Looking to join
+                          </span>
+                          <span className="text-[9px] text-zinc-500 group-hover:text-white transition-colors">
+                            View Profile →
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tab CONTENT 5: Looking for Builders */}
+        {activeTab === "looking_for_builders" && (
+          <>
+            {teams.filter(t => t.owner_id === currentUserId).map(myTeam => (
+              <div key={myTeam.id} className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold text-white">Manage Recruitment for &ldquo;{myTeam.name}&rdquo;</h4>
+                  <p className="text-[10px] text-zinc-500 mt-1">Toggle whether your team should be listed under &lsquo;Looking for Builders&rsquo; to find teammates.</p>
+                </div>
+                <button
+                  onClick={() => handleToggleTeamRecruiting(myTeam.id, myTeam.is_recruiting === true)}
+                  className={`btn btn-sm shrink-0 ${
+                    myTeam.is_recruiting === true
+                      ? "btn-secondary"
+                      : "btn-primary"
+                  }`}
+                >
+                  {myTeam.is_recruiting === true
+                    ? "Stop Recruiting"
+                    : "🎯 List Team as Recruiting"}
+                </button>
+              </div>
+            ))}
+
+            {teams.filter((t) => t.is_recruiting === true).length === 0 ? (
+              <div className="card card-static p-12 text-center">
+                <p className="text-xs text-zinc-500">No teams are currently recruiting builders. Check back later!</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {teams
+                  .filter((team) => team.is_recruiting === true)
+                  .map((team) => {
+                    const matchedTeamSkills = team.skills?.filter((s) => userSkills.includes(s)) || [];
+                    const teamMatchScore = team.skills?.length
+                      ? Math.round((matchedTeamSkills.length / team.skills.length) * 100)
+                      : 0;
+
+                    return (
+                      <Link
+                        key={team.id}
+                        href={`/teams/${team.id}`}
+                        className="card p-5 group flex flex-col justify-between min-h-[150px]"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <h3 className="font-semibold text-sm text-white group-hover:text-white truncate">
+                              {team.name}
+                            </h3>
+                            {teamMatchScore > 0 && (
+                              <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5">
+                                ✨ {teamMatchScore}% Match
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">
+                            {team.description || "No description provided."}
+                          </p>
+
+                          {team.roles_needed?.length ? (
+                            <div className="mb-4">
+                              <span className="text-[9px] font-mono uppercase tracking-wide text-zinc-500 block mb-1">Roles Needed:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {team.roles_needed.slice(0, 2).map((role) => (
+                                  <span key={role} className="text-[8px] font-semibold bg-violet-600/10 border border-violet-500/20 text-violet-400 rounded px-1.5 py-0.5">
+                                    {role}
+                                  </span>
+                                ))}
+                                {team.roles_needed.length > 2 && (
+                                  <span className="text-[8px] text-zinc-500">+{team.roles_needed.length - 2} more</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 border-t border-zinc-900">
+                          <span className="text-[10px] text-zinc-500 truncate">
+                            {team.college || "Independent Team"}
+                          </span>
+                          <span className="text-[10px] font-semibold text-white group-hover:text-zinc-300 transition-colors">
+                            View recruiting team →
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tab CONTENT 6: Resources */}
+        {activeTab === "resources" && (
+          <div className="space-y-6">
+            {isOrganizer && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowAddResourceModal(true)}
+                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                >
+                  ➕ Add Custom Resource Link
+                </button>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Category 1: Boilerplates & Starters */}
+              <div className="card card-static p-5 border-zinc-900 bg-zinc-950/20">
+                <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-zinc-900 pb-2">
+                  🛠️ Boilerplates & Component Starter Kits
+                </h3>
+                <div className="space-y-3.5">
+                  {/* Curated Auto Resources */}
+                  {getAutoResources(hackathon.tags)
+                    .filter((r) => r.category === "boilerplates")
+                    .map((res, i) => (
+                      <div key={`auto-bp-${i}`} className="flex items-start justify-between gap-3 group">
+                        <div>
+                          <a
+                            href={res.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
+                          >
+                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                          </a>
+                          <span className="text-[8px] font-mono text-zinc-600 block mt-0.5">AUTO-RECOMMENDED STARTER</span>
+                        </div>
+                      </div>
+                    ))}
+                  {/* Custom Resources */}
+                  {resources
+                    .filter((r) => r.category === "boilerplates")
+                    .map((res) => (
+                      <div key={res.id} className="flex items-start justify-between gap-3 group">
+                        <div>
+                          <a
+                            href={res.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-primary-400 hover:text-primary-300 transition-all flex items-center gap-1.5"
+                          >
+                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                          </a>
+                          <span className="text-[8px] font-mono text-zinc-650 block mt-0.5">POSTED BY ORGANIZER</span>
+                        </div>
+                        {isOrganizer && (
+                          <button
+                            onClick={() => handleDeleteResource(res.id)}
+                            className="text-zinc-600 hover:text-rose-400 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Category 2: Documentation & Developer APIs */}
+              <div className="card card-static p-5 border-zinc-900 bg-zinc-950/20">
+                <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-zinc-900 pb-2">
+                  📚 Developer Docs & Sandbox APIs
+                </h3>
+                <div className="space-y-3.5">
+                  {/* Curated Auto Resources */}
+                  {getAutoResources(hackathon.tags)
+                    .filter((r) => r.category === "docs" || r.category === "apis")
+                    .map((res, i) => (
+                      <div key={`auto-docs-${i}`} className="flex items-start justify-between gap-3 group">
+                        <div>
+                          <a
+                            href={res.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
+                          >
+                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                          </a>
+                          <span className="text-[8px] font-mono text-zinc-650 block mt-0.5">AUTO-RECOMMENDED GUIDE</span>
+                        </div>
+                      </div>
+                    ))}
+                  {/* Custom Resources */}
+                  {resources
+                    .filter((r) => r.category === "docs" || r.category === "apis")
+                    .map((res) => (
+                      <div key={res.id} className="flex items-start justify-between gap-3 group">
+                        <div>
+                          <a
+                            href={res.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-primary-400 hover:text-primary-300 transition-all flex items-center gap-1.5"
+                          >
+                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                          </a>
+                          <span className="text-[8px] font-mono text-zinc-600 block mt-0.5">POSTED BY ORGANIZER</span>
+                        </div>
+                        {isOrganizer && (
+                          <button
+                            onClick={() => handleDeleteResource(res.id)}
+                            className="text-zinc-600 hover:text-rose-400 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab CONTENT 7: Organizer Dashboard */}
         {activeTab === "organizer" && isOrganizer && (
           <div className="card card-static p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1141,7 +1825,7 @@ function HackathonDetailContent() {
                               {reg.teams.name}
                             </Link>
                           ) : (
-                            <span className="text-zinc-600 font-normal italic">None</span>
+                            <span className="text-zinc-650 font-normal italic">None</span>
                           )}
                         </td>
                         <td className="py-3 text-zinc-500 text-right">
@@ -1157,70 +1841,70 @@ function HackathonDetailContent() {
         )}
       </section>
 
-      {/* Skill-Matched Builders Panel */}
-      <section className="mt-8 animate-fade-in-up">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-white tracking-tight">Builders with Matching Skills</h2>
-            <p className="text-[10px] text-zinc-500 mt-0.5">Detected from this hackathon&apos;s description</p>
+      {/* MODAL: Add Resource Link */}
+      {showAddResourceModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-fade-in">
+          <div className="card card-static p-5 w-full max-w-sm">
+            <h3 className="text-sm font-semibold text-white mb-2">Add Custom Resource Link</h3>
+            <form onSubmit={handleCreateResource} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5">Resource Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Official Challenge Guide"
+                  value={resourceTitle}
+                  onChange={(e) => setResourceTitle(e.target.value)}
+                  className="input text-xs w-full"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5">Resource URL</label>
+                <input
+                  type="url"
+                  placeholder="https://docs.google.com/..."
+                  value={resourceUrl}
+                  onChange={(e) => setResourceUrl(e.target.value)}
+                  className="input text-xs w-full"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5">Resource Category</label>
+                <select
+                  value={resourceCategory}
+                  onChange={(e) => setResourceCategory(e.target.value as "boilerplates" | "apis" | "docs" | "other")}
+                  className="input text-xs w-full"
+                >
+                  <option value="boilerplates">Boilerplates & Templates</option>
+                  <option value="apis">Sandbox APIs / Datasets</option>
+                  <option value="docs">Guides & Official Documentation</option>
+                  <option value="other">Other Links</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-900">
+                <button
+                  type="button"
+                  onClick={() => setShowAddResourceModal(false)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingResource}
+                  className="btn btn-primary btn-sm"
+                >
+                  {savingResource ? "Adding..." : "Add Link"}
+                </button>
+              </div>
+            </form>
           </div>
-          {matchedBuilders.length > 0 && (
-            <span className="text-[9px] font-mono font-semibold px-2 py-1 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400">
-              {matchedBuilders.length} match{matchedBuilders.length !== 1 ? "es" : ""}
-            </span>
-          )}
         </div>
-
-        {matchedBuilders.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {matchedBuilders.map((builder) => (
-              <Link
-                key={builder.id}
-                href={`/profile/${builder.id}`}
-                className="group card card-static p-4 flex flex-col gap-3 hover:border-zinc-700 transition-all"
-              >
-                {/* Header */}
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs shrink-0 group-hover:border-violet-500/30 transition-colors">
-                    {builder.full_name?.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-semibold text-white truncate group-hover:text-violet-300 transition-colors">
-                      {builder.full_name}
-                    </h3>
-                    <p className="text-[10px] text-zinc-500 truncate">
-                      {builder.college || "Independent Builder"}
-                    </p>
-                  </div>
-                  <span className="ml-auto shrink-0 text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                    {builder.matchedSkills.length} skill{builder.matchedSkills.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-
-                {/* Matched skills */}
-                <div className="flex flex-wrap gap-1">
-                  {builder.matchedSkills.slice(0, 4).map((skill) => (
-                    <span
-                      key={skill}
-                      className="text-[8px] font-semibold px-1.5 py-0.5 rounded border border-violet-500/30 bg-violet-500/10 text-violet-300"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                  {builder.matchedSkills.length > 4 && (
-                    <span className="text-[8px] text-zinc-500 px-1 py-0.5">+{builder.matchedSkills.length - 4} more</span>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="card card-static p-8 text-center">
-            <p className="text-xs text-zinc-500">No skill matches detected for this hackathon yet.</p>
-            <p className="text-[10px] text-zinc-600 mt-1">Matches improve as more builders join and descriptions get richer.</p>
-          </div>
-        )}
-      </section>
+      )}
 
       {/* MODAL 1: Register Natively */}
       {showRegisterModal && (
@@ -1242,10 +1926,10 @@ function HackathonDetailContent() {
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
-                .filter((t) => !t.hackathon_id)
+                .filter((t) => t.hackathon_id !== hackathon.id)
                 .map((team) => (
                   <option key={team.id} value={team.id}>
-                    {team.name}
+                    {team.name} {team.hackathon_id ? " (Currently linked to another hackathon)" : ""}
                   </option>
                 ))}
             </select>
@@ -1290,10 +1974,10 @@ function HackathonDetailContent() {
             >
               <option value="">Choose your team</option>
               {userOwnedTeams
-                .filter((t) => !t.hackathon_id)
+                .filter((t) => t.hackathon_id !== hackathon.id)
                 .map((team) => (
                   <option key={team.id} value={team.id}>
-                    {team.name}
+                    {team.name} {team.hackathon_id ? " (Currently linked to another hackathon)" : ""}
                   </option>
                 ))}
             </select>
@@ -1338,10 +2022,10 @@ function HackathonDetailContent() {
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
-                .filter((t) => !t.hackathon_id)
+                .filter((t) => t.hackathon_id !== hackathon.id)
                 .map((team) => (
                   <option key={team.id} value={team.id}>
-                    {team.name}
+                    {team.name} {team.hackathon_id ? " (Currently linked to another hackathon)" : ""}
                   </option>
                 ))}
             </select>
