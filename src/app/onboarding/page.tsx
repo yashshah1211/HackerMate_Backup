@@ -62,6 +62,12 @@ export default function OnboardingPage() {
     "AR/VR",
     "GameDev (Unity/Unreal)",
     "DevOps",
+    "Public Speaking",
+    "Presenting",
+    "Pitching",
+    "Technical Writing",
+    "Graphic Design",
+    "Video Editing",
   ];
 
   const COLLEGES = [
@@ -152,7 +158,7 @@ export default function OnboardingPage() {
           showToast("Syncing GitHub statistics...", "info");
           stats = await fetchGithubStats(username);
           statsUpdated = new Date().toISOString();
-        } catch (e: any) {
+        } catch (e) {
           console.error("Failed to auto-sync GitHub statistics during onboarding:", e);
           showToast("Profile set up, but could not retrieve GitHub repository stats.", "warning");
         }

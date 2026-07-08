@@ -121,25 +121,46 @@ function HackathonDetailContent() {
   const [matchedBuilders, setMatchedBuilders] = useState<MatchedBuilder[]>([]);
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
 
-  const formatICSDate = (dateString: string | null, isEnd: boolean = false) => {
+  const formatTimezoneIndependentDate = (dateString: string | null, isEnd: boolean = false, format: "date-only" | "timed" = "timed") => {
     if (!dateString) return "";
-    const d = new Date(dateString);
-    if (isEnd && dateString.length === 10) {
-      d.setHours(23, 59, 59);
+    
+    const parts = dateString.split("-");
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    
+    const date = new Date(Date.UTC(y, m - 1, d));
+    
+    if (isEnd) {
+      if (format === "date-only") {
+        date.setUTCDate(date.getUTCDate() + 1);
+      } else {
+        date.setUTCHours(18, 0, 0, 0);
+      }
+    } else {
+      if (format === "timed") {
+        date.setUTCHours(9, 0, 0, 0);
+      }
     }
+    
     const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+    
+    if (format === "date-only") {
+      return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
+    }
+    
+    return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
   };
 
   const getCalendarUrls = () => {
-    if (!hackathon) return { google: "", outlook: "" };
+    if (!hackathon || !hackathon.start_date || !hackathon.end_date) return { google: "", outlook: "" };
     
     const title = encodeURIComponent(hackathon.name);
     const desc = encodeURIComponent(htmlToPlainText(hackathon.description || "").slice(0, 500) + "...");
     const loc = encodeURIComponent(hackathon.location || "TBA");
     
-    const startStr = formatICSDate(hackathon.start_date);
-    const endStr = formatICSDate(hackathon.end_date, true);
+    const startStr = formatTimezoneIndependentDate(hackathon.start_date, false, "timed");
+    const endStr = formatTimezoneIndependentDate(hackathon.end_date, true, "timed");
     
     const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${desc}&location=${loc}`;
     const outlook = `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${title}&startdt=${hackathon.start_date}T09:00:00Z&enddt=${hackathon.end_date}T18:00:00Z&body=${desc}&location=${loc}`;
@@ -148,11 +169,15 @@ function HackathonDetailContent() {
   };
 
   const downloadICSFile = () => {
-    if (!hackathon) return;
+    if (!hackathon || !hackathon.start_date || !hackathon.end_date) return;
     
-    const startStr = formatICSDate(hackathon.start_date);
-    const endStr = formatICSDate(hackathon.end_date, true);
-    const dtstamp = formatICSDate(new Date().toISOString());
+    const startStr = formatTimezoneIndependentDate(hackathon.start_date, false, "timed");
+    const endStr = formatTimezoneIndependentDate(hackathon.end_date, true, "timed");
+    
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const now = new Date();
+    const dtstamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+    
     const summary = hackathon.name.replace(/[,;]/g, "\\$&");
     const desc = htmlToPlainText(hackathon.description || "").replace(/[,;]/g, "\\$&").slice(0, 300) + "...";
     const loc = (hackathon.location || "TBA").replace(/[,;]/g, "\\$&");
@@ -845,8 +870,16 @@ function HackathonDetailContent() {
             {/* Add to Calendar Button */}
             <div className="relative">
               <button
-                onClick={() => setShowCalendarDropdown(!showCalendarDropdown)}
-                className="btn btn-secondary w-full btn-sm flex items-center justify-center gap-2 transition-all"
+                onClick={() => {
+                  if (hackathon.start_date && hackathon.end_date) {
+                    setShowCalendarDropdown(!showCalendarDropdown);
+                  } else {
+                    showToast("Event date is not announced yet.", "info");
+                  }
+                }}
+                disabled={!hackathon.start_date || !hackathon.end_date}
+                className="btn btn-secondary w-full btn-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title={(!hackathon.start_date || !hackathon.end_date) ? "Dates TBA" : undefined}
               >
                 <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -863,7 +896,7 @@ function HackathonDetailContent() {
                     className="fixed inset-0 z-20" 
                     onClick={() => setShowCalendarDropdown(false)}
                   />
-                  <div className="absolute right-0 left-0 mt-2 z-30 rounded-xl border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl animate-fade-in">
+                  <div className="absolute right-0 left-0 bottom-full mb-2 z-30 rounded-xl border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl animate-fade-in">
                     <a
                       href={getCalendarUrls().google}
                       target="_blank"

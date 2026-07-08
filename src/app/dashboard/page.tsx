@@ -1,10 +1,8 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
-import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 
 type Profile = {
@@ -55,16 +53,11 @@ type Team = {
   owner_id?: string;
 };
 
-type RecentMessage = {
+type RecentActivity = {
   id: string;
-  content: string;
-  created_at: string;
-  sender_id: string;
-  conversation_id: string;
-  is_read: boolean;
-  senderName: string;
-  senderAvatar?: string;
+  message: string;
   timeLabel: string;
+  link?: string | null;
 };
 
 type SpotlightConnectionState =
@@ -91,61 +84,24 @@ function getHackathonTimelineLabel(startDateStr: string, endDateStr: string): { 
   return { label: "Ended", variant: "ended" };
 }
 
-function DashboardAvatar({ src, name, size = "md" }: { src?: string; name?: string; size?: "sm" | "md" | "lg" }) {
-  const [error, setError] = useState(false);
-  const fullName = name || "Builder";
-  
-  const sizeClasses = {
-    sm: "w-8 h-8 text-xs",
-    md: "w-10 h-10 text-sm",
-    lg: "w-14 h-14 text-lg font-bold"
-  };
-
-  const borderClasses = {
-    sm: "border-zinc-900",
-    md: "border-zinc-900",
-    lg: "border-zinc-800"
-  };
-
-  const isValidUrl = src && (src.startsWith("http") || src.startsWith("/"));
-
-  if (error || !isValidUrl) {
-    return (
-      <div className={`${sizeClasses[size]} rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-semibold text-zinc-400 shrink-0`}>
-        {fullName.charAt(0).toUpperCase()}
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt={fullName}
-      onError={() => setError(true)}
-      className={`${sizeClasses[size]} rounded-lg object-cover border ${borderClasses[size]} shrink-0`}
-    />
-  );
-}
-
 function DashboardContent() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Custom dashboard data states
   const [spotlights, setSpotlights] = useState<Profile[]>([]);
   const [upcomingHackathons, setUpcomingHackathons] = useState<Hackathon[]>([]);
   const [activeTeams, setActiveTeams] = useState<Team[]>([]);
-  const [recentMessages, setRecentMessages] = useState<RecentMessage[]>([]);
   const [connectionStates, setConnectionStates] = useState<
     Record<string, SpotlightConnectionState>
   >({});
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTheme((localStorage.getItem("theme") as "dark" | "light") || "dark");
     }
   }, []);
@@ -213,7 +169,7 @@ function DashboardContent() {
         setLoading(false);
         return;
       }
-      setCurrentUserId(user.id);
+
 
       await loadConnectionStates(user.id);
 
@@ -429,47 +385,7 @@ function DashboardContent() {
         unread: unreadMsgCount,
       });
 
-      // 7. Load Recent Messages
-      if (conversationIds.length > 0) {
-        const { data: messagesData } = await supabase
-          .from("messages")
-          .select("id, content, created_at, sender_id, conversation_id, is_read")
-          .in("conversation_id", conversationIds)
-          .neq("sender_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(3);
 
-        if (messagesData && messagesData.length > 0) {
-          const senderIds = Array.from(new Set(messagesData.map((m) => m.sender_id)));
-          const { data: profilesData } = await supabase
-            .from("profiles")
-            .select("id, full_name, avatar_url")
-            .in("id", senderIds);
-
-          const profileMap: Record<string, Profile> = {};
-          if (profilesData) {
-            profilesData.forEach((p) => {
-              profileMap[p.id] = p as Profile;
-            });
-          }
-
-          const enrichedMessages = messagesData.map((m) => {
-            const sender = profileMap[m.sender_id];
-            const diffMs = Date.now() - new Date(m.created_at).getTime();
-            const diffMin = Math.round(diffMs / (1000 * 60));
-            const timeLabel = diffMin < 60 ? `${diffMin}m` : diffMin < 1440 ? `${Math.round(diffMin / 60)}h` : `${Math.round(diffMin / 1440)}d`;
-
-            return {
-              ...m,
-              senderName: sender?.full_name || "Builder",
-              senderAvatar: sender?.avatar_url,
-              timeLabel,
-            };
-          });
-
-          setRecentMessages(enrichedMessages);
-        }
-      }
 
       // 8. Fetch recent notifications for Recent Activity
       const { data: notifsData } = await supabase
@@ -531,35 +447,7 @@ function DashboardContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Predefined icons list helper for active teams matching mockup aesthetics
-  const renderTeamIcon = (index: number) => {
-    switch (index % 4) {
-      case 0:
-        return (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25M21 5.25A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
-          </svg>
-        );
-      case 1:
-        return (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-2.2 2.2m2.2-2.2a6 6 0 00-2.2-2.2m2.2 2.2h.01M13.39 16.57a6 6 0 01-2.2-2.2m2.2 2.2v.01m-2.2-2.21a6 6 0 00-2.2 2.2m2.2-2.2h.01m-2.2 2.2v.01m-6.13-1.64c-.168-.168-.344-.333-.526-.496A13.064 13.064 0 002.25 8.553a.75.75 0 011.047-.685l3.226 1.29a2.25 2.25 0 001.696-.06l6.81-3.405a2.25 2.25 0 011.696-.06l3.226 1.29a.75.75 0 01.378.926 13.065 13.065 0 01-5.114 6.81 2.25 2.25 0 00-.06 1.696l1.29 3.226a.75.75 0 01-.685 1.047 13.063 13.063 0 01-5.17-5.109 2.25 2.25 0 00-1.696-.06l-3.226 1.29a.75.75 0 01-.926-.378z" />
-          </svg>
-        );
-      case 2:
-        return (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
-          </svg>
-        );
-      default:
-        return (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v3m0 0h.01m-3.01-3h6.02m-.02-3.001A6 6 0 106 11.999c0 1.201.353 2.302.964 3.229l.006.01c.217.332.327.728.327 1.134v.53a1.125 1.125 0 001.125 1.125h5.122a1.125 1.125 0 001.125-1.125v-.53a1.127 1.127 0 00.327-1.135l.006-.009a6.002 6.002 0 00.963-3.228z" />
-          </svg>
-        );
-    }
-  };
+
 
   const formatActivityText = (text: string) => {
     let formatted = text;
@@ -598,11 +486,19 @@ function DashboardContent() {
         <div className="ticker">
           <span className="dot"></span> {stats.hackathons || 97} hackathons live · 14 closing within 7 days
         </div>
+        <div className="top-actions hidden md:flex">
+          <button className="icon-btn" onClick={toggleTheme}>
+            {theme === "dark" ? "☀" : "🌙"}
+          </button>
+          <button className="icon-btn" onClick={() => router.push("/notifications")}>
+            🔔
+          </button>
+        </div>
       </div>
 
       <div className="header-row">
         <div className="greet">
-          <h2>Good afternoon, <span>{profile?.full_name?.split(" ")[0] || "Yash"}</span> 👋</h2>
+          <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "Yash"}</span> 👋</h2>
           <p>&gt; build_together --win-together</p>
         </div>
         <button className="cta-primary" onClick={() => router.push("/teams/create")}>+ Create a team</button>
@@ -780,7 +676,7 @@ function DashboardContent() {
           </div>
 
           {activeTeams.length > 0 ? (
-            activeTeams.map((team, idx) => {
+            activeTeams.map((team) => {
               const count = team.memberCount || 0;
               const max = team.max_members || 5;
               const percent = Math.min(Math.round((count / max) * 100), 100);

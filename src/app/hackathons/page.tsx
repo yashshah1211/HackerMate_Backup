@@ -95,7 +95,8 @@ function HackathonsContent() {
   useEffect(() => {
     const tabParam = searchParams?.get("tab");
     if (tabParam && ["recommended", "upcoming", "saved", "past"].includes(tabParam)) {
-      setActiveTab(tabParam as any);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(tabParam as "recommended" | "upcoming" | "saved" | "past");
     }
   }, [searchParams]);
 

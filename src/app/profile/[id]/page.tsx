@@ -238,15 +238,16 @@ export default function ProfilePage() {
 
       showToast("GitHub stats synced successfully!", "success");
       await loadProfile();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes("column") && err.message?.includes("does not exist")) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("column") && message.includes("does not exist")) {
         showToast(
           "Database migration pending. Please run supabase db push to create github_stats column.",
           "error"
         );
       } else {
-        showToast(err.message || "Failed to sync GitHub statistics.", "error");
+        showToast(message || "Failed to sync GitHub statistics.", "error");
       }
     } finally {
       setSyncing(false);

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/safety";
 
@@ -35,14 +36,12 @@ function TeamInviteCard({
   inviteId, 
   teamName, 
   teamId, 
-  isMine,
-  currentUserId 
+  isMine
 }: { 
   inviteId: string; 
   teamName: string; 
   teamId: string; 
   isMine: boolean;
-  currentUserId: string;
 }) {
   const [status, setStatus] = useState<string>("loading");
   const [loading, setLoading] = useState<boolean>(true);
@@ -136,21 +135,29 @@ function TeamInviteCard({
             Pending Response
           </span>
         ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={handleAccept}
-              disabled={actionLoading}
-              className="px-3 py-1 text-[10px] font-bold bg-white text-black hover:bg-zinc-200 rounded transition-colors disabled:opacity-50"
+          <div className="flex flex-col gap-1.5 w-full">
+            <div className="flex gap-2">
+              <button
+                onClick={handleAccept}
+                disabled={actionLoading}
+                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-white text-black hover:bg-zinc-200 rounded transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? "Joining..." : "Accept"}
+              </button>
+              <button
+                onClick={handleDecline}
+                disabled={actionLoading}
+                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? "Declining..." : "Decline"}
+              </button>
+            </div>
+            <Link
+              href={`/teams/${teamId}`}
+              className="w-full text-center px-3 py-1.5 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded transition-colors block"
             >
-              {actionLoading ? "Joining..." : "Accept"}
-            </button>
-            <button
-              onClick={handleDecline}
-              disabled={actionLoading}
-              className="px-3 py-1 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded transition-colors disabled:opacity-50"
-            >
-              {actionLoading ? "Declining..." : "Decline"}
-            </button>
+              View Team
+            </Link>
           </div>
         )
       ) : status === "accepted" ? (
@@ -632,7 +639,6 @@ async function unpinMessage(messageId: string) {
             teamName={payload.team_name}
             teamId={payload.team_id}
             isMine={isMine}
-            currentUserId={currentUserId}
           />
         );
       } catch (err) {

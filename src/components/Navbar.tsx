@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -177,7 +178,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           <div className="bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
               <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center font-bold text-sm text-white">HM</div>
+                <img src="/icon.svg" alt="HackerMate Logo" className="w-8 h-8 object-contain rounded-lg" />
                 <span className="font-semibold text-sm tracking-tight text-white">HackerMate</span>
               </Link>
               {user && (
@@ -273,7 +274,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="logo px-5 py-5 flex items-center justify-between shrink-0">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="logo-mark">HM</div>
+            <img src="/icon.svg" alt="HackerMate Logo" className="w-[34px] h-[34px] object-contain rounded-lg" />
             <div className="logo-text text-left">
               <h1>HackerMate</h1>
               <span>TEAM OS</span>

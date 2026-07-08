@@ -50,6 +50,7 @@ function TeamDetailsContent() {
   const [teamFull, setTeamFull] = useState(false);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [processedJoin, setProcessedJoin] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState<{ id: string; status: string } | null>(null);
 
   useEffect(() => {
     if (teamId) {
@@ -120,6 +121,17 @@ function TeamDetailsContent() {
       if (teamData.owner_id === user.id) {
         setIsOwner(true);
       }
+
+      // Check for pending invite
+      const { data: inviteData } = await supabase
+        .from("team_invites")
+        .select("id, status")
+        .eq("team_id", teamId)
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      setPendingInvite(inviteData || null);
     }
 
     // Load members
@@ -352,6 +364,7 @@ function TeamDetailsContent() {
         matchedSkills={matchedSkills}
         missingSkills={missingSkills}
         refreshTeam={loadTeam}
+        pendingInvite={pendingInvite}
       />
   );
 

@@ -66,6 +66,12 @@ function EditProfileContent() {
     "AR/VR",
     "GameDev (Unity/Unreal)",
     "DevOps",
+    "Public Speaking",
+    "Presenting",
+    "Pitching",
+    "Technical Writing",
+    "Graphic Design",
+    "Video Editing",
   ];
 
   const COLLEGES = [
@@ -164,7 +170,7 @@ function EditProfileContent() {
           showToast("Syncing new GitHub statistics...", "info");
           stats = await fetchGithubStats(username);
           statsUpdated = new Date().toISOString();
-        } catch (e: any) {
+        } catch (e) {
           console.error("Failed to auto-sync GitHub statistics:", e);
           showToast("Profile saved, but could not retrieve GitHub repository stats.", "warning");
         }

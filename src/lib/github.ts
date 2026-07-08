@@ -22,7 +22,7 @@ export function parseGithubUsername(url: string): string | null {
         return pathParts[0];
       }
     }
-  } catch (e) {
+  } catch {
     const match = clean.match(/github\.com\/([^/]+)/i);
     if (match) return match[1];
   }
@@ -62,7 +62,15 @@ export async function fetchGithubStats(username: string): Promise<GithubStats> {
 
   // Aggregate languages
   const languageCounts: Record<string, number> = {};
-  const repos = (reposData || []).map((r: any) => {
+  interface GithubRepoResponse {
+    name: string;
+    description: string | null;
+    language: string | null;
+    stargazers_count: number;
+    html_url: string;
+  }
+
+  const repos = (reposData || []).map((r: GithubRepoResponse) => {
     if (r.language) {
       languageCounts[r.language] = (languageCounts[r.language] || 0) + 1;
     }

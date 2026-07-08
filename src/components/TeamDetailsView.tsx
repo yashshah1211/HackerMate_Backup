@@ -18,6 +18,8 @@ const SKILLS = [
   "Python", "Java", "C++", "Flutter", "React Native", "AI/ML",
   "TensorFlow", "PyTorch", "Docker", "Kubernetes", "AWS", "Terraform",
   "Supabase", "PostgreSQL", "MongoDB", "UI/UX", "Figma", "DevOps",
+  "Public Speaking", "Presenting", "Pitching", "Technical Writing",
+  "Graphic Design", "Video Editing",
 ];
 
 const ROLES = [
@@ -76,6 +78,7 @@ type Props = {
   matchedSkills?: string[];
   missingSkills?: string[];
   refreshTeam?: () => void;
+  pendingInvite?: { id: string; status: string } | null;
 };
 
 export default function TeamDetailsView({
@@ -94,11 +97,57 @@ export default function TeamDetailsView({
   matchedSkills = [],
   missingSkills = [],
   refreshTeam,
+  pendingInvite,
 }: Props) {
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
+
+  // Invitation banner states
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [inviteActionLoading, setInviteActionLoading] = useState(false);
+
+  useEffect(() => {
+    if (pendingInvite) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInviteStatus(pendingInvite.status);
+    } else {
+      setInviteStatus(null);
+    }
+  }, [pendingInvite]);
+
+  const handleAcceptInvite = async () => {
+    if (!pendingInvite) return;
+    setInviteActionLoading(true);
+    const { error } = await supabase.rpc("accept_team_invite", {
+      p_invite_id: pendingInvite.id,
+    });
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      showToast("You have successfully joined the team!", "success");
+      setInviteStatus("accepted");
+      if (refreshTeam) refreshTeam();
+    }
+    setInviteActionLoading(false);
+  };
+
+  const handleRejectInvite = async () => {
+    if (!pendingInvite) return;
+    setInviteActionLoading(true);
+    const { error } = await supabase.rpc("reject_team_invite", {
+      p_invite_id: pendingInvite.id,
+    });
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      showToast("Invitation declined.", "info");
+      setInviteStatus("rejected");
+      if (refreshTeam) refreshTeam();
+    }
+    setInviteActionLoading(false);
+  };
 
   // Workspace tab states
   const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources" | "submission">("chat");
@@ -995,6 +1044,33 @@ export default function TeamDetailsView({
 
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
+      {pendingInvite && inviteStatus === "pending" && (
+        <div className="mb-6 animate-fade-in-up p-4 bg-gradient-to-r from-violet-950/40 to-indigo-950/40 border border-violet-500/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">✉</span>
+            <div className="text-left">
+              <p className="text-xs font-semibold text-white">You have a pending invite to join this team</p>
+              <p className="text-[10px] text-zinc-400">Review the team details below and make your decision.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleAcceptInvite}
+              disabled={inviteActionLoading}
+              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold bg-white text-black hover:bg-zinc-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {inviteActionLoading ? "Joining..." : "Accept"}
+            </button>
+            <button
+              onClick={handleRejectInvite}
+              disabled={inviteActionLoading}
+              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {inviteActionLoading ? "Declining..." : "Decline"}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6 animate-fade-in-up">
         <Link

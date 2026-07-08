@@ -225,6 +225,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Resend Sandbox limitation override: if using the default onboarding@resend.dev sender, redirect target to sandbox email
+    let targetEmail = recipient.email;
+    let finalSubject = subject;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
+    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
+    
+    if (isSandboxMode) {
+      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
+      if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
+        console.log(`[Resend Sandbox Override] Redirecting email from ${targetEmail} to sandbox recipient ${sandboxEmail}`);
+        finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;
+        targetEmail = sandboxEmail;
+      }
+    }
+
     // Call Resend REST API endpoint
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -234,8 +249,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>",
-        to: recipient.email,
-        subject: subject,
+        to: targetEmail,
+        subject: finalSubject,
         html: html,
       }),
     });
