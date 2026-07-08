@@ -119,6 +119,69 @@ function HackathonDetailContent() {
 
   // Skill-matched builders
   const [matchedBuilders, setMatchedBuilders] = useState<MatchedBuilder[]>([]);
+  const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
+
+  const formatICSDate = (dateString: string | null, isEnd: boolean = false) => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    if (isEnd && dateString.length === 10) {
+      d.setHours(23, 59, 59);
+    }
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  };
+
+  const getCalendarUrls = () => {
+    if (!hackathon) return { google: "", outlook: "" };
+    
+    const title = encodeURIComponent(hackathon.name);
+    const desc = encodeURIComponent(htmlToPlainText(hackathon.description || "").slice(0, 500) + "...");
+    const loc = encodeURIComponent(hackathon.location || "TBA");
+    
+    const startStr = formatICSDate(hackathon.start_date);
+    const endStr = formatICSDate(hackathon.end_date, true);
+    
+    const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${desc}&location=${loc}`;
+    const outlook = `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${title}&startdt=${hackathon.start_date}T09:00:00Z&enddt=${hackathon.end_date}T18:00:00Z&body=${desc}&location=${loc}`;
+    
+    return { google, outlook };
+  };
+
+  const downloadICSFile = () => {
+    if (!hackathon) return;
+    
+    const startStr = formatICSDate(hackathon.start_date);
+    const endStr = formatICSDate(hackathon.end_date, true);
+    const dtstamp = formatICSDate(new Date().toISOString());
+    const summary = hackathon.name.replace(/[,;]/g, "\\$&");
+    const desc = htmlToPlainText(hackathon.description || "").replace(/[,;]/g, "\\$&").slice(0, 300) + "...";
+    const loc = (hackathon.location || "TBA").replace(/[,;]/g, "\\$&");
+    const uid = `${hackathon.id}@hackermate.com`;
+
+    const icsContent = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//HackerMate//Hackathon Event//EN",
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${dtstamp}`,
+      `DTSTART:${startStr}`,
+      `DTEND:${endStr}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${desc}`,
+      `LOCATION:${loc}`,
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n");
+
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute("download", `${hackathon.name.toLowerCase().replace(/\s+/g, "_")}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   async function loadData() {
     try {
@@ -778,6 +841,60 @@ function HackathonDetailContent() {
                 </>
               )}
             </button>
+
+            {/* Add to Calendar Button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCalendarDropdown(!showCalendarDropdown)}
+                className="btn btn-secondary w-full btn-sm flex items-center justify-center gap-2 transition-all"
+              >
+                <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                <span>Add to Calendar</span>
+                <svg className={`w-3.5 h-3.5 ml-auto text-zinc-500 transition-transform ${showCalendarDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+
+              {showCalendarDropdown && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-20" 
+                    onClick={() => setShowCalendarDropdown(false)}
+                  />
+                  <div className="absolute right-0 left-0 mt-2 z-30 rounded-xl border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl animate-fade-in">
+                    <a
+                      href={getCalendarUrls().google}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowCalendarDropdown(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
+                    >
+                      <span className="text-xs">🌐</span> Google Calendar
+                    </a>
+                    <a
+                      href={getCalendarUrls().outlook}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowCalendarDropdown(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
+                    >
+                      <span className="text-xs">📧</span> Outlook Calendar
+                    </a>
+                    <button
+                      onClick={() => {
+                        downloadICSFile();
+                        setShowCalendarDropdown(false);
+                      }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-all text-left"
+                    >
+                      <span className="text-xs">📅</span> Download iCal (.ics)
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </section>

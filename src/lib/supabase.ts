@@ -113,6 +113,8 @@ export function subscribeWithRetry(
           timer = setTimeout(() => {
             if (isUnsubscribed) return;
             channel.unsubscribe().then(() => {
+              // Reset the joinedOnce flag to allow re-subscription on the same channel instance
+              (channel as any).joinedOnce = false;
               doSubscribe();
             });
           }, delay);
