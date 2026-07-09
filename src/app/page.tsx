@@ -89,10 +89,7 @@ export default function Home() {
       <header className="px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-sm text-white">
-              H
-            </div>
-            <span className="font-semibold text-sm tracking-tight text-white">HackerMate</span>
+            <img src="/logo.svg" alt="HackerMate" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex items-center gap-4 text-xs text-zinc-500">
             <a href="#how-it-works" className="hover:text-white transition-colors hidden sm:inline">How it works</a>

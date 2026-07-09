@@ -1,0 +1,24 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
+  <!-- Dark background -->
+  <rect width="400" height="200" fill="#1a1b2e" rx="12"/>
+
+  <!-- HACKER text - lime green -->
+  <text x="36" y="100" font-family="'Arial Black', 'Impact', sans-serif" font-weight="900" font-size="72" letter-spacing="-2" fill="#a3e635">HACKER</text>
+
+  <!-- MATE text - cyan -->
+  <text x="36" y="172" font-family="'Arial Black', 'Impact', sans-serif" font-weight="900" font-size="72" letter-spacing="-2" fill="#22d3ee">MATE</text>
+
+  <!-- Key icon -->
+  <g transform="translate(272, 138)" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10" cy="10" r="9"/>
+    <circle cx="10" cy="10" r="4" fill="#22d3ee"/>
+    <line x1="18" y1="18" x2="30" y2="6"/>
+    <line x1="27" y1="9" x2="30" y2="6"/>
+    <line x1="30" y1="6" x2="33" y2="9"/>
+  </g>
+
+  <!-- Cursor / arrow icon -->
+  <g transform="translate(308, 130)">
+    <polygon points="0,0 0,26 7,20 12,30 16,28 11,18 20,18" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+</svg>
