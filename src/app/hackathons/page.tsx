@@ -239,7 +239,7 @@ function HackathonsContent() {
       } else if (h.website_url) {
         const url = h.website_url.toLowerCase();
         if (url.includes("unstop.com")) platform = "unstop";
-        else if (url.includes("devpost.com")) platform = "devpost";
+        else if (url.includes("hack2skill.com")) platform = "hack2skill";
         else if (url.includes("devfolio.co")) platform = "devfolio";
       }
       const matchesPlatform = !platformFilter || platform === platformFilter;
@@ -327,7 +327,7 @@ function HackathonsContent() {
             <option value="">All Platforms</option>
             <option value="native">HackerMate (Native)</option>
             <option value="unstop">Unstop</option>
-            <option value="devpost">Devpost</option>
+            <option value="hack2skill">Hack2skills</option>
             <option value="devfolio">Devfolio</option>
             <option value="other">Other External</option>
           </select>
