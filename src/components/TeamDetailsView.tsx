@@ -82,6 +82,7 @@ type Props = {
   pendingInvite?: { id: string; status: string } | null;
   listedHackathons?: { id: string; name: string; start_date?: string; end_date?: string }[];
   unlinkHackathon?: (hackathonId: string) => void;
+  initialTab?: "chat" | "tasks" | "brainstorm" | "resources" | "submission";
 };
 
 export default function TeamDetailsView({
@@ -103,6 +104,7 @@ export default function TeamDetailsView({
   pendingInvite,
   listedHackathons = [],
   unlinkHackathon,
+  initialTab,
 }: Props) {
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export default function TeamDetailsView({
   };
 
   // Workspace tab states
-  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources" | "submission">("chat");
+  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources" | "submission">(initialTab ?? "chat");
   const [draggedOverColumn, setDraggedOverColumn] = useState<"todo" | "in_progress" | "completed" | null>(null);
 
   // Project Submission Tab State

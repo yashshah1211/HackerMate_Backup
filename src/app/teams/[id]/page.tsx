@@ -39,6 +39,7 @@ function TeamDetailsContent() {
   const searchParams = useSearchParams();
   const teamId = params.id as string;
   const joinParam = searchParams.get("join") === "true";
+  const tabParam = searchParams.get("tab") as "chat" | "tasks" | "brainstorm" | "resources" | "submission" | null;
 
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -425,6 +426,7 @@ function TeamDetailsContent() {
         pendingInvite={pendingInvite}
         listedHackathons={listedHackathons}
         unlinkHackathon={unlinkHackathon}
+        initialTab={tabParam ?? undefined}
       />
   );
 
