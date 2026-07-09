@@ -197,9 +197,7 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center font-bold text-lg text-white">
-              HM
-            </div>
+            <img src="/icon.svg" alt="HackerMate Logo" className="w-12 h-12 object-contain rounded-lg" />
           </div>
 
           <h1 className="text-2xl font-semibold tracking-tight text-white mb-1.5">

@@ -1205,7 +1205,7 @@ html.light .content-area {
 }
 
 .dashboard-redesign .ticker .dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+  width: 6px; height: 6px; border-radius: 50%; background: #ef4444 !important;
 }
 
 .dashboard-redesign .top-actions {
@@ -1613,7 +1613,7 @@ html.light .content-area {
 }
 
 .light .dashboard-redesign .ticker .dot {
-  background: var(--success);
+  background: #ef4444 !important;
 }
 
 .light .dashboard-redesign .empty-hint {
