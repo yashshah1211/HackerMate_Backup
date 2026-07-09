@@ -105,6 +105,7 @@ function DashboardContent() {
     teams: 0,
     hackathons: 0,
     unread: 0,
+    closingSoon: 0,
   });
 
   const getGreeting = () => {
@@ -347,6 +348,16 @@ function DashboardContent() {
         .from("teams")
         .select("*", { count: "exact", head: true });
 
+      const sevenDaysFromNowDate = new Date();
+      sevenDaysFromNowDate.setDate(sevenDaysFromNowDate.getDate() + 7);
+      const sevenDaysFromNow = sevenDaysFromNowDate.toISOString().split("T")[0];
+
+      const { count: closingSoonCount } = await supabase
+        .from("hackathons")
+        .select("*", { count: "exact", head: true })
+        .gte("end_date", today)
+        .lte("end_date", sevenDaysFromNow);
+
       // Fetch unread messages
       let conversationIds: string[] = [];
       if (teamIds.length > 0) {
@@ -373,6 +384,7 @@ function DashboardContent() {
         teams: globalTeamsCount ?? 0,
         hackathons: liveHacksCount ?? 0,
         unread: unreadMsgCount,
+        closingSoon: closingSoonCount ?? 0,
       });
 
 
@@ -474,7 +486,7 @@ function DashboardContent() {
     <main>
       <div className="topbar">
         <div className="ticker">
-          <span className="dot"></span> {stats.hackathons || 97} hackathons live · 14 closing within 7 days
+          <span className="dot"></span> {stats.hackathons} hackathons live · {stats.closingSoon} closing within 7 days
         </div>
       </div>
 
@@ -509,7 +521,7 @@ function DashboardContent() {
             <div className="stat-icon">🔥</div>
           </div>
           <div className="stat-value">{stats.hackathons}</div>
-          <div className="stat-sub"><b>14 closing</b> in the next 7 days</div>
+          <div className="stat-sub"><b>{stats.closingSoon} closing</b> in the next 7 days</div>
         </div>
       </div>
 
