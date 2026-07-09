@@ -277,8 +277,10 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-6">
         <div className="w-full max-w-md text-center card card-static p-8">
-          <div className="w-16 h-16 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto mb-6 text-2xl font-bold animate-pulse">
-            🔒
+          <div className="w-14 h-14 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-white mb-2">
             Access Denied
@@ -301,7 +303,7 @@ export default function AdminPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-white flex items-center gap-2">
-              <span>🛡️ Moderation Center</span>
+              <span>Moderation Center</span>
             </h1>
             <p className="text-xs text-zinc-400 mt-1">
               Inspect user reports, manage account suspension lists, and assign roles.
@@ -338,7 +340,7 @@ export default function AdminPage() {
           <div className="space-y-4">
             {reports.length === 0 ? (
               <div className="card card-static p-12 text-center">
-                <p className="text-zinc-500 text-xs">No pending user reports. Clear inbox! 🎉</p>
+                <p className="text-zinc-500 text-xs">No pending user reports. Clear inbox!</p>
               </div>
             ) : (
               reports.map((rep) => (
@@ -442,11 +444,12 @@ export default function AdminPage() {
                   top: "50%", 
                   transform: "translateY(-50%)", 
                   pointerEvents: "none",
-                  fontSize: "12px",
                   color: "#71717a"
                 }}
               >
-                🔍
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
               </div>
             </div>
 

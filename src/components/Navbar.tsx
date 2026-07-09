@@ -256,10 +256,10 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const avatarGradient = avatarGradients[gradientIndex];
 
   const sidebarAvatarGradients = [
-    ["#FF6B8B", "#B0304F"],
-    ["#7C6FF0", "#4A3FB0"],
-    ["#B4F461", "#6B7F3A"],
-    ["#FFB627", "#B8894A"]
+    ["#3b82f6", "#1d4ed8"],
+    ["#8b5cf6", "#6d28d9"],
+    ["#10b981", "#047857"],
+    ["#f59e0b", "#b45309"]
   ];
   const sidebarGradientIndex = (profile?.full_name?.charCodeAt(0) || 0) % sidebarAvatarGradients.length;
   const sidebarColorsGradient = sidebarAvatarGradients[sidebarGradientIndex];
@@ -301,12 +301,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
                 onClick={() => setShowMobileSidebar(false)}
                 className={`nav-item ${active ? "active" : ""}`}
               >
-                {link.href === "/dashboard" && "▤ "}
-                {link.href === "/developers" && "◎ "}
-                {link.href === "/connections" && "⛓ "}
-                {link.href === "/teams" && "👥 "}
-                {link.href === "/hackathons" && "🏆 "}
-                {link.href === "/messages" && "💬 "}
+                {link.icon}
                 {link.label}
                 {link.href === "/messages" && unreadMessages > 0 && (
                   <span className="nav-badge">{unreadMessages}</span>
@@ -323,7 +318,8 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
               onClick={() => setShowMobileSidebar(false)}
               className={`nav-item ${pathname === "/admin" ? "active" : ""}`}
             >
-              🛡️ Admin Panel
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.745 3.745 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg>
+              Admin Panel
             </Link>
           )}
 
@@ -332,7 +328,8 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
             onClick={() => setShowMobileSidebar(false)}
             className={`nav-item ${pathname === "/my-teams" ? "active" : ""}`}
           >
-            ⚙ My Teams
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+            My Teams
           </Link>
 
           <Link
@@ -340,7 +337,8 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
             onClick={() => setShowMobileSidebar(false)}
             className={`nav-item ${pathname === "/hackathons" && typeof window !== "undefined" && window.location.search.includes("tab=saved") ? "active" : ""}`}
           >
-            🔖 Saved Hackathons
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+            Saved Hackathons
           </Link>
         </nav>
 

@@ -29,21 +29,17 @@ export default function Home() {
         .eq("id", user.id)
         .single();
 
-      console.log("Landing page - Profile check:", { userId: user.id, data, error });
-
       if (data?.onboarding_completed) {
-  const requestedPath = new URLSearchParams(window.location.search).get("next");
-  const safePath =
-    requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
-      ? requestedPath
-      : "/dashboard";
-
-  console.log("Landing page - Redirecting to:", safePath);
-  router.push(safePath);
-} else {
-  console.log("Landing page - Redirecting to onboarding");
-  router.push("/onboarding");
-}}
+        const requestedPath = new URLSearchParams(window.location.search).get("next");
+        const safePath =
+          requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+            ? requestedPath
+            : "/dashboard";
+        router.push(safePath);
+      } else {
+        router.push("/onboarding");
+      }
+    }
 
     checkUser();
   }, [router]);
@@ -78,7 +74,9 @@ export default function Home() {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--primary-500)] to-[var(--accent-500)] animate-pulse" />
+          <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-lg text-white">
+            H
+          </div>
           <p className="text-zinc-500 text-sm">Loading your workspace...</p>
         </div>
       </main>
@@ -86,41 +84,44 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col justify-between">
-      {/* Hero Section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-24 md:py-32">
-        <div className="max-w-xl mx-auto text-center">
-          {/* Logo */}
-          <div className="mb-8 animate-fade-in-up">
-            <div className="inline-flex items-center justify-center mb-6">
-              <div className="w-12 h-12 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-xl text-white">
-                H
-              </div>
+    <main className="min-h-screen flex flex-col">
+      {/* Top bar */}
+      <header className="px-6 py-5">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-sm text-white">
+              H
             </div>
+            <span className="font-semibold text-sm tracking-tight text-white">HackerMate</span>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-zinc-500">
+            <a href="#how-it-works" className="hover:text-white transition-colors hidden sm:inline">How it works</a>
+            <a href="#features" className="hover:text-white transition-colors hidden sm:inline">Features</a>
+          </div>
+        </div>
+      </header>
 
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-white mb-2">
-              HackerMate
-            </h1>
-
-            <p className="text-zinc-500 text-[10px] font-mono uppercase tracking-[0.2em]">
-              Team Operating System
-            </p>
+      {/* Hero */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 md:py-24">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/40 text-xs text-zinc-400 mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            For hackathon builders
           </div>
 
-          {/* Headline */}
-          <div className="space-y-4 animate-fade-in-up stagger-1">
-            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-white leading-tight">
-              Build teams. Ship projects.
-            </h2>
+          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4 leading-[1.1]">
+            Find your team.
+            <br />
+            Build something great.
+          </h1>
 
-            <p className="text-sm md:text-base text-zinc-400 max-w-md mx-auto leading-relaxed">
-              Find teammates, discover hackathons, and collaborate with builders
-              who share your vision.
-            </p>
-          </div>
+          <p className="text-base md:text-lg text-zinc-400 max-w-md mx-auto leading-relaxed mb-10">
+            HackerMate connects you with compatible builders for hackathons —
+            discover teammates, form teams, and collaborate from start to submission.
+          </p>
 
           {/* CTA */}
-          <div className="mt-10 animate-fade-in-up stagger-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
             <button
               onClick={signInWithGoogle}
               className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 btn btn-lg btn-primary"
@@ -148,7 +149,7 @@ export default function Home() {
 
             <button
               onClick={signInWithGithub}
-              className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 btn btn-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white transition-all duration-205"
+              className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 btn btn-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white transition-all duration-200"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path
@@ -161,96 +162,110 @@ export default function Home() {
             </button>
           </div>
 
-          <p className="mt-6 text-xs text-zinc-500 animate-fade-in-up stagger-2">
-            Join hundreds of builders already collaborating
+          <p className="mt-6 text-xs text-zinc-500">
+            Free to use. Sign in with Google or GitHub to get started.
           </p>
         </div>
       </div>
 
-      {/* Features preview */}
-      <div className="w-full border-t border-zinc-800 bg-zinc-900/10">
-        <div className="max-w-7xl mx-auto px-6 py-16">
-          <div className="grid md:grid-cols-3 gap-6">
+      {/* How it works */}
+      <div id="how-it-works" className="w-full border-t border-zinc-800/60">
+        <div className="max-w-5xl mx-auto px-6 py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-xl font-semibold text-white mb-2">How it works</h2>
+            <p className="text-sm text-zinc-500">Three steps from sign-up to shipping.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a c0 .375-.04.748-.12 1.11-.143.77-.39 1.508-.731 2.19a7.49 7.49 0 01-5.374 4.08 7.184 7.184 0 01-6.657-2.12 7.49 7.49 0 01-.834-3.52m0 0V15a3 3 0 013-3h1.5m-1.5 4.5V16.5a3 3 0 013-3h1.5M10.5 8.5v-1.5a3 3 0 016 0v1.5m-6 0h6m6 0v.75a3 3 0 01-3 3h-1.5m0 0v-1.5a3 3 0 013-3h1.5"
-                    />
-                  </svg>
-                ),
-                title: "Find Teammates",
-                description:
-                  "Discover developers with the skills you need for your next project.",
+                step: "01",
+                title: "Build your profile",
+                description: "Add your skills, college, and GitHub. We calculate compatibility with other builders automatically.",
               },
               {
-                icon: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M2.25 21h19.5m-18-18v18m10.5-8.5h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm-4.5 2.5h.25a.25.25 0 01.25.25v4.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-4.25a.25.25 0 01.25-.25zm8.5-2.5h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm4.5 0h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm-4.5 6.5h.25a.25.25 0 01.25.25v1.75a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-1.75a.25.25 0 01.25-.25z"
-                    />
-                  </svg>
-                ),
-                title: "Create Teams",
-                description:
-                  "Build your dream team with detailed skill requirements and roles.",
+                step: "02",
+                title: "Find your team",
+                description: "Browse builders by match score, join teams, or create your own and invite people who fit.",
               },
               {
-                icon: (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.5 18h1.5m4.5-13.764c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.5 18h-1.5"
-                    />
-                  </svg>
-                ),
-                title: "Discover Hackathons",
-                description:
-                  "Find upcoming events and teams looking for members like you.",
+                step: "03",
+                title: "Build together",
+                description: "Message your team, track progress, and coordinate through the build — all in one place.",
               },
-            ].map((feature, i) => (
-              <div
-                key={i}
-                className="card card-static p-5 group"
-              >
-                <div className="inline-flex items-center justify-center w-9 h-9 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 group-hover:text-white group-hover:border-zinc-700 transition-colors mb-4">
-                  {feature.icon}
-                </div>
-                <h3 className="text-sm font-semibold text-white mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                  {feature.description}
-                </p>
+            ].map((item) => (
+              <div key={item.step} className="text-left">
+                <div className="text-xs font-mono text-zinc-600 mb-3">{item.step}</div>
+                <h3 className="text-sm font-semibold text-white mb-2">{item.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Features */}
+      <div id="features" className="w-full border-t border-zinc-800/60 bg-zinc-900/10">
+        <div className="max-w-5xl mx-auto px-6 py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-xl font-semibold text-white mb-2">What you get</h2>
+            <p className="text-sm text-zinc-500">Everything you need to go from idea to submission.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" />
+                  </svg>
+                ),
+                title: "Teammate matching",
+                description: "Compatibility scores based on shared skills and college, so you find people who actually fit your project.",
+              },
+              {
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-8.5h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm-4.5 2.5h.25a.25.25 0 01.25.25v4.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-4.25a.25.25 0 01.25-.25zm8.5-2.5h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm4.5 0h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm-4.5 6.5h.25a.25.25 0 01.25.25v1.75a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-1.75a.25.25 0 01.25-.25z" />
+                  </svg>
+                ),
+                title: "Team workspaces",
+                description: "Create teams, set the skills you need, invite builders, and manage join requests in one place.",
+              },
+              {
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.5 18h1.5m4.5-13.764c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.5 18h-1.5" />
+                  </svg>
+                ),
+                title: "Hackathon discovery",
+                description: "Browse upcoming hackathons from Unstop, Devfolio, and more — filtered to match your skills.",
+              },
+            ].map((feature) => (
+              <div key={feature.title} className="card card-static p-5">
+                <div className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 mb-4">
+                  {feature.icon}
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-2">{feature.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="w-full border-t border-zinc-800/60">
+        <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <div className="w-6 h-6 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-[10px] text-white">
+              H
+            </div>
+            <span>HackerMate</span>
+          </div>
+          <p className="text-xs text-zinc-600">Built for hackathon builders.</p>
+        </div>
+      </footer>
     </main>
   );
 }

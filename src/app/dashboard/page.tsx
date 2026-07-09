@@ -465,10 +465,10 @@ function DashboardContent() {
   };
 
   const avatarColors = [
-    "linear-gradient(135deg,#FF6B8B,#B0304F)",
-    "linear-gradient(135deg,#7C6FF0,#4A3FB0)",
-    "linear-gradient(135deg,#B4F461,#6B7F3A)",
-    "linear-gradient(135deg,#FFB627,#B8894A)"
+    "linear-gradient(135deg,#3b82f6,#1d4ed8)",
+    "linear-gradient(135deg,#8b5cf6,#6d28d9)",
+    "linear-gradient(135deg,#10b981,#047857)",
+    "linear-gradient(135deg,#f59e0b,#b45309)"
   ];
 
   if (loading) {
@@ -492,8 +492,8 @@ function DashboardContent() {
 
       <div className="header-row">
         <div className="greet">
-          <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "Yash"}</span> 👋</h2>
-          <p>&gt; build_together --win-together</p>
+          <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
+          <p>Here's what's happening in your network.</p>
         </div>
         <button className="cta-primary" onClick={() => router.push("/teams/create")}>+ Create a team</button>
       </div>
@@ -501,24 +501,30 @@ function DashboardContent() {
       <div className="stats-row">
         <div className="stat-card c1">
           <div className="stat-top">
-            <div className="stat-label">BUILDERS IN NETWORK</div>
-            <div className="stat-icon">◎</div>
+            <div className="stat-label">Builders in network</div>
+            <div className="stat-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" /></svg>
+            </div>
           </div>
-          <div className="stat-value">{stats.builders} <span className="stat-trend">live matching</span></div>
+          <div className="stat-value">{stats.builders} <span className="stat-trend">active</span></div>
           <div className="stat-sub">Grow this by connecting on <b className="cursor-pointer hover:underline" onClick={() => router.push("/developers")}>Builders</b></div>
         </div>
         <div className="stat-card c2">
           <div className="stat-top">
-            <div className="stat-label">TEAMS ACTIVE</div>
-            <div className="stat-icon">⛊</div>
+            <div className="stat-label">Teams active</div>
+            <div className="stat-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
+            </div>
           </div>
           <div className="stat-value">{stats.teams}</div>
           <div className="stat-sub">{stats.teams} ongoing projects in progress</div>
         </div>
         <div className="stat-card c3">
           <div className="stat-top">
-            <div className="stat-label">HACKATHONS LIVE</div>
-            <div className="stat-icon">🔥</div>
+            <div className="stat-label">Hackathons live</div>
+            <div className="stat-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+            </div>
           </div>
           <div className="stat-value">{stats.hackathons}</div>
           <div className="stat-sub"><b>{stats.closingSoon} closing</b> in the next 7 days</div>
@@ -561,7 +567,7 @@ function DashboardContent() {
                     </div>
                   </div>
                   <div className="match-right">
-                    <div className="match-pct">{dev.compatibility || 75}%<span>MATCH</span></div>
+                    <div className="match-pct">{dev.compatibility || 75}%<span>match</span></div>
                     {connectionState === "connected" ? (
                       <div className="btn-connected">✓ Connected</div>
                     ) : connectionState === "request_sent" ? (
@@ -594,8 +600,10 @@ function DashboardContent() {
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <span className="text-zinc-600 text-lg mb-2">◎</span>
-              <p className="text-zinc-500 text-xs font-mono">NO COMPATIBLE BUILDERS FOUND</p>
+              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" /></svg>
+              </div>
+              <p className="text-zinc-500 text-xs">No compatible builders found</p>
               <p className="text-[10px] text-zinc-600 mt-1 max-w-[200px] mx-auto">Update your skills on your profile to find matching teammates.</p>
             </div>
           )}
@@ -623,8 +631,8 @@ function DashboardContent() {
                   className="hack-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
                   onClick={() => router.push(`/hackathons/${hack.id}`)}
                 >
-                  <div className="hack-icon" style={{ background: idx === 0 ? "rgba(255,182,39,0.12)" : idx === 1 ? "rgba(124,111,240,0.12)" : idx === 2 ? "rgba(255,107,139,0.12)" : "rgba(180,244,97,0.12)" }}>
-                    {idx === 0 ? "🏆" : idx === 1 ? "🌐" : idx === 2 ? "💻" : "🛡️"}
+                  <div className="hack-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
                   </div>
                   <div className="hack-info">
                     <div className="title">{hack.name}</div>
@@ -654,8 +662,10 @@ function DashboardContent() {
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <span className="text-zinc-600 text-lg mb-2">🏆</span>
-              <p className="text-zinc-500 text-xs font-mono">NO UPCOMING HACKATHONS</p>
+              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+              </div>
+              <p className="text-zinc-500 text-xs">No upcoming hackathons</p>
               <p className="text-[10px] text-zinc-600 mt-1">Check back later for newly published events.</p>
             </div>
           )}
@@ -688,7 +698,7 @@ function DashboardContent() {
                         className="team-progress-fill" 
                         style={{ 
                           width: `${percent}%`,
-                          background: percent <= 35 ? "var(--accent-amber)" : "var(--accent-lime)"
+                          background: percent <= 35 ? "var(--warning)" : "var(--accent)"
                         }}
                       ></div>
                     </div>
@@ -699,14 +709,13 @@ function DashboardContent() {
                       const initials = m.profiles?.full_name
                         ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
                         : "?";
-                      const stackColors = ["#7C6FF0", "#FF6B8B", "#B4F461"];
-                      const isLime = stackColors[mIdx % stackColors.length] === "#B4F461";
+                      const stackColors = ["#3b82f6", "#8b5cf6", "#10b981"];
                       return (
                         <div 
                           key={m.user_id} 
                           style={{ 
                             background: stackColors[mIdx % stackColors.length],
-                            color: isLime ? "#0A0D12" : "#fff"
+                            color: "#fff"
                           }}
                         >
                           {initials}
@@ -719,8 +728,10 @@ function DashboardContent() {
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <span className="text-zinc-600 text-lg mb-2">⛊</span>
-              <p className="text-zinc-500 text-xs font-mono">NO ACTIVE TEAMS</p>
+              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
+              </div>
+              <p className="text-zinc-500 text-xs">No active teams</p>
               <p className="text-[10px] text-zinc-600 mt-1">Create a team or request to join one to get started.</p>
             </div>
           )}
@@ -733,7 +744,7 @@ function DashboardContent() {
 
           {recentActivities.length > 0 ? (
             recentActivities.map((act) => {
-              const colors = ["var(--accent-lime)", "var(--accent-indigo)", "var(--accent-amber)", "var(--accent-rose)"];
+              const colors = ["var(--accent)", "var(--success)", "var(--warning)", "var(--danger)"];
               const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
 
               return (
@@ -748,8 +759,10 @@ function DashboardContent() {
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <span className="text-zinc-600 text-lg mb-2">🔔</span>
-              <p className="text-zinc-500 text-xs font-mono">NO RECENT ACTIVITY</p>
+              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+              </div>
+              <p className="text-zinc-500 text-xs">No recent activity</p>
               <p className="text-[10px] text-zinc-600 mt-1">Notifications and network matches will appear here.</p>
             </div>
           )}

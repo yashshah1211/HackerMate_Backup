@@ -85,30 +85,7 @@ body {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Subtly re-introducing premium developer atmospheric glows */
-body::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 25%;
-  width: 50%;
-  height: 400px;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.04) 0%, rgba(99, 102, 241, 0.02) 50%, transparent 100%);
-  pointer-events: none;
-  z-index: -1;
-}
-
-body::after {
-  content: '';
-  position: absolute;
-  top: 400px;
-  right: 5%;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(192, 132, 252, 0.03) 0%, transparent 80%);
-  pointer-events: none;
-  z-index: -1;
-}
+/* Removed decorative atmospheric glows for a calmer, more natural surface */
 
 ::selection {
   background: #ffffff;
@@ -1086,22 +1063,23 @@ html.light .content-area {
   animation: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ---------- DASHBOARD REDESIGN SCOPED ---------- */
+
+/* ---------- WORKSPACE LAYOUT (calm, professional) ---------- */
 .dashboard-redesign {
-  --bg: #0A0D12;
-  --bg-raised: #10141B;
-  --bg-card: #12161D;
-  --border: #1E242E;
-  --border-soft: #171B23;
-  --text: #EDEFF3;
-  --text-dim: #8B93A3;
-  --text-faint: #565E6D;
-  --accent-lime: #B4F461;
-  --accent-lime-dim: #6B7F3A;
-  --accent-amber: #FFB627;
-  --accent-indigo: #7C6FF0;
-  --accent-rose: #FF6B8B;
-  --mono: 'JetBrains Mono', monospace;
+  --bg: #09090b;
+  --bg-raised: #0e0e11;
+  --bg-card: #111113;
+  --border: #1f1f23;
+  --border-soft: #18181b;
+  --text: #fafafa;
+  --text-dim: #a1a1aa;
+  --text-faint: #71717a;
+  --accent: #3b82f6;
+  --accent-soft: rgba(59, 130, 246, 0.12);
+  --accent-border: rgba(59, 130, 246, 0.25);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #f43f5e;
   --sans: 'Manrope', sans-serif;
 
   background: var(--bg) !important;
@@ -1113,7 +1091,7 @@ html.light .content-area {
   width: 248px;
   flex-shrink: 0;
   border-right: 1px solid var(--border-soft);
-  padding: 24px 16px;
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
   background: var(--bg) !important;
@@ -1121,22 +1099,23 @@ html.light .content-area {
 
 .dashboard-redesign .logo {
   display: flex; align-items: center; gap: 10px;
-  padding: 4px 8px 24px 8px;
+  padding: 4px 8px 20px 8px;
 }
 
 .dashboard-redesign .logo-mark {
-  width: 34px; height: 34px; border-radius: 9px;
-  background: linear-gradient(135deg, var(--accent-indigo), #4A3FB0);
+  width: 32px; height: 32px; border-radius: 8px;
+  background: #18181b;
+  border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 600; font-size: 13px; color: #fff;
+  font-weight: 700; font-size: 13px; color: var(--text);
 }
 
 .dashboard-redesign .logo-text h1 {
-  font-size: 14.5px; font-weight: 700; letter-spacing: -0.2px; color: var(--text) !important;
+  font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text) !important;
 }
 
 .dashboard-redesign .logo-text span {
-  font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); letter-spacing: 1.2px;
+  font-size: 10px; color: var(--text-faint); font-weight: 400;
 }
 
 .dashboard-redesign nav {
@@ -1144,20 +1123,20 @@ html.light .content-area {
 }
 
 .dashboard-redesign .nav-label {
-  font-family: var(--mono); font-size: 10px; color: var(--text-faint);
-  letter-spacing: 1.5px; padding: 16px 12px 8px 12px;
+  font-size: 10px; color: var(--text-faint);
+  font-weight: 500; padding: 14px 10px 6px 10px;
 }
 
 .dashboard-redesign .nav-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: 8px;
-  font-size: 13.5px; color: var(--text-dim) !important; font-weight: 500;
+  padding: 8px 10px; border-radius: 7px;
+  font-size: 13px; color: var(--text-dim) !important; font-weight: 500;
   cursor: pointer; position: relative;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .dashboard-redesign .nav-item svg {
-  width: 16px; height: 16px; opacity: .8;
+  width: 16px; height: 16px; opacity: .85; flex-shrink: 0;
 }
 
 .dashboard-redesign .nav-item.active {
@@ -1167,8 +1146,8 @@ html.light .content-area {
 
 .dashboard-redesign .nav-item.active::before {
   content: '';
-  position: absolute; left: -16px; top: 8px; bottom: 8px; width: 3px;
-  background: var(--accent-lime); border-radius: 0 3px 3px 0;
+  position: absolute; left: -14px; top: 8px; bottom: 8px; width: 2px;
+  background: var(--accent); border-radius: 0 2px 2px 0;
 }
 
 .dashboard-redesign .nav-item:hover:not(.active) {
@@ -1177,16 +1156,16 @@ html.light .content-area {
 }
 
 .dashboard-redesign .nav-badge {
-  margin-left: auto; font-family: var(--mono); font-size: 9.5px;
-  background: rgba(180, 244, 97, 0.12); color: var(--accent-lime);
-  padding: 1px 6px; border-radius: 20px; font-weight: 600;
+  margin-left: auto; font-size: 10px;
+  background: var(--accent-soft); color: var(--accent);
+  padding: 1px 6px; border-radius: 10px; font-weight: 600;
 }
 
 .dashboard-redesign .sidebar-footer {
-  margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-soft);
+  margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border-soft);
   display: flex; align-items: center; gap: 10px; padding: 10px 8px;
-  border-radius: 10px; cursor: pointer;
-  transition: background 0.2s ease;
+  border-radius: 8px; cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .dashboard-redesign .sidebar-footer:hover {
@@ -1194,9 +1173,9 @@ html.light .content-area {
 }
 
 .dashboard-redesign .avatar-sm {
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 30px; height: 30px; border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 600; font-size: 12px; color: #fff;
+  font-weight: 600; font-size: 11px; color: #fff;
 }
 
 .dashboard-redesign .sidebar-footer .who {
@@ -1204,30 +1183,29 @@ html.light .content-area {
 }
 
 .dashboard-redesign .sidebar-footer .who b {
-  font-size: 12.5px; font-weight: 600; color: var(--text) !important;
+  font-size: 12px; font-weight: 600; color: var(--text) !important;
 }
 
 .dashboard-redesign .sidebar-footer .who small {
-  font-size: 10.5px; color: var(--text-faint);
+  font-size: 10px; color: var(--text-faint);
 }
 
 .dashboard-redesign main {
-  flex: 1; padding: 28px 36px 40px; max-width: 1400px;
+  flex: 1; padding: 24px 32px 32px; max-width: 1200px;
   background: var(--bg) !important;
 }
 
 .dashboard-redesign .topbar {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
 }
 
 .dashboard-redesign .ticker {
-  font-family: var(--mono); font-size: 11.5px; color: var(--text-faint);
-  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-faint);
+  display: flex; align-items: center; gap: 7px;
 }
 
 .dashboard-redesign .ticker .dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--accent-lime);
-  box-shadow: 0 0 6px var(--accent-lime);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--success);
 }
 
 .dashboard-redesign .top-actions {
@@ -1235,16 +1213,15 @@ html.light .content-area {
 }
 
 .dashboard-redesign .icon-btn {
-  width: 34px; height: 34px; border-radius: 9px; background: var(--bg-raised);
+  width: 32px; height: 32px; border-radius: 8px; background: var(--bg-raised);
   border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center;
-  color: var(--text-dim); cursor: pointer; font-size: 14px;
-  transition: all 0.2s ease;
+  color: var(--text-dim); cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .dashboard-redesign .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  border-color: var(--border);
 }
 
 .dashboard-redesign .icon-btn svg {
@@ -1252,36 +1229,35 @@ html.light .content-area {
 }
 
 .dashboard-redesign .header-row {
-  display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px;
+  display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;
 }
 
 .dashboard-redesign .greet h2 {
-  font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--text) !important;
+  font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text) !important;
 }
 
 .dashboard-redesign .greet h2 span {
-  color: var(--accent-lime) !important;
+  color: var(--text) !important;
 }
 
 .dashboard-redesign .greet p {
-  font-family: var(--mono); font-size: 12px; color: var(--text-faint); margin-top: 6px;
+  font-size: 13px; color: var(--text-faint); margin-top: 4px;
 }
 
 .dashboard-redesign .cta-primary {
-  background: var(--accent-lime); color: #0A0D12 !important; border: none;
-  font-family: var(--sans); font-weight: 700; font-size: 13px;
-  padding: 11px 18px; border-radius: 10px; cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  transition: all 0.2s ease;
+  background: var(--text); color: var(--bg) !important; border: none;
+  font-weight: 600; font-size: 13px;
+  padding: 9px 16px; border-radius: 7px; cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: opacity 0.15s ease;
 }
 
 .dashboard-redesign .cta-primary:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
 }
 
 .dashboard-redesign .stats-row {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px;
 }
 
 @media (max-width: 640px) {
@@ -1291,63 +1267,50 @@ html.light .content-area {
 }
 
 .dashboard-redesign .stat-card {
-  background: var(--bg-card) !important; border: 1px solid var(--border-soft) !important; border-radius: 14px !important;
-  padding: 20px; position: relative; overflow: hidden;
-  transition: all 0.25s ease;
+  background: var(--bg-card) !important; border: 1px solid var(--border-soft) !important; border-radius: 10px !important;
+  padding: 18px; position: relative; overflow: hidden;
+  transition: border-color 0.2s ease;
 }
 
 .dashboard-redesign .stat-card:hover {
   border-color: var(--border) !important;
-  transform: translateY(-2px);
 }
-
-.dashboard-redesign .stat-card::after {
-  content: ''; position: absolute; right: -30px; top: -30px; width: 100px; height: 100px;
-  border-radius: 50%; opacity: 0.08; filter: blur(2px);
-}
-
-.dashboard-redesign .stat-card.c1::after { background: var(--accent-indigo); }
-.dashboard-redesign .stat-card.c2::after { background: var(--accent-lime); }
-.dashboard-redesign .stat-card.c3::after { background: var(--accent-rose); }
 
 .dashboard-redesign .stat-top {
-  display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px;
+  display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;
 }
 
 .dashboard-redesign .stat-label {
-  font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); letter-spacing: 1px;
+  font-size: 11px; color: var(--text-faint); font-weight: 500;
 }
 
 .dashboard-redesign .stat-icon {
-  width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-raised); color: var(--text-dim);
 }
 
 .dashboard-redesign .stat-icon svg {
   width: 15px; height: 15px;
 }
 
-.dashboard-redesign .c1 .stat-icon { background: rgba(124, 111, 240, 0.15); color: var(--accent-indigo); }
-.dashboard-redesign .c2 .stat-icon { background: rgba(180, 244, 97, 0.15); color: var(--accent-lime); }
-.dashboard-redesign .c3 .stat-icon { background: rgba(255, 107, 139, 0.15); color: var(--accent-rose); }
-
 .dashboard-redesign .stat-value {
-  font-size: 32px; font-weight: 800; letter-spacing: -1px; display: flex; align-items: baseline; gap: 8px; color: var(--text) !important;
+  font-size: 26px; font-weight: 600; letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 8px; color: var(--text) !important;
 }
 
 .dashboard-redesign .stat-trend {
-  font-family: var(--mono); font-size: 11px; color: var(--accent-lime) !important; font-weight: 500;
+  font-size: 11px; color: var(--text-faint); font-weight: 400;
 }
 
 .dashboard-redesign .stat-sub {
-  font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-top: 6px;
+  font-size: 11px; color: var(--text-faint); margin-top: 5px;
 }
 
 .dashboard-redesign .stat-sub b {
-  color: var(--accent-amber) !important; font-weight: 500;
+  color: var(--text-dim) !important; font-weight: 500;
 }
 
 .dashboard-redesign .grid-2 {
-  display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-top: 16px;
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-top: 14px;
 }
 
 @media (max-width: 1024px) {
@@ -1357,49 +1320,49 @@ html.light .content-area {
 }
 
 .dashboard-redesign .panel {
-  background: var(--bg-card) !important; border: 1px solid var(--border-soft) !important; border-radius: 14px !important;
-  padding: 22px;
+  background: var(--bg-card) !important; border: 1px solid var(--border-soft) !important; border-radius: 10px !important;
+  padding: 18px;
 }
 
 .dashboard-redesign .panel-head {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
 }
 
 .dashboard-redesign .panel-title {
-  font-size: 13.5px; font-weight: 700; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px; color: var(--text) !important;
+  font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--text) !important;
 }
 
 .dashboard-redesign .panel-title .tag {
-  font-family: var(--mono); font-size: 9px; background: rgba(180, 244, 97, 0.12); color: var(--accent-lime) !important;
+  font-size: 10px; background: var(--accent-soft); color: var(--accent) !important;
   padding: 2px 6px; border-radius: 5px; font-weight: 600;
 }
 
 .dashboard-redesign .view-all {
-  font-family: var(--mono); font-size: 11px; color: var(--text-dim) !important; cursor: pointer;
-  transition: color 0.2s ease;
+  font-size: 12px; color: var(--text-dim) !important; cursor: pointer;
+  transition: color 0.15s ease;
 }
 
 .dashboard-redesign .view-all:hover {
-  color: var(--accent-lime) !important;
+  color: var(--text) !important;
 }
 
 .dashboard-redesign .match-row {
-  display: flex; align-items: center; gap: 14px; padding: 14px 0;
+  display: flex; align-items: center; gap: 12px; padding: 12px 0;
   border-bottom: 1px solid var(--border-soft);
 }
 
 .dashboard-redesign .match-row:last-child {
-  border-bottom: none; padding-bottom: 4px;
+  border-bottom: none; padding-bottom: 2px;
 }
 
 .dashboard-redesign .match-avatar {
-  width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 700; font-size: 15px; color: #fff; position: relative;
+  font-weight: 600; font-size: 13px; color: #fff; position: relative;
 }
 
 .dashboard-redesign .status-dot {
-  width: 9px; height: 9px; border-radius: 50%; background: var(--accent-lime) !important;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--success) !important;
   position: absolute; bottom: -1px; right: -1px; border: 2px solid var(--bg-card);
 }
 
@@ -1408,19 +1371,19 @@ html.light .content-area {
 }
 
 .dashboard-redesign .match-info .name {
-  font-size: 13.5px; font-weight: 700; color: var(--text) !important;
+  font-size: 13px; font-weight: 600; color: var(--text) !important;
 }
 
 .dashboard-redesign .match-info .role {
-  font-size: 11.5px; color: var(--text-dim) !important; margin-top: 1px;
+  font-size: 11px; color: var(--text-dim) !important; margin-top: 1px;
 }
 
 .dashboard-redesign .match-skills {
-  display: flex; gap: 5px; margin-top: 7px;
+  display: flex; gap: 5px; margin-top: 6px;
 }
 
 .dashboard-redesign .skill-chip {
-  font-family: var(--mono); font-size: 9.5px; background: var(--bg-raised);
+  font-size: 10px; background: var(--bg-raised);
   border: 1px solid var(--border-soft); color: var(--text-dim) !important;
   padding: 2px 7px; border-radius: 5px;
 }
@@ -1430,23 +1393,23 @@ html.light .content-area {
 }
 
 .dashboard-redesign .match-pct {
-  font-size: 16px; font-weight: 800; color: var(--accent-lime) !important;
+  font-size: 14px; font-weight: 600; color: var(--text) !important;
 }
 
 .dashboard-redesign .match-pct span {
-  font-family: var(--mono); font-size: 8.5px; color: var(--text-faint); display: block; font-weight: 500; text-align: right;
+  font-size: 9px; color: var(--text-faint); display: block; font-weight: 400; text-align: right;
 }
 
 .dashboard-redesign .btn-connected {
-  font-family: var(--mono); font-size: 10px; background: rgba(180, 244, 97, 0.1);
-  color: var(--accent-lime) !important; border: 1px solid rgba(180, 244, 97, 0.25);
-  padding: 4px 10px; border-radius: 7px; display: flex; align-items: center; gap: 4px;
+  font-size: 11px; background: rgba(16, 185, 129, 0.08);
+  color: var(--success) !important; border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 4px 10px; border-radius: 6px; display: flex; align-items: center; gap: 4px;
 }
 
 .dashboard-redesign .btn-connect {
-  font-family: var(--mono); font-size: 10px; background: var(--accent-indigo);
-  color: #fff !important; border: none; padding: 5px 12px; border-radius: 7px; cursor: pointer; font-weight: 600;
-  transition: opacity 0.2s ease;
+  font-size: 11px; background: var(--accent);
+  color: #fff !important; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;
+  transition: opacity 0.15s ease;
 }
 
 .dashboard-redesign .btn-connect:hover {
@@ -1455,12 +1418,12 @@ html.light .content-area {
 
 .dashboard-redesign .empty-hint {
   margin-top: 8px; padding: 14px; border: 1px dashed var(--border);
-  border-radius: 10px; text-align: center; font-family: var(--mono);
-  font-size: 11px; color: var(--text-faint);
+  border-radius: 8px; text-align: center;
+  font-size: 12px; color: var(--text-faint);
 }
 
 .dashboard-redesign .empty-hint a {
-  color: var(--accent-lime) !important; text-decoration: none; cursor: pointer;
+  color: var(--accent) !important; text-decoration: none; cursor: pointer;
 }
 
 .dashboard-redesign .empty-hint a:hover {
@@ -1468,17 +1431,22 @@ html.light .content-area {
 }
 
 .dashboard-redesign .hack-row {
-  display: flex; align-items: center; gap: 14px; padding: 13px 0;
+  display: flex; align-items: center; gap: 12px; padding: 12px 0;
   border-bottom: 1px solid var(--border-soft);
 }
 
 .dashboard-redesign .hack-row:last-child {
-  border-bottom: none; padding-bottom: 4px;
+  border-bottom: none; padding-bottom: 2px;
 }
 
 .dashboard-redesign .hack-icon {
-  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; font-size: 17px;
+  width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-raised); color: var(--text-dim);
+}
+
+.dashboard-redesign .hack-icon svg {
+  width: 16px; height: 16px;
 }
 
 .dashboard-redesign .hack-info {
@@ -1486,7 +1454,7 @@ html.light .content-area {
 }
 
 .dashboard-redesign .hack-info .title {
-  font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text) !important;
+  font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text) !important;
 }
 
 .dashboard-redesign .hack-meta {
@@ -1494,19 +1462,19 @@ html.light .content-area {
 }
 
 .dashboard-redesign .hack-meta .dates {
-  font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
+  font-size: 11px; color: var(--text-faint);
 }
 
 .dashboard-redesign .badge-closing {
-  font-family: var(--mono); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+  font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 5px;
 }
 
 .dashboard-redesign .badge-urgent {
-  background: rgba(255, 107, 139, 0.15); color: var(--accent-rose) !important;
+  background: rgba(244, 63, 94, 0.1); color: var(--danger) !important;
 }
 
 .dashboard-redesign .badge-mid {
-  background: rgba(255, 182, 39, 0.15); color: var(--accent-amber) !important;
+  background: rgba(245, 158, 11, 0.1); color: var(--warning) !important;
 }
 
 .dashboard-redesign .hack-prize {
@@ -1514,15 +1482,15 @@ html.light .content-area {
 }
 
 .dashboard-redesign .hack-prize .amt {
-  font-size: 13px; font-weight: 700; color: var(--text) !important;
+  font-size: 13px; font-weight: 600; color: var(--text) !important;
 }
 
 .dashboard-redesign .hack-prize .lbl {
-  font-family: var(--mono); font-size: 9px; color: var(--text-faint); margin-top: 2px;
+  font-size: 10px; color: var(--text-faint); margin-top: 2px;
 }
 
 .dashboard-redesign .grid-3 {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;
 }
 
 @media (max-width: 1024px) {
@@ -1533,8 +1501,8 @@ html.light .content-area {
 
 .dashboard-redesign .team-card {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 13px 0; border-bottom: 1px solid var(--border-soft);
-  transition: all 0.2s ease;
+  padding: 12px 0; border-bottom: 1px solid var(--border-soft);
+  transition: background 0.15s ease;
 }
 
 .dashboard-redesign .team-card:last-child {
@@ -1542,19 +1510,19 @@ html.light .content-area {
 }
 
 .dashboard-redesign .team-name {
-  font-size: 13px; font-weight: 700; color: var(--text) !important;
+  font-size: 13px; font-weight: 600; color: var(--text) !important;
 }
 
 .dashboard-redesign .team-progress-track {
-  width: 100%; height: 5px; background: var(--bg-raised); border-radius: 4px; margin-top: 7px; overflow: hidden;
+  width: 100%; height: 4px; background: var(--bg-raised); border-radius: 4px; margin-top: 6px; overflow: hidden;
 }
 
 .dashboard-redesign .team-progress-fill {
-  height: 100%; border-radius: 4px; background: var(--accent-lime);
+  height: 100%; border-radius: 4px; background: var(--accent);
 }
 
 .dashboard-redesign .team-meta {
-  font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 6px;
+  font-size: 11px; color: var(--text-faint); margin-top: 5px;
 }
 
 .dashboard-redesign .stack-avatars {
@@ -1564,7 +1532,7 @@ html.light .content-area {
 .dashboard-redesign .stack-avatars div {
   width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--bg-card);
   margin-left: -8px; display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-size: 9px; font-weight: 700; color: #fff;
+  font-size: 9px; font-weight: 600; color: #fff;
 }
 
 .dashboard-redesign .stack-avatars div:first-child {
@@ -1584,7 +1552,7 @@ html.light .content-area {
 }
 
 .dashboard-redesign .activity-text {
-  font-size: 12.5px; color: var(--text-dim) !important; line-height: 1.5;
+  font-size: 12px; color: var(--text-dim) !important; line-height: 1.5;
 }
 
 .dashboard-redesign .activity-text b {
@@ -1592,70 +1560,77 @@ html.light .content-area {
 }
 
 .dashboard-redesign .activity-time {
-  font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 2px;
+  font-size: 11px; color: var(--text-faint); margin-top: 2px;
 }
 
-/* ---------- DASHBOARD REDESIGN LIGHT THEME OVERRIDES ---------- */
+/* ---------- WORKSPACE LIGHT THEME ---------- */
 .light.dashboard-redesign,
 .light .dashboard-redesign {
-  --bg: #F8F9FA;
-  --bg-raised: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --border: #E4E7EC;
-  --border-soft: #F2F4F7;
-  --text: #0F172A;
-  --text-dim: #334155;
-  --text-faint: #64748B;
-  --accent-lime: #4F46E5;
-  --accent-lime-dim: #E0E7FF;
-  --accent-amber: #B45309;
-  --accent-indigo: #4F46E5;
-  --accent-rose: #E11D48;
+  --bg: #ffffff;
+  --bg-raised: #f7f7f8;
+  --bg-card: #ffffff;
+  --border: #e7e7ea;
+  --border-soft: #f0f0f2;
+  --text: #18181b;
+  --text-dim: #52525b;
+  --text-faint: #a1a1aa;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --accent-border: rgba(37, 99, 235, 0.2);
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #e11d48;
 }
 
 .light .dashboard-redesign .btn-connected {
-  background: rgba(79, 70, 229, 0.06);
-  color: var(--accent-indigo) !important;
-  border-color: rgba(79, 70, 229, 0.18);
+  background: rgba(5, 150, 105, 0.06);
+  color: var(--success) !important;
+  border-color: rgba(5, 150, 105, 0.18);
 }
 
 .light .dashboard-redesign .nav-item.active {
-  background: rgba(79, 70, 229, 0.06) !important;
-  color: var(--accent-indigo) !important;
+  background: var(--bg-raised) !important;
+  color: var(--text) !important;
 }
 
 .light .dashboard-redesign .nav-item:hover:not(.active) {
-  background: rgba(79, 70, 229, 0.03) !important;
+  background: rgba(0, 0, 0, 0.03) !important;
   color: var(--text) !important;
 }
 
 .light .dashboard-redesign .nav-badge {
-  background: rgba(79, 70, 229, 0.12);
-  color: var(--accent-indigo);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .light .dashboard-redesign .icon-btn:hover {
-  background: rgba(79, 70, 229, 0.04);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .light .dashboard-redesign .cta-primary {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
+  background: var(--text);
 }
 
 .light .dashboard-redesign .ticker .dot {
-  background: var(--accent-indigo);
-  box-shadow: 0 0 6px rgba(79, 70, 229, 0.6);
-}
-
-.light .dashboard-redesign .stat-card::after {
-  opacity: 0.12;
+  background: var(--success);
 }
 
 .light .dashboard-redesign .empty-hint {
   border-color: var(--border);
-  background: #FFFFFF;
+  background: #ffffff;
 }
 
 .light .dashboard-redesign .empty-hint a {
-  color: var(--accent-indigo) !important;
+  color: var(--accent) !important;
+}
+
+.light .dashboard-redesign .stat-icon,
+.light .dashboard-redesign .hack-icon {
+  background: var(--bg-raised);
+}
+
+.light .dashboard-redesign .skill-chip {
+  background: var(--bg-raised);
+  border-color: var(--border-soft);
 }
