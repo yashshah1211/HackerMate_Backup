@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Logo from "@/components/Logo";
 
 export default function Home() {
   const router = useRouter();
@@ -89,7 +90,7 @@ export default function Home() {
       <header className="px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.svg" alt="HackerMate" className="h-8 w-auto object-contain" />
+            <Logo className="h-8 w-auto" />
           </div>
           <div className="flex items-center gap-4 text-xs text-zinc-500">
             <a href="#how-it-works" className="hover:text-white transition-colors hidden sm:inline">How it works</a>

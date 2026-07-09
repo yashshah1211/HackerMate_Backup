@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
+import Logo from "@/components/Logo";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -197,7 +198,7 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
           <div className="flex justify-center mb-4">
-            <img src="/logo.svg" alt="HackerMate Logo" className="h-12 w-auto object-contain" />
+            <Logo className="h-12 w-auto" />
           </div>
 
           <h1 className="text-2xl font-semibold tracking-tight text-white mb-1.5">

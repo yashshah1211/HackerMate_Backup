@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import { useNotification } from "@/context/NotificationContext";
+import Logo from "@/components/Logo";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -184,7 +185,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           <div className="bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
               <Link href={user ? "/dashboard" : "/"} className="flex items-center">
-                <img src="/logo.svg" alt="HackerMate" className="h-8 w-auto object-contain" />
+                <Logo className="h-8 w-auto" />
               </Link>
               {user && (
                 <div className="flex items-center gap-4">
@@ -280,7 +281,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="logo px-5 py-5 flex items-center justify-between shrink-0">
           <Link href="/dashboard" className="flex items-center">
-            <img src="/logo.svg" alt="HackerMate" className="h-8 w-auto object-contain" />
+            <Logo className="h-10 w-auto" />
           </Link>
           <button className="md:hidden text-zinc-500 hover:text-white p-1" onClick={() => setShowMobileSidebar(false)}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

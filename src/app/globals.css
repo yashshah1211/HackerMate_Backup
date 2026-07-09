@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@800;900&display=swap');
 @import "tailwindcss";
 
 /* ============================================
@@ -6,6 +6,10 @@
    ============================================ */
 
 :root {
+  /* Logo */
+  --logo-green: #a3e635;
+  --logo-cyan: #22d3ee;
+
   /* Base */
   --background: #09090b; /* Zinc 950 */
   --foreground: #fafafa; /* Zinc 50 */
@@ -604,6 +608,10 @@ a:focus-visible {
    ============================================ */
 
 .light {
+  /* Logo - darker contrast for light theme */
+  --logo-green: #15803d; /* Rich Dark Emerald Green */
+  --logo-cyan: #0369a1;  /* Deep Professional Cyan/Blue */
+
   /* Base */
   --background: #ffffff; /* Clean white background */
   --foreground: #09090b; /* Zinc 950 */
