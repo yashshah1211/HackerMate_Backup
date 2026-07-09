@@ -86,18 +86,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col">
-      {/* Top bar */}
-      <header className="px-6 py-5">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Logo className="h-8 w-auto" />
-          </div>
-          <div className="flex items-center gap-4 text-xs text-zinc-500">
-            <a href="#how-it-works" className="hover:text-white transition-colors hidden sm:inline">How it works</a>
-            <a href="#features" className="hover:text-white transition-colors hidden sm:inline">Features</a>
-          </div>
-        </div>
-      </header>
 
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 md:py-24">

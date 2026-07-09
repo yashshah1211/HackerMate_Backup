@@ -1642,3 +1642,51 @@ html.light .content-area {
   background: var(--bg-raised);
   border-color: var(--border-soft);
 }
+
+/* HackerMate Premium Logo Styles */
+.hm-logo-container {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+  user-select: none;
+  letter-spacing: -0.04em;
+}
+.hm-logo-hacker {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: 1em;
+  color: #a3e635 !important;
+  line-height: 1.0;
+  display: block;
+}
+.hm-logo-mate {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: 1em;
+  color: #22d3ee !important;
+  line-height: 1.0;
+  display: flex;
+  align-items: center;
+  gap: 0.1em;
+  margin-top: 0.02em;
+}
+.hm-logo-svg {
+  stroke: #22d3ee !important;
+}
+.hm-logo-circle {
+  fill: #22d3ee !important;
+}
+
+/* Light theme overrides for high contrast and compatibility */
+.light .hm-logo-hacker {
+  color: #15803d !important;
+}
+.light .hm-logo-mate {
+  color: #0369a1 !important;
+}
+.light .hm-logo-svg {
+  stroke: #0369a1 !important;
+}
+.light .hm-logo-circle {
+  fill: #0369a1 !important;
+}
