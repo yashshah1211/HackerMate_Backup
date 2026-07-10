@@ -155,14 +155,15 @@ export default function Home() {
       </div>
 
       {/* How it works */}
-      <div id="how-it-works" className="w-full border-t border-zinc-800/60">
-        <div className="max-w-5xl mx-auto px-6 py-16">
-          <div className="text-center mb-12">
-            <h2 className="text-xl font-semibold text-white mb-2">How it works</h2>
-            <p className="text-sm text-zinc-500">Three steps from sign-up to shipping.</p>
+      <div id="how-it-works" className="w-full border-t border-zinc-900 bg-[radial-gradient(ellipse_at_top,rgba(180,244,97,0.03),transparent_60%)] relative overflow-hidden">
+        <div className="max-w-5xl mx-auto px-6 py-20 relative z-10">
+          <div className="text-center mb-16">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/5 px-3 py-1 rounded-full border border-[#B4F461]/10">Workflow</span>
+            <h2 className="text-2xl font-semibold text-white mt-4 mb-2 tracking-tight">How it works</h2>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto">Three streamlined steps from sign-up to shipping your hackathon project.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 relative">
             {[
               {
                 step: "01",
@@ -179,10 +180,15 @@ export default function Home() {
                 title: "Build together",
                 description: "Message your team, track progress, and coordinate through the build — all in one place.",
               },
-            ].map((item) => (
-              <div key={item.step} className="text-left">
-                <div className="text-xs font-mono text-zinc-600 mb-3">{item.step}</div>
-                <h3 className="text-sm font-semibold text-white mb-2">{item.title}</h3>
+            ].map((item, idx) => (
+              <div key={item.step} className="group relative bg-zinc-950/30 border border-zinc-900/60 p-6 rounded-2xl hover:border-zinc-800 transition-all duration-300 hover:bg-zinc-950/50">
+                <div className="absolute top-0 right-6 -translate-y-1/2 text-5xl font-extrabold font-mono text-[#B4F461]/5 group-hover:text-[#B4F461]/10 transition-colors select-none">
+                  {item.step}
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-mono text-[#B4F461] font-bold mb-5 shadow-sm group-hover:bg-[#B4F461] group-hover:text-black transition-all duration-300">
+                  {item.step}
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{item.title}</h3>
                 <p className="text-xs text-zinc-400 leading-relaxed">{item.description}</p>
               </div>
             ))}
@@ -191,11 +197,13 @@ export default function Home() {
       </div>
 
       {/* Features */}
-      <div id="features" className="w-full border-t border-zinc-800/60 bg-zinc-900/10">
-        <div className="max-w-5xl mx-auto px-6 py-16">
-          <div className="text-center mb-12">
-            <h2 className="text-xl font-semibold text-white mb-2">What you get</h2>
-            <p className="text-sm text-zinc-500">Everything you need to go from idea to submission.</p>
+      <div id="features" className="w-full border-t border-zinc-900 bg-zinc-950/20 relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(180,244,97,0.02),transparent_40%)]" />
+        <div className="max-w-5xl mx-auto px-6 py-20 relative z-10">
+          <div className="text-center mb-16">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/5 px-3 py-1 rounded-full border border-[#B4F461]/10">Features</span>
+            <h2 className="text-2xl font-semibold text-white mt-4 mb-2 tracking-tight">What you get</h2>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto">Everything you and your teammates need to go from raw idea to final submission.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -228,11 +236,11 @@ export default function Home() {
                 description: "Browse upcoming hackathons from Unstop, Devfolio, and more — filtered to match your skills.",
               },
             ].map((feature) => (
-              <div key={feature.title} className="card card-static p-5">
-                <div className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 mb-4">
+              <div key={feature.title} className="group relative bg-zinc-950/40 backdrop-blur-md border border-zinc-900/60 p-6 rounded-2xl hover:border-[#B4F461]/30 hover:shadow-[0_15px_30px_-15px_rgba(180,244,97,0.1)] hover:-translate-y-1 transition-all duration-300">
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 mb-5 group-hover:bg-[#B4F461]/10 group-hover:text-[#B4F461] group-hover:border-[#B4F461]/20 transition-all duration-300">
                   {feature.icon}
                 </div>
-                <h3 className="text-sm font-semibold text-white mb-2">{feature.title}</h3>
+                <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{feature.title}</h3>
                 <p className="text-xs text-zinc-400 leading-relaxed">{feature.description}</p>
               </div>
             ))}
