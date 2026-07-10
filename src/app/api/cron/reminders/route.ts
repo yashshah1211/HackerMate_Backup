@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Service-role client: server-only key that bypasses RLS.
-// NEVER set SUPABASE_SERVICE_ROLE_KEY as a NEXT_PUBLIC_ variable.
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: NextRequest) {
   try {
+    // Service-role client: server-only key that bypasses RLS.
+    // NEVER set SUPABASE_SERVICE_ROLE_KEY as a NEXT_PUBLIC_ variable.
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     // 1. Authenticate Cron request
     const authHeader = req.headers.get("Authorization");
     const cronSecret = process.env.CRON_SECRET;

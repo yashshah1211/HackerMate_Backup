@@ -33,6 +33,10 @@ type Profile = {
     }>;
   } | null;
   github_stats_updated_at?: string | null;
+  has_participated_hackathon?: boolean;
+  hackathon_participations?: number;
+  has_won_hackathon?: boolean;
+  hackathon_wins?: number;
 };
 
 type ConnectionState =
@@ -649,6 +653,44 @@ export default function ProfilePage() {
                         ? "Available for Teams" 
                         : "Busy / Team Full"}
                   </span>
+
+                  {/* Hackathon Experience & Wins Badges */}
+                  {!isBlockedByMe && (
+                    <>
+                      {profile.hackathon_wins && profile.hackathon_wins > 0 ? (
+                        <>
+                          <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            🏆 {profile.hackathon_wins} {profile.hackathon_wins === 1 ? "Hackathon Win" : "Hackathon Wins"}
+                          </span>
+                          {profile.hackathon_participations && profile.hackathon_participations > 0 && (
+                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                              📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
+                            </span>
+                          )}
+                        </>
+                      ) : profile.has_participated_hackathon ? (
+                        <>
+                          <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-cyan-500/10 to-blue-500/10 text-cyan-400 border-cyan-500/25 flex items-center gap-1.5 select-none">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                            ⚡ Contender
+                          </span>
+                          {profile.hackathon_participations && profile.hackathon_participations > 0 && (
+                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                              📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-300 border-indigo-500/25 flex items-center gap-1.5 select-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                          🚀 Rising Builder
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
