@@ -20,6 +20,12 @@ export default function OnboardingPage() {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Hackathon experience states
+  const [hasParticipated, setHasParticipated] = useState<boolean | null>(null);
+  const [participationsCount, setParticipationsCount] = useState<number | "">("");
+  const [hasWon, setHasWon] = useState<boolean | null>(null);
+  const [winsCount, setWinsCount] = useState<number | "">("");
+
   const SKILLS = [
     "React",
     "Next.js",
@@ -123,6 +129,34 @@ export default function OnboardingPage() {
   }
 
   function validateStep2() {
+    if (hasParticipated === null) {
+      showToast("Please answer if you have participated in a hackathon before", "warning");
+      return false;
+    }
+    if (hasParticipated === true) {
+      if (participationsCount === "" || Number(participationsCount) <= 0) {
+        showToast("Please enter how many hackathons you have participated in", "warning");
+        return false;
+      }
+      if (hasWon === null) {
+        showToast("Please answer if you have ever won a hackathon", "warning");
+        return false;
+      }
+      if (hasWon === true) {
+        if (winsCount === "" || Number(winsCount) <= 0) {
+          showToast("Please enter how many hackathons you have won", "warning");
+          return false;
+        }
+        if (Number(winsCount) > Number(participationsCount)) {
+          showToast("Wins count cannot exceed participation count", "warning");
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function validateStep3() {
     // GitHub and LinkedIn are optional, but we check formatting if entered
     if (github.trim() && !github.toLowerCase().includes("github.com") && !parseGithubUsername(github)) {
       showToast("Please enter a valid GitHub URL or username", "warning");
@@ -177,6 +211,10 @@ export default function OnboardingPage() {
         github_stats: stats,
         github_stats_updated_at: statsUpdated,
         onboarding_completed: true,
+        has_participated_hackathon: hasParticipated,
+        hackathon_participations: hasParticipated ? Number(participationsCount) : 0,
+        has_won_hackathon: hasParticipated && hasWon ? true : false,
+        hackathon_wins: hasParticipated && hasWon ? Number(winsCount) : 0,
       })
       .eq("id", user.id);
 
@@ -214,8 +252,9 @@ export default function OnboardingPage() {
         <div className="flex items-center justify-between mb-6 px-2 select-none animate-fade-in-up">
           {[
             { num: 1, label: "Profile" },
-            { num: 2, label: "Socials" },
-            { num: 3, label: "Skills" },
+            { num: 2, label: "Experience" },
+            { num: 3, label: "Socials" },
+            { num: 4, label: "Skills" },
           ].map((s, idx) => (
             <div key={s.num} className="flex items-center flex-1 last:flex-initial">
               <div className="flex items-center gap-2">
@@ -236,7 +275,7 @@ export default function OnboardingPage() {
                   {s.label}
                 </span>
               </div>
-              {idx < 2 && (
+              {idx < 3 && (
                 <div
                   className={`h-[1px] flex-1 mx-4 transition-all duration-300 ${
                     step > s.num ? "bg-white" : "bg-zinc-800"
@@ -304,6 +343,126 @@ export default function OnboardingPage() {
             )}
 
             {step === 2 && (
+              <div className="space-y-5 animate-fade-in">
+                <div>
+                  <h2 className="text-sm font-semibold text-white mb-1">Hackathon Experience</h2>
+                  <p className="text-[10px] text-zinc-500 mb-3">Tell us about your past hackathon participation.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider font-mono">
+                    Have you ever participated in a hackathon before? *
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setHasParticipated(true)}
+                      className={`flex-1 py-2 px-4 text-xs font-semibold border rounded-lg transition-all cursor-pointer ${
+                        hasParticipated === true
+                          ? "bg-white text-black border-white shadow-md font-bold"
+                          : "bg-zinc-900/30 text-zinc-400 border-zinc-800/80 hover:border-zinc-700"
+                      }`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHasParticipated(false);
+                        setParticipationsCount("");
+                        setHasWon(null);
+                        setWinsCount("");
+                      }}
+                      className={`flex-1 py-2 px-4 text-xs font-semibold border rounded-lg transition-all cursor-pointer ${
+                        hasParticipated === false
+                          ? "bg-white text-black border-white shadow-md font-bold"
+                          : "bg-zinc-900/30 text-zinc-400 border-zinc-800/80 hover:border-zinc-700"
+                      }`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+
+                {hasParticipated === true && (
+                  <div className="space-y-5 pt-4 border-t border-zinc-900/60 animate-fade-in">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+                        How many hackathons have you participated in? *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 3"
+                        value={participationsCount}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setParticipationsCount(val === "" ? "" : Number(val));
+                        }}
+                        className="input text-xs"
+                      />
+                    </div>
+
+                    {participationsCount !== "" && Number(participationsCount) > 0 && (
+                      <div className="space-y-2 animate-fade-in">
+                        <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider font-mono">
+                          Have you ever won a hackathon? *
+                        </label>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setHasWon(true)}
+                            className={`flex-1 py-2 px-4 text-xs font-semibold border rounded-lg transition-all cursor-pointer ${
+                              hasWon === true
+                                ? "bg-white text-black border-white shadow-md font-bold"
+                                : "bg-zinc-900/30 text-zinc-400 border-zinc-800/80 hover:border-zinc-700"
+                            }`}
+                          >
+                            Yes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHasWon(false);
+                              setWinsCount("");
+                            }}
+                            className={`flex-1 py-2 px-4 text-xs font-semibold border rounded-lg transition-all cursor-pointer ${
+                              hasWon === false
+                                ? "bg-white text-black border-white shadow-md font-bold"
+                                : "bg-zinc-900/30 text-zinc-400 border-zinc-800/80 hover:border-zinc-700"
+                            }`}
+                          >
+                            No
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {hasWon === true && participationsCount !== "" && Number(participationsCount) > 0 && (
+                      <div className="animate-fade-in">
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+                          How many hackathons have you won? *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={participationsCount}
+                          placeholder="e.g. 1"
+                          value={winsCount}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setWinsCount(val === "" ? "" : Number(val));
+                          }}
+                          className="input text-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 3 && (
               <div className="space-y-4 animate-fade-in">
                 <div>
                   <h2 className="text-sm font-semibold text-white mb-1">Developer Networks</h2>
@@ -353,7 +512,7 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="space-y-4 animate-fade-in">
                 <div>
                   <h2 className="text-sm font-semibold text-white mb-1">Developer Skills</h2>
@@ -405,12 +564,13 @@ export default function OnboardingPage() {
               <div />
             )}
 
-            {step < 3 ? (
+            {step < 4 ? (
               <button
                 type="button"
                 onClick={() => {
                   if (step === 1 && validateStep1()) setStep(2);
                   else if (step === 2 && validateStep2()) setStep(3);
+                  else if (step === 3 && validateStep3()) setStep(4);
                 }}
                 className="btn btn-primary text-xs py-1.5 px-5 flex items-center gap-1"
               >

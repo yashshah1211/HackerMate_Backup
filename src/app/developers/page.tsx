@@ -16,6 +16,10 @@ type Profile = {
   avatar_url: string;
   skills: string[];
   is_available?: boolean;
+  has_participated_hackathon?: boolean;
+  hackathon_participations?: number;
+  has_won_hackathon?: boolean;
+  hackathon_wins?: number;
 };
 
 type Team = {
@@ -316,6 +320,22 @@ function DevelopersContent() {
                         <p className="text-zinc-500 text-[10px] truncate">
                           {dev.college || "Independent Builder"}
                         </p>
+                        {/* Tiny Hackathon Badge */}
+                        <div className="mt-1 flex items-center gap-1.5">
+                          {dev.hackathon_wins && dev.hackathon_wins > 0 ? (
+                            <span className="text-[8px] font-mono font-bold text-amber-400 bg-amber-500/5 border border-amber-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                              🏆 {dev.hackathon_wins} Win{dev.hackathon_wins === 1 ? '' : 's'}
+                            </span>
+                          ) : dev.has_participated_hackathon ? (
+                            <span className="text-[8px] font-mono font-semibold text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                              ⚡ Contender
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-mono font-semibold text-indigo-400 bg-indigo-500/5 border border-indigo-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                              🚀 Rookie
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </Link>
 
