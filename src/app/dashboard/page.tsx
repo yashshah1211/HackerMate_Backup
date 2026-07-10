@@ -207,21 +207,35 @@ function DashboardContent() {
 
           // Calculate score and sort
           const devsWithScore = filteredProfiles.map((other) => {
-            let score = 30; // base
+            const mySkills = (profileData.skills as string[]) || [];
+            const otherSkills = (other.skills as string[]) || [];
+            const myCollege = profileData.college;
+            const otherCollege = other.college;
+
+            // 1. Jaccard similarity for skills (up to 70%)
+            let skillScore = 0;
+            if (mySkills.length > 0 || otherSkills.length > 0) {
+              const mySkillsLower = mySkills.map((s: string) => s.toLowerCase().trim());
+              const otherSkillsLower = otherSkills.map((s: string) => s.toLowerCase().trim());
+              const shared = otherSkillsLower.filter((s: string) => mySkillsLower.includes(s));
+              const union = new Set([...mySkillsLower, ...otherSkillsLower]);
+              
+              if (union.size > 0) {
+                skillScore = (shared.length / union.size) * 70;
+              }
+            }
+
+            // 2. College alignment (up to 30%)
+            let collegeScore = 0;
             if (
-              profileData.college &&
-              other.college &&
-              profileData.college.toLowerCase().trim() === other.college.toLowerCase().trim()
+              myCollege &&
+              otherCollege &&
+              myCollege.toLowerCase().trim() === otherCollege.toLowerCase().trim()
             ) {
-              score += 35;
+              collegeScore = 30;
             }
-            if (profileData.skills && other.skills) {
-              const shared = other.skills.filter((s: string) =>
-                profileData.skills.map((sk: string) => sk.toLowerCase()).includes(s.toLowerCase())
-              );
-              score += shared.length * 12;
-            }
-            const compatibility = Math.min(score, 99);
+
+            const compatibility = Math.max(5, Math.min(Math.round(skillScore + collegeScore), 99));
             return { ...other, compatibility };
           });
 
