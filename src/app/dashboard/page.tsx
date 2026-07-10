@@ -581,7 +581,7 @@ function DashboardContent() {
                     </div>
                   </div>
                   <div className="match-right">
-                    <div className="match-pct">{dev.compatibility || 75}%<span>match</span></div>
+                    <div className="match-pct">{dev.compatibility}%<span>match</span></div>
                     {connectionState === "connected" ? (
                       <div className="btn-connected">✓ Connected</div>
                     ) : connectionState === "request_sent" ? (

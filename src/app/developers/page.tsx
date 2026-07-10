@@ -104,7 +104,10 @@ function DevelopersContent() {
         const filteredDevs = (data || []).filter(
           (d) => d.id !== user?.id && !blockedUserIds.includes(d.id)
         );
-        setDevelopers(filteredDevs);
+        const sortedDevs = filteredDevs.sort((a, b) => {
+          return calculateCompatibility(b, profile) - calculateCompatibility(a, profile);
+        });
+        setDevelopers(sortedDevs);
       }
     } catch (err) {
       console.error(err);
@@ -124,12 +127,13 @@ function DevelopersContent() {
   }, [search]);
 
   // Calculate compatibility score between current user and other builder
-  function calculateCompatibility(other: Profile) {
-    if (!currentUserProfile) return 0;
+  function calculateCompatibility(other: Profile, currentOverride?: Profile | null) {
+    const baseProfile = currentOverride !== undefined ? currentOverride : currentUserProfile;
+    if (!baseProfile) return 0;
     
-    const mySkills = currentUserProfile.skills || [];
-    const otherSkills = other.skills || [];
-    const myCollege = currentUserProfile.college;
+    const mySkills = (baseProfile.skills as string[]) || [];
+    const otherSkills = (other.skills as string[]) || [];
+    const myCollege = baseProfile.college;
     const otherCollege = other.college;
 
     // 1. Jaccard similarity for skills (up to 70%)
@@ -231,7 +235,7 @@ function DevelopersContent() {
     setInviteLoading(false);
   }
 
-  // Filter developers: exclude current logged-in user + apply search
+  // Filter developers: exclude current logged-in user + apply search + sort by compatibility
   const filteredDevelopers = developers
     .filter((dev) => dev.id !== currentUserProfile?.id)
     .filter((dev) => {
@@ -242,7 +246,8 @@ function DevelopersContent() {
         dev.college?.toLowerCase().includes(query) ||
         dev.skills?.some((skill) => skill.toLowerCase().includes(query))
       );
-    });
+    })
+    .sort((a, b) => calculateCompatibility(b) - calculateCompatibility(a));
 
   if (loading) {
     return (
