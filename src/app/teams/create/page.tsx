@@ -4,12 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-
-const COLLEGES = [
-  "DJSCE", "SPIT", "VJTI", "TSEC", "COEP", "PICT", "DAIICT",
-  "Nirma University", "PDEU", "BITS Pilani", "IIT Bombay", "IIT Delhi",
-  "IIT Madras", "NIT Trichy", "NIT Surathkal", "Other",
-];
+import { COLLEGES } from "@/lib/colleges";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -61,6 +56,8 @@ function CreateTeamForm() {
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
   const [customCollege, setCustomCollege] = useState("");
+  const [collegeSearch, setCollegeSearch] = useState("");
+  const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
 
   async function loadHackathons() {
     const { data, error } = await supabase
@@ -190,16 +187,56 @@ function CreateTeamForm() {
           <div className="grid md:grid-cols-2 gap-5">
             <div>
               <Field label="College (Optional)">
-                <select
-                  value={college}
-                  onChange={(e) => setCollege(e.target.value)}
-                  className="input px-4"
-                >
-                  <option value="">Select college</option>
-                  {COLLEGES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search or select your college..."
+                    value={showCollegeDropdown ? collegeSearch : (college || "")}
+                    onFocus={() => {
+                      setCollegeSearch("");
+                      setShowCollegeDropdown(true);
+                    }}
+                    onChange={(e) => {
+                      setCollegeSearch(e.target.value);
+                      setShowCollegeDropdown(true);
+                    }}
+                    className="input px-4 w-full"
+                  />
+                  
+                  {showCollegeDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowCollegeDropdown(false)}
+                      />
+                      <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
+                        {COLLEGES.filter((col) => 
+                          col.toLowerCase().includes(collegeSearch.toLowerCase())
+                        ).map((collegeName) => (
+                          <button
+                            type="button"
+                            key={collegeName}
+                            onClick={() => {
+                              setCollege(collegeName);
+                              setCollegeSearch("");
+                              setShowCollegeDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+                          >
+                            {collegeName}
+                          </button>
+                        ))}
+                        {COLLEGES.filter((col) => 
+                          col.toLowerCase().includes(collegeSearch.toLowerCase())
+                        ).length === 0 && (
+                          <div className="text-center py-4 text-xs text-zinc-600">
+                            No colleges match your search.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </Field>
               {college === "Other" && (
                 <input

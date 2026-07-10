@@ -88,15 +88,17 @@ function DashboardContent() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Custom dashboard data states
   const [spotlights, setSpotlights] = useState<Profile[]>([]);
+  const [collegeMates, setCollegeMates] = useState<Profile[]>([]);
   const [upcomingHackathons, setUpcomingHackathons] = useState<Hackathon[]>([]);
   const [activeTeams, setActiveTeams] = useState<Team[]>([]);
   const [connectionStates, setConnectionStates] = useState<
     Record<string, SpotlightConnectionState>
   >({});
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [profileCompleteness, setProfileCompleteness] = useState({ percent: 0, pendingTasks: [] as string[] });
 
 
   // Statistics counters
@@ -174,6 +176,36 @@ function DashboardContent() {
         }
         setProfile(profileData);
 
+        // Calculate profile completeness
+        let completenessScore = 0;
+        const pending: string[] = [];
+        if (profileData.full_name) {
+          completenessScore += 20;
+        } else {
+          pending.push("Add your full name");
+        }
+        if (profileData.college) {
+          completenessScore += 20;
+        } else {
+          pending.push("Select your college / university");
+        }
+        if (profileData.bio) {
+          completenessScore += 20;
+        } else {
+          pending.push("Write a bio about yourself");
+        }
+        if (profileData.github_url) {
+          completenessScore += 20;
+        } else {
+          pending.push("Connect your GitHub account");
+        }
+        if (profileData.skills && (profileData.skills as string[]).length > 0) {
+          completenessScore += 20;
+        } else {
+          pending.push("Select your profile skills");
+        }
+        setProfileCompleteness({ percent: completenessScore, pendingTasks: pending });
+
         // Fetch user blocklists
         const blockedUserIds: string[] = [];
         const { data: myBlocks } = await supabase
@@ -209,39 +241,38 @@ function DashboardContent() {
           const devsWithScore = filteredProfiles.map((other) => {
             const mySkills = (profileData.skills as string[]) || [];
             const otherSkills = (other.skills as string[]) || [];
-            const myCollege = profileData.college;
-            const otherCollege = other.college;
 
-            // 1. Jaccard similarity for skills (up to 70%)
+            // Jaccard similarity for skills (100% of score)
             let skillScore = 0;
             if (mySkills.length > 0 || otherSkills.length > 0) {
               const mySkillsLower = mySkills.map((s: string) => s.toLowerCase().trim());
               const otherSkillsLower = otherSkills.map((s: string) => s.toLowerCase().trim());
               const shared = otherSkillsLower.filter((s: string) => mySkillsLower.includes(s));
               const union = new Set([...mySkillsLower, ...otherSkillsLower]);
-              
+
               if (union.size > 0) {
-                skillScore = (shared.length / union.size) * 70;
+                skillScore = (shared.length / union.size) * 100;
               }
             }
 
-            // 2. College alignment (up to 30%)
-            let collegeScore = 0;
-            if (
-              myCollege &&
-              otherCollege &&
-              myCollege.toLowerCase().trim() === otherCollege.toLowerCase().trim()
-            ) {
-              collegeScore = 30;
-            }
-
-            const compatibility = Math.max(5, Math.min(Math.round(skillScore + collegeScore), 99));
+            const compatibility = Math.max(5, Math.min(Math.round(skillScore), 99));
             return { ...other, compatibility };
           });
 
           // Sort by compatibility descending
           devsWithScore.sort((a, b) => b.compatibility - a.compatibility);
           setSpotlights(devsWithScore.slice(0, 4)); // Get top 4 compatible builders
+
+          // Filter builders from the same college
+          const myCollege = profileData.college ? profileData.college.toLowerCase().trim() : "";
+          if (myCollege) {
+            const mates = devsWithScore.filter(other =>
+              other.college && other.college.toLowerCase().trim() === myCollege
+            );
+            setCollegeMates(mates.slice(0, 4)); // Top 4 builders from the same college
+          } else {
+            setCollegeMates([]);
+          }
         }
       }
 
@@ -329,8 +360,8 @@ function DashboardContent() {
           }[]).map((d) => {
             const members = d.team_members || [];
             const memberCount = members.length;
-            const hackathonsData = d.team_hackathons && d.team_hackathons.length > 0 
-              ? d.team_hackathons[0].hackathons 
+            const hackathonsData = d.team_hackathons && d.team_hackathons.length > 0
+              ? d.team_hackathons[0].hackathons
               : null;
             return {
               id: d.id,
@@ -423,6 +454,8 @@ function DashboardContent() {
         });
         setRecentActivities(enrichedActivities);
       }
+
+
 
     } catch (err) {
       console.error(err);
@@ -560,8 +593,8 @@ function DashboardContent() {
                 : "U";
 
               return (
-                <div 
-                  key={dev.id} 
+                <div
+                  key={dev.id}
                   className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
                   onClick={() => router.push(`/profile/${dev.id}`)}
                 >
@@ -625,6 +658,82 @@ function DashboardContent() {
 
         <div className="panel">
           <div className="panel-head">
+            <div className="panel-title">Builders from {profile?.college || "your college"}</div>
+            <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
+          </div>
+
+          {collegeMates.length > 0 ? (
+            collegeMates.map((dev, idx) => {
+              const connectionState = connectionStates[dev.id] || "not_connected";
+              const initials = dev.full_name
+                ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                : "U";
+
+              return (
+                <div
+                  key={dev.id}
+                  className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
+                  onClick={() => router.push(`/profile/${dev.id}`)}
+                >
+                  <div className="match-avatar" style={{ background: avatarColors[(idx + 2) % avatarColors.length] }}>
+                    {initials}
+                    <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
+                  </div>
+                  <div className="match-info">
+                    <div className="name">{dev.full_name}</div>
+                    <div className="role">
+                      {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+                    </div>
+                    <div className="match-skills">
+                      {dev.skills?.slice(0, 3).map((skill) => (
+                        <span key={skill} className="skill-chip">{skill}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="match-right">
+                    {connectionState === "connected" ? (
+                      <div className="btn-connected">✓ Connected</div>
+                    ) : connectionState === "request_sent" ? (
+                      <div className="btn-connected" style={{ color: "var(--accent-amber)", borderColor: "rgba(255,182,39,0.3)", background: "rgba(255,182,39,0.1)" }}>Sent</div>
+                    ) : connectionState === "request_received" ? (
+                      <button
+                        className="btn-connect"
+                        style={{ background: "var(--accent-indigo)" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/profile/${dev.id}`);
+                        }}
+                      >
+                        Respond
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-connect"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/profile/${dev.id}`);
+                        }}
+                      >
+                        Connect
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.22 4 2.22V20" /></svg>
+              </div>
+              <p className="text-zinc-500 text-xs">No builders from your college found</p>
+              <p className="text-[10px] text-zinc-600 mt-1 max-w-[200px] mx-auto">Make sure your college is set in your profile.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
             <div className="panel-title">Upcoming Hackathons</div>
             <div className="view-all" onClick={() => router.push("/hackathons")}>view all →</div>
           </div>
@@ -640,8 +749,8 @@ function DashboardContent() {
               const badgeClass = isUrgent ? "badge-urgent" : "badge-mid";
 
               return (
-                <div 
-                  key={hack.id} 
+                <div
+                  key={hack.id}
                   className="hack-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
                   onClick={() => router.push(`/hackathons/${hack.id}`)}
                 >
@@ -663,10 +772,10 @@ function DashboardContent() {
                   </div>
                   <div className="hack-prize">
                     <div className="amt">
-                      {hack.prize_pool 
-                        ? (hack.prize_pool.length > 25 
-                          ? `${hack.prize_pool.slice(0, 22)}...` 
-                          : hack.prize_pool) 
+                      {hack.prize_pool
+                        ? (hack.prize_pool.length > 25
+                          ? `${hack.prize_pool.slice(0, 22)}...`
+                          : hack.prize_pool)
                         : "Perks"}
                     </div>
                     <div className="lbl">{hack.prize_pool ? "PRIZE POOL" : "FOR WINNERS"}</div>
@@ -684,104 +793,163 @@ function DashboardContent() {
             </div>
           )}
         </div>
+
+        {profileCompleteness.percent < 100 ? (
+          <div className="panel">
+            <div className="panel-head">
+              <div className="panel-title">Profile Strength</div>
+              <div className="text-[10px] text-zinc-500 font-mono uppercase">{profileCompleteness.percent}% Complete</div>
+            </div>
+
+            <div className="flex flex-col gap-4 py-2">
+              <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
+                <div
+                  className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500"
+                  style={{ width: `${profileCompleteness.percent}%` }}
+                />
+              </div>
+
+              <div className="space-y-2 mt-2">
+                <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-wider">Recommended to complete:</p>
+                {profileCompleteness.pendingTasks.map((task, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-800 shrink-0" />
+                    <span>{task}</span>
+                    <button
+                      onClick={() => router.push("/profile/edit")}
+                      className="ml-auto text-[10px] text-[#B4F461] hover:underline"
+                    >
+                      Add +
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="panel">
+            <div className="panel-head">
+              <div className="panel-title">Hacker Status</div>
+              <div className="text-[10px] text-zinc-500 font-mono uppercase">Verified All-Star</div>
+            </div>
+            
+            <div className="flex flex-col items-center justify-center text-center py-6">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                </svg>
+              </div>
+              <p className="text-xs text-zinc-200 font-semibold">Your Profile is 100% Complete!</p>
+              <p className="text-[10px] text-zinc-500 mt-1 max-w-[220px] leading-relaxed">
+                You're ready to build. Your skills match maximum compatibility for team invitations and spotlights.
+              </p>
+              <button 
+                onClick={() => router.push("/developers")}
+                className="btn btn-primary btn-xs mt-4 py-1.5 px-4 font-mono text-[10px] uppercase"
+              >
+                Find Teammates →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid-3">
-        <div className="panel">
-          <div className="panel-head">
-            <div className="panel-title">My Teams</div>
-            <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
-          </div>
+          <div className="panel">
+            <div className="panel-head">
+              <div className="panel-title">My Teams</div>
+              <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
+            </div>
 
-          {activeTeams.length > 0 ? (
-            activeTeams.map((team) => {
-              const count = team.memberCount || 0;
-              const max = team.max_members || 5;
-              const percent = Math.min(Math.round((count / max) * 100), 100);
+            {activeTeams.length > 0 ? (
+              activeTeams.map((team) => {
+                const count = team.memberCount || 0;
+                const max = team.max_members || 5;
+                const percent = Math.min(Math.round((count / max) * 100), 100);
 
-              return (
-                <div 
-                  key={team.id} 
-                  className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
-                  onClick={() => router.push(`/teams/${team.id}`)}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div className="team-name">{team.name}</div>
-                    <div className="team-progress-track">
-                      <div 
-                        className="team-progress-fill" 
-                        style={{ 
-                          width: `${percent}%`,
-                          background: percent <= 35 ? "var(--warning)" : "var(--accent)"
-                        }}
-                      ></div>
-                    </div>
-                    <div className="team-meta">{percent}% tasks done · {team.hackathons?.name || "Active Project"}</div>
-                  </div>
-                  <div className="stack-avatars">
-                    {team.members?.slice(0, 3).map((m, mIdx) => {
-                      const initials = m.profiles?.full_name
-                        ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                        : "?";
-                      const stackColors = ["#3b82f6", "#8b5cf6", "#10b981"];
-                      return (
-                        <div 
-                          key={m.user_id} 
-                          style={{ 
-                            background: stackColors[mIdx % stackColors.length],
-                            color: "#fff"
+                return (
+                  <div
+                    key={team.id}
+                    className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
+                    onClick={() => router.push(`/teams/${team.id}`)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div className="team-name">{team.name}</div>
+                      <div className="team-progress-track">
+                        <div
+                          className="team-progress-fill"
+                          style={{
+                            width: `${percent}%`,
+                            background: percent <= 35 ? "var(--warning)" : "var(--accent)"
                           }}
-                        >
-                          {initials}
-                        </div>
-                      );
-                    })}
+                        ></div>
+                      </div>
+                      <div className="team-meta">{percent}% tasks done · {team.hackathons?.name || "Active Project"}</div>
+                    </div>
+                    <div className="stack-avatars">
+                      {team.members?.slice(0, 3).map((m, mIdx) => {
+                        const initials = m.profiles?.full_name
+                          ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                          : "?";
+                        const stackColors = ["#3b82f6", "#8b5cf6", "#10b981"];
+                        return (
+                          <div
+                            key={m.user_id}
+                            style={{
+                              background: stackColors[mIdx % stackColors.length],
+                              color: "#fff"
+                            }}
+                          >
+                            {initials}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
                 </div>
-              );
-            })
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
+                <p className="text-zinc-500 text-xs">No active teams</p>
+                <p className="text-[10px] text-zinc-600 mt-1">Create a team or request to join one to get started.</p>
               </div>
-              <p className="text-zinc-500 text-xs">No active teams</p>
-              <p className="text-[10px] text-zinc-600 mt-1">Create a team or request to join one to get started.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <div className="panel-title">Recent Activity</div>
+            )}
           </div>
 
-          {recentActivities.length > 0 ? (
-            recentActivities.map((act) => {
-              const colors = ["var(--accent)", "var(--success)", "var(--warning)", "var(--danger)"];
-              const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
-
-              return (
-                <div key={act.id} className="activity-item">
-                  <div className="activity-dot" style={{ background: randColor }}></div>
-                  <div>
-                    <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
-                    <div className="activity-time">{act.timeLabel}</div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
-              </div>
-              <p className="text-zinc-500 text-xs">No recent activity</p>
-              <p className="text-[10px] text-zinc-600 mt-1">Notifications and network matches will appear here.</p>
+          <div className="panel">
+            <div className="panel-head">
+              <div className="panel-title">Recent Activity</div>
             </div>
-          )}
+
+            {recentActivities.length > 0 ? (
+              recentActivities.map((act) => {
+                const colors = ["var(--accent)", "var(--success)", "var(--warning)", "var(--danger)"];
+                const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
+
+                return (
+                  <div key={act.id} className="activity-item">
+                    <div className="activity-dot" style={{ background: randColor }}></div>
+                    <div>
+                      <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
+                      <div className="activity-time">{act.timeLabel}</div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+                </div>
+                <p className="text-zinc-500 text-xs">No recent activity</p>
+                <p className="text-[10px] text-zinc-600 mt-1">Notifications and network matches will appear here.</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
     </main>
   );
 }

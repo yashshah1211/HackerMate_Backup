@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 import Logo from "@/components/Logo";
+import { COLLEGES } from "@/lib/colleges";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -19,6 +20,9 @@ export default function OnboardingPage() {
   const [linkedin, setLinkedin] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [collegeSearch, setCollegeSearch] = useState("");
+  const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
 
   // Hackathon experience states
   const [hasParticipated, setHasParticipated] = useState<boolean | null>(null);
@@ -75,33 +79,6 @@ export default function OnboardingPage() {
     "Technical Writing",
     "Graphic Design",
     "Video Editing",
-  ];
-
-  const COLLEGES = [
-    "DJSCE",
-    "SPIT",
-    "VJTI",
-    "TSEC",
-    "COEP",
-    "PICT",
-    "VIT Vellore",
-    "SRM University",
-    "Manipal Institute",
-    "RVCE",
-    "PES University",
-    "DTU",
-    "NSUT",
-    "BITS Pilani",
-    "IIT Bombay",
-    "IIT Delhi",
-    "IIT Madras",
-    "IIT Kharagpur",
-    "IIT Roorkee",
-    "NIT Trichy",
-    "NIT Surathkal",
-    "Nirma University",
-    "DAIICT",
-    "Other",
   ];
 
   function toggleSkill(skill: string) {
@@ -300,18 +277,56 @@ export default function OnboardingPage() {
                   <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
                     College / University *
                   </label>
-                  <select
-                    value={college}
-                    onChange={(e) => setCollege(e.target.value)}
-                    className="input text-xs"
-                  >
-                    <option value="">Select your college</option>
-                    {COLLEGES.map((collegeName) => (
-                      <option key={collegeName} value={collegeName}>
-                        {collegeName}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search or select your college..."
+                      value={showCollegeDropdown ? collegeSearch : (college || "")}
+                      onFocus={() => {
+                        setCollegeSearch("");
+                        setShowCollegeDropdown(true);
+                      }}
+                      onChange={(e) => {
+                        setCollegeSearch(e.target.value);
+                        setShowCollegeDropdown(true);
+                      }}
+                      className="input text-xs w-full"
+                    />
+                    
+                    {showCollegeDropdown && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setShowCollegeDropdown(false)}
+                        />
+                        <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20">
+                          {COLLEGES.filter((col) => 
+                            col.toLowerCase().includes(collegeSearch.toLowerCase())
+                          ).map((collegeName) => (
+                            <button
+                              type="button"
+                              key={collegeName}
+                              onClick={() => {
+                                setCollege(collegeName);
+                                setCollegeSearch("");
+                                setShowCollegeDropdown(false);
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+                            >
+                              {collegeName}
+                            </button>
+                          ))}
+                          {COLLEGES.filter((col) => 
+                            col.toLowerCase().includes(collegeSearch.toLowerCase())
+                          ).length === 0 && (
+                            <div className="text-center py-4 text-xs text-zinc-600">
+                              No colleges match your search.
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
 
                   {college === "Other" && (
                     <input

@@ -6,12 +6,7 @@ import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import { useNotification } from "@/context/NotificationContext";
-
-const COLLEGES = [
-  "DJSCE", "SPIT", "VJTI", "TSEC", "COEP", "PICT", "DAIICT",
-  "Nirma University", "PDEU", "BITS Pilani", "IIT Bombay", "IIT Delhi",
-  "IIT Madras", "NIT Trichy", "NIT Surathkal", "Other",
-];
+import { COLLEGES } from "@/lib/colleges";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -248,6 +243,8 @@ export default function TeamDetailsView({
   const [editDesc, setEditDesc] = useState(team.description || "");
   const [editCollege, setEditCollege] = useState("");
   const [editCustomCollege, setEditCustomCollege] = useState("");
+  const [editCollegeSearch, setEditCollegeSearch] = useState("");
+  const [showEditCollegeDropdown, setShowEditCollegeDropdown] = useState(false);
   const [editMaxMembers, setEditMaxMembers] = useState(team.max_members || 4);
   const [editSkills, setEditSkills] = useState<string[]>(team.skills || []);
   const [editRoles, setEditRoles] = useState<string[]>(team.roles_needed || []);
@@ -2285,16 +2282,56 @@ export default function TeamDetailsView({
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-zinc-300">College (Optional)</label>
-                  <select
-                    value={editCollege}
-                    onChange={(e) => setEditCollege(e.target.value)}
-                    className="input text-xs px-4"
-                  >
-                    <option value="">Select college</option>
-                    {COLLEGES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search or select your college..."
+                      value={showEditCollegeDropdown ? editCollegeSearch : (editCollege || "")}
+                      onFocus={() => {
+                        setEditCollegeSearch("");
+                        setShowEditCollegeDropdown(true);
+                      }}
+                      onChange={(e) => {
+                        setEditCollegeSearch(e.target.value);
+                        setShowEditCollegeDropdown(true);
+                      }}
+                      className="input text-xs px-4 w-full"
+                    />
+                    
+                    {showEditCollegeDropdown && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setShowEditCollegeDropdown(false)}
+                        />
+                        <div className="absolute left-0 right-0 top-full mt-1.5 max-h-48 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
+                          {COLLEGES.filter((col) => 
+                            col.toLowerCase().includes(editCollegeSearch.toLowerCase())
+                          ).map((collegeName) => (
+                            <button
+                              type="button"
+                              key={collegeName}
+                              onClick={() => {
+                                setEditCollege(collegeName);
+                                setEditCollegeSearch("");
+                                setShowEditCollegeDropdown(false);
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+                            >
+                              {collegeName}
+                            </button>
+                          ))}
+                          {COLLEGES.filter((col) => 
+                            col.toLowerCase().includes(editCollegeSearch.toLowerCase())
+                          ).length === 0 && (
+                            <div className="text-center py-4 text-xs text-zinc-600">
+                              No colleges match your search.
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {editCollege === "Other" && (
                     <input
                       type="text"

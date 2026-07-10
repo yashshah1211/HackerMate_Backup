@@ -139,10 +139,8 @@ function DevelopersContent() {
     
     const mySkills = (baseProfile.skills as string[]) || [];
     const otherSkills = (other.skills as string[]) || [];
-    const myCollege = baseProfile.college;
-    const otherCollege = other.college;
 
-    // 1. Jaccard similarity for skills (up to 70%)
+    // Jaccard similarity for skills (100% of score)
     let skillScore = 0;
     if (mySkills.length > 0 || otherSkills.length > 0) {
       const mySkillsLower = mySkills.map(s => s.toLowerCase().trim());
@@ -151,22 +149,12 @@ function DevelopersContent() {
       const union = new Set([...mySkillsLower, ...otherSkillsLower]);
       
       if (union.size > 0) {
-        skillScore = (shared.length / union.size) * 70;
+        skillScore = (shared.length / union.size) * 100;
       }
     }
 
-    // 2. College alignment (up to 30%)
-    let collegeScore = 0;
-    if (
-      myCollege &&
-      otherCollege &&
-      myCollege.toLowerCase().trim() === otherCollege.toLowerCase().trim()
-    ) {
-      collegeScore = 30;
-    }
-
-    const total = Math.round(skillScore + collegeScore);
-    return Math.max(5, Math.min(total, 98)); // Min 5% connection, max 98%
+    const total = Math.round(skillScore);
+    return Math.max(5, Math.min(total, 99)); // Min 5% connection, max 99%
   }
 
   // Handle direct invite
