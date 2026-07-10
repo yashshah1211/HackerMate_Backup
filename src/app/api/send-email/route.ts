@@ -1,14 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-// Initialize Server-side Supabase client using environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { createServerClient } from "@supabase/ssr";
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Auth gate ──────────────────────────────────────────────────────────
+    // Build a server-side Supabase client that reads the caller's JWT from
+    // the request cookies, exactly like middleware does.
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => req.cookies.getAll(),
+          // This is a read-only context; we don't need to set cookies.
+          setAll: () => {},
+        },
+      }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // ── End auth gate ──────────────────────────────────────────────────────
+
     const body = await req.json();
     const { senderId, recipientId, type, teamId, warningMessage } = body;
 
@@ -19,6 +35,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Verify the caller is acting as themselves — prevent sender impersonation.
+    if (senderId !== user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Only admins may send moderation_warning emails.
+    if (type === "moderation_warning") {
+      const { data: callerProfile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      if (!callerProfile || callerProfile.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     // 1. Fetch Sender Details
     const { data: sender, error: senderErr } = await supabase
       .from("profiles")
@@ -27,10 +60,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (senderErr || !sender) {
-      return NextResponse.json(
-        { error: `Sender profile not found: ${senderErr?.message || "unknown"}` },
-        { status: 404 }
-      );
+      // Generic error — do not reveal whether the profile exists (prevents enumeration).
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
     // 2. Fetch Recipient Details
@@ -41,10 +72,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (recipientErr || !recipient) {
-      return NextResponse.json(
-        { error: `Recipient profile not found: ${recipientErr?.message || "unknown"}` },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
     // 3. Fetch Team details if applicable
@@ -232,7 +260,11 @@ export async function POST(req: NextRequest) {
     const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
     
     if (isSandboxMode) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
+      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
+      if (!sandboxEmail) {
+        console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not set. Cannot send email in sandbox mode.");
+        return NextResponse.json({ error: "Email service is not configured for sandbox mode." }, { status: 500 });
+      }
       if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
         console.log(`[Resend Sandbox Override] Redirecting email from ${targetEmail} to sandbox recipient ${sandboxEmail}`);
         finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;

@@ -1398,10 +1398,18 @@ export default function TeamDetailsView({
                 </button>
 
                 <button
-
                   type="button"
-                  onClick={() => {
-                    const link = `${window.location.origin}/teams/${team.id}${isOwner ? "?join=true" : ""}`;
+                  onClick={async () => {
+                    let link = `${window.location.origin}/teams/${team.id}`;
+                    if (isOwner) {
+                      const { data: token, error } = await supabase.rpc("generate_team_invite_token", { p_team_id: team.id });
+                      if (!error && token) {
+                        link = `${link}?join=true&token=${encodeURIComponent(token)}`;
+                      } else {
+                        showToast(error?.message || "Failed to generate invite token", "error");
+                        return;
+                      }
+                    }
                     navigator.clipboard.writeText(link);
                     showToast(
                       isOwner

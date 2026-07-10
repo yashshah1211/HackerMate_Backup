@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const protectedRoutes = [
     "/dashboard",
     "/developers",
@@ -14,6 +14,7 @@ export async function proxy(request: NextRequest) {
     "/invites",
     "/messages",
     "/my-teams",
+    "/admin",
   ];
 
   const isProtected = protectedRoutes.some((route) =>
@@ -57,6 +58,22 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Admin route server-side role check
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile || profile.role !== "admin") {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/dashboard";
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
   return response;
 }
 
@@ -72,5 +89,7 @@ export const config = {
     "/invites/:path*",
     "/messages/:path*",
     "/my-teams/:path*",
+    "/admin/:path*",
   ],
 };
+

@@ -27,6 +27,14 @@ const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.(?:com|org|net|
  * @returns An object stating if the message is valid, the sanitized text, and any error message if blocked
  */
 export function moderateMessage(text: string): { isValid: boolean; sanitized: string; error?: string } {
+  if (text && text.length > 5000) {
+    return {
+      isValid: false,
+      sanitized: text,
+      error: "Message blocked: Message length exceeds the limit of 5000 characters."
+    };
+  }
+
   let sanitized = text;
 
   // 1. Moderate Profanity (Masking words with asterisks)
@@ -54,16 +62,26 @@ export function moderateMessage(text: string): { isValid: boolean; sanitized: st
         domain = url.replace(/(https?:\/\/)?(www\.)?/, "").split("/")[0].toLowerCase();
       }
 
-      // Check if domain is allowed or is a subdomain of an allowed domain
-      const isAllowed = allowedDomains.some(allowed => 
-        domain === allowed || domain.endsWith("." + allowed)
-      );
+      // User-content hosting domains where anyone can register a subdomain
+      const userContentDomains = ["vercel.app", "netlify.app", "notion.site", "notion.so"];
+
+      // Check if domain is allowed
+      const isAllowed = allowedDomains.some(allowed => {
+        if (domain === allowed) return true;
+        
+        // If it's a subdomain, ensure it's not a user-content hosting domain where subdomains are untrusted
+        if (domain.endsWith("." + allowed)) {
+          return !userContentDomains.includes(allowed);
+        }
+        
+        return false;
+      });
 
       if (!isAllowed) {
         return {
           isValid: false,
           sanitized: text,
-          error: "Message blocked: Link sharing is restricted to developer, collaboration, and hackathon platforms (GitHub, LinkedIn, Discord, etc.) to keep the community safe."
+          error: "Message blocked: Link sharing is restricted to approved developer, collaboration, and hackathon platforms. Note that arbitrary hosting subdomains (e.g. vercel.app, netlify.app) are restricted for security."
         };
       }
     }

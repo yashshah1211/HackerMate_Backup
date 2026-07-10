@@ -34,16 +34,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    function escapeHtml(text: string): string {
+      if (!text) return "";
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
     // 3. Determine Email Subject and Action Details
     // Truncate message for subject line if too long
     const truncatedMsg = message.length > 50 ? `${message.substring(0, 47)}...` : message;
-    const subject = `[HackerMate] ${truncatedMsg}`;
+    const rawSubject = `[HackerMate] ${truncatedMsg}`;
+    const subject = escapeHtml(rawSubject);
     const title = "New Notification";
     
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const path = link ? (link.startsWith("/") ? link : `/${link}`) : "/notifications";
-    const actionUrl = `${baseUrl}${path}`;
+    const actionUrl = escapeHtml(`${baseUrl}${path}`);
     const actionLabel = "View Notification";
+
+    const escapedRecipientName = escapeHtml(recipientName || "Builder");
+    const escapedMessage = escapeHtml(message);
 
     // 4. Construct Premium Responsive HTML Email (Linear/Vercel inspired dark theme)
     const html = `
@@ -140,8 +154,8 @@ export async function POST(req: NextRequest) {
     <div class="container">
       <div class="logo">HackerMate.</div>
       <h1 class="title">${title}</h1>
-      <p class="greeting">Hi ${recipientName || "Builder"},</p>
-      <p class="body">${message}</p>
+      <p class="greeting">Hi ${escapedRecipientName},</p>
+      <p class="body">${escapedMessage}</p>
       <div class="cta-container">
         <a href="${actionUrl}" class="btn" target="_blank">${actionLabel}</a>
       </div>
@@ -179,13 +193,18 @@ export async function POST(req: NextRequest) {
     const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
     
     if (isSandboxMode) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashs" + "hah7117@gmail.com"; // yashshah7117@gmail.com
+      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
+      if (!sandboxEmail) {
+        console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not set. Cannot send notification email in sandbox mode.");
+        return NextResponse.json({ error: "Email service is not configured for sandbox mode." }, { status: 500 });
+      }
       if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
         console.log(`[Resend Sandbox Override] Redirecting email from ${targetEmail} to sandbox recipient ${sandboxEmail}`);
         finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;
         targetEmail = sandboxEmail;
       }
     }
+
 
     // Call Resend REST API
     const resendRes = await fetch("https://api.resend.com/emails", {

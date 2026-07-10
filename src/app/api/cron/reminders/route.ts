@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize server-side Supabase client using environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Service-role client: server-only key that bypasses RLS.
+// NEVER set SUPABASE_SERVICE_ROLE_KEY as a NEXT_PUBLIC_ variable.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   try {
     // 1. Authenticate Cron request
     const authHeader = req.headers.get("Authorization");
-    const cronSecret = process.env.NOTIFICATION_WEBHOOK_SECRET;
+    const cronSecret = process.env.CRON_SECRET;
 
     if (!cronSecret) {
-      console.error("NOTIFICATION_WEBHOOK_SECRET is not configured on the server.");
+      console.error("CRON_SECRET is not configured on the server.");
       return NextResponse.json({ error: "Cron secret not configured on server" }, { status: 500 });
     }
 
@@ -173,7 +175,12 @@ export async function POST(req: NextRequest) {
           const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
           
           if (isSandboxMode) {
-            const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
+            const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
+            if (!sandboxEmail) {
+              console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not set. Skipping reminder email.");
+              failedIds.push(reminder.saved_id);
+              continue;
+            }
             if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
               console.log(`[Resend Sandbox Override] Redirecting email from ${targetEmail} to sandbox recipient ${sandboxEmail}`);
               finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;

@@ -39,6 +39,7 @@ function TeamDetailsContent() {
   const searchParams = useSearchParams();
   const teamId = params.id as string;
   const joinParam = searchParams.get("join") === "true";
+  const tokenParam = searchParams.get("token") || "";
   const tabParam = searchParams.get("tab") as "chat" | "tasks" | "brainstorm" | "resources" | "submission" | null;
 
   const [team, setTeam] = useState<Team | null>(null);
@@ -75,6 +76,7 @@ function TeamDetailsContent() {
           try {
             const { error } = await supabase.rpc("join_team_instantly", {
               p_team_id: teamId,
+              p_token: tokenParam,
             });
 
             if (error) {
