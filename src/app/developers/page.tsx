@@ -49,6 +49,7 @@ function DevelopersContent() {
       } = await supabase.auth.getUser();
 
       const blockedUserIds: string[] = [];
+      let activeProfile: Profile | null = null;
 
       if (user) {
         // Fetch current user profile
@@ -58,6 +59,7 @@ function DevelopersContent() {
           .eq("id", user.id)
           .single();
 
+        activeProfile = profile as Profile | null;
         setCurrentUserProfile(profile);
 
         // Fetch owned teams
@@ -108,7 +110,10 @@ function DevelopersContent() {
         const filteredDevs = (data || []).filter(
           (d) => d.id !== user?.id && !blockedUserIds.includes(d.id)
         );
-        setDevelopers(filteredDevs);
+        const sortedDevs = filteredDevs.sort((a, b) => {
+          return calculateCompatibility(b, activeProfile) - calculateCompatibility(a, activeProfile);
+        });
+        setDevelopers(sortedDevs);
       }
     } catch (err) {
       console.error(err);
@@ -128,28 +133,40 @@ function DevelopersContent() {
   }, [search]);
 
   // Calculate compatibility score between current user and other builder
-  function calculateCompatibility(other: Profile) {
-    if (!currentUserProfile) return 0;
-    let score = 30; // base compatibility
+  function calculateCompatibility(other: Profile, currentOverride?: Profile | null) {
+    const baseProfile = currentOverride !== undefined ? currentOverride : currentUserProfile;
+    if (!baseProfile) return 0;
+    
+    const mySkills = (baseProfile.skills as string[]) || [];
+    const otherSkills = (other.skills as string[]) || [];
+    const myCollege = baseProfile.college;
+    const otherCollege = other.college;
 
-    // College alignment (+35%)
+    // 1. Jaccard similarity for skills (up to 70%)
+    let skillScore = 0;
+    if (mySkills.length > 0 || otherSkills.length > 0) {
+      const mySkillsLower = mySkills.map(s => s.toLowerCase().trim());
+      const otherSkillsLower = otherSkills.map(s => s.toLowerCase().trim());
+      const shared = otherSkillsLower.filter(s => mySkillsLower.includes(s));
+      const union = new Set([...mySkillsLower, ...otherSkillsLower]);
+      
+      if (union.size > 0) {
+        skillScore = (shared.length / union.size) * 70;
+      }
+    }
+
+    // 2. College alignment (up to 30%)
+    let collegeScore = 0;
     if (
-      currentUserProfile.college &&
-      other.college &&
-      currentUserProfile.college.toLowerCase().trim() === other.college.toLowerCase().trim()
+      myCollege &&
+      otherCollege &&
+      myCollege.toLowerCase().trim() === otherCollege.toLowerCase().trim()
     ) {
-      score += 35;
+      collegeScore = 30;
     }
 
-    // Skills bonus (+12% per shared skill)
-    if (currentUserProfile.skills && other.skills) {
-      const shared = other.skills.filter((s) =>
-        currentUserProfile.skills.map(sk => sk.toLowerCase()).includes(s.toLowerCase())
-      );
-      score += shared.length * 12;
-    }
-
-    return Math.min(score, 98); // Realism cap at 98%
+    const total = Math.round(skillScore + collegeScore);
+    return Math.max(5, Math.min(total, 98)); // Min 5% connection, max 98%
   }
 
   // Handle direct invite
@@ -224,7 +241,7 @@ function DevelopersContent() {
     setInviteLoading(false);
   }
 
-  // Filter developers: exclude current logged-in user + apply search
+  // Filter developers: exclude current logged-in user + apply search + sort by compatibility
   const filteredDevelopers = developers
     .filter((dev) => dev.id !== currentUserProfile?.id)
     .filter((dev) => {
@@ -235,7 +252,8 @@ function DevelopersContent() {
         dev.college?.toLowerCase().includes(query) ||
         dev.skills?.some((skill) => skill.toLowerCase().includes(query))
       );
-    });
+    })
+    .sort((a, b) => calculateCompatibility(b) - calculateCompatibility(a));
 
   if (loading) {
     return (

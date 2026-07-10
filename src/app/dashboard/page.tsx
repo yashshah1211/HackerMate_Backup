@@ -207,21 +207,35 @@ function DashboardContent() {
 
           // Calculate score and sort
           const devsWithScore = filteredProfiles.map((other) => {
-            let score = 30; // base
+            const mySkills = (profileData.skills as string[]) || [];
+            const otherSkills = (other.skills as string[]) || [];
+            const myCollege = profileData.college;
+            const otherCollege = other.college;
+
+            // 1. Jaccard similarity for skills (up to 70%)
+            let skillScore = 0;
+            if (mySkills.length > 0 || otherSkills.length > 0) {
+              const mySkillsLower = mySkills.map((s: string) => s.toLowerCase().trim());
+              const otherSkillsLower = otherSkills.map((s: string) => s.toLowerCase().trim());
+              const shared = otherSkillsLower.filter((s: string) => mySkillsLower.includes(s));
+              const union = new Set([...mySkillsLower, ...otherSkillsLower]);
+              
+              if (union.size > 0) {
+                skillScore = (shared.length / union.size) * 70;
+              }
+            }
+
+            // 2. College alignment (up to 30%)
+            let collegeScore = 0;
             if (
-              profileData.college &&
-              other.college &&
-              profileData.college.toLowerCase().trim() === other.college.toLowerCase().trim()
+              myCollege &&
+              otherCollege &&
+              myCollege.toLowerCase().trim() === otherCollege.toLowerCase().trim()
             ) {
-              score += 35;
+              collegeScore = 30;
             }
-            if (profileData.skills && other.skills) {
-              const shared = other.skills.filter((s: string) =>
-                profileData.skills.map((sk: string) => sk.toLowerCase()).includes(s.toLowerCase())
-              );
-              score += shared.length * 12;
-            }
-            const compatibility = Math.min(score, 99);
+
+            const compatibility = Math.max(5, Math.min(Math.round(skillScore + collegeScore), 99));
             return { ...other, compatibility };
           });
 
@@ -523,7 +537,7 @@ function DashboardContent() {
           <div className="stat-top">
             <div className="stat-label">Hackathons live</div>
             <div className="stat-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" /></svg>
             </div>
           </div>
           <div className="stat-value">{stats.hackathons}</div>
@@ -567,7 +581,7 @@ function DashboardContent() {
                     </div>
                   </div>
                   <div className="match-right">
-                    <div className="match-pct">{dev.compatibility || 75}%<span>match</span></div>
+                    <div className="match-pct">{dev.compatibility}%<span>match</span></div>
                     {connectionState === "connected" ? (
                       <div className="btn-connected">✓ Connected</div>
                     ) : connectionState === "request_sent" ? (
@@ -632,7 +646,7 @@ function DashboardContent() {
                   onClick={() => router.push(`/hackathons/${hack.id}`)}
                 >
                   <div className="hack-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" /></svg>
                   </div>
                   <div className="hack-info">
                     <div className="title">{hack.name}</div>
@@ -663,7 +677,7 @@ function DashboardContent() {
           ) : (
             <div className="flex flex-col items-center justify-center py-14 text-center">
               <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" /></svg>
               </div>
               <p className="text-zinc-500 text-xs">No upcoming hackathons</p>
               <p className="text-[10px] text-zinc-600 mt-1">Check back later for newly published events.</p>

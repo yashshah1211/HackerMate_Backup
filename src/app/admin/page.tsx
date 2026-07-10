@@ -192,6 +192,29 @@ export default function AdminPage() {
     });
   }
 
+  function handleDeleteUser(userId: string, fullName: string) {
+    if (userId === currentUserId) {
+      showToast("You cannot delete yourself!", "warning");
+      return;
+    }
+    confirm({
+      title: "DELETE USER PERMANENTLY",
+      message: `Are you sure you want to permanently delete user ${fullName}? This will purge their profile, DMs, files, and disband any teams where they are the sole member. This action is irreversible.`,
+      onConfirm: async () => {
+        const { error } = await supabase.rpc("delete_user_completely", {
+          p_target_user_id: userId
+        });
+        if (error) {
+          console.error(error);
+          showToast(error.message, "error");
+        } else {
+          showToast(`User ${fullName} has been deleted successfully.`, "success");
+          await loadData();
+        }
+      }
+    });
+  }
+
   function handleDismissReport(reportId: string) {
     confirm({
       title: "DISMISS REPORT",
@@ -546,6 +569,13 @@ export default function AdminPage() {
                                 }`}
                               >
                                 {u.is_banned ? "Activate" : "Suspend"}
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.full_name || "User")}
+                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-rose-900/60 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white transition"
+                              >
+                                Delete
                               </button>
                             </div>
                           </td>
