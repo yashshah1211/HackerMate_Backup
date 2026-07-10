@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
@@ -45,6 +45,7 @@ type ConnectionState =
 export default function ProfilePage() {
   const { showToast, confirm } = useNotification();
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -58,6 +59,34 @@ export default function ProfilePage() {
   const [alreadyInvited, setAlreadyInvited] = useState(false);
 
   const [syncing, setSyncing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setDeleting(false);
+        return;
+      }
+      const { error } = await supabase.rpc("delete_user_completely", {
+        p_target_user_id: user.id
+      });
+      if (error) {
+        showToast(error.message, "error");
+        setDeleting(false);
+      } else {
+        showToast("Account permanently deleted.", "success");
+        await supabase.auth.signOut();
+        router.push("/");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to delete account.", "error");
+      setDeleting(false);
+    }
+  }
 
   // ── Block & Report states ──
   const [isBlockedByMe, setIsBlockedByMe] = useState(false);
@@ -627,15 +656,26 @@ export default function ProfilePage() {
               {!isBlockedByMe && (
                 <div className="space-y-2 mt-6">
                   {isOwnProfile ? (
-                    <Link
-                      href="/profile/edit"
-                      className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-zinc-800 hover:border-zinc-700 bg-zinc-900/20"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                      </svg>
-                      Edit Profile
-                    </Link>
+                    <>
+                      <Link
+                        href="/profile/edit"
+                        className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-zinc-800 hover:border-zinc-700 bg-zinc-900/20"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                        Edit Profile
+                      </Link>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full py-2.5 mt-2 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-rose-900/40 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        </svg>
+                        Delete Account
+                      </button>
+                    </>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-2">
@@ -1063,6 +1103,41 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-7 max-w-sm w-full shadow-2xl flex flex-col items-center text-center gap-5">
+            <div className="w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 border border-rose-500/20 shrink-0">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Delete Account?</h3>
+              <p className="text-zinc-400 text-xs mt-2 leading-relaxed">
+                This will permanently delete your profile, DMs, files, and disband any teams where you are the sole member. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 w-full mt-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:text-white bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-all border border-rose-500/30"
+              >
+                {deleting ? "Deleting..." : "Permanently Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}
