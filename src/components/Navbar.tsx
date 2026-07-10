@@ -237,7 +237,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       color: "text-rose-600 dark:text-rose-400",
       activeBg: "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/10 dark:border-rose-500/20",
       activeBar: "bg-rose-600 dark:bg-rose-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" /></svg>)
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
     },
     {
       href: "/messages", label: "Messages",

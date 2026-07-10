@@ -1036,7 +1036,7 @@ function HackathonDetailContent() {
               <div className="flex items-start gap-2.5">
                 <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
