@@ -45,6 +45,7 @@ function DevelopersContent() {
       } = await supabase.auth.getUser();
 
       const blockedUserIds: string[] = [];
+      let activeProfile: Profile | null = null;
 
       if (user) {
         // Fetch current user profile
@@ -54,6 +55,7 @@ function DevelopersContent() {
           .eq("id", user.id)
           .single();
 
+        activeProfile = profile as Profile | null;
         setCurrentUserProfile(profile);
 
         // Fetch owned teams
@@ -105,7 +107,7 @@ function DevelopersContent() {
           (d) => d.id !== user?.id && !blockedUserIds.includes(d.id)
         );
         const sortedDevs = filteredDevs.sort((a, b) => {
-          return calculateCompatibility(b, profile) - calculateCompatibility(a, profile);
+          return calculateCompatibility(b, activeProfile) - calculateCompatibility(a, activeProfile);
         });
         setDevelopers(sortedDevs);
       }
