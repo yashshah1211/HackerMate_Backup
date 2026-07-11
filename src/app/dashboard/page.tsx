@@ -266,9 +266,22 @@ function DashboardContent() {
           // Filter builders from the same college
           const myCollege = profileData.college ? profileData.college.toLowerCase().trim() : "";
           if (myCollege) {
-            const mates = devsWithScore.filter(other =>
-              other.college && other.college.toLowerCase().trim() === myCollege
-            );
+            const mates = devsWithScore.filter(other => {
+              if (!other.college) return false;
+              const otherCollege = other.college.toLowerCase().trim();
+              if (otherCollege === myCollege) return true;
+              
+              const getFirstWord = (s: string) => s.split(/[\s,()]+/)[0];
+              const w1 = getFirstWord(myCollege);
+              const w2 = getFirstWord(otherCollege);
+              
+              const acronyms = ["djsce", "spit", "vjti", "tsec", "vesit", "coep", "pict", "vit", "mit", "vnit"];
+              if (acronyms.includes(w1) && w1 === w2) {
+                return true;
+              }
+              
+              return myCollege.includes(otherCollege) || otherCollege.includes(myCollege);
+            });
             setCollegeMates(mates.slice(0, 4)); // Top 4 builders from the same college
           } else {
             setCollegeMates([]);
