@@ -1237,7 +1237,9 @@ html.light .content-area {
 }
 
 .dashboard-redesign .header-row {
-  display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+  flex-wrap: wrap; gap: 20px;
+  position: relative; z-index: 20;
 }
 
 .dashboard-redesign .greet h2 {

@@ -92,7 +92,6 @@ function DashboardContent() {
   // Custom dashboard data states
   const [spotlights, setSpotlights] = useState<Profile[]>([]);
   const [collegeMates, setCollegeMates] = useState<Profile[]>([]);
-  const [upcomingHackathons, setUpcomingHackathons] = useState<Hackathon[]>([]);
   const [activeTeams, setActiveTeams] = useState<Team[]>([]);
   const [connectionStates, setConnectionStates] = useState<
     Record<string, SpotlightConnectionState>
@@ -289,15 +288,7 @@ function DashboardContent() {
         }
       }
 
-      // 3. Fetch 4 nearest upcoming hackathons closing soon
-      const today = new Date().toISOString().split("T")[0];
-      const { data: hacks } = await supabase
-        .from("hackathons")
-        .select("*")
-        .gte("end_date", today)
-        .order("end_date", { ascending: true })
-        .limit(4);
-      setUpcomingHackathons(hacks || []);
+      // 3. Fetch 4 nearest upcoming hackathons closing soon (Relocated profile completion)
 
       // 4. Fetch active teams (where user is member OR owner)
       const { data: memberRows } = await supabase
@@ -391,6 +382,8 @@ function DashboardContent() {
       }
 
       setActiveTeams(teamsWithDetails);
+
+      const today = new Date().toISOString().split("T")[0];
 
       // 5. Fetch stats counters dynamically
       const { count: buildersCount } = await supabase
@@ -555,6 +548,129 @@ function DashboardContent() {
           <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
           <p>Here's what's happening in your network.</p>
         </div>
+
+        {/* Relocated and redesigned Profile Completeness Panel */}
+        {profileCompleteness.percent < 100 ? (
+          <div className="relative group bg-gradient-to-r from-violet-950/20 via-zinc-900/50 to-indigo-950/20 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.15] shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 transition-all duration-300 flex-1 max-w-xl mx-4 cursor-pointer">
+            {/* Circle Progress Indicator */}
+            <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="28" cy="28" r="24" className="stroke-zinc-800" strokeWidth="3" fill="transparent" />
+                <circle 
+                  cx="28" cy="28" r="24" 
+                  className="stroke-violet-500 transition-all duration-500 ease-out" 
+                  strokeWidth="3.5" 
+                  fill="transparent" 
+                  strokeDasharray={150.79}
+                  strokeDashoffset={150.79 * (1 - profileCompleteness.percent / 100)}
+                />
+              </svg>
+              <span className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xs font-mono font-bold text-white leading-none">{profileCompleteness.percent}%</span>
+                <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-mono mt-0.5">Strength</span>
+              </span>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0 pr-2 text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
+                <p className="text-[11px] font-bold text-zinc-200 tracking-wide uppercase font-mono">Profile Strength</p>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1 max-h-[38px] overflow-hidden">
+                {profileCompleteness.pendingTasks.slice(0, 2).map((task, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1 text-[10px] text-zinc-400 bg-white/[0.03] border border-white/[0.05] px-2 py-0.5 rounded-md truncate max-w-[200px]">
+                    <span className="w-1 h-1 rounded-full bg-zinc-600"></span>
+                    {task}
+                  </span>
+                ))}
+                {profileCompleteness.pendingTasks.length > 2 && (
+                  <span className="text-[9px] text-violet-400 font-semibold font-mono self-center">+{profileCompleteness.pendingTasks.length - 2} more</span>
+                )}
+              </div>
+            </div>
+
+            {/* Complete Profile CTA button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push("/profile/edit");
+              }}
+              className="px-3.5 py-1.5 bg-violet-600/90 hover:bg-violet-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg shadow-violet-500/10 border border-violet-500/30 whitespace-nowrap self-stretch md:self-center flex items-center justify-center gap-1"
+            >
+              Complete
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </button>
+
+            {/* Hover Tooltip for Tasks */}
+            <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2 -translate-x-1/2 md:translate-x-0 w-72 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
+              <p className="text-[10px] text-zinc-400 font-semibold font-mono uppercase tracking-wider mb-2 border-b border-zinc-800 pb-2">
+                Recommended to complete:
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {profileCompleteness.pendingTasks.map((task, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 text-xs text-zinc-300 hover:text-white transition-colors py-0.5">
+                    <span className="truncate">{task}</span>
+                    <button
+                      onClick={() => router.push("/profile/edit")}
+                      className="text-[10px] text-[#B4F461] hover:underline whitespace-nowrap"
+                    >
+                      Add +
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div 
+            onClick={() => router.push("/developers")}
+            className="relative group bg-gradient-to-r from-emerald-950/20 via-zinc-900/50 to-teal-950/20 backdrop-blur-md border border-emerald-500/20 hover:border-emerald-500/40 shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 transition-all duration-300 flex-1 max-w-xl mx-4 cursor-pointer overflow-hidden"
+          >
+            {/* Glowing grid background effect */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+
+            {/* Premium Status Emblem */}
+            <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner shadow-emerald-500/10">
+              <div className="absolute inset-0 rounded-full bg-emerald-400/5 animate-ping opacity-75" />
+              <svg className="w-6 h-6 filter drop-shadow-[0_2px_8px_rgba(16,185,129,0.4)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+              </svg>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0 text-left">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 text-[8px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded uppercase font-mono tracking-widest leading-none">
+                  Max Level
+                </span>
+                <p className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider font-mono">Hacker Status: Verified All-Star</p>
+              </div>
+              <p className="text-xs text-zinc-400 mt-1">
+                Profile 100% complete. Match visibility scores are fully maximized!
+              </p>
+            </div>
+            
+            {/* Find Teammates Shortcut button */}
+            <div className="text-[10px] font-bold uppercase tracking-wider font-mono text-[#B4F461] hover:text-[#c4f87c] flex items-center gap-1 whitespace-nowrap self-stretch md:self-center justify-center bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] px-3.5 py-1.5 rounded-lg transition-colors">
+              Find Teammates
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+              </svg>
+            </div>
+
+            {/* Hover Information */}
+            <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2 -translate-x-1/2 md:translate-x-0 w-64 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
+              <p className="text-xs text-zinc-200 font-semibold">Your Profile is 100% Complete!</p>
+              <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed">
+                You're ready to build. Your skills match maximum compatibility for team invitations and spotlights.
+              </p>
+            </div>
+          </div>
+        )}
+
         <button className="cta-primary" onClick={() => router.push("/teams/create")}>+ Create a team</button>
       </div>
 
@@ -744,127 +860,6 @@ function DashboardContent() {
             </div>
           )}
         </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <div className="panel-title">Upcoming Hackathons</div>
-            <div className="view-all" onClick={() => router.push("/hackathons")}>view all →</div>
-          </div>
-
-          {upcomingHackathons.length > 0 ? (
-            upcomingHackathons.map((hack, idx) => {
-              const timeline = hack.start_date && hack.end_date ? getHackathonTimelineLabel(hack.start_date, hack.end_date) : { label: "Ends soon", variant: "end" };
-              const isUrgent = timeline.variant === "end" && (
-                timeline.label.toLowerCase().includes("today") ||
-                timeline.label.toLowerCase().includes("tomorrow") ||
-                (timeline.label.toLowerCase().includes("ends in") && parseInt(timeline.label.replace(/\D/g, "")) <= 1)
-              );
-              const badgeClass = isUrgent ? "badge-urgent" : "badge-mid";
-
-              return (
-                <div
-                  key={hack.id}
-                  className="hack-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
-                  onClick={() => router.push(`/hackathons/${hack.id}`)}
-                >
-                  <div className="hack-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-                  </div>
-                  <div className="hack-info">
-                    <div className="title">{hack.name}</div>
-                    <div className="hack-meta">
-                      <span className="dates">
-                        {hack.start_date ? new Date(hack.start_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"} – {hack.end_date ? new Date(hack.end_date).toLocaleDateString("en-US", { day: "numeric", month: "short" }).toUpperCase() : "TBD"}
-                      </span>
-                      {timeline.label !== "Ended" && (
-                        <span className={`badge-closing ${badgeClass}`}>
-                          {timeline.label.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="hack-prize">
-                    <div className="amt">
-                      {hack.prize_pool
-                        ? (hack.prize_pool.length > 25
-                          ? `${hack.prize_pool.slice(0, 22)}...`
-                          : hack.prize_pool)
-                        : "Perks"}
-                    </div>
-                    <div className="lbl">{hack.prize_pool ? "PRIZE POOL" : "FOR WINNERS"}</div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" /></svg>
-              </div>
-              <p className="text-zinc-500 text-xs">No upcoming hackathons</p>
-              <p className="text-[10px] text-zinc-600 mt-1">Check back later for newly published events.</p>
-            </div>
-          )}
-        </div>
-
-        {profileCompleteness.percent < 100 ? (
-          <div className="panel">
-            <div className="panel-head">
-              <div className="panel-title">Profile Strength</div>
-              <div className="text-[10px] text-zinc-500 font-mono uppercase">{profileCompleteness.percent}% Complete</div>
-            </div>
-
-            <div className="flex flex-col gap-4 py-2">
-              <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
-                <div
-                  className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500"
-                  style={{ width: `${profileCompleteness.percent}%` }}
-                />
-              </div>
-
-              <div className="space-y-2 mt-2">
-                <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-wider">Recommended to complete:</p>
-                {profileCompleteness.pendingTasks.map((task, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs text-zinc-500">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-800 shrink-0" />
-                    <span>{task}</span>
-                    <button
-                      onClick={() => router.push("/profile/edit")}
-                      className="ml-auto text-[10px] text-[#B4F461] hover:underline"
-                    >
-                      Add +
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="panel">
-            <div className="panel-head">
-              <div className="panel-title">Hacker Status</div>
-              <div className="text-[10px] text-zinc-500 font-mono uppercase">Verified All-Star</div>
-            </div>
-            
-            <div className="flex flex-col items-center justify-center text-center py-6">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                </svg>
-              </div>
-              <p className="text-xs text-zinc-200 font-semibold">Your Profile is 100% Complete!</p>
-              <p className="text-[10px] text-zinc-500 mt-1 max-w-[220px] leading-relaxed">
-                You're ready to build. Your skills match maximum compatibility for team invitations and spotlights.
-              </p>
-              <button 
-                onClick={() => router.push("/developers")}
-                className="btn btn-primary btn-xs mt-4 py-1.5 px-4 font-mono text-[10px] uppercase"
-              >
-                Find Teammates →
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="grid-3">
