@@ -1692,3 +1692,179 @@ html.light .content-area {
 .light .hm-logo-circle {
   fill: #0369a1 !important;
 }
+
+/* ============================================
+   PROFILE STRENGTH & HACKER STATUS RELOCATED WIDGETS
+   ============================================ */
+
+/* Profile Strength (< 100% complete) Card */
+.dashboard-redesign .profile-strength-card {
+  position: relative;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-soft) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  max-width: 520px;
+  margin: 0 16px;
+  transition: all 0.2s ease;
+}
+
+.dashboard-redesign .profile-strength-card:hover {
+  border-color: var(--border) !important;
+}
+
+/* Hacker Status (100% complete) Card */
+.dashboard-redesign .hacker-status-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.03) 0%, var(--bg-card) 50%, rgba(20, 184, 166, 0.03) 100%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.18) !important;
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.05);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  max-width: 520px;
+  margin: 0 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-redesign .hacker-status-card:hover {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 4px 24px -2px rgba(16, 185, 129, 0.08);
+}
+
+/* Light theme adjustments for Hacker Status */
+.light .dashboard-redesign .hacker-status-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(20, 184, 166, 0.06) 100%) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.05);
+}
+
+/* Grid overlay background inside hacker status card */
+.dashboard-redesign .hacker-status-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(16, 185, 129, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 185, 129, 0.02) 1px, transparent 1px);
+  background-size: 14px 24px;
+  pointer-events: none;
+}
+
+.light .dashboard-redesign .hacker-status-grid {
+  background-image: 
+    linear-gradient(to right, rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+}
+
+/* Typography styles inside cards */
+.dashboard-redesign .status-title {
+  color: var(--text) !important;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.dashboard-redesign .status-desc {
+  color: var(--text-dim) !important;
+  font-size: 12px;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* Pending Task inline pills */
+.dashboard-redesign .status-task-pill {
+  font-size: 10px;
+  color: var(--text-dim) !important;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease;
+}
+
+.light .dashboard-redesign .status-task-pill {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--border-soft);
+}
+
+/* Max Level Badge */
+.dashboard-redesign .status-badge-max {
+  padding: 2.5px 8px;
+  font-size: 8px;
+  font-weight: 800;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  line-height: 1;
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399 !important; /* emerald-400 */
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  display: inline-block;
+  letter-spacing: 0.05em;
+}
+
+.light .dashboard-redesign .status-badge-max {
+  background: rgba(4, 120, 87, 0.08);
+  color: #047857 !important; /* emerald-700 */
+  border-color: rgba(4, 120, 87, 0.2);
+}
+
+/* Find Teammates button in status card */
+.dashboard-redesign .find-teammates-btn {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  color: #10b981 !important; /* emerald-500 */
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  padding: 6.5px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.dashboard-redesign .find-teammates-btn:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.light .dashboard-redesign .find-teammates-btn {
+  color: #047857 !important; /* emerald-700 */
+  background: rgba(4, 120, 87, 0.06);
+  border-color: rgba(4, 120, 87, 0.18);
+}
+
+.light .dashboard-redesign .find-teammates-btn:hover {
+  background: rgba(4, 120, 87, 0.1);
+  border-color: rgba(4, 120, 87, 0.3);
+}
+
+/* Circular progress texts */
+.dashboard-redesign .circle-progress-percent {
+  color: var(--text) !important;
+}
+
+.dashboard-redesign .circle-progress-label {
+  color: var(--text-faint) !important;
+}

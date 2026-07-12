@@ -34,6 +34,7 @@ type Team = {
   skills: string[] | null;
   roles_needed: string[] | null;
   is_recruiting?: boolean;
+  github_repo_url?: string | null;
 };
 
 type Member = {
@@ -45,6 +46,7 @@ type Member = {
     full_name: string;
     email: string;
     avatar_url?: string | null;
+    skills?: string[] | null;
   };
 };
 
@@ -75,10 +77,106 @@ type Props = {
   missingSkills?: string[];
   refreshTeam?: () => void;
   pendingInvite?: { id: string; status: string } | null;
-  listedHackathons?: { id: string; name: string; start_date?: string; end_date?: string }[];
+  listedHackathons?: { id: string; name: string; description?: string | null; start_date?: string; end_date?: string }[];
   unlinkHackathon?: (hackathonId: string) => void;
-  initialTab?: "chat" | "tasks" | "brainstorm" | "resources" | "submission";
+  initialTab?: "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments";
 };
+
+function parseHackathonRequirements(description: string | null | undefined): { id: string; label: string; checked: boolean }[] {
+  const defaults = [
+    { id: "1", label: "Push source code to GitHub repository", checked: false },
+    { id: "2", label: "Deploy project to production (Live Demo URL)", checked: false },
+    { id: "3", label: "Finalize presentation deck / slides", checked: false },
+    { id: "4", label: "Record and upload project video pitch", checked: false },
+    { id: "5", label: "Submission created on Devpost/Portal", checked: false },
+  ];
+
+  if (!description) return defaults;
+
+  const descLower = description.toLowerCase();
+  const requirements = [];
+  let currentId = 1;
+
+  // 1. GitHub / Repository
+  if (
+    descLower.includes("github") ||
+    descLower.includes("repository") ||
+    descLower.includes("source code") ||
+    descLower.includes("repo")
+  ) {
+    requirements.push({
+      id: String(currentId++),
+      label: "Push source code to GitHub repository",
+      checked: false,
+    });
+  }
+
+  // 2. Deployed / Live Link
+  if (
+    descLower.includes("deploy") ||
+    descLower.includes("live link") ||
+    descLower.includes("live demo") ||
+    descLower.includes("vercel") ||
+    descLower.includes("netlify") ||
+    descLower.includes("prototype link") ||
+    descLower.includes("working prototype")
+  ) {
+    requirements.push({
+      id: String(currentId++),
+      label: "Deploy project to production (Live Demo URL)",
+      checked: false,
+    });
+  }
+
+  // 3. PPT / Slides
+  if (
+    descLower.includes("ppt") ||
+    descLower.includes("pitch deck") ||
+    descLower.includes("slides") ||
+    descLower.includes("presentation") ||
+    descLower.includes("powerpoint") ||
+    descLower.includes("proposal document")
+  ) {
+    requirements.push({
+      id: String(currentId++),
+      label: "Finalize presentation deck / slides",
+      checked: false,
+    });
+  }
+
+  // 4. Video Pitch
+  if (
+    descLower.includes("video") ||
+    descLower.includes("pitch video") ||
+    descLower.includes("loom") ||
+    descLower.includes("demonstration video") ||
+    descLower.includes("youtube")
+  ) {
+    requirements.push({
+      id: String(currentId++),
+      label: "Record and upload project video pitch",
+      checked: false,
+    });
+  }
+
+  // 5. Figma / Design
+  if (
+    descLower.includes("figma") ||
+    descLower.includes("ui/ux") ||
+    descLower.includes("design prototype") ||
+    descLower.includes("wireframe") ||
+    descLower.includes("poster")
+  ) {
+    requirements.push({
+      id: String(currentId++),
+      label: "Complete UI/UX design prototype in Figma",
+      checked: false,
+    });
+  }
+
+  // If nothing matched, fallback to defaults
+  return requirements.length > 0 ? requirements : defaults;
+}
 
 export default function TeamDetailsView({
   team,
@@ -152,8 +250,119 @@ export default function TeamDetailsView({
   };
 
   // Workspace tab states
-  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources" | "submission">(initialTab ?? "chat");
+  const [workspaceTab, setWorkspaceTab] = useState<"chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments">(initialTab ?? "chat");
   const [draggedOverColumn, setDraggedOverColumn] = useState<"todo" | "in_progress" | "completed" | null>(null);
+
+  // GitHub Sync Tab States
+  const [githubRepoUrlInput, setGithubRepoUrlInput] = useState(team.github_repo_url || "");
+  const [commits, setCommits] = useState<any[]>([]);
+  const [loadingCommits, setLoadingCommits] = useState(false);
+  const [errorCommits, setErrorCommits] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGithubRepoUrlInput(team.github_repo_url || "");
+  }, [team.github_repo_url]);
+
+  const handleLinkGithubRepo = async (url: string) => {
+    if (!url.trim()) return;
+    try {
+      const { error } = await supabase
+        .from("teams")
+        .update({ github_repo_url: url.trim() })
+        .eq("id", team.id);
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        showToast("GitHub repository linked successfully!", "success");
+        if (refreshTeam) refreshTeam();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to link repository.", "error");
+    }
+  };
+
+  const handleUnlinkGithubRepo = async () => {
+    confirm({
+      title: "Disconnect GitHub Repository",
+      message: "Are you sure you want to disconnect this repository? Team members will no longer see commit history.",
+      confirmText: "Disconnect",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from("teams")
+            .update({ github_repo_url: null })
+            .eq("id", team.id);
+
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast("GitHub repository disconnected.", "info");
+            if (refreshTeam) refreshTeam();
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to disconnect repository.", "error");
+        }
+      }
+    });
+  };
+
+  const fetchCommits = async () => {
+    if (!team.github_repo_url) {
+      setCommits([]);
+      return;
+    }
+
+    setLoadingCommits(true);
+    setErrorCommits(null);
+
+    try {
+      const cleanUrl = team.github_repo_url.endsWith("/")
+        ? team.github_repo_url.slice(0, -1)
+        : team.github_repo_url;
+      const match = cleanUrl.match(new RegExp("github\\.com/([^/]+)/([^/]+)"));
+      if (!match) {
+        setErrorCommits("Invalid GitHub URL format. Use https://github.com/owner/repo");
+        setLoadingCommits(false);
+        return;
+      }
+
+      const owner = match[1];
+      const repo = match[2].endsWith(".git")
+        ? match[2].slice(0, -4)
+        : match[2];
+
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=15`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          setErrorCommits("Repository not found. Make sure it is a public repository and has at least one commit.");
+        } else if (res.status === 403) {
+          setErrorCommits("GitHub API rate limit exceeded. Please try again later.");
+        } else {
+          setErrorCommits("Failed to fetch commits from GitHub.");
+        }
+        setLoadingCommits(false);
+        return;
+      }
+
+      const data = await res.json();
+      setCommits(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setErrorCommits("Network error occurred while fetching commits.");
+    } finally {
+      setLoadingCommits(false);
+    }
+  };
+
+  useEffect(() => {
+    if (workspaceTab === "github") {
+      fetchCommits();
+    }
+  }, [workspaceTab, team.github_repo_url]);
 
   // Project Submission Tab State
   type ChecklistItem = {
@@ -166,24 +375,17 @@ export default function TeamDetailsView({
     demoUrl: string;
     githubUrl: string;
     pitchVideoUrl: string;
+    slidesUrl: string;
     checklist: ChecklistItem[];
   };
-
-  const DEFAULT_CHECKLIST: ChecklistItem[] = [
-    { id: "1", label: "Code committed to main branch", checked: false },
-    { id: "2", label: "Project README created", checked: false },
-    { id: "3", label: "Pitch deck slides finalized", checked: false },
-    { id: "4", label: "Live demo link deployed", checked: false },
-    { id: "5", label: "Pitch video recorded & uploaded", checked: false },
-    { id: "6", label: "Submission created on Devpost/Portal", checked: false },
-  ];
 
   const [submission, setSubmission] = useState<SubmissionData>({
     projectTitle: "",
     demoUrl: "",
     githubUrl: "",
     pitchVideoUrl: "",
-    checklist: DEFAULT_CHECKLIST,
+    slidesUrl: "",
+    checklist: [],
   });
 
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -197,6 +399,7 @@ export default function TeamDetailsView({
     status: "todo" | "in_progress" | "completed";
     priority: "low" | "medium" | "high";
     assignee_id: string | null;
+    due_date: string | null;
     created_at: string;
   };
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -206,13 +409,62 @@ export default function TeamDetailsView({
   const [taskDesc, setTaskDesc] = useState("");
   const [taskPriority, setTaskPriority] = useState<"low" | "medium" | "high">("medium");
   const [taskAssignee, setTaskAssignee] = useState("");
+  const [taskDueDate, setTaskDueDate] = useState("");
   const [savingTask, setSavingTask] = useState(false);
+  const [onlineTeammates, setOnlineTeammates] = useState<{ id: string; name: string; avatarUrl: string | null }[]>([]);
 
   // Brainstorm Tab State
   const [documentContent, setDocumentContent] = useState("");
   const [loadingDocument, setLoadingDocument] = useState(false);
   const [savingDocument, setSavingDocument] = useState(false);
   const [documentId, setDocumentId] = useState<string | null>(null);
+  const [documentUpdatedAt, setDocumentUpdatedAt] = useState<string | null>(null);
+  const [documentUpdatedBy, setDocumentUpdatedBy] = useState<string | null>(null);
+
+  // Workspace V2 States
+  const [timeLeft, setTimeLeft] = useState("");
+  const [countdownParts, setCountdownParts] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, ended: false });
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskComments, setTaskComments] = useState<any[]>([]);
+  const [newTaskComment, setNewTaskComment] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  // Workspace V3 States
+  
+  // Deployments
+  type Deployment = {
+    id: string;
+    team_id: string;
+    name: string;
+    url: string;
+    created_at: string;
+  };
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [newDepName, setNewDepName] = useState("");
+  const [newDepUrl, setNewDepUrl] = useState("");
+  const [pingStatus, setPingStatus] = useState<Record<string, { status: "checking" | "online" | "offline"; latency?: number }>>({});
+  const [loadingDeployments, setLoadingDeployments] = useState(false);
+  const [submittingDeployment, setSubmittingDeployment] = useState(false);
+
+  // Brainstorm Board Ideas
+  type BrainstormIdea = {
+    id: string;
+    team_id: string;
+    user_id: string;
+    title: string;
+    content: string | null;
+    category: "core" | "nice-to-have" | "tech-stack" | "marketing";
+    upvotes: string[];
+    created_at: string;
+  };
+  const [brainstormIdeas, setBrainstormIdeas] = useState<BrainstormIdea[]>([]);
+  const [isBrainstormListView, setIsBrainstormListView] = useState(false);
+  const [newIdeaTitle, setNewIdeaTitle] = useState("");
+  const [newIdeaContent, setNewIdeaContent] = useState("");
+  const [newIdeaCategory, setNewIdeaCategory] = useState<"core" | "nice-to-have" | "tech-stack" | "marketing">("core");
+  const [loadingIdeas, setLoadingIdeas] = useState(false);
+  const [submittingIdea, setSubmittingIdea] = useState(false);
 
   // Resources Tab State
   type LinkType = {
@@ -400,6 +652,8 @@ export default function TeamDetailsView({
     } else if (data) {
       setDocumentId(data.id);
       setDocumentContent(data.content || "");
+      setDocumentUpdatedAt(data.updated_at || null);
+      setDocumentUpdatedBy(data.updated_by || null);
     } else {
       // Document row doesn't exist, create default
       const { data: newDoc, error: insertError } = await supabase
@@ -408,7 +662,7 @@ export default function TeamDetailsView({
         .select()
         .maybeSingle();
       if (insertError) {
-        if (insertError.code === "23505") {
+         if (insertError.code === "23505") {
           // Concurrently created by another render/session, fetch it again
           const { data: retryDoc } = await supabase
             .from("team_documents")
@@ -418,6 +672,8 @@ export default function TeamDetailsView({
           if (retryDoc) {
             setDocumentId(retryDoc.id);
             setDocumentContent(retryDoc.content || "");
+            setDocumentUpdatedAt(retryDoc.updated_at || null);
+            setDocumentUpdatedBy(retryDoc.updated_by || null);
           }
         } else {
           console.error(insertError);
@@ -425,6 +681,8 @@ export default function TeamDetailsView({
       } else if (newDoc) {
         setDocumentId(newDoc.id);
         setDocumentContent(newDoc.content || "");
+        setDocumentUpdatedAt(newDoc.updated_at || null);
+        setDocumentUpdatedBy(newDoc.updated_by || null);
       }
     }
     setLoadingDocument(false);
@@ -446,6 +704,210 @@ export default function TeamDetailsView({
     setLoadingLinks(false);
   };
 
+
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskComment.trim() || !selectedTask || !currentUserId) return;
+
+    setSubmittingComment(true);
+    const { error } = await supabase
+      .from("team_task_comments")
+      .insert({
+        task_id: selectedTask.id,
+        user_id: currentUserId,
+        content: newTaskComment.trim(),
+      });
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      setNewTaskComment("");
+    }
+    setSubmittingComment(false);
+  };
+
+  // Fetch Deployments
+  const fetchDeployments = async () => {
+    if (!team.id) return;
+    setLoadingDeployments(true);
+    const { data, error } = await supabase
+      .from("team_deployments")
+      .select("*")
+      .eq("team_id", team.id)
+      .order("created_at", { ascending: false });
+    if (!error && data) {
+      setDeployments(data);
+      // Trigger a ping check for each deployment URL
+      data.forEach((dep) => {
+        pingUrl(dep.id, dep.url);
+      });
+    }
+    setLoadingDeployments(false);
+  };
+
+  // Client-side HTTP pinger helper
+  const pingUrl = async (depId: string, url: string) => {
+    setPingStatus((prev) => ({ ...prev, [depId]: { status: "checking" } }));
+    const startTime = Date.now();
+    try {
+      // Clean up url by prepending protocol if missing
+      let fetchUrl = url;
+      if (!/^https?:\/\//i.test(url)) {
+        fetchUrl = "https://" + url;
+      }
+      
+      // Use client-side fetch (with no-cors to prevent blocking by CORS policies)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      
+      await fetch(fetchUrl, {
+        method: "HEAD",
+        mode: "no-cors",
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      const latency = Date.now() - startTime;
+      setPingStatus((prev) => ({
+        ...prev,
+        [depId]: { status: "online", latency }
+      }));
+    } catch (e) {
+      setPingStatus((prev) => ({
+        ...prev,
+        [depId]: { status: "offline" }
+      }));
+    }
+  };
+
+  // Add Deployment
+  const handleAddDeployment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDepName.trim() || !newDepUrl.trim() || !team.id) return;
+    
+    setSubmittingDeployment(true);
+    const { error } = await supabase
+      .from("team_deployments")
+      .insert({
+        team_id: team.id,
+        name: newDepName.trim(),
+        url: newDepUrl.trim()
+      });
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Deployment added successfully", "success");
+      setNewDepName("");
+      setNewDepUrl("");
+      fetchDeployments();
+    }
+    setSubmittingDeployment(false);
+  };
+
+  // Delete Deployment
+  const handleDeleteDeployment = async (depId: string) => {
+    const { error } = await supabase
+      .from("team_deployments")
+      .delete()
+      .eq("id", depId);
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Deployment removed", "success");
+      setDeployments((prev) => prev.filter((d) => d.id !== depId));
+    }
+  };
+
+  // Fetch Brainstorm Ideas
+  const fetchBrainstormIdeas = async () => {
+    if (!team.id) return;
+    setLoadingIdeas(true);
+    const { data, error } = await supabase
+      .from("team_brainstorm_ideas")
+      .select("*")
+      .eq("team_id", team.id)
+      .order("created_at", { ascending: false });
+    if (!error && data) {
+      setBrainstormIdeas(data);
+    }
+    setLoadingIdeas(false);
+  };
+
+  // Add Brainstorm Idea
+  const handleAddBrainstormIdea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newIdeaTitle.trim() || !team.id || !currentUserId) return;
+
+    setSubmittingIdea(true);
+    const { error } = await supabase
+      .from("team_brainstorm_ideas")
+      .insert({
+        team_id: team.id,
+        user_id: currentUserId,
+        title: newIdeaTitle.trim(),
+        content: newIdeaContent.trim() || null,
+        category: newIdeaCategory
+      });
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Idea posted to brainstorm board", "success");
+      setNewIdeaTitle("");
+      setNewIdeaContent("");
+      fetchBrainstormIdeas();
+    }
+    setSubmittingIdea(false);
+  };
+
+  // Toggle Idea Upvote
+  const handleToggleIdeaUpvote = async (ideaId: string) => {
+    if (!currentUserId) return;
+    const idea = brainstormIdeas.find((i) => i.id === ideaId);
+    if (!idea) return;
+
+    const currentUpvotes = idea.upvotes || [];
+    let nextUpvotes: string[];
+    if (currentUpvotes.includes(currentUserId)) {
+      nextUpvotes = currentUpvotes.filter((uid) => uid !== currentUserId);
+    } else {
+      nextUpvotes = [...currentUpvotes, currentUserId];
+    }
+
+    const { error } = await supabase
+      .from("team_brainstorm_ideas")
+      .update({ upvotes: nextUpvotes })
+      .eq("id", ideaId);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      setBrainstormIdeas((prev) =>
+        prev.map((i) => (i.id === ideaId ? { ...i, upvotes: nextUpvotes } : i))
+      );
+    }
+  };
+
+  // Delete Brainstorm Idea
+  const handleDeleteBrainstormIdea = async (ideaId: string) => {
+    const { error } = await supabase
+      .from("team_brainstorm_ideas")
+      .delete()
+      .eq("id", ideaId);
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+    } else {
+      showToast("Idea removed", "success");
+      setBrainstormIdeas((prev) => prev.filter((i) => i.id !== ideaId));
+    }
+  };
+
   // Add Task
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -459,6 +921,7 @@ export default function TeamDetailsView({
         description: taskDesc.trim() || null,
         priority: taskPriority,
         assignee_id: taskAssignee || null,
+        due_date: taskDueDate || null,
       });
     if (error) {
       console.error(error);
@@ -484,6 +947,7 @@ export default function TeamDetailsView({
       setTaskDesc("");
       setTaskPriority("medium");
       setTaskAssignee("");
+      setTaskDueDate("");
       fetchTasks();
     }
     setSavingTask(false);
@@ -533,35 +997,83 @@ export default function TeamDetailsView({
     }
   };
 
+  const [savingSubmission, setSavingSubmission] = useState(false);
+
   // Load and save submission checklist
   useEffect(() => {
     if (!team.id) return;
-    Promise.resolve().then(() => {
-      const saved = localStorage.getItem(`hackermate:submission:${team.id}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (!parsed.checklist) parsed.checklist = DEFAULT_CHECKLIST;
-          setSubmission(parsed);
-        } catch (err) {
-          console.error(err);
-        }
-      } else {
-        setSubmission({
-          projectTitle: "",
-          demoUrl: "",
-          githubUrl: "",
-          pitchVideoUrl: "",
-          checklist: DEFAULT_CHECKLIST,
-        });
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [team.id]);
+    
+    const loadSubmission = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("team_submissions")
+          .select("*")
+          .eq("team_id", team.id)
+          .maybeSingle();
 
-  const handleSaveSubmission = () => {
-    localStorage.setItem(`hackermate:submission:${team.id}`, JSON.stringify(submission));
-    showToast("Submission checklist saved successfully!", "success");
+        if (error) {
+          console.error("Error loading team submissions:", error);
+          return;
+        }
+
+        // Determine default checklist based on primary hackathon
+        const primaryHackathon = listedHackathons && listedHackathons[0];
+        const parsedChecklist = parseHackathonRequirements(primaryHackathon?.description);
+
+        if (data) {
+          setSubmission({
+            projectTitle: data.project_title || "",
+            demoUrl: data.demo_url || "",
+            githubUrl: data.github_url || "",
+            pitchVideoUrl: data.pitch_video_url || "",
+            slidesUrl: data.slides_url || "",
+            checklist: data.checklist && data.checklist.length > 0 ? data.checklist : parsedChecklist,
+          });
+        } else {
+          setSubmission({
+            projectTitle: "",
+            demoUrl: "",
+            githubUrl: "",
+            pitchVideoUrl: "",
+            slidesUrl: "",
+            checklist: parsedChecklist,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load submission:", err);
+      }
+    };
+
+    loadSubmission();
+  }, [team.id, listedHackathons]);
+
+  const handleSaveSubmission = async () => {
+    setSavingSubmission(true);
+    try {
+      const { error } = await supabase
+        .from("team_submissions")
+        .upsert({
+          team_id: team.id,
+          project_title: submission.projectTitle,
+          demo_url: submission.demoUrl,
+          github_url: submission.githubUrl,
+          pitch_video_url: submission.pitchVideoUrl,
+          slides_url: submission.slidesUrl,
+          checklist: submission.checklist,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        showToast("Submission deck saved successfully!", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to save submission.", "error");
+    } finally {
+      setSavingSubmission(false);
+    }
   };
 
   const handleToggleChecklist = (itemId: string) => {
@@ -659,6 +1171,27 @@ export default function TeamDetailsView({
     }
   };
 
+  // Update Task Due Date
+  const handleUpdateTaskDueDate = async (taskId: string, dueDate: string | null) => {
+    const currentTask = tasks.find((t) => t.id === taskId);
+    if (currentTask && currentTask.due_date === dueDate) return;
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, due_date: dueDate } : t)));
+
+    const { error } = await supabase
+      .from("team_tasks")
+      .update({ due_date: dueDate || null })
+      .eq("id", taskId);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      fetchTasks();
+    } else {
+      showToast("Due date updated!", "success");
+    }
+  };
+
   // Delete Task
   const handleDeleteTask = async (taskId: string) => {
     confirm({
@@ -686,14 +1219,20 @@ export default function TeamDetailsView({
   const handleSaveDocument = async () => {
     if (!documentId) return;
     setSavingDocument(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("team_documents")
-      .update({ content: documentContent, updated_by: currentUserId })
-      .eq("id", documentId);
+      .update({ content: documentContent, updated_by: currentUserId, updated_at: new Date().toISOString() })
+      .eq("id", documentId)
+      .select()
+      .maybeSingle();
     if (error) {
       console.error(error);
       showToast(error.message, "error");
     } else {
+      if (data) {
+        setDocumentUpdatedAt(data.updated_at || null);
+        setDocumentUpdatedBy(data.updated_by || null);
+      }
       showToast("Document saved!", "success");
     }
     setSavingDocument(false);
@@ -786,6 +1325,8 @@ export default function TeamDetailsView({
         fetchTasks();
         fetchDocument();
         fetchLinks();
+        fetchDeployments();
+        fetchBrainstormIdeas();
       }
 
       setChatLoading(false);
@@ -832,10 +1373,12 @@ export default function TeamDetailsView({
           filter: `team_id=eq.${team.id}`,
         },
         (payload) => {
-          const updatedDoc = payload.new as { content: string; updated_by: string };
+          const updatedDoc = payload.new as { content: string; updated_by: string; updated_at: string };
           supabase.auth.getUser().then(({ data: { user } }) => {
             if (user && updatedDoc.updated_by !== user.id) {
               setDocumentContent(updatedDoc.content);
+              setDocumentUpdatedAt(updatedDoc.updated_at || null);
+              setDocumentUpdatedBy(updatedDoc.updated_by || null);
             }
           });
         }
@@ -863,16 +1406,192 @@ export default function TeamDetailsView({
         }
       );
 
+    const deploymentsChannel = supabase
+      .channel(`team_deployments:${team.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "team_deployments",
+          filter: `team_id=eq.${team.id}`,
+        },
+        () => {
+          fetchDeployments();
+        }
+      );
+
+    const brainstormChannel = supabase
+      .channel(`team_brainstorm_ideas:${team.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "team_brainstorm_ideas",
+          filter: `team_id=eq.${team.id}`,
+        },
+        () => {
+          fetchBrainstormIdeas();
+        }
+      );
+
     const unsubTasks = subscribeWithRetry(tasksChannel);
     const unsubDoc = subscribeWithRetry(docChannel);
     const unsubLinks = subscribeWithRetry(linksChannel);
+    const unsubDeployments = subscribeWithRetry(deploymentsChannel);
+    const unsubBrainstorm = subscribeWithRetry(brainstormChannel);
 
     return () => {
       unsubTasks();
       unsubDoc();
       unsubLinks();
+      unsubDeployments();
+      unsubBrainstorm();
     };
   }, [team.id, canSeeChat]);
+
+  // Realtime Presence Tracking
+  useEffect(() => {
+    if (!canSeeChat || !team.id || !currentUserId) return;
+
+    const currentMemberObj = members.find((m) => m.profiles.id === currentUserId);
+    const currentUserProfile = currentMemberObj?.profiles || {
+      id: currentUserId,
+      full_name: "A teammate",
+      avatar_url: null,
+    };
+
+    const presenceChannel = supabase.channel(`presence:team:${team.id}`, {
+      config: {
+        presence: {
+          key: currentUserId,
+        },
+      },
+    });
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const onlineUsers: { id: string; name: string; avatarUrl: string | null }[] = [];
+        
+        Object.keys(state).forEach((key) => {
+          const userPresences = state[key] as any[];
+          if (userPresences && userPresences.length > 0) {
+            const info = userPresences[0];
+            onlineUsers.push({
+              id: key,
+              name: info.name || "Teammate",
+              avatarUrl: info.avatarUrl || null,
+            });
+          }
+        });
+        
+        setOnlineTeammates(onlineUsers);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await presenceChannel.track({
+            id: currentUserId,
+            name: currentUserProfile.full_name,
+            avatarUrl: currentUserProfile.avatar_url,
+          });
+        }
+      });
+
+    return () => {
+      presenceChannel.unsubscribe();
+    };
+  }, [team.id, canSeeChat, currentUserId, members]);
+
+  const activeHackathon = listedHackathons && listedHackathons.length > 0 ? listedHackathons[0] : null;
+
+  // Countdown timer for active hackathon
+  useEffect(() => {
+    if (!activeHackathon || !activeHackathon.end_date) {
+      setTimeLeft("");
+      setCountdownParts({ days: 0, hours: 0, minutes: 0, seconds: 0, ended: true });
+      return;
+    }
+
+    const calculateTime = () => {
+      const difference = new Date(activeHackathon.end_date!).getTime() - new Date().getTime();
+      if (difference <= 0) {
+        setTimeLeft("Hackathon Ended");
+        setCountdownParts({ days: 0, hours: 0, minutes: 0, seconds: 0, ended: true });
+        return;
+      }
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      const parts = [];
+      if (days > 0) parts.push(`${days}d`);
+      if (hours > 0 || days > 0) parts.push(`${hours}h`);
+      parts.push(`${minutes}m`);
+      parts.push(`${seconds}s`);
+
+      setTimeLeft(parts.join(" "));
+      setCountdownParts({ days, hours, minutes, seconds, ended: false });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [activeHackathon]);
+
+  // Load selected task comments and sync in real-time
+  useEffect(() => {
+    if (!selectedTask) {
+      setTaskComments([]);
+      return;
+    }
+
+    const fetchTaskComments = async () => {
+      setLoadingComments(true);
+      const { data, error } = await supabase
+        .from("team_task_comments")
+        .select("*")
+        .eq("task_id", selectedTask.id)
+        .order("created_at", { ascending: true });
+      if (error) {
+        console.error(error);
+      } else {
+        setTaskComments(data || []);
+      }
+      setLoadingComments(false);
+    };
+
+    fetchTaskComments();
+
+    const commentChannel = supabase
+      .channel(`task_comments:${selectedTask.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "team_task_comments",
+          filter: `task_id=eq.${selectedTask.id}`,
+        },
+        () => {
+          supabase
+            .from("team_task_comments")
+            .select("*")
+            .eq("task_id", selectedTask.id)
+            .order("created_at", { ascending: true })
+            .then(({ data }) => {
+              if (data) setTaskComments(data);
+            });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      commentChannel.unsubscribe();
+    };
+  }, [selectedTask]);
 
   // Markdown renderer helper
   const renderMarkdown = (text: string) => {
@@ -915,7 +1634,22 @@ export default function TeamDetailsView({
         key={task.id}
         draggable
         onDragStart={(e) => handleDragStart(e, task.id)}
-        className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-3 relative group/card hover:border-zinc-700 transition-colors cursor-grab active:cursor-grabbing"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (
+            target.tagName === "SELECT" || 
+            target.tagName === "OPTION" || 
+            target.tagName === "INPUT" || 
+            target.tagName === "BUTTON" || 
+            target.closest("button") || 
+            target.closest("select") || 
+            target.closest("input")
+          ) {
+            return;
+          }
+          setSelectedTask(task);
+        }}
+        className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-3 relative group/card hover:border-zinc-600 transition-all cursor-pointer shadow-md hover:shadow-lg"
       >
         <div className="flex justify-between items-start gap-2">
           <h4 className="text-xs font-semibold text-white break-words pr-4">{task.title}</h4>
@@ -932,13 +1666,12 @@ export default function TeamDetailsView({
         {task.description && (
           <p className="text-[10px] text-zinc-400 leading-relaxed break-words">{task.description}</p>
         )}
-
         <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
           <div className="flex items-center gap-1">
             <select
               value={task.status}
               onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value as "todo" | "in_progress" | "completed")}
-              className="text-[9px] font-semibold bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700"
+              className="text-[9px] font-semibold bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700 cursor-pointer"
             >
               <option value="todo">To Do</option>
               <option value="in_progress">In Progress</option>
@@ -956,7 +1689,7 @@ export default function TeamDetailsView({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 min-w-0 max-w-[120px]">
+          <div className="flex items-center gap-1.5 min-w-0">
             {assignee ? (
               assignee.profiles.avatar_url ? (
                 <img
@@ -977,7 +1710,7 @@ export default function TeamDetailsView({
             <select
               value={task.assignee_id || ""}
               onChange={(e) => handleUpdateTaskAssignee(task.id, e.target.value || null)}
-              className="text-[9px] font-semibold bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700 truncate max-w-[85px] cursor-pointer"
+              className="text-[9px] font-semibold bg-zinc-955 border border-zinc-800 rounded px-1 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700 truncate max-w-[85px] cursor-pointer"
             >
               <option value="">Assignee</option>
               {members.map((m) => (
@@ -987,6 +1720,34 @@ export default function TeamDetailsView({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Due Date Indicator & Date Input */}
+        <div className="flex items-center justify-between border-t border-zinc-900/60 pt-2 mt-1">
+          {(() => {
+            if (!task.due_date) return <span className="text-[9px] text-zinc-600 font-mono italic">No due date</span>;
+            const dueDate = new Date(task.due_date);
+            const now = new Date();
+            const isOverdue = task.status !== "completed" && dueDate < now;
+            const formatted = dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            return (
+              <div className={`flex items-center gap-1 text-[9px] font-semibold font-mono ${
+                isOverdue ? "text-rose-455" : "text-zinc-500"
+              }`}>
+                <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="truncate">{formatted} {isOverdue ? "(Overdue)" : ""}</span>
+              </div>
+            );
+          })()}
+
+          <input
+            type="date"
+            value={task.due_date ? task.due_date.split("T")[0] : ""}
+            onChange={(e) => handleUpdateTaskDueDate(task.id, e.target.value || null)}
+            className="text-[9px] bg-zinc-950 border border-zinc-900 rounded px-1.5 py-0.5 text-zinc-500 focus:outline-none hover:border-zinc-800 cursor-pointer w-20 leading-none shrink-0"
+          />
         </div>
       </div>
     );
@@ -1017,7 +1778,7 @@ export default function TeamDetailsView({
                 </a>
                 <button
                   onClick={() => handleDeleteLink(link.id)}
-                  className="opacity-0 group-hover/link:opacity-100 text-zinc-600 hover:text-rose-400 transition-opacity shrink-0"
+                  className="opacity-0 group-hover/link:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity shrink-0"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1071,6 +1832,108 @@ export default function TeamDetailsView({
     };
     return acc;
   }, {} as Record<string, { id: string; full_name: string; avatar_url: string | null }>);
+
+  type ActivityEvent = {
+    id: string;
+    type: "commit" | "task" | "resource" | "brainstorm";
+    title: string;
+    description: string;
+    timestamp: string;
+    user: {
+      name: string;
+      avatarUrl: string | null;
+    } | null;
+  };
+
+  const getActivityTimeline = (): ActivityEvent[] => {
+    const events: ActivityEvent[] = [];
+
+    // 1. Tasks
+    (tasks || []).forEach((t) => {
+      const creator = members.find((m) => m.profiles.id === t.assignee_id)?.profiles; // Fallback to assignee if creator id not tracked, or assignee as default user
+      const assignee = members.find((m) => m.profiles.id === t.assignee_id)?.profiles;
+
+      events.push({
+        id: `task-create-${t.id}`,
+        type: "task",
+        title: "Task Created",
+        description: `Created task "${t.title}" (Priority: ${t.priority.toUpperCase()})${
+          assignee ? ` assigned to ${assignee.full_name.split(" ")[0]}` : ""
+        }`,
+        timestamp: t.created_at,
+        user: assignee
+          ? { name: assignee.full_name, avatarUrl: assignee.avatar_url || null }
+          : null,
+      });
+
+      if (t.status === "completed") {
+        events.push({
+          id: `task-complete-${t.id}`,
+          type: "task",
+          title: "Task Completed",
+          description: `Completed task: "${t.title}"`,
+          timestamp: t.created_at,
+          user: assignee
+            ? { name: assignee.full_name, avatarUrl: assignee.avatar_url || null }
+            : null,
+        });
+      }
+    });
+
+    // 3. Resources (Links)
+    (links || []).forEach((l) => {
+      const creator = members.find((m) => m.profiles.id === l.created_by)?.profiles;
+      const categoryLabels: Record<string, string> = {
+        design: "Design (Figma)",
+        repo: "Repo (Code)",
+        document: "Document (Pitch/Slides)",
+        other: "Other Link",
+      };
+
+      events.push({
+        id: `link-${l.id}`,
+        type: "resource",
+        title: "Resource Added",
+        description: `Added ${categoryLabels[l.category] || l.category}: "${l.title}"`,
+        timestamp: l.created_at,
+        user: creator
+          ? { name: creator.full_name, avatarUrl: creator.avatar_url || null }
+          : null,
+      });
+    });
+
+    // 4. Brainstorm Document Sync
+    if (documentUpdatedAt && documentId) {
+      const updater = members.find((m) => m.profiles.id === documentUpdatedBy)?.profiles;
+      events.push({
+        id: `doc-${documentId}-${documentUpdatedAt}`,
+        type: "brainstorm",
+        title: "Brainstorm Pad Synced",
+        description: `Updated shared brainstorming document`,
+        timestamp: documentUpdatedAt,
+        user: updater
+          ? { name: updater.full_name, avatarUrl: updater.avatar_url || null }
+          : null,
+      });
+    }
+
+    // Sort by timestamp descending
+    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
+
+  const teamDesiredSkills = team.skills || [];
+  const teamMemberSkills = Array.from(new Set(members.map((m) => m.profiles?.skills || []).flat().map(s => s.trim().toLowerCase())));
+
+  const coveredTeamSkills = teamDesiredSkills.filter((s) => teamMemberSkills.includes(s.trim().toLowerCase()));
+  const missingTeamSkills = teamDesiredSkills.filter((s) => !teamMemberSkills.includes(s.trim().toLowerCase()));
+
+  const totalTasksCount = tasks.length;
+  const completedTasksCount = tasks.filter((t) => t.status === "completed").length;
+  const taskProgressPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  const totalChecklistCount = submission?.checklist?.length || 0;
+  const completedChecklistCount = submission?.checklist?.filter((c) => c.checked).length || 0;
+  const checklistProgressPct = totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0;
 
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
@@ -1394,36 +2257,6 @@ export default function TeamDetailsView({
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={async () => {
-                    let link = `${window.location.origin}/teams/${team.id}`;
-                    if (isOwner) {
-                      const { data: token, error } = await supabase.rpc("generate_team_invite_token", { p_team_id: team.id });
-                      if (!error && token) {
-                        link = `${link}?join=true&token=${encodeURIComponent(token)}`;
-                      } else {
-                        showToast(error?.message || "Failed to generate invite token", "error");
-                        return;
-                      }
-                    }
-                    navigator.clipboard.writeText(link);
-                    showToast(
-                      isOwner
-                        ? "Auto-join link copied! Share this with builders to let them join instantly."
-                        : "Team link copied. Builders can view it and request to join.",
-                      "success"
-                    );
-                  }}
-                  className="btn btn-secondary w-full flex items-center justify-center gap-1.5"
-                >
-                  <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l.097-.03A1.875 1.875 0 0111 6v1.5H9.75v-1.5a.375.375 0 00-.375-.375H7.5A.375.375 0 007.125 6v12a.375.375 0 00.375.375h1.875a.375.375 0 00.375-.375V16.5H11V18a1.875 1.875 0 01-2.653 1.71l-.097-.03A1.875 1.875 0 016 18V6a1.875 1.875 0 012.25-1.5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 10.5h-8.25m8.25 0l-3.375-3.375m3.375 3.375l-3.375 3.375" />
-                  </svg>
-                  <span>Share Team Link</span>
-                </button>
-
               </>
             )}
           </div>
@@ -1651,11 +2484,208 @@ export default function TeamDetailsView({
       {/* Team Collaborate & Workspace Section — members & owner only */}
       {canSeeChat && (
         <section className="animate-fade-in-up stagger-3 space-y-6">
+          {/* Top Countdown & Milestone Dashboard banner */}
+          {activeHackathon && (
+            <div className="card p-6 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-2xl relative overflow-hidden group">
+              {/* Background accent glow */}
+              <div className="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-violet-600/10 blur-3xl pointer-events-none group-hover:bg-violet-600/15 transition-all duration-700" />
+              <div className="absolute -left-24 -bottom-24 w-48 h-48 rounded-full bg-emerald-600/5 blur-3xl pointer-events-none group-hover:bg-emerald-600/10 transition-all duration-700" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-6 flex-1 z-10">
+                <div className="space-y-1">
+                  <span className="text-[9px] font-mono font-semibold tracking-widest text-emerald-400 uppercase flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Event Track Cockpit
+                  </span>
+                  <h3 className="text-sm font-bold text-white tracking-tight leading-snug">
+                    {activeHackathon.name}
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 font-medium">Chronological hackathon workspace coordination dashboard.</p>
+                </div>
+
+                {/* Digital Pods Countdown Timer */}
+                {!countdownParts.ended ? (
+                  <div className="flex gap-2 bg-black/40 border border-zinc-800/60 p-2 rounded-xl backdrop-blur-sm shadow-inner">
+                    {/* Days */}
+                    <div className="flex flex-col items-center">
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                        <span className="font-mono text-xs font-bold text-white tracking-tight">
+                          {String(countdownParts.days).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Days</span>
+                    </div>
+
+                    <span className="text-zinc-700 self-center font-bold text-xs -mt-3">:</span>
+
+                    {/* Hours */}
+                    <div className="flex flex-col items-center">
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                        <span className="font-mono text-xs font-bold text-violet-400 tracking-tight">
+                          {String(countdownParts.hours).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Hours</span>
+                    </div>
+
+                    <span className="text-zinc-700 self-center font-bold text-xs -mt-3">:</span>
+
+                    {/* Mins */}
+                    <div className="flex flex-col items-center">
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                        <span className="font-mono text-xs font-bold text-violet-300 tracking-tight">
+                          {String(countdownParts.minutes).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Mins</span>
+                    </div>
+
+                    <span className="text-zinc-700 self-center font-bold text-xs -mt-3">:</span>
+
+                    {/* Secs */}
+                    <div className="flex flex-col items-center">
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                        <span className="font-mono text-xs font-bold text-indigo-400 tracking-tight">
+                          {String(countdownParts.seconds).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Secs</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-[9px] font-mono font-bold text-zinc-400 bg-zinc-800 border border-zinc-700 px-3 py-1 rounded-full uppercase tracking-wider">
+                    Event Closed
+                  </span>
+                )}
+              </div>
+
+              {/* Metrics */}
+              <div className="flex items-center gap-6 z-10 flex-wrap shrink-0">
+                {/* Tasks Progress Gauge */}
+                <div className="flex flex-col gap-1.5 min-w-[125px]">
+                  <div className="flex items-center justify-between text-[9px] font-mono">
+                    <span className="text-zinc-500 uppercase tracking-wider">Tasks</span>
+                    <span className="text-zinc-350 font-bold">{completedTasksCount}/{totalTasksCount} ({taskProgressPct}%)</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]" 
+                      style={{ width: `${taskProgressPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Submissions checklist Progress Gauge */}
+                <div className="flex flex-col gap-1.5 min-w-[125px]">
+                  <div className="flex items-center justify-between text-[9px] font-mono">
+                    <span className="text-zinc-500 uppercase tracking-wider">Milestones</span>
+                    <span className="text-zinc-350 font-bold">{completedChecklistCount}/{totalChecklistCount} ({checklistProgressPct}%)</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
+                      style={{ width: `${checklistProgressPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Skills Gap Visualizer */}
+          {teamDesiredSkills.length > 0 && (() => {
+            const skillCoveragePct = teamDesiredSkills.length > 0 ? Math.round((coveredTeamSkills.length / teamDesiredSkills.length) * 100) : 100;
+            return (
+              <div className="card p-6 bg-zinc-900/10 border border-zinc-800/80 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-lg relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-6 flex-1">
+                  {/* Glowing dynamic match circle widget */}
+                  <div className="relative w-16 h-16 rounded-full border-2 border-zinc-850 flex items-center justify-center shrink-0 bg-zinc-950/60 shadow-inner group">
+                    <div className="absolute inset-0.5 rounded-full border border-dashed border-zinc-800 animate-[spin_20s_linear_infinite]" />
+                    <div className="text-center z-10">
+                      <span className="text-[11px] font-bold text-white block -mb-0.5">{skillCoveragePct}%</span>
+                      <span className="text-[6px] font-mono text-zinc-500 uppercase tracking-widest block">Match</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-mono font-semibold tracking-widest text-amber-400 uppercase flex items-center gap-1.5">
+                      📊 Stack Fit Matrix
+                    </span>
+                    <h4 className="text-xs font-bold text-zinc-200">Team Skills Coverage Radar</h4>
+                    <p className="text-[10px] text-zinc-500 max-w-md leading-relaxed">
+                      Matches requested team skills against current builders. Recruiting developers with missing competencies boosts event readiness.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-6 items-center shrink-0 z-10">
+                  <div className="space-y-2">
+                    <span className="text-[8px] text-zinc-500 font-mono uppercase block font-bold tracking-wider">Acquired Stack ({coveredTeamSkills.length})</span>
+                    <div className="flex flex-wrap gap-1 max-w-[240px]">
+                      {coveredTeamSkills.map(s => (
+                        <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                          {s}
+                        </span>
+                      ))}
+                      {coveredTeamSkills.length === 0 && <span className="text-[9px] text-zinc-650 italic">None yet</span>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-[8px] text-zinc-500 font-mono uppercase block font-bold tracking-wider text-rose-400">Needed Stack ({missingTeamSkills.length})</span>
+                    <div className="flex flex-wrap gap-1 max-w-[240px]">
+                      {missingTeamSkills.map(s => (
+                        <span key={s} className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1 animate-pulse">
+                          <span className="w-1 h-1 rounded-full bg-rose-400" />
+                          {s}
+                        </span>
+                      ))}
+                      {missingTeamSkills.length === 0 && <span className="text-[8px] text-emerald-400 italic font-medium">All stack requirements met</span>}
+                    </div>
+                  </div>
+
+                  {isOwner && missingTeamSkills.length > 0 && (
+                    <button
+                      onClick={() => setShowInviteBuilderModal(true)}
+                      className="btn btn-secondary text-[10px] px-3.5 py-1.5 whitespace-nowrap bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:text-white transition-all rounded-lg font-mono uppercase tracking-wider"
+                    >
+                      Find Builders
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Tab Selector */}
           <div className="flex items-center justify-between border-b border-[var(--card-border)] pb-3 flex-wrap gap-3">
-            <div>
-              <p className="section-label mb-0.5 font-mono uppercase tracking-wider">Workspace</p>
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Workspace Hub</h2>
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="section-label mb-0.5 font-mono uppercase tracking-wider">Workspace</p>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Workspace Hub</h2>
+              </div>
+              
+              {onlineTeammates.length > 0 && (
+                <div className="flex items-center -space-x-1.5 overflow-hidden p-1 bg-zinc-950/20 rounded-full border border-zinc-900/60 ml-2">
+                  {onlineTeammates.map((u) => (
+                    <div key={u.id} className="relative group shrink-0" title={`${u.name} (Online)`}>
+                      {u.avatarUrl ? (
+                        <img
+                          src={u.avatarUrl}
+                          alt={u.name}
+                          className="w-5 h-5 rounded-full object-cover border border-zinc-900"
+                        />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center font-bold text-zinc-400 text-[8px]">
+                          {u.name.charAt(0)}
+                        </div>
+                      )}
+                      <span className="absolute bottom-0 right-0 block h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-950 animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-800">
@@ -1708,6 +2738,36 @@ export default function TeamDetailsView({
                 }`}
               >
                 Submission
+              </button>
+               <button
+                onClick={() => setWorkspaceTab("github")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "github"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                GitHub Sync
+              </button>
+              <button
+                onClick={() => setWorkspaceTab("deployments")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "deployments"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                🚀 Deployments
+              </button>
+              <button
+                onClick={() => setWorkspaceTab("activity")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  workspaceTab === "activity"
+                    ? "bg-zinc-850 text-white"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Activity Feed
               </button>
             </div>
           </div>
@@ -1766,7 +2826,104 @@ export default function TeamDetailsView({
                     <p className="text-zinc-500 text-xs font-mono uppercase">Loading tasks...</p>
                   </div>
                 ) : (
-                  <div className="grid md:grid-cols-3 gap-5">
+                  <div className="space-y-4">
+                    {/* Visual Workload & Task Analytics Dashboard */}
+                    {tasks.length > 0 && (
+                      <div className="grid lg:grid-cols-3 gap-4 bg-zinc-950/20 border border-zinc-800/80 rounded-xl p-4 text-left">
+                        {/* 1. Teammate Workload Balance */}
+                        <div className="space-y-2 border-r border-zinc-900/60 pr-4">
+                          <span className="text-[9px] font-mono font-semibold tracking-wider text-violet-400 uppercase">Teammate Workload Balance</span>
+                          <div className="space-y-1.5 max-h-[100px] overflow-y-auto pr-1">
+                            {members.map((m) => {
+                              const assignedTasks = tasks.filter((t) => t.assignee_id === m.profiles.id);
+                              const completed = assignedTasks.filter((t) => t.status === "completed").length;
+                              const pending = assignedTasks.length - completed;
+                              const taskSharePct = tasks.length > 0 ? Math.round((assignedTasks.length / tasks.length) * 100) : 0;
+                              
+                              return (
+                                <div key={m.id} className="text-[10px] space-y-1">
+                                  <div className="flex justify-between items-center text-zinc-350">
+                                    <span className="font-medium truncate max-w-[100px]">{m.profiles.full_name.split(" ")[0]}</span>
+                                    <span className="font-mono text-zinc-500">{pending} active / {completed} done ({taskSharePct}%)</span>
+                                  </div>
+                                  <div className="w-full h-1 bg-zinc-950 rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full bg-violet-500 rounded-full" 
+                                      style={{ width: `${taskSharePct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 2. Priority Density */}
+                        <div className="space-y-2 border-r border-zinc-900/60 px-4">
+                          <span className="text-[9px] font-mono font-semibold tracking-wider text-amber-400 uppercase">Priority Density</span>
+                          <div className="space-y-2 text-[10px]">
+                            {/* High */}
+                            <div className="flex items-center justify-between text-zinc-350">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                <span>High Priority</span>
+                              </div>
+                              <span className="font-mono font-bold text-rose-400">{tasks.filter((t) => t.priority === "high").length} tasks</span>
+                            </div>
+                            {/* Medium */}
+                            <div className="flex items-center justify-between text-zinc-350">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                <span>Medium Priority</span>
+                              </div>
+                              <span className="font-mono font-bold text-amber-400">{tasks.filter((t) => t.priority === "medium").length} tasks</span>
+                            </div>
+                            {/* Low */}
+                            <div className="flex items-center justify-between text-zinc-350">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                                <span>Low Priority</span>
+                              </div>
+                              <span className="font-mono font-bold text-zinc-400">{tasks.filter((t) => t.priority === "low").length} tasks</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. Event Velocity Alerts */}
+                        <div className="space-y-2 pl-4">
+                          <span className="text-[9px] font-mono font-semibold tracking-wider text-rose-400 uppercase">Velocity Alerts & Deadlines</span>
+                          <div className="space-y-1.5 max-h-[100px] overflow-y-auto pr-1 text-[9px] font-mono">
+                            {(() => {
+                              const now = new Date();
+                              const alerts = tasks.filter((t) => t.status !== "completed" && t.due_date).map((t) => {
+                                const due = new Date(t.due_date!);
+                                const diffHrs = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
+                                if (diffHrs < 0) {
+                                  return { type: "overdue", label: "OVERDUE", title: t.title, color: "text-rose-400" };
+                                } else if (diffHrs <= 24) {
+                                  return { type: "soon", label: "DUE SOON", title: t.title, color: "text-amber-400" };
+                                }
+                                return null;
+                              }).filter(Boolean);
+
+                              if (alerts.length === 0) {
+                                return <p className="text-zinc-650 italic py-2 text-center">All tasks on track</p>;
+                              }
+
+                              return alerts.map((alert, idx) => (
+                                <div key={idx} className={`flex items-center gap-1.5 truncate ${alert!.color}`}>
+                                  <span>⚠</span>
+                                  <span className="font-bold">[{alert!.label}]</span>
+                                  <span className="text-zinc-400 truncate flex-1">{alert!.title}</span>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid md:grid-cols-3 gap-5">
                     {/* TO DO COLUMN */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-1">
@@ -1853,6 +3010,7 @@ export default function TeamDetailsView({
                         )}
                       </div>
                     </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1861,51 +3019,221 @@ export default function TeamDetailsView({
             {/* 3. BRAINSTORM TAB */}
             {workspaceTab === "brainstorm" && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Shared Brainstorm Pad</h3>
-                  <button
-                    onClick={handleSaveDocument}
-                    disabled={savingDocument || loadingDocument}
-                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
-                  >
-                    {savingDocument ? (
-                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
-                      </svg>
-                    )}
-                    <span>Sync Document</span>
-                  </button>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center bg-zinc-950 p-0.5 rounded-lg border border-zinc-800">
+                    <button
+                      onClick={() => setIsBrainstormListView(false)}
+                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${
+                        !isBrainstormListView
+                          ? "bg-zinc-850 text-white font-semibold"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      💡 Ideas Board
+                    </button>
+                    <button
+                      onClick={() => setIsBrainstormListView(true)}
+                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${
+                        isBrainstormListView
+                          ? "bg-zinc-850 text-white font-semibold"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      📝 Document Pad
+                    </button>
+                  </div>
+
+                  {isBrainstormListView && (
+                    <button
+                      onClick={handleSaveDocument}
+                      disabled={savingDocument || loadingDocument}
+                      className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                    >
+                      {savingDocument ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                      )}
+                      <span>Sync Document</span>
+                    </button>
+                  )}
                 </div>
 
-                {loadingDocument ? (
-                  <div className="card card-static p-12 text-center">
-                    <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-zinc-500 text-xs font-mono uppercase">Loading document...</p>
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-5">
-                    <div className="flex flex-col space-y-2">
-                      <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Edit Markdown</label>
-                      <textarea
-                        value={documentContent}
-                        onChange={(e) => setDocumentContent(e.target.value)}
-                        rows={16}
-                        className="input font-mono text-xs w-full h-[350px] resize-none leading-relaxed p-4 bg-zinc-950/60 border border-zinc-900 focus:border-zinc-850"
-                        placeholder="# Brainstorming Ideas&#10;- Idea 1: Custom mobile app for matching builders&#10;- Idea 2: SaaS platform for collaborative hackathon workspaces"
-                      />
+                {!isBrainstormListView ? (
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Input column */}
+                    <div className="card card-static p-5 bg-zinc-950/20 border border-zinc-800 text-left space-y-4 h-fit">
+                      <div>
+                        <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Post New Idea</h4>
+                        <p className="text-[10px] text-zinc-500 mt-0.5">Share concepts, features, stack ideas, or design notes.</p>
+                      </div>
+
+                      <form onSubmit={handleAddBrainstormIdea} className="space-y-3.5">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-medium text-zinc-400 uppercase font-mono">Idea Title</label>
+                          <input
+                            type="text"
+                            required
+                            value={newIdeaTitle}
+                            onChange={(e) => setNewIdeaTitle(e.target.value)}
+                            placeholder="e.g. Real-time push notifications"
+                            className="input text-xs"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-medium text-zinc-400 uppercase font-mono">Details / Context</label>
+                          <textarea
+                            value={newIdeaContent}
+                            onChange={(e) => setNewIdeaContent(e.target.value)}
+                            placeholder="Explain the concept or stack requirements..."
+                            rows={4}
+                            className="input text-xs resize-none"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-medium text-zinc-400 uppercase font-mono">Category</label>
+                          <select
+                            value={newIdeaCategory}
+                            onChange={(e) => setNewIdeaCategory(e.target.value as any)}
+                            className="input text-xs bg-zinc-950"
+                          >
+                            <option value="core">Core MVP Feature</option>
+                            <option value="nice-to-have">Nice to Have</option>
+                            <option value="tech-stack">Tech Stack / Tools</option>
+                            <option value="marketing">Marketing / Pitch</option>
+                          </select>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={submittingIdea || !newIdeaTitle.trim()}
+                          className="btn btn-primary text-xs w-full py-2 disabled:opacity-50"
+                        >
+                          {submittingIdea ? "Posting..." : "Post Idea note"}
+                        </button>
+                      </form>
                     </div>
 
-                    <div className="flex flex-col space-y-2">
-                      <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Live Preview</label>
-                      <div className="w-full h-[350px] overflow-y-auto p-4 bg-zinc-950/20 border border-zinc-900 rounded-xl space-y-3 prose prose-invert max-w-none">
-                        {renderMarkdown(documentContent) || (
-                          <p className="text-zinc-600 text-[10px] italic font-mono">Empty document</p>
-                        )}
-                      </div>
+                    {/* Ideas list column */}
+                    <div className="lg:col-span-2 space-y-4">
+                      {loadingIdeas ? (
+                        <div className="py-12 text-center">
+                          <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                          <p className="text-zinc-550 text-xs font-mono uppercase">Loading board...</p>
+                        </div>
+                      ) : brainstormIdeas.length === 0 ? (
+                        <div className="card card-static p-12 text-center border border-zinc-800 bg-zinc-950/20 flex flex-col items-center justify-center rounded-2xl">
+                          <span className="text-2xl mb-2">💡</span>
+                          <h4 className="text-sm font-semibold text-white mb-1">Ideation Tag Board is Empty</h4>
+                          <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                            Share tech stack selections, project directions, or feature drafts. Teammates can vote to establish project direction!
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          {brainstormIdeas.map((idea) => {
+                            const creator = members.find((m) => m.profiles.id === idea.user_id)?.profiles;
+                            const hasUpvoted = idea.upvotes?.includes(currentUserId || "");
+                            
+                            const catLabels: Record<string, string> = {
+                              "core": "Core MVP",
+                              "nice-to-have": "Nice To Have",
+                              "tech-stack": "Tech Stack",
+                              "marketing": "Marketing"
+                            };
+
+                            const catColors: Record<string, string> = {
+                              "core": "bg-violet-500/10 border-violet-500/20 text-violet-400",
+                              "nice-to-have": "bg-sky-500/10 border-sky-500/20 text-sky-400",
+                              "tech-stack": "bg-amber-500/10 border-amber-500/20 text-amber-400",
+                              "marketing": "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            };
+
+                            return (
+                              <div key={idea.id} className="card card-static p-4.5 bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700/60 rounded-2xl flex flex-col justify-between text-left space-y-3 relative group transition-all">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase ${catColors[idea.category] || "bg-zinc-800"}`}>
+                                      {catLabels[idea.category] || idea.category}
+                                    </span>
+
+                                    {idea.user_id === currentUserId && (
+                                      <button
+                                        onClick={() => handleDeleteBrainstormIdea(idea.id)}
+                                        className="opacity-0 group-hover:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity p-0.5 shrink-0"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <h4 className="text-xs font-bold text-white break-words">{idea.title}</h4>
+                                  
+                                  {idea.content && (
+                                    <p className="text-[10px] text-zinc-400 leading-relaxed break-words line-clamp-4">{idea.content}</p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60 mt-auto">
+                                  <span className="text-[9px] text-zinc-500">
+                                    By <span className="font-semibold text-zinc-400">{creator?.full_name?.split(" ")[0] || "Teammate"}</span>
+                                  </span>
+
+                                  <button
+                                    onClick={() => handleToggleIdeaUpvote(idea.id)}
+                                    className={`px-2 py-1 rounded-lg border text-[9px] font-mono font-bold flex items-center gap-1.5 transition-colors ${
+                                      hasUpvoted 
+                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                                        : "bg-zinc-950 border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-850"
+                                    }`}
+                                  >
+                                    <span>▲</span>
+                                    <span>{idea.upvotes?.length || 0}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
+                ) : (
+                  // Markdown Editor
+                  loadingDocument ? (
+                    <div className="card card-static p-12 text-center">
+                      <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-zinc-500 text-xs font-mono uppercase">Loading document...</p>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Edit Markdown</label>
+                        <textarea
+                          value={documentContent}
+                          onChange={(e) => setDocumentContent(e.target.value)}
+                          rows={16}
+                          className="input font-mono text-xs w-full h-[350px] resize-none leading-relaxed p-4 bg-zinc-955 border border-zinc-900 focus:border-zinc-800"
+                          placeholder="# Brainstorming Ideas&#10;- Idea 1: Custom mobile app for matching builders&#10;- Idea 2: SaaS platform for collaborative hackathon workspaces"
+                        />
+                      </div>
+
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Live Preview</label>
+                        <div className="w-full h-[350px] overflow-y-auto p-4 bg-zinc-950/20 border border-zinc-900 rounded-xl space-y-3 prose prose-invert max-w-none">
+                          {renderMarkdown(documentContent) || (
+                            <p className="text-zinc-650 text-[10px] italic font-mono">Empty document</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
             )}
@@ -1949,14 +3277,31 @@ export default function TeamDetailsView({
                   <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Submission Deck</h3>
                   <button
                     onClick={handleSaveSubmission}
-                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                    disabled={savingSubmission}
+                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>Save Submission</span>
+                    {savingSubmission ? (
+                      <div className="w-3.5 h-3.5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    )}
+                    <span>{savingSubmission ? "Saving..." : "Save Submission"}</span>
                   </button>
                 </div>
+
+                {listedHackathons && listedHackathons.length > 0 && (
+                  <div className="card card-static p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between gap-4">
+                    <div className="text-left">
+                      <h4 className="text-xs font-bold text-emerald-400 font-mono uppercase tracking-wider">Active Hackathon: {listedHackathons[0].name}</h4>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Your submission checklist is dynamically tailored to this event's description requirements.</p>
+                    </div>
+                    <span className="px-2 py-0.5 text-[8px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded uppercase font-mono tracking-widest leading-none shrink-0">
+                      Tailored
+                    </span>
+                  </div>
+                )}
 
                 {/* Progress bar */}
                 {(() => {
@@ -1966,7 +3311,7 @@ export default function TeamDetailsView({
                   return (
                     <div className="card card-static p-6 bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl">
                       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div>
+                        <div className="text-left">
                           <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider mb-1">Submission Readiness</h4>
                           <p className="text-xs text-zinc-400">Track your project completion checklist before the final hackathon deadline.</p>
                         </div>
@@ -1984,49 +3329,60 @@ export default function TeamDetailsView({
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* Inputs */}
                   <div className="card card-static p-6 space-y-4">
-                    <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">Project Metadata</h4>
+                    <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 text-left">Project Metadata</h4>
                     
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 text-left">
                       <label className="text-xs font-medium text-zinc-300">Project Title</label>
                       <input
                         type="text"
                         value={submission.projectTitle}
                         onChange={(e) => setSubmission(prev => ({ ...prev, projectTitle: e.target.value }))}
                         placeholder="e.g. HackerMate OS"
-                        className="input text-xs"
+                        className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
                       />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 text-left">
                       <label className="text-xs font-medium text-zinc-300">GitHub Repository Link</label>
                       <input
                         type="text"
                         value={submission.githubUrl}
                         onChange={(e) => setSubmission(prev => ({ ...prev, githubUrl: e.target.value }))}
                         placeholder="https://github.com/..."
-                        className="input text-xs"
+                        className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
                       />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 text-left">
                       <label className="text-xs font-medium text-zinc-300">Live Demo URL</label>
                       <input
                         type="text"
                         value={submission.demoUrl}
                         onChange={(e) => setSubmission(prev => ({ ...prev, demoUrl: e.target.value }))}
                         placeholder="https://..."
-                        className="input text-xs"
+                        className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
                       />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 text-left">
                       <label className="text-xs font-medium text-zinc-300">Video Pitch Link</label>
                       <input
                         type="text"
                         value={submission.pitchVideoUrl}
                         onChange={(e) => setSubmission(prev => ({ ...prev, pitchVideoUrl: e.target.value }))}
                         placeholder="https://youtube.com/watch?v=... or Loom"
-                        className="input text-xs"
+                        className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 text-left">
+                      <label className="text-xs font-medium text-zinc-300">Presentation Slides / PDF Link</label>
+                      <input
+                        type="text"
+                        value={submission.slidesUrl}
+                        onChange={(e) => setSubmission(prev => ({ ...prev, slidesUrl: e.target.value }))}
+                        placeholder="https://docs.google.com/presentation/... or Canva"
+                        className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
                       />
                     </div>
                   </div>
@@ -2080,6 +3436,470 @@ export default function TeamDetailsView({
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {workspaceTab === "github" && (
+              <div className="space-y-6 animate-fade-in text-left">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">GitHub Repository Sync</h3>
+                  {team.github_repo_url && (
+                    <button
+                      onClick={fetchCommits}
+                      disabled={loadingCommits}
+                      className="btn btn-secondary btn-sm text-xs py-1 px-3 flex items-center gap-1.5"
+                    >
+                      <svg className={`w-3.5 h-3.5 ${loadingCommits ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      <span>Sync commits</span>
+                    </button>
+                  )}
+                </div>
+
+                {!team.github_repo_url ? (
+                  <div className="card card-static p-12 text-center flex flex-col items-center justify-center max-w-xl mx-auto border border-zinc-800 bg-zinc-950/40 rounded-2xl shadow-xl">
+                    <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-4 shadow-inner">
+                      <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                      </svg>
+                    </div>
+                    <h4 className="text-sm font-semibold text-white mb-2">Connect GitHub Repository</h4>
+                    <p className="text-xs text-zinc-500 max-w-sm mb-6 leading-relaxed">
+                      Link your team's public GitHub repository to track commit logs, contributor statistics, and code progress directly from the workspace.
+                    </p>
+                    
+                    {isOwner ? (
+                      <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
+                        <input
+                          type="text"
+                          value={githubRepoUrlInput}
+                          onChange={(e) => setGithubRepoUrlInput(e.target.value)}
+                          placeholder="e.g. https://github.com/username/reponame"
+                          className="input text-xs flex-1 bg-zinc-955 border-zinc-900 focus:border-zinc-800"
+                        />
+                        <button
+                          onClick={() => handleLinkGithubRepo(githubRepoUrlInput)}
+                          className="btn btn-primary text-xs py-2 px-4 whitespace-nowrap"
+                        >
+                          Link Repository
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">Only the team owner can link a repository</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Commits Timeline */}
+                    <div className="lg:col-span-2 space-y-4">
+                      <div className="card card-static p-6 space-y-4 bg-zinc-950/20 border border-zinc-800">
+                        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+                          <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider">Commit History</h4>
+                          <span className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-mono">
+                            {commits.length} recent commits
+                          </span>
+                        </div>
+
+                        {loadingCommits ? (
+                          <div className="py-12 text-center">
+                            <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                            <p className="text-zinc-500 text-xs font-mono uppercase tracking-wider">Syncing commit feed...</p>
+                          </div>
+                        ) : errorCommits ? (
+                          <div className="py-8 text-center text-rose-400 text-xs font-mono">
+                            <svg className="w-8 h-8 mx-auto mb-2 text-rose-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            {errorCommits}
+                          </div>
+                        ) : commits.length === 0 ? (
+                          <div className="py-12 text-center text-zinc-500 text-xs font-mono">
+                            No commits found in this repository.
+                          </div>
+                        ) : (
+                          <div className="space-y-4 relative before:absolute before:inset-y-1 before:left-5 before:w-0.5 before:bg-zinc-800/80">
+                            {commits.map((commitItem, index) => {
+                              const authorName = commitItem.commit?.author?.name || commitItem.author?.login || "Unknown Author";
+                              const authorAvatar = commitItem.author?.avatar_url;
+                              const message = commitItem.commit?.message?.split("\n")[0] || "No message";
+                              const commitDate = commitItem.commit?.author?.date ? new Date(commitItem.commit.author.date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }) : "";
+                              const hashShort = commitItem.sha?.substring(0, 7) || "";
+                              const htmlUrl = commitItem.html_url;
+
+                              return (
+                                <div key={commitItem.sha || index} className="flex gap-4 relative group">
+                                  {/* Timeline marker */}
+                                  <div className="relative z-10 w-10 h-10 rounded-full border border-zinc-800 bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0 group-hover:border-zinc-700 transition-colors">
+                                    {authorAvatar ? (
+                                      <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-[10px] font-bold text-zinc-400 font-mono uppercase">{authorName.substring(0, 2)}</span>
+                                    )}
+                                  </div>
+
+                                  {/* Commit Info Card */}
+                                  <div className="flex-1 card card-static p-4 bg-zinc-950/40 border border-zinc-900 group-hover:border-zinc-800 transition-colors text-left flex flex-col md:flex-row justify-between gap-3 items-start md:items-center">
+                                    <div>
+                                      <p className="text-xs font-semibold text-white tracking-wide">{message}</p>
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-zinc-500">
+                                        <span className="font-medium text-zinc-400">{authorName}</span>
+                                        <span className="text-zinc-700">•</span>
+                                        <span>{commitDate}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {htmlUrl ? (
+                                        <a
+                                          href={htmlUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-[10px] font-mono text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                        >
+                                          <span>{hashShort}</span>
+                                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6a.75.75 0 0 0-1.5 0v3.586L5.97 3.556a.75.75 0 0 0-1.06 1.06L10.94 10.5H7.354a.75.75 0 0 0 0 1.5h4.9a.75.75 0 0 0 .75-.75v-4.9a.75.75 0 0 0-.75-.75z" />
+                                          </svg>
+                                        </a>
+                                      ) : (
+                                        <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">
+                                          {hashShort}
+                                        </span>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(commitItem.sha);
+                                          showToast("Commit hash copied!", "success");
+                                        }}
+                                        className="text-zinc-600 hover:text-zinc-300 transition-colors p-1"
+                                        title="Copy SHA"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Repository Widgets */}
+                    <div className="space-y-4">
+                      {/* Repo info */}
+                      <div className="card card-static p-6 space-y-4 bg-zinc-950/20 border border-zinc-800 text-left">
+                        <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">Repository Link</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-[9px] font-mono text-zinc-500 uppercase block">GitHub URL</span>
+                            <a
+                              href={team.github_repo_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-medium text-emerald-400 hover:underline break-all block mt-0.5"
+                            >
+                              {team.github_repo_url}
+                            </a>
+                          </div>
+
+                          {isOwner && (
+                            <button
+                              onClick={handleUnlinkGithubRepo}
+                              className="btn btn-secondary text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 border-rose-950/30 w-full py-2 mt-2 flex items-center justify-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15m0 0l6.75 6.75M4.5 12l6.75-6.75" />
+                              </svg>
+                              Disconnect Repo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Contribution summary */}
+                      <div className="card card-static p-6 space-y-4 bg-zinc-950/20 border border-zinc-800 text-left">
+                        <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">Contributors</h4>
+                        {loadingCommits ? (
+                          <div className="w-4 h-4 border border-zinc-800 border-t-white rounded-full animate-spin" />
+                        ) : commits.length === 0 ? (
+                          <p className="text-xs text-zinc-500">No contribution data.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {(() => {
+                              const authorMap: Record<string, { count: number; avatar?: string }> = {};
+                              commits.forEach((c) => {
+                                const name = c.commit?.author?.name || c.author?.login || "Unknown";
+                                const avatar = c.author?.avatar_url;
+                                if (!authorMap[name]) {
+                                  authorMap[name] = { count: 0, avatar };
+                                }
+                                authorMap[name].count++;
+                              });
+
+                              return Object.entries(authorMap)
+                                .sort((a, b) => b[1].count - a[1].count)
+                                .map(([name, info], idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-full border border-zinc-900 bg-zinc-900 flex items-center justify-center overflow-hidden">
+                                        {info.avatar ? (
+                                          <img src={info.avatar} alt={name} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <span className="text-[8px] font-bold text-zinc-500 font-mono uppercase">{name.substring(0, 2)}</span>
+                                        )}
+                                      </div>
+                                      <span className="font-medium text-zinc-300">{name}</span>
+                                    </div>
+                                    <span className="font-mono text-zinc-500 bg-zinc-900/60 border border-zinc-900 px-2 py-0.5 rounded">
+                                      {info.count} commits
+                                    </span>
+                                  </div>
+                                ));
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {workspaceTab === "deployments" && (
+              <div className="space-y-6 animate-fade-in text-left">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest mb-1">Live Environments Cockpit</h3>
+                    <p className="text-[10px] text-zinc-500 font-mono">REGISTER AND MONITOR STAGING, DEPLOYMENT, AND SERVICE ENDPOINTS IN REAL-TIME.</p>
+                  </div>
+                </div>
+
+                <div className="grid lg:grid-cols-3 gap-6">
+                  {/* Register Deployment Form */}
+                  <div className="card card-static p-5 bg-zinc-950/20 border border-zinc-800 text-left space-y-4 h-fit">
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Register Environment</h4>
+                      <p className="text-[10px] text-zinc-550 mt-0.5">Add staging, sandbox, API, or production URLs to monitor health status.</p>
+                    </div>
+
+                    <form onSubmit={handleAddDeployment} className="space-y-3.5">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-medium text-zinc-450 uppercase font-mono">Environment Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={newDepName}
+                          onChange={(e) => setNewDepName(e.target.value)}
+                          placeholder="e.g. Vercel Staging"
+                          className="input text-xs"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-medium text-zinc-455 uppercase font-mono">Target URL</label>
+                        <input
+                          type="text"
+                          required
+                          value={newDepUrl}
+                          onChange={(e) => setNewDepUrl(e.target.value)}
+                          placeholder="e.g. hackermate-staging.vercel.app"
+                          className="input text-xs"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={submittingDeployment || !newDepName.trim() || !newDepUrl.trim()}
+                        className="btn btn-primary text-xs w-full py-2 disabled:opacity-50"
+                      >
+                        {submittingDeployment ? "Registering..." : "Connect Environment"}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Active Deployments Monitor */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {loadingDeployments ? (
+                      <div className="py-12 text-center">
+                        <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                        <p className="text-zinc-500 text-xs font-mono uppercase">Syncing environments...</p>
+                      </div>
+                    ) : deployments.length === 0 ? (
+                      <div className="card card-static p-12 text-center border border-zinc-800 bg-zinc-950/20 flex flex-col items-center justify-center rounded-2xl">
+                        <span className="text-2xl mb-2">🚀</span>
+                        <h4 className="text-sm font-semibold text-white mb-1">No Active Deployments</h4>
+                        <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                          Link staging endpoints or frontend preview URLs. The client-side dashboard will automatically ping their headers and track latency.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {deployments.map((dep) => {
+                          const state = pingStatus[dep.id] || { status: "checking" };
+                          const formattedUrl = /^https?:\/\//i.test(dep.url) ? dep.url : "https://" + dep.url;
+                          
+                          return (
+                            <div key={dep.id} className="card card-static p-5 bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700/60 rounded-2xl flex flex-col justify-between text-left space-y-4 group transition-all relative overflow-hidden">
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-start gap-2">
+                                  <h4 className="text-xs font-bold text-white truncate max-w-[150px]">{dep.name}</h4>
+                                  
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      onClick={() => pingUrl(dep.id, dep.url)}
+                                      className="p-1 rounded bg-zinc-950 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-white transition-colors"
+                                      title="Recheck Health"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                      </svg>
+                                    </button>
+
+                                    <button
+                                      onClick={() => handleDeleteDeployment(dep.id)}
+                                      className="opacity-0 group-hover:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity p-1 shrink-0"
+                                      title="Remove Endpoint"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <a
+                                  href={formattedUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-zinc-550 hover:text-zinc-350 truncate block hover:underline"
+                                >
+                                  {dep.url}
+                                </a>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60 mt-auto">
+                                <div className="flex items-center gap-1.5">
+                                  {state.status === "checking" ? (
+                                    <>
+                                      <div className="w-2 h-2 border border-zinc-800 border-t-white rounded-full animate-spin shrink-0" />
+                                      <span className="text-[8px] text-zinc-500 font-mono uppercase">Pinging...</span>
+                                    </>
+                                  ) : state.status === "online" ? (
+                                    <>
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                                      <span className="text-[8px] text-emerald-400 font-mono font-bold uppercase">Online</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                                      <span className="text-[8px] text-rose-455 font-mono font-bold uppercase">Offline</span>
+                                    </>
+                                  )}
+                                </div>
+
+                                {state.status === "online" && state.latency && (
+                                  <span className="text-[8px] font-mono text-zinc-500 bg-zinc-950 border border-zinc-900 px-2 py-0.5 rounded-md">
+                                    Latency: {state.latency}ms
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {workspaceTab === "activity" && (
+              <div className="space-y-6 animate-fade-in text-left">
+                <div>
+                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest mb-1">Team Activity Timeline</h3>
+                  <p className="text-[10px] text-zinc-500 font-mono">CHRONOLOGICAL EVENT HISTORY RECORDED ACROSS ALL COLLABORATORS AND CONNECTED SERVICES.</p>
+                </div>
+
+                {(() => {
+                  const timeline = getActivityTimeline();
+                  if (timeline.length === 0) {
+                    return (
+                      <div className="card card-static p-12 text-center flex flex-col items-center justify-center border border-zinc-800 bg-zinc-950/40 rounded-2xl max-w-xl mx-auto shadow-xl">
+                        <span className="text-2xl mb-2">⏳</span>
+                        <h4 className="text-sm font-semibold text-white mb-1">No Activity Logged Yet</h4>
+                        <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                          Once tasks are created, resources added, brainstorm files saved, or code commits pushed, they will show up in this chronological timeline.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="relative border-l border-zinc-850 ml-4 pl-6 space-y-6">
+                      {timeline.map((event) => {
+                        const config = {
+                          commit: { icon: "💻", bg: "bg-emerald-500/10 text-emerald-450 border-emerald-500/20" },
+                          task: { icon: "📋", bg: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+                          resource: { icon: "🔗", bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+                          brainstorm: { icon: "🧠", bg: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
+                        }[event.type] || { icon: "🔔", bg: "bg-zinc-800 text-zinc-400 border-zinc-700" };
+
+                        const formattedTime = new Date(event.timestamp).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+
+                        return (
+                          <div key={event.id} className="relative group">
+                            <span className="absolute -left-[31px] top-0.5 flex items-center justify-center w-5 h-5 rounded-full bg-zinc-950 border border-zinc-800 text-[10px] shadow-sm z-10 shrink-0">
+                              {config.icon}
+                            </span>
+
+                            <div className="card card-static p-4 hover:border-zinc-800/80 transition-colors bg-zinc-900/40 border border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-[9px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded border ${config.bg}`}>
+                                    {event.title}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-500 font-mono">{formattedTime}</span>
+                                </div>
+                                <p className="text-xs text-zinc-300 font-medium leading-relaxed">{event.description}</p>
+                              </div>
+
+                              {event.user && (
+                                <div className="flex items-center gap-2 shrink-0 bg-zinc-950/40 border border-zinc-900/60 rounded px-2.5 py-1.5 self-start sm:self-auto">
+                                  {event.user.avatarUrl ? (
+                                    <img
+                                      src={event.user.avatarUrl}
+                                      alt={event.user.name}
+                                      className="w-4 h-4 rounded-full object-cover border border-zinc-800"
+                                    />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full bg-zinc-855 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-[8px]">
+                                      {event.user.name.charAt(0)}
+                                    </div>
+                                  )}
+                                  <span className="text-[10px] text-zinc-400 font-semibold">{event.user.name.split(" ")[0]}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -2443,6 +4263,132 @@ export default function TeamDetailsView({
         </div>
       )}
 
+      {selectedTask && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="card card-static p-6 w-full max-w-lg flex flex-col max-h-[85vh] bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in text-left">
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
+              <div>
+                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase mb-1.5 inline-block ${
+                  selectedTask.priority === "high"
+                    ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                    : selectedTask.priority === "medium"
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                      : "bg-zinc-800 border-zinc-700 text-zinc-400"
+                }`}>
+                  {selectedTask.priority} Priority
+                </span>
+                <h2 className="text-sm font-semibold text-white leading-snug">{selectedTask.title}</h2>
+              </div>
+              <button 
+                onClick={() => setSelectedTask(null)}
+                className="text-zinc-500 hover:text-white transition-colors p-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Task Meta details */}
+            <div className="grid grid-cols-2 gap-4 mb-4 text-xs bg-zinc-950/40 border border-zinc-900 rounded-lg p-3">
+              <div>
+                <span className="text-zinc-500 block mb-1">Assignee</span>
+                {(() => {
+                  const assignee = members.find((m) => m.profiles.id === selectedTask.assignee_id);
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      {assignee ? (
+                        <>
+                          {assignee.profiles.avatar_url ? (
+                            <img src={assignee.profiles.avatar_url} alt={assignee.profiles.full_name} className="w-4 h-4 rounded-full object-cover border border-zinc-800" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center font-bold text-zinc-400 text-[8px]">{assignee.profiles.full_name.charAt(0)}</div>
+                          )}
+                          <span className="text-zinc-300 font-semibold">{assignee.profiles.full_name}</span>
+                        </>
+                      ) : (
+                        <span className="text-zinc-600 italic">Unassigned</span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div>
+                <span className="text-zinc-500 block mb-1">Due Date</span>
+                {selectedTask.due_date ? (
+                  <span className="text-zinc-300 font-semibold font-mono">{new Date(selectedTask.due_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+                ) : (
+                  <span className="text-zinc-600 italic">No deadline set</span>
+                )}
+              </div>
+            </div>
+
+            {selectedTask.description && (
+              <div className="mb-4">
+                <span className="text-zinc-500 text-[10px] font-mono uppercase block mb-1">Description</span>
+                <p className="text-xs text-zinc-300 bg-zinc-950/20 border border-zinc-900/60 p-3 rounded-lg leading-relaxed break-words">{selectedTask.description}</p>
+              </div>
+            )}
+
+            {/* Comments thread */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <span className="text-zinc-500 text-[10px] font-mono uppercase block mb-2">Discussion Thread</span>
+              
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
+                {loadingComments ? (
+                  <div className="text-center py-6">
+                    <div className="w-4 h-4 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto" />
+                  </div>
+                ) : taskComments.length === 0 ? (
+                  <p className="text-xs text-zinc-500 italic text-center py-6">No comments posted yet. Start the conversation!</p>
+                ) : (
+                  taskComments.map((comment) => {
+                    const commenter = members.find((m) => m.profiles.id === comment.user_id)?.profiles;
+                    const date = new Date(comment.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <div key={comment.id} className="flex gap-2.5 items-start">
+                        {commenter?.avatar_url ? (
+                          <img src={commenter.avatar_url} alt={commenter.full_name} className="w-5.5 h-5.5 rounded object-cover border border-zinc-800 mt-0.5" />
+                        ) : (
+                          <div className="w-5.5 h-5.5 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-500 text-[9px] mt-0.5">{commenter?.full_name?.charAt(0) || "U"}</div>
+                        )}
+                        <div className="flex-1 bg-zinc-900/30 border border-zinc-900/80 rounded-lg p-2.5">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-white">{commenter?.full_name || "Teammate"}</span>
+                            <span className="text-[8px] text-zinc-500 font-mono">{date}</span>
+                          </div>
+                          <p className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed">{comment.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Comment submission form */}
+              <form onSubmit={handleAddComment} className="flex gap-2 pt-3 border-t border-zinc-900 mt-auto">
+                <input
+                  type="text"
+                  value={newTaskComment}
+                  onChange={(e) => setNewTaskComment(e.target.value)}
+                  placeholder="Post comment..."
+                  disabled={submittingComment}
+                  className="input text-xs flex-1 bg-zinc-950 border-zinc-900 focus:border-zinc-800 py-1.5 px-3"
+                />
+                <button
+                  type="submit"
+                  disabled={submittingComment || !newTaskComment.trim()}
+                  className="btn btn-primary text-xs py-1.5 px-4 disabled:opacity-50"
+                >
+                  Post
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Task Modal */}
       {showAddTaskModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
@@ -2515,6 +4461,16 @@ export default function TeamDetailsView({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5 mt-3 text-left">
+                <label className="text-xs font-medium text-zinc-300">Due Date (Optional)</label>
+                <input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">

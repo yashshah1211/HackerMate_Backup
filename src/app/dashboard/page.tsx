@@ -549,9 +549,8 @@ function DashboardContent() {
           <p>Here's what's happening in your network.</p>
         </div>
 
-        {/* Relocated and redesigned Profile Completeness Panel */}
-        {profileCompleteness.percent < 100 ? (
-          <div className="relative group bg-gradient-to-r from-violet-950/20 via-zinc-900/50 to-indigo-950/20 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.15] shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 transition-all duration-300 flex-1 max-w-xl mx-4 cursor-pointer">
+        {/* Relocated and redesigned Profile Completeness Panel */}        {profileCompleteness.percent < 100 ? (
+          <div className="profile-strength-card group">
             {/* Circle Progress Indicator */}
             <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90">
@@ -566,8 +565,8 @@ function DashboardContent() {
                 />
               </svg>
               <span className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xs font-mono font-bold text-white leading-none">{profileCompleteness.percent}%</span>
-                <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-mono mt-0.5">Strength</span>
+                <span className="circle-progress-percent text-xs font-mono font-bold leading-none">{profileCompleteness.percent}%</span>
+                <span className="circle-progress-label text-[7px] uppercase tracking-widest font-mono mt-0.5">Strength</span>
               </span>
             </div>
             
@@ -575,11 +574,11 @@ function DashboardContent() {
             <div className="flex-1 min-w-0 pr-2 text-left">
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
-                <p className="text-[11px] font-bold text-zinc-200 tracking-wide uppercase font-mono">Profile Strength</p>
+                <p className="status-title">Profile Strength</p>
               </div>
               <div className="mt-1 flex flex-wrap gap-1 max-h-[38px] overflow-hidden">
                 {profileCompleteness.pendingTasks.slice(0, 2).map((task, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1 text-[10px] text-zinc-400 bg-white/[0.03] border border-white/[0.05] px-2 py-0.5 rounded-md truncate max-w-[200px]">
+                  <span key={idx} className="status-task-pill inline-flex items-center gap-1 truncate max-w-[200px]">
                     <span className="w-1 h-1 rounded-full bg-zinc-600"></span>
                     {task}
                   </span>
@@ -627,10 +626,10 @@ function DashboardContent() {
         ) : (
           <div 
             onClick={() => router.push("/developers")}
-            className="relative group bg-gradient-to-r from-emerald-950/20 via-zinc-900/50 to-teal-950/20 backdrop-blur-md border border-emerald-500/20 hover:border-emerald-500/40 shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 transition-all duration-300 flex-1 max-w-xl mx-4 cursor-pointer overflow-hidden"
+            className="hacker-status-card group"
           >
             {/* Glowing grid background effect */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+            <div className="hacker-status-grid" />
 
             {/* Premium Status Emblem */}
             <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner shadow-emerald-500/10">
@@ -643,18 +642,18 @@ function DashboardContent() {
             {/* Content */}
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 text-[8px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded uppercase font-mono tracking-widest leading-none">
+                <span className="status-badge-max">
                   Max Level
                 </span>
-                <p className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider font-mono">Hacker Status: Verified All-Star</p>
+                <p className="status-title">Hacker Status: Verified All-Star</p>
               </div>
-              <p className="text-xs text-zinc-400 mt-1">
+              <p className="status-desc">
                 Profile 100% complete. Match visibility scores are fully maximized!
               </p>
             </div>
             
             {/* Find Teammates Shortcut button */}
-            <div className="text-[10px] font-bold uppercase tracking-wider font-mono text-[#B4F461] hover:text-[#c4f87c] flex items-center gap-1 whitespace-nowrap self-stretch md:self-center justify-center bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] px-3.5 py-1.5 rounded-lg transition-colors">
+            <div className="find-teammates-btn">
               Find Teammates
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />

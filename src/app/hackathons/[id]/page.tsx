@@ -123,7 +123,7 @@ function HackathonDetailContent() {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string }[]>([]);
+  const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string; active_hackathon?: { id: string; name: string; end_date: string | null } | null }[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [buildersList, setBuildersList] = useState<BuilderWithMatch[]>([]);
@@ -291,16 +291,49 @@ function HackathonDetailContent() {
           .select("id, name, owner_id")
           .eq("owner_id", user.id);
 
-        const { data: linkedRelations } = await supabase
-          .from("team_hackathons")
-          .select("team_id")
-          .eq("hackathon_id", hackathonId);
+        const teamIds = (ownedTeams || []).map((t) => t.id);
+        const activeHackathonsByTeam: Record<string, { id: string; name: string; end_date: string | null }> = {};
 
-        const linkedTeamIds = new Set(linkedRelations?.map((r) => r.team_id) || []);
-        const enrichedOwnedTeams = (ownedTeams || []).map((t) => ({
-          ...t,
-          hackathon_id: linkedTeamIds.has(t.id) ? hackathonId : null,
-        }));
+        if (teamIds.length > 0) {
+          const { data: allRelations } = await supabase
+            .from("team_hackathons")
+            .select(`
+              team_id,
+              hackathon_id,
+              hackathons (
+                id,
+                name,
+                end_date
+              )
+            `)
+            .in("team_id", teamIds);
+
+          if (allRelations) {
+            const now = new Date();
+            allRelations.forEach((rel: any) => {
+              const h = rel.hackathons;
+              if (h) {
+                const hasEnded = h.end_date ? new Date(h.end_date) < now : false;
+                if (!hasEnded) {
+                  activeHackathonsByTeam[rel.team_id] = {
+                    id: h.id,
+                    name: h.name,
+                    end_date: h.end_date,
+                  };
+                }
+              }
+            });
+          }
+        }
+
+        const enrichedOwnedTeams = (ownedTeams || []).map((t) => {
+          const activeH = activeHackathonsByTeam[t.id];
+          return {
+            ...t,
+            active_hackathon: activeH || null,
+            hackathon_id: activeH && activeH.id === hackathonId ? hackathonId : null,
+          };
+        });
 
         setUserOwnedTeams(enrichedOwnedTeams);
 
@@ -492,6 +525,15 @@ function HackathonDetailContent() {
     if (!currentUserId || !hackathon) return;
     setInviteLoading(true);
     try {
+      if (selectedTeam) {
+        const teamObj = userOwnedTeams.find((t) => t.id === selectedTeam);
+        if (teamObj?.active_hackathon) {
+          showToast(`This team is already registered for an active hackathon: ${teamObj.active_hackathon.name}.`, "error");
+          setInviteLoading(false);
+          return;
+        }
+      }
+
       // 1. Insert native registration row
       const { error: regError } = await supabase
         .from("hackathon_registrations")
@@ -537,6 +579,15 @@ function HackathonDetailContent() {
     if (!currentUserId || !hackathon) return;
     setInviteLoading(true);
     try {
+      if (selectedTeam) {
+        const teamObj = userOwnedTeams.find((t) => t.id === selectedTeam);
+        if (teamObj?.active_hackathon) {
+          showToast(`This team is already registered for an active hackathon: ${teamObj.active_hackathon.name}.`, "error");
+          setInviteLoading(false);
+          return;
+        }
+      }
+
       // 1. Insert registration row
       const { error: regError } = await supabase
         .from("hackathon_registrations")
@@ -577,6 +628,13 @@ function HackathonDetailContent() {
     setInviteLoading(true);
 
     try {
+      const teamObj = userOwnedTeams.find((t) => t.id === selectedTeam);
+      if (teamObj?.active_hackathon) {
+        showToast(`This team is already registered for an active hackathon: ${teamObj.active_hackathon.name}.`, "error");
+        setInviteLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("team_hackathons")
         .insert({ team_id: selectedTeam, hackathon_id: hackathon.id });
@@ -2012,10 +2070,14 @@ function HackathonDetailContent() {
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
-                .filter((t) => t.hackathon_id !== hackathon.id)
+                .filter((t) => !t.active_hackathon || t.active_hackathon.id !== hackathon.id)
                 .map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name} {team.hackathon_id ? " (Currently linked to another hackathon)" : ""}
+                  <option 
+                    key={team.id} 
+                    value={team.id} 
+                    disabled={!!team.active_hackathon}
+                  >
+                    {team.name} {team.active_hackathon ? ` (Active: ${team.active_hackathon.name})` : ""}
                   </option>
                 ))}
             </select>
@@ -2060,10 +2122,14 @@ function HackathonDetailContent() {
             >
               <option value="">Choose your team</option>
               {userOwnedTeams
-                .filter((t) => t.hackathon_id !== hackathon.id)
+                .filter((t) => !t.active_hackathon || t.active_hackathon.id !== hackathon.id)
                 .map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name} {team.hackathon_id ? " (Currently linked to another hackathon)" : ""}
+                  <option 
+                    key={team.id} 
+                    value={team.id} 
+                    disabled={!!team.active_hackathon}
+                  >
+                    {team.name} {team.active_hackathon ? ` (Active: ${team.active_hackathon.name})` : ""}
                   </option>
                 ))}
             </select>
@@ -2108,10 +2174,14 @@ function HackathonDetailContent() {
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
-                .filter((t) => t.hackathon_id !== hackathon.id)
+                .filter((t) => !t.active_hackathon || t.active_hackathon.id !== hackathon.id)
                 .map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name} {team.hackathon_id ? " (Currently linked to another hackathon)" : ""}
+                  <option 
+                    key={team.id} 
+                    value={team.id} 
+                    disabled={!!team.active_hackathon}
+                  >
+                    {team.name} {team.active_hackathon ? ` (Active: ${team.active_hackathon.name})` : ""}
                   </option>
                 ))}
             </select>

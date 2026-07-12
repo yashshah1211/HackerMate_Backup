@@ -18,6 +18,7 @@ type Team = {
   skills: string[] | null;
   roles_needed: string[] | null;
   is_recruiting?: boolean;
+  github_repo_url?: string | null;
 };
 
 type Member = {
@@ -150,7 +151,8 @@ function TeamDetailsContent() {
           id,
           full_name,
           email,
-          avatar_url
+          avatar_url,
+          skills
         )
       `)
       .eq("team_id", teamId);
@@ -173,6 +175,7 @@ function TeamDetailsContent() {
         hackathons (
           id,
           name,
+          description,
           start_date,
           end_date
         )
