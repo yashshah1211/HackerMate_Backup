@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import Link from "next/link";
+import Footer from "@/components/Footer";
 
 type Profile = {
   id: string;
@@ -641,12 +643,6 @@ function DashboardContent() {
             
             {/* Content */}
             <div className="flex-1 min-w-0 text-left">
-              <div className="flex items-center gap-2">
-                <span className="status-badge-max">
-                  Max Level
-                </span>
-                <p className="status-title">Hacker Status: Verified All-Star</p>
-              </div>
               <p className="status-desc">
                 Profile 100% complete. Match visibility scores are fully maximized!
               </p>
@@ -957,9 +953,11 @@ function DashboardContent() {
             )}
           </div>
         </div>
-    </main>
-  );
-}
+
+        <Footer />
+      </main>
+    );
+  }
 
 export default function DashboardPage() {
   return (

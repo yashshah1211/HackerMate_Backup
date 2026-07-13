@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import Footer from "@/components/Footer";
 
 export default function Home() {
   const router = useRouter();
@@ -249,22 +250,32 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="w-full border-t border-zinc-800/60">
-        <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <div className="w-6 h-6 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-[10px] text-white">
-              H
-            </div>
-            <span>HackerMate</span>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-zinc-600">
-            <Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link>
-            <span>•</span>
-            <p>Built for hackathon builders.</p>
+      {/* Get Started CTA Banner */}
+      <div className="w-full border-t border-zinc-900 bg-[radial-gradient(ellipse_at_bottom,rgba(180,244,97,0.04),transparent_70%)] relative overflow-hidden py-20 px-6">
+        <div className="max-w-4xl mx-auto text-center relative z-10 space-y-6">
+          <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Ready to build something great?
+          </h2>
+          <p className="text-zinc-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
+            Join compatible builders, form teams, and coordinate your hackathon projects all in one place.
+          </p>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xs mx-auto">
+            <button
+              onClick={signInWithGoogle}
+              className="w-full group inline-flex items-center justify-center gap-2 btn btn-md btn-primary cursor-pointer"
+            >
+              <span>Get Started Now</span>
+              <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </button>
           </div>
         </div>
-      </footer>
+        <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-[500px] h-[150px] bg-[#B4F461]/5 rounded-full blur-[100px] pointer-events-none" />
+      </div>
+
+      {/* Footer */}
+      <Footer />
     </main>
   );
 }

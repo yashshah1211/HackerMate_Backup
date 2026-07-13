@@ -1868,3 +1868,9 @@ html.light .content-area {
 .dashboard-redesign .circle-progress-label {
   color: var(--text-faint) !important;
 }
+
+/* Custom footer light-mode overrides */
+.light .bg-footer-custom {
+  background-color: var(--surface-2) !important;
+  border-color: var(--card-border) !important;
+}
