@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 import Logo from "@/components/Logo";
 
 export default function Home() {
@@ -257,7 +258,11 @@ export default function Home() {
             </div>
             <span>HackerMate</span>
           </div>
-          <p className="text-xs text-zinc-600">Built for hackathon builders.</p>
+          <div className="flex items-center gap-4 text-xs text-zinc-600">
+            <Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link>
+            <span>•</span>
+            <p>Built for hackathon builders.</p>
+          </div>
         </div>
       </footer>
     </main>
