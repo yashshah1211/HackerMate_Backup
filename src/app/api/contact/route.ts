@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Determine Recipient and Sender Details
     const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate Contact <onboarding@resend.dev>";
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
     
     // Recipient email configuration priority
     let recipientEmail = process.env.ADMIN_CONTACT_EMAIL || 
@@ -217,8 +217,15 @@ export async function POST(req: NextRequest) {
 
     if (isSandboxMode) {
       const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
-      if (sandboxEmail) {
-        console.log(`[Resend Sandbox Override] Redirecting contact notification from admin to sandbox recipient ${sandboxEmail}`);
+      if (!sandboxEmail) {
+        console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not configured in .env.local.");
+        return NextResponse.json(
+          { error: "Email service is not configured for sandbox mode. Please set RESEND_SANDBOX_RECIPIENT in .env.local to your registered Resend email address." },
+          { status: 500 }
+        );
+      }
+      if (finalRecipientEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
+        console.log(`[Resend Sandbox Override] Redirecting contact notification from ${finalRecipientEmail} to sandbox recipient ${sandboxEmail}`);
         finalSubject = `[Sandbox Admin: ${recipientEmail}] ${emailSubject}`;
         finalRecipientEmail = sandboxEmail;
       }
