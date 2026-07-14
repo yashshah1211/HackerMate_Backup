@@ -49,7 +49,7 @@ export default function Home() {
 
   async function signInWithGoogle() {
     const requestedPath = new URLSearchParams(window.location.search).get("next");
-    const callbackUrl = new URL("/", window.location.origin);
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
     if (requestedPath?.startsWith("/") && !requestedPath.startsWith("//")) {
       callbackUrl.searchParams.set("next", requestedPath);
     }
@@ -62,7 +62,7 @@ export default function Home() {
 
   async function signInWithGithub() {
     const requestedPath = new URLSearchParams(window.location.search).get("next");
-    const callbackUrl = new URL("/", window.location.origin);
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
     if (requestedPath?.startsWith("/") && !requestedPath.startsWith("//")) {
       callbackUrl.searchParams.set("next", requestedPath);
     }
