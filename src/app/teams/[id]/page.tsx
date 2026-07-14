@@ -225,6 +225,24 @@ function TeamDetailsContent() {
     });
   }
 
+  async function leaveTeam(memberId: string) {
+    setLoading(true);
+    const { error } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("id", memberId);
+
+    if (error) {
+      console.error(error);
+      showToast(error.message, "error");
+      setLoading(false);
+      return;
+    }
+
+    showToast("You have left the team", "success");
+    router.push("/teams");
+  }
+
   async function disbandTeam() {
     setLoading(true);
     const { error } = await supabase
@@ -288,9 +306,7 @@ function TeamDetailsContent() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (membership) {
-      setIsMember(true);
-    }
+    setIsMember(!!membership);
   }
 
   async function requestToJoin() {
@@ -423,6 +439,7 @@ function TeamDetailsContent() {
         requestToJoin={requestToJoin}
         removeMember={removeMember}
         disbandTeam={disbandTeam}
+        leaveTeam={leaveTeam}
         toggleRecruiting={toggleRecruiting}
         matchScore={matchScore}
         matchedSkills={matchedSkills}

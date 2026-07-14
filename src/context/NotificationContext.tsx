@@ -54,15 +54,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const handleConfirm = () => {
     if (dialog) {
-      dialog.onConfirm();
+      const currentDialog = dialog;
       setDialog(null);
+      currentDialog.onConfirm();
     }
   };
 
   const handleCancel = () => {
     if (dialog) {
-      if (dialog.onCancel) dialog.onCancel();
+      const currentDialog = dialog;
       setDialog(null);
+      if (currentDialog.onCancel) currentDialog.onCancel();
     }
   };
 

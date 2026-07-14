@@ -69,6 +69,7 @@ type Props = {
   requestToJoin: () => void;
   removeMember: (memberId: string) => void;
   disbandTeam?: () => void;
+  leaveTeam?: (memberId: string) => void;
   toggleRecruiting?: () => void;
 
   matchScore?: number;
@@ -189,6 +190,7 @@ export default function TeamDetailsView({
   requestToJoin,
   removeMember,
   disbandTeam,
+  leaveTeam,
   toggleRecruiting,
   matchScore,
   matchedSkills = [],
@@ -1816,7 +1818,11 @@ export default function TeamDetailsView({
         confirmText: "Leave",
         cancelText: "Cancel",
         onConfirm: () => {
-          removeMember(memberId);
+          if (leaveTeam) {
+            leaveTeam(memberId);
+          } else {
+            removeMember(memberId);
+          }
         },
       });
     }
