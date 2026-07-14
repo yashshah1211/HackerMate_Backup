@@ -1592,18 +1592,24 @@ function HackathonDetailContent() {
                   <h4 className="text-xs font-semibold text-white">List your profile as Looking for Teams</h4>
                   <p className="text-[10px] text-zinc-500 mt-1">Let other registered teams know you are looking to join a team for this hackathon.</p>
                 </div>
-                <button
-                  onClick={handleToggleLookingForTeam}
-                  className={`btn btn-sm shrink-0 ${
-                    registrations.find(r => r.user_id === currentUserId)?.looking_for_team
-                      ? "btn-secondary"
-                      : "btn-primary"
-                  }`}
-                >
-                  {registrations.find(r => r.user_id === currentUserId)?.looking_for_team
-                    ? "Stop Listing Profile"
-                    : "🔍 List My Profile"}
-                </button>
+                {!isRegistered ? (
+                  <div className="text-[10px] text-zinc-400 font-medium bg-zinc-900/50 border border-zinc-800 rounded px-3 py-1.5 shrink-0">
+                    Register first to list your profile
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleToggleLookingForTeam}
+                    className={`btn btn-sm shrink-0 ${
+                      registrations.find(r => r.user_id === currentUserId)?.looking_for_team
+                        ? "btn-secondary"
+                        : "btn-primary"
+                    }`}
+                  >
+                    {registrations.find(r => r.user_id === currentUserId)?.looking_for_team
+                      ? "Stop Listing Profile"
+                      : "🔍 List My Profile"}
+                  </button>
+                )}
               </div>
             )}
 
