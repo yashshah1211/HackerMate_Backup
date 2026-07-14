@@ -470,18 +470,27 @@ function HackathonDetailContent() {
 
   const handleToggleLookingForTeam = async () => {
     if (!currentUserId || !hackathonId) return;
+
+    if (!isRegistered) {
+      showToast("Please register for the hackathon first before listing your profile.", "error");
+      return;
+    }
+
     const currentStatus = registrations.find(r => r.user_id === currentUserId)?.looking_for_team || false;
     const newStatus = !currentStatus;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("hackathon_registrations")
         .update({ looking_for_team: newStatus })
         .eq("hackathon_id", hackathonId)
-        .eq("user_id", currentUserId);
+        .eq("user_id", currentUserId)
+        .select();
 
       if (error) {
         showToast(error.message, "error");
+      } else if (!data || data.length === 0) {
+        showToast("Failed to update status. Registration not found.", "error");
       } else {
         showToast(newStatus ? "Profile listed under 'Looking for Teams'!" : "Stopped listing profile.", "success");
         loadData(); // Refresh list
