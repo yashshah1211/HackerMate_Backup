@@ -548,7 +548,7 @@ function DashboardContent() {
       <div className="header-row">
         <div className="greet">
           <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
-          <p>Here's what's happening in your network.</p>
+          <p>Here&apos;s what&apos;s happening in your network.</p>
         </div>
 
         {/* Relocated and redesigned Profile Completeness Panel */}        {profileCompleteness.percent < 100 ? (
@@ -660,7 +660,7 @@ function DashboardContent() {
             <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2 -translate-x-1/2 md:translate-x-0 w-64 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
               <p className="text-xs text-zinc-200 font-semibold">Your Profile is 100% Complete!</p>
               <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed">
-                You're ready to build. Your skills match maximum compatibility for team invitations and spotlights.
+                You&apos;re ready to build. Your skills match maximum compatibility for team invitations and spotlights.
               </p>
             </div>
           </div>
@@ -680,7 +680,10 @@ function DashboardContent() {
           <div className="stat-value">{stats.builders} <span className="stat-trend">active</span></div>
           <div className="stat-sub">Grow this by connecting on <b className="cursor-pointer hover:underline" onClick={() => router.push("/developers")}>Builders</b></div>
         </div>
-        <div className="stat-card c2">
+        <div 
+          className="stat-card c2 cursor-pointer hover:bg-white/[0.02]"
+          onClick={() => router.push("/teams")}
+        >
           <div className="stat-top">
             <div className="stat-label">Teams active</div>
             <div className="stat-icon">

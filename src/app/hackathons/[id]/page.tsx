@@ -32,6 +32,9 @@ type Team = {
   max_members: number;
   is_recruiting?: boolean;
   owner_id?: string;
+  team_members?: { id: string }[];
+  team_hackathons?: { hackathon_id: string }[];
+  hackathon_id?: string | null;
 };
 
 type Registration = {
@@ -106,6 +109,15 @@ function htmlToPlainText(html: string) {
     .replace(/&#39;/gi, "'")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function isTeamFullAndRegistered(team: Team) {
+  const currentMembersCount = team.team_members?.length || 0;
+  const isFull = currentMembersCount >= team.max_members;
+  const isRegisteredForHackathon =
+    (team.team_hackathons && team.team_hackathons.length > 0) ||
+    !!team.hackathon_id;
+  return isFull && isRegisteredForHackathon;
 }
 
 function HackathonDetailContent() {
@@ -359,7 +371,13 @@ function HackathonDetailContent() {
             max_members,
             is_recruiting,
             owner_id,
-            created_at
+            created_at,
+            team_members (
+              id
+            ),
+            team_hackathons (
+              hackathon_id
+            )
           )
         `)
         .eq("hackathon_id", hackathonId);
@@ -1388,7 +1406,7 @@ function HackathonDetailContent() {
                 : "border-transparent text-zinc-500 hover:text-white"
             }`}
           >
-            🎯 Looking for Builders ({teams.filter((t) => t.is_recruiting === true).length})
+            🎯 Looking for Builders ({teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t)).length})
           </button>
 
           <button
@@ -1709,7 +1727,7 @@ function HackathonDetailContent() {
         {/* Tab CONTENT 5: Looking for Builders */}
         {activeTab === "looking_for_builders" && (
           <>
-            {teams.filter(t => t.owner_id === currentUserId).map(myTeam => (
+            {teams.filter(t => t.owner_id === currentUserId && !isTeamFullAndRegistered(t)).map(myTeam => (
               <div key={myTeam.id} className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-white">Manage Recruitment for &ldquo;{myTeam.name}&rdquo;</h4>
@@ -1730,14 +1748,14 @@ function HackathonDetailContent() {
               </div>
             ))}
 
-            {teams.filter((t) => t.is_recruiting === true).length === 0 ? (
+            {teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t)).length === 0 ? (
               <div className="card card-static p-12 text-center">
                 <p className="text-xs text-zinc-500">No teams are currently recruiting builders. Check back later!</p>
               </div>
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {teams
-                  .filter((team) => team.is_recruiting === true)
+                  .filter((team) => team.is_recruiting === true && !isTeamFullAndRegistered(team))
                   .map((team) => {
                     const matchedTeamSkills = team.skills?.filter((s) => userSkills.includes(s)) || [];
                     const teamMatchScore = team.skills?.length
