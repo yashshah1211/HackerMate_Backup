@@ -1,0 +1,33 @@
+name: Daily Incremental Database Report
+
+on:
+  schedule:
+    # Trigger daily at 9:00 AM IST (3:30 AM UTC)
+    - cron: '30 3 * * *'
+  workflow_dispatch: # Allows manual trigger from the GitHub web interface
+
+jobs:
+  build-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests reportlab
+
+    - name: Run Report Generator
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        RESEND_SANDBOX_RECIPIENT: ${{ secrets.RESEND_SANDBOX_RECIPIENT }}
+      run: python generate_pdf.py
