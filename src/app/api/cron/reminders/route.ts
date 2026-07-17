@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
     console.log(`Processing ${reminders.length} deadline reminders...`);
 
     const resendApiKey = process.env.RESEND_API_KEY;
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "http";
+    const requestBaseUrl = host ? `${proto}://${host}` : null;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestBaseUrl || "http://localhost:3000";
     const successfullySentIds: string[] = [];
     const failedIds: string[] = [];
 

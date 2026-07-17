@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
     const subject = escapeHtml(rawSubject);
     const title = "New Notification";
     
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "http";
+    const requestBaseUrl = host ? `${proto}://${host}` : null;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestBaseUrl || "http://localhost:3000";
     const path = link ? (link.startsWith("/") ? link : `/${link}`) : "/notifications";
     const actionUrl = escapeHtml(`${baseUrl}${path}`);
     const actionLabel = "View Notification";

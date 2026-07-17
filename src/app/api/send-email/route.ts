@@ -96,7 +96,10 @@ export async function POST(req: NextRequest) {
     let actionLabel = "";
     let actionUrl = "";
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "http";
+    const requestBaseUrl = host ? `${proto}://${host}` : null;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestBaseUrl || "http://localhost:3000";
 
     if (type === "connection_request") {
       subject = `[HackerMate] New Connection Request from ${sender.full_name}`;
