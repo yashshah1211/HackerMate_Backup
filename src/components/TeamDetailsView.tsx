@@ -2694,10 +2694,10 @@ export default function TeamDetailsView({
               )}
             </div>
 
-            <div className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-800">
+            <div className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-800 overflow-x-auto whitespace-nowrap scrollbar-none max-w-full">
               <button
                 onClick={() => setWorkspaceTab("chat")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "chat"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2707,7 +2707,7 @@ export default function TeamDetailsView({
               </button>
               <button
                 onClick={() => setWorkspaceTab("tasks")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "tasks"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2717,7 +2717,7 @@ export default function TeamDetailsView({
               </button>
               <button
                 onClick={() => setWorkspaceTab("brainstorm")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "brainstorm"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2727,7 +2727,7 @@ export default function TeamDetailsView({
               </button>
               <button
                 onClick={() => setWorkspaceTab("resources")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "resources"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2737,7 +2737,7 @@ export default function TeamDetailsView({
               </button>
               <button
                 onClick={() => setWorkspaceTab("submission")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "submission"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2747,7 +2747,7 @@ export default function TeamDetailsView({
               </button>
                <button
                 onClick={() => setWorkspaceTab("github")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "github"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2757,7 +2757,7 @@ export default function TeamDetailsView({
               </button>
               <button
                 onClick={() => setWorkspaceTab("deployments")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "deployments"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
@@ -2767,7 +2767,7 @@ export default function TeamDetailsView({
               </button>
               <button
                 onClick={() => setWorkspaceTab("activity")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                   workspaceTab === "activity"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"

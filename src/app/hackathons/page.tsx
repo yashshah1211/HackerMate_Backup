@@ -344,10 +344,10 @@ function HackathonsContent() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-900 mb-6 animate-fade-in-up stagger-2">
+      <div className="flex border-b border-zinc-900 mb-6 animate-fade-in-up stagger-2 overflow-x-auto whitespace-nowrap max-w-full scrollbar-none">
         <button
           onClick={() => setActiveTab("recommended")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors flex items-center gap-1.5 shrink-0 ${
             activeTab === "recommended"
               ? "border-violet-500 text-violet-400"
               : "border-transparent text-zinc-500 hover:text-white"
@@ -357,7 +357,7 @@ function HackathonsContent() {
         </button>
         <button
           onClick={() => setActiveTab("upcoming")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors shrink-0 ${
             activeTab === "upcoming"
               ? "border-white text-white"
               : "border-transparent text-zinc-500 hover:text-white"
@@ -367,7 +367,7 @@ function HackathonsContent() {
         </button>
         <button
           onClick={() => setActiveTab("saved")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors shrink-0 ${
             activeTab === "saved"
               ? "border-white text-white"
               : "border-transparent text-zinc-500 hover:text-white"
@@ -377,7 +377,7 @@ function HackathonsContent() {
         </button>
         <button
           onClick={() => setActiveTab("past")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors shrink-0 ${
             activeTab === "past"
               ? "border-white text-white"
               : "border-transparent text-zinc-500 hover:text-white"

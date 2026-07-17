@@ -276,7 +276,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`sidebar-panel fixed inset-y-0 left-0 z-40 w-[248px] flex flex-col border-r border-[var(--border-soft)] bg-[var(--bg)] transition-all duration-300 md:translate-x-0 md:static md:flex-shrink-0 ${showMobileSidebar ? "translate-x-0" : "-translate-x-full"}`}
+        className={`sidebar-panel fixed inset-y-0 left-0 z-40 w-[248px] flex flex-col border-r border-[var(--border-soft)] bg-[var(--bg)] transition-all duration-300 md:translate-x-0 ${showMobileSidebar ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Logo */}
         <div className="logo px-5 py-5 flex items-center justify-between shrink-0">
@@ -388,7 +388,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <div className="content-area flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="content-area flex-1 flex flex-col min-w-0 overflow-hidden relative md:pl-[248px]">
         <header className="topbar-panel h-14 border-b border-[var(--card-border)] flex items-center justify-between px-6 bg-[var(--background)]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-4">
             <button className="md:hidden text-zinc-500 hover:text-white" onClick={() => setShowMobileSidebar(true)}>

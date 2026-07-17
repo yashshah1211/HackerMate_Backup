@@ -329,7 +329,7 @@ function MessagesContent() {
 
       <div className="grid lg:grid-cols-[280px_1fr] gap-6 animate-fade-in-up stagger-1">
         {/* Conversation list */}
-        <div className="card card-static p-2 h-fit max-h-[600px] overflow-y-auto">
+        <div className={`card card-static p-2 h-fit max-h-[600px] overflow-y-auto ${activeConversationId ? "hidden lg:block" : "block"}`}>
           {conversations.length === 0 ? (
             <div className="p-4 text-center">
               <p className="text-zinc-500 text-xs leading-relaxed">
@@ -381,9 +381,23 @@ function MessagesContent() {
         </div>
 
         {/* Active thread */}
-        <div>
+        <div className={`${activeConversationId ? "block" : "hidden lg:block"}`}>
           {activeConversationId && activeUser ? (
             <>
+              {/* Back to list button on mobile */}
+              <button
+                onClick={() => {
+                  setActiveConversationId(null);
+                  setActiveUser(null);
+                }}
+                className="lg:hidden mb-4 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors font-mono uppercase tracking-wider cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                Back to Messages
+              </button>
+
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
                   {activeUser.avatar_url ? (

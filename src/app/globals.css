@@ -1199,8 +1199,14 @@ html.light .content-area {
 }
 
 .dashboard-redesign main {
-  flex: 1; padding: 24px 32px 32px; max-width: 1200px;
+  flex: 1; padding: 16px 16px 24px; max-width: 1200px;
   background: var(--bg) !important;
+}
+
+@media (min-width: 768px) {
+  .dashboard-redesign main {
+    padding: 24px 32px 32px;
+  }
 }
 
 .dashboard-redesign .topbar {
@@ -1873,4 +1879,60 @@ html.light .content-area {
 .light .bg-footer-custom {
   background-color: var(--surface-2) !important;
   border-color: var(--card-border) !important;
+}
+
+/* ============================================
+   RESPONSIVE OVERRIDES FOR MOBILE SCREEN SIZES
+   ============================================ */
+
+@media (max-width: 768px) {
+  .dashboard-redesign .header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    text-align: center;
+  }
+  .dashboard-redesign .greet {
+    text-align: center;
+  }
+  .dashboard-redesign .greet h2 {
+    font-size: 20px;
+  }
+  .dashboard-redesign .greet p {
+    font-size: 12px;
+  }
+  .dashboard-redesign .cta-primary {
+    justify-content: center;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .dashboard-redesign .profile-strength-card,
+  .dashboard-redesign .hacker-status-card {
+    margin: 0 !important;
+    max-width: 100% !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-redesign .profile-strength-card,
+  .dashboard-redesign .hacker-status-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    padding: 16px;
+  }
+  .dashboard-redesign .profile-strength-card .flex-1,
+  .dashboard-redesign .hacker-status-card .flex-1 {
+    text-align: center;
+    padding-right: 0 !important;
+  }
+  .dashboard-redesign .profile-strength-card button,
+  .dashboard-redesign .hacker-status-card .find-teammates-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
 }

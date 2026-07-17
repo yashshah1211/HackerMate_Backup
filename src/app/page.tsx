@@ -13,6 +13,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
 
+
+
   useEffect(() => {
     async function checkUser() {
       const {
@@ -150,9 +152,11 @@ export default function Home() {
             </button>
           </div>
 
-          <p className="mt-6 text-xs text-zinc-500">
+          <p className="mt-6 text-xs text-zinc-500 mb-6">
             Free to use. Sign in with Google or GitHub to get started.
           </p>
+
+
         </div>
       </div>
 
