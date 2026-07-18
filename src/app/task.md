@@ -1,5 +1,0 @@
-- [x] Fetch user connections count and teams count inside `loadProfile` in `profile/[id]/page.tsx`
-- [x] Implement layout framework with top decorative background and 2-column split layout
-- [x] Build left column summary (avatar, badges, social tiles, and action buttons)
-- [x] Build right column details (statistics dashboard, bio block, and interactive skills grid)
-- [x] Verify build and test all interactive states (connect, message, invite, block, report)
