@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-interface RateLimitRecord {
-  count: number;
-  resetTime: number;
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const rateLimitMap = new Map<string, RateLimitRecord>();
-
-// Simple periodic cleanup to prevent memory growth
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, record] of rateLimitMap.entries()) {
-    if (now > record.resetTime) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}, 30 * 60 * 1000).unref?.(); // Run every 30 minutes, unref to not block process exit in tests
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+});
 
 function getIp(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -29,47 +23,37 @@ function getIp(req: NextRequest): string {
   return "127.0.0.1";
 }
 
-function checkRateLimit(ip: string): { allowed: boolean; remaining: number; reset: number } {
-  const now = Date.now();
-  const limit = 5;
-  const windowMs = 60 * 60 * 1000; // 1 hour
-
-  const record = rateLimitMap.get(ip);
-
-  if (!record) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
-    return { allowed: true, remaining: limit - 1, reset: now + windowMs };
-  }
-
-  if (now > record.resetTime) {
-    record.count = 1;
-    record.resetTime = now + windowMs;
-    return { allowed: true, remaining: limit - 1, reset: now + windowMs };
-  }
-
-  if (record.count >= limit) {
-    return { allowed: false, remaining: 0, reset: record.resetTime };
-  }
-
-  record.count += 1;
-  return { allowed: true, remaining: limit - record.count, reset: record.resetTime };
-}
-
 export async function POST(req: NextRequest) {
   const ip = getIp(req);
-  const rateLimitResult = checkRateLimit(ip);
+  
+  // Call atomic Supabase rate limiter RPC
+  const { data: rateLimitData, error: rateLimitErr } = await supabaseAdmin.rpc(
+    "check_rate_limit",
+    {
+      p_ip: ip,
+      p_limit: 5,
+      p_window_interval: "1 hour",
+    }
+  );
 
-  if (!rateLimitResult.allowed) {
-    const retryAfterSeconds = Math.max(1, Math.ceil((rateLimitResult.reset - Date.now()) / 1000));
-    return NextResponse.json(
-      { error: `Too many requests. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": retryAfterSeconds.toString(),
-        },
-      }
-    );
+  if (rateLimitErr) {
+    console.error("Database Rate Limiter Error:", rateLimitErr);
+  } else if (rateLimitData && rateLimitData.length > 0) {
+    const { allowed, reset_time } = rateLimitData[0];
+    
+    if (!allowed) {
+      const resetMs = new Date(reset_time).getTime();
+      const retryAfterSeconds = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: `Too many requests. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": retryAfterSeconds.toString(),
+          },
+        }
+      );
+    }
   }
 
   try {
