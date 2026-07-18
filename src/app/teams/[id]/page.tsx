@@ -133,7 +133,7 @@ function TeamDetailsContent() {
         .from("team_invites")
         .select("id, status")
         .eq("team_id", teamId)
-        .eq("user_id", user.id)
+        .eq("invited_user_id", user.id)
         .eq("status", "pending")
         .maybeSingle();
 

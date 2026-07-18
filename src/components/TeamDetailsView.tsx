@@ -2166,7 +2166,36 @@ export default function TeamDetailsView({
             </div>
 
             {!isMember && !isOwner && !teamFull && (
-              team.is_recruiting === false ? (
+              inviteStatus === "pending" ? (
+                <div className="flex flex-col gap-2 w-full">
+                  <button
+                    onClick={handleAcceptInvite}
+                    disabled={inviteActionLoading}
+                    className="btn btn-primary w-full flex items-center justify-center gap-1.5"
+                  >
+                    {inviteActionLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <span>Joining...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        <span>Accept Invite</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleRejectInvite}
+                    disabled={inviteActionLoading}
+                    className="btn btn-secondary w-full text-rose-400 border border-zinc-800"
+                  >
+                    {inviteActionLoading ? "Declining..." : "Decline Invite"}
+                  </button>
+                </div>
+              ) : team.is_recruiting === false ? (
                 <button
                   disabled
                   className="btn bg-zinc-800 text-zinc-500 border border-zinc-800/80 w-full cursor-not-allowed flex items-center justify-center gap-1.5"
