@@ -20,6 +20,7 @@ type Hackathon = {
   tags: string[] | null;
   type: string | null;
   organizer_id: string | null;
+  college?: string | null;
 };
 
 function formatDateRange(start: string | null, end: string | null) {
@@ -505,6 +506,15 @@ function HackathonsContent() {
                     </svg>
                     <span>{h.location || "Location TBA"}</span>
                   </div>
+
+                  {h.college && (
+                    <div className="flex items-center gap-2 text-zinc-500">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 014.887 5.906a50.57 50.57 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
+                      </svg>
+                      <span className="truncate">{h.college}</span>
+                    </div>
+                  )}
 
                   {h.prize_pool && (
                     <div className="flex items-center gap-2 text-zinc-500">

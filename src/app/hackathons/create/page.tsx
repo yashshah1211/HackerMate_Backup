@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useRouter as useAppRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
+import { COLLEGES } from "@/lib/colleges";
 
 export default function CreateHackathonPage() {
   const router = useAppRouter();
@@ -21,6 +22,11 @@ export default function CreateHackathonPage() {
   const [type, setType] = useState("external");
   const [tagsInput, setTagsInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [college, setCollege] = useState("");
+  const [customCollege, setCustomCollege] = useState("");
+  const [collegeSearch, setCollegeSearch] = useState("");
+  const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +67,7 @@ export default function CreateHackathonPage() {
           type,
           tags: tags.length > 0 ? tags : null,
           organizer_id: user.id,
+          college: college === "Other" ? customCollege.trim() || null : college || null,
         })
         .select()
         .single();
@@ -226,6 +233,71 @@ export default function CreateHackathonPage() {
                 required={type === "external"}
               />
             </div>
+          </div>
+
+          {/* College / University (Optional) */}
+          <div>
+            <label className="section-label block mb-1.5">College / University (Optional)</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search or select college..."
+                value={showCollegeDropdown ? collegeSearch : (college || "")}
+                onFocus={() => {
+                  setCollegeSearch("");
+                  setShowCollegeDropdown(true);
+                }}
+                onChange={(e) => {
+                  setCollegeSearch(e.target.value);
+                  setShowCollegeDropdown(true);
+                }}
+                className="input text-xs w-full"
+              />
+              
+              {showCollegeDropdown && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowCollegeDropdown(false)}
+                  />
+                  <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20">
+                    {COLLEGES.filter((col) => 
+                      col.toLowerCase().includes(collegeSearch.toLowerCase())
+                    ).map((collegeName) => (
+                      <button
+                        type="button"
+                        key={collegeName}
+                        onClick={() => {
+                          setCollege(collegeName);
+                          setCollegeSearch("");
+                          setShowCollegeDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {collegeName}
+                      </button>
+                    ))}
+                    {COLLEGES.filter((col) => 
+                      col.toLowerCase().includes(collegeSearch.toLowerCase())
+                    ).length === 0 && (
+                      <div className="text-center py-4 text-xs text-zinc-600">
+                        No colleges match your search.
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {college === "Other" && (
+              <input
+                type="text"
+                placeholder="Enter custom college name"
+                value={customCollege}
+                onChange={(e) => setCustomCollege(e.target.value)}
+                className="input text-xs mt-2"
+              />
+            )}
           </div>
 
           {/* Tags */}

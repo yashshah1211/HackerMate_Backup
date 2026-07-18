@@ -20,6 +20,7 @@ type Hackathon = {
   tags: string[] | null;
   type: string | null;
   organizer_id: string | null;
+  college?: string | null;
 };
 
 type Team = {
@@ -1147,6 +1148,23 @@ function HackathonDetailContent() {
                   </p>
                 </div>
               </div>
+
+              {/* College / University */}
+              {hackathon.college && (
+                <div className="flex items-start gap-2.5">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 014.887 5.906a50.57 50.57 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">College / University</p>
+                    <p className="text-xs font-semibold text-white break-words">
+                      {hackathon.college}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Prize Pool */}
               {hackathon.prize_pool && (

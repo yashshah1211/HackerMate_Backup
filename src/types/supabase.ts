@@ -304,6 +304,7 @@ export type Database = {
       hackathons: {
         Row: {
           banner_url: string | null
+          college: string | null
           created_at: string | null
           description: string | null
           end_date: string | null
@@ -323,6 +324,7 @@ export type Database = {
         }
         Insert: {
           banner_url?: string | null
+          college?: string | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
@@ -342,6 +344,7 @@ export type Database = {
         }
         Update: {
           banner_url?: string | null
+          college?: string | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
