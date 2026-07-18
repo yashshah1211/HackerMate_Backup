@@ -6,12 +6,6 @@ const rawSupabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-if (typeof window !== "undefined") {
-  // Override the Auth client URL to route through the Next.js reverse proxy.
-  // This allows custom brand branding on external OAuth consent pages (e.g. Google) for free.
-  (rawSupabase.auth as any).url = `${window.location.origin}/temp-auth/v1`;
-}
-
 // Intercept queries in development to catch RLS policy errors (code 42501)
 const wrapWithRlsInterceptor = (client: typeof rawSupabase): typeof rawSupabase => {
   if (process.env.NODE_ENV !== "development") {
