@@ -262,7 +262,7 @@ export default function CreateHackathonPage() {
                   />
                   <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20">
                     {COLLEGES.filter((col) => 
-                      col.toLowerCase().includes(collegeSearch.toLowerCase())
+                      col !== "Other" && col.toLowerCase().includes(collegeSearch.toLowerCase())
                     ).map((collegeName) => (
                       <button
                         type="button"
@@ -278,12 +278,23 @@ export default function CreateHackathonPage() {
                       </button>
                     ))}
                     {COLLEGES.filter((col) => 
-                      col.toLowerCase().includes(collegeSearch.toLowerCase())
+                      col !== "Other" && col.toLowerCase().includes(collegeSearch.toLowerCase())
                     ).length === 0 && (
-                      <div className="text-center py-4 text-xs text-zinc-600">
+                      <div className="text-center py-4 text-xs text-zinc-600 mb-1.5">
                         No colleges match your search.
                       </div>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCollege("Other");
+                        setCollegeSearch("");
+                        setShowCollegeDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors border-t border-zinc-900/60 font-semibold cursor-pointer"
+                    >
+                      Other (Type custom college name...)
+                    </button>
                   </div>
                 </>
               )}
