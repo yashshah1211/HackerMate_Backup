@@ -12,9 +12,8 @@ export default function Footer() {
           
           {/* Column 1: Brand (spans 2 columns on desktop for balance) */}
           <div className="md:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2.5 cursor-pointer">
+            <Link href="/" className="inline-block cursor-pointer">
               <Logo className="h-8" />
-              <span className="text-base font-bold text-white tracking-tight font-sans">HackerMate</span>
             </Link>
             <p className="text-sm text-zinc-550 dark:text-zinc-400 leading-relaxed max-w-md">
               The ultimate operating system for hackathon builders. Discover compatible teammates, coordinate your projects, track upcoming hackathons, and ship your next idea with confidence.
