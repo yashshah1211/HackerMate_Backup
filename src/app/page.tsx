@@ -90,6 +90,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col">
+      <h1 className="sr-only">HackerMate</h1>
 
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 md:py-24">

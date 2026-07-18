@@ -14,6 +14,7 @@ export default function Footer() {
           <div className="md:col-span-2 space-y-4">
             <Link href="/" className="inline-block cursor-pointer">
               <Logo className="h-8" />
+              <span className="sr-only">HackerMate</span>
             </Link>
             <p className="text-sm text-zinc-550 dark:text-zinc-400 leading-relaxed max-w-md">
               The ultimate operating system for hackathon builders. Discover compatible teammates, coordinate your projects, track upcoming hackathons, and ship your next idea with confidence.
