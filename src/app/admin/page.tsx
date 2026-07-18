@@ -25,6 +25,7 @@ type UserProfile = {
   is_banned: boolean;
   role: string;
   created_at: string;
+  onboarding_completed: boolean;
 };
 
 export default function AdminPage() {
@@ -50,6 +51,11 @@ export default function AdminPage() {
   const [warningTargetName, setWarningTargetName] = useState("");
   const [warningMessageText, setWarningMessageText] = useState("");
   const [sendingWarning, setSendingWarning] = useState(false);
+
+  // Onboarding nudge states
+  const [onboardingFilter, setOnboardingFilter] = useState<"all" | "incomplete">("all");
+  const [nudgingUserIds, setNudgingUserIds] = useState<Set<string>>(new Set());
+  const [bulkNudging, setBulkNudging] = useState(false);
 
   async function checkAdminAccess() {
     try {
@@ -100,7 +106,7 @@ export default function AdminPage() {
       // 2. Fetch profiles
       const { data: profilesData, error: profilesErr } = await supabase
         .from("profiles")
-        .select("id, full_name, email, is_banned, role, created_at")
+        .select("id, full_name, email, is_banned, role, created_at, onboarding_completed")
         .order("created_at", { ascending: false });
 
       if (profilesErr) {
@@ -281,12 +287,109 @@ export default function AdminPage() {
     setSendingWarning(false);
   }
 
-  // Filter users based on query
-  const filteredUsers = users.filter(
-    (u) =>
+  async function handleSingleNudge(userId: string, fullName: string) {
+    setNudgingUserIds((prev) => {
+      const next = new Set(prev);
+      next.add(userId);
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          senderId: currentUserId,
+          recipientId: userId,
+          type: "onboarding_nudge",
+        }),
+      });
+
+      const resData = await res.json();
+      if (res.ok) {
+        showToast(
+          resData.mock
+            ? `Mock onboarding nudge email for ${fullName} printed to server console.`
+            : `Onboarding nudge email sent to ${fullName}!`,
+          "success"
+        );
+      } else {
+        showToast(resData.error || "Failed to dispatch nudge email.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message, "error");
+    } finally {
+      setNudgingUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  }
+
+  async function handleBulkNudge() {
+    const incompleteUsers = users.filter((u) => !u.onboarding_completed);
+    if (incompleteUsers.length === 0) {
+      showToast("No incomplete profiles found to nudge.", "warning");
+      return;
+    }
+
+    confirm({
+      title: "BULK NUDGE USERS",
+      message: `Are you sure you want to send an onboarding reminder email to all ${incompleteUsers.length} users with incomplete profiles?`,
+      confirmText: "Nudge All",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setBulkNudging(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        await Promise.all(
+          incompleteUsers.map(async (u) => {
+            try {
+              const res = await fetch("/api/send-email", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  senderId: currentUserId,
+                  recipientId: u.id,
+                  type: "onboarding_nudge",
+                }),
+              });
+              if (res.ok) {
+                successCount++;
+              } else {
+                failCount++;
+              }
+            } catch (err) {
+              console.error(err);
+              failCount++;
+            }
+          })
+        );
+
+        showToast(`Bulk nudging completed! Sent: ${successCount}, Failed: ${failCount}`, "success");
+        setBulkNudging(false);
+      }
+    });
+  }
+
+  // Filter users based on query and onboarding status
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
       u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesOnboarding =
+      onboardingFilter === "all" || !u.onboarding_completed;
+
+    return matchesSearch && matchesOnboarding;
+  });
 
   if (loading) {
     return (
@@ -450,30 +553,75 @@ export default function AdminPage() {
         {/* Tab 2: Users List */}
         {activeTab === "users" && (
           <div className="space-y-4">
-            {/* Search */}
-            <div style={{ position: "relative", width: "100%" }}>
-              <input
-                type="text"
-                placeholder="Search registered builders by name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input text-xs bg-zinc-950/50 border-zinc-900 focus:border-zinc-800"
-                style={{ paddingLeft: "34px", width: "100%", boxSizing: "border-box" }}
-              />
-              <div 
-                style={{ 
-                  position: "absolute", 
-                  left: "12px", 
-                  top: "50%", 
-                  transform: "translateY(-50%)", 
-                  pointerEvents: "none",
-                  color: "#71717a"
-                }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
+            {/* Search & Onboarding Filter */}
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <div style={{ position: "relative", flex: 1, width: "100%" }}>
+                <input
+                  type="text"
+                  placeholder="Search registered builders by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="input text-xs bg-zinc-950/50 border-zinc-900 focus:border-zinc-800"
+                  style={{ paddingLeft: "34px", width: "100%", boxSizing: "border-box" }}
+                />
+                <div 
+                  style={{ 
+                    position: "absolute", 
+                    left: "12px", 
+                    top: "50%", 
+                    transform: "translateY(-50%)", 
+                    pointerEvents: "none",
+                    color: "#71717a"
+                  }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                </div>
               </div>
+
+              {/* Onboarding Filter */}
+              <div className="flex bg-zinc-950 border border-zinc-900 rounded-lg p-1 select-none shrink-0 w-full md:w-auto justify-center">
+                <button
+                  onClick={() => setOnboardingFilter("all")}
+                  className={`px-3 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
+                    onboardingFilter === "all"
+                      ? "bg-zinc-900 text-white shadow"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  All Users
+                </button>
+                <button
+                  onClick={() => setOnboardingFilter("incomplete")}
+                  className={`px-3 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
+                    onboardingFilter === "incomplete"
+                      ? "bg-zinc-900 text-white shadow"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  Incomplete Onboarding
+                </button>
+              </div>
+
+              {onboardingFilter === "incomplete" && (
+                <button
+                  onClick={handleBulkNudge}
+                  disabled={bulkNudging || filteredUsers.length === 0}
+                  className="btn btn-primary text-[10px] font-mono uppercase tracking-wider py-2 px-4 shrink-0 flex items-center gap-1.5 w-full md:w-auto justify-center cursor-pointer"
+                >
+                  {bulkNudging ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      <span>Nudging All...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Nudge All ({filteredUsers.filter(u => !u.onboarding_completed).length})</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* List */}
@@ -485,6 +633,7 @@ export default function AdminPage() {
                       <th className="p-4 font-semibold">User Details</th>
                       <th className="p-4 font-semibold">Registered</th>
                       <th className="p-4 font-semibold">Role</th>
+                      <th className="p-4 font-semibold">Onboarding</th>
                       <th className="p-4 font-semibold">Ban Status</th>
                       <th className="p-4 font-semibold text-right">Actions</th>
                     </tr>
@@ -492,7 +641,7 @@ export default function AdminPage() {
                   <tbody className="divide-y divide-zinc-900/60">
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-zinc-500">
+                        <td colSpan={6} className="p-8 text-center text-zinc-500">
                           No users matching search query.
                         </td>
                       </tr>
@@ -530,6 +679,19 @@ export default function AdminPage() {
                             </span>
                           </td>
 
+                          {/* Onboarding */}
+                          <td className="p-4">
+                            <span
+                              className={`inline-block text-[9px] uppercase tracking-wider font-mono font-semibold rounded px-2 py-0.5 border ${
+                                u.onboarding_completed
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                  : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                              }`}
+                            >
+                              {u.onboarding_completed ? "Completed" : "Incomplete"}
+                            </span>
+                          </td>
+
                           {/* Status */}
                           <td className="p-4">
                             <span
@@ -546,23 +708,33 @@ export default function AdminPage() {
                           {/* Actions */}
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {!u.onboarding_completed && (
+                                <button
+                                  onClick={() => handleSingleNudge(u.id, u.full_name || "User")}
+                                  disabled={nudgingUserIds.has(u.id)}
+                                  className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-violet-500/20 hover:border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition disabled:opacity-50 cursor-pointer"
+                                >
+                                  {nudgingUserIds.has(u.id) ? "Nudging..." : "Nudge"}
+                                </button>
+                              )}
+
                               <button
                                 onClick={() => handleToggleRole(u.id, u.role, u.full_name || "User")}
-                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 transition"
+                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
                               >
                                 {u.role === "admin" ? "Demote" : "Promote"}
                               </button>
 
                               <button
                                 onClick={() => openWarningModal(u.id, u.full_name || "User")}
-                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-amber-500/20 hover:border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition"
+                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-amber-500/20 hover:border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition cursor-pointer"
                               >
                                 Warn
                               </button>
 
                               <button
                                 onClick={() => handleToggleBan(u.id, u.is_banned, u.full_name || "User")}
-                                className={`text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border font-semibold transition ${
+                                className={`text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border font-semibold transition cursor-pointer ${
                                   u.is_banned
                                     ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
                                     : "bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20"
@@ -573,7 +745,7 @@ export default function AdminPage() {
 
                               <button
                                 onClick={() => handleDeleteUser(u.id, u.full_name || "User")}
-                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-rose-900/60 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white transition"
+                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-rose-900/60 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white transition cursor-pointer"
                               >
                                 Delete
                               </button>

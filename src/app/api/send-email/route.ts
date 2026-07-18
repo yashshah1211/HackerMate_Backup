@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only admins may send moderation_warning emails.
-    if (type === "moderation_warning") {
+    // Only admins may send moderation_warning or onboarding_nudge emails.
+    if (type === "moderation_warning" || type === "onboarding_nudge") {
       const { data: callerProfile } = await supabase
         .from("profiles")
         .select("role")
@@ -125,6 +125,12 @@ export async function POST(req: NextRequest) {
       textBody = warningMessage || "We have received reports from other community members regarding inappropriate behavior or content on your HackerMate profile. Please review our community guidelines to avoid account suspension.";
       actionLabel = "Review Profile";
       actionUrl = `${baseUrl}/profile/edit`;
+    } else if (type === "onboarding_nudge") {
+      subject = `🚀 Complete your HackerMate profile to match with teams!`;
+      title = "Complete Your Profile";
+      textBody = `We noticed you signed in to HackerMate but haven't finished setting up your profile yet. Complete your profile today to find compatible hackathon teams, connect with other builders, and showcase your skills!`;
+      actionLabel = "Complete Onboarding";
+      actionUrl = `${baseUrl}/onboarding`;
     } else {
       return NextResponse.json({ error: "Unsupported notification type" }, { status: 400 });
     }

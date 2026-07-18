@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -458,6 +458,7 @@ export type Database = {
           last_seen_at: string | null
           linkedin_url: string | null
           onboarding_completed: boolean
+          onboarding_nudge_sent_at: string | null
           role: string | null
           skills: string[] | null
         }
@@ -481,6 +482,7 @@ export type Database = {
           last_seen_at?: string | null
           linkedin_url?: string | null
           onboarding_completed?: boolean
+          onboarding_nudge_sent_at?: string | null
           role?: string | null
           skills?: string[] | null
         }
@@ -504,6 +506,7 @@ export type Database = {
           last_seen_at?: string | null
           linkedin_url?: string | null
           onboarding_completed?: boolean
+          onboarding_nudge_sent_at?: string | null
           role?: string | null
           skills?: string[] | null
         }
