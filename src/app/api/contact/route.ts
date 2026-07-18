@@ -1,6 +1,77 @@
 import { NextRequest, NextResponse } from "next/server";
 
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitRecord>();
+
+// Simple periodic cleanup to prevent memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 30 * 60 * 1000).unref?.(); // Run every 30 minutes, unref to not block process exit in tests
+
+function getIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp.trim();
+  }
+  return "127.0.0.1";
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number; reset: number } {
+  const now = Date.now();
+  const limit = 5;
+  const windowMs = 60 * 60 * 1000; // 1 hour
+
+  const record = rateLimitMap.get(ip);
+
+  if (!record) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+    return { allowed: true, remaining: limit - 1, reset: now + windowMs };
+  }
+
+  if (now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + windowMs;
+    return { allowed: true, remaining: limit - 1, reset: now + windowMs };
+  }
+
+  if (record.count >= limit) {
+    return { allowed: false, remaining: 0, reset: record.resetTime };
+  }
+
+  record.count += 1;
+  return { allowed: true, remaining: limit - record.count, reset: record.resetTime };
+}
+
 export async function POST(req: NextRequest) {
+  const ip = getIp(req);
+  const rateLimitResult = checkRateLimit(ip);
+
+  if (!rateLimitResult.allowed) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((rateLimitResult.reset - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: `Too many requests. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": retryAfterSeconds.toString(),
+        },
+      }
+    );
+  }
+
   try {
     const body = await req.json();
     const { name, email, subject, message, bot_check } = body;
