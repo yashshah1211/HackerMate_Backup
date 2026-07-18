@@ -101,28 +101,93 @@ export async function POST(req: NextRequest) {
     const requestBaseUrl = host ? `${proto}://${host}` : null;
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestBaseUrl || "http://localhost:3000";
 
+    function escapeHtml(text: string): string {
+      if (!text) return "";
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    const escapedSenderName = escapeHtml(sender.full_name || "Builder");
+    const escapedRecipientName = escapeHtml(recipient.full_name || "Builder");
+    const escapedTeamName = escapeHtml(teamName || "");
+    const escapedWarningMessage = escapeHtml(warningMessage || "");
+
     if (type === "connection_request") {
-      subject = `[HackerMate] New Connection Request from ${sender.full_name}`;
+      // Verify relationship: pending request exists
+      const { data: connReq, error: connErr } = await supabase
+        .from("friend_requests")
+        .select("id")
+        .eq("sender_id", senderId)
+        .eq("receiver_id", recipientId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (connErr || !connReq) {
+        return NextResponse.json({ error: "Forbidden: No pending connection request exists between these users." }, { status: 403 });
+      }
+
+      subject = `[HackerMate] New Connection Request from ${escapedSenderName}`;
       title = "Connection Request";
-      textBody = `${sender.full_name} wants to connect with you on HackerMate to explore potential hackathon collaborations.`;
+      textBody = `${escapedSenderName} wants to connect with you on HackerMate to explore potential hackathon collaborations.`;
       actionLabel = "View Connection Requests";
       actionUrl = `${baseUrl}/connections`;
     } else if (type === "team_invite") {
-      subject = `[HackerMate] You are invited to join team "${teamName || "HackerMate Team"}"`;
+      // Verify relationship: pending invite exists
+      const { data: inviteReq, error: inviteErr } = await supabase
+        .from("team_invites")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("invited_user_id", recipientId)
+        .eq("invited_by", senderId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (inviteErr || !inviteReq) {
+        return NextResponse.json({ error: "Forbidden: No pending team invitation exists between these users." }, { status: 403 });
+      }
+
+      subject = `[HackerMate] You are invited to join team "${escapedTeamName || "HackerMate Team"}"`;
       title = "Team Invitation";
-      textBody = `${sender.full_name} has invited you to join their team "${teamName || "HackerMate Team"}" for an upcoming hackathon.`;
+      textBody = `${escapedSenderName} has invited you to join their team "${escapedTeamName || "HackerMate Team"}" for an upcoming hackathon.`;
       actionLabel = "View Team Invites";
       actionUrl = `${baseUrl}/invites`;
     } else if (type === "join_request") {
-      subject = `[HackerMate] ${sender.full_name} requested to join "${teamName || "your team"}"`;
+      // Verify relationship: recipient is the owner of the team
+      const { data: teamCheck, error: teamCheckErr } = await supabase
+        .from("teams")
+        .select("owner_id")
+        .eq("id", teamId)
+        .single();
+
+      if (teamCheckErr || !teamCheck || teamCheck.owner_id !== recipientId) {
+        return NextResponse.json({ error: "Forbidden: Recipient is not the owner of this team." }, { status: 403 });
+      }
+
+      // Verify relationship: pending join request exists
+      const { data: joinReq, error: joinErr } = await supabase
+        .from("team_join_requests")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("user_id", senderId)
+        .maybeSingle();
+
+      if (joinErr || !joinReq) {
+        return NextResponse.json({ error: "Forbidden: No pending join request exists for this team." }, { status: 403 });
+      }
+
+      subject = `[HackerMate] ${escapedSenderName} requested to join "${escapedTeamName || "your team"}"`;
       title = "Join Request Received";
-      textBody = `${sender.full_name} has requested to join your team "${teamName || "HackerMate Team"}". Check out their developer profile to review their skills!`;
+      textBody = `${escapedSenderName} has requested to join your team "${escapedTeamName || "HackerMate Team"}". Check out their developer profile to review their skills!`;
       actionLabel = "Manage Team Requests";
       actionUrl = teamId ? `${baseUrl}/teams/${teamId}/requests` : `${baseUrl}/dashboard`;
     } else if (type === "moderation_warning") {
       subject = `[HackerMate] Account Behavior Warning Alert`;
       title = "Moderation Warning";
-      textBody = warningMessage || "We have received reports from other community members regarding inappropriate behavior or content on your HackerMate profile. Please review our community guidelines to avoid account suspension.";
+      textBody = escapedWarningMessage || "We have received reports from other community members regarding inappropriate behavior or content on your HackerMate profile. Please review our community guidelines to avoid account suspension.";
       actionLabel = "Review Profile";
       actionUrl = `${baseUrl}/profile/edit`;
     } else if (type === "onboarding_nudge") {
@@ -135,6 +200,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unsupported notification type" }, { status: 400 });
     }
 
+    const escapedSubject = escapeHtml(subject);
+    const escapedTitle = escapeHtml(title);
+    const escapedActionUrl = escapeHtml(actionUrl);
+    const escapedActionLabel = escapeHtml(actionLabel);
+
     // 5. Construct Premium Responsive HTML Email (Linear/Vercel inspired dark theme)
     const html = `
 <!DOCTYPE html>
@@ -142,7 +212,7 @@ export async function POST(req: NextRequest) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>${escapedSubject}</title>
   <style>
     body {
       background-color: #0A0D12;
@@ -229,11 +299,11 @@ export async function POST(req: NextRequest) {
   <div class="wrapper">
     <div class="container">
       <div class="logo">HackerMate.</div>
-      <h1 class="title">${title}</h1>
-      <p class="greeting">Hi ${recipient.full_name || "Builder"},</p>
+      <h1 class="title">${escapedTitle}</h1>
+      <p class="greeting">Hi ${escapedRecipientName},</p>
       <p class="body">${textBody}</p>
       <div class="cta-container">
-        <a href="${actionUrl}" class="btn" target="_blank">${actionLabel}</a>
+        <a href="${escapedActionUrl}" class="btn" target="_blank">${escapedActionLabel}</a>
       </div>
       <div class="footer">
         You are receiving this email because you registered on <a href="${baseUrl}">HackerMate</a>.
