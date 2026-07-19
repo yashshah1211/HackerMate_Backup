@@ -412,31 +412,31 @@ export default function AdminPage() {
         let successCount = 0;
         let failCount = 0;
 
-        await Promise.all(
-          incompleteUsers.map(async (u) => {
-            try {
-              const res = await fetch("/api/send-email", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  senderId: currentUserId,
-                  recipientId: u.id,
-                  type: "onboarding_nudge",
-                }),
-              });
-              if (res.ok) {
-                successCount++;
-              } else {
-                failCount++;
-              }
-            } catch (err) {
-              console.error(err);
+        for (const u of incompleteUsers) {
+          try {
+            const res = await fetch("/api/send-email", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                senderId: currentUserId,
+                recipientId: u.id,
+                type: "onboarding_nudge",
+              }),
+            });
+            if (res.ok) {
+              successCount++;
+            } else {
               failCount++;
             }
-          })
-        );
+          } catch (err) {
+            console.error(err);
+            failCount++;
+          }
+          // Sleep for 150ms to respect Resend's 10 reqs/sec rate limit
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
 
         showToast(`Bulk nudging completed! Sent: ${successCount}, Failed: ${failCount}`, "success");
         setBulkNudging(false);
