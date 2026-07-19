@@ -176,15 +176,22 @@ export default function Home() {
                 description: "Message your team, track progress, and coordinate through the build — all in one place.",
               },
             ].map((item, idx) => (
-              <div key={item.step} className="group relative bg-zinc-950/30 border border-zinc-900/60 p-6 rounded-2xl hover:border-zinc-800 transition-all duration-300 hover:bg-zinc-950/50">
-                <div className="absolute top-0 right-6 -translate-y-1/2 text-5xl font-extrabold font-mono text-[#B4F461]/5 group-hover:text-[#B4F461]/10 transition-colors select-none">
+              <div key={item.step} className="group relative overflow-hidden rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-950 to-zinc-900/30 p-8 hover:border-[#B4F461]/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition-all duration-300">
+                {/* Accent glow line on hover */}
+                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#B4F461]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Glowing step badge */}
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900/80 border border-zinc-800 text-sm font-bold text-[#B4F461] shadow-inner mb-6 group-hover:border-[#B4F461]/40 group-hover:bg-[#B4F461]/10 transition-all duration-300">
                   {item.step}
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-mono text-[#B4F461] font-bold mb-5 shadow-sm group-hover:bg-[#B4F461] group-hover:text-black transition-all duration-300">
-                  {item.step}
-                </div>
+
                 <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{item.title}</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">{item.description}</p>
+                <p className="text-xs text-zinc-400 leading-relaxed relative z-10">{item.description}</p>
+                
+                {/* Large background number to prevent top-clipping */}
+                <div className="absolute bottom-4 right-6 text-7xl font-extrabold font-mono text-zinc-900/50 select-none pointer-events-none group-hover:text-[#B4F461]/5 transition-colors">
+                  {item.step}
+                </div>
               </div>
             ))}
           </div>
@@ -231,12 +238,17 @@ export default function Home() {
                 description: "Browse upcoming hackathons from Unstop, Devfolio, and more — filtered to match your skills.",
               },
             ].map((feature) => (
-              <div key={feature.title} className="group relative bg-zinc-950/40 backdrop-blur-md border border-zinc-900/60 p-6 rounded-2xl hover:border-[#B4F461]/30 hover:shadow-[0_15px_30px_-15px_rgba(180,244,97,0.1)] hover:-translate-y-1 transition-all duration-300">
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 mb-5 group-hover:bg-[#B4F461]/10 group-hover:text-[#B4F461] group-hover:border-[#B4F461]/20 transition-all duration-300">
+              <div key={feature.title} className="group relative overflow-hidden rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-950 to-zinc-900/50 p-8 hover:border-[#B4F461]/30 hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] transition-all duration-300">
+                {/* Accent glow line on hover */}
+                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#B4F461]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Icon box with subtle glow */}
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#B4F461]/5 border border-[#B4F461]/15 text-[#B4F461] mb-6 group-hover:bg-[#B4F461]/10 group-hover:border-[#B4F461]/35 transition-all duration-300 shadow-[0_0_15px_rgba(180,244,97,0.05)]">
                   {feature.icon}
                 </div>
-                <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{feature.title}</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">{feature.description}</p>
+
+                <h3 className="text-base font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{feature.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed mt-2">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -252,17 +264,6 @@ export default function Home() {
           <p className="text-zinc-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
             Join compatible builders, form teams, and coordinate your hackathon projects all in one place.
           </p>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xs mx-auto">
-            <button
-              onClick={openModal}
-              className="w-full group inline-flex items-center justify-center gap-2 btn btn-md btn-primary cursor-pointer"
-            >
-              <span>Get Started Now</span>
-              <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-          </div>
         </div>
         <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-[500px] h-[150px] bg-[#B4F461]/5 rounded-full blur-[100px] pointer-events-none" />
       </div>
