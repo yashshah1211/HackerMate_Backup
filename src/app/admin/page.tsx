@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
+import Link from "next/link";
 
 type Report = {
   id: string;
@@ -28,6 +29,21 @@ type UserProfile = {
   onboarding_completed: boolean;
 };
 
+type Team = {
+  id: string;
+  name: string;
+  description: string;
+  owner_id: string;
+  max_members: number;
+  created_at: string;
+  college?: string;
+  hackathon_name?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  team_members?: { id: string }[];
+  team_hackathons?: { hackathons: { id: string; name: string } }[];
+};
+
 export default function AdminPage() {
   const { showToast, confirm } = useNotification();
 
@@ -36,11 +52,12 @@ export default function AdminPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams">("reports");
 
   // Data
   const [reports, setReports] = useState<Report[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,7 +133,19 @@ export default function AdminPage() {
       const usersList = (profilesData || []) as UserProfile[];
       setUsers(usersList);
 
-      // 3. Perform client-side join on reports to display names/emails
+      // 3. Fetch teams
+      const { data: teamsData, error: teamsErr } = await supabase
+        .from("teams")
+        .select("*, team_members(id), team_hackathons(hackathons(id, name))")
+        .order("created_at", { ascending: false });
+
+      if (teamsErr) {
+        console.error("Failed to load teams:", teamsErr);
+      }
+
+      const rawTeams = (teamsData || []) as Team[];
+
+      // 4. Perform client-side join on reports to display names/emails
       if (reportsData && usersList.length > 0) {
         const joinedReports: Report[] = reportsData.map((rep) => {
           const reporter = usersList.find((u) => u.id === rep.reporter_id);
@@ -133,6 +162,21 @@ export default function AdminPage() {
         setReports(joinedReports);
       } else {
         setReports([]);
+      }
+
+      // 5. Perform client-side join on teams to resolve owner details
+      if (rawTeams.length > 0 && usersList.length > 0) {
+        const joinedTeams: Team[] = rawTeams.map((t) => {
+          const owner = usersList.find((u) => u.id === t.owner_id);
+          return {
+            ...t,
+            ownerName: owner?.full_name || "Unknown",
+            ownerEmail: owner?.email || "Unknown",
+          };
+        });
+        setTeams(joinedTeams);
+      } else {
+        setTeams([]);
       }
     } catch (err) {
       console.error("Error joining admin logs:", err);
@@ -215,6 +259,27 @@ export default function AdminPage() {
           showToast(error.message, "error");
         } else {
           showToast(`User ${fullName} has been deleted successfully.`, "success");
+          await loadData();
+        }
+      }
+    });
+  }
+
+  function handleDeleteTeam(teamId: string, teamName: string) {
+    confirm({
+      title: "DELETE TEAM PERMANENTLY",
+      message: `Are you sure you want to permanently delete team "${teamName}"? This will purge the team, its members, document pad, tasks, link hub, brainstorm boards, deployments, and all associated messages. This action is irreversible.`,
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("teams")
+          .delete()
+          .eq("id", teamId);
+
+        if (error) {
+          console.error(error);
+          showToast(error.message, "error");
+        } else {
+          showToast(`Team "${teamName}" has been deleted successfully.`, "success");
           await loadData();
         }
       }
@@ -391,6 +456,19 @@ export default function AdminPage() {
     return matchesSearch && matchesOnboarding;
   });
 
+  // Filter teams based on query
+  const filteredTeams = teams.filter((t) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      t.name?.toLowerCase().includes(query) ||
+      t.description?.toLowerCase().includes(query) ||
+      t.ownerName?.toLowerCase().includes(query) ||
+      t.ownerEmail?.toLowerCase().includes(query) ||
+      t.college?.toLowerCase().includes(query) ||
+      t.hackathon_name?.toLowerCase().includes(query)
+    );
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950">
@@ -439,7 +517,10 @@ export default function AdminPage() {
           {/* Tab buttons */}
           <div className="flex bg-zinc-950/80 border border-zinc-900 rounded-lg p-1 select-none shrink-0 self-start md:self-center">
             <button
-              onClick={() => setActiveTab("reports")}
+              onClick={() => {
+                setActiveTab("reports");
+                setSearchQuery("");
+              }}
               className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
                 activeTab === "reports"
                   ? "bg-zinc-900 text-white shadow"
@@ -449,7 +530,10 @@ export default function AdminPage() {
               Report Logs ({reports.length})
             </button>
             <button
-              onClick={() => setActiveTab("users")}
+              onClick={() => {
+                setActiveTab("users");
+                setSearchQuery("");
+              }}
               className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
                 activeTab === "users"
                   ? "bg-zinc-900 text-white shadow"
@@ -457,6 +541,19 @@ export default function AdminPage() {
               }`}
             >
               Registered Users ({users.length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("teams");
+                setSearchQuery("");
+              }}
+              className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                activeTab === "teams"
+                  ? "bg-zinc-900 text-white shadow"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Teams ({teams.length})
             </button>
           </div>
         </div>
@@ -483,13 +580,23 @@ export default function AdminPage() {
                       {/* Targets */}
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="text-zinc-400 font-medium">Reporter:</span>
-                        <span className="text-white font-semibold">{rep.reporterName}</span>
+                        <Link
+                          href={`/profile/${rep.reporter_id}`}
+                          className="text-white font-semibold hover:text-accent-green hover:underline transition-colors"
+                        >
+                          {rep.reporterName}
+                        </Link>
                         <span className="text-[10px] text-zinc-500 font-mono">({rep.reporterEmail})</span>
 
                         <span className="text-zinc-500 mx-1">➔</span>
 
                         <span className="text-zinc-400 font-medium">Reported:</span>
-                        <span className="text-rose-400 font-semibold">{rep.reportedName}</span>
+                        <Link
+                          href={`/profile/${rep.reported_id}`}
+                          className="text-rose-400 font-semibold hover:text-rose-300 hover:underline transition-colors"
+                        >
+                          {rep.reportedName}
+                        </Link>
                         <span className="text-[10px] text-zinc-500 font-mono">({rep.reportedEmail})</span>
                         {rep.reportedBanned && (
                           <span className="bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded px-1.5 py-0.5 text-[9px] uppercase font-mono tracking-wider font-semibold">
@@ -657,7 +764,12 @@ export default function AdminPage() {
                         >
                           {/* Details */}
                           <td className="p-4">
-                            <div className="font-semibold text-white">{u.full_name || "Unnamed"}</div>
+                            <Link
+                              href={`/profile/${u.id}`}
+                              className="font-semibold text-white hover:text-accent-green hover:underline transition-colors block"
+                            >
+                              {u.full_name || "Unnamed"}
+                            </Link>
                             <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{u.email}</div>
                           </td>
 
@@ -750,6 +862,137 @@ export default function AdminPage() {
                                 Delete
                               </button>
                             </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Teams List */}
+        {activeTab === "teams" && (
+          <div className="space-y-4">
+            {/* Search */}
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <div style={{ position: "relative", flex: 1, width: "100%" }}>
+                <input
+                  type="text"
+                  placeholder="Search teams by name, description, or owner..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="input text-xs bg-zinc-950/50 border-zinc-900 focus:border-zinc-800"
+                  style={{ paddingLeft: "34px", width: "100%", boxSizing: "border-box" }}
+                />
+                <div 
+                  style={{ 
+                    position: "absolute", 
+                    left: "12px", 
+                    top: "50%", 
+                    transform: "translateY(-50%)", 
+                    pointerEvents: "none",
+                    color: "#71717a"
+                  }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="card card-static overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-900 bg-zinc-950/40 text-zinc-500 font-mono uppercase tracking-wider text-[10px]">
+                      <th className="p-4 font-semibold">Team Details</th>
+                      <th className="p-4 font-semibold">Created</th>
+                      <th className="p-4 font-semibold">Owner</th>
+                      <th className="p-4 font-semibold">Members</th>
+                      <th className="p-4 font-semibold">Affiliation</th>
+                      <th className="p-4 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-900/60">
+                    {filteredTeams.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-zinc-500">
+                          No teams matching search query.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTeams.map((t) => (
+                        <tr
+                          key={t.id}
+                          className="hover:bg-zinc-900/20 transition-colors"
+                        >
+                          {/* Details */}
+                          <td className="p-4">
+                            <Link
+                              href={`/teams/${t.id}`}
+                              className="font-semibold text-white hover:text-accent-green hover:underline transition-colors"
+                            >
+                              {t.name}
+                            </Link>
+                            {t.description && (
+                              <p className="text-[10px] text-zinc-400 mt-1 max-w-xs truncate">
+                                {t.description}
+                              </p>
+                            )}
+                          </td>
+
+                          {/* Created Date */}
+                          <td className="p-4 text-zinc-400 font-mono text-[10px]">
+                            {new Date(t.created_at).toLocaleDateString()}
+                          </td>
+
+                          {/* Owner */}
+                          <td className="p-4">
+                            <Link
+                              href={`/profile/${t.owner_id}`}
+                              className="font-semibold text-white hover:text-accent-green hover:underline transition-colors"
+                            >
+                              {t.ownerName}
+                            </Link>
+                            <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{t.ownerEmail}</div>
+                          </td>
+
+                          {/* Members */}
+                          <td className="p-4 font-mono text-zinc-300">
+                            {t.team_members?.length || 0} / {t.max_members}
+                          </td>
+
+                          {/* Affiliation */}
+                          <td className="p-4 space-y-1">
+                            {t.college && (
+                              <div className="text-[10px] text-zinc-400">
+                                🏫 {t.college.split(" (")[0] || t.college}
+                              </div>
+                            )}
+                            {t.team_hackathons?.map((th: any) => th.hackathons?.name).join(", ") ? (
+                              <div className="text-[10px] text-accent-indigo">
+                                🏆 {t.team_hackathons?.map((th: any) => th.hackathons?.name).join(", ")}
+                              </div>
+                            ) : t.hackathon_name ? (
+                              <div className="text-[10px] text-accent-indigo">
+                                🏆 {t.hackathon_name}
+                              </div>
+                            ) : null}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => handleDeleteTeam(t.id, t.name)}
+                              className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-rose-900/60 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white transition cursor-pointer"
+                            >
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       ))
