@@ -44,20 +44,47 @@ type Team = {
   team_hackathons?: { hackathons: { id: string; name: string } }[];
 };
 
+type OrganizerLead = {
+  id: string;
+  title: string;
+  college_or_host: string;
+  unstop_url: string;
+  organizer_email: string | null;
+  event_date: string;
+  status: string;
+  pitch_sent_at: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
 export default function AdminPage() {
   const { showToast, confirm } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach">("reports");
 
   // Data
   const [reports, setReports] = useState<Report[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+
+  // Outreach / Unstop Leads state (yashshah7117@gmail.com exclusive)
+  const [leads, setLeads] = useState<OrganizerLead[]>([]);
+  const [fetchingUnstop, setFetchingUnstop] = useState(false);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+
+  // Pitch Modal state
+  const [pitchModalOpen, setPitchModalOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<OrganizerLead | null>(null);
+  const [pitchRecipientEmail, setPitchRecipientEmail] = useState("");
+  const [pitchSubject, setPitchSubject] = useState("");
+  const [pitchBody, setPitchBody] = useState("");
+  const [sendingPitch, setSendingPitch] = useState(false);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,6 +115,7 @@ export default function AdminPage() {
       }
 
       setCurrentUserId(user.id);
+      setUserEmail(user.email ?? null);
 
       const { data: profile, error: dbError } = await supabase
         .from("profiles")
@@ -100,12 +128,119 @@ export default function AdminPage() {
       } else {
         setIsAdmin(true);
         await loadData();
+        if (user.email === "yashshah7117@gmail.com") {
+          await loadLeads();
+        }
       }
     } catch (err) {
       console.error("Error verifying admin permissions:", err);
       setIsAdmin(false);
     }
     setLoading(false);
+  }
+
+  async function loadLeads() {
+    setLoadingLeads(true);
+    try {
+      const { data, error } = await supabase
+        .from("organizer_leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load organizer leads:", error);
+      } else {
+        setLeads((data || []) as OrganizerLead[]);
+      }
+    } catch (err) {
+      console.error("Error in loadLeads:", err);
+    }
+    setLoadingLeads(false);
+  }
+
+  async function handleScrapeUnstop() {
+    setFetchingUnstop(true);
+    try {
+      const res = await fetch("/api/admin/scrape-unstop", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          data.count > 0
+            ? `Fetched ${data.count} hackathons from Unstop!`
+            : "Scrape complete - no new hackathons found.",
+          "success"
+        );
+        await loadLeads();
+      } else {
+        showToast(data.error || "Failed to fetch Unstop hackathons", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to fetch Unstop hackathons", "error");
+    }
+    setFetchingUnstop(false);
+  }
+
+  function openPitchModal(lead: OrganizerLead) {
+    setSelectedLead(lead);
+    setPitchRecipientEmail(lead.organizer_email || "");
+    setPitchSubject(`Partnership Proposal: Official Teammate Matchmaker for ${lead.title}`);
+    setPitchBody(
+      `Hi Team ${lead.college_or_host || "Organizers"},\n\n` +
+        `I saw that ${lead.title} is coming up on Unstop! Congrats on organizing it.\n\n` +
+        `I'm Yash, founder of HackerMate (https://hackermate.in) — a dedicated team-formation platform for hackathons (skills & GitHub stats matching).\n\n` +
+        `Solo builders often struggle to find teammates, leading to dropouts & spam in Discord/WhatsApp groups. We'd love to serve as your Official Teammate Matching Partner (100% free for your event).\n\n` +
+        `What we will do for ${lead.title}:\n` +
+        `1. Provide a clean team-matching portal for your participants.\n` +
+        `2. Eliminate team-formation spam in your channels.\n` +
+        `3. Drive extra builder registrations to your event.\n\n` +
+        `All we ask is to include your custom HackerMate match link in your participant welcome email / announcements.\n\n` +
+        `Would you be open to a quick chat or 30-second preview?\n\n` +
+        `Best regards,\nYash Shah\nFounder, HackerMate`
+    );
+    setPitchModalOpen(true);
+  }
+
+  async function handleSendPitch() {
+    if (!selectedLead || !pitchRecipientEmail.trim() || !pitchSubject.trim() || !pitchBody.trim()) {
+      showToast("Please provide recipient email, subject, and message body.", "error");
+      return;
+    }
+    setSendingPitch(true);
+    try {
+      const formattedHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #111; max-width: 600px; padding: 20px;">
+          ${pitchBody.replace(/\n/g, "<br />")}
+        </div>
+      `;
+
+      const res = await fetch("/api/admin/send-organizer-pitch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: selectedLead.id,
+          recipientEmail: pitchRecipientEmail.trim(),
+          subject: pitchSubject.trim(),
+          contentHtml: formattedHtml,
+        }),
+      });
+
+      const resData = await res.json();
+      if (res.ok) {
+        showToast(
+          `Pitch email sent successfully to ${resData.sentTo || pitchRecipientEmail}!`,
+          "success"
+        );
+        setPitchModalOpen(false);
+        await loadLeads();
+      } else {
+        showToast(resData.error || "Failed to send pitch email.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send pitch", "error");
+    }
+    setSendingPitch(false);
   }
 
   async function loadData() {
@@ -555,6 +690,22 @@ export default function AdminPage() {
             >
               Teams ({teams.length})
             </button>
+
+            {userEmail === "yashshah7117@gmail.com" && (
+              <button
+                onClick={() => {
+                  setActiveTab("outreach");
+                  setSearchQuery("");
+                }}
+                className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                  activeTab === "outreach"
+                    ? "bg-zinc-900 text-emerald-400 shadow border border-emerald-500/20"
+                    : "text-emerald-500/70 hover:text-emerald-400"
+                }`}
+              >
+                Organizer Outreach 🎯 ({leads.length})
+              </button>
+            )}
           </div>
         </div>
 
@@ -1003,6 +1154,166 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* Tab 4: Organizer Outreach (yashshah7117@gmail.com exclusive) */}
+        {activeTab === "outreach" && userEmail === "yashshah7117@gmail.com" && (
+          <div className="space-y-6">
+            {/* Outreach Action Bar */}
+            <div className="card card-static p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-emerald-950/60 bg-emerald-950/10">
+              <div>
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <span>Unstop Hackathon Lead Scraper & Outreach</span>
+                  <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                    Exclusive
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Discover upcoming hackathons on Unstop, extract organizer contacts, and send partnership pitches.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={loadLeads}
+                  disabled={loadingLeads}
+                  className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
+                >
+                  {loadingLeads ? "Loading..." : "Refresh List"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleScrapeUnstop}
+                  disabled={fetchingUnstop}
+                  className="btn btn-primary text-xs py-2 px-4 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white border-none shadow-lg shadow-emerald-950/50"
+                >
+                  {fetchingUnstop ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Scraping Unstop...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔍 Fetch Unstop Hackathons</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Leads List Table */}
+            <div className="card card-static p-0 overflow-hidden">
+              <div className="p-4 border-b border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/40">
+                <div className="text-xs font-semibold text-zinc-300">
+                  Total Leads ({leads.length}) •{" "}
+                  <span className="text-emerald-400">
+                    Pitches Sent ({leads.filter((l) => l.status === "pitch_sent").length})
+                  </span>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Search hackathons or colleges..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="input text-xs py-1.5 px-3 max-w-xs"
+                />
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-950 text-zinc-400 font-mono text-[10px] uppercase tracking-wider border-b border-zinc-900">
+                    <tr>
+                      <th className="p-4">Hackathon</th>
+                      <th className="p-4">College / Host</th>
+                      <th className="p-4">Event Date</th>
+                      <th className="p-4">Organizer Email</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-900/60">
+                    {leads.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-12 text-center text-zinc-500 text-xs">
+                          No Unstop hackathon leads found. Click <strong>"Fetch Unstop Hackathons"</strong> to import live events!
+                        </td>
+                      </tr>
+                    ) : (
+                      leads
+                        .filter(
+                          (l) =>
+                            l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (l.college_or_host &&
+                              l.college_or_host.toLowerCase().includes(searchQuery.toLowerCase()))
+                        )
+                        .map((lead) => (
+                          <tr key={lead.id} className="hover:bg-zinc-900/30 transition-colors">
+                            {/* Title & Link */}
+                            <td className="p-4 max-w-xs">
+                              <a
+                                href={lead.unstop_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-white hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
+                              >
+                                <span className="line-clamp-1">{lead.title}</span>
+                                <span className="text-[10px] text-zinc-500 group-hover:text-emerald-400">↗</span>
+                              </a>
+                            </td>
+
+                            {/* Host */}
+                            <td className="p-4 text-zinc-300">
+                              <div className="line-clamp-1">{lead.college_or_host || "N/A"}</div>
+                            </td>
+
+                            {/* Event Date */}
+                            <td className="p-4 font-mono text-[10px] text-zinc-400">
+                              {lead.event_date || "Upcoming"}
+                            </td>
+
+                            {/* Contact Email */}
+                            <td className="p-4 font-mono text-[11px]">
+                              {lead.organizer_email ? (
+                                <span className="text-zinc-200">{lead.organizer_email}</span>
+                              ) : (
+                                <span className="text-zinc-600 italic">Not listed on public API</span>
+                              )}
+                            </td>
+
+                            {/* Status Tag */}
+                            <td className="p-4">
+                              {lead.status === "pitch_sent" ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                                  ✓ Pitch Sent
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-blue-950/80 text-blue-400 border border-blue-800/60">
+                                  New Lead
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Action Button */}
+                            <td className="p-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => openPitchModal(lead)}
+                                className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded border border-emerald-900/60 hover:border-emerald-500 bg-emerald-950/30 hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer"
+                              >
+                                {lead.status === "pitch_sent" ? "Re-pitch" : "Preview & Send Pitch"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Warning Modal */}
@@ -1050,6 +1361,111 @@ export default function AdminPage() {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pitch Modal */}
+      {pitchModalOpen && selectedLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-xl card card-static p-6 animate-scale-in border-emerald-950/80 bg-zinc-950">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <span>Pitch Partnership for {selectedLead.title}</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                    Resend Email
+                  </span>
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Review and customize the partnership email proposal before dispatching.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPitchModalOpen(false)}
+                className="text-zinc-500 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Recipient Email */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+                  Organizer Email Address
+                </label>
+                <input
+                  type="email"
+                  value={pitchRecipientEmail}
+                  onChange={(e) => setPitchRecipientEmail(e.target.value)}
+                  placeholder="e.g. organizer@college.edu or techlead@hackathon.com"
+                  className="input text-xs w-full font-mono"
+                />
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={pitchSubject}
+                  onChange={(e) => setPitchSubject(e.target.value)}
+                  className="input text-xs w-full"
+                />
+              </div>
+
+              {/* Body */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+                  Email Content (Plain text / Markdown)
+                </label>
+                <textarea
+                  value={pitchBody}
+                  onChange={(e) => setPitchBody(e.target.value)}
+                  rows={9}
+                  className="input text-xs font-sans resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-zinc-900">
+              <div className="text-[10px] text-zinc-500 font-mono">
+                ⚡ Resend free limit: 100 emails/day
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPitchModalOpen(false)}
+                  className="btn btn-secondary text-xs py-1.5 px-4"
+                  disabled={sendingPitch}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendPitch}
+                  disabled={sendingPitch || !pitchRecipientEmail.trim() || !pitchSubject.trim()}
+                  className="btn btn-primary text-xs py-1.5 px-5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border-none shadow-lg shadow-emerald-950/50"
+                >
+                  {sendingPitch ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Sending Email...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✉ Send Partnership Pitch</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
