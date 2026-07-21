@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "HackerMate | Team Operating System",
     description: "Find teammates, discover hackathons, and collaborate with builders who share your vision.",
-    url: "https://hackermate.dev",
+    url: "https://hackermate.in",
     siteName: "HackerMate",
     locale: "en_US",
     type: "website",
