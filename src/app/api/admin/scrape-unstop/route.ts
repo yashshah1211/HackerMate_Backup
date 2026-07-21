@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Fetch upcoming hackathons from Unstop Public API
+    // 2. Fetch upcoming hackathons from Unstop Public Search API
     const unstopApiUrl =
       "https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=25&oppstatus=open";
 
@@ -64,48 +64,84 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Transform opportunities into leads format
-    const leadsToUpsert = opportunities.map((opp: any) => {
-      const title = opp.title || opp.name || "Untitled Hackathon";
-      const college =
-        opp.organisation?.name ||
-        opp.organisation_name ||
-        opp.organisation?.title ||
-        "College / Institution";
-      
-      const slug = opp.public_url || opp.slug || opp.id;
-      const unstop_url = slug?.startsWith("http")
-        ? slug
-        : `https://unstop.com/${slug}`;
-
-      const organizer_email =
-        opp.contact_detail?.email ||
-        opp.organisation?.email ||
-        opp.email ||
-        null;
-
-      const event_date =
-        opp.regnRequirements?.start_regn_dt ||
-        opp.start_date ||
-        opp.end_date ||
-        "Upcoming";
-
-      return {
-        title,
-        college_or_host: college,
-        unstop_url,
-        organizer_email,
-        event_date: typeof event_date === "string" ? event_date.substring(0, 50) : "Upcoming",
-        status: "new",
-      };
-    });
-
-    if (leadsToUpsert.length === 0) {
+    if (opportunities.length === 0) {
       return NextResponse.json({
         message: "No open hackathons found on Unstop at this time",
         count: 0,
       });
     }
+
+    // 3. Fetch detailed competition contacts for each hackathon in parallel
+    const leadsToUpsert = await Promise.all(
+      opportunities.map(async (opp: any) => {
+        const title = opp.title || opp.name || "Untitled Hackathon";
+        const college =
+          opp.organisation?.name ||
+          opp.organisation_name ||
+          opp.organisation?.title ||
+          "College / Institution";
+        
+        const slug = opp.public_url || opp.slug || opp.id;
+        const unstop_url = slug?.startsWith("http")
+          ? slug
+          : `https://unstop.com/${slug}`;
+
+        let organizer_email: string | null =
+          opp.contact_detail?.email ||
+          opp.organisation?.email ||
+          opp.email ||
+          null;
+
+        const event_date =
+          opp.regnRequirements?.start_regn_dt ||
+          opp.start_date ||
+          opp.end_date ||
+          "Upcoming";
+
+        // Fetch deep detail from Unstop competition API to get organizer contact emails
+        if (opp.id) {
+          try {
+            const compRes = await fetch(
+              `https://unstop.com/api/public/competition/${opp.id}`,
+              {
+                headers: {
+                  "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                  Accept: "application/json",
+                  Referer: "https://unstop.com/",
+                },
+              }
+            );
+
+            if (compRes.ok) {
+              const compJson = await compRes.json();
+              const comp = compJson?.data?.competition || compJson?.data || {};
+              const contacts = comp.contacts || [];
+
+              // Find primary contact email or join emails
+              const emails: string[] = contacts
+                .map((c: any) => c.email?.trim())
+                .filter((e: any) => e && e.includes("@"));
+
+              if (emails.length > 0) {
+                organizer_email = Array.from(new Set(emails)).join(", ");
+              }
+            }
+          } catch (fetchErr) {
+            console.warn(`[Unstop Scraper] Could not fetch detail for ID ${opp.id}:`, fetchErr);
+          }
+        }
+
+        return {
+          title,
+          college_or_host: college,
+          unstop_url,
+          organizer_email,
+          event_date: typeof event_date === "string" ? event_date.substring(0, 50) : "Upcoming",
+          status: "new",
+        };
+      })
+    );
 
     // 4. Save to Supabase using Admin Service Role Key
     const supabaseAdmin = createClient(

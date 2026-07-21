@@ -183,7 +183,10 @@ export default function AdminPage() {
 
   function openPitchModal(lead: OrganizerLead) {
     setSelectedLead(lead);
-    setPitchRecipientEmail(lead.organizer_email || "");
+    const primaryEmail = lead.organizer_email
+      ? lead.organizer_email.split(",")[0].trim()
+      : "";
+    setPitchRecipientEmail(primaryEmail);
     setPitchSubject(`Partnership Proposal: Official Teammate Matchmaker for ${lead.title}`);
     setPitchBody(
       `Hi Team ${lead.college_or_host || "Organizers"},\n\n` +
