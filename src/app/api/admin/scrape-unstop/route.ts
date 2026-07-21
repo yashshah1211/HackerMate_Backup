@@ -28,52 +28,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Fetch upcoming hackathons from Unstop Public Search API
-    const unstopApiUrl =
-      "https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=25&oppstatus=open";
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    const response = await fetch(unstopApiUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "application/json",
-      },
-      next: { revalidate: 0 },
-    });
+    // 2. Clean up uncontacted leads that have NO email
+    await supabaseAdmin
+      .from("organizer_leads")
+      .delete()
+      .or("organizer_email.is.null,organizer_email.eq.''")
+      .neq("status", "pitch_sent");
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Unstop API responded with status ${response.status}` },
-        { status: 500 }
-      );
+    // 3. Multi-page fetch from Unstop (Pages 1 to 3, 30 per page = 90 potential hackathons)
+    const rawOpportunities: any[] = [];
+    for (let page = 1; page <= 3; page++) {
+      try {
+        const unstopApiUrl = `https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=30&page=${page}&oppstatus=open`;
+        const response = await fetch(unstopApiUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "application/json",
+          },
+          next: { revalidate: 0 },
+        });
+
+        if (response.ok) {
+          const unstopData = await response.json();
+          const items =
+            unstopData?.data?.data ||
+            unstopData?.opportunities?.data ||
+            unstopData?.data ||
+            [];
+          if (Array.isArray(items)) {
+            rawOpportunities.push(...items);
+          }
+        }
+      } catch (err) {
+        console.warn(`[Unstop Scraper] Failed to fetch page ${page}:`, err);
+      }
     }
 
-    const unstopData = await response.json();
-    
-    // Parse opportunities array from potential response structures
-    const opportunities =
-      unstopData?.data?.data ||
-      unstopData?.opportunities?.data ||
-      unstopData?.data ||
-      [];
-
-    if (!Array.isArray(opportunities)) {
-      return NextResponse.json(
-        { error: "Unexpected Unstop API payload structure" },
-        { status: 500 }
-      );
-    }
-
-    if (opportunities.length === 0) {
+    if (rawOpportunities.length === 0) {
       return NextResponse.json({
         message: "No open hackathons found on Unstop at this time",
         count: 0,
       });
     }
 
-    // 3. Fetch detailed competition contacts for each hackathon in parallel
-    const leadsToUpsert = await Promise.all(
-      opportunities.map(async (opp: any) => {
+    // Deduplicate opportunities by ID or public_url
+    const seenUrls = new Set<string>();
+    const uniqueOpportunities = rawOpportunities.filter((opp) => {
+      const slug = opp.public_url || opp.slug || opp.id;
+      if (!slug || seenUrls.has(slug)) return false;
+      seenUrls.add(slug);
+      return true;
+    });
+
+    // 4. Fetch detailed competition contacts for each hackathon in parallel
+    const resolvedLeads = await Promise.all(
+      uniqueOpportunities.map(async (opp: any) => {
         const title = opp.title || opp.name || "Untitled Hackathon";
         const college =
           opp.organisation?.name ||
@@ -86,11 +101,7 @@ export async function POST(req: NextRequest) {
           ? slug
           : `https://unstop.com/${slug}`;
 
-        let organizer_email: string | null =
-          opp.contact_detail?.email ||
-          opp.organisation?.email ||
-          opp.email ||
-          null;
+        let organizer_email: string | null = null;
 
         const event_date =
           opp.regnRequirements?.start_regn_dt ||
@@ -98,7 +109,6 @@ export async function POST(req: NextRequest) {
           opp.end_date ||
           "Upcoming";
 
-        // Fetch deep detail from Unstop competition API to get organizer contact emails
         if (opp.id) {
           try {
             const compRes = await fetch(
@@ -118,7 +128,6 @@ export async function POST(req: NextRequest) {
               const comp = compJson?.data?.competition || compJson?.data || {};
               const contacts = comp.contacts || [];
 
-              // Find primary contact email or join emails
               const emails: string[] = contacts
                 .map((c: any) => c.email?.trim())
                 .filter((e: any) => e && e.includes("@"));
@@ -132,6 +141,11 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // STRICT FILTER: Only return lead if a valid organizer email was found!
+        if (!organizer_email) {
+          return null;
+        }
+
         return {
           title,
           college_or_host: college,
@@ -143,15 +157,22 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // 4. Save to Supabase using Admin Service Role Key
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    // Filter out nulls using TypeScript type guard
+    const validLeadsToUpsert = resolvedLeads.filter(
+      (lead): lead is NonNullable<typeof lead> => lead !== null
     );
 
+    if (validLeadsToUpsert.length === 0) {
+      return NextResponse.json({
+        message: "No hackathons with verified organizer emails found",
+        count: 0,
+      });
+    }
+
+    // 5. Upsert valid email leads into Supabase
     const { data: upsertedData, error: dbError } = await supabaseAdmin
       .from("organizer_leads")
-      .upsert(leadsToUpsert, { onConflict: "unstop_url", ignoreDuplicates: false })
+      .upsert(validLeadsToUpsert, { onConflict: "unstop_url", ignoreDuplicates: false })
       .select();
 
     if (dbError) {
