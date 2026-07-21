@@ -1,0 +1,37 @@
+name: Daily PostHog Analytics PDF Digest
+
+on:
+  schedule:
+    # Runs every day at 09:00 AM IST (03:30 AM UTC)
+    - cron: '30 3 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  send-analytics-digest:
+    name: Send PostHog Analytics PDF Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Analytics Summary Endpoint
+        run: |
+          SITE_URL="${{ secrets.SITE_URL || 'https://hackermate.in' }}"
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
+          
+          echo "Triggering PostHog Analytics Digest report at 9:00 AM IST on $SITE_URL..."
+          
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            "$SITE_URL/api/cron/analytics-summary")
+            
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d':' -f2)
+          BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
+          
+          echo "Response Body: $BODY"
+          echo "HTTP Status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Failed to generate analytics digest report. Status: $HTTP_STATUS"
+            exit 1
+          fi
+          
+          echo "PostHog Analytics Digest PDF email successfully delivered!"
