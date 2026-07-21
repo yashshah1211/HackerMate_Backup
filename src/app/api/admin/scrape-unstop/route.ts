@@ -33,16 +33,22 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 2. Clean up uncontacted leads that have NO email
-    await supabaseAdmin
+    // 2. Fetch all previously scraped unstop_urls from DB to guarantee NO re-scraping
+    const { data: existingLeads, error: fetchErr } = await supabaseAdmin
       .from("organizer_leads")
-      .delete()
-      .or("organizer_email.is.null,organizer_email.eq.''")
-      .neq("status", "pitch_sent");
+      .select("unstop_url");
 
-    // 3. Multi-page fetch from Unstop (Pages 1 to 3, 30 per page = 90 potential hackathons)
+    if (fetchErr) {
+      console.error("[Unstop Scraper] Error fetching existing leads:", fetchErr);
+    }
+
+    const existingUrlsSet = new Set<string>(
+      (existingLeads || []).map((l) => l.unstop_url)
+    );
+
+    // 3. Multi-page fetch from Unstop (Pages 1 to 5, 30 per page = up to 150 hackathons)
     const rawOpportunities: any[] = [];
-    for (let page = 1; page <= 3; page++) {
+    for (let page = 1; page <= 5; page++) {
       try {
         const unstopApiUrl = `https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=30&page=${page}&oppstatus=open`;
         const response = await fetch(unstopApiUrl, {
@@ -77,18 +83,33 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Deduplicate opportunities by ID or public_url
-    const seenUrls = new Set<string>();
-    const uniqueOpportunities = rawOpportunities.filter((opp) => {
+    // 4. Strict Filter: Skip any hackathons that were EVER scraped before or are currently in DB
+    const seenUrlsInBatch = new Set<string>();
+    const freshOpportunities = rawOpportunities.filter((opp) => {
       const slug = opp.public_url || opp.slug || opp.id;
-      if (!slug || seenUrls.has(slug)) return false;
-      seenUrls.add(slug);
+      if (!slug) return false;
+      const fullUrl = slug.startsWith("http")
+        ? slug
+        : `https://unstop.com/${slug}`;
+
+      // Rule: Never appear again if already scraped/stored in DB or seen in batch
+      if (existingUrlsSet.has(fullUrl) || seenUrlsInBatch.has(fullUrl)) {
+        return false;
+      }
+      seenUrlsInBatch.add(fullUrl);
       return true;
     });
 
-    // 4. Fetch detailed competition contacts for each hackathon in parallel
+    if (freshOpportunities.length === 0) {
+      return NextResponse.json({
+        message: "No new hackathons to scrape! All active Unstop hackathons have already been processed.",
+        count: 0,
+      });
+    }
+
+    // 5. Fetch detailed competition contacts for FRESH hackathons only
     const resolvedLeads = await Promise.all(
-      uniqueOpportunities.map(async (opp: any) => {
+      freshOpportunities.map(async (opp: any) => {
         const title = opp.title || opp.name || "Untitled Hackathon";
         const college =
           opp.organisation?.name ||
@@ -141,7 +162,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // STRICT FILTER: Only return lead if a valid organizer email was found!
+        // Only return if valid email exists
         if (!organizer_email) {
           return null;
         }
@@ -164,15 +185,15 @@ export async function POST(req: NextRequest) {
 
     if (validLeadsToUpsert.length === 0) {
       return NextResponse.json({
-        message: "No hackathons with verified organizer emails found",
+        message: "Scraped fresh hackathons, but none had public organizer emails listed.",
         count: 0,
       });
     }
 
-    // 5. Upsert valid email leads into Supabase
-    const { data: upsertedData, error: dbError } = await supabaseAdmin
+    // 6. Insert new unique leads into Supabase
+    const { data: insertedData, error: dbError } = await supabaseAdmin
       .from("organizer_leads")
-      .upsert(validLeadsToUpsert, { onConflict: "unstop_url", ignoreDuplicates: false })
+      .insert(validLeadsToUpsert)
       .select();
 
     if (dbError) {
@@ -182,8 +203,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      count: upsertedData?.length || 0,
-      leads: upsertedData,
+      count: insertedData?.length || 0,
+      leads: insertedData,
     });
   } catch (err: any) {
     console.error("[Unstop Scraper] Exception:", err);

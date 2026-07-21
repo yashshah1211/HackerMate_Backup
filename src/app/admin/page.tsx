@@ -246,6 +246,27 @@ export default function AdminPage() {
     setSendingPitch(false);
   }
 
+  function handleArchiveLead(leadId: string, leadTitle: string) {
+    confirm({
+      title: "ARCHIVE HACKATHON LEAD",
+      message: `Are you sure you want to archive "${leadTitle}"? It will be hidden from active outreach and permanently blacklisted from appearing on future scrapes.`,
+      confirmText: "Archive Lead",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("organizer_leads")
+          .update({ status: "archived" })
+          .eq("id", leadId);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          showToast(`Archived "${leadTitle}". It will never appear on future scrapes.`, "success");
+          await loadLeads();
+        }
+      },
+    });
+  }
+
   async function loadData() {
     try {
       // 1. Fetch user reports
@@ -1291,6 +1312,10 @@ export default function AdminPage() {
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
                                   ✓ Pitch Sent
                                 </span>
+                              ) : lead.status === "archived" ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-zinc-800">
+                                  Archived
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-blue-950/80 text-blue-400 border border-blue-800/60">
                                   New Lead
@@ -1298,15 +1323,27 @@ export default function AdminPage() {
                               )}
                             </td>
 
-                            {/* Action Button */}
+                            {/* Action Buttons */}
                             <td className="p-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => openPitchModal(lead)}
-                                className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded border border-emerald-900/60 hover:border-emerald-500 bg-emerald-950/30 hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer"
-                              >
-                                {lead.status === "pitch_sent" ? "Re-pitch" : "Preview & Send Pitch"}
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openPitchModal(lead)}
+                                  className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded border border-emerald-900/60 hover:border-emerald-500 bg-emerald-950/30 hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer"
+                                >
+                                  {lead.status === "pitch_sent" ? "Re-pitch" : "Preview & Send Pitch"}
+                                </button>
+                                {lead.status !== "archived" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleArchiveLead(lead.id, lead.title)}
+                                    title="Archive lead so it never appears on future scrapes"
+                                    className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-2.5 rounded border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
+                                  >
+                                    Archive
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))
