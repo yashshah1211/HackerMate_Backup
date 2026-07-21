@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { PostHogProvider } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,9 +60,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-screen bg-[var(--background)]">
-        <NotificationProvider>
-          <Navbar>{children}</Navbar>
-        </NotificationProvider>
+        <PostHogProvider>
+          <NotificationProvider>
+            <Navbar>{children}</Navbar>
+          </NotificationProvider>
+        </PostHogProvider>
       </body>
     </html>
   );
