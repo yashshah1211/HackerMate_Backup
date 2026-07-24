@@ -12,11 +12,10 @@ export async function POST(req: NextRequest) {
 
     const { supabaseAdmin } = authResult;
 
-    // 2. Fetch ALL historical organizer leads from Day 1
+    // 2. Fetch ALL historical organizer leads from Day 1 (including all pitches sent)
     const { data: allLeads, error: fetchErr } = await supabaseAdmin
       .from("organizer_leads")
       .select("*")
-      .neq("status", "removed")
       .order("created_at", { ascending: false });
 
     if (fetchErr) {
@@ -25,11 +24,12 @@ export async function POST(req: NextRequest) {
     }
 
     const leadsList = allLeads || [];
+    // A lead is pitched if pitch_sent_at is set, or last_sent_to is set, or status is pitch_sent/opened/replied
     const pitchedLeads = leadsList.filter(
-      (l) => l.pitch_sent_at || l.status === "pitch_sent" || l.status === "opened" || l.status === "replied"
+      (l) => l.pitch_sent_at || l.last_sent_to || l.status === "pitch_sent" || l.status === "opened" || l.status === "replied"
     );
 
-    const totalLeads = leadsList.length;
+    const totalLeads = leadsList.filter((l) => l.status !== "removed").length;
     const totalPitchesSent = pitchedLeads.length;
     const totalOpened = pitchedLeads.filter(
       (l) => l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened"
