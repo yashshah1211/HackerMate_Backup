@@ -400,7 +400,17 @@ async function handleAnalyticsSummary(req: NextRequest) {
     }
 
     if (!analytics) {
-      analytics = getFallbackAnalytics();
+      // Only use fallback demo data if explicitly requested via ?demo=true parameter
+      const allowDemo = req.nextUrl.searchParams.get("demo") === "true";
+      if (allowDemo) {
+        analytics = getFallbackAnalytics();
+      } else {
+        console.warn("PostHog analytics credentials missing or failed to fetch real data. Aborting daily email send.");
+        return NextResponse.json({
+          success: false,
+          error: "PostHog analytics credentials missing or PostHog API request failed. Configure POSTHOG_PERSONAL_API_KEY and POSTHOG_PROJECT_ID in Vercel environment variables to receive real analytics digests.",
+        }, { status: 400 });
+      }
     }
 
     const todayStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
