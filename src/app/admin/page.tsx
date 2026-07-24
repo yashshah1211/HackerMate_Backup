@@ -292,6 +292,27 @@ export default function AdminPage() {
     });
   }
 
+  function handleMarkReplied(leadId: string, leadTitle: string) {
+    confirm({
+      title: "MARK LEAD AS REPLIED",
+      message: `Mark "${leadTitle}" as Replied? This updates their status to Replied on your dashboard and summary reports.`,
+      confirmText: "Mark as Replied",
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("organizer_leads")
+          .update({ status: "replied" })
+          .eq("id", leadId);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          showToast(`Marked "${leadTitle}" as Replied!`, "success");
+          await loadLeads();
+        }
+      },
+    });
+  }
+
   async function loadData() {
     try {
       // 1. Fetch user reports
@@ -1355,7 +1376,11 @@ export default function AdminPage() {
 
                             {/* Status Tag */}
                             <td className="p-4">
-                              {lead.opened_at || (lead.open_count && lead.open_count > 0) || lead.status === "opened" ? (
+                              {lead.status === "replied" ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-violet-950/90 text-violet-300 border border-violet-700/60 shadow-[0_0_8px_rgba(139,92,246,0.2)]">
+                                  💬 Replied
+                                </span>
+                              ) : lead.opened_at || (lead.open_count && lead.open_count > 0) || lead.status === "opened" ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-600/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
                                   👁 Opened {lead.open_count && lead.open_count > 1 ? `(${lead.open_count}x)` : ""}
                                 </span>
@@ -1373,12 +1398,22 @@ export default function AdminPage() {
                             {/* Action Buttons */}
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2">
+                                {(lead.pitch_sent_at || lead.status === "pitch_sent" || lead.status === "opened") && lead.status !== "replied" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkReplied(lead.id, lead.title)}
+                                    title="Mark organizer response as replied"
+                                    className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-2.5 rounded border border-violet-900/60 hover:border-violet-500 bg-violet-950/30 hover:bg-violet-900/50 text-violet-300 transition cursor-pointer"
+                                  >
+                                    💬 Replied
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => openPitchModal(lead)}
                                   className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded border border-emerald-900/60 hover:border-emerald-500 bg-emerald-950/30 hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer"
                                 >
-                                  {lead.status === "pitch_sent" ? "Re-pitch" : "Preview & Send Pitch"}
+                                  {lead.status === "pitch_sent" || lead.status === "replied" ? "Re-pitch" : "Preview & Send Pitch"}
                                 </button>
                                 <button
                                   type="button"

@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           from: fromEmail,
           to: targetEmail,
+          reply_to: "yashshah7117@gmail.com",
           subject: finalSubject,
           html: finalHtml,
         }),
