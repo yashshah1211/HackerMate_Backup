@@ -10,8 +10,9 @@ const TRANSPARENT_GIF_BUFFER = Buffer.from(
 export async function GET(req: NextRequest) {
   try {
     const leadId = req.nextUrl.searchParams.get("id");
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    if (leadId) {
+    if (leadId && uuidRegex.test(leadId)) {
       const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!

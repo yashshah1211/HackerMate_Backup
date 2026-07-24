@@ -115,7 +115,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (res.ok) {
         showToast(
-          `All-time outreach summary PDF (From Day 1) emailed successfully to ${outreachAdminEmail}!`,
+          `All-time outreach summary PDF (From Day 1) emailed successfully to ${userEmail || "administrator email"}!`,
           "success"
         );
       } else {

@@ -378,11 +378,10 @@ async function handleAnalyticsSummary(req: NextRequest) {
   try {
     // Authenticate Cron request
     const authHeader = req.headers.get("Authorization");
-    const urlSecret = req.nextUrl.searchParams.get("secret");
     const format = req.nextUrl.searchParams.get("format");
     const cronSecret = process.env.CRON_SECRET;
 
-    const isCronAuthorized = cronSecret && (authHeader === `Bearer ${cronSecret}` || urlSecret === cronSecret);
+    const isCronAuthorized = cronSecret && authHeader === `Bearer ${cronSecret}`;
     const isLocalDev = process.env.NODE_ENV !== "production";
 
     if (!isCronAuthorized && !isLocalDev) {

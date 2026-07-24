@@ -47,7 +47,12 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
+
   if (!user) {
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/";
     loginUrl.search = "";
@@ -59,7 +64,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Admin route server-side role check
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (
+    request.nextUrl.pathname.startsWith("/admin") ||
+    request.nextUrl.pathname.startsWith("/api/admin")
+  ) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -67,6 +75,12 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (!profile || profile.role !== "admin") {
+      if (isApiRoute) {
+        return NextResponse.json(
+          { error: "Forbidden: Access restricted to authorized administrator." },
+          { status: 403 }
+        );
+      }
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/dashboard";
       redirectUrl.search = "";
@@ -90,6 +104,8 @@ export const config = {
     "/messages/:path*",
     "/my-teams/:path*",
     "/admin/:path*",
+    "/api/admin/:path*",
   ],
 };
+
 

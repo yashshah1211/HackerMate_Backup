@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +39,31 @@ export async function POST(req: NextRequest) {
     // Verify the caller is acting as themselves — prevent sender impersonation.
     if (senderId !== user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate Limiter Enforcement (15 emails per hour per authenticated user)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+
+    const { data: rateLimitData } = await supabaseAdmin.rpc("check_rate_limit", {
+      p_ip: user.id,
+      p_limit: 15,
+      p_window_interval: "1 hour",
+    });
+
+    if (rateLimitData && rateLimitData.length > 0) {
+      const { allowed, reset_time } = rateLimitData[0];
+      if (!allowed) {
+        const resetMs = new Date(reset_time).getTime();
+        const retryAfterSeconds = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
+        return NextResponse.json(
+          { error: `Rate limit exceeded. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
+          { status: 429, headers: { "Retry-After": retryAfterSeconds.toString() } }
+        );
+      }
     }
 
     // Only admins may send moderation_warning or onboarding_nudge emails.

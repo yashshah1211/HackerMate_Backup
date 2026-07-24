@@ -27,9 +27,7 @@ export async function requireOutreachAdmin(
   } = await supabaseUserClient.auth.getUser();
 
   const allowedEmail =
-    process.env.OUTREACH_ADMIN_EMAIL ||
-    process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL ||
-    "yashshah7117@gmail.com";
+    process.env.OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
 
   if (
     authError ||
@@ -38,7 +36,7 @@ export async function requireOutreachAdmin(
     user.email.toLowerCase() !== allowedEmail.toLowerCase()
   ) {
     return NextResponse.json(
-      { error: `Forbidden: Exclusive access for ${allowedEmail}` },
+      { error: "Forbidden: Access restricted to authorized administrator." },
       { status: 403 }
     );
   }
