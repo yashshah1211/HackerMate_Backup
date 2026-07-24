@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.hackermate.in";
+    const trackingPixel = `<img src="${siteUrl}/api/webhooks/email-open?id=${leadId}" width="1" height="1" style="display:none; width:1px; height:1px; opacity:0;" alt="" />`;
+    const finalHtml = `${contentHtml}\n${trackingPixel}`;
+
     if (resendApiKey) {
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
           from: fromEmail,
           to: targetEmail,
           subject: finalSubject,
-          html: contentHtml,
+          html: finalHtml,
         }),
       });
 

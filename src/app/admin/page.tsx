@@ -53,6 +53,8 @@ type OrganizerLead = {
   event_date: string;
   status: string;
   pitch_sent_at: string | null;
+  opened_at?: string | null;
+  open_count?: number;
   notes: string | null;
   created_at: string;
 };
@@ -77,6 +79,7 @@ export default function AdminPage() {
   const [leads, setLeads] = useState<OrganizerLead[]>([]);
   const [fetchingUnstop, setFetchingUnstop] = useState(false);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [sendingSummaryPdf, setSendingSummaryPdf] = useState(false);
 
   // Pitch Modal state
   const [pitchModalOpen, setPitchModalOpen] = useState(false);
@@ -85,6 +88,26 @@ export default function AdminPage() {
   const [pitchSubject, setPitchSubject] = useState("");
   const [pitchBody, setPitchBody] = useState("");
   const [sendingPitch, setSendingPitch] = useState(false);
+
+  async function handleSendSummaryPdf() {
+    setSendingSummaryPdf(true);
+    try {
+      const res = await fetch("/api/admin/send-outreach-summary-pdf", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          `All-time outreach summary PDF (From Day 1) emailed successfully to yashshah7117@gmail.com!`,
+          "success"
+        );
+      } else {
+        showToast(data.error || "Failed to send summary PDF email.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send summary PDF", "error");
+    }
+    setSendingSummaryPdf(false);
+  }
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -1198,7 +1221,25 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSendSummaryPdf}
+                  disabled={sendingSummaryPdf}
+                  className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 border-emerald-900/60 hover:border-emerald-500/60 text-emerald-400 bg-emerald-950/30 cursor-pointer"
+                >
+                  {sendingSummaryPdf ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                      <span>Generating Summary PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📄 Send Summary PDF Email</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={loadLeads}
@@ -1234,7 +1275,11 @@ export default function AdminPage() {
                 <div className="text-xs font-semibold text-zinc-300">
                   Total Leads ({leads.length}) •{" "}
                   <span className="text-emerald-400">
-                    Pitches Sent ({leads.filter((l) => l.status === "pitch_sent").length})
+                    Pitches Sent ({leads.filter((l) => l.pitch_sent_at || l.status === "pitch_sent" || l.status === "opened").length})
+                  </span>{" "}
+                  •{" "}
+                  <span className="text-emerald-300 font-mono">
+                    Opened ({leads.filter((l) => l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened").length})
                   </span>
                 </div>
 
@@ -1310,13 +1355,13 @@ export default function AdminPage() {
 
                             {/* Status Tag */}
                             <td className="p-4">
-                              {lead.status === "pitch_sent" ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-                                  ✓ Pitch Sent
+                              {lead.opened_at || (lead.open_count && lead.open_count > 0) || lead.status === "opened" ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-600/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                                  👁 Opened {lead.open_count && lead.open_count > 1 ? `(${lead.open_count}x)` : ""}
                                 </span>
-                              ) : lead.status === "archived" ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-zinc-800">
-                                  Archived
+                              ) : lead.status === "pitch_sent" || lead.pitch_sent_at ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">
+                                  ✓ Pitch Sent (Unopened)
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-blue-950/80 text-blue-400 border border-blue-800/60">
