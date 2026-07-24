@@ -145,6 +145,8 @@ export default function AdminPage() {
       const { data, error } = await supabase
         .from("organizer_leads")
         .select("*")
+        .neq("status", "removed")
+        .neq("status", "archived")
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -246,21 +248,21 @@ export default function AdminPage() {
     setSendingPitch(false);
   }
 
-  function handleArchiveLead(leadId: string, leadTitle: string) {
+  function handleRemoveLead(leadId: string, leadTitle: string) {
     confirm({
-      title: "ARCHIVE HACKATHON LEAD",
-      message: `Are you sure you want to archive "${leadTitle}"? It will be hidden from active outreach and permanently blacklisted from appearing on future scrapes.`,
-      confirmText: "Archive Lead",
+      title: "REMOVE HACKATHON LEAD",
+      message: `Are you sure you want to remove "${leadTitle}"? It will be removed from your outreach list and will never be re-fetched when you click Fetch Unstop Hackathons.`,
+      confirmText: "Remove Lead",
       onConfirm: async () => {
         const { error } = await supabase
           .from("organizer_leads")
-          .update({ status: "archived" })
+          .update({ status: "removed" })
           .eq("id", leadId);
 
         if (error) {
           showToast(error.message, "error");
         } else {
-          showToast(`Archived "${leadTitle}". It will never appear on future scrapes.`, "success");
+          showToast(`Removed "${leadTitle}". It will not be re-fetched on future scrapes.`, "success");
           await loadLeads();
         }
       },
@@ -1333,16 +1335,14 @@ export default function AdminPage() {
                                 >
                                   {lead.status === "pitch_sent" ? "Re-pitch" : "Preview & Send Pitch"}
                                 </button>
-                                {lead.status !== "archived" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleArchiveLead(lead.id, lead.title)}
-                                    title="Archive lead so it never appears on future scrapes"
-                                    className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-2.5 rounded border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
-                                  >
-                                    Archive
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveLead(lead.id, lead.title)}
+                                  title="Remove lead from list so it is never re-fetched on future scrapes"
+                                  className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-2.5 rounded border border-rose-900/40 hover:border-rose-500/60 bg-rose-950/20 hover:bg-rose-950/50 text-rose-400 hover:text-rose-200 transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <span>Remove</span>
+                                </button>
                               </div>
                             </td>
                           </tr>
