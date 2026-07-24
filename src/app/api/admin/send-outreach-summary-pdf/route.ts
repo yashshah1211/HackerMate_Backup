@@ -1,38 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 import { jsPDF } from "jspdf";
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Strict Auth Gate - Restricted Exclusively to yashshah7117@gmail.com
-    const supabaseUserClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => req.cookies.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseUserClient.auth.getUser();
-
-    if (authError || !user || user.email !== "yashshah7117@gmail.com") {
-      return NextResponse.json(
-        { error: "Forbidden: Exclusive access for yashshah7117@gmail.com" },
-        { status: 403 }
-      );
+    // 1. Auth Gate via Shared Helper
+    const authResult = await requireOutreachAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { supabaseAdmin } = authResult;
 
     // 2. Fetch ALL historical organizer leads from Day 1
     const { data: allLeads, error: fetchErr } = await supabaseAdmin
@@ -87,7 +65,6 @@ export async function POST(req: NextRequest) {
     doc.text(`All-Time Historical Digest (From Day 1 to ${todayStr})`, 40, 84);
 
     // KPI Metric Cards Grid
-    // Card 1: Total Pitches Sent
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
     doc.roundedRect(40, 110, 120, 60, 4, 4, "FD");
@@ -99,7 +76,6 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(20);
     doc.text(totalPitchesSent.toString(), 50, 154);
 
-    // Card 2: Emails Opened
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(175, 110, 120, 60, 4, 4, "FD");
     doc.setTextColor(100, 116, 139);
@@ -110,7 +86,6 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(20);
     doc.text(totalOpened.toString(), 185, 154);
 
-    // Card 3: Open Rate
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(310, 110, 120, 60, 4, 4, "FD");
     doc.setTextColor(100, 116, 139);
@@ -121,7 +96,6 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(20);
     doc.text(`${openRate}%`, 320, 154);
 
-    // Card 4: Total Scraped Leads
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(445, 110, 115, 60, 4, 4, "FD");
     doc.setTextColor(100, 116, 139);
@@ -173,7 +147,8 @@ export async function POST(req: NextRequest) {
 
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 116, 139);
-        const contactStr = (lead.organizer_email || "N/A").split(",")[0];
+        const contactEmail = lead.last_sent_to || lead.organizer_email || "N/A";
+        const contactStr = contactEmail.split(",")[0];
         const contactDisplay = contactStr.length > 28 ? contactStr.substring(0, 26) + "..." : contactStr;
         doc.text(contactDisplay, 230, y);
 
@@ -183,7 +158,11 @@ export async function POST(req: NextRequest) {
         doc.text(sentDateStr, 390, y);
 
         const isOpened = lead.opened_at || (lead.open_count && lead.open_count > 0) || lead.status === "opened";
-        if (isOpened) {
+        if (lead.status === "replied") {
+          doc.setTextColor(139, 92, 246);
+          doc.setFont("helvetica", "bold");
+          doc.text("[REPLIED]", 480, y);
+        } else if (isOpened) {
           doc.setTextColor(16, 185, 129);
           doc.setFont("helvetica", "bold");
           const opensText = lead.open_count > 1 ? `Opened (${lead.open_count}x)` : "Opened";
@@ -199,22 +178,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Footer
-    doc.setDrawColor(226, 232, 240);
-    doc.line(40, 740, 560, 740);
+    // Dynamic Footer Stamp across all generated pages (Fixes Page X of Y bug)
+    const totalPages = doc.getNumberOfPages();
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      doc.setPage(pageNum);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(40, 740, 560, 740);
 
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(148, 163, 184);
-    doc.text("HackerMate Organizer Outreach Digest • Generated automatically", 40, 752);
-    doc.text(`Page 1`, 525, 752);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(148, 163, 184);
+      doc.text("HackerMate Organizer Outreach Digest • Generated automatically", 40, 752);
+      doc.text(`Page ${pageNum} of ${totalPages}`, 480, 752);
+    }
 
     const arrayBuffer = doc.output("arraybuffer");
     const pdfBuffer = Buffer.from(arrayBuffer);
 
     // 4. Send Email via Resend
     const resendApiKey = process.env.RESEND_API_KEY;
-    const recipientEmail = "yashshah7117@gmail.com";
+    const recipientEmail =
+      process.env.OUTREACH_ADMIN_EMAIL ||
+      process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL ||
+      "yashshah7117@gmail.com";
     const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
     const subject = `📊 Organizer Outreach Summary (From Day 1): ${totalPitchesSent} Pitches, ${totalOpened} Opened (${openRate}%)`;
 

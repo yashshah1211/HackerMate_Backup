@@ -1,37 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Strict Auth Gate - Restricted Exclusively to yashshah7117@gmail.com
-    const supabaseUserClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => req.cookies.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseUserClient.auth.getUser();
-
-    if (authError || !user || user.email !== "yashshah7117@gmail.com") {
-      return NextResponse.json(
-        { error: "Forbidden: Exclusive access for yashshah7117@gmail.com" },
-        { status: 403 }
-      );
+    // 1. Auth Gate via Shared Helper
+    const authResult = await requireOutreachAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { supabaseAdmin } = authResult;
 
     // 2. Fetch all previously scraped unstop_urls from DB to guarantee NO re-scraping
     const { data: existingLeads, error: fetchErr } = await supabaseAdmin
@@ -48,6 +26,8 @@ export async function POST(req: NextRequest) {
 
     // 3. Multi-page fetch from Unstop (Pages 1 to 5, 30 per page = up to 150 hackathons)
     const rawOpportunities: any[] = [];
+    let payloadWarning = false;
+
     for (let page = 1; page <= 5; page++) {
       try {
         const unstopApiUrl = `https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=30&page=${page}&oppstatus=open`;
@@ -67,6 +47,12 @@ export async function POST(req: NextRequest) {
             unstopData?.opportunities?.data ||
             unstopData?.data ||
             [];
+
+          if (!Array.isArray(items) || (items.length === 0 && page === 1)) {
+            console.warn(`[Unstop Scraper] Warning: Unstop API response shape differed or returned empty array on page ${page}:`, unstopData);
+            payloadWarning = true;
+          }
+          
           if (Array.isArray(items)) {
             rawOpportunities.push(...items);
           }
@@ -80,6 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         message: "No open hackathons found on Unstop at this time",
         count: 0,
+        warning: payloadWarning ? "Unstop API response structure may have changed. Check server logs." : undefined,
       });
     }
 
@@ -92,7 +79,6 @@ export async function POST(req: NextRequest) {
         ? slug
         : `https://unstop.com/${slug}`;
 
-      // Rule: Never appear again if already scraped/stored in DB or seen in batch
       if (existingUrlsSet.has(fullUrl) || seenUrlsInBatch.has(fullUrl)) {
         return false;
       }
@@ -107,78 +93,89 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 5. Fetch detailed competition contacts for FRESH hackathons only
-    const resolvedLeads = await Promise.all(
-      freshOpportunities.map(async (opp: any) => {
-        const title = opp.title || opp.name || "Untitled Hackathon";
-        const college =
-          opp.organisation?.name ||
-          opp.organisation_name ||
-          opp.organisation?.title ||
-          "College / Institution";
-        
-        const slug = opp.public_url || opp.slug || opp.id;
-        const unstop_url = slug?.startsWith("http")
-          ? slug
-          : `https://unstop.com/${slug}`;
+    // 5. Cap per invocation & Batch detail-fetches sequentially to prevent timeouts & rate limits
+    const MAX_PER_RUN = 40;
+    const opportunitiesToFetch = freshOpportunities.slice(0, MAX_PER_RUN);
+    const skippedInRunCount = freshOpportunities.length - opportunitiesToFetch.length;
 
-        let organizer_email: string | null = null;
+    const BATCH_SIZE = 5;
+    const resolvedLeads: any[] = [];
 
-        const event_date =
-          opp.regnRequirements?.start_regn_dt ||
-          opp.start_date ||
-          opp.end_date ||
-          "Upcoming";
-
-        if (opp.id) {
+    for (let i = 0; i < opportunitiesToFetch.length; i += BATCH_SIZE) {
+      const chunk = opportunitiesToFetch.slice(i, i + BATCH_SIZE);
+      const chunkResults = await Promise.all(
+        chunk.map(async (opp: any) => {
           try {
-            const compRes = await fetch(
-              `https://unstop.com/api/public/competition/${opp.id}`,
-              {
-                headers: {
-                  "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                  Accept: "application/json",
-                  Referer: "https://unstop.com/",
-                },
-              }
-            );
+            const title = opp.title || opp.name || "Untitled Hackathon";
+            const college =
+              opp.organisation?.name ||
+              opp.organisation_name ||
+              opp.organisation?.title ||
+              "College / Institution";
+            
+            const slug = opp.public_url || opp.slug || opp.id;
+            const unstop_url = slug?.startsWith("http")
+              ? slug
+              : `https://unstop.com/${slug}`;
 
-            if (compRes.ok) {
-              const compJson = await compRes.json();
-              const comp = compJson?.data?.competition || compJson?.data || {};
-              const contacts = comp.contacts || [];
+            let organizer_email: string | null = null;
+            const event_date =
+              opp.regnRequirements?.start_regn_dt ||
+              opp.start_date ||
+              opp.end_date ||
+              "Upcoming";
 
-              const emails: string[] = contacts
-                .map((c: any) => c.email?.trim())
-                .filter((e: any) => e && e.includes("@"));
+            if (opp.id) {
+              try {
+                const compRes = await fetch(
+                  `https://unstop.com/api/public/competition/${opp.id}`,
+                  {
+                    headers: {
+                      "User-Agent":
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                      Accept: "application/json",
+                      Referer: "https://unstop.com/",
+                    },
+                  }
+                );
 
-              if (emails.length > 0) {
-                organizer_email = Array.from(new Set(emails)).join(", ");
+                if (compRes.ok) {
+                  const compJson = await compRes.json();
+                  const comp = compJson?.data?.competition || compJson?.data || {};
+                  const contacts = comp.contacts || [];
+
+                  const emails: string[] = contacts
+                    .map((c: any) => c.email?.trim())
+                    .filter((e: any) => e && e.includes("@"));
+
+                  if (emails.length > 0) {
+                    organizer_email = Array.from(new Set(emails)).join(", ");
+                  }
+                }
+              } catch (fetchErr) {
+                console.warn(`[Unstop Scraper] Could not fetch detail for ID ${opp.id}:`, fetchErr);
               }
             }
-          } catch (fetchErr) {
-            console.warn(`[Unstop Scraper] Could not fetch detail for ID ${opp.id}:`, fetchErr);
+
+            if (!organizer_email) return null;
+
+            return {
+              title,
+              college_or_host: college,
+              unstop_url,
+              organizer_email,
+              event_date: typeof event_date === "string" ? event_date.substring(0, 50) : "Upcoming",
+              status: "new",
+            };
+          } catch (itemErr) {
+            console.warn(`[Unstop Scraper] Error processing hackathon item:`, itemErr);
+            return null;
           }
-        }
+        })
+      );
+      resolvedLeads.push(...chunkResults);
+    }
 
-        // Only return if valid email exists
-        if (!organizer_email) {
-          return null;
-        }
-
-        return {
-          title,
-          college_or_host: college,
-          unstop_url,
-          organizer_email,
-          event_date: typeof event_date === "string" ? event_date.substring(0, 50) : "Upcoming",
-          status: "new",
-        };
-      })
-    );
-
-    // Filter out nulls using TypeScript type guard
     const validLeadsToUpsert = resolvedLeads.filter(
       (lead): lead is NonNullable<typeof lead> => lead !== null
     );
@@ -187,6 +184,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         message: "Scraped fresh hackathons, but none had public organizer emails listed.",
         count: 0,
+        skippedInRun: skippedInRunCount,
       });
     }
 
@@ -205,6 +203,10 @@ export async function POST(req: NextRequest) {
       success: true,
       count: insertedData?.length || 0,
       leads: insertedData,
+      skippedInRun: skippedInRunCount,
+      message: skippedInRunCount > 0
+        ? `Fetched ${insertedData?.length || 0} leads (Capped at ${MAX_PER_RUN} per run. ${skippedInRunCount} remaining - click again to fetch more).`
+        : undefined,
     });
   } catch (err: any) {
     console.error("[Unstop Scraper] Exception:", err);

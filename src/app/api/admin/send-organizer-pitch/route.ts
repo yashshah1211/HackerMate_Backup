@@ -1,32 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Strict Auth Gate - Exclusive access for yashshah7117@gmail.com
-    const supabaseUserClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => req.cookies.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseUserClient.auth.getUser();
-
-    if (authError || !user || user.email !== "yashshah7117@gmail.com") {
-      return NextResponse.json(
-        { error: "Forbidden: Exclusive access for yashshah7117@gmail.com" },
-        { status: 403 }
-      );
+    // 1. Auth Gate via Shared Helper
+    const authResult = await requireOutreachAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const { supabaseAdmin } = authResult;
 
     const body = await req.json();
     const { leadId, recipientEmail, subject, contentHtml } = body;
@@ -101,17 +84,12 @@ export async function POST(req: NextRequest) {
       console.log("=================================================================\n");
     }
 
-    // 3. Update status in DB via Supabase Admin Client
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
+    // 3. Update status in DB via Supabase Admin Client (Sets last_sent_to without overwriting original organizer_email)
     const { error: dbErr } = await supabaseAdmin
       .from("organizer_leads")
       .update({
         status: "pitch_sent",
-        organizer_email: recipientEmail,
+        last_sent_to: recipientEmail,
         pitch_sent_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -119,12 +97,20 @@ export async function POST(req: NextRequest) {
 
     if (dbErr) {
       console.error("[Send Pitch] DB Update Error:", dbErr);
+      return NextResponse.json({
+        success: true,
+        sentTo: targetEmail,
+        status: "pitch_sent",
+        dbUpdateFailed: true,
+        dbError: dbErr.message,
+      });
     }
 
     return NextResponse.json({
       success: true,
       sentTo: targetEmail,
       status: "pitch_sent",
+      dbUpdateFailed: false,
     });
   } catch (err: any) {
     console.error("[Send Pitch] Exception:", err);

@@ -50,6 +50,7 @@ type OrganizerLead = {
   college_or_host: string;
   unstop_url: string;
   organizer_email: string | null;
+  last_sent_to?: string | null;
   event_date: string;
   status: string;
   pitch_sent_at: string | null;
@@ -89,26 +90,6 @@ export default function AdminPage() {
   const [pitchBody, setPitchBody] = useState("");
   const [sendingPitch, setSendingPitch] = useState(false);
 
-  async function handleSendSummaryPdf() {
-    setSendingSummaryPdf(true);
-    try {
-      const res = await fetch("/api/admin/send-outreach-summary-pdf", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(
-          `All-time outreach summary PDF (From Day 1) emailed successfully to yashshah7117@gmail.com!`,
-          "success"
-        );
-      } else {
-        showToast(data.error || "Failed to send summary PDF email.", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "Failed to send summary PDF", "error");
-    }
-    setSendingSummaryPdf(false);
-  }
-
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -123,6 +104,29 @@ export default function AdminPage() {
   const [onboardingFilter, setOnboardingFilter] = useState<"all" | "incomplete">("all");
   const [nudgingUserIds, setNudgingUserIds] = useState<Set<string>>(new Set());
   const [bulkNudging, setBulkNudging] = useState(false);
+
+  const outreachAdminEmail =
+    process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
+
+  async function handleSendSummaryPdf() {
+    setSendingSummaryPdf(true);
+    try {
+      const res = await fetch("/api/admin/send-outreach-summary-pdf", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          `All-time outreach summary PDF (From Day 1) emailed successfully to ${outreachAdminEmail}!`,
+          "success"
+        );
+      } else {
+        showToast(data.error || "Failed to send summary PDF email.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send summary PDF", "error");
+    }
+    setSendingSummaryPdf(false);
+  }
 
   async function checkAdminAccess() {
     try {
@@ -151,7 +155,7 @@ export default function AdminPage() {
       } else {
         setIsAdmin(true);
         await loadData();
-        if (user.email === "yashshah7117@gmail.com") {
+        if (user.email?.toLowerCase() === outreachAdminEmail.toLowerCase()) {
           await loadLeads();
         }
       }
@@ -190,9 +194,9 @@ export default function AdminPage() {
       const data = await res.json();
       if (res.ok) {
         showToast(
-          data.count > 0
+          data.message || (data.count > 0
             ? `Fetched ${data.count} hackathons from Unstop!`
-            : "Scrape complete - no new hackathons found.",
+            : "Scrape complete - no new hackathons found."),
           "success"
         );
         await loadLeads();
@@ -208,9 +212,9 @@ export default function AdminPage() {
 
   function openPitchModal(lead: OrganizerLead) {
     setSelectedLead(lead);
-    const primaryEmail = lead.organizer_email
+    const primaryEmail = lead.last_sent_to || (lead.organizer_email
       ? lead.organizer_email.split(",")[0].trim()
-      : "";
+      : "");
     setPitchRecipientEmail(primaryEmail);
     setPitchSubject(`Partnership Proposal: Official Teammate Matchmaker for ${lead.title}`);
     setPitchBody(
@@ -255,10 +259,17 @@ export default function AdminPage() {
 
       const resData = await res.json();
       if (res.ok) {
-        showToast(
-          `Pitch email sent successfully to ${resData.sentTo || pitchRecipientEmail}!`,
-          "success"
-        );
+        if (resData.dbUpdateFailed) {
+          showToast(
+            "Email sent, but failed to update status — refresh and check manually.",
+            "warning"
+          );
+        } else {
+          showToast(
+            `Pitch email sent successfully to ${resData.sentTo || pitchRecipientEmail}!`,
+            "success"
+          );
+        }
         setPitchModalOpen(false);
         await loadLeads();
       } else {
@@ -277,16 +288,22 @@ export default function AdminPage() {
       message: `Are you sure you want to remove "${leadTitle}"? It will be removed from your outreach list and will never be re-fetched when you click Fetch Unstop Hackathons.`,
       confirmText: "Remove Lead",
       onConfirm: async () => {
-        const { error } = await supabase
-          .from("organizer_leads")
-          .update({ status: "removed" })
-          .eq("id", leadId);
-
-        if (error) {
-          showToast(error.message, "error");
-        } else {
-          showToast(`Removed "${leadTitle}". It will not be re-fetched on future scrapes.`, "success");
-          await loadLeads();
+        try {
+          const res = await fetch("/api/admin/organizer-leads/remove", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ leadId }),
+          });
+          const resData = await res.json();
+          if (res.ok) {
+            showToast(`Removed "${leadTitle}". It will not be re-fetched on future scrapes.`, "success");
+            await loadLeads();
+          } else {
+            showToast(resData.error || "Failed to remove lead.", "error");
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast(err.message || "Failed to remove lead.", "error");
         }
       },
     });
@@ -298,16 +315,22 @@ export default function AdminPage() {
       message: `Mark "${leadTitle}" as Replied? This updates their status to Replied on your dashboard and summary reports.`,
       confirmText: "Mark as Replied",
       onConfirm: async () => {
-        const { error } = await supabase
-          .from("organizer_leads")
-          .update({ status: "replied" })
-          .eq("id", leadId);
-
-        if (error) {
-          showToast(error.message, "error");
-        } else {
-          showToast(`Marked "${leadTitle}" as Replied!`, "success");
-          await loadLeads();
+        try {
+          const res = await fetch("/api/admin/organizer-leads/mark-replied", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ leadId }),
+          });
+          const resData = await res.json();
+          if (res.ok) {
+            showToast(`Marked "${leadTitle}" as Replied!`, "success");
+            await loadLeads();
+          } else {
+            showToast(resData.error || "Failed to mark as replied.", "error");
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast(err.message || "Failed to mark as replied.", "error");
         }
       },
     });
@@ -761,7 +784,7 @@ export default function AdminPage() {
               Teams ({teams.length})
             </button>
 
-            {userEmail === "yashshah7117@gmail.com" && (
+            {userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
               <button
                 onClick={() => {
                   setActiveTab("outreach");
@@ -1225,8 +1248,8 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tab 4: Organizer Outreach (yashshah7117@gmail.com exclusive) */}
-        {activeTab === "outreach" && userEmail === "yashshah7117@gmail.com" && (
+        {/* Tab 4: Organizer Outreach */}
+        {activeTab === "outreach" && userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
           <div className="space-y-6">
             {/* Outreach Action Bar */}
             <div className="card card-static p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-emerald-950/60 bg-emerald-950/10">
@@ -1293,14 +1316,17 @@ export default function AdminPage() {
             {/* Leads List Table */}
             <div className="card card-static p-0 overflow-hidden">
               <div className="p-4 border-b border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/40">
-                <div className="text-xs font-semibold text-zinc-300">
-                  Total Leads ({leads.length}) •{" "}
+                <div className="text-xs font-semibold text-zinc-300 flex flex-wrap items-center gap-1.5">
+                  <span>Total Leads ({leads.length}) •</span>
                   <span className="text-emerald-400">
-                    Pitches Sent ({leads.filter((l) => l.pitch_sent_at || l.status === "pitch_sent" || l.status === "opened").length})
-                  </span>{" "}
-                  •{" "}
+                    Pitches Sent ({leads.filter((l) => l.pitch_sent_at || l.status === "pitch_sent" || l.status === "opened" || l.status === "replied").length})
+                  </span>
+                  <span>•</span>
                   <span className="text-emerald-300 font-mono">
                     Opened ({leads.filter((l) => l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened").length})
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-mono italic ml-1" title="Open rates are approximate because some mail clients pre-fetch or block tracking pixels.">
+                    *Approximate — some mail clients pre-fetch or block tracking pixels
                   </span>
                 </div>
 
@@ -1368,7 +1394,14 @@ export default function AdminPage() {
                             {/* Contact Email */}
                             <td className="p-4 font-mono text-[11px]">
                               {lead.organizer_email ? (
-                                <span className="text-zinc-200">{lead.organizer_email}</span>
+                                <div>
+                                  <span className="text-zinc-200">{lead.organizer_email}</span>
+                                  {lead.last_sent_to && lead.last_sent_to.toLowerCase() !== lead.organizer_email.toLowerCase() && (
+                                    <div className="text-[10px] text-emerald-400/90 font-mono mt-0.5" title="Sent to custom recipient email">
+                                      ✉ Sent to: {lead.last_sent_to}
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-zinc-600 italic">Not listed on public API</span>
                               )}
