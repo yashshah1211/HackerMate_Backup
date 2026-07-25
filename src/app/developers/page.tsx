@@ -100,7 +100,7 @@ function DevelopersContent() {
         }
       }
 
-      // Fetch developers with database-level filters and a limit of 60
+      // Fetch all developers with database-level search or up to 1000 builders
       let queryBuilder = supabase
         .from("profiles")
         .select("*")
@@ -111,7 +111,7 @@ function DevelopersContent() {
         queryBuilder = queryBuilder.or(`full_name.ilike.%${term}%,college.ilike.%${term}%,skills.cs.{${term}}`);
       }
 
-      queryBuilder = queryBuilder.limit(60);
+      queryBuilder = queryBuilder.limit(1000);
 
       const { data, error } = await queryBuilder;
 
