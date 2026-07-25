@@ -7,6 +7,8 @@ import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 
+import QuickOnboardingModal from "@/components/QuickOnboardingModal";
+
 type Profile = {
   id: string;
   email: string;
@@ -17,6 +19,7 @@ type Profile = {
   linkedin_url: string;
   avatar_url: string;
   skills: string[];
+  onboarding_completed?: boolean;
   created_at?: string;
   compatibility?: number;
 };
@@ -100,6 +103,7 @@ function DashboardContent() {
   >({});
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [profileCompleteness, setProfileCompleteness] = useState({ percent: 0, pendingTasks: [] as string[] });
+  const [showQuickOnboardingModal, setShowQuickOnboardingModal] = useState(false);
 
 
   // Statistics counters
@@ -539,6 +543,24 @@ function DashboardContent() {
 
   return (
     <main>
+      {!profile?.onboarding_completed && (
+        <div className="bg-emerald-950/90 border-b border-emerald-800/60 px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-emerald-200">
+            <span className="text-base">⚡</span>
+            <span>
+              <strong>Your profile is incomplete!</strong> Auto-fill from GitHub in 15 seconds to get your <strong>Verified Builder Badge</strong> & unlock teammate matching.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowQuickOnboardingModal(true)}
+            className="btn btn-primary text-xs py-1.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-medium shrink-0 cursor-pointer shadow-lg shadow-emerald-950/50"
+          >
+            ⚡ Quick 15s Setup
+          </button>
+        </div>
+      )}
+
       <div className="topbar">
         <div className="ticker">
           <span className="dot"></span> {stats.hackathons} hackathons live · {stats.closingSoon} closing within 7 days
@@ -551,7 +573,7 @@ function DashboardContent() {
           <p>Here&apos;s what&apos;s happening in your network.</p>
         </div>
 
-        {/* Relocated and redesigned Profile Completeness Panel */}        {profileCompleteness.percent < 100 ? (
+        {/* Relocated and redesigned Profile Completeness Panel */}        {profileCompleteness.percent < 100 ? (
           <div className="profile-strength-card group">
             {/* Circle Progress Indicator */}
             <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
@@ -595,11 +617,11 @@ function DashboardContent() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                router.push("/profile/edit");
+                setShowQuickOnboardingModal(true);
               }}
-              className="px-3.5 py-1.5 bg-violet-600/90 hover:bg-violet-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg shadow-violet-500/10 border border-violet-500/30 whitespace-nowrap self-stretch md:self-center flex items-center justify-center gap-1"
+              className="px-3.5 py-1.5 bg-violet-600/90 hover:bg-violet-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg shadow-violet-500/10 border border-violet-500/30 whitespace-nowrap self-stretch md:self-center flex items-center justify-center gap-1 cursor-pointer"
             >
-              Complete
+              Quick Setup
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
@@ -958,6 +980,13 @@ function DashboardContent() {
         </div>
 
         <Footer />
+
+        <QuickOnboardingModal
+          isOpen={showQuickOnboardingModal}
+          onClose={() => setShowQuickOnboardingModal(false)}
+          onSuccess={loadDashboardData}
+          initialGithubUrl={profile?.github_url}
+        />
       </main>
     );
   }

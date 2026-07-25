@@ -104,3 +104,38 @@ export async function fetchGithubStats(username: string): Promise<GithubStats> {
     repos: featuredRepos,
   };
 }
+
+export type GithubProfileInfo = {
+  username: string;
+  name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  skills: string[];
+  followers: number;
+  public_repos: number;
+};
+
+/**
+ * Fetches user profile info and auto-extracts bio, avatar, and top programming languages as skills.
+ */
+export async function fetchGithubProfileInfo(username: string): Promise<GithubProfileInfo> {
+  const cleanUsername = parseGithubUsername(username) || username.trim();
+  const stats = await fetchGithubStats(cleanUsername);
+
+  const userRes = await fetch(`https://api.github.com/users/${cleanUsername}`);
+  const userData = userRes.ok ? await userRes.json() : {};
+
+  // Extract top languages as skills
+  const extractedSkills = Object.keys(stats.top_languages || []);
+
+  return {
+    username: cleanUsername,
+    name: userData.name || null,
+    bio: userData.bio || null,
+    avatar_url: userData.avatar_url || null,
+    skills: extractedSkills,
+    followers: stats.followers,
+    public_repos: stats.public_repos,
+  };
+}
+

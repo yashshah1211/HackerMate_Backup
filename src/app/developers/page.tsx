@@ -36,11 +36,22 @@ function DevelopersContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  const [collegeFilter, setCollegeFilter] = useState("");
+
   // Invite states
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedDevId, setSelectedDevId] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
+
+  // Extract unique colleges from fetched developers for the filter dropdown
+  const uniqueColleges = Array.from(
+    new Set(
+      developers
+        .map((dev) => dev.college?.trim())
+        .filter((c): c is string => !!c && c.length > 0)
+    )
+  ).sort();
 
   async function loadData(searchQuery?: string) {
     try {
@@ -229,10 +240,17 @@ function DevelopersContent() {
     setInviteLoading(false);
   }
 
-  // Filter developers: exclude current logged-in user + apply search + sort by compatibility
+  // Filter developers: exclude current logged-in user + apply search + college filter + sort by compatibility
   const filteredDevelopers = developers
     .filter((dev) => dev.id !== currentUserProfile?.id)
     .filter((dev) => {
+      // College Filter
+      if (collegeFilter) {
+        if (!dev.college || dev.college.toLowerCase().trim() !== collegeFilter.toLowerCase().trim()) {
+          return false;
+        }
+      }
+      // Text Search
       if (!search.trim()) return true;
       const query = search.toLowerCase();
       return (
@@ -268,32 +286,64 @@ function DevelopersContent() {
       </section>
 
 
-      {/* Search bar */}
-      <div className="relative max-w-md mb-8 animate-fade-in-up stagger-1">
-        <input
-          type="text"
-          placeholder="Search by name, skill, or college..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="input !pl-10 text-xs w-full"
-        />
-        <svg
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.65 5.65a7.5 7.5 0 0011 11z" />
-        </svg>
-        {search && (
-          <button
-            onClick={() => setSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+      {/* Search & College Filter bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-2xl mb-8 animate-fade-in-up stagger-1">
+        {/* Text search */}
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search by name or skill..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input !pl-10 text-xs w-full"
+          />
+          <svg
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.65 5.65a7.5 7.5 0 0011 11z" />
+          </svg>
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* College Filter Select */}
+        <div className="relative sm:w-64">
+          <select
+            value={collegeFilter}
+            onChange={(e) => setCollegeFilter(e.target.value)}
+            className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
+          >
+            <option value="">🏫 All Colleges ({developers.length})</option>
+            {uniqueColleges.map((col) => (
+              <option key={col} value={col}>
+                {col.length > 40 ? col.substring(0, 38) + "..." : col} ({developers.filter((d) => d.college === col).length})
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 text-[10px]">
+            ▼
+          </div>
+        </div>
+
+        {collegeFilter && (
+          <button
+            type="button"
+            onClick={() => setCollegeFilter("")}
+            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-400 hover:text-white"
+          >
+            <span>Clear Filter</span>
           </button>
         )}
       </div>

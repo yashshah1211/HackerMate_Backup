@@ -37,7 +37,16 @@ export default function AuthGuard({
       }
 
       if (!profile || error || !profile.onboarding_completed) {
-        // Profile missing or onboarding not finished — send to onboarding
+        // Allow browsing core dashboard & hackathon routes while rendering quick onboarding banner
+        const pathname = window.location.pathname;
+        if (
+          pathname.startsWith("/dashboard") ||
+          pathname.startsWith("/hackathons") ||
+          pathname.startsWith("/developers")
+        ) {
+          setAuthorized(true);
+          return;
+        }
         window.location.href = "/onboarding";
         return;
       }
