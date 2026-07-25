@@ -118,6 +118,8 @@ async function fetchUnstop(target = 1000) {
       location,
       mode,
       prize_pool,
+      unstop_id: opp.id,
+      college: opp.organisation?.name || opp.organisation_name || "College / Institution",
       website_url: `https://unstop.com/${opp.public_url}`,
       type: "external",
       tags: Array.from(tagsSet).slice(0, 5),
@@ -450,33 +452,35 @@ async function fetchDevfolio() {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function runDirectSeed() {
-  // 1. Parse service role key
-  const serviceRoleKey = process.argv[2];
+  // 1. Parse service role key & Supabase URL
+  const envPath = path.join(__dirname, "..", ".env.local");
+  let envVars = {};
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, "utf8");
+    envContent.replace(/\r/g, "").split("\n").forEach((line) => {
+      const parts = line.split("=");
+      if (parts.length >= 2) {
+        const key = parts[0].trim();
+        const value = parts.slice(1).join("=").trim();
+        if (key) envVars[key] = value;
+      }
+    });
+  }
+
+  const serviceRoleKey = process.argv[2] || process.env.SUPABASE_SERVICE_ROLE_KEY || envVars.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
-    console.error("ERROR: Please provide your Supabase Service Role Key as an argument.");
+    console.error("ERROR: Please provide your Supabase Service Role Key as an argument or set SUPABASE_SERVICE_ROLE_KEY in .env.local.");
     console.log("Usage: node scripts/direct_seed.js <your_service_role_key>");
     process.exit(1);
   }
 
-  let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || envVars.NEXT_PUBLIC_SUPABASE_URL;
 
-if (!supabaseUrl) {
-  const envPath = path.join(__dirname, "..", ".env.local");
-
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, "utf8");
-    const urlMatch = envContent.match(/NEXT_PUBLIC_SUPABASE_URL=(.+)/);
-
-    if (urlMatch?.[1]) {
-      supabaseUrl = urlMatch[1].trim();
-    }
+  if (!supabaseUrl) {
+    console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL not found.");
+    process.exit(1);
   }
-}
 
-if (!supabaseUrl) {
-  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL not found.");
-  process.exit(1);
-}
 
   console.log(`Supabase URL: ${supabaseUrl}`);
   console.log("Initializing Supabase Admin Client...");
@@ -542,14 +546,85 @@ if (!supabaseUrl) {
     const BATCH = 100;
     let uploaded = 0;
     for (let i = 0; i < hackathons.length; i += BATCH) {
-      const chunk = hackathons.slice(i, i + BATCH);
-      const { error } = await supabase.from("hackathons").upsert(chunk, { onConflict: "id" });
+      const rawChunk = hackathons.slice(i, i + BATCH);
+      const cleanChunk = rawChunk.map(({ unstop_id, ...rest }) => rest);
+      const { error } = await supabase.from("hackathons").upsert(cleanChunk, { onConflict: "id" });
       if (error) throw error;
-      uploaded += chunk.length;
+      uploaded += rawChunk.length;
       console.log(`  → Uploaded ${uploaded}/${hackathons.length}...`);
     }
 
-    console.log(`\n✅ SUCCESS: ${hackathons.length} upcoming hackathons imported! 🎉`);
+    // 6. Sync imported hackathons to organizer_leads (respecting removed leads and email filter)
+    console.log(`\n🎯 Syncing hackathons to organizer_leads...`);
+    const { data: existingLeads, error: leadsErr } = await supabase
+      .from("organizer_leads")
+      .select("unstop_url");
+
+    if (leadsErr) {
+      console.warn("  ⚠️ Could not fetch existing organizer leads:", leadsErr.message);
+    } else {
+      const existingUrls = new Set((existingLeads || []).map((l) => l.unstop_url));
+      const leadsToInsert = [];
+
+      for (const h of hackathons) {
+        if (!h.website_url) continue;
+        if (existingUrls.has(h.website_url)) continue;
+
+        existingUrls.add(h.website_url);
+
+        let organizer_email = null;
+        if (h.unstop_id) {
+          try {
+            const compRes = await fetch(`https://unstop.com/api/public/competition/${h.unstop_id}`, {
+              headers: HEADERS,
+            });
+            if (compRes.ok) {
+              const compJson = await compRes.json();
+              const comp = compJson?.data?.competition || compJson?.data || {};
+              const contacts = comp.contacts || [];
+              const emails = contacts
+                .map((c) => c.email?.trim())
+                .filter((e) => e && e.includes("@"));
+
+              if (emails.length > 0) {
+                organizer_email = Array.from(new Set(emails)).join(", ");
+              }
+            }
+          } catch (err) {
+            // Ignore fetch error, keep email as null
+          }
+        }
+
+        if (!organizer_email || !organizer_email.trim()) continue;
+
+        leadsToInsert.push({
+          title: h.name,
+          college_or_host: h.college || "College / Institution",
+          unstop_url: h.website_url,
+          organizer_email,
+          event_date: h.start_date ? new Date(h.start_date).toLocaleDateString() : "Upcoming",
+          status: "new",
+        });
+      }
+
+      if (leadsToInsert.length > 0) {
+        console.log(`  → Inserting ${leadsToInsert.length} new leads into organizer_leads...`);
+        const withEmailCount = leadsToInsert.filter((l) => l.organizer_email).length;
+        console.log(`    (${withEmailCount}/${leadsToInsert.length} leads have public organizer emails found on API)`);
+        for (let i = 0; i < leadsToInsert.length; i += BATCH) {
+          const chunk = leadsToInsert.slice(i, i + BATCH);
+          const { error: insertErr } = await supabase.from("organizer_leads").insert(chunk);
+          if (insertErr) {
+            console.warn("  ⚠️ Error inserting organizer leads chunk:", insertErr.message);
+          }
+        }
+        console.log(`  ✓ Sync to organizer_leads complete.`);
+      } else {
+        console.log(`  ✓ All hackathons are already tracked in organizer_leads (no new or un-removed leads to add).`);
+      }
+    }
+
+    console.log(`\n✅ SUCCESS: ${hackathons.length} upcoming hackathons imported & synced! 🎉`);
     console.log(`   Re-run this script weekly to keep listings fresh.`);
   } catch (err) {
     console.error("\n❌ Seeding Failed:", err.message || err);

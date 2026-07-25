@@ -157,15 +157,33 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            if (!organizer_email) return null;
+            if (!organizer_email) {
+              console.log(`[Unstop Scraper] Lead "${title}" has no public email listed on API. Still importing as lead.`);
+            }
 
             return {
-              title,
-              college_or_host: college,
-              unstop_url,
-              organizer_email,
-              event_date: typeof event_date === "string" ? event_date.substring(0, 50) : "Upcoming",
-              status: "new",
+              lead: {
+                title,
+                college_or_host: college,
+                unstop_url,
+                organizer_email,
+                event_date: typeof event_date === "string" ? event_date.substring(0, 50) : "Upcoming",
+                status: "new",
+              },
+              hackathonRecord: {
+                id: opp.id ? `00000000-0000-0000-0000-${opp.id.toString().padStart(12, "0")}` : undefined,
+                name: title,
+                description: (opp.details || "No description provided.").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+                start_date: opp.start_date || opp.regnRequirements?.start_regn_dt || null,
+                end_date: opp.end_date || opp.regnRequirements?.end_regn_dt || null,
+                location: opp.locations && opp.locations.length > 0 ? opp.locations.join(", ") : (opp.subtype?.toLowerCase().includes("offline") ? "Venue in India" : "Online"),
+                mode: (opp.locations && opp.locations.length > 0) || opp.subtype?.toLowerCase().includes("offline") ? "in-person" : "online",
+                prize_pool: opp.prizes && opp.prizes[0] && opp.prizes[0].cash ? `₹ ${Number(opp.prizes[0].cash).toLocaleString("en-IN")}` : "Certificate & Perks",
+                website_url: unstop_url,
+                type: "external",
+                tags: ["Unstop", "Coding", "Innovation"],
+                college: college !== "College / Institution" ? college : null,
+              }
             };
           } catch (itemErr) {
             console.warn(`[Unstop Scraper] Error processing hackathon item:`, itemErr);
@@ -176,36 +194,99 @@ export async function POST(req: NextRequest) {
       resolvedLeads.push(...chunkResults);
     }
 
-    const validLeadsToUpsert = resolvedLeads.filter(
-      (lead): lead is NonNullable<typeof lead> => lead !== null
+    const validProcessedItems = resolvedLeads.filter(
+      (item): item is NonNullable<typeof item> => item !== null
     );
 
-    if (validLeadsToUpsert.length === 0) {
-      return NextResponse.json({
-        message: "Scraped fresh hackathons, but none had public organizer emails listed.",
-        count: 0,
-        skippedInRun: skippedInRunCount,
-      });
+    const validLeadsToUpsert = validProcessedItems
+      .map((item) => item.lead)
+      .filter((lead) => lead.organizer_email && lead.organizer_email.trim().length > 0);
+
+    const hackathonsToUpsert = validProcessedItems
+      .map((item) => item.hackathonRecord)
+      .filter((h) => !!h.id);
+
+    // 6. Insert new unique leads into Supabase organizer_leads (Only those with valid public emails)
+    let insertedLeadsCount = 0;
+    let insertedData: any[] = [];
+    if (validLeadsToUpsert.length > 0) {
+      const { data: inserted, error: dbError } = await supabaseAdmin
+        .from("organizer_leads")
+        .insert(validLeadsToUpsert)
+        .select();
+
+      if (dbError) {
+        console.error("[Unstop Scraper] DB Error inserting organizer_leads:", dbError);
+      } else {
+        insertedData = inserted || [];
+        insertedLeadsCount = insertedData.length;
+      }
     }
 
-    // 6. Insert new unique leads into Supabase
-    const { data: insertedData, error: dbError } = await supabaseAdmin
-      .from("organizer_leads")
-      .insert(validLeadsToUpsert)
-      .select();
+    // 7. Upsert scraped hackathons into public.hackathons table (Hackathons Tab)
+    if (hackathonsToUpsert.length > 0) {
+      const { error: hackathonsDbErr } = await supabaseAdmin
+        .from("hackathons")
+        .upsert(hackathonsToUpsert, { onConflict: "id" });
 
-    if (dbError) {
-      console.error("[Unstop Scraper] DB Error:", dbError);
-      return NextResponse.json({ error: dbError.message }, { status: 500 });
+      if (hackathonsDbErr) {
+        console.error("[Unstop Scraper] DB Error upserting hackathons table:", hackathonsDbErr);
+      }
+    }
+
+
+    // 8. Backfill sync: Import any hackathons from public.hackathons table that are missing in organizer_leads (respecting removed ones)
+    const { data: existingHackathons } = await supabaseAdmin
+      .from("hackathons")
+      .select("id, name, college, website_url, start_date");
+
+    if (existingHackathons && existingHackathons.length > 0) {
+      // Re-fetch all unstop_urls/website_urls from organizer_leads (including removed ones)
+      const { data: currentLeads } = await supabaseAdmin
+        .from("organizer_leads")
+        .select("unstop_url");
+
+      const allLeadsUrls = new Set<string>((currentLeads || []).map((l) => l.unstop_url));
+      const syncLeadsToInsert: any[] = [];
+
+      for (const h of existingHackathons) {
+        if (!h.website_url) continue;
+        if (allLeadsUrls.has(h.website_url)) continue;
+
+        allLeadsUrls.add(h.website_url);
+        syncLeadsToInsert.push({
+          title: h.name || "Untitled Hackathon",
+          college_or_host: h.college || "College / Institution",
+          unstop_url: h.website_url,
+          organizer_email: null,
+          event_date: h.start_date ? new Date(h.start_date).toLocaleDateString() : "Upcoming",
+          status: "new",
+        });
+      }
+
+      if (syncLeadsToInsert.length > 0) {
+        console.log(`[Unstop Scraper] Backfilling ${syncLeadsToInsert.length} hackathons from hackathons table to organizer_leads...`);
+        const { data: backfilled, error: backfillErr } = await supabaseAdmin
+          .from("organizer_leads")
+          .insert(syncLeadsToInsert)
+          .select();
+
+        if (backfillErr) {
+          console.error("[Unstop Scraper] Backfill error:", backfillErr);
+        } else if (backfilled) {
+          insertedLeadsCount += backfilled.length;
+          insertedData.push(...backfilled);
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
-      count: insertedData?.length || 0,
+      count: insertedLeadsCount,
       leads: insertedData,
       skippedInRun: skippedInRunCount,
       message: skippedInRunCount > 0
-        ? `Fetched ${insertedData?.length || 0} leads (Capped at ${MAX_PER_RUN} per run. ${skippedInRunCount} remaining - click again to fetch more).`
+        ? `Fetched ${insertedLeadsCount} leads (Capped at ${MAX_PER_RUN} per run. ${skippedInRunCount} remaining - click again to fetch more).`
         : undefined,
     });
   } catch (err: any) {
@@ -216,3 +297,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

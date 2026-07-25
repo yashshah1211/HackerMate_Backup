@@ -174,12 +174,16 @@ export default function AdminPage() {
         .select("*")
         .neq("status", "removed")
         .neq("status", "archived")
+        .not("organizer_email", "is", null)
         .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to load organizer leads:", error);
       } else {
-        setLeads((data || []) as OrganizerLead[]);
+        const validLeads = ((data || []) as OrganizerLead[]).filter(
+          (l) => l.organizer_email && l.organizer_email.trim().length > 0
+        );
+        setLeads(validLeads);
       }
     } catch (err) {
       console.error("Error in loadLeads:", err);
