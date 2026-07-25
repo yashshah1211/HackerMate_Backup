@@ -573,42 +573,62 @@ function DashboardContent() {
           <p>Here&apos;s what&apos;s happening in your network.</p>
         </div>
 
-        {/* Relocated and redesigned Profile Completeness Panel */}        {profileCompleteness.percent < 100 ? (
-          <div className="profile-strength-card group">
+        {/* Relocated and redesigned Profile Completeness Panel */}
+        {profileCompleteness.percent < 100 ? (
+          <div className="profile-strength-card group relative">
+            {/* Glowing gradient background subtle aura */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#B4F461]/10 via-emerald-500/10 to-transparent rounded-2xl blur-md opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none" />
+
             {/* Circle Progress Indicator */}
-            <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle cx="28" cy="28" r="24" className="stroke-zinc-800" strokeWidth="3" fill="transparent" />
+            <div className="relative w-16 h-16 flex-shrink-0 flex items-center justify-center z-10">
+              <svg className="w-full h-full transform -rotate-90 drop-shadow-[0_0_8px_rgba(180,244,97,0.25)]" viewBox="0 0 64 64">
+                <defs>
+                  <linearGradient id="profileProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#B4F461" />
+                    <stop offset="100%" stopColor="#34d399" />
+                  </linearGradient>
+                </defs>
+                <circle cx="32" cy="32" r="26" className="stroke-zinc-800/80" strokeWidth="4" fill="transparent" />
                 <circle 
-                  cx="28" cy="28" r="24" 
-                  className="stroke-violet-500 transition-all duration-500 ease-out" 
-                  strokeWidth="3.5" 
+                  cx="32" cy="32" r="26" 
+                  stroke="url(#profileProgressGradient)"
+                  strokeWidth="4" 
                   fill="transparent" 
-                  strokeDasharray={150.79}
-                  strokeDashoffset={150.79 * (1 - profileCompleteness.percent / 100)}
+                  strokeLinecap="round"
+                  strokeDasharray={163.36}
+                  strokeDashoffset={163.36 * (1 - profileCompleteness.percent / 100)}
+                  className="transition-all duration-700 ease-out" 
                 />
               </svg>
-              <span className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="circle-progress-percent text-xs font-mono font-bold leading-none">{profileCompleteness.percent}%</span>
-                <span className="circle-progress-label text-[7px] uppercase tracking-widest font-mono mt-0.5">Strength</span>
+              <span className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-sm font-mono font-extrabold text-white leading-none tracking-tight">{profileCompleteness.percent}%</span>
               </span>
             </div>
             
             {/* Content */}
-            <div className="flex-1 min-w-0 pr-2 text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
-                <p className="status-title">Profile Strength</p>
+            <div className="flex-1 min-w-0 text-left z-10">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B4F461] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B4F461]"></span>
+                </span>
+                <p className="status-title tracking-wider text-xs text-white">Profile Strength</p>
+                <span className="text-[9px] font-mono font-bold text-[#B4F461] bg-[#B4F461]/10 border border-[#B4F461]/20 px-1.5 py-0.5 rounded uppercase">
+                  {profileCompleteness.percent}%
+                </span>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1 max-h-[38px] overflow-hidden">
-                {profileCompleteness.pendingTasks.slice(0, 2).map((task, idx) => (
-                  <span key={idx} className="status-task-pill inline-flex items-center gap-1 truncate max-w-[200px]">
-                    <span className="w-1 h-1 rounded-full bg-zinc-600"></span>
-                    {task}
+              <div className="mt-1.5 flex items-center gap-1.5">
+                {profileCompleteness.pendingTasks.length > 0 && (
+                  <span className="status-task-pill inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-zinc-800/80 border border-zinc-700/60 px-2.5 py-1 rounded-lg truncate max-w-[220px]">
+                    <span className="text-[#B4F461] font-bold text-[10px]">⚡ Next:</span>
+                    <span className="truncate">{profileCompleteness.pendingTasks[0]}</span>
+                    <span className="text-[9px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 px-1 rounded border border-emerald-800/40 shrink-0">+20%</span>
                   </span>
-                ))}
-                {profileCompleteness.pendingTasks.length > 2 && (
-                  <span className="text-[9px] text-violet-400 font-semibold font-mono self-center">+{profileCompleteness.pendingTasks.length - 2} more</span>
+                )}
+                {profileCompleteness.pendingTasks.length > 1 && (
+                  <span className="text-[10px] text-zinc-400 font-mono font-medium shrink-0">
+                    +{profileCompleteness.pendingTasks.length - 1} more
+                  </span>
                 )}
               </div>
             </div>
@@ -619,28 +639,34 @@ function DashboardContent() {
                 e.stopPropagation();
                 setShowQuickOnboardingModal(true);
               }}
-              className="px-3.5 py-1.5 bg-violet-600/90 hover:bg-violet-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg shadow-violet-500/10 border border-violet-500/30 whitespace-nowrap self-stretch md:self-center flex items-center justify-center gap-1 cursor-pointer"
+              className="z-10 px-4 py-2 bg-[#B4F461] hover:bg-[#a3e64d] active:scale-[0.98] text-zinc-950 font-bold rounded-xl text-xs tracking-wide transition-all shadow-[0_0_16px_rgba(180,244,97,0.25)] border border-[#B4F461]/50 whitespace-nowrap self-stretch md:self-center flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
             >
-              Quick Setup
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <span>Quick Setup</span>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </button>
 
             {/* Hover Tooltip for Tasks */}
-            <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2 -translate-x-1/2 md:translate-x-0 w-72 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
-              <p className="text-[10px] text-zinc-400 font-semibold font-mono uppercase tracking-wider mb-2 border-b border-zinc-800 pb-2">
-                Recommended to complete:
-              </p>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800/90 rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl shadow-black/80">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5 mb-2.5">
+                <p className="text-[11px] text-zinc-300 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-[#B4F461]">⚡</span> Profile Checklist ({profileCompleteness.percent}%)
+                </p>
+                <span className="text-[10px] text-zinc-400 font-mono">5 items</span>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                 {profileCompleteness.pendingTasks.map((task, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-3 text-xs text-zinc-300 hover:text-white transition-colors py-0.5">
-                    <span className="truncate">{task}</span>
+                  <div key={idx} className="flex items-center justify-between gap-3 text-xs text-zinc-300 hover:text-white transition-colors py-1 px-2 rounded-lg hover:bg-zinc-900/60 border border-transparent hover:border-zinc-800">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                      <span className="truncate">{task}</span>
+                    </div>
                     <button
                       onClick={() => router.push("/profile/edit")}
-                      className="text-[10px] text-[#B4F461] hover:underline whitespace-nowrap"
+                      className="text-[11px] font-bold text-[#B4F461] hover:underline whitespace-nowrap bg-[#B4F461]/10 px-2 py-0.5 rounded border border-[#B4F461]/20"
                     >
-                      Add +
+                      +20% Boost
                     </button>
                   </div>
                 ))}
