@@ -464,7 +464,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { step: "01", title: "Auto-fill Builder Profile", description: "Connect GitHub to import bio, avatar, and top language skills in 15 seconds." },
+              { step: "01", title: "Build Your Profile", description: "Set up your bio, skills, college, and social links to build your profile." },
               { step: "02", title: "Find Compatible Teammates", description: "Browse builders by skill and filter by college to form your team." },
               { step: "03", title: "Coordinate & Build", description: "Manage tasks, track progress, and collaborate seamlessly in team workspaces." },
             ].map((item) => (

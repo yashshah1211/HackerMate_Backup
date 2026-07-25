@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-import { parseGithubUsername, fetchGithubProfileInfo } from "@/lib/github";
+import { parseGithubUsername } from "@/lib/github";
 import { COLLEGES } from "@/lib/colleges";
 
 interface QuickOnboardingModalProps {
@@ -32,34 +32,9 @@ export default function QuickOnboardingModal({
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
 
-  const [fetchingGithub, setFetchingGithub] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
-
-  async function handleAutofillGithub() {
-    const username = parseGithubUsername(githubInput);
-    if (!username) {
-      showToast("Please enter a valid GitHub username or profile URL.", "warning");
-      return;
-    }
-
-    setFetchingGithub(true);
-    try {
-      const info = await fetchGithubProfileInfo(username);
-      if (info.bio && !bio) setBio(info.bio);
-      if (info.avatar_url && !avatarUrl) setAvatarUrl(info.avatar_url);
-      if (info.skills && info.skills.length > 0) {
-        const merged = Array.from(new Set([...selectedSkills, ...info.skills]));
-        setSelectedSkills(merged);
-      }
-      showToast(`Fetched profile info for @${info.username}!`, "success");
-    } catch (err: any) {
-      console.error("Failed to fetch GitHub profile:", err);
-      showToast("Could not fetch GitHub info automatically. You can fill in the details manually.", "warning");
-    }
-    setFetchingGithub(false);
-  }
 
   function handleAddSkill() {
     const trimmed = skillInput.trim();
@@ -132,7 +107,7 @@ export default function QuickOnboardingModal({
         <div className="flex items-start justify-between gap-4 mb-4 border-b border-zinc-900 pb-3">
           <div>
             <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <span>⚡ Quick Profile Setup (15 Seconds)</span>
+              <span>⚡ Quick Profile Setup</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
                 Verified Builder
               </span>
@@ -151,37 +126,18 @@ export default function QuickOnboardingModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* GitHub Auto-Fill */}
+          {/* GitHub Profile URL */}
           <div>
             <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
               GitHub Username or Profile URL
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="e.g. octocat or github.com/octocat"
-                value={githubInput}
-                onChange={(e) => setGithubInput(e.target.value)}
-                className="input text-xs flex-1 font-mono"
-              />
-              <button
-                type="button"
-                onClick={handleAutofillGithub}
-                disabled={fetchingGithub || !githubInput.trim()}
-                className="btn btn-secondary text-xs py-1.5 px-3 border-emerald-900/60 text-emerald-400 hover:bg-emerald-950/40 flex items-center gap-1 shrink-0"
-              >
-                {fetchingGithub ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-                    <span>Fetching...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>⚡ Auto-fill</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <input
+              type="text"
+              placeholder="e.g. octocat or github.com/octocat"
+              value={githubInput}
+              onChange={(e) => setGithubInput(e.target.value)}
+              className="input text-xs w-full font-mono"
+            />
           </div>
 
           {/* College Selection */}

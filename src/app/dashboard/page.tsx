@@ -548,7 +548,7 @@ function DashboardContent() {
           <div className="flex items-center gap-2 text-emerald-200">
             <span className="text-base">⚡</span>
             <span>
-              <strong>Your profile is incomplete!</strong> Auto-fill from GitHub in 15 seconds to get your <strong>Verified Builder Badge</strong> & unlock teammate matching.
+              <strong>Your profile is incomplete!</strong> Complete your profile to get your <strong>Verified Builder Badge</strong> & unlock teammate matching.
             </span>
           </div>
           <button
@@ -556,7 +556,7 @@ function DashboardContent() {
             onClick={() => setShowQuickOnboardingModal(true)}
             className="btn btn-primary text-xs py-1.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-medium shrink-0 cursor-pointer shadow-lg shadow-emerald-950/50"
           >
-            ⚡ Quick 15s Setup
+            ⚡ Complete Profile
           </button>
         </div>
       )}

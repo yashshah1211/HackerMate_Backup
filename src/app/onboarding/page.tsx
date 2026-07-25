@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-import { parseGithubUsername, fetchGithubStats, fetchGithubProfileInfo } from "@/lib/github";
+import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 import Logo from "@/components/Logo";
 import { COLLEGES } from "@/lib/colleges";
 
@@ -397,52 +397,6 @@ export default function OnboardingPage() {
                     <div>
                       <h2 className="text-sm font-semibold text-white mb-1">Academic Background</h2>
                       <p className="text-[10px] text-zinc-500 mb-3">Where do you study or teach?</p>
-                    </div>
-
-                    {/* Quick GitHub Auto-Fill */}
-                    <div className="p-3 border border-emerald-950/80 bg-emerald-950/20 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div>
-                        <div className="text-xs font-semibold text-white flex items-center gap-1.5">
-                          <span>⚡ 15-Second Auto-fill from GitHub</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                            Fast
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">
-                          Instantly fetch avatar, bio, and top languages as verified profile skills.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const raw = prompt("Enter your GitHub username or profile URL (e.g. octocat):", github || "");
-                          if (raw) {
-                            const username = parseGithubUsername(raw) || raw.trim();
-                            try {
-                              showToast(`Fetching details for @${username}...`, "info");
-                              const info = await fetchGithubProfileInfo(username);
-                              if (info.bio) setBio(info.bio);
-                              if (info.skills && info.skills.length > 0) {
-                                const merged = Array.from(new Set([...selectedSkills, ...info.skills]));
-                                setSelectedSkills(merged);
-                              }
-                              setGithub(`https://github.com/${username}`);
-                              saveProgress({
-                                bio: info.bio || bio,
-                                github: `https://github.com/${username}`,
-                                skills: info.skills,
-                              });
-                              showToast(`Auto-filled bio & skills from @${username}!`, "success");
-                            } catch (err) {
-                              showToast("Could not fetch GitHub info. You can fill in the details manually.", "warning");
-                            }
-                          }
-                        }}
-                        className="btn btn-secondary text-xs py-1.5 px-3 border-emerald-800/60 text-emerald-300 hover:bg-emerald-950/60 shrink-0 cursor-pointer"
-                      >
-                        ⚡ Auto-fill Profile
-                      </button>
                     </div>
 
                     <div>
