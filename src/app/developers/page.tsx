@@ -44,14 +44,24 @@ function DevelopersContent() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  // Extract unique colleges from fetched developers for the filter dropdown
-  const uniqueColleges = Array.from(
-    new Set(
-      developers
-        .map((dev) => dev.college?.trim())
-        .filter((c): c is string => !!c && c.length > 0)
-    )
-  ).sort();
+  // Extract unique colleges with accurate counts from fetched developers for the filter dropdown
+  const collegeCountsMap = new Map<string, { displayName: string; count: number }>();
+  developers.forEach((dev) => {
+    const trimmed = dev.college?.trim();
+    if (trimmed) {
+      const key = trimmed.toLowerCase();
+      const existing = collegeCountsMap.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        collegeCountsMap.set(key, { displayName: trimmed, count: 1 });
+      }
+    }
+  });
+
+  const uniqueColleges = Array.from(collegeCountsMap.values()).sort((a, b) =>
+    a.displayName.localeCompare(b.displayName)
+  );
 
   async function loadData(searchQuery?: string) {
     try {
@@ -326,9 +336,9 @@ function DevelopersContent() {
             className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
           >
             <option value="">🏫 All Colleges ({developers.length})</option>
-            {uniqueColleges.map((col) => (
-              <option key={col} value={col}>
-                {col.length > 40 ? col.substring(0, 38) + "..." : col} ({developers.filter((d) => d.college === col).length})
+            {uniqueColleges.map(({ displayName, count }) => (
+              <option key={displayName} value={displayName}>
+                {displayName.length > 40 ? displayName.substring(0, 38) + "..." : displayName} ({count})
               </option>
             ))}
           </select>
