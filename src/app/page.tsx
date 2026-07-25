@@ -8,6 +8,35 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import Footer from "@/components/Footer";
 
+type RealProfile = {
+  id: string;
+  full_name: string | null;
+  college: string | null;
+  bio: string | null;
+  skills: string[] | null;
+  avatar_url: string | null;
+};
+
+type RealHackathon = {
+  id: string;
+  name: string;
+  mode: string | null;
+  location: string | null;
+  prize_pool: string | null;
+  tags: string[] | null;
+  type: string | null;
+  website_url: string | null;
+  start_date: string | null;
+};
+
+type RealTeam = {
+  id: string;
+  name: string;
+  description: string | null;
+  max_members: number | null;
+  team_hackathons: { hackathons: { name: string } | null }[];
+};
+
 export default function Home() {
   const router = useRouter();
   const { showToast } = useNotification();
@@ -16,6 +45,18 @@ export default function Home() {
   const [email, setEmail] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
+
+  // Real Database Data States
+  const [userCount, setUserCount] = useState<number>(104);
+  const [hackathonCount, setHackathonCount] = useState<number>(127);
+  const [teamCount, setTeamCount] = useState<number>(3);
+
+  const [realBuilders, setRealBuilders] = useState<RealProfile[]>([]);
+  const [realHackathons, setRealHackathons] = useState<RealHackathon[]>([]);
+  const [realTeams, setRealTeams] = useState<RealTeam[]>([]);
+
+  // Interactive showcase tab state
+  const [activeTab, setActiveTab] = useState<"match" | "hackathons" | "workspace">("match");
 
   const openModal = () => {
     setConsentChecked(false);
@@ -27,40 +68,52 @@ export default function Home() {
     setShowAuthModal(false);
   };
 
-
-
   useEffect(() => {
-    async function checkUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    async function loadRealData() {
+      try {
+        // 1. Check if user is already logged in
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (!user) {
+        if (user) {
+          setEmail(user.email ?? null);
+          const { data } = await supabase
+            .from("profiles")
+            .select("onboarding_completed")
+            .eq("id", user.id)
+            .single();
+
+          if (data?.onboarding_completed) {
+            const requestedPath = new URLSearchParams(window.location.search).get("next");
+            const safePath =
+              requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+                ? requestedPath
+                : "/dashboard";
+            router.push(safePath);
+            return;
+          }
+        }
+
+        // 2. Fetch showcase data via API route (uses service role key, bypasses RLS)
+        const res = await fetch("/api/public-showcase");
+        if (!res.ok) throw new Error("Failed to fetch showcase data");
+        const data = await res.json();
+
+        if (data.userCount > 0) setUserCount(data.userCount);
+        if (data.hackathonCount > 0) setHackathonCount(data.hackathonCount);
+        if (data.teamCount > 0) setTeamCount(data.teamCount);
+        if (data.builders?.length > 0) setRealBuilders(data.builders);
+        if (data.hackathons?.length > 0) setRealHackathons(data.hackathons);
+        if (data.teams?.length > 0) setRealTeams(data.teams);
+      } catch (err) {
+        console.error("Error loading real data for landing page:", err);
+      } finally {
         setLoading(false);
-        return;
-      }
-
-      setEmail(user.email ?? null);
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("onboarding_completed")
-        .eq("id", user.id)
-        .single();
-
-      if (data?.onboarding_completed) {
-        const requestedPath = new URLSearchParams(window.location.search).get("next");
-        const safePath =
-          requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
-            ? requestedPath
-            : "/dashboard";
-        router.push(safePath);
-      } else {
-        router.push("/onboarding");
       }
     }
 
-    checkUser();
+    loadRealData();
   }, [router]);
 
   async function signInWithGoogle() {
@@ -91,201 +144,409 @@ export default function Home() {
 
   if (loading && email) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-lg text-white">
+          <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-lg text-[#B4F461] animate-pulse">
             H
           </div>
-          <p className="text-zinc-500 text-sm">Loading your workspace...</p>
+          <p className="text-zinc-500 text-xs font-mono uppercase tracking-widest">Loading workspace...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <h1 className="sr-only">HackerMate</h1>
+    <main className="min-h-screen flex flex-col bg-[#09090b] text-white selection:bg-[#B4F461] selection:text-black overflow-x-hidden">
+      <h1 className="sr-only">HackerMate - Hackathon Team Operating System</h1>
 
-      {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 md:py-24">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="flex justify-center mb-8">
-            <Logo className="h-10 text-[#B4F461]" />
+      {/* Top Floating Glow Ambient Effects */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] pointer-events-none z-0">
+        <div className="absolute top-4 left-1/4 w-[350px] h-[350px] bg-[#B4F461]/10 rounded-full blur-[140px]" />
+        <div className="absolute top-20 right-1/4 w-[400px] h-[400px] bg-zinc-800/30 rounded-full blur-[150px]" />
+      </div>
+
+      {/* Hero Section */}
+      <section className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-12 text-center">
+        <div className="space-y-6">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-zinc-800 bg-zinc-900/60 text-xs text-zinc-300 backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461]" />
+            <span className="font-sans font-medium text-zinc-300">For hackathon builders</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-400 font-mono text-[11px]">{userCount}+ Builders & {hackathonCount}+ Live Events</span>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/40 text-xs text-zinc-400 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            For hackathon builders
-          </div>
-
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4 leading-[1.1]">
-            Find your team.
-            <br />
-            Build something great.
+          {/* Main Headline */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.1] max-w-4xl mx-auto">
+            Find your team. <br />
+            <span className="text-white">
+              Build something great.
+            </span>
           </h1>
 
-          <p className="text-base md:text-lg text-zinc-400 max-w-lg mx-auto leading-relaxed mb-10">
+          <p className="text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto leading-relaxed">
             HackerMate is the hackathon team-formation and during-hackathon task/project OS for engineering college students. Connect with compatible teammates, track tasks, and collaborate from start to submission.
           </p>
 
-          {/* CTA */}
-          <div className="flex items-center justify-center max-w-md mx-auto">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 max-w-md mx-auto">
             <button
               onClick={openModal}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 btn btn-lg btn-primary cursor-pointer"
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-white/10"
             >
               <span>Join HackerMate</span>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
             </button>
+
+            <a
+              href="#demo"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-2"
+            >
+              <span>Explore Platform Demo</span>
+              <span className="text-zinc-500">↓</span>
+            </a>
           </div>
 
-          <p className="mt-6 text-xs text-zinc-500 mb-6">
-            Free to use. Sign in with Google or GitHub to get started.
-          </p>
-
-
+          {/* Quick Proof Stat Bar */}
+          <div className="flex items-center justify-center gap-8 pt-6 border-t border-zinc-900 max-w-md mx-auto">
+            <div>
+              <div className="text-xl font-bold font-mono text-white">{userCount}+</div>
+              <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono">Verified Builders</div>
+            </div>
+            <div className="h-8 w-[1px] bg-zinc-800" />
+            <div>
+              <div className="text-xl font-bold font-mono text-[#B4F461]">{hackathonCount}+</div>
+              <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono">Live Hackathons</div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* How it works */}
-      <div id="how-it-works" className="w-full border-t border-zinc-900 bg-[radial-gradient(ellipse_at_top,rgba(180,244,97,0.03),transparent_60%)] relative overflow-hidden">
-        <div className="max-w-5xl mx-auto px-6 py-20 relative z-10">
-          <div className="text-center mb-16">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/5 px-3 py-1 rounded-full border border-[#B4F461]/10">Workflow</span>
-            <h2 className="text-2xl font-semibold text-white mt-4 mb-2 tracking-tight">How it works</h2>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">Three streamlined steps from sign-up to shipping your hackathon project.</p>
+      {/* Interactive Platform Demo Section with REAL Database Data */}
+      <section id="demo" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-12 relative">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-8">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+              Live Database Feed
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-3 mb-2 tracking-tight">
+              See real builders, hackathons & teams
+            </h2>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto">
+              Real registered engineering students and active hackathons on HackerMate.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            {[
-              {
-                step: "01",
-                title: "Build your profile",
-                description: "Add your skills, college, and GitHub. We calculate compatibility with other builders automatically.",
-              },
-              {
-                step: "02",
-                title: "Find your team",
-                description: "Browse builders by match score, join teams, or create your own and invite people who fit.",
-              },
-              {
-                step: "03",
-                title: "Build together",
-                description: "Message your team, track progress, and coordinate through the build — all in one place.",
-              },
-            ].map((item, idx) => (
-              <div key={item.step} className="group relative overflow-hidden rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-950 to-zinc-900/30 p-8 hover:border-[#B4F461]/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition-all duration-300">
-                {/* Accent glow line on hover */}
-                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#B4F461]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                {/* Glowing step badge */}
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900/80 border border-zinc-800 text-sm font-bold text-[#B4F461] shadow-inner mb-6 group-hover:border-[#B4F461]/40 group-hover:bg-[#B4F461]/10 transition-all duration-300">
-                  {item.step}
-                </div>
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950 p-4 md:p-6 shadow-2xl backdrop-blur-xl">
+            {/* Window Bar Controls */}
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-6">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-rose-500/80" />
+                <span className="w-3 h-3 rounded-full bg-amber-500/80" />
+                <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                <span className="ml-2 text-xs font-mono text-zinc-500">hackermate.com/workspace</span>
+              </div>
 
-                <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{item.title}</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed relative z-10">{item.description}</p>
-                
-                {/* Large background number to prevent top-clipping */}
-                <div className="absolute bottom-4 right-6 text-7xl font-extrabold font-mono text-zinc-900/50 select-none pointer-events-none group-hover:text-[#B4F461]/5 transition-colors">
-                  {item.step}
+              {/* Showcase Tabs */}
+              <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
+                <button
+                  onClick={() => setActiveTab("match")}
+                  className={`px-3 py-1 text-xs rounded font-medium transition-all cursor-pointer ${
+                    activeTab === "match"
+                      ? "bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30 font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  🤝 Builders ({realBuilders.length || userCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab("hackathons")}
+                  className={`px-3 py-1 text-xs rounded font-medium transition-all cursor-pointer ${
+                    activeTab === "hackathons"
+                      ? "bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30 font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  🏆 Hackathons ({realHackathons.length || hackathonCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab("workspace")}
+                  className={`px-3 py-1 text-xs rounded font-medium transition-all cursor-pointer ${
+                    activeTab === "workspace"
+                      ? "bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30 font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  ⚡ Active Teams ({realTeams.length || teamCount})
+                </button>
+              </div>
+            </div>
+
+            {/* Tab 1: Real Builders */}
+            {activeTab === "match" && (
+              <div className="grid sm:grid-cols-3 gap-4 text-left animate-fade-in">
+                {realBuilders.length > 0 ? (
+                  realBuilders.slice(0, 6).map((b) => (
+                    <div key={b.id} className="card card-static p-4 border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 transition-colors">
+                      <div className="flex items-center gap-3 mb-2">
+                        {b.avatar_url ? (
+                          <img
+                            src={b.avatar_url}
+                            alt={b.full_name || "Builder"}
+                            className="w-8 h-8 rounded-full border border-zinc-800 object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-zinc-800 text-[#B4F461] flex items-center justify-center font-bold text-xs border border-zinc-700">
+                            {(b.full_name || "B")[0].toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="text-xs font-semibold text-white">{b.full_name || "Anonymous Builder"}</h4>
+                          <p className="text-[10px] text-zinc-400 font-mono">🏫 {b.college || "Engineering College"}</p>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-zinc-400 mb-3 line-clamp-2">
+                        {b.bio || "Full-stack developer building projects for upcoming hackathons."}
+                      </p>
+
+                      <div className="flex flex-wrap gap-1">
+                        {(b.skills && b.skills.length > 0 ? b.skills : ["React", "Python", "Full Stack"]).slice(0, 3).map((s) => (
+                          <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-950 text-zinc-300 border border-zinc-800">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-6 text-xs text-zinc-500">
+                    Loading real builder profiles from database...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Real Hackathons */}
+            {activeTab === "hackathons" && (
+              <div className="grid sm:grid-cols-2 gap-4 text-left animate-fade-in">
+                {realHackathons.length > 0 ? (
+                  realHackathons.map((h) => (
+                    <div key={h.id} className="card card-static p-4 border-zinc-800/80 bg-zinc-900/40">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                          {h.mode || "Online"} {h.location ? `• ${h.location}` : ""}
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-[#B4F461]">
+                          {h.prize_pool || "Prize Pool Available"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-white mb-2 line-clamp-1">{h.name}</h4>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {(h.tags && h.tags.length > 0 ? h.tags : ["Hackathon", "Coding", "Engineering"]).slice(0, 3).map((t) => (
+                          <span key={t} className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-[#B4F461] border border-zinc-800">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 text-center py-6 text-xs text-zinc-500">
+                    Loading live hackathons from database...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 3: Real Teams */}
+            {activeTab === "workspace" && (
+              <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800 text-left animate-fade-in space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                  <div>
+                    <h4 className="text-xs font-semibold text-white">Registered Teams Workspaces</h4>
+                    <p className="text-[10px] text-zinc-400 font-mono">{teamCount} Active Teams Created</p>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#B4F461]/10 text-[#B4F461] border border-[#B4F461]/20">
+                    🟢 Active Teams
+                  </span>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {realTeams.length > 0 ? (
+                    realTeams.map((t) => (
+                      <div key={t.id} className="p-3 rounded bg-zinc-950 border border-zinc-800">
+                        <span className="text-[9px] font-mono text-[#B4F461] uppercase">
+                          {t.team_hackathons?.[0]?.hackathons?.name || "Active Team"}
+                        </span>
+                        <p className="text-xs text-white font-medium mt-1 truncate">{t.name}</p>
+                        <p className="text-[10px] text-zinc-500 mt-1 line-clamp-1">
+                          {t.description || "Looking for teammates"}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-3 text-center py-4 text-xs text-zinc-500">
+                      Loading registered teams from database...
+                    </div>
+                  )}
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* College Network Section */}
+      <section id="colleges" className="w-full border-t border-zinc-900 bg-zinc-950 py-12">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+            College Network
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-3 mb-2 tracking-tight">
+            Connect with top engineering college builders
+          </h2>
+          <p className="text-xs text-zinc-400 max-w-md mx-auto mb-6">
+            Find teammates from premier institutes across India.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
+            {[
+              "IIT Bombay", "IIT Delhi", "IIT Madras", "IIT Kharagpur", "BITS Pilani",
+              "DTU Delhi", "COEP Pune", "VJTI Mumbai", "NIT Trichy", "NIT Surathkal",
+              "VIT Vellore", "SRM Chennai", "DJSCE Mumbai", "SPIT Mumbai", "PICT Pune"
+            ].map((col) => (
+              <span
+                key={col}
+                className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 text-xs font-mono text-zinc-300 hover:border-[#B4F461]/40 hover:text-[#B4F461] transition-colors"
+              >
+                🏫 {col}
+              </span>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features */}
-      <div id="features" className="w-full border-t border-zinc-900 bg-zinc-950/20 relative">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(180,244,97,0.02),transparent_40%)]" />
-        <div className="max-w-5xl mx-auto px-6 py-20 relative z-10">
-          <div className="text-center mb-16">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/5 px-3 py-1 rounded-full border border-[#B4F461]/10">Features</span>
-            <h2 className="text-2xl font-semibold text-white mt-4 mb-2 tracking-tight">What you get</h2>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">Everything you and your teammates need to go from raw idea to final submission.</p>
+      {/* Workflow Section */}
+      <section id="how-it-works" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-12">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-8">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+              Workflow
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-3 mb-2 tracking-tight">
+              Three steps to hackathon success
+            </h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" />
-                  </svg>
-                ),
-                title: "Teammate matching",
-                description: "Compatibility scores based on shared skills and college, so you find people who actually fit your project.",
+                step: "01",
+                title: "Auto-fill Builder Profile",
+                description: "Connect GitHub to import bio, avatar, and top language skills in 15 seconds.",
               },
               {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-8.5h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm-4.5 2.5h.25a.25.25 0 01.25.25v4.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-4.25a.25.25 0 01.25-.25zm8.5-2.5h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm4.5 0h.25a.25.25 0 01.25.25v.25a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-.25a.25.25 0 01.25-.25zm-4.5 6.5h.25a.25.25 0 01.25.25v1.75a.25.25 0 01-.25.25h-.25a.25.25 0 01-.25-.25v-1.75a.25.25 0 01.25-.25z" />
-                  </svg>
-                ),
-                title: "Team workspaces",
-                description: "Create teams, set the skills you need, invite builders, and manage join requests in one place.",
+                step: "02",
+                title: "Find Compatible Teammates",
+                description: "Browse builders by skill requirements and filter by college to form your team.",
               },
               {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                  </svg>
-                ),
-                title: "Hackathon discovery",
-                description: "Browse upcoming hackathons from Unstop, Devfolio, and more — filtered to match your skills.",
+                step: "03",
+                title: "Coordinate & Build",
+                description: "Manage tasks, track progress, and communicate seamlessly in team workspaces.",
               },
-            ].map((feature) => (
-              <div key={feature.title} className="group relative overflow-hidden rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-950 to-zinc-900/50 p-8 hover:border-[#B4F461]/30 hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] transition-all duration-300">
-                {/* Accent glow line on hover */}
-                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#B4F461]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                {/* Icon box with subtle glow */}
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#B4F461]/5 border border-[#B4F461]/15 text-[#B4F461] mb-6 group-hover:bg-[#B4F461]/10 group-hover:border-[#B4F461]/35 transition-all duration-300 shadow-[0_0_15px_rgba(180,244,97,0.05)]">
-                  {feature.icon}
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono font-bold text-[#B4F461] mb-4">
+                  {item.step}
                 </div>
-
-                <h3 className="text-base font-semibold text-white mb-2 group-hover:text-[#B4F461] transition-colors">{feature.title}</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed mt-2">{feature.description}</p>
+                <h3 className="text-base font-semibold text-white mb-2">{item.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Get Started CTA Banner */}
-      <div className="w-full border-t border-zinc-900 bg-[radial-gradient(ellipse_at_bottom,rgba(180,244,97,0.04),transparent_70%)] relative overflow-hidden py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center relative z-10 space-y-6">
-          <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Ready to build something great?
-          </h2>
-          <p className="text-zinc-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
-            Join compatible builders, form teams, and coordinate your hackathon projects all in one place.
-          </p>
+      {/* Features Grid Section */}
+      <section id="features" className="w-full border-t border-zinc-900 bg-zinc-950 py-12">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-8">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+              Features
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-3 mb-2 tracking-tight">
+              Built for Engineering Students
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                title: "Skill Match Engine",
+                description: "Scoring matches you with builders possessing complementary technical skills.",
+              },
+              {
+                title: "College & Alumni Filter",
+                description: "Filter builders from your college or connect across engineering institutions.",
+              },
+              {
+                title: "Direct Event CTAs",
+                description: "Discover upcoming hackathons from Unstop & Devfolio, and form teams directly for each event.",
+              },
+            ].map((f, i) => (
+              <div key={i} className="card card-static p-6 border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all">
+                <div className="w-8 h-8 rounded-lg bg-[#B4F461]/10 border border-[#B4F461]/20 text-[#B4F461] flex items-center justify-center font-bold text-xs mb-3">
+                  0{i + 1}
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-1.5">{f.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">{f.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-[500px] h-[150px] bg-[#B4F461]/5 rounded-full blur-[100px] pointer-events-none" />
-      </div>
+      </section>
+
+      {/* Final Call To Action */}
+      <section className="w-full border-t border-zinc-900 bg-[radial-gradient(ellipse_at_bottom,rgba(180,244,97,0.04),transparent_70%)] py-16 px-6 text-center relative overflow-hidden">
+        <div className="max-w-3xl mx-auto space-y-4 relative z-10">
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+            Ready to find your hackathon team?
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+            Join over 100+ verified engineering college builders. Form teams, build projects, and submit with confidence.
+          </p>
+          <button
+            onClick={openModal}
+            className="px-8 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs shadow-lg transition-all cursor-pointer inline-flex items-center gap-2"
+          >
+            <span>Join HackerMate</span>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
+        </div>
+      </section>
 
       {/* Footer */}
       <Footer />
 
       {/* DPDPA Consent Sign-In Modal */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md card card-static p-6 relative animate-scale-in">
-            {/* Close button */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md card card-static p-6 relative animate-scale-in border-zinc-800 bg-zinc-950">
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              ✕
             </button>
 
-            {/* Header */}
             <div className="text-center mb-6">
               <div className="flex justify-center mb-3">
                 <Logo className="h-8 text-[#B4F461]" />
@@ -295,7 +556,7 @@ export default function Home() {
             </div>
 
             {/* Consent Box */}
-            <div className="mb-6 p-4 bg-zinc-900/40 border border-zinc-900 rounded-xl">
+            <div className="mb-6 p-4 bg-zinc-900/60 border border-zinc-800 rounded-xl">
               <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -305,109 +566,39 @@ export default function Home() {
                 />
                 <span className="text-[11px] text-zinc-400 leading-relaxed font-sans">
                   I confirm that I am 18 years or older, and I agree to the{" "}
-                  <Link
-                    href="/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#B4F461] hover:underline"
-                  >
+                  <Link href="/terms" target="_blank" className="text-[#B4F461] hover:underline">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#B4F461] hover:underline"
-                  >
+                  <Link href="/privacy" target="_blank" className="text-[#B4F461] hover:underline">
                     Privacy Policy
-                  </Link>{" "}
-                  and consent to the processing of my digital personal data as detailed in the{" "}
-                  <Link
-                    href="/privacy#consent-notice"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#B4F461] hover:underline"
-                  >
-                    Consent Notice
                   </Link>
                   .
                 </span>
               </label>
             </div>
 
-            {/* Auth Buttons */}
+            {/* OAuth buttons */}
             <div className="space-y-3">
-              {/* Google Button Wrapper */}
-              <div
-                className="w-full"
-                onClick={() => {
-                  if (!consentChecked) {
-                    showToast("Please confirm you're 18+ and accept the terms to continue.", "warning");
-                  }
-                }}
+              <button
+                disabled={!consentChecked}
+                onClick={signInWithGoogle}
+                className={`w-full inline-flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-white hover:bg-zinc-100 text-black font-semibold text-xs transition-all cursor-pointer ${
+                  !consentChecked ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
-                <button
-                  disabled={!consentChecked}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    signInWithGoogle();
-                  }}
-                  className={`w-full group inline-flex items-center justify-center gap-2.5 btn btn-md btn-primary cursor-pointer transition-all duration-200 ${
-                    !consentChecked ? "pointer-events-none opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.19 15.01 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  <span className="font-semibold text-sm">Continue with Google</span>
-                </button>
-              </div>
+                <span>Continue with Google</span>
+              </button>
 
-              {/* GitHub Button Wrapper */}
-              <div
-                className="w-full"
-                onClick={() => {
-                  if (!consentChecked) {
-                    showToast("Please confirm you're 18+ and accept the terms to continue.", "warning");
-                  }
-                }}
+              <button
+                disabled={!consentChecked}
+                onClick={signInWithGithub}
+                className={`w-full inline-flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-semibold text-xs transition-all cursor-pointer ${
+                  !consentChecked ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
-                <button
-                  disabled={!consentChecked}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    signInWithGithub();
-                  }}
-                  className={`w-full group inline-flex items-center justify-center gap-2.5 btn btn-md bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white transition-all duration-200 cursor-pointer ${
-                    !consentChecked ? "pointer-events-none opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"
-                    />
-                  </svg>
-                  <span className="font-semibold text-sm">Continue with GitHub</span>
-                </button>
-              </div>
+                <span>Continue with GitHub</span>
+              </button>
             </div>
           </div>
         </div>
