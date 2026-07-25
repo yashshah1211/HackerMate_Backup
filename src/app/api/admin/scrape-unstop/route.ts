@@ -12,23 +12,27 @@ export async function POST(req: NextRequest) {
     const { supabaseAdmin } = authResult;
 
     // 2. Fetch all previously scraped unstop_urls from DB to guarantee NO re-scraping
-    const { data: existingLeads, error: fetchErr } = await supabaseAdmin
-      .from("organizer_leads")
-      .select("unstop_url");
+    // 2. Fetch all previously scraped unstop_urls from DB (organizer_leads + hackathons) to guarantee NO re-scraping
+    const [existingLeadsRes, existingHackathonsRes] = await Promise.all([
+      supabaseAdmin.from("organizer_leads").select("unstop_url"),
+      supabaseAdmin.from("hackathons").select("website_url"),
+    ]);
 
-    if (fetchErr) {
-      console.error("[Unstop Scraper] Error fetching existing leads:", fetchErr);
+    if (existingLeadsRes.error) {
+      console.error("[Unstop Scraper] Error fetching existing leads:", existingLeadsRes.error);
     }
 
-    const existingUrlsSet = new Set<string>(
-      (existingLeads || []).map((l) => l.unstop_url)
-    );
+    const existingUrlsSet = new Set<string>([
+      ...(existingLeadsRes.data || []).map((l) => l.unstop_url).filter(Boolean),
+      ...(existingHackathonsRes.data || []).map((h) => h.website_url).filter(Boolean),
+    ]);
 
-    // 3. Multi-page fetch from Unstop (Pages 1 to 5, 30 per page = up to 150 hackathons)
+    // 3. Multi-page fetch from Unstop (Pages 1 to 15, 30 per page = up to 450 hackathons)
     const rawOpportunities: any[] = [];
     let payloadWarning = false;
+    let pagesFetched = 0;
 
-    for (let page = 1; page <= 5; page++) {
+    for (let page = 1; page <= 15; page++) {
       try {
         const unstopApiUrl = `https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=30&page=${page}&oppstatus=open`;
         const response = await fetch(unstopApiUrl, {
@@ -48,14 +52,18 @@ export async function POST(req: NextRequest) {
             unstopData?.data ||
             [];
 
-          if (!Array.isArray(items) || (items.length === 0 && page === 1)) {
-            console.warn(`[Unstop Scraper] Warning: Unstop API response shape differed or returned empty array on page ${page}:`, unstopData);
-            payloadWarning = true;
+          if (!Array.isArray(items) || items.length === 0) {
+            if (page === 1) {
+              console.warn(`[Unstop Scraper] Warning: Unstop API returned empty array on page 1:`, unstopData);
+              payloadWarning = true;
+            }
+            break; // Reached end of open hackathon results
           }
           
-          if (Array.isArray(items)) {
-            rawOpportunities.push(...items);
-          }
+          pagesFetched = page;
+          rawOpportunities.push(...items);
+        } else {
+          break;
         }
       } catch (err) {
         console.warn(`[Unstop Scraper] Failed to fetch page ${page}:`, err);
@@ -88,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     if (freshOpportunities.length === 0) {
       return NextResponse.json({
-        message: "No new hackathons to scrape! All active Unstop hackathons have already been processed.",
+        message: `Scraped ${pagesFetched} pages (${rawOpportunities.length} hackathons checked). All active Unstop hackathons have already been processed!`,
         count: 0,
       });
     }
@@ -158,7 +166,7 @@ export async function POST(req: NextRequest) {
             }
 
             if (!organizer_email) {
-              console.log(`[Unstop Scraper] Lead "${title}" has no public email listed on API. Still importing as lead.`);
+              console.log(`[Unstop Scraper] Lead "${title}" has no public email listed on API. Skipping organizer lead creation.`);
             }
 
             return {
@@ -235,50 +243,7 @@ export async function POST(req: NextRequest) {
     }
 
 
-    // 8. Backfill sync: Import any hackathons from public.hackathons table that are missing in organizer_leads (respecting removed ones)
-    const { data: existingHackathons } = await supabaseAdmin
-      .from("hackathons")
-      .select("id, name, college, website_url, start_date");
 
-    if (existingHackathons && existingHackathons.length > 0) {
-      // Re-fetch all unstop_urls/website_urls from organizer_leads (including removed ones)
-      const { data: currentLeads } = await supabaseAdmin
-        .from("organizer_leads")
-        .select("unstop_url");
-
-      const allLeadsUrls = new Set<string>((currentLeads || []).map((l) => l.unstop_url));
-      const syncLeadsToInsert: any[] = [];
-
-      for (const h of existingHackathons) {
-        if (!h.website_url) continue;
-        if (allLeadsUrls.has(h.website_url)) continue;
-
-        allLeadsUrls.add(h.website_url);
-        syncLeadsToInsert.push({
-          title: h.name || "Untitled Hackathon",
-          college_or_host: h.college || "College / Institution",
-          unstop_url: h.website_url,
-          organizer_email: null,
-          event_date: h.start_date ? new Date(h.start_date).toLocaleDateString() : "Upcoming",
-          status: "new",
-        });
-      }
-
-      if (syncLeadsToInsert.length > 0) {
-        console.log(`[Unstop Scraper] Backfilling ${syncLeadsToInsert.length} hackathons from hackathons table to organizer_leads...`);
-        const { data: backfilled, error: backfillErr } = await supabaseAdmin
-          .from("organizer_leads")
-          .insert(syncLeadsToInsert)
-          .select();
-
-        if (backfillErr) {
-          console.error("[Unstop Scraper] Backfill error:", backfillErr);
-        } else if (backfilled) {
-          insertedLeadsCount += backfilled.length;
-          insertedData.push(...backfilled);
-        }
-      }
-    }
 
     return NextResponse.json({
       success: true,
