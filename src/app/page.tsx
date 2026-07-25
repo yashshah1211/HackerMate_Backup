@@ -166,7 +166,7 @@ export default function Home() {
         <div className="space-y-5">
 
           {/* Badge */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-800 bg-zinc-900/60 text-xs text-zinc-300 backdrop-blur-md">
+          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 text-xs text-zinc-300 backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] shrink-0" />
             <span className="font-medium">For hackathon builders</span>
             <span className="text-zinc-600 hidden sm:inline">•</span>
@@ -228,7 +228,7 @@ export default function Home() {
       <section id="demo" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-6">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
               Live Database Feed
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
@@ -239,7 +239,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-2xl overflow-hidden">
+          <div className="rounded-lg border border-zinc-800/80 bg-zinc-950 shadow-2xl overflow-hidden">
             {/* Window chrome */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-900">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 shrink-0" />
@@ -252,21 +252,49 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-1 px-4 py-3 border-b border-zinc-900 bg-zinc-950">
               {(
                 [
-                  { key: "match", label: "🤝 Builders", count: realBuilders.length || userCount },
-                  { key: "hackathons", label: "🏆 Hackathons", count: realHackathons.length || hackathonCount },
-                  { key: "workspace", label: "⚡ Teams", count: realTeams.length || teamCount },
+                  {
+                    key: "match",
+                    label: "Builders",
+                    count: realBuilders.length || userCount,
+                    icon: (
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "hackathons",
+                    label: "Hackathons",
+                    count: realHackathons.length || hackathonCount,
+                    icon: (
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2 0h4m11-16v4m2-2h-4m2 14v4m-2 0h4M12 3v8m-4 0h8m-8 4h8m-4 0v4m-2 0h4" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "workspace",
+                    label: "Teams",
+                    count: realTeams.length || teamCount,
+                    icon: (
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    ),
+                  },
                 ] as const
               ).map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
                     activeTab === tab.key
                       ? "bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30"
                       : "text-zinc-400 hover:text-white border border-transparent"
                   }`}
                 >
-                  {tab.label} <span className="opacity-60">({tab.count})</span>
+                  {tab.icon}
+                  <span>{tab.label}</span> <span className="opacity-60">({tab.count})</span>
                 </button>
               ))}
             </div>
@@ -279,7 +307,7 @@ export default function Home() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {realBuilders.length > 0 ? (
                     realBuilders.slice(0, 6).map((b) => (
-                      <div key={b.id} className="p-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 transition-colors">
+                      <div key={b.id} className="p-3 rounded-lg border border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 transition-colors">
                         <div className="flex items-center gap-2.5 mb-2">
                           {b.avatar_url ? (
                             <img
@@ -294,7 +322,13 @@ export default function Home() {
                           )}
                           <div className="min-w-0">
                             <h4 className="text-xs font-semibold text-white truncate">{b.full_name || "Builder"}</h4>
-                            <p className="text-[10px] text-zinc-400 font-mono truncate">🏫 {b.college || "Engineering College"}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono truncate flex items-center gap-1">
+                              <svg className="w-3 h-3 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                              </svg>
+                              <span className="truncate">{b.college || "Engineering College"}</span>
+                            </p>
                           </div>
                         </div>
                         <p className="text-[11px] text-zinc-400 mb-2 line-clamp-2 leading-relaxed">
@@ -302,7 +336,7 @@ export default function Home() {
                         </p>
                         <div className="flex flex-wrap gap-1">
                           {(b.skills && b.skills.length > 0 ? b.skills : ["Full Stack"]).slice(0, 3).map((s) => (
-                            <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-950 text-zinc-300 border border-zinc-800">
+                            <span key={s} className="text-[9px] font-mono px-1.5 py-0.5 rounded-lg bg-zinc-950 text-zinc-300 border border-zinc-800">
                               {s}
                             </span>
                           ))}
@@ -322,9 +356,9 @@ export default function Home() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {realHackathons.length > 0 ? (
                     realHackathons.map((h) => (
-                      <div key={h.id} className="p-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40">
+                      <div key={h.id} className="p-3 rounded-lg border border-zinc-800/80 bg-zinc-900/40">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 whitespace-nowrap">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 whitespace-nowrap">
                             {h.mode || "Online"}{h.location ? ` • ${h.location}` : ""}
                           </span>
                           <span className="text-[11px] font-mono font-semibold text-[#B4F461] whitespace-nowrap">
@@ -334,7 +368,7 @@ export default function Home() {
                         <h4 className="text-sm font-semibold text-white mb-2 line-clamp-2 leading-snug">{h.name}</h4>
                         <div className="flex flex-wrap gap-1">
                           {(h.tags && h.tags.length > 0 ? h.tags : ["Hackathon"]).slice(0, 3).map((t) => (
-                            <span key={t} className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-[#B4F461] border border-zinc-800">
+                            <span key={t} className="text-[9px] font-mono px-2 py-0.5 rounded-lg bg-zinc-900 text-[#B4F461] border border-zinc-800">
                               {t}
                             </span>
                           ))}
@@ -357,14 +391,15 @@ export default function Home() {
                       <h4 className="text-xs font-semibold text-white">Registered Team Workspaces</h4>
                       <p className="text-[10px] text-zinc-400 font-mono">{teamCount} active teams</p>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#B4F461]/10 text-[#B4F461] border border-[#B4F461]/20 whitespace-nowrap">
-                      🟢 Active
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-[#B4F461]/10 text-[#B4F461] border border-[#B4F461]/20 whitespace-nowrap inline-flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse shrink-0" />
+                      <span>Active</span>
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {realTeams.length > 0 ? (
                       realTeams.map((t) => (
-                        <div key={t.id} className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                        <div key={t.id} className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
                           <span className="text-[9px] font-mono text-[#B4F461] uppercase block truncate">
                             {t.team_hackathons?.[0]?.hackathons?.name || "Active Team"}
                           </span>
@@ -390,7 +425,7 @@ export default function Home() {
       {/* ─── College Network ─── */}
       <section id="colleges" className="w-full border-t border-zinc-900 bg-zinc-950 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+          <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
             College Network
           </span>
           <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
@@ -420,7 +455,7 @@ export default function Home() {
       <section id="how-it-works" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
               Workflow
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
@@ -433,7 +468,7 @@ export default function Home() {
               { step: "02", title: "Find Compatible Teammates", description: "Browse builders by skill and filter by college to form your team." },
               { step: "03", title: "Coordinate & Build", description: "Manage tasks, track progress, and collaborate seamlessly in team workspaces." },
             ].map((item) => (
-              <div key={item.step} className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all">
+              <div key={item.step} className="p-5 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono font-bold text-[#B4F461] mb-3">
                   {item.step}
                 </div>
@@ -449,7 +484,7 @@ export default function Home() {
       <section id="features" className="w-full border-t border-zinc-900 bg-zinc-950 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-full border border-[#B4F461]/20">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
               Features
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
@@ -462,7 +497,7 @@ export default function Home() {
               { title: "College & Alumni Filter", description: "Filter builders from your college or connect across engineering institutions." },
               { title: "Direct Event CTAs", description: "Discover hackathons from Unstop & Devfolio and form teams directly." },
             ].map((f, i) => (
-              <div key={i} className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all">
+              <div key={i} className="p-5 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all">
                 <div className="w-8 h-8 rounded-lg bg-[#B4F461]/10 border border-[#B4F461]/20 text-[#B4F461] flex items-center justify-center font-bold text-xs mb-3">
                   0{i + 1}
                 </div>
@@ -500,7 +535,7 @@ export default function Home() {
       {/* ─── Auth Modal ─── */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 relative shadow-2xl">
+          <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-950 p-6 relative shadow-2xl">
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
@@ -516,7 +551,7 @@ export default function Home() {
               <p className="text-xs text-zinc-400 mt-1">Find your team and start building.</p>
             </div>
 
-            <div className="mb-5 p-4 bg-zinc-900/60 border border-zinc-800 rounded-xl">
+            <div className="mb-5 p-4 bg-zinc-900/60 border border-zinc-800 rounded-lg">
               <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"

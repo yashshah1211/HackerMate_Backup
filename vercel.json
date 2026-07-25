@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/analytics-summary",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/daily-email-report",
+      "schedule": "0 8 * * *"
     }
   ]
 }
