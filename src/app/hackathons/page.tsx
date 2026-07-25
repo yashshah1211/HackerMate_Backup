@@ -288,7 +288,7 @@ function HackathonsContent() {
           </p>
         </div>
         <Link href="/hackathons/create" className="btn btn-primary btn-sm flex-shrink-0">
-          + List a Hackathon
+          + Host a Hackathon
         </Link>
       </section>
 

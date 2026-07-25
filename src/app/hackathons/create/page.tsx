@@ -93,58 +93,75 @@ export default function CreateHackathonPage() {
         <div className="mb-8">
           <p className="section-label">HOST PORTAL</p>
           <h1 className="text-2xl font-semibold tracking-tight text-white mb-1.5">
-            List a Hackathon
+            Host a Hackathon
           </h1>
           <p className="text-xs text-zinc-400">
-            Publish your university, local, or external hackathon on HackerMate to start building teams.
+            Choose how you want to run your event: cross-list an external link or host natively with built-in team workspaces.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Name */}
+          {/* Hosting Mode Selection Cards */}
           <div>
-            <label className="section-label block mb-1.5">Hackathon Name</label>
-            <input
-              type="text"
-              placeholder="e.g. Smart India Hackathon, Mumbai Hacks, DJSCE Hackathon"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="input text-xs"
-              required
-            />
-          </div>
+            <label className="section-label block mb-2">Hosting Mode *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setType("external")}
+                className={`p-4 rounded-lg border text-left flex flex-col justify-between min-h-[110px] transition-all cursor-pointer ${
+                  type === "external"
+                    ? "bg-zinc-900 border-[#B4F461] text-white shadow-[0_0_15px_rgba(180,244,97,0.1)]"
+                    : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <span>🔗 Cross-List Event</span>
+                    </span>
+                    {type === "external" && (
+                      <span className="w-2 h-2 rounded-full bg-[#B4F461]" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed mt-1">
+                    Cross-post your Devfolio, Unstop, or website link. Teammate matching happens on HackerMate while registrations stay on your portal.
+                  </p>
+                </div>
+                <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider mt-3">
+                  Fast 1-Min Setup
+                </span>
+              </button>
 
-          {/* Type Selector (Native vs External) */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setType("external")}
-              className={`p-3.5 rounded border text-left flex flex-col justify-between min-h-[90px] transition-colors ${
-                type === "external"
-                  ? "bg-zinc-900 border-zinc-700 text-white"
-                  : "bg-transparent border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
-              }`}
-            >
-              <span className="text-xs font-semibold">External Listing</span>
-              <span className="text-[10px] text-zinc-500 leading-normal">
-                Directs builders to register on Devpost, Devfolio, or your website.
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setType("native")}
-              className={`p-3.5 rounded border text-left flex flex-col justify-between min-h-[90px] transition-colors ${
-                type === "native"
-                  ? "bg-zinc-900 border-zinc-700 text-white"
-                  : "bg-transparent border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
-              }`}
-            >
-              <span className="text-xs font-semibold">Native Hosting (Free)</span>
-              <span className="text-[10px] text-zinc-500 leading-normal">
-                Manage registrations, teams, and submissions directly on HackerMate.
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setType("internal")}
+                className={`p-4 rounded-lg border text-left flex flex-col justify-between min-h-[110px] transition-all cursor-pointer ${
+                  type === "internal"
+                    ? "bg-zinc-900 border-[#B4F461] text-white shadow-[0_0_15px_rgba(180,244,97,0.1)]"
+                    : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <span>⚡ Organize Natively</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                        Full Suite
+                      </span>
+                    </span>
+                    {type === "internal" && (
+                      <span className="w-2 h-2 rounded-full bg-[#B4F461]" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed mt-1">
+                    Run native registrations, announcements feed, resources, live team workspaces, and project submissions directly on HackerMate.
+                  </p>
+                </div>
+                <span className="text-[9px] font-mono text-emerald-400 uppercase tracking-wider mt-3">
+                  Native Event OS
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Description */}
