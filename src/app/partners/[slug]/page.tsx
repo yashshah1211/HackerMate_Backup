@@ -283,14 +283,30 @@ function PartnerPageContent() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono uppercase tracking-wider mb-4">
               <span className="text-[#B4F461] font-bold">HACKERMATE</span>
               <span className="text-zinc-500">×</span>
-              <span style={{ color: brandColor }} className="font-bold">
+              <span style={{ color: brandColor }} className="font-bold flex items-center gap-1.5">
+                {slug === "axcentra" && (
+                  <img
+                    src="/partners/axcentra-icon-only-transparent.png"
+                    alt="Axcentra Icon"
+                    className="h-3.5 w-auto object-contain inline-block"
+                  />
+                )}
                 OFFICIAL PARTNER
               </span>
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-              {partner.partner_name}
-            </h1>
+            <div className="flex items-center gap-3">
+              {slug === "axcentra" && (
+                <img
+                  src="/partners/axcentra-icon-only-transparent.png"
+                  alt="Axcentra Logo"
+                  className="h-10 md:h-12 w-auto object-contain shrink-0"
+                />
+              )}
+              <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                {partner.partner_name}
+              </h1>
+            </div>
             <p className="text-sm text-zinc-300 max-w-2xl mt-2 leading-relaxed font-sans">
               {partner.tagline || hackathon?.description?.slice(0, 180) + "..."}
             </p>

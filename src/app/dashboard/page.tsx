@@ -815,10 +815,25 @@ function DashboardContent() {
                 </div>
 
                 {/* Axcentra Logo */}
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-blue-400 dark:via-indigo-400 dark:to-violet-400 text-lg md:text-xl font-mono">
-                    AXCENTRA
-                  </span>
+                <div className="flex items-center">
+                  {/* Light Mode: Full Logo (Icon + Wordmark) */}
+                  <img
+                    src="/partners/axcentra-full-logo-transparent.png"
+                    alt="Axcentra"
+                    className="h-9 md:h-10 w-auto object-contain block dark:hidden"
+                  />
+
+                  {/* Dark Mode: Icon Mark + Gradient AXCENTRA Text */}
+                  <div className="hidden dark:flex items-center gap-2.5">
+                    <img
+                      src="/partners/axcentra-icon-only-transparent.png"
+                      alt="Axcentra"
+                      className="h-7 md:h-8 w-auto object-contain"
+                    />
+                    <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-violet-400 text-lg md:text-xl font-mono">
+                      AXCENTRA
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
