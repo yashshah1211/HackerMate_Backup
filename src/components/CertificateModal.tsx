@@ -45,7 +45,8 @@ export default function CertificateModal({
     day: "numeric",
     year: "numeric",
   });
-  const hackathonTitle = badge.badge_name || "All India Hackathon 2026";
+  const rawTitle = badge.badge_name || "All India Hackathon 2026";
+  const eventTitle = rawTitle.replace(/^(Verified Winner|Winner|Finalist|Participant)\s*[\u2014\u2013-]\s*/i, "");
   const issuer = badge.issuer_name || "HackerMate x Axcentra";
   const rank = badge.rank_title || "Verified Winner";
   const teamName = badge.metadata?.team_name || "";
@@ -132,7 +133,7 @@ export default function CertificateModal({
       doc.setFontSize(14);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `For outstanding performance as a ${rank.toUpperCase()} in the`,
+        "For outstanding achievement in",
         width / 2,
         285,
         { align: "center" }
@@ -142,7 +143,7 @@ export default function CertificateModal({
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
-      doc.text(hackathonTitle, width / 2, 325, { align: "center" });
+      doc.text(eventTitle, width / 2, 325, { align: "center" });
 
       if (teamName) {
         doc.setTextColor(148, 163, 184);
@@ -159,7 +160,7 @@ export default function CertificateModal({
       doc.setTextColor(59, 130, 246);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text(`★  VERIFIED HACKATHON WINNER  ★`, width / 2, 408, {
+      doc.text(`★  ${rank.toUpperCase()}  ★`, width / 2, 408, {
         align: "center",
       });
 
@@ -253,14 +254,14 @@ export default function CertificateModal({
             {recipientName}
           </h2>
           <p className="mt-2 text-xs text-zinc-300">
-            For outstanding achievement as a <span className="font-semibold text-blue-400">{rank}</span> in
+            For outstanding achievement in
           </p>
           <h3 className="mt-1 text-lg font-bold text-white">
-            {hackathonTitle}
+            {eventTitle}
           </h3>
 
           <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-1.5 text-xs font-semibold text-blue-400">
-            <span>Verified Winner Badge Attached</span>
+            <span>★ {rank} ★</span>
           </div>
         </div>
 
