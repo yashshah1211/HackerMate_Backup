@@ -178,11 +178,12 @@ function PartnerPageContent() {
         .filter(Boolean);
       setTeams(parsedTeams);
 
-      // 4. Fetch Builders registered for this hackathon
+      // 4. Fetch Builders who are actively looking for a team for this hackathon
       const { data: regData } = await supabase
         .from("hackathon_registrations")
-        .select("user_id, profiles(id, full_name, email, college, avatar_url, skills, is_available)")
-        .eq("hackathon_id", partnerData.hackathon_id);
+        .select("user_id, looking_for_team, profiles(id, full_name, email, college, avatar_url, skills, is_available)")
+        .eq("hackathon_id", partnerData.hackathon_id)
+        .eq("looking_for_team", true);
 
       const parsedBuilders = (regData || [])
         .map((r: any) => r.profiles)
@@ -216,12 +217,12 @@ function PartnerPageContent() {
 
         const { data: userReg } = await supabase
           .from("hackathon_registrations")
-          .select("id")
+          .select("id, looking_for_team")
           .eq("user_id", user.id)
           .eq("hackathon_id", partnerData.hackathon_id)
           .maybeSingle();
 
-        setIsUserLookingForTeam(!!userReg);
+        setIsUserLookingForTeam(!!(userReg?.looking_for_team));
       }
     } catch (err) {
       console.error(err);
