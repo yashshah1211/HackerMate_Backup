@@ -5,8 +5,10 @@ import { supabase } from "@/lib/supabase";
 
 export default function AuthGuard({
   children,
+  adminOnly = false,
 }: {
   children: React.ReactNode;
+  adminOnly?: boolean;
 }) {
   const [authorized, setAuthorized] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
@@ -23,10 +25,10 @@ export default function AuthGuard({
         return;
       }
 
-      // Check if user has completed onboarding and is banned
+      // Check if user has completed onboarding, is banned, and role (for adminOnly routes)
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, onboarding_completed, is_banned")
+        .select("id, onboarding_completed, is_banned, role")
         .eq("id", user.id)
         .single();
 
@@ -36,13 +38,19 @@ export default function AuthGuard({
         return;
       }
 
+      if (adminOnly && profile?.role !== "admin") {
+        window.location.href = "/dashboard";
+        return;
+      }
+
       if (!profile || error || !profile.onboarding_completed) {
         // Allow browsing core dashboard & hackathon routes while rendering quick onboarding banner
         const pathname = window.location.pathname;
         if (
-          pathname.startsWith("/dashboard") ||
-          pathname.startsWith("/hackathons") ||
-          pathname.startsWith("/developers")
+          !adminOnly &&
+          (pathname.startsWith("/dashboard") ||
+            pathname.startsWith("/hackathons") ||
+            pathname.startsWith("/developers"))
         ) {
           setAuthorized(true);
           return;
@@ -56,7 +64,7 @@ export default function AuthGuard({
     }
 
     checkAuth();
-  }, []);
+  }, [adminOnly]);
 
   if (isBanned) {
     return (

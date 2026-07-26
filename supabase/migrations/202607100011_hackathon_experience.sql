@@ -1,4 +1,4 @@
--- Migration: 202607100010_hackathon_experience
+-- Migration: 202607100011_hackathon_experience
 -- Adds fields for hackathon experience and wins to profiles.
 
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS has_participated_hackathon BOOLEAN DEFAULT false;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
+import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 
 type Report = {
@@ -60,7 +61,7 @@ type OrganizerLead = {
   created_at: string;
 };
 
-export default function AdminPage() {
+function AdminContent() {
   const { showToast, confirm } = useNotification();
 
   const [loading, setLoading] = useState(true);
@@ -1994,5 +1995,13 @@ export default function AdminPage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <AuthGuard adminOnly>
+      <AdminContent />
+    </AuthGuard>
   );
 }

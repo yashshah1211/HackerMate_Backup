@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
 
@@ -26,16 +27,18 @@ type Hackathon = {
 
 export default function CreateTeamPage() {
   return (
-    <Suspense fallback={
-      <main className="max-w-2xl mx-auto px-6 pt-36 pb-16">
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--primary-500)] to-[var(--accent-500)] animate-pulse mb-4" />
-          <p className="text-zinc-500">Loading team creator...</p>
-        </div>
-      </main>
-    }>
-      <CreateTeamForm />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={
+        <main className="max-w-2xl mx-auto px-6 pt-36 pb-16">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--primary-500)] to-[var(--accent-500)] animate-pulse mb-4" />
+            <p className="text-zinc-500">Loading team creator...</p>
+          </div>
+        </main>
+      }>
+        <CreateTeamForm />
+      </Suspense>
+    </AuthGuard>
   );
 }
 

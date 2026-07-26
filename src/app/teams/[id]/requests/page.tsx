@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 
 type Request = {
@@ -17,7 +18,7 @@ type Request = {
   };
 };
 
-export default function TeamRequestsPage() {
+function TeamRequestsContent() {
   const params = useParams();
   const { showToast } = useNotification();
   const teamId = params.id as string;
@@ -415,5 +416,13 @@ export default function TeamRequestsPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function TeamRequestsPage() {
+  return (
+    <AuthGuard>
+      <TeamRequestsContent />
+    </AuthGuard>
   );
 }
