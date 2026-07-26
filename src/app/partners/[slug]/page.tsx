@@ -74,6 +74,8 @@ function PartnerPageContent() {
   const [userWinnerBadge, setUserWinnerBadge] = useState<UserBadge | null>(null);
   const [userName, setUserName] = useState("");
   const [showCertModal, setShowCertModal] = useState(false);
+  const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
 
@@ -82,6 +84,58 @@ function PartnerPageContent() {
       router.push(`/?next=${encodeURIComponent(`/partners/${slug}`)}&auth=true`);
     } else {
       router.push(targetUrl);
+    }
+  }
+
+  async function handleToggleLookingForTeam() {
+    if (!currentUserId) {
+      router.push(`/?next=${encodeURIComponent(`/partners/${slug}`)}&auth=true`);
+      return;
+    }
+
+    if (!partner) return;
+
+    setTogglingStatus(true);
+    try {
+      if (isUserLookingForTeam) {
+        const { error } = await supabase
+          .from("hackathon_registrations")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("hackathon_id", partner.hackathon_id);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          setIsUserLookingForTeam(false);
+          showToast("Removed yourself from builders looking for teams.", "info");
+          loadPartnerData();
+        }
+      } else {
+        const { error } = await supabase
+          .from("hackathon_registrations")
+          .upsert(
+            {
+              user_id: currentUserId,
+              hackathon_id: partner.hackathon_id,
+              looking_for_team: true,
+            },
+            { onConflict: "user_id,hackathon_id" }
+          );
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          setIsUserLookingForTeam(true);
+          showToast("Listed! Other builders can now find you for this event.", "success");
+          loadPartnerData();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update status.", "error");
+    } finally {
+      setTogglingStatus(false);
     }
   }
 
@@ -135,7 +189,7 @@ function PartnerPageContent() {
         .filter(Boolean);
       setBuilders(parsedBuilders);
 
-      // 5. Check if logged in user has won a badge for this hackathon
+      // 5. Check if logged in user has won a badge for this hackathon and checking registration status
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -159,6 +213,15 @@ function PartnerPageContent() {
         if (badgeData) {
           setUserWinnerBadge(badgeData as UserBadge);
         }
+
+        const { data: userReg } = await supabase
+          .from("hackathon_registrations")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("hackathon_id", partnerData.hackathon_id)
+          .maybeSingle();
+
+        setIsUserLookingForTeam(!!userReg);
       }
     } catch (err) {
       console.error(err);
@@ -231,8 +294,16 @@ function PartnerPageContent() {
               {partner.tagline || hackathon?.description?.slice(0, 180) + "..."}
             </p>
 
+            {/* HackerMate Platform Context Explainer */}
+            <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 max-w-2xl">
+              <span className="text-blue-400 text-sm mt-0.5">🤝</span>
+              <p className="text-xs text-blue-200/90 leading-relaxed font-sans">
+                <strong className="text-white font-semibold">HackerMate Team Matching Hub:</strong> Browse individual builders, join a recruiting team, or list yourself to find teammates for this hackathon.
+              </p>
+            </div>
+
             {/* Event Metrics Pills */}
-            <div className="flex flex-wrap items-center gap-3 mt-6">
+            <div className="flex flex-wrap items-center gap-3 mt-5">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
                 <span className="text-amber-400 font-bold">💰</span>
                 <span className="font-bold text-white">{displayPrize}</span>
@@ -251,23 +322,41 @@ function PartnerPageContent() {
             </div>
           </div>
 
-          {/* Unstop / Official Listing CTA */}
-          {hackathon?.website_url && (
-            <div className="shrink-0">
+          {/* Hero CTAs */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            <button
+              onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
+              className="btn text-xs py-3 px-4 font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
+            >
+              <span>+ Create Team</span>
+            </button>
+
+            <button
+              onClick={handleToggleLookingForTeam}
+              disabled={togglingStatus}
+              className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                isUserLookingForTeam
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                  : "bg-zinc-900 text-zinc-200 border border-zinc-700 hover:border-zinc-500 hover:text-white"
+              }`}
+            >
+              {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
+            </button>
+
+            {hackathon?.website_url && (
               <a
                 href={hackathon.website_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-bold text-white shadow-xl transition-transform hover:scale-105"
-                style={{ backgroundColor: brandColor }}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 border border-zinc-800/80 transition-colors"
               >
-                <span>Register on Unstop</span>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <span>Official Unstop Registration</span>
+                <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                 </svg>
               </a>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -304,7 +393,7 @@ function PartnerPageContent() {
           <p className="text-xs text-zinc-400">Find compatible teammates or join recruiting teams specifically for {partner.partner_name}.</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-zinc-950 border border-zinc-900 rounded-lg p-1 text-xs">
             <button
               onClick={() => setActiveTab("teams")}
@@ -320,9 +409,21 @@ function PartnerPageContent() {
                 activeTab === "builders" ? "bg-zinc-900 text-white font-bold" : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              Registered Builders ({builders.length})
+              Builders Looking for Teams ({builders.length})
             </button>
           </div>
+
+          <button
+            onClick={handleToggleLookingForTeam}
+            disabled={togglingStatus}
+            className={`btn text-xs py-2 px-3 flex items-center gap-1.5 transition cursor-pointer ${
+              isUserLookingForTeam
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                : "bg-zinc-900 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:text-white"
+            }`}
+          >
+            {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
+          </button>
 
           <button
             onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
@@ -338,7 +439,7 @@ function PartnerPageContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {teams.length === 0 ? (
             <div className="col-span-2 p-12 text-center card card-static border-dashed border-zinc-800">
-              <p className="text-xs text-zinc-400 mb-4">No recruiting teams created for this partner event yet.</p>
+              <p className="text-xs text-zinc-400 mb-4">No recruiting teams created yet — be the first to create a team and start recruiting top talent for this event!</p>
               <button
                 onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
                 className="btn btn-primary btn-sm inline-flex cursor-pointer"
@@ -394,7 +495,13 @@ function PartnerPageContent() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {builders.length === 0 ? (
             <div className="col-span-3 p-12 text-center card card-static border-dashed border-zinc-800">
-              <p className="text-xs text-zinc-400">No individual builders registered for this partner event yet.</p>
+              <p className="text-xs text-zinc-400 mb-4">No individual builders listed yet — be the first to list yourself as looking for a team and get discovered!</p>
+              <button
+                onClick={handleToggleLookingForTeam}
+                className="btn btn-primary btn-sm inline-flex cursor-pointer"
+              >
+                Be the first to list yourself as looking for a team
+              </button>
             </div>
           ) : (
             builders.map((builder) => (

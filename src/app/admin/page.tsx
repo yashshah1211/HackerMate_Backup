@@ -71,7 +71,7 @@ export default function AdminPage() {
   // Tabs
   const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges">("reports");
 
-  // Winner Badge Issuer Form state
+  // Winner Badge Issuer & Directory state
   const [badgeFormHackathonId, setBadgeFormHackathonId] = useState("00000000-0000-0000-0000-000001703933");
   const [badgeFormEmails, setBadgeFormEmails] = useState("");
   const [badgeFormType, setBadgeFormType] = useState("verified_winner");
@@ -80,6 +80,9 @@ export default function AdminPage() {
   const [badgeFormRank, setBadgeFormRank] = useState("Verified Winner");
   const [submittingBadges, setSubmittingBadges] = useState(false);
   const [badgeIssuerResult, setBadgeIssuerResult] = useState<{ granted: number; missingEmails: string[] } | null>(null);
+  const [issuedBadges, setIssuedBadges] = useState<any[]>([]);
+  const [loadingBadges, setLoadingBadges] = useState(false);
+  const [revokingBadgeId, setRevokingBadgeId] = useState<string | null>(null);
 
   // Data
   const [reports, setReports] = useState<Report[]>([]);
@@ -732,6 +735,7 @@ export default function AdminPage() {
           granted: data.granted,
           missingEmails: data.missingEmails || [],
         });
+        fetchIssuedBadges();
       }
     } catch (err: any) {
       console.error(err);
@@ -740,6 +744,59 @@ export default function AdminPage() {
       setSubmittingBadges(false);
     }
   }
+
+  async function fetchIssuedBadges() {
+    setLoadingBadges(true);
+    try {
+      const res = await fetch("/api/admin/issue-badges");
+      const data = await res.json();
+      if (res.ok) {
+        setIssuedBadges(data.badges || []);
+      } else {
+        showToast(data.error || "Failed to load issued badges", "error");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingBadges(false);
+    }
+  }
+
+  function handleRevokeBadge(badge: any) {
+    const recipientName = badge.profiles?.full_name || badge.profiles?.email || "this user";
+    confirm({
+      title: "Revoke Badge & Certificate",
+      message: `Are you sure you want to revoke this badge from ${recipientName}? This will permanently delete the badge, remove it from their profile, and invalidate the certificate verification link. This action cannot be undone.`,
+      confirmText: "Revoke Badge",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setRevokingBadgeId(badge.id);
+        try {
+          const res = await fetch(`/api/admin/revoke-badge?id=${badge.id}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast("Badge revoked successfully and certificate invalidated.", "success");
+            fetchIssuedBadges();
+          } else {
+            showToast(data.error || "Failed to revoke badge.", "error");
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast(err.message || "Failed to revoke badge.", "error");
+        } finally {
+          setRevokingBadgeId(null);
+        }
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (activeTab === "badges") {
+      fetchIssuedBadges();
+    }
+  }, [activeTab]);
 
   // Filter users based on query and onboarding status
   const filteredUsers = users.filter((u) => {
@@ -1683,6 +1740,101 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+
+            {/* Issued Badges & Revocation Management Directory */}
+            <div className="mt-8 pt-6 border-t border-zinc-900">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>Issued Badges & Certificate Directory</span>
+                    <span className="text-xs font-mono px-2.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800 font-normal">
+                      {issuedBadges.length} total
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Manage, inspect, and revoke granted badges. Revoking permanently deletes the badge record and invalidates certificate verification.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchIssuedBadges}
+                  disabled={loadingBadges}
+                  className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+                >
+                  <span>🔄 Refresh List</span>
+                </button>
+              </div>
+
+              {loadingBadges ? (
+                <div className="p-8 text-center text-xs text-zinc-500 font-mono">
+                  Loading issued badges directory...
+                </div>
+              ) : issuedBadges.length === 0 ? (
+                <div className="p-8 text-center text-xs text-zinc-500 card card-static border-dashed border-zinc-800">
+                  No issued badges found in database.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider bg-zinc-950/60 border-b border-zinc-900">
+                      <tr>
+                        <th className="p-3">Recipient</th>
+                        <th className="p-3">Badge Title & Rank</th>
+                        <th className="p-3">Hackathon</th>
+                        <th className="p-3">Certificate ID</th>
+                        <th className="p-3">Issued Date</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900">
+                      {issuedBadges.map((b) => {
+                        const recipientName = b.profiles?.full_name || "Unknown User";
+                        const recipientEmail = b.profiles?.email || b.user_id;
+                        const certId = b.metadata?.certificate_id || `HM-CERT-${b.id.slice(0, 8).toUpperCase()}`;
+
+                        return (
+                          <tr key={b.id} className="hover:bg-zinc-900/40 transition-colors">
+                            <td className="p-3">
+                              <div className="font-bold text-white">{recipientName}</div>
+                              <div className="text-[10px] text-zinc-500 font-mono">{recipientEmail}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-amber-400 font-bold">🏆</span>
+                                <span className="font-bold text-white">{b.rank_title || b.badge_name}</span>
+                              </div>
+                              <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{b.badge_name}</div>
+                            </td>
+                            <td className="p-3">
+                              <span className="text-zinc-300">{b.hackathons?.name || "All India Hackathon"}</span>
+                            </td>
+                            <td className="p-3 font-mono text-[11px] text-blue-400">
+                              <Link href={`/api/certificates/verify/${certId}`} target="_blank" className="hover:underline">
+                                {certId} ↗
+                              </Link>
+                            </td>
+                            <td className="p-3 text-[11px] text-zinc-400">
+                              {new Date(b.issued_at).toLocaleDateString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeBadge(b)}
+                                disabled={revokingBadgeId === b.id}
+                                className="btn text-xs py-1.5 px-3 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 font-bold transition cursor-pointer"
+                              >
+                                {revokingBadgeId === b.id ? "Revoking..." : "Revoke Badge 🗑️"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
