@@ -6,6 +6,7 @@ import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import Footer from "@/components/Footer";
+import Logo from "@/components/Logo";
 
 import QuickOnboardingModal from "@/components/QuickOnboardingModal";
 
@@ -801,19 +802,14 @@ function DashboardContent() {
 
           {/* Right Column: Logo Lockup */}
           <div className="w-full md:w-auto flex items-center justify-center md:justify-end self-center">
-            <div className="flex items-center gap-4 px-6 py-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl shadow-xl hover:border-zinc-700/80 transition-colors">
-              {/* HackerMate Logo Block */}
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[#B4F461] font-bold text-lg shadow-inner">
-                  H
-                </div>
-                <span className="text-sm font-bold tracking-tight text-white hidden sm:inline">
-                  Hacker<span className="text-[#B4F461]">Mate.</span>
-                </span>
+            <div className="flex items-center gap-5 px-6 py-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl shadow-xl hover:border-zinc-700/80 transition-colors">
+              {/* HackerMate Official Logo */}
+              <div className="flex items-center">
+                <Logo className="h-7 md:h-8 shrink-0" />
               </div>
 
               {/* Separator Cross */}
-              <div className="flex items-center justify-center text-zinc-600 font-light text-lg px-1">
+              <div className="flex items-center justify-center text-zinc-600 font-light text-xl px-1">
                 ×
               </div>
 
