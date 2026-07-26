@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import ShareModal from "@/components/ShareModal";
+import AuthModal from "@/components/AuthModal";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
 
@@ -72,6 +73,7 @@ type Props = {
   disbandTeam?: () => void;
   leaveTeam?: (memberId: string) => void;
   toggleRecruiting?: () => void;
+  isPublicVisitor?: boolean;
 
   matchScore?: number;
 
@@ -201,12 +203,15 @@ export default function TeamDetailsView({
   listedHackathons = [],
   unlinkHackathon,
   initialTab,
+  isPublicVisitor = false,
 }: Props) {
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTitle, setAuthModalTitle] = useState("Sign In to Join Team");
 
   // Invitation banner states
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
@@ -1972,6 +1977,27 @@ export default function TeamDetailsView({
           </div>
         </div>
       )}
+      {/* Public Visitor Banner */}
+      {isPublicVisitor && (
+        <div className="mb-6 animate-fade-in-up p-4 bg-gradient-to-r from-blue-950/40 via-zinc-950 to-indigo-950/40 border border-blue-500/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🚀</span>
+            <div className="text-left">
+              <p className="text-xs font-semibold text-white">You are viewing team profile for "{team.name}"</p>
+              <p className="text-[10px] text-zinc-400">Sign in with Google in 1 tap to apply to join this team or chat with teammates.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setAuthModalTitle(`Sign In to Join ${team.name}`);
+              setShowAuthModal(true);
+            }}
+            className="w-full sm:w-auto px-4 py-2 text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-black rounded-lg transition-all shadow-md shadow-[#B4F461]/20 cursor-pointer shrink-0"
+          >
+            Sign In to Join →
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6 animate-fade-in-up">
         <Link
@@ -2217,9 +2243,12 @@ export default function TeamDetailsView({
                 </button>
               ) : (
                 <button
-                  onClick={requestToJoin}
+                  onClick={isPublicVisitor ? () => {
+                    setAuthModalTitle(`Sign In to Apply & Join ${team.name}`);
+                    setShowAuthModal(true);
+                  } : requestToJoin}
                   disabled={requestLoading || requestSent}
-                  className="btn btn-primary w-full"
+                  className="btn btn-primary w-full cursor-pointer"
                 >
                   {requestSent ? (
                     <>
@@ -4641,6 +4670,15 @@ export default function TeamDetailsView({
           teamName: team.name,
           hackathonName: team.hackathon_name || undefined,
         }}
+      />
+
+      {/* Auth Gate Modal for Public Visitors */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title={authModalTitle}
+        subtitle={`Sign in with Google in 1 tap to join team '${team.name}' and chat with teammates.`}
+        nextUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/teams/${team.id}`}
       />
     </main>
   );

@@ -46,6 +46,7 @@ function TeamDetailsContent() {
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
@@ -114,6 +115,8 @@ function TeamDetailsContent() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    setCurrentUser(user);
 
     if (user) {
       const { data: profile } = await supabase
@@ -449,6 +452,7 @@ function TeamDetailsContent() {
         listedHackathons={listedHackathons}
         unlinkHackathon={unlinkHackathon}
         initialTab={tabParam ?? undefined}
+        isPublicVisitor={!currentUser}
       />
   );
 
@@ -457,17 +461,15 @@ function TeamDetailsContent() {
 
 export default function TeamDetailsPage() {
   return (
-    <AuthGuard>
-      <Suspense fallback={
-        <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-          <div className="flex flex-col items-center justify-center min-h-[50vh]">
-            <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-            <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team...</p>
-          </div>
-        </main>
-      }>
-        <TeamDetailsContent />
-      </Suspense>
-    </AuthGuard>
+    <Suspense fallback={
+      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
+          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team...</p>
+        </div>
+      </main>
+    }>
+      <TeamDetailsContent />
+    </Suspense>
   );
 }
