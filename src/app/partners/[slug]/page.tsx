@@ -104,10 +104,10 @@ function PartnerPageContent() {
 
       setPartner(partnerData);
 
-      // 2. Fetch Hackathon details
+      // 2. Fetch Hackathon details (explicit public fields)
       const { data: hackathonData } = await supabase
         .from("hackathons")
-        .select("*")
+        .select("id, name, description, start_date, end_date, location, mode, prize_pool, website_url, tags, type, college")
         .eq("id", partnerData.hackathon_id)
         .maybeSingle();
 
