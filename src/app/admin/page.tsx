@@ -104,6 +104,14 @@ function AdminContent() {
   const [pitchBody, setPitchBody] = useState("");
   const [sendingPitch, setSendingPitch] = useState(false);
 
+  // Status Filter & Bulk Pitch Modal states
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [bulkPitchModalOpen, setBulkPitchModalOpen] = useState(false);
+  const [bulkPitchSubject, setBulkPitchSubject] = useState("");
+  const [bulkPitchBody, setBulkPitchBody] = useState("");
+  const [bulkSending, setBulkSending] = useState(false);
+
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -300,6 +308,92 @@ function AdminContent() {
     setSendingPitch(false);
   }
 
+  function openBulkPitchModal() {
+    if (selectedLeadIds.size === 0) {
+      showToast("Please select at least one hackathon lead to send a bulk pitch.", "warning");
+      return;
+    }
+
+    const firstSelectedId = Array.from(selectedLeadIds)[0];
+    const lead = leads.find((l) => l.id === firstSelectedId);
+    setBulkPitchSubject(
+      `Sponsorship & Hackathon Team Ecosystem Partnership — ${lead?.title || "HackerMate Partnership"}`
+    );
+    setBulkPitchBody(
+      `Dear Hackathon Organizing Team,\n\nI hope this email finds you well!\n\nWe came across your upcoming hackathon (${lead?.title || "your upcoming event"}) and wanted to reach out regarding a strategic partnership with HackerMate (https://hackermate.dev).\n\nHackerMate is India's leading Team Operating System for hackathon builders. We help builders discover hackathons, form compatible cross-functional teams using skill-matching algorithms, and collaborate in real-time workspaces.\n\nThrough our partnership program, we offer:\n1. Dedicated Co-Branded Partner Page (e.g., /partners/your-hackathon) with custom branding & logo.\n2. Direct Team Matchmaking & Participant Discovery for your registered hackers.\n3. Verified Digital Winner & Finalist Badges issued directly on builder profiles.\n\nWe would love to feature ${lead?.title || "your event"} as a featured partner hackathon!\n\nPlease let us know if you'd be available for a brief 10-minute call or chat this week.\n\nBest regards,\nYash Shah\nFounder, HackerMate`
+    );
+    setBulkPitchModalOpen(true);
+  }
+
+  async function handleBulkSend() {
+    if (selectedLeadIds.size === 0 || !bulkPitchSubject.trim() || !bulkPitchBody.trim()) {
+      showToast("Please select at least one lead and fill in subject & body.", "error");
+      return;
+    }
+
+    setBulkSending(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    const targetLeads = leads.filter((l) => selectedLeadIds.has(l.id));
+
+    try {
+      const formattedHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #111; max-width: 600px; padding: 20px;">
+          ${bulkPitchBody.replace(/\n/g, "<br />")}
+        </div>
+      `;
+
+      for (const lead of targetLeads) {
+        const recipient = lead.last_sent_to || lead.organizer_email;
+        if (!recipient) {
+          failCount++;
+          continue;
+        }
+
+        try {
+          const res = await fetch("/api/admin/send-organizer-pitch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              leadId: lead.id,
+              recipientEmail: recipient.trim(),
+              subject: bulkPitchSubject.trim(),
+              contentHtml: formattedHtml,
+            }),
+          });
+
+          if (res.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`Error sending lead ${lead.id}:`, err);
+          failCount++;
+        }
+
+        // Sleep 400ms between emails to prevent rate limits
+        if (targetLeads.length > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      }
+
+      showToast(
+        `Bulk pitch completed! Successfully dispatched ${successCount} email(s).${failCount > 0 ? ` (${failCount} failed)` : ""}`,
+        "success"
+      );
+      setBulkPitchModalOpen(false);
+      setSelectedLeadIds(new Set());
+      await loadLeads();
+    } catch (err: any) {
+      console.error("Bulk send error:", err);
+      showToast(err.message || "Bulk pitch dispatch failed", "error");
+    } finally {
+      setBulkSending(false);
+    }
+  }
+
   function handleRemoveLead(leadId: string, leadTitle: string) {
     confirm({
       title: "REMOVE HACKATHON LEAD",
@@ -349,6 +443,32 @@ function AdminContent() {
         } catch (err: any) {
           console.error(err);
           showToast(err.message || "Failed to mark as replied.", "error");
+        }
+      },
+    });
+  }
+
+  function handleRestoreLeads() {
+    confirm({
+      title: "RESTORE ALL REMOVED LEADS",
+      message: "Are you sure you want to restore all previously removed hackathon leads back to your active list?",
+      confirmText: "Restore All",
+      onConfirm: async () => {
+        try {
+          const res = await fetch("/api/admin/organizer-leads/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          const resData = await res.json();
+          if (res.ok) {
+            showToast(resData.message || `Restored ${resData.count} lead(s)!`, "success");
+            await loadLeads();
+          } else {
+            showToast(resData.error || "Failed to restore leads.", "error");
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast(err.message || "Failed to restore leads.", "error");
         }
       },
     });
@@ -1408,6 +1528,20 @@ function AdminContent() {
               <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <button
                   type="button"
+                  onClick={openBulkPitchModal}
+                  disabled={selectedLeadIds.size === 0}
+                  className="btn btn-primary text-xs py-2 px-3.5 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white border-none shadow-lg shadow-amber-950/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>📲 Bulk Pitch</span>
+                  {selectedLeadIds.size > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-950 text-amber-200 font-mono text-[10px] font-bold">
+                      {selectedLeadIds.size}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleSendSummaryPdf}
                   disabled={sendingSummaryPdf}
                   className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 border-emerald-900/60 hover:border-emerald-500/60 text-emerald-400 bg-emerald-950/30 cursor-pointer"
@@ -1431,6 +1565,15 @@ function AdminContent() {
                   className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
                 >
                   {loadingLeads ? "Loading..." : "Refresh List"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRestoreLeads}
+                  className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 border-amber-900/60 hover:border-amber-500/60 text-amber-300 bg-amber-950/20 cursor-pointer"
+                  title="Restore all previously removed leads back to active list"
+                >
+                  <span>🔄 Restore Removed Leads</span>
                 </button>
 
                 <button
@@ -1470,19 +1613,47 @@ function AdminContent() {
                   </span>
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Search hackathons or colleges..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="input text-xs py-1.5 px-3 max-w-xs"
-                />
+                <div className="flex items-center gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="input text-xs py-1.5 px-3 bg-zinc-950 text-zinc-200 border border-zinc-800 rounded"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="new">New Leads</option>
+                    <option value="sent">Pitch Sent (Unopened)</option>
+                    <option value="opened">Opened</option>
+                    <option value="replied">Replied</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Search hackathons or colleges..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="input text-xs py-1.5 px-3 max-w-xs"
+                  />
+                </div>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-950 text-zinc-400 font-mono text-[10px] uppercase tracking-wider border-b border-zinc-900">
                     <tr>
+                      <th className="p-4 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={leads.length > 0 && selectedLeadIds.size === leads.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLeadIds(new Set(leads.map((l) => l.id)));
+                            } else {
+                              setSelectedLeadIds(new Set());
+                            }
+                          }}
+                          className="w-3.5 h-3.5 rounded border-zinc-800 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                        />
+                      </th>
                       <th className="p-4">Hackathon</th>
                       <th className="p-4">College / Host</th>
                       <th className="p-4">Event Date</th>
@@ -1494,20 +1665,44 @@ function AdminContent() {
                   <tbody className="divide-y divide-zinc-900/60">
                     {leads.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-12 text-center text-zinc-500 text-xs">
+                        <td colSpan={7} className="p-12 text-center text-zinc-500 text-xs">
                           No Unstop hackathon leads found. Click <strong>"Fetch Unstop Hackathons"</strong> to import live events!
                         </td>
                       </tr>
                     ) : (
                       leads
-                        .filter(
-                          (l) =>
+                        .filter((l) => {
+                          const matchesQuery =
                             l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (l.college_or_host &&
-                              l.college_or_host.toLowerCase().includes(searchQuery.toLowerCase()))
-                        )
+                              l.college_or_host.toLowerCase().includes(searchQuery.toLowerCase()));
+
+                          if (!matchesQuery) return false;
+
+                          if (statusFilter === "replied") return l.status === "replied";
+                          if (statusFilter === "opened") return l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened";
+                          if (statusFilter === "sent") return (l.status === "pitch_sent" || l.pitch_sent_at) && !l.opened_at && l.status !== "replied";
+                          if (statusFilter === "new") return !l.pitch_sent_at && l.status !== "pitch_sent" && l.status !== "opened" && l.status !== "replied";
+
+                          return true;
+                        })
                         .map((lead) => (
-                          <tr key={lead.id} className="hover:bg-zinc-900/30 transition-colors">
+                          <tr key={lead.id} className={`hover:bg-zinc-900/30 transition-colors ${selectedLeadIds.has(lead.id) ? "bg-amber-950/10" : ""}`}>
+                            <td className="p-4 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedLeadIds.has(lead.id)}
+                                onChange={() => {
+                                  setSelectedLeadIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(lead.id)) next.delete(lead.id);
+                                    else next.add(lead.id);
+                                    return next;
+                                  });
+                                }}
+                                className="w-3.5 h-3.5 rounded border-zinc-800 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                              />
+                            </td>
                             {/* Title & Link */}
                             <td className="p-4 max-w-xs">
                               <a
@@ -1986,6 +2181,114 @@ function AdminContent() {
                   ) : (
                     <>
                       <span>✉ Send Partnership Pitch</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Pitch Modal */}
+      {bulkPitchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-2xl card card-static p-6 animate-scale-in border-amber-950/80 bg-zinc-950">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <span>Bulk Pitch Dispatch — {selectedLeadIds.size} Leads Selected</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/60">
+                    Batch Mailer
+                  </span>
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Send personalized email proposals to all selected organizers with rate-limiting protection.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkPitchModalOpen(false)}
+                className="text-zinc-500 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Selected Target Summary */}
+              <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded text-xs">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+                  Selected Recipient Targets ({selectedLeadIds.size}):
+                </div>
+                <div className="max-h-24 overflow-y-auto space-y-1 text-zinc-300 font-mono text-[11px] pr-2">
+                  {leads
+                    .filter((l) => selectedLeadIds.has(l.id))
+                    .map((l) => (
+                      <div key={l.id} className="flex items-center justify-between gap-2 border-b border-zinc-800/40 pb-0.5">
+                        <span className="truncate max-w-[280px] font-sans font-medium text-white">{l.title}</span>
+                        <span className="text-emerald-400 text-[10px]">{l.last_sent_to || l.organizer_email || "No email listed"}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={bulkPitchSubject}
+                  onChange={(e) => setBulkPitchSubject(e.target.value)}
+                  className="input text-xs w-full"
+                />
+              </div>
+
+              {/* Body */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+                  Email Template Content (Markdown / Plain Text)
+                </label>
+                <textarea
+                  value={bulkPitchBody}
+                  onChange={(e) => setBulkPitchBody(e.target.value)}
+                  rows={9}
+                  className="input text-xs font-sans resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-zinc-900">
+              <div className="text-[10px] text-zinc-500 font-mono">
+                ⚡ Resend rate limit: 400ms delay per email
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBulkPitchModalOpen(false)}
+                  className="btn btn-secondary text-xs py-1.5 px-4"
+                  disabled={bulkSending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkSend}
+                  disabled={bulkSending || selectedLeadIds.size === 0 || !bulkPitchSubject.trim() || !bulkPitchBody.trim()}
+                  className="btn btn-primary text-xs py-1.5 px-5 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white border-none shadow-lg shadow-amber-950/50 cursor-pointer disabled:opacity-50"
+                >
+                  {bulkSending ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Dispatching Batch ({selectedLeadIds.size})...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✉ Dispatch {selectedLeadIds.size} Pitch Emails</span>
                     </>
                   )}
                 </button>
