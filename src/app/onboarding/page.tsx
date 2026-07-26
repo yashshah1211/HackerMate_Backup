@@ -305,7 +305,12 @@ export default function OnboardingPage() {
     }
 
     showToast("Profile set up successfully!", "success");
-    router.push("/dashboard");
+    const requestedPath = new URLSearchParams(window.location.search).get("next");
+    const safePath =
+      requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+        ? requestedPath
+        : "/dashboard";
+    router.push(safePath);
   }
 
   function goBack() {

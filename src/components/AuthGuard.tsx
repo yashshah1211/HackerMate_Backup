@@ -47,7 +47,8 @@ export default function AuthGuard({
           setAuthorized(true);
           return;
         }
-        window.location.href = "/onboarding";
+        const next = `${window.location.pathname}${window.location.search}`;
+        window.location.href = `/onboarding?next=${encodeURIComponent(next)}`;
         return;
       }
 

@@ -80,15 +80,19 @@ export default function Home() {
             .from("profiles")
             .select("onboarding_completed")
             .eq("id", user.id)
-            .single();
+            .maybeSingle();
+
+          const requestedPath = new URLSearchParams(window.location.search).get("next");
+          const safePath =
+            requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+              ? requestedPath
+              : "/dashboard";
 
           if (data?.onboarding_completed) {
-            const requestedPath = new URLSearchParams(window.location.search).get("next");
-            const safePath =
-              requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
-                ? requestedPath
-                : "/dashboard";
             router.push(safePath);
+            return;
+          } else {
+            router.push(`/onboarding?next=${encodeURIComponent(safePath)}`);
             return;
           }
         }
