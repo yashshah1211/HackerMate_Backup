@@ -3,23 +3,24 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
   const protectedRoutes = [
     "/dashboard",
     "/developers",
-    "/teams",
     "/profile",
     "/notifications",
     "/connections",
-    "/hackathons",
     "/invites",
     "/messages",
     "/my-teams",
     "/admin",
   ];
 
-  const isProtected = protectedRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
+  const isProtected =
+    protectedRoutes.some((route) => pathname.startsWith(route)) ||
+    pathname === "/teams/create" ||
+    (pathname.startsWith("/teams/") && (pathname.endsWith("/dashboard") || pathname.endsWith("/requests")));
 
   if (!isProtected) {
     return NextResponse.next();
