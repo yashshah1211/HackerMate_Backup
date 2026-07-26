@@ -34,6 +34,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // High-Intent Filter: Conserve Resend email quota by only sending emails for high-intent actions
+    const lowerMsg = message.toLowerCase();
+    const lowerLink = (link || "").toLowerCase();
+
+    const isHighIntent =
+      lowerLink.includes("/invites") ||
+      lowerLink.includes("/teams") ||
+      lowerLink.includes("/connections") ||
+      lowerLink.includes("/messages") ||
+      lowerLink.includes("/certificates") ||
+      lowerMsg.includes("invite") ||
+      lowerMsg.includes("request") ||
+      lowerMsg.includes("applied") ||
+      lowerMsg.includes("accept") ||
+      lowerMsg.includes("joined") ||
+      lowerMsg.includes("team") ||
+      lowerMsg.includes("connect") ||
+      lowerMsg.includes("message") ||
+      lowerMsg.includes("chat") ||
+      lowerMsg.includes("badge") ||
+      lowerMsg.includes("certificate") ||
+      lowerMsg.includes("winner");
+
+    if (!isHighIntent) {
+      console.log(`[Notification Webhook] Skipped low-intent notification email for "${recipientEmail}": "${message}"`);
+      return NextResponse.json(
+        { success: true, skipped: true, reason: "Low-intent notification skipped to conserve Resend daily email quota" },
+        { status: 200 }
+      );
+    }
+
     function escapeHtml(text: string): string {
       if (!text) return "";
       return text

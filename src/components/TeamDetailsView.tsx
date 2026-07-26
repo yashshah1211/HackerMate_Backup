@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
+import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
 
@@ -205,6 +206,7 @@ export default function TeamDetailsView({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Invitation banner states
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
@@ -1999,9 +2001,17 @@ export default function TeamDetailsView({
         <div className="card card-static p-6 animate-fade-in-up">
           <p className="section-label mb-3">TEAM PROFILE</p>
 
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white mb-3">
-            {team.name}
-          </h1>
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white">
+              {team.name}
+            </h1>
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
+            >
+              <span>🔗 Share Team</span>
+            </button>
+          </div>
 
           <p className="text-sm text-zinc-400 leading-relaxed mb-8">
             {team.description || "No description provided."}
@@ -4617,6 +4627,21 @@ export default function TeamDetailsView({
           </div>
         </div>
       )}
+
+      {/* 1-Tap Share Team Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title={`Share Team — ${team.name}`}
+        subtitle="Recruit teammates via WhatsApp, LinkedIn, X, or Telegram"
+        shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/teams/${team.id}`}
+        shareText={`🚀 We're recruiting developers for team '${team.name}' ${team.hackathon_name ? `building for ${team.hackathon_name}` : ""} on HackerMate! Check our team profile & apply here:`}
+        type="team"
+        metadata={{
+          teamName: team.name,
+          hackathonName: team.hackathon_name || undefined,
+        }}
+      />
     </main>
   );
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
+import ShareModal from "@/components/ShareModal";
 
 type PartnerConfig = {
   id: string;
@@ -73,6 +74,7 @@ function PartnerPageContent() {
   const [builders, setBuilders] = useState<RegisteredBuilder[]>([]);
   const [userWinnerBadge, setUserWinnerBadge] = useState<UserBadge | null>(null);
   const [userName, setUserName] = useState("");
+  const [shareTeamForModal, setShareTeamForModal] = useState<Team | null>(null);
   const [showCertModal, setShowCertModal] = useState(false);
   const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
@@ -494,16 +496,24 @@ function PartnerPageContent() {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-zinc-900 flex items-center justify-between">
-                  <span className="text-[10px] text-zinc-500 font-mono">
+                <div className="pt-3 border-t border-zinc-900 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-zinc-500 font-mono truncate">
                     {team.college || "Cross-College"}
                   </span>
-                  <button
-                    onClick={() => handleProtectedAction(`/teams/${team.id}`)}
-                    className="btn btn-secondary btn-xs py-1.5 px-3 text-xs cursor-pointer"
-                  >
-                    View Workspace & Apply →
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShareTeamForModal(team)}
+                      className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <span>🔗 Share</span>
+                    </button>
+                    <button
+                      onClick={() => handleProtectedAction(`/teams/${team.id}`)}
+                      className="btn btn-secondary btn-xs py-1.5 px-3 text-xs cursor-pointer"
+                    >
+                      View & Apply →
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
@@ -579,6 +589,21 @@ function PartnerPageContent() {
           recipientName={userName || "Verified Winner"}
         />
       )}
+
+      {/* Share Team Modal */}
+      <ShareModal
+        isOpen={!!shareTeamForModal}
+        onClose={() => setShareTeamForModal(null)}
+        title={`Share Team — ${shareTeamForModal?.name || ""}`}
+        subtitle="Recruit teammates via WhatsApp, LinkedIn, X, or Telegram"
+        shareUrl={typeof window !== "undefined" ? `${window.location.origin}/teams/${shareTeamForModal?.id}` : `https://hackermate.in/teams/${shareTeamForModal?.id}`}
+        shareText={`🚀 We're recruiting developers for team '${shareTeamForModal?.name || ""}' ${partner?.partner_name ? `building for ${partner.partner_name}` : ""} on HackerMate! Check our team profile & apply here:`}
+        type="team"
+        metadata={{
+          teamName: shareTeamForModal?.name,
+          hackathonName: partner?.partner_name,
+        }}
+      />
     </main>
   );
 }

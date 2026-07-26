@@ -7,6 +7,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
+import ShareModal from "@/components/ShareModal";
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
@@ -57,6 +58,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
   const [selectedBadgeForCert, setSelectedBadgeForCert] = useState<UserBadge | null>(null);
+  const [selectedBadgeForShare, setSelectedBadgeForShare] = useState<UserBadge | null>(null);
 
   const [ownedTeams, setOwnedTeams] = useState<{ id: string; name: string; max_members: number | null; memberCount: number }[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -1118,15 +1120,23 @@ export default function ProfilePage() {
                             <span className="text-[9px] text-zinc-500 font-mono">
                               Issued {new Date(badge.issued_at).toLocaleDateString()}
                             </span>
-                            <button
-                              onClick={() => setSelectedBadgeForCert(badge)}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
-                            >
-                              <span>View Certificate</span>
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setSelectedBadgeForShare(badge)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-[#B4F461]/10 text-[#B4F461] hover:bg-[#B4F461]/20 border border-[#B4F461]/30 transition cursor-pointer"
+                              >
+                                <span>🏆 Flex</span>
+                              </button>
+                              <button
+                                onClick={() => setSelectedBadgeForCert(badge)}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                              >
+                                <span>View Certificate</span>
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1263,6 +1273,22 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Badge / Flex Share Modal */}
+      <ShareModal
+        isOpen={!!selectedBadgeForShare}
+        onClose={() => setSelectedBadgeForShare(null)}
+        title={`Flex Achievement — ${selectedBadgeForShare?.badge_name || ""}`}
+        subtitle="Showcase your verified achievement on LinkedIn, X, WhatsApp, or Telegram"
+        shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/profile/${profile?.id}`}
+        shareText={`🏆 Proud to share my verified achievement '${selectedBadgeForShare?.badge_name}' (${selectedBadgeForShare?.rank_title || "Verified Winner"}) verified by ${selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra"}! Check out my profile & certificate:`}
+        type="badge"
+        metadata={{
+          badgeTitle: selectedBadgeForShare?.badge_name,
+          rankTitle: selectedBadgeForShare?.rank_title || "Verified Winner",
+          issuerName: selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra",
+        }}
+      />
     </main>
   );
 }
