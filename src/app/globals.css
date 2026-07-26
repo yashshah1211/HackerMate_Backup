@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@800;900&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================
    COLOR SYSTEM - Premium Neutral Dark Theme (Linear/Vercel Style)
    ============================================ */

@@ -754,75 +754,77 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Axcentra Partner Hero Banner (Prime Video Style) */}
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-900/60 bg-zinc-950/40 backdrop-blur-md p-8 md:p-10 mb-8 shadow-2xl group transition-all duration-300">
-        {/* Ambient Radial Glow Effect */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/15 blur-3xl pointer-events-none group-hover:bg-blue-600/25 transition-all duration-500" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-[#B4F461]/10 blur-3xl pointer-events-none group-hover:bg-[#B4F461]/20 transition-all duration-500" />
+      {/* Axcentra Partner Hero Banner (Prime Video Style - Active until August 29, 2026) */}
+      {new Date() <= new Date("2026-08-29T23:59:59") && (
+        <div className="relative overflow-hidden rounded-3xl border border-zinc-200/90 dark:border-zinc-900/60 bg-white/90 dark:bg-zinc-950/40 backdrop-blur-md p-8 md:p-10 mb-8 shadow-xl dark:shadow-2xl group transition-all duration-300">
+          {/* Ambient Radial Glow Effect */}
+          <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-500/10 dark:bg-blue-600/15 blur-3xl pointer-events-none group-hover:bg-blue-500/20 dark:group-hover:bg-blue-600/25 transition-all duration-500" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-[#B4F461]/20 dark:bg-[#B4F461]/10 blur-3xl pointer-events-none group-hover:bg-[#B4F461]/30 dark:group-hover:bg-[#B4F461]/20 transition-all duration-500" />
 
-        {/* Top Accent Gradient Line */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#B4F461] via-blue-500 to-indigo-600" />
+          {/* Top Accent Gradient Line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#B4F461] via-blue-500 to-indigo-600" />
 
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 relative z-10">
-          {/* Left Column: Text & CTA */}
-          <div className="max-w-xl">
-            {/* Co-Branded Tag Pill */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 mb-4 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              <span>FEATURED PARTNER PORTAL</span>
-            </div>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 relative z-10">
+            {/* Left Column: Text & CTA */}
+            <div className="max-w-xl">
+              {/* Co-Branded Tag Pill */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 dark:border-blue-500/30 dark:bg-blue-500/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 mb-4 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
+                <span>FEATURED PARTNER PORTAL</span>
+              </div>
 
-            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight">
-              HackerMate × Axcentra Partner Portal
-            </h1>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight">
+                HackerMate × Axcentra Partner Portal
+              </h1>
 
-            <p className="text-xs md:text-sm text-zinc-400 mt-2.5 leading-relaxed font-sans">
-              Discover exclusive team tracks, connect with Axcentra mentors, and build solutions directly for our enterprise partners.
-            </p>
+              <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400 mt-2.5 leading-relaxed font-sans">
+                Discover exclusive team tracks, connect with Axcentra mentors, and build solutions directly for our enterprise partners.
+              </p>
 
-            {/* CTA Button */}
-            <div className="mt-6 flex items-center gap-4">
-              <Link
-                href="/partners/axcentra"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg shadow-[#B4F461]/20 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] group/btn cursor-pointer"
-              >
-                <span>Explore Partner Portal</span>
-                <svg
-                  className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
+              {/* CTA Button */}
+              <div className="mt-6 flex items-center gap-4">
+                <Link
+                  href="/partners/axcentra"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg shadow-[#B4F461]/25 hover:shadow-[#B4F461]/40 border border-[#B4F461]/40 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] group/btn cursor-pointer"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </Link>
+                  <span>Explore Partner Portal</span>
+                  <svg
+                    className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              </div>
             </div>
-          </div>
 
-          {/* Right Column: Logo Lockup */}
-          <div className="w-full md:w-auto flex items-center justify-center md:justify-end self-center">
-            <div className="flex items-center gap-5 px-6 py-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl shadow-xl hover:border-zinc-700/80 transition-colors">
-              {/* HackerMate Official Logo */}
-              <div className="flex items-center">
-                <Logo className="h-7 md:h-8 shrink-0" />
-              </div>
+            {/* Right Column: Logo Lockup */}
+            <div className="w-full md:w-auto flex items-center justify-center md:justify-end self-center">
+              <div className="flex items-center gap-5 px-6 py-4 rounded-2xl bg-zinc-100/90 dark:bg-zinc-900/60 border border-zinc-200/90 dark:border-zinc-800/80 backdrop-blur-xl shadow-md dark:shadow-xl hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-colors">
+                {/* HackerMate Official Logo */}
+                <div className="flex items-center">
+                  <Logo className="h-7 md:h-8 shrink-0 text-zinc-900 dark:text-white" />
+                </div>
 
-              {/* Separator Cross */}
-              <div className="flex items-center justify-center text-zinc-600 font-light text-xl px-1">
-                ×
-              </div>
+                {/* Separator Cross */}
+                <div className="flex items-center justify-center text-zinc-400 dark:text-zinc-600 font-light text-xl px-1">
+                  ×
+                </div>
 
-              {/* Axcentra Logo */}
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-violet-400 text-lg md:text-xl font-mono">
-                  AXCENTRA
-                </span>
+                {/* Axcentra Logo */}
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-blue-400 dark:via-indigo-400 dark:to-violet-400 text-lg md:text-xl font-mono">
+                    AXCENTRA
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="grid-2">
         <div className="panel">
