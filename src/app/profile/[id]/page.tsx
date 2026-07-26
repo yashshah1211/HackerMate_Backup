@@ -1103,14 +1103,14 @@ export default function ProfilePage() {
                                 {badge.rank_title || "Verified Winner"}
                               </span>
                               <span className="text-[9px] text-zinc-500 font-mono">
-                                {badge.issuer_name || "HackerMate x Axcentra"}
+                                {badge.issuer_name || "HackerMate × Axcentra"}
                               </span>
                             </div>
                             <h4 className="text-sm font-bold text-white group-hover:text-[#B4F461] transition-colors">
                               {badge.badge_name}
                             </h4>
                             <p className="text-[11px] text-zinc-400 mt-1">
-                              Official partner achievement verified by {badge.issuer_name || "HackerMate x Axcentra"}.
+                              Official partner achievement verified by {badge.issuer_name || "HackerMate × Axcentra"}.
                             </p>
                           </div>
 

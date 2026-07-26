@@ -77,7 +77,7 @@ function AdminContent() {
   const [badgeFormEmails, setBadgeFormEmails] = useState("");
   const [badgeFormType, setBadgeFormType] = useState("verified_winner");
   const [badgeFormName, setBadgeFormName] = useState("Verified Winner — All India Hackathon 2026");
-  const [badgeFormIssuer, setBadgeFormIssuer] = useState("HackerMate x Axcentra");
+  const [badgeFormIssuer, setBadgeFormIssuer] = useState("HackerMate × Axcentra");
   const [badgeFormRank, setBadgeFormRank] = useState("Verified Winner");
   const [submittingBadges, setSubmittingBadges] = useState(false);
   const [badgeIssuerResult, setBadgeIssuerResult] = useState<{ granted: number; missingEmails: string[] } | null>(null);

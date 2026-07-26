@@ -269,7 +269,7 @@ function PartnerPageContent() {
     <main className="max-w-5xl mx-auto px-6 pt-32 pb-16">
       {/* Partner Hero Header */}
       <div
-        className="relative overflow-hidden rounded-2xl border bg-zinc-950 p-8 md:p-10 shadow-2xl animate-fade-in-up mb-8"
+        className="relative overflow-hidden rounded-2xl border bg-white dark:bg-zinc-950 p-8 md:p-10 shadow-xl dark:shadow-2xl animate-fade-in-up mb-8 transition-colors"
         style={{ borderColor: `${brandColor}40` }}
       >
         <div
@@ -280,9 +280,9 @@ function PartnerPageContent() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div>
             {/* Co-Branded Tag */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono uppercase tracking-wider mb-4">
-              <span className="text-[#B4F461] font-bold">HACKERMATE</span>
-              <span className="text-zinc-500">×</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1 text-xs font-mono uppercase tracking-wider mb-4">
+              <span className="text-[#649a1f] dark:text-[#B4F461] font-bold">HACKERMATE</span>
+              <span className="text-zinc-400 dark:text-zinc-500">×</span>
               <span style={{ color: brandColor }} className="font-bold flex items-center gap-1.5">
                 {slug === "axcentra" && (
                   <img
@@ -291,7 +291,7 @@ function PartnerPageContent() {
                     className="h-3.5 w-auto object-contain inline-block"
                   />
                 )}
-                OFFICIAL PARTNER
+                {slug === "axcentra" ? "AXCENTRA" : "OFFICIAL PARTNER"}
               </span>
             </div>
 
@@ -303,38 +303,38 @@ function PartnerPageContent() {
                   className="h-10 md:h-12 w-auto object-contain shrink-0"
                 />
               )}
-              <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+              <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 {partner.partner_name}
               </h1>
             </div>
-            <p className="text-sm text-zinc-300 max-w-2xl mt-2 leading-relaxed font-sans">
+            <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-2xl mt-2 leading-relaxed font-sans">
               {partner.tagline || hackathon?.description?.slice(0, 180) + "..."}
             </p>
 
             {/* HackerMate Platform Context Explainer */}
-            <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 max-w-2xl">
-              <span className="text-blue-400 text-sm mt-0.5">🤝</span>
-              <p className="text-xs text-blue-200/90 leading-relaxed font-sans">
-                <strong className="text-white font-semibold">HackerMate Team Matching Hub:</strong> Browse individual builders, join a recruiting team, or list yourself to find teammates for this hackathon.
+            <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 flex items-start gap-2.5 max-w-2xl">
+              <span className="text-blue-500 dark:text-blue-400 text-sm mt-0.5">🤝</span>
+              <p className="text-xs text-blue-900 dark:text-blue-200/90 leading-relaxed font-sans">
+                <strong className="text-blue-950 dark:text-white font-semibold">HackerMate Team Matching Hub:</strong> Browse individual builders, join a recruiting team, or list yourself to find teammates for this hackathon.
               </p>
             </div>
 
             {/* Event Metrics Pills */}
             <div className="flex flex-wrap items-center gap-3 mt-5">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
-                <span className="text-amber-400 font-bold">💰</span>
-                <span className="font-bold text-white">{displayPrize}</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-xs">
+                <span className="text-amber-500 dark:text-amber-400 font-bold">💰</span>
+                <span className="font-bold text-zinc-900 dark:text-white">{displayPrize}</span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
-                <span className="text-blue-400">📅</span>
-                <span className="text-zinc-300">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-xs">
+                <span className="text-blue-500 dark:text-blue-400">📅</span>
+                <span className="text-zinc-700 dark:text-zinc-300">
                   {hackathon?.start_date ? new Date(hackathon.start_date).toLocaleDateString() : "Date TBA"} —{" "}
                   {hackathon?.end_date ? new Date(hackathon.end_date).toLocaleDateString() : "Date TBA"}
                 </span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
-                <span className="text-emerald-400">🌐</span>
-                <span className="text-zinc-300 capitalize">{hackathon?.mode || "Online"} Sprint</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-xs">
+                <span className="text-emerald-500 dark:text-emerald-400">🌐</span>
+                <span className="text-zinc-700 dark:text-zinc-300 capitalize">{hackathon?.mode || "Online"} Sprint</span>
               </div>
             </div>
           </div>
@@ -353,8 +353,8 @@ function PartnerPageContent() {
               disabled={togglingStatus}
               className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 isUserLookingForTeam
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
-                  : "bg-zinc-900 text-zinc-200 border border-zinc-700 hover:border-zinc-500 hover:text-white"
+                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
@@ -365,7 +365,7 @@ function PartnerPageContent() {
                 href={hackathon.website_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 border border-zinc-800/80 transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-900 border border-zinc-300 dark:border-zinc-800/80 transition-colors"
               >
                 <span>Official Unstop Registration</span>
                 <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -402,52 +402,56 @@ function PartnerPageContent() {
       )}
 
       {/* Team Matching Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-900">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
             <span>Partner Team Matching Hub</span>
           </h2>
-          <p className="text-xs text-zinc-400">Find compatible teammates or join recruiting teams specifically for {partner.partner_name}.</p>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">Find compatible teammates or join recruiting teams specifically for {partner.partner_name}.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-zinc-950 border border-zinc-900 rounded-lg p-1 text-xs">
+          {/* Tab Switcher */}
+          <div className="flex bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 rounded-lg p-1 text-xs">
             <button
               onClick={() => setActiveTab("teams")}
-              className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition ${
-                activeTab === "teams" ? "bg-zinc-900 text-white font-bold" : "text-zinc-500 hover:text-zinc-300"
+              className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${
+                activeTab === "teams" ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white font-bold shadow-sm" : "text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
               }`}
             >
               Teams ({teams.length})
             </button>
             <button
               onClick={() => setActiveTab("builders")}
-              className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition ${
-                activeTab === "builders" ? "bg-zinc-900 text-white font-bold" : "text-zinc-500 hover:text-zinc-300"
+              className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${
+                activeTab === "builders" ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white font-bold shadow-sm" : "text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
               }`}
             >
               Builders Looking for Teams ({builders.length})
             </button>
           </div>
 
-          <button
-            onClick={handleToggleLookingForTeam}
-            disabled={togglingStatus}
-            className={`btn text-xs py-2 px-3 flex items-center gap-1.5 transition cursor-pointer ${
-              isUserLookingForTeam
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
-                : "bg-zinc-900 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:text-white"
-            }`}
-          >
-            {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
-          </button>
-
-          <button
-            onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-            className="btn btn-primary text-xs py-2 px-3 flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>+ Create Team</span>
-          </button>
+          {/* Contextual Action Button */}
+          {activeTab === "teams" ? (
+            <button
+              onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <span>+ Create Team</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleToggleLookingForTeam}
+              disabled={togglingStatus}
+              className={`text-xs py-1.5 px-3.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                isUserLookingForTeam
+                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 hover:text-zinc-900 dark:hover:text-white"
+              }`}
+            >
+              {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
+            </button>
+          )}
         </div>
       </div>
 
