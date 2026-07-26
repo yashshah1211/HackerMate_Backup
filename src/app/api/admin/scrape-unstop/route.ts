@@ -361,7 +361,14 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
             ? new Date(opp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : "Upcoming";
 
+          const now = new Date();
+          const isEnded =
+            opp.status === "ended" ||
+            opp.status === "closed" ||
+            (opp.endDate && new Date(opp.endDate) < now);
+
           return {
+            isEnded,
             lead: {
               title: `${opp.title} (${opp.platform})`,
               college_or_host: opp.college,
@@ -406,6 +413,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
   // Filter out ended hackathons before upserting to public.hackathons table
   const todayStr = new Date().toISOString().split("T")[0];
   const activeHackathonsToUpsert = validProcessedItems
+    .filter((item) => !item.isEnded)
     .map((item) => item.hackathonRecord)
     .filter((h) => {
       if (!h.website_url) return false;
@@ -442,6 +450,27 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     if (hackathonsDbErr) {
       await supabaseAdmin.from("hackathons").insert(activeHackathonsToUpsert);
     }
+  }
+
+  // 8. Automatic Purge: Clean up any existing external hackathons in public.hackathons that have ended
+  try {
+    const { data: pastExternalHackathons } = await supabaseAdmin
+      .from("hackathons")
+      .select("id, end_date")
+      .eq("type", "external");
+
+    if (pastExternalHackathons && pastExternalHackathons.length > 0) {
+      const now = new Date();
+      const closedIds = pastExternalHackathons
+        .filter((h) => h.end_date && new Date(h.end_date) < now)
+        .map((h) => h.id);
+
+      if (closedIds.length > 0) {
+        await supabaseAdmin.from("hackathons").delete().in("id", closedIds);
+      }
+    }
+  } catch (purgeErr) {
+    console.warn("[Scraper] Non-critical error puring ended hackathons:", purgeErr);
   }
 
   return {
