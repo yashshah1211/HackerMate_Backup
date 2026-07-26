@@ -278,6 +278,13 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
           let mode = opp.mode || "online";
           let prize_pool = "Certificate & Perks";
 
+          let isEnded =
+            opp.status === "ended" ||
+            opp.status === "closed" ||
+            (opp.endDate && new Date(opp.endDate) < new Date());
+
+          let actualEndDate = opp.endDate || null;
+
           if (opp.platform === "Unstop") {
             if (opp.id) {
               try {
@@ -301,6 +308,18 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
                   if (emails.length > 0) {
                     organizer_email = Array.from(new Set(emails)).join(", ");
+                  }
+
+                  const regReq = comp.regnRequirements || {};
+                  if (regReq.end_regn_dt) {
+                    actualEndDate = regReq.end_regn_dt;
+                  }
+                  if (
+                    regReq.reg_status === "FINISHED" ||
+                    regReq.remain_days === "Ended" ||
+                    (regReq.end_regn_dt && new Date(regReq.end_regn_dt) < new Date())
+                  ) {
+                    isEnded = true;
                   }
                 }
               } catch (e) {}
@@ -361,12 +380,6 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
             ? new Date(opp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : "Upcoming";
 
-          const now = new Date();
-          const isEnded =
-            opp.status === "ended" ||
-            opp.status === "closed" ||
-            (opp.endDate && new Date(opp.endDate) < now);
-
           return {
             isEnded,
             lead: {
@@ -381,7 +394,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               name: opp.title,
               description,
               start_date: opp.startDate || null,
-              end_date: opp.endDate || null,
+              end_date: actualEndDate || opp.endDate || null,
               location,
               mode,
               prize_pool,
