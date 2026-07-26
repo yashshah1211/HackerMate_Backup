@@ -1441,11 +1441,11 @@ export default function AdminPage() {
                   {fetchingUnstop ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Scraping Unstop...</span>
+                      <span>Scanning Platforms...</span>
                     </>
                   ) : (
                     <>
-                      <span>🔍 Fetch Unstop Hackathons</span>
+                      <span>🔍 Fetch Multi-Platform Leads</span>
                     </>
                   )}
                 </button>
