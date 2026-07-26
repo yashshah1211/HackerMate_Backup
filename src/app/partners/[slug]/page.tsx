@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 
@@ -449,9 +448,5 @@ function PartnerPageContent() {
 }
 
 export default function PartnerPage() {
-  return (
-    <AuthGuard>
-      <PartnerPageContent />
-    </AuthGuard>
-  );
+  return <PartnerPageContent />;
 }
