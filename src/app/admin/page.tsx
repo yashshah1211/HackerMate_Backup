@@ -69,7 +69,17 @@ export default function AdminPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges">("reports");
+
+  // Winner Badge Issuer Form state
+  const [badgeFormHackathonId, setBadgeFormHackathonId] = useState("00000000-0000-0000-0000-000001703933");
+  const [badgeFormEmails, setBadgeFormEmails] = useState("");
+  const [badgeFormType, setBadgeFormType] = useState("verified_winner");
+  const [badgeFormName, setBadgeFormName] = useState("Verified Winner — All India Hackathon 2026");
+  const [badgeFormIssuer, setBadgeFormIssuer] = useState("HackerMate x Axcentra");
+  const [badgeFormRank, setBadgeFormRank] = useState("Verified Winner");
+  const [submittingBadges, setSubmittingBadges] = useState(false);
+  const [badgeIssuerResult, setBadgeIssuerResult] = useState<{ granted: number; missingEmails: string[] } | null>(null);
 
   // Data
   const [reports, setReports] = useState<Report[]>([]);
@@ -670,10 +680,65 @@ export default function AdminPage() {
           await new Promise((resolve) => setTimeout(resolve, 150));
         }
 
-        showToast(`Bulk nudging completed! Sent: ${successCount}, Failed: ${failCount}`, "success");
-        setBulkNudging(false);
-      }
+        showToast(
+          `Bulk nudge complete. Successfully emailed ${successCount} user(s).${failCount > 0 ? ` (${failCount} failed)` : ""}`,
+          "success"
+        );
+        await loadData();
+      },
     });
+  }
+
+  async function handleIssueBadges() {
+    if (!badgeFormHackathonId || !badgeFormEmails.trim()) {
+      showToast("Please provide a valid hackathon ID and at least one winner email.", "error");
+      return;
+    }
+
+    const emailList = badgeFormEmails
+      .split(/[\n,]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+    if (emailList.length === 0) {
+      showToast("Please enter at least one valid email address.", "error");
+      return;
+    }
+
+    setSubmittingBadges(true);
+    setBadgeIssuerResult(null);
+
+    try {
+      const res = await fetch("/api/admin/issue-badges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hackathonId: badgeFormHackathonId.trim(),
+          emails: emailList,
+          badgeType: badgeFormType.trim(),
+          badgeName: badgeFormName.trim(),
+          issuerName: badgeFormIssuer.trim(),
+          rankTitle: badgeFormRank.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || "Failed to issue winner badges", "error");
+      } else {
+        showToast(`Successfully granted ${data.granted} verified badge(s)!`, "success");
+        setBadgeIssuerResult({
+          granted: data.granted,
+          missingEmails: data.missingEmails || [],
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to issue badges", "error");
+    } finally {
+      setSubmittingBadges(false);
+    }
   }
 
   // Filter users based on query and onboarding status
@@ -786,6 +851,19 @@ export default function AdminPage() {
               }`}
             >
               Teams ({teams.length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("badges");
+                setSearchQuery("");
+              }}
+              className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                activeTab === "badges"
+                  ? "bg-blue-600 text-white shadow"
+                  : "text-blue-400 hover:text-blue-300"
+              }`}
+            >
+              🏆 Issue Winner Badges
             </button>
 
             {userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
@@ -1469,6 +1547,142 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* BADGES TAB PANEL */}
+        {activeTab === "badges" && (
+          <div className="card card-static p-6 max-w-3xl mx-auto border-blue-500/30 bg-gradient-to-b from-blue-950/20 via-zinc-950 to-zinc-950">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 font-bold text-lg">
+                🏆
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-white">Partner & Winner Badge Issuer</h2>
+                <p className="text-xs text-zinc-400">Bulk grant verified profile badges & certificates to hackathon winners from CSV/email list.</p>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleIssueBadges(); }} className="space-y-4">
+              <div>
+                <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                  Target Hackathon ID
+                </label>
+                <input
+                  type="text"
+                  value={badgeFormHackathonId}
+                  onChange={(e) => setBadgeFormHackathonId(e.target.value)}
+                  placeholder="e.g. 00000000-0000-0000-0000-000001703933"
+                  className="input text-xs font-mono w-full"
+                  required
+                />
+                <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                  Default pre-filled ID corresponds to <strong>All India Hackathon (Axcentra)</strong>.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                    Badge Name
+                  </label>
+                  <input
+                    type="text"
+                    value={badgeFormName}
+                    onChange={(e) => setBadgeFormName(e.target.value)}
+                    placeholder="Verified Winner — All India Hackathon 2026"
+                    className="input text-xs w-full"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                    Issuer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={badgeFormIssuer}
+                    onChange={(e) => setBadgeFormIssuer(e.target.value)}
+                    placeholder="HackerMate x Axcentra"
+                    className="input text-xs w-full"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                    Badge Type
+                  </label>
+                  <select
+                    value={badgeFormType}
+                    onChange={(e) => setBadgeFormType(e.target.value)}
+                    className="input text-xs w-full"
+                  >
+                    <option value="verified_winner">verified_winner</option>
+                    <option value="finalist">finalist</option>
+                    <option value="participant">participant</option>
+                    <option value="special_award">special_award</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                    Rank Title (Display Badge Chip)
+                  </label>
+                  <input
+                    type="text"
+                    value={badgeFormRank}
+                    onChange={(e) => setBadgeFormRank(e.target.value)}
+                    placeholder="1st Place / Track Winner / Verified Winner"
+                    className="input text-xs w-full"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                  Winner User Email Addresses (One per line or comma-separated)
+                </label>
+                <textarea
+                  value={badgeFormEmails}
+                  onChange={(e) => setBadgeFormEmails(e.target.value)}
+                  rows={6}
+                  placeholder={`winner1@example.com\nwinner2@example.com\nwinner3@example.com`}
+                  className="input text-xs font-mono w-full resize-y"
+                  required
+                />
+              </div>
+
+              {badgeIssuerResult && (
+                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-xs">
+                  <p className="text-blue-400 font-bold">
+                    ✓ Granted {badgeIssuerResult.granted} badge(s) to registered user profiles.
+                  </p>
+                  {badgeIssuerResult.missingEmails.length > 0 && (
+                    <div className="mt-2 text-amber-400">
+                      <p className="font-semibold">⚠️ {badgeIssuerResult.missingEmails.length} email(s) not registered on HackerMate yet:</p>
+                      <p className="text-[11px] font-mono mt-1 text-zinc-400 break-all">
+                        {badgeIssuerResult.missingEmails.join(", ")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={submittingBadges || !badgeFormEmails.trim()}
+                  className="btn btn-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 bg-[#B4F461] text-black hover:bg-[#a3e64f]"
+                >
+                  {submittingBadges ? "Granting Badges..." : "🏆 Bulk Issue Badges & Certificates"}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>
