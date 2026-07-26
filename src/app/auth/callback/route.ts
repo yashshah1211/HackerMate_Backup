@@ -8,8 +8,6 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next") ?? "/dashboard";
 
   if (code) {
-    const response = NextResponse.redirect(`${origin}${next}`);
-    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,8 +25,26 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
+    let response = NextResponse.redirect(`${origin}${next}`);
+
+    const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error && user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile || !profile.onboarding_completed) {
+        const redirectRes = NextResponse.redirect(
+          `${origin}/onboarding?next=${encodeURIComponent(next)}`
+        );
+        response.cookies.getAll().forEach((cookie) => {
+          redirectRes.cookies.set(cookie.name, cookie.value);
+        });
+        return redirectRes;
+      }
+
       return response;
     }
     console.error("Auth callback code exchange error:", error);
