@@ -77,6 +77,14 @@ function PartnerPageContent() {
 
   const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
 
+  function handleProtectedAction(targetUrl: string) {
+    if (!currentUserId) {
+      router.push(`/?next=${encodeURIComponent(`/partners/${slug}`)}&auth=true`);
+    } else {
+      router.push(targetUrl);
+    }
+  }
+
   async function loadPartnerData() {
     try {
       setLoading(true);
@@ -316,12 +324,12 @@ function PartnerPageContent() {
             </button>
           </div>
 
-          <Link
-            href={`/teams/create?hackathon=${partner.hackathon_id}`}
-            className="btn btn-primary text-xs py-2 px-3 flex items-center gap-1.5"
+          <button
+            onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
+            className="btn btn-primary text-xs py-2 px-3 flex items-center gap-1.5 cursor-pointer"
           >
             <span>+ Create Team</span>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -331,12 +339,12 @@ function PartnerPageContent() {
           {teams.length === 0 ? (
             <div className="col-span-2 p-12 text-center card card-static border-dashed border-zinc-800">
               <p className="text-xs text-zinc-400 mb-4">No recruiting teams created for this partner event yet.</p>
-              <Link
-                href={`/teams/create?hackathon=${partner.hackathon_id}`}
-                className="btn btn-primary btn-sm inline-flex"
+              <button
+                onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
+                className="btn btn-primary btn-sm inline-flex cursor-pointer"
               >
                 Be the first to create a team
-              </Link>
+              </button>
             </div>
           ) : (
             teams.map((team) => (
@@ -368,12 +376,12 @@ function PartnerPageContent() {
                   <span className="text-[10px] text-zinc-500 font-mono">
                     {team.college || "Cross-College"}
                   </span>
-                  <Link
-                    href={`/teams/${team.id}`}
-                    className="btn btn-secondary btn-xs py-1.5 px-3 text-xs"
+                  <button
+                    onClick={() => handleProtectedAction(`/teams/${team.id}`)}
+                    className="btn btn-secondary btn-xs py-1.5 px-3 text-xs cursor-pointer"
                   >
                     View Workspace & Apply →
-                  </Link>
+                  </button>
                 </div>
               </div>
             ))
@@ -421,12 +429,12 @@ function PartnerPageContent() {
                 </div>
 
                 <div className="pt-3 border-t border-zinc-900">
-                  <Link
-                    href={`/profile/${builder.id}`}
-                    className="btn btn-secondary btn-xs w-full py-1.5 text-center block text-[11px]"
+                  <button
+                    onClick={() => handleProtectedAction(`/profile/${builder.id}`)}
+                    className="btn btn-secondary btn-xs w-full py-1.5 text-center block text-[11px] cursor-pointer"
                   >
                     View Profile
-                  </Link>
+                  </button>
                 </div>
               </div>
             ))

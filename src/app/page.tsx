@@ -93,7 +93,13 @@ export default function Home() {
           }
         }
 
-        // 2. Fetch showcase data via API route (uses service role key, bypasses RLS)
+        // 2. Open auth modal if auth query parameter is passed
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get("auth") === "true") {
+          setShowAuthModal(true);
+        }
+
+        // 3. Fetch showcase data via API route (uses service role key, bypasses RLS)
         const res = await fetch("/api/public-showcase");
         if (!res.ok) throw new Error("Failed to fetch showcase data");
         const data = await res.json();

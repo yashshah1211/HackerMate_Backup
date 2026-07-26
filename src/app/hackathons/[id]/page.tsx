@@ -126,8 +126,8 @@ function HackathonDetailContent() {
   const params = useParams();
   const router = useRouter();
   const hackathonId = params.id as string;
-
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
+  const [partnerConfig, setPartnerConfig] = useState<{ slug: string; partner_name: string } | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -140,7 +140,7 @@ function HackathonDetailContent() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [buildersList, setBuildersList] = useState<BuilderWithMatch[]>([]);
-  
+
   // Tab controls
   const [activeTab, setActiveTab] = useState<"teams" | "builders" | "looking_for_teams" | "looking_for_builders" | "resources" | "organizer">("teams");
 
@@ -265,6 +265,19 @@ function HackathonDetailContent() {
       }
 
       setHackathon(hackathonData);
+
+      // Fetch partner config if exists for this hackathon
+      const { data: partnerData } = await supabase
+        .from("partner_configs")
+        .select("slug, partner_name")
+        .eq("hackathon_id", hackathonId)
+        .maybeSingle();
+
+      if (partnerData) {
+        setPartnerConfig(partnerData);
+      } else {
+        setPartnerConfig(null);
+      }
 
       let teamsData: any[] = [];
 
@@ -1013,6 +1026,36 @@ function HackathonDetailContent() {
           Back to hackathons
         </Link>
       </div>
+
+      {/* Official Partner Dedicated Page Banner */}
+      {partnerConfig && (
+        <div className="mb-6 p-4 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-zinc-950 to-indigo-950/40 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/20 text-blue-400 font-bold text-base">
+              🤝
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-white">
+                  Official Partner Event
+                </h3>
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase font-semibold">
+                  {partnerConfig.partner_name}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Explore the dedicated team-matching hub & custom partner portal.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/partners/${partnerConfig.slug}`}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md shrink-0"
+          >
+            <span>View Partner Portal →</span>
+          </Link>
+        </div>
+      )}
 
       {/* Main Grid */}
       <section className="grid lg:grid-cols-[2fr_1fr] gap-6 mb-10">
