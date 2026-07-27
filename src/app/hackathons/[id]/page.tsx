@@ -21,6 +21,7 @@ type Hackathon = {
   type: string | null;
   organizer_id: string | null;
   college?: string | null;
+  max_participants?: number | null;
 };
 
 type Team = {
@@ -43,6 +44,7 @@ type Registration = {
   user_id: string;
   team_id: string | null;
   looking_for_team?: boolean;
+  status?: string;
   created_at: string;
   profiles: {
     id: string;
@@ -150,6 +152,7 @@ function HackathonDetailContent() {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [organizerSearch, setOrganizerSearch] = useState("");
 
   // Resources states
   const [resources, setResources] = useState<Resource[]>([]);
@@ -413,6 +416,7 @@ function HackathonDetailContent() {
           user_id,
           team_id,
           looking_for_team,
+          status,
           created_at,
           profiles (
             id,
@@ -575,13 +579,28 @@ function HackathonDetailContent() {
         }
       }
 
-      // 1. Insert native registration row
+      // 1. Check capacity limit & determine status
+      let regStatus = "confirmed";
+      if (hackathon.max_participants !== null && hackathon.max_participants !== undefined) {
+        const { count } = await supabase
+          .from("hackathon_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("hackathon_id", hackathon.id)
+          .eq("status", "confirmed");
+
+        if (count !== null && count >= hackathon.max_participants) {
+          regStatus = "waitlisted";
+        }
+      }
+
+      // 2. Insert native registration row
       const { error: regError } = await supabase
         .from("hackathon_registrations")
         .insert({
           hackathon_id: hackathon.id,
           user_id: currentUserId,
           team_id: selectedTeam || null,
+          status: regStatus,
         });
 
       if (regError) {
@@ -590,7 +609,7 @@ function HackathonDetailContent() {
         return;
       }
 
-      // 2. If registering with a team, update the team's hackathon_id association
+      // 3. If registering with a team, update the team's hackathon_id association
       if (selectedTeam) {
         await supabase
           .from("teams")
@@ -598,7 +617,11 @@ function HackathonDetailContent() {
           .eq("id", selectedTeam);
       }
 
-      showToast("Successfully registered for the hackathon!", "success");
+      if (regStatus === "waitlisted") {
+        showToast("Capacity limit reached! You've been added to the waitlist.", "info");
+      } else {
+        showToast("Successfully registered for the hackathon!", "success");
+      }
       setShowRegisterModal(false);
       setSelectedTeam("");
       loadData();
@@ -629,13 +652,28 @@ function HackathonDetailContent() {
         }
       }
 
-      // 1. Insert registration row
+      // 1. Check capacity limit & determine status
+      let regStatus = "confirmed";
+      if (hackathon.max_participants !== null && hackathon.max_participants !== undefined) {
+        const { count } = await supabase
+          .from("hackathon_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("hackathon_id", hackathon.id)
+          .eq("status", "confirmed");
+
+        if (count !== null && count >= hackathon.max_participants) {
+          regStatus = "waitlisted";
+        }
+      }
+
+      // 2. Insert registration row
       const { error: regError } = await supabase
         .from("hackathon_registrations")
         .insert({
           hackathon_id: hackathon.id,
           user_id: currentUserId,
           team_id: selectedTeam || null,
+          status: regStatus,
         });
 
       if (regError) {
@@ -644,7 +682,7 @@ function HackathonDetailContent() {
         return;
       }
 
-      // 2. If registering with a team, update the team's hackathon_id association
+      // 3. If registering with a team, update the team's hackathon_id association
       if (selectedTeam) {
         await supabase
           .from("teams")
@@ -652,7 +690,11 @@ function HackathonDetailContent() {
           .eq("id", selectedTeam);
       }
 
-      showToast("Successfully registered and confirmed on HackerMate!", "success");
+      if (regStatus === "waitlisted") {
+        showToast("Capacity limit reached! Added to waitlist on HackerMate.", "info");
+      } else {
+        showToast("Successfully registered and confirmed on HackerMate!", "success");
+      }
       setShowExternalRegisterModal(false);
       setSelectedTeam("");
       loadData();
@@ -2003,80 +2045,204 @@ function HackathonDetailContent() {
         )}
 
         {/* Tab CONTENT 7: Organizer Dashboard */}
-        {activeTab === "organizer" && isOrganizer && (
-          <div className="card card-static p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h3 className="text-base font-semibold text-white mb-0.5">Organizer Dashboard</h3>
-                <p className="text-xs text-zinc-500">Manage registrants, exports, and status for {hackathon.name}.</p>
+        {activeTab === "organizer" && isOrganizer && (() => {
+          const confirmedCount = registrations.filter((r) => (r.status || "confirmed") === "confirmed").length;
+          const waitlistedCount = registrations.filter((r) => r.status === "waitlisted").length;
+          const maxCap = hackathon.max_participants;
+
+          const filteredRegs = registrations.filter((r) => {
+            if (!organizerSearch.trim()) return true;
+            const q = organizerSearch.toLowerCase();
+            const name = r.profiles?.full_name?.toLowerCase() || "";
+            const college = r.profiles?.college?.toLowerCase() || "";
+            const email = r.profiles?.email?.toLowerCase() || "";
+            return name.includes(q) || college.includes(q) || email.includes(q);
+          });
+
+          return (
+            <div className="card card-static p-6">
+              {/* Header & Stats Banner */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-base font-semibold text-white mb-0.5 flex items-center gap-2">
+                    <span>💼 Participant Dashboard</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase">
+                      Organizer Portal
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Manage registrants, export data, and track registration capacity for {hackathon.name}.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const headers = "Name,Email,College,Skills,Status,Team Status,Registered At\n";
+                    const rows = filteredRegs
+                      .map((r) => {
+                        const skillsStr = (r.profiles?.skills || []).join("; ");
+                        const teamStatusStr = r.teams
+                          ? `Matched (${r.teams.name})`
+                          : r.looking_for_team
+                          ? "Looking for team"
+                          : "Solo";
+                        const statusStr = r.status || "confirmed";
+                        return `"${(r.profiles?.full_name || "").replace(/"/g, '""')}","${(r.profiles?.email || "").replace(/"/g, '""')}","${(r.profiles?.college || "").replace(/"/g, '""')}","${skillsStr.replace(/"/g, '""')}","${statusStr}","${teamStatusStr.replace(/"/g, '""')}","${r.created_at}"`;
+                      })
+                      .join("\n");
+
+                    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${hackathon.name.replace(/\s+/g, "_")}_participants.csv`;
+                    a.click();
+                  }}
+                  className="btn btn-primary btn-sm flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                >
+                  <span>📥 Export CSV</span>
+                </button>
               </div>
 
-              <button
-                onClick={() => {
-                  const headers = "Name,Email,College,Team,Registered At\n";
-                  const rows = registrations
-                    .map(
-                      (r) =>
-                        `"${r.profiles.full_name}","${r.profiles.email}","${r.profiles.college || ""}","${
-                          r.teams?.name || ""
-                        }","${r.created_at}"`
-                    )
-                    .join("\n");
-                  
-                  const blob = new Blob([headers + rows], { type: "text/csv" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `${hackathon.name.replace(/\s+/g, "_")}_registrants.csv`;
-                  a.click();
-                }}
-                className="btn btn-primary btn-sm"
-              >
-                Export Registrants (.CSV)
-              </button>
-            </div>
+              {/* Capacity Banner */}
+              <div className="p-4 rounded-lg bg-zinc-900/60 border border-zinc-800 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-md bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 text-sm font-semibold">
+                    👥
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-white block">
+                      {maxCap !== null && maxCap !== undefined
+                        ? `Registration Capacity: ${confirmedCount} / ${maxCap} Confirmed`
+                        : `Total Registrations: ${confirmedCount} Confirmed (Unlimited Capacity)`}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">
+                      {waitlistedCount > 0
+                        ? `⚠️ ${waitlistedCount} participant${waitlistedCount > 1 ? "s" : ""} on waitlist due to capacity limit.`
+                        : maxCap !== null && maxCap !== undefined
+                        ? `${maxCap - confirmedCount > 0 ? maxCap - confirmedCount : 0} spot${maxCap - confirmedCount === 1 ? "" : "s"} remaining before waitlist activates.`
+                        : "No capacity limit configured for this hackathon."}
+                    </span>
+                  </div>
+                </div>
 
-            {/* Table */}
-            {registrations.length === 0 ? (
-              <p className="text-xs text-zinc-500 text-center py-6">No registrants found to manage.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-zinc-900 text-zinc-500 font-mono uppercase tracking-wider">
-                      <th className="py-2.5 pb-2">Name</th>
-                      <th className="py-2.5 pb-2">Email</th>
-                      <th className="py-2.5 pb-2">College</th>
-                      <th className="py-2.5 pb-2">Team</th>
-                      <th className="py-2.5 pb-2 text-right">Registration Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registrations.map((reg) => (
-                      <tr key={reg.id} className="border-b border-zinc-900/50 hover:bg-zinc-900/10">
-                        <td className="py-3 font-semibold text-white">{reg.profiles.full_name}</td>
-                        <td className="py-3 text-zinc-400">{reg.profiles.email}</td>
-                        <td className="py-3 text-zinc-500">{reg.profiles.college || "N/A"}</td>
-                        <td className="py-3 font-semibold text-primary-400">
-                          {reg.teams ? (
-                            <Link href={`/teams/${reg.teams.id}`} className="hover:underline">
-                              {reg.teams.name}
-                            </Link>
-                          ) : (
-                            <span className="text-zinc-650 font-normal italic">None</span>
-                          )}
-                        </td>
-                        <td className="py-3 text-zinc-500 text-right">
-                          {new Date(reg.created_at).toLocaleDateString()}
-                        </td>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                    {confirmedCount} Confirmed
+                  </span>
+                  {waitlistedCount > 0 && (
+                    <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-amber-950 text-amber-400 border border-amber-800/60">
+                      {waitlistedCount} Waitlisted
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Search bar */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search participants by name, college, or email..."
+                  value={organizerSearch}
+                  onChange={(e) => setOrganizerSearch(e.target.value)}
+                  className="input text-xs w-full max-w-md"
+                />
+              </div>
+
+              {/* Participants Table */}
+              {filteredRegs.length === 0 ? (
+                <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg">
+                  <p className="text-xs text-zinc-500 font-mono">
+                    {organizerSearch ? "No participants match your search query." : "No registered participants yet."}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-zinc-800/80 rounded-lg">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-zinc-800 bg-zinc-900/40 text-zinc-400 font-mono uppercase tracking-wider text-[10px]">
+                        <th className="py-3 px-4">Participant</th>
+                        <th className="py-3 px-4">College</th>
+                        <th className="py-3 px-4">Skills</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Team Status</th>
+                        <th className="py-3 px-4 text-right">Registered</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60">
+                      {filteredRegs.map((reg) => {
+                        const isWaitlisted = reg.status === "waitlisted";
+                        return (
+                          <tr key={reg.id} className="hover:bg-zinc-900/30 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-white flex items-center gap-2">
+                                <span>{reg.profiles?.full_name || "Anonymous Builder"}</span>
+                              </div>
+                              <span className="text-[11px] text-zinc-400 block mt-0.5">{reg.profiles?.email}</span>
+                            </td>
+                            <td className="py-3 px-4 text-zinc-400 font-medium">
+                              {reg.profiles?.college || "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {(reg.profiles?.skills || []).slice(0, 3).map((skill, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-zinc-800"
+                                  >
+                                    {skill}
+                                  </span>
+                                ))}
+                                {(reg.profiles?.skills || []).length > 3 && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-500">
+                                    +{(reg.profiles?.skills || []).length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              {isWaitlisted ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800/60 inline-flex items-center gap-1">
+                                  <span>⏳ Waitlisted</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 inline-flex items-center gap-1">
+                                  <span>✓ Confirmed</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {reg.teams ? (
+                                <Link
+                                  href={`/teams/${reg.teams.id}`}
+                                  className="text-[11px] font-medium text-emerald-400 hover:underline flex items-center gap-1"
+                                >
+                                  <span>👥 {reg.teams.name}</span>
+                                </Link>
+                              ) : reg.looking_for_team ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/60">
+                                  🔍 Looking for Team
+                                </span>
+                              ) : (
+                                <span className="text-zinc-500 text-[11px] italic">Solo</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-zinc-500 text-right font-mono text-[11px]">
+                              {new Date(reg.created_at).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </section>
 
       {/* MODAL: Add Resource Link */}

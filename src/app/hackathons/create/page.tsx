@@ -20,6 +20,7 @@ export default function CreateHackathonPage() {
   const [prizePool, setPrizePool] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [type, setType] = useState("external");
+  const [maxParticipants, setMaxParticipants] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -65,6 +66,7 @@ export default function CreateHackathonPage() {
           prize_pool: prizePool.trim() || null,
           website_url: websiteUrl.trim() || null,
           type,
+          max_participants: maxParticipants ? parseInt(maxParticipants, 10) : null,
           tags: tags.length > 0 ? tags : null,
           organizer_id: user.id,
           college: college === "Other" ? customCollege.trim() || null : college || null,
@@ -163,6 +165,23 @@ export default function CreateHackathonPage() {
               </button>
             </div>
           </div>
+
+          {type === "internal" && (
+            <div>
+              <label className="section-label block mb-1.5">Max Participants (Capacity Limit)</label>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 100 (Leave empty for unlimited capacity)"
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+                className="input text-xs"
+              />
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Leave blank for unlimited registrations. When capacity is reached, new registrants will automatically join the waitlist.
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           <div>

@@ -21,11 +21,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(recipientEmail)) {
+    // Validate email format with standard email regex
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!recipientEmail || !emailRegex.test(recipientEmail.trim())) {
       return NextResponse.json(
-        { error: "Invalid recipient email address format." },
+        { success: false, error: "Invalid recipient email address format." },
         { status: 400 }
       );
     }
@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
     const trackingPixel = `<img src="${siteUrl}/api/webhooks/email-open?id=${leadId}" width="1" height="1" style="display:none; width:1px; height:1px; opacity:0;" alt="" />`;
     const finalHtml = `${contentHtml}\n${trackingPixel}`;
 
+    let resendMessageId: string | null = null;
+
     if (resendApiKey) {
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -69,27 +71,34 @@ export async function POST(req: NextRequest) {
 
       const resendData = await resendRes.json();
 
-      if (!resendRes.ok) {
+      if (!resendRes.ok || !resendData?.id) {
         console.error("[Send Pitch] Resend API Error:", resendData);
         return NextResponse.json(
-          { error: "Failed to dispatch email via Resend", details: resendData },
+          {
+            success: false,
+            error: "Failed to dispatch email via Resend API",
+            details: resendData?.message || resendData || "Unknown Resend error",
+          },
           { status: 500 }
         );
       }
+
+      resendMessageId = resendData.id;
     } else {
       console.log("\n==================== [MOCK PITCH EMAIL LOG] ====================");
       console.log(`To: ${targetEmail}`);
       console.log(`Subject: ${finalSubject}`);
       console.log(`HTML Payload:\n${contentHtml}`);
       console.log("=================================================================\n");
+      resendMessageId = "mock_send_id";
     }
 
-    // 3. Update status in DB via Supabase Admin Client (Sets last_sent_to without overwriting original organizer_email)
+    // 3. Update status in DB ONLY AFTER confirmed successful Resend API response
     const { error: dbErr } = await supabaseAdmin
       .from("organizer_leads")
       .update({
         status: "pitch_sent",
-        last_sent_to: recipientEmail,
+        last_sent_to: recipientEmail.trim(),
         pitch_sent_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -97,20 +106,22 @@ export async function POST(req: NextRequest) {
 
     if (dbErr) {
       console.error("[Send Pitch] DB Update Error:", dbErr);
-      return NextResponse.json({
-        success: true,
-        sentTo: targetEmail,
-        status: "pitch_sent",
-        dbUpdateFailed: true,
-        dbError: dbErr.message,
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Email dispatched via Resend, but database update failed.",
+          resendId: resendMessageId,
+          dbError: dbErr.message,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       sentTo: targetEmail,
       status: "pitch_sent",
-      dbUpdateFailed: false,
+      resendId: resendMessageId,
     });
   } catch (err: any) {
     console.error("[Send Pitch] Exception:", err);

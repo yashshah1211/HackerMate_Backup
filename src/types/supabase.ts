@@ -213,6 +213,7 @@ export type Database = {
           hackathon_id: string
           id: string
           looking_for_team: boolean
+          status: string
           team_id: string | null
           user_id: string
         }
@@ -221,6 +222,7 @@ export type Database = {
           hackathon_id: string
           id?: string
           looking_for_team?: boolean
+          status?: string
           team_id?: string | null
           user_id: string
         }
@@ -229,6 +231,7 @@ export type Database = {
           hackathon_id?: string
           id?: string
           looking_for_team?: boolean
+          status?: string
           team_id?: string | null
           user_id?: string
         }
@@ -310,6 +313,7 @@ export type Database = {
           end_date: string | null
           id: string
           location: string | null
+          max_participants: number | null
           mode: string | null
           name: string
           organizer_id: string | null
@@ -330,6 +334,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           location?: string | null
+          max_participants?: number | null
           mode?: string | null
           name: string
           organizer_id?: string | null
@@ -350,6 +355,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           location?: string | null
+          max_participants?: number | null
           mode?: string | null
           name?: string
           organizer_id?: string | null

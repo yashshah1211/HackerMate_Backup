@@ -34,6 +34,7 @@ type Hackathon = {
   website_url: string | null;
   tags: string[] | null;
   college?: string | null;
+  max_participants?: number | null;
 };
 
 type Team = {
@@ -114,6 +115,19 @@ function PartnerPageContent() {
           loadPartnerData();
         }
       } else {
+        let regStatus = "confirmed";
+        if (hackathon?.max_participants !== null && hackathon?.max_participants !== undefined) {
+          const { count } = await supabase
+            .from("hackathon_registrations")
+            .select("id", { count: "exact", head: true })
+            .eq("hackathon_id", partner.hackathon_id)
+            .eq("status", "confirmed");
+
+          if (count !== null && count >= hackathon.max_participants) {
+            regStatus = "waitlisted";
+          }
+        }
+
         const { error } = await supabase
           .from("hackathon_registrations")
           .upsert(
@@ -121,6 +135,7 @@ function PartnerPageContent() {
               user_id: currentUserId,
               hackathon_id: partner.hackathon_id,
               looking_for_team: true,
+              status: regStatus,
             },
             { onConflict: "user_id,hackathon_id" }
           );
@@ -129,7 +144,11 @@ function PartnerPageContent() {
           showToast(error.message, "error");
         } else {
           setIsUserLookingForTeam(true);
-          showToast("Listed! Other builders can now find you for this event.", "success");
+          if (regStatus === "waitlisted") {
+            showToast("Added to waitlist! Capacity limit reached for this event.", "info");
+          } else {
+            showToast("Listed! Other builders can now find you for this event.", "success");
+          }
           loadPartnerData();
         }
       }
@@ -163,7 +182,7 @@ function PartnerPageContent() {
       // 2. Fetch Hackathon details (explicit public fields)
       const { data: hackathonData } = await supabase
         .from("hackathons")
-        .select("id, name, description, start_date, end_date, location, mode, prize_pool, website_url, tags, type, college")
+        .select("id, name, description, start_date, end_date, location, mode, prize_pool, website_url, tags, type, college, max_participants")
         .eq("id", partnerData.hackathon_id)
         .maybeSingle();
 

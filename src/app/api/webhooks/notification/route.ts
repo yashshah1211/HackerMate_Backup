@@ -27,9 +27,10 @@ export async function POST(req: NextRequest) {
       link,
     } = body;
 
-    if (!recipientEmail || !message) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!recipientEmail || !emailRegex.test(recipientEmail.trim()) || !message) {
       return NextResponse.json(
-        { error: "Missing required payload parameters: recipientEmail and message are required." },
+        { success: false, error: "Missing or invalid payload parameters: valid recipientEmail and message are required." },
         { status: 400 }
       );
     }
@@ -257,10 +258,10 @@ export async function POST(req: NextRequest) {
 
     const resendData = await resendRes.json();
 
-    if (!resendRes.ok) {
+    if (!resendRes.ok || !resendData?.id) {
       console.error("Resend API Error (Webhook):", resendData);
       return NextResponse.json(
-        { error: "Email dispatch failed", details: resendData },
+        { success: false, error: "Email dispatch failed via Resend API", details: resendData?.message || resendData || "Unknown Resend API error" },
         { status: 500 }
       );
     }
