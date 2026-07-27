@@ -312,17 +312,25 @@ function PartnerPageContent() {
                     className="h-3.5 w-auto object-contain inline-block"
                   />
                 )}
-                {slug === "axcentra" ? "AXCENTRA" : "OFFICIAL PARTNER"}
+                {slug === "axcentra" ? "AXCENTRA" : slug === "stampers" ? "STAMPERS" : partner.partner_name.split(" ")[0].toUpperCase()}
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              {slug === "axcentra" && (
+            <div className="flex items-center gap-4">
+              {partner.logo_url ? (
                 <img
-                  src="/partners/axcentra-icon-only-transparent.png"
-                  alt="Axcentra Logo"
-                  className="h-10 md:h-12 w-auto object-contain shrink-0"
+                  src={partner.logo_url}
+                  alt={`${partner.partner_name} Logo`}
+                  className="h-16 md:h-20 w-auto object-contain shrink-0 rounded-xl"
                 />
+              ) : (
+                slug === "axcentra" && (
+                  <img
+                    src="/partners/axcentra-icon-only-transparent.png"
+                    alt="Axcentra Logo"
+                    className="h-12 md:h-14 w-auto object-contain shrink-0"
+                  />
+                )
               )}
               <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 {partner.partner_name}
