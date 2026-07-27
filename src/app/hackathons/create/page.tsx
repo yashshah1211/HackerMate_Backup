@@ -103,6 +103,19 @@ export default function CreateHackathonPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Hackathon Name */}
+          <div>
+            <label className="section-label block mb-1.5">Hackathon Name *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. AI Innovation Hackathon 2026"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input text-xs"
+            />
+          </div>
+
           {/* Hosting Mode Selection Cards */}
           <div>
             <label className="section-label block mb-2">Hosting Mode *</label>
