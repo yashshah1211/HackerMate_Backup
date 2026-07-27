@@ -504,61 +504,77 @@ function AdminContent() {
 
   async function loadData() {
     try {
-      // 1. Fetch user reports
-      const { data: reportsData, error: reportsErr } = await supabase
-        .from("user_reports")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const res = await fetch("/api/admin/dashboard-data");
+      if (res.ok) {
+        const data = await res.json();
+        const usersList = (data.users || []) as UserProfile[];
+        const rawTeams = (data.teams || []) as Team[];
+        const reportsData = (data.reports || []) as any[];
 
-      if (reportsErr) {
-        console.error("Failed to load reports:", reportsErr);
+        setUsers(usersList);
+
+        if (rawTeams.length > 0 && usersList.length > 0) {
+          const joinedTeams: Team[] = rawTeams.map((t) => {
+            const owner = usersList.find((u) => u.id === t.owner_id);
+            return {
+              ...t,
+              ownerName: owner?.full_name || "Unknown",
+              ownerEmail: owner?.email || "Unknown",
+            };
+          });
+          setTeams(joinedTeams);
+        } else {
+          setTeams(rawTeams);
+        }
+
+        if (reportsData.length > 0) {
+          const joinedReports: Report[] = reportsData.map((rep) => {
+            const reporter = usersList.find((u) => u.id === rep.reporter_id);
+            const reported = usersList.find((u) => u.id === rep.reported_id);
+            return {
+              ...rep,
+              reporterName: reporter?.full_name || "Unknown",
+              reporterEmail: reporter?.email || "Unknown",
+              reportedName: reported?.full_name || "Unknown",
+              reportedEmail: reported?.email || "Unknown",
+              reportedBanned: reported?.is_banned || false,
+            };
+          });
+          setReports(joinedReports);
+        } else {
+          setReports([]);
+        }
+        return;
       }
+    } catch (apiErr) {
+      console.warn("Failed to load admin dashboard data via API, falling back to client queries:", apiErr);
+    }
 
-      // 2. Fetch profiles
-      const { data: profilesData, error: profilesErr } = await supabase
+    try {
+      const { data: reportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
+      
+      let profilesData = null;
+      const { data: pData, error: pErr } = await supabase
         .from("profiles")
         .select("id, full_name, email, is_banned, role, created_at, onboarding_completed, referrer_source")
         .order("created_at", { ascending: false });
 
-      if (profilesErr) {
-        console.error("Failed to load profiles:", profilesErr);
+      if (pErr) {
+        const { data: fallbackProfiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, is_banned, role, created_at, onboarding_completed")
+          .order("created_at", { ascending: false });
+        profilesData = fallbackProfiles;
+      } else {
+        profilesData = pData;
       }
 
       const usersList = (profilesData || []) as UserProfile[];
       setUsers(usersList);
 
-      // 3. Fetch teams
-      const { data: teamsData, error: teamsErr } = await supabase
-        .from("teams")
-        .select("*, team_members(id), team_hackathons(hackathons(id, name))")
-        .order("created_at", { ascending: false });
-
-      if (teamsErr) {
-        console.error("Failed to load teams:", teamsErr);
-      }
-
+      const { data: teamsData } = await supabase.from("teams").select("*, team_members(id)").order("created_at", { ascending: false });
       const rawTeams = (teamsData || []) as Team[];
 
-      // 4. Perform client-side join on reports to display names/emails
-      if (reportsData && usersList.length > 0) {
-        const joinedReports: Report[] = reportsData.map((rep) => {
-          const reporter = usersList.find((u) => u.id === rep.reporter_id);
-          const reported = usersList.find((u) => u.id === rep.reported_id);
-          return {
-            ...rep,
-            reporterName: reporter?.full_name || "Unknown",
-            reporterEmail: reporter?.email || "Unknown",
-            reportedName: reported?.full_name || "Unknown",
-            reportedEmail: reported?.email || "Unknown",
-            reportedBanned: reported?.is_banned || false,
-          };
-        });
-        setReports(joinedReports);
-      } else {
-        setReports([]);
-      }
-
-      // 5. Perform client-side join on teams to resolve owner details
       if (rawTeams.length > 0 && usersList.length > 0) {
         const joinedTeams: Team[] = rawTeams.map((t) => {
           const owner = usersList.find((u) => u.id === t.owner_id);
@@ -570,10 +586,10 @@ function AdminContent() {
         });
         setTeams(joinedTeams);
       } else {
-        setTeams([]);
+        setTeams(rawTeams);
       }
     } catch (err) {
-      console.error("Error joining admin logs:", err);
+      console.error("Error in fallback loadData:", err);
     }
   }
 
