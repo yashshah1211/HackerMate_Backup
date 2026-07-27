@@ -104,7 +104,9 @@ export default function OnboardingPage() {
       const targetHasWon = updatedFields.hasOwnProperty("hasWon") ? updatedFields.hasWon : hasWon;
       const targetWins = updatedFields.hasOwnProperty("winsCount") ? updatedFields.winsCount : winsCount;
 
-      const fieldsToSave = {
+      const storedReferrer = typeof window !== 'undefined' ? localStorage.getItem('hm_referrer_source') : null;
+
+      const fieldsToSave: any = {
         college: finalCollege,
         bio: updatedFields.hasOwnProperty("bio") ? updatedFields.bio : bio,
         github_url: updatedFields.hasOwnProperty("github") ? updatedFields.github : github,
@@ -115,6 +117,10 @@ export default function OnboardingPage() {
         has_won_hackathon: targetHasParticipated && targetHasWon ? true : false,
         hackathon_wins: targetHasParticipated && targetHasWon ? (targetWins === "" ? 0 : Number(targetWins)) : 0,
       };
+
+      if (storedReferrer) {
+        fieldsToSave.referrer_source = storedReferrer;
+      }
 
       await supabase
         .from("profiles")

@@ -28,6 +28,7 @@ type UserProfile = {
   role: string;
   created_at: string;
   onboarding_completed: boolean;
+  referrer_source?: string | null;
 };
 
 type Team = {
@@ -60,6 +61,33 @@ type OrganizerLead = {
   notes: string | null;
   created_at: string;
 };
+
+function getReferralSourceBadge(source?: string | null) {
+  if (!source) return <span className="inline-block text-[9px] uppercase tracking-wider font-mono px-2.5 py-0.5 rounded border bg-zinc-950 text-zinc-500 border-zinc-800">Direct</span>;
+  const s = source.toLowerCase();
+  if (s.includes("reddit")) {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">Reddit</span>;
+  }
+  if (s.includes("linkedin")) {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">LinkedIn</span>;
+  }
+  if (s.includes("instagram") || s === "ig") {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-pink-500/10 text-pink-400 border-pink-500/20">Instagram</span>;
+  }
+  if (s.includes("whatsapp")) {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">WhatsApp</span>;
+  }
+  if (s.includes("discord")) {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-indigo-500/10 text-indigo-400 border-indigo-500/20">Discord</span>;
+  }
+  if (s.includes("unstop")) {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Unstop</span>;
+  }
+  if (s.includes("google")) {
+    return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Google</span>;
+  }
+  return <span className="inline-block text-[9px] uppercase tracking-wider font-mono font-semibold px-2.5 py-0.5 rounded border bg-zinc-900 text-zinc-300 border-zinc-700">{source}</span>;
+}
 
 function AdminContent() {
   const { showToast, confirm } = useNotification();
@@ -489,7 +517,7 @@ function AdminContent() {
       // 2. Fetch profiles
       const { data: profilesData, error: profilesErr } = await supabase
         .from("profiles")
-        .select("id, full_name, email, is_banned, role, created_at, onboarding_completed")
+        .select("id, full_name, email, is_banned, role, created_at, onboarding_completed, referrer_source")
         .order("created_at", { ascending: false });
 
       if (profilesErr) {
@@ -1243,6 +1271,7 @@ function AdminContent() {
                     <tr className="border-b border-zinc-900 bg-zinc-950/40 text-zinc-500 font-mono uppercase tracking-wider text-[10px]">
                       <th className="p-4 font-semibold">User Details</th>
                       <th className="p-4 font-semibold">Registered</th>
+                      <th className="p-4 font-semibold">Source</th>
                       <th className="p-4 font-semibold">Role</th>
                       <th className="p-4 font-semibold">Onboarding</th>
                       <th className="p-4 font-semibold">Ban Status</th>
@@ -1252,7 +1281,7 @@ function AdminContent() {
                   <tbody className="divide-y divide-zinc-900/60">
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-zinc-500">
+                        <td colSpan={7} className="p-8 text-center text-zinc-500">
                           No users matching search query.
                         </td>
                       </tr>
@@ -1280,6 +1309,11 @@ function AdminContent() {
                           {/* Registered date */}
                           <td className="p-4 text-zinc-400 font-mono text-[10px]">
                             {new Date(u.created_at).toLocaleDateString()}
+                          </td>
+
+                          {/* Source */}
+                          <td className="p-4">
+                            {getReferralSourceBadge(u.referrer_source)}
                           </td>
 
                           {/* Role */}

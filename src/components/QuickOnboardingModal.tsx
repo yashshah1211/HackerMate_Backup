@@ -68,6 +68,7 @@ export default function QuickOnboardingModal({
 
       const parsedGithub = parseGithubUsername(githubInput);
       const cleanGithubUrl = parsedGithub ? `https://github.com/${parsedGithub}` : githubInput.trim() || null;
+      const storedReferrer = typeof window !== 'undefined' ? localStorage.getItem('hm_referrer_source') : null;
 
       const { error } = await supabase
         .from("profiles")
@@ -77,6 +78,7 @@ export default function QuickOnboardingModal({
           github_url: cleanGithubUrl,
           skills: selectedSkills.length > 0 ? selectedSkills : ["Coding", "Hackathons"],
           avatar_url: avatarUrl || undefined,
+          referrer_source: storedReferrer || undefined,
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
         })
