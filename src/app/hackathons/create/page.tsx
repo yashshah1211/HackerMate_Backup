@@ -149,9 +149,9 @@ export default function CreateHackathonPage() {
 
               <button
                 type="button"
-                onClick={() => setType("internal")}
+                onClick={() => setType("native")}
                 className={`p-4 rounded-lg border text-left flex flex-col justify-between min-h-[110px] transition-all cursor-pointer ${
-                  type === "internal"
+                  type === "native"
                     ? "bg-zinc-900 border-[#B4F461] text-white shadow-[0_0_15px_rgba(180,244,97,0.1)]"
                     : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
                 }`}
@@ -164,7 +164,7 @@ export default function CreateHackathonPage() {
                         Full Suite
                       </span>
                     </span>
-                    {type === "internal" && (
+                    {type === "native" && (
                       <span className="w-2 h-2 rounded-full bg-[#B4F461]" />
                     )}
                   </div>
@@ -179,7 +179,7 @@ export default function CreateHackathonPage() {
             </div>
           </div>
 
-          {type === "internal" && (
+          {type === "native" && (
             <div>
               <label className="section-label block mb-1.5">Max Participants (Capacity Limit)</label>
               <input
