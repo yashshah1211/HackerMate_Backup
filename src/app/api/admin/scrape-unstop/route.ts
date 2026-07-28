@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { autoSendPitchEmailsForLeads } from "@/lib/admin/autoSendPitches";
 
 function extractValidEmails(text: string): string[] {
   if (!text) return [];
@@ -440,6 +441,8 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
   let insertedLeadsCount = 0;
   let insertedData: any[] = [];
+  let autoPitchResult: any = null;
+
   if (validLeadsToUpsert.length > 0) {
     const { data: inserted, error: dbError } = await supabaseAdmin
       .from("organizer_leads")
@@ -451,6 +454,12 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     } else {
       insertedData = inserted || [];
       insertedLeadsCount = insertedData.length;
+
+      // Automatically dispatch pitch emails immediately for newly scraped organizer leads
+      if (insertedData.length > 0) {
+        autoPitchResult = await autoSendPitchEmailsForLeads(supabaseAdmin, insertedData);
+        console.log(`[Scraper Auto-Pitch] Automatically dispatched ${autoPitchResult.sent} pitch emails for ${insertedData.length} new leads.`);
+      }
     }
   }
 

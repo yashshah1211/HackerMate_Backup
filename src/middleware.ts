@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
     "/messages",
     "/my-teams",
     "/admin",
+    "/hackathons/create",
   ];
 
   const isProtected =

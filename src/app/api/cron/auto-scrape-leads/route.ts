@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { runMultiPlatformScraper } from "@/app/api/admin/scrape-unstop/route";
+import { autoSendPitchEmailsForLeads } from "@/lib/admin/autoSendPitches";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,12 +27,20 @@ export async function GET(req: NextRequest) {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     // 3. Execute Multi-Platform Scraper Pipeline
-    const result = await runMultiPlatformScraper(supabaseAdmin);
+    const scrapeResult = await runMultiPlatformScraper(supabaseAdmin);
+
+    // 4. Ensure any remaining un-pitched leads are automatically sent pitch emails
+    const pitchResult = await autoSendPitchEmailsForLeads(supabaseAdmin);
 
     return NextResponse.json({
       cronExecuted: true,
       timestamp: new Date().toISOString(),
-      ...result,
+      scrapeResult,
+      autoPitchResult: {
+        sent: pitchResult.sent,
+        failed: pitchResult.failed,
+        attempted: pitchResult.attempted,
+      },
     });
   } catch (err: any) {
     console.error("[Cron Auto Scrape] Execution Error:", err);

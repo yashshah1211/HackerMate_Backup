@@ -72,6 +72,18 @@ type Resource = {
   created_at: string;
 };
 
+type HackathonStage = {
+  id: string;
+  hackathon_id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string | null;
+  stage_type: string;
+  sort_order: number;
+  created_at: string;
+};
+
 type BuilderWithMatch = {
   id: string;
   full_name: string;
@@ -131,6 +143,7 @@ function HackathonDetailContent() {
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [partnerConfig, setPartnerConfig] = useState<{ slug: string; partner_name: string } | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [stages, setStages] = useState<HackathonStage[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Hybrid system states
@@ -281,6 +294,16 @@ function HackathonDetailContent() {
       } else {
         setPartnerConfig(null);
       }
+
+      // Fetch hackathon stages for schedule timeline
+      const { data: stageData } = await supabase
+        .from("hackathon_stages")
+        .select("*")
+        .eq("hackathon_id", hackathonId)
+        .order("sort_order", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      setStages(stageData || []);
 
       let teamsData: any[] = [];
 
@@ -1209,11 +1232,146 @@ function HackathonDetailContent() {
               )}
             </div>
           </div>
+
+          {/* Event Schedule & Timeline */}
+          {stages.length > 0 && (
+            <div className="pt-6 border-t border-zinc-900 mt-6">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <p className="section-label mb-0">EVENT SCHEDULE & STAGES</p>
+                <span className="text-[10px] font-mono text-zinc-500">
+                  {stages.length} {stages.length === 1 ? "Milestone" : "Milestones"}
+                </span>
+              </div>
+
+              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-800">
+                {stages.map((stg) => {
+                  const now = new Date();
+                  const startTime = new Date(stg.start_time);
+                  const endTime = stg.end_time ? new Date(stg.end_time) : null;
+
+                  const isPast = endTime ? endTime < now : startTime < now;
+                  const isLive = endTime
+                    ? startTime <= now && now <= endTime
+                    : false;
+                  const isUpcoming = startTime > now;
+
+                  const typeBadges: Record<string, string> = {
+                    ceremony: "bg-violet-950 text-violet-400 border-violet-800/60",
+                    checkpoint: "bg-blue-950 text-blue-400 border-blue-800/60",
+                    deadline: "bg-rose-950 text-rose-400 border-rose-800/60",
+                    judging: "bg-amber-950 text-amber-400 border-amber-800/60",
+                    other: "bg-zinc-900 text-zinc-400 border-zinc-800",
+                  };
+                  const badgeClass = typeBadges[stg.stage_type] || typeBadges.other;
+
+                  return (
+                    <div key={stg.id} className="relative group">
+                      {/* Status indicator node */}
+                      <div
+                        className={`absolute -left-[23.5px] top-1.5 w-3 h-3 rounded-full border-2 transition-all ${
+                          isLive
+                            ? "bg-emerald-500 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse"
+                            : isPast
+                            ? "bg-zinc-800 border-zinc-700"
+                            : "bg-zinc-950 border-zinc-500"
+                        }`}
+                      />
+
+                      <div className="bg-zinc-950/40 p-4 rounded-xl border border-zinc-800/80 group-hover:border-zinc-700/80 transition-colors">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase font-semibold ${badgeClass}`}>
+                              {stg.stage_type}
+                            </span>
+                            <h4 className={`text-sm font-bold ${isPast ? "text-zinc-400 line-through decoration-zinc-600" : "text-white"}`}>
+                              {stg.title}
+                            </h4>
+                          </div>
+
+                          {isLive && (
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-semibold animate-pulse flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              LIVE NOW
+                            </span>
+                          )}
+                          {isPast && (
+                            <span className="text-[10px] font-mono text-zinc-500">
+                              ✓ Completed
+                            </span>
+                          )}
+                          {isUpcoming && (
+                            <span className="text-[10px] font-mono text-zinc-400">
+                              Upcoming
+                            </span>
+                          )}
+                        </div>
+
+                        {stg.description && (
+                          <p className="text-xs text-zinc-400 mb-2.5 leading-relaxed">
+                            {stg.description}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-400 pt-2 border-t border-zinc-900">
+                          <span>
+                            🗓️ Start: {startTime.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {endTime && (
+                            <span>
+                              → End: {endTime.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right - Stats & Actions */}
         <div className="card card-static p-6 md:p-8 animate-fade-in-up stagger-1 flex flex-col justify-between">
           <div>
+            {/* Project Showcase Banner */}
+            {(() => {
+              const now = new Date();
+              const deadlineStage = stages.find((s) => s.stage_type === "deadline");
+              let isPassed = false;
+              if (deadlineStage) {
+                const deadlineTime = deadlineStage.end_time
+                  ? new Date(deadlineStage.end_time)
+                  : new Date(deadlineStage.start_time);
+                isPassed = now > deadlineTime;
+              } else if (hackathon.end_date) {
+                isPassed = now > new Date(hackathon.end_date);
+              }
+
+              return (
+                <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-950/60 via-zinc-900 to-zinc-950 border border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                        {isPassed ? "Hackathon Completed" : "Project Showcase"}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      View submitted projects, live demos & video pitches.
+                    </p>
+                  </div>
+
+                  <Link
+                    href={`/hackathons/${hackathonId}/showcase`}
+                    className="btn btn-primary btn-sm text-xs shrink-0 cursor-pointer text-center"
+                  >
+                    View Showcase →
+                  </Link>
+                </div>
+              );
+            })()}
+
             <div className="flex justify-between items-center mb-6">
               {hackathon.mode && (
                 <span className="badge badge-primary text-[10px] py-0.5 px-1.5 capitalize">

@@ -52,6 +52,30 @@ type Resource = {
   created_at: string;
 };
 
+type Stage = {
+  id: string;
+  hackathon_id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string | null;
+  stage_type: string;
+  sort_order: number;
+  created_at: string;
+};
+
+type Announcement = {
+  id: string;
+  hackathon_id: string;
+  organizer_id: string;
+  title: string;
+  message: string;
+  linked_stage_id: string | null;
+  sent_at: string | null;
+  created_at: string;
+  hackathon_stages?: { title: string } | null;
+};
+
 export default function OrganizerPortalPage() {
   const params = useParams();
   const router = useRouter();
@@ -62,6 +86,8 @@ export default function OrganizerPortalPage() {
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [search, setSearch] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -71,6 +97,23 @@ export default function OrganizerPortalPage() {
   const [resourceUrl, setResourceUrl] = useState("");
   const [resourceCategory, setResourceCategory] = useState("docs");
   const [resourceLoading, setResourceLoading] = useState(false);
+
+  // Stage modal states
+  const [showAddStageModal, setShowAddStageModal] = useState(false);
+  const [editingStage, setEditingStage] = useState<Stage | null>(null);
+  const [stageTitle, setStageTitle] = useState("");
+  const [stageDesc, setStageDesc] = useState("");
+  const [stageStartTime, setStageStartTime] = useState("");
+  const [stageEndTime, setStageEndTime] = useState("");
+  const [stageType, setStageType] = useState("ceremony");
+  const [stageSortOrder, setStageSortOrder] = useState(0);
+  const [stageLoading, setStageLoading] = useState(false);
+
+  // Broadcast composer states
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastStageId, setBroadcastStageId] = useState("");
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
 
   async function loadOrganizerData() {
     try {
@@ -150,6 +193,25 @@ export default function OrganizerPortalPage() {
         .order("created_at", { ascending: false });
 
       setResources(resData || []);
+
+      // 4. Fetch hackathon stages
+      const { data: stageData } = await supabase
+        .from("hackathon_stages")
+        .select("*")
+        .eq("hackathon_id", hackathonId)
+        .order("sort_order", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      setStages(stageData || []);
+
+      // 5. Fetch announcements
+      const { data: announceData } = await supabase
+        .from("hackathon_announcements")
+        .select("*, hackathon_stages:linked_stage_id(title)")
+        .eq("hackathon_id", hackathonId)
+        .order("created_at", { ascending: false });
+
+      setAnnouncements(announceData || []);
     } catch (err) {
       console.error(err);
       showToast("Failed to load organizer dashboard.", "error");
@@ -164,6 +226,164 @@ export default function OrganizerPortalPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hackathonId]);
+
+  async function handleSendBroadcast(e: React.FormEvent) {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      showToast("Announcement title and message are required.", "warning");
+      return;
+    }
+
+    setBroadcastLoading(true);
+    try {
+      const res = await fetch("/api/organizer/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hackathonId,
+          title: broadcastTitle.trim(),
+          message: broadcastMessage.trim(),
+          linkedStageId: broadcastStageId || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Failed to send announcement broadcast.", "error");
+      } else {
+        showToast(`Announcement broadcast sent to ${data.count} participants!`, "success");
+        setBroadcastTitle("");
+        setBroadcastMessage("");
+        setBroadcastStageId("");
+        loadOrganizerData();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("An error occurred while broadcasting.", "error");
+    } finally {
+      setBroadcastLoading(false);
+    }
+  }
+
+  function openAddStageModal() {
+    setEditingStage(null);
+    setStageTitle("");
+    setStageDesc("");
+    setStageStartTime("");
+    setStageEndTime("");
+    setStageType("ceremony");
+    setStageSortOrder(stages.length);
+    setShowAddStageModal(true);
+  }
+
+  function openEditStageModal(stage: Stage) {
+    setEditingStage(stage);
+    setStageTitle(stage.title);
+    setStageDesc(stage.description || "");
+    setStageStartTime(stage.start_time ? new Date(stage.start_time).toISOString().slice(0, 16) : "");
+    setStageEndTime(stage.end_time ? new Date(stage.end_time).toISOString().slice(0, 16) : "");
+    setStageType(stage.stage_type || "ceremony");
+    setStageSortOrder(stage.sort_order || 0);
+    setShowAddStageModal(true);
+  }
+
+  async function handleSaveStage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stageTitle.trim() || !stageStartTime) {
+      showToast("Title and Start Time are required.", "warning");
+      return;
+    }
+
+    setStageLoading(true);
+    try {
+      const payload = {
+        hackathon_id: hackathonId,
+        title: stageTitle.trim(),
+        description: stageDesc.trim() || null,
+        start_time: new Date(stageStartTime).toISOString(),
+        end_time: stageEndTime ? new Date(stageEndTime).toISOString() : null,
+        stage_type: stageType,
+        sort_order: stageSortOrder,
+      };
+
+      if (editingStage) {
+        const { error } = await supabase
+          .from("hackathon_stages")
+          .update(payload)
+          .eq("id", editingStage.id);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          showToast("Event stage updated successfully!", "success");
+          setShowAddStageModal(false);
+          loadOrganizerData();
+        }
+      } else {
+        const { error } = await supabase.from("hackathon_stages").insert(payload);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          showToast("Event stage added to schedule!", "success");
+          setShowAddStageModal(false);
+          loadOrganizerData();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to save stage.", "error");
+    } finally {
+      setStageLoading(false);
+    }
+  }
+
+  async function handleDeleteStage(stageId: string) {
+    try {
+      const { error } = await supabase
+        .from("hackathon_stages")
+        .delete()
+        .eq("id", stageId);
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        showToast("Stage removed from schedule.", "info");
+        loadOrganizerData();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to delete stage.", "error");
+    }
+  }
+
+  async function handleMoveStage(stage: Stage, direction: "up" | "down") {
+    const currentIndex = stages.findIndex((s) => s.id === stage.id);
+    if (currentIndex === -1) return;
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= stages.length) return;
+
+    const targetStage = stages[targetIndex];
+    const currentOrder = stage.sort_order;
+    const targetOrder = targetStage.sort_order === currentOrder ? (direction === "up" ? currentOrder - 1 : currentOrder + 1) : targetStage.sort_order;
+
+    try {
+      await supabase
+        .from("hackathon_stages")
+        .update({ sort_order: targetOrder })
+        .eq("id", stage.id);
+
+      await supabase
+        .from("hackathon_stages")
+        .update({ sort_order: currentOrder })
+        .eq("id", targetStage.id);
+
+      loadOrganizerData();
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   async function handleAddResource(e: React.FormEvent) {
     e.preventDefault();
@@ -462,7 +682,239 @@ export default function OrganizerPortalPage() {
           )}
         </div>
 
-        {/* Section 2: Custom Resource Management */}
+        {/* Section 2: Organizer Announcement Broadcast */}
+        <div className="card card-static p-6 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-800/80">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-base font-bold text-white">Broadcast Announcement</h2>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/60 uppercase font-semibold">
+                  Multi-Channel Dispatch
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Send an official event announcement via email and in-app notifications to all {registrations.length} registered builder{registrations.length === 1 ? "" : "s"}.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSendBroadcast} className="space-y-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="section-label block mb-1.5">Announcement Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Checkpoint 1 Submissions Now Open!"
+                  value={broadcastTitle}
+                  onChange={(e) => setBroadcastTitle(e.target.value)}
+                  className="input text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="section-label block mb-1.5">Link to Schedule Stage (Optional)</label>
+                <select
+                  value={broadcastStageId}
+                  onChange={(e) => setBroadcastStageId(e.target.value)}
+                  className="input text-xs"
+                >
+                  <option value="">-- No Stage Linked --</option>
+                  {stages.map((stg) => (
+                    <option key={stg.id} value={stg.id}>
+                      📍 {stg.title} ({stg.stage_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="section-label block mb-1.5">Announcement Message *</label>
+              <textarea
+                rows={4}
+                required
+                placeholder="Write your announcement details here. All registered participants will receive an email and in-app notification..."
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                className="input text-xs resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[11px] font-mono text-zinc-500">
+                📩 Target Recipients: <strong className="text-white">{registrations.length}</strong> registered participant{registrations.length === 1 ? "" : "s"}
+              </span>
+
+              <button
+                type="submit"
+                disabled={broadcastLoading || registrations.length === 0}
+                className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {broadcastLoading ? (
+                  <span>Broadcasting Announcement...</span>
+                ) : (
+                  <>
+                    <span>📢 Broadcast Announcement</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Broadcast History */}
+          <div className="pt-6 border-t border-zinc-900">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono mb-4">
+              Broadcast History ({announcements.length})
+            </h3>
+
+            {announcements.length === 0 ? (
+              <div className="text-center py-6 border border-dashed border-zinc-800 rounded-xl">
+                <p className="text-xs text-zinc-500 font-mono">No broadcasts sent yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map((ann) => (
+                  <div
+                    key={ann.id}
+                    className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase font-semibold">
+                          SENT ✓
+                        </span>
+                        <h4 className="text-sm font-bold text-white">{ann.title}</h4>
+                        {ann.hackathon_stages?.title && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-950 text-violet-400 border border-violet-800/60">
+                            📍 {ann.hackathon_stages.title}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-400 whitespace-pre-line leading-relaxed mb-2">
+                        {ann.message}
+                      </p>
+                      <span className="text-[10px] font-mono text-zinc-500">
+                        Dispatched: {ann.sent_at ? new Date(ann.sent_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Pending..."}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 3: Event Schedule & Stage Builder */}
+        <div className="card card-static p-6 mb-8">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-base font-bold text-white">Event Schedule & Stage Builder</h2>
+              <p className="text-xs text-zinc-400">Define milestone ceremonies, checkpoints, submission deadlines, and judging stages.</p>
+            </div>
+            <button
+              onClick={openAddStageModal}
+              className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>+ Add Event Stage</span>
+            </button>
+          </div>
+
+          {stages.length === 0 ? (
+            <div className="text-center py-8 border border-dashed border-zinc-800 rounded-xl">
+              <p className="text-xs text-zinc-500 font-mono">No event stages added to schedule yet.</p>
+              <button
+                onClick={openAddStageModal}
+                className="btn btn-secondary btn-sm mt-3 cursor-pointer"
+              >
+                Create First Stage
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {stages.map((stg, idx) => {
+                const typeBadges: Record<string, string> = {
+                  ceremony: "bg-violet-950 text-violet-400 border-violet-800/60",
+                  checkpoint: "bg-blue-950 text-blue-400 border-blue-800/60",
+                  deadline: "bg-rose-950 text-rose-400 border-rose-800/60",
+                  judging: "bg-amber-950 text-amber-400 border-amber-800/60",
+                  other: "bg-zinc-900 text-zinc-400 border-zinc-800",
+                };
+                const badgeClass = typeBadges[stg.stage_type] || typeBadges.other;
+
+                return (
+                  <div
+                    key={stg.id}
+                    className="p-4 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-700/80 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center justify-center pt-1">
+                        <button
+                          disabled={idx === 0}
+                          onClick={() => handleMoveStage(stg, "up")}
+                          className="text-zinc-500 hover:text-white disabled:opacity-20 text-xs cursor-pointer p-0.5"
+                          title="Move up"
+                        >
+                          ▲
+                        </button>
+                        <span className="text-[10px] font-mono text-zinc-500">{idx + 1}</span>
+                        <button
+                          disabled={idx === stages.length - 1}
+                          onClick={() => handleMoveStage(stg, "down")}
+                          className="text-zinc-500 hover:text-white disabled:opacity-20 text-xs cursor-pointer p-0.5"
+                          title="Move down"
+                        >
+                          ▼
+                        </button>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase font-semibold ${badgeClass}`}>
+                            {stg.stage_type}
+                          </span>
+                          <h3 className="text-sm font-bold text-white">{stg.title}</h3>
+                        </div>
+
+                        {stg.description && (
+                          <p className="text-xs text-zinc-400 mb-2 leading-relaxed">{stg.description}</p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-500">
+                          <span>
+                            📅 Start: {new Date(stg.start_time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {stg.end_time && (
+                            <span>
+                              → End: {new Date(stg.end_time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end md:self-center">
+                      <button
+                        onClick={() => openEditStageModal(stg)}
+                        className="btn btn-secondary btn-sm text-xs cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStage(stg.id)}
+                        className="btn btn-danger btn-sm text-xs cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Section 3: Custom Resource Management */}
         <div className="card card-static p-6">
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
@@ -556,16 +1008,108 @@ export default function OrganizerPortalPage() {
                   <button
                     type="button"
                     onClick={() => setShowAddResourceModal(false)}
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={resourceLoading}
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-primary btn-sm cursor-pointer"
                   >
                     {resourceLoading ? "Adding..." : "Add Resource Link"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Add/Edit Stage */}
+        {showAddStageModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-fade-in">
+            <div className="card card-static p-6 w-full max-w-lg">
+              <h3 className="text-base font-bold text-white mb-1">
+                {editingStage ? "Edit Event Stage" : "Add Event Stage"}
+              </h3>
+              <p className="text-xs text-zinc-400 mb-4">
+                Define key ceremonies, checkpoints, deadlines, or judging rounds.
+              </p>
+              <form onSubmit={handleSaveStage} className="space-y-4">
+                <div>
+                  <label className="section-label block mb-1.5">Stage Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Opening Ceremony & Keynote"
+                    value={stageTitle}
+                    onChange={(e) => setStageTitle(e.target.value)}
+                    className="input text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="section-label block mb-1.5">Stage Type</label>
+                  <select
+                    value={stageType}
+                    onChange={(e) => setStageType(e.target.value)}
+                    className="input text-xs"
+                  >
+                    <option value="ceremony">🎉 Ceremony / Keynote</option>
+                    <option value="checkpoint">🚩 Checkpoint / Mentorship</option>
+                    <option value="deadline">⏰ Submission Deadline</option>
+                    <option value="judging">⚖️ Judging & Evaluation</option>
+                    <option value="other">📌 Other Event Milestone</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="section-label block mb-1.5">Start Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={stageStartTime}
+                      onChange={(e) => setStageStartTime(e.target.value)}
+                      className="input text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="section-label block mb-1.5">End Time (Optional)</label>
+                    <input
+                      type="datetime-local"
+                      value={stageEndTime}
+                      onChange={(e) => setStageEndTime(e.target.value)}
+                      className="input text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="section-label block mb-1.5">Description (Optional)</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Brief details about what happens during this stage..."
+                    value={stageDesc}
+                    onChange={(e) => setStageDesc(e.target.value)}
+                    className="input text-xs resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStageModal(false)}
+                    className="btn btn-secondary btn-sm cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={stageLoading}
+                    className="btn btn-primary btn-sm cursor-pointer"
+                  >
+                    {stageLoading ? "Saving..." : editingStage ? "Save Changes" : "Add Stage"}
                   </button>
                 </div>
               </form>
