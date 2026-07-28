@@ -322,6 +322,14 @@ function PartnerPageContent() {
                   src={partner.logo_url}
                   alt={`${partner.partner_name} Logo`}
                   className="h-16 md:h-20 w-auto object-contain shrink-0 rounded-xl"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (slug === "axcentra") {
+                      target.src = "/partners/axcentra-icon-only-transparent.png";
+                    } else {
+                      target.style.display = "none";
+                    }
+                  }}
                 />
               ) : (
                 slug === "axcentra" && (

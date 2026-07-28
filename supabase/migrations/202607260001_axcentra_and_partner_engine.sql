@@ -68,7 +68,7 @@ INSERT INTO public.partner_configs (
   'The Flagship 72-Hour National Innovation Sprint. Find your team and build the future.',
   '#3B82F6',
   '#8B5CF6',
-  '/axcentra-logo.svg',
+  '/partners/axcentra-full-logo-transparent.png',
   NULL,
   '₹1,00,000+ Prize Pool'
 ) ON CONFLICT (slug) DO UPDATE SET
