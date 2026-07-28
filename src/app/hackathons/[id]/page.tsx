@@ -1349,15 +1349,15 @@ function HackathonDetailContent() {
               }
 
               return (
-                <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-950/60 via-zinc-900 to-zinc-950 border border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="mb-6 p-4 rounded-xl showcase-banner-box flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
                   <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <h4 className="text-xs font-bold showcase-banner-title uppercase tracking-wider font-mono">
                         {isPassed ? "Hackathon Completed" : "Project Showcase"}
                       </h4>
                     </div>
-                    <p className="text-[11px] text-zinc-400">
+                    <p className="text-[11px] showcase-banner-desc">
                       View submitted projects, live demos & video pitches.
                     </p>
                   </div>
