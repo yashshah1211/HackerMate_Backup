@@ -98,7 +98,12 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering">("reports");
+
+  // Partnering Organizers & Portal state
+  const [allHackathons, setAllHackathons] = useState<{ id: string; name: string; website_url: string | null }[]>([]);
+  const [partnerConfigsMap, setPartnerConfigsMap] = useState<Record<string, { id: string; slug: string; partner_name: string }>>({});
+  const [creatingPortalId, setCreatingPortalId] = useState<string | null>(null);
 
   // Winner Badge Issuer & Directory state
   const [badgeFormHackathonId, setBadgeFormHackathonId] = useState("00000000-0000-0000-0000-000001703933");
@@ -235,10 +240,70 @@ function AdminContent() {
         );
         setLeads(validLeads);
       }
+
+      // Fetch hackathons & partner configs for portal matching
+      const { data: hData } = await supabase.from("hackathons").select("id, name, website_url");
+      if (hData) setAllHackathons(hData);
+
+      const { data: pcData } = await supabase.from("partner_configs").select("id, slug, hackathon_id, partner_name");
+      if (pcData) {
+        const map: Record<string, { id: string; slug: string; partner_name: string }> = {};
+        pcData.forEach((pc) => {
+          if (pc.hackathon_id) map[pc.hackathon_id] = pc;
+        });
+        setPartnerConfigsMap(map);
+      }
     } catch (err) {
       console.error("Error in loadLeads:", err);
     }
     setLoadingLeads(false);
+  }
+
+  async function handleCreatePartnerPortal(lead: OrganizerLead) {
+    setCreatingPortalId(lead.id);
+    try {
+      const res = await fetch("/api/admin/create-partner-portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Partner Portal created for "${lead.title}"! Path: ${data.portalUrl}`, "success");
+        await loadLeads();
+      } else {
+        showToast(data.error || "Failed to create partner portal", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to create partner portal", "error");
+    }
+    setCreatingPortalId(null);
+  }
+
+  function handleRemovePartnerLead(lead: OrganizerLead) {
+    confirm({
+      title: "Remove Partner",
+      message: `Remove "${lead.title}" from Partnering Organizers? This will revert their lead status back to Pitch Sent.`,
+      confirmText: "Remove Partner",
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from("organizer_leads")
+            .update({ status: "pitch_sent", updated_at: new Date().toISOString() })
+            .eq("id", lead.id);
+
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast(`Removed "${lead.title}" from Partnering Organizers`, "success");
+            await loadLeads();
+          }
+        } catch (err: any) {
+          showToast(err.message, "error");
+        }
+      },
+    });
   }
 
   async function handleScrapeUnstop() {
@@ -1089,19 +1154,34 @@ function AdminContent() {
             </button>
 
             {userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
-              <button
-                onClick={() => {
-                  setActiveTab("outreach");
-                  setSearchQuery("");
-                }}
-                className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
-                  activeTab === "outreach"
-                    ? "bg-zinc-900 text-emerald-400 shadow border border-emerald-500/20"
-                    : "text-emerald-500/70 hover:text-emerald-400"
-                }`}
-              >
-                Organizer Outreach 🎯 ({leads.length})
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setActiveTab("outreach");
+                    setSearchQuery("");
+                  }}
+                  className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                    activeTab === "outreach"
+                      ? "bg-zinc-900 text-emerald-400 shadow border border-emerald-500/20"
+                      : "text-emerald-500/70 hover:text-emerald-400"
+                  }`}
+                >
+                  Organizer Outreach 🎯 ({leads.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("partnering");
+                    setSearchQuery("");
+                  }}
+                  className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                    activeTab === "partnering"
+                      ? "bg-zinc-900 text-amber-400 shadow border border-amber-500/20"
+                      : "text-amber-500/70 hover:text-amber-400"
+                  }`}
+                >
+                  Partnering Organizers 🤝 ({leads.filter((l) => l.status === "replied").length})
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1850,6 +1930,130 @@ function AdminContent() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tab 5: Partnering Organizers */}
+        {activeTab === "partnering" && userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
+          <div className="space-y-6">
+            <div className="card card-static p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-amber-950/60 bg-amber-950/10">
+              <div>
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <span>Partnering Organizers & Co-Branded Portals</span>
+                  <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800/60">
+                    {leads.filter((l) => l.status === "replied").length} Partnered Events
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Organizers who responded to outreach. Access live partner portals or provision new custom co-branded pages in 1 click.
+                </p>
+              </div>
+            </div>
+
+            {leads.filter((l) => l.status === "replied").length === 0 ? (
+              <div className="card card-static p-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center justify-center mx-auto mb-3 text-xl">
+                  🤝
+                </div>
+                <p className="text-zinc-400 text-sm font-medium">No Partnering Organizers Yet</p>
+                <p className="text-zinc-500 text-xs mt-1">
+                  When an organizer lead is marked as "Replied" in the Outreach tab, they will automatically appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {leads
+                  .filter((l) => l.status === "replied")
+                  .map((lead) => {
+                    const matchingHackathon = allHackathons.find(
+                      (h) => h.id === lead.id || h.name === lead.title || (h.website_url && h.website_url === lead.unstop_url)
+                    );
+                    const partnerConfig = matchingHackathon ? partnerConfigsMap[matchingHackathon.id] : null;
+                    const isCreating = creatingPortalId === lead.id;
+
+                    return (
+                      <div
+                        key={lead.id}
+                        className="card card-static p-5 flex flex-col justify-between space-y-4 border-zinc-800/80 hover:border-zinc-700 transition"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                              Replied & Partnered ✓
+                            </span>
+                            {partnerConfig ? (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                Portal Active (/partners/{partnerConfig.slug})
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                Portal Not Created
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="text-sm font-semibold text-white leading-snug">{lead.title}</h4>
+                          <p className="text-xs text-zinc-400 mt-1">🏫 {lead.college_or_host || "Independent Host"}</p>
+                          <div className="text-[11px] font-mono text-zinc-400 mt-2 space-y-1">
+                            <div>✉️ {lead.organizer_email || "No email"}</div>
+                            {lead.unstop_url && (
+                              <div>
+                                🔗{" "}
+                                <a
+                                  href={lead.unstop_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-emerald-400 hover:underline"
+                                >
+                                  View Source Event Page ↗
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-zinc-900/80 flex flex-wrap items-center justify-between gap-2">
+                          {partnerConfig ? (
+                            <Link
+                              href={`/partners/${partnerConfig.slug}`}
+                              target="_blank"
+                              className="btn btn-primary text-xs py-1.5 px-3 flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white border-none shadow cursor-pointer"
+                            >
+                              <span>View Partner Portal →</span>
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleCreatePartnerPortal(lead)}
+                              disabled={isCreating}
+                              className="btn btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border-none shadow cursor-pointer disabled:opacity-50"
+                            >
+                              {isCreating ? (
+                                <>
+                                  <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                  <span>Creating Portal...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>+ 1-Click Create Partner Portal</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePartnerLead(lead)}
+                            className="text-[11px] font-mono uppercase tracking-wider text-rose-400 hover:text-rose-300 py-1 px-2.5 rounded border border-rose-900/40 hover:border-rose-700 bg-rose-950/20 cursor-pointer transition"
+                          >
+                            Remove Partner
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         )}
 
