@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
+import { formatPrizeDisplay } from "@/app/hackathons/page";
 
 type PartnerConfig = {
   id: string;
@@ -284,7 +285,7 @@ function PartnerPageContent() {
   }
 
   const brandColor = partner.brand_color || "#3B82F6";
-  const displayPrize = partner.override_prize_pool || hackathon?.prize_pool || "Prize Pool TBA";
+  const displayPrize = formatPrizeDisplay(partner.override_prize_pool || hackathon?.prize_pool) || "Prize Pool TBA";
 
   return (
     <main className="max-w-5xl mx-auto px-6 pt-32 pb-16">

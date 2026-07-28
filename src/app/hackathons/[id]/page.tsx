@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
+import { formatPrizeDisplay } from "@/app/hackathons/page";
 
 type Hackathon = {
   id: string;
@@ -1450,7 +1451,7 @@ function HackathonDetailContent() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Prize Pool</p>
                     <p className="text-xs font-semibold text-white break-words whitespace-pre-wrap">
-                      {hackathon.prize_pool}
+                      {formatPrizeDisplay(hackathon.prize_pool)}
                     </p>
                   </div>
                 </div>

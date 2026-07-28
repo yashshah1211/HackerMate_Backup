@@ -77,6 +77,25 @@ function stripHtml(str: string | null): string {
   return str.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, "").trim();
 }
 
+export function formatPrizeDisplay(prize: string | null | undefined): string {
+  if (!prize) return "";
+
+  const clean = stripHtml(prize);
+  if (!clean) return "";
+
+  // If the prize contains '$' or 'USD' (case-insensitive)
+  if (clean.includes("$") || /\bUSD\b/i.test(clean)) {
+    // If it has leading '₹', strip leading '₹'
+    const sansRupee = clean.replace(/^₹\s*/, "").trim();
+    if (!sansRupee.includes("$")) {
+      return `$${sansRupee}`;
+    }
+    return sansRupee;
+  }
+
+  return clean;
+}
+
 function HackathonsContent() {
   const { showToast } = useNotification();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
@@ -522,9 +541,9 @@ function HackathonsContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span>
-                        {stripHtml(h.prize_pool).length > 35 
-                          ? `${stripHtml(h.prize_pool).slice(0, 32)}...` 
-                          : stripHtml(h.prize_pool)}
+                        {formatPrizeDisplay(h.prize_pool).length > 35 
+                          ? `${formatPrizeDisplay(h.prize_pool).slice(0, 32)}...` 
+                          : formatPrizeDisplay(h.prize_pool)}
                       </span>
                     </div>
                   )}

@@ -333,7 +333,19 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               mode = "in-person";
             }
             if (opp.prizes && opp.prizes[0] && opp.prizes[0].cash) {
-              prize_pool = `₹ ${Number(opp.prizes[0].cash).toLocaleString("en-IN")}`;
+              const prizeObj = opp.prizes[0];
+              const detailsText = `${opp.title || ""} ${opp.details || ""} ${JSON.stringify(opp.prizes)}`.toLowerCase();
+              const isUsd =
+                prizeObj.currency === "USD" ||
+                prizeObj.currency_symbol === "$" ||
+                prizeObj.unit === "$" ||
+                detailsText.includes("usd") ||
+                detailsText.includes("$") ||
+                detailsText.includes("dollar");
+
+              const symbol = isUsd ? "$" : "₹";
+              const numVal = Number(prizeObj.cash);
+              prize_pool = `${symbol} ${numVal.toLocaleString(isUsd ? "en-US" : "en-IN")}`;
             }
           } else if (opp.platform === "Devfolio") {
             try {

@@ -7,6 +7,7 @@ import { useNotification } from "@/context/NotificationContext";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import Footer from "@/components/Footer";
+import { formatPrizeDisplay } from "@/app/hackathons/page";
 
 type RealProfile = {
   id: string;
@@ -372,7 +373,7 @@ export default function Home() {
                             {h.mode || "Online"}{h.location ? ` • ${h.location}` : ""}
                           </span>
                           <span className="text-[11px] font-mono font-semibold text-[#B4F461] whitespace-nowrap">
-                            {h.prize_pool || "Prize Pool"}
+                            {formatPrizeDisplay(h.prize_pool) || "Prize Pool"}
                           </span>
                         </div>
                         <h4 className="text-sm font-semibold text-white mb-2 line-clamp-2 leading-snug">{h.name}</h4>
