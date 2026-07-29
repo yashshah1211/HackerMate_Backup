@@ -280,7 +280,7 @@ export default function CertificateModal({
             <button
               onClick={generatePDF}
               disabled={downloading}
-              className="flex items-center gap-2 rounded-lg bg-[#B4F461] px-5 py-2 text-sm font-semibold text-black hover:bg-[#a3e64f] transition disabled:opacity-50"
+              className="btn btn-lime flex items-center gap-2 rounded-lg bg-[#B4F461] px-5 py-2 text-sm font-semibold text-black dark:text-black hover:bg-[#a3e64f] transition disabled:opacity-50"
             >
               {downloading ? "Generating PDF..." : "Download Official PDF"}
             </button>

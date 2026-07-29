@@ -381,9 +381,9 @@ function PartnerPageContent() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
             <button
               onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-              className="btn text-xs py-3 px-4 font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
+              className="btn btn-lime text-xs py-3 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
             >
-              <span>+ Create Team</span>
+              <span className="text-black dark:text-black">+ Create Team</span>
             </button>
 
             <button
@@ -432,9 +432,9 @@ function PartnerPageContent() {
           </div>
           <button
             onClick={() => setShowCertModal(true)}
-            className="btn btn-primary text-xs py-2 px-4 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] shrink-0"
+            className="btn btn-lime text-xs py-2 px-4 font-bold bg-[#B4F461] text-black dark:text-black hover:bg-[#a3e64f] shrink-0"
           >
-            View & Download Certificate
+            <span className="text-black dark:text-black">View & Download Certificate</span>
           </button>
         </div>
       )}
@@ -473,9 +473,9 @@ function PartnerPageContent() {
           {activeTab === "teams" ? (
             <button
               onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              className="btn btn-lime px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             >
-              <span>+ Create Team</span>
+              <span className="text-black dark:text-black">+ Create Team</span>
             </button>
           ) : (
             <button

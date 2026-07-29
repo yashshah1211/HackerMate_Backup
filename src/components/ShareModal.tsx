@@ -203,8 +203,8 @@ export default function ShareModal({
             onClick={handleCopyLink}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
               copied
-                ? "bg-emerald-500 text-black"
-                : "bg-[#B4F461] hover:bg-[#a3e64f] text-black"
+                ? "bg-emerald-500 text-black dark:text-black"
+                : "bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black"
             }`}
           >
             {copied ? "Copied! ✓" : "Copy Link"}

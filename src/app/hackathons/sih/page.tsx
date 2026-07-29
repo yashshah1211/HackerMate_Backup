@@ -349,9 +349,9 @@ export default function SIHTeamBuilderPage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
               <button
                 onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
-                className="btn text-xs py-3 px-5 font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
+                className="btn btn-lime text-xs py-3 px-5 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
               >
-                <span>+ Create SIH Team</span>
+                <span className="text-black dark:text-black">+ Create SIH Team</span>
               </button>
 
               <button
@@ -516,7 +516,7 @@ export default function SIHTeamBuilderPage() {
                 </p>
                 <button
                   onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
-                  className="btn btn-primary text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
+                  className="btn btn-lime text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black dark:text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
                 >
                   + Create SIH Team
                 </button>
@@ -652,7 +652,7 @@ export default function SIHTeamBuilderPage() {
 
                       <Link
                         href={`/teams/${team.id}`}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm"
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm"
                       >
                         View & Apply →
                       </Link>

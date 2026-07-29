@@ -1991,9 +1991,9 @@ export default function TeamDetailsView({
           </div>
           <button
             onClick={redirectToSignIn}
-            className="w-full sm:w-auto px-4 py-2 text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-black rounded-lg transition-all shadow-md shadow-[#B4F461]/20 cursor-pointer shrink-0"
+            className="btn btn-lime w-full sm:w-auto px-4 py-2 text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black rounded-lg transition-all shadow-md shadow-[#B4F461]/20 cursor-pointer shrink-0"
           >
-            Sign In to Join →
+            <span className="text-black dark:text-black">Sign In to Join →</span>
           </button>
         </div>
       )}
@@ -2034,9 +2034,9 @@ export default function TeamDetailsView({
             </h1>
             <button
               onClick={() => setShowShareModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
+              className="btn btn-lime px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
             >
-              <span>🔗 Share Team</span>
+              <span className="text-black dark:text-black">🔗 Share Team</span>
             </button>
           </div>
 

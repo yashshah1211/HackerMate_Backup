@@ -260,6 +260,25 @@ body {
   background: #d4d4d8;
 }
 
+/* Neon Green Accent Button (Enforces dark text color #09090b for high contrast in all themes) */
+.btn-accent,
+.btn-lime {
+  background-color: #B4F461 !important;
+  color: #09090b !important;
+  border-color: rgba(180, 244, 97, 0.4) !important;
+}
+
+.btn-accent *,
+.btn-lime * {
+  color: #09090b !important;
+}
+
+.btn-accent:hover:not(:disabled),
+.btn-lime:hover:not(:disabled) {
+  background-color: #a3e64f !important;
+  color: #09090b !important;
+}
+
 /* Secondary Button (GitHub style border and clear text) */
 .btn-secondary {
   background: var(--surface-3);

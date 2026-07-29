@@ -785,11 +785,11 @@ function DashboardContent() {
               <div className="mt-6 flex items-center gap-4">
                 <Link
                   href="/partners/axcentra"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg shadow-[#B4F461]/25 hover:shadow-[#B4F461]/40 border border-[#B4F461]/40 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] group/btn cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-zinc-950 dark:text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg shadow-[#B4F461]/25 hover:shadow-[#B4F461]/40 border border-[#B4F461]/40 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] group/btn cursor-pointer"
                 >
-                  <span>Explore Partner Portal</span>
+                  <span className="text-zinc-950 dark:text-zinc-950">Explore Partner Portal</span>
                   <svg
-                    className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1"
+                    className="w-4 h-4 text-zinc-950 dark:text-zinc-950 transition-transform duration-200 group-hover/btn:translate-x-1"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -862,9 +862,9 @@ function DashboardContent() {
 
             <Link
               href="/hackathons/sih"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-zinc-950 dark:text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
             >
-              <span>Find SIH Teammates →</span>
+              <span className="text-zinc-950 dark:text-zinc-950">Find SIH Teammates →</span>
             </Link>
           </div>
         </div>
