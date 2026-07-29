@@ -311,6 +311,28 @@ function HackathonsContent() {
         </Link>
       </section>
 
+      {/* Featured SIH 2026 Teammate Matcher Banner */}
+      <div className="mb-8 p-6 rounded-2xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/70 dark:bg-gradient-to-r dark:from-zinc-950 dark:via-zinc-900 dark:to-orange-950/30 shadow-sm dark:shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-fade-in-up transition-colors">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 animate-pulse" />
+            <span>🇮🇳 SMART INDIA HACKATHON 2026</span>
+          </div>
+          <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+            Find Teammates for SIH Internal Round
+          </h2>
+          <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1 max-w-xl leading-relaxed">
+            Form your official 6-member team within your college. Filter builders & teams by institution with gender mandate and skill mix checks.
+          </p>
+        </div>
+        <Link
+          href="/hackathons/sih"
+          className="px-5 py-2.5 rounded-xl text-xs font-bold text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
+        >
+          SIH Team Builder Hub →
+        </Link>
+      </div>
+
       {/* Filter Panel */}
       <div className="card card-static p-6 mb-8 animate-fade-in-up stagger-1">
         <div className="flex items-center gap-2 mb-4">

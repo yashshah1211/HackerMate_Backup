@@ -454,6 +454,7 @@ export type Database = {
           created_at: string | null
           email: string
           full_name: string | null
+          gender: string | null
           github_stats: Json | null
           github_stats_updated_at: string | null
           github_url: string | null
@@ -478,6 +479,7 @@ export type Database = {
           created_at?: string | null
           email: string
           full_name?: string | null
+          gender?: string | null
           github_stats?: Json | null
           github_stats_updated_at?: string | null
           github_url?: string | null
@@ -502,6 +504,7 @@ export type Database = {
           created_at?: string | null
           email?: string
           full_name?: string | null
+          gender?: string | null
           github_stats?: Json | null
           github_stats_updated_at?: string | null
           github_url?: string | null

@@ -754,7 +754,7 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Axcentra Partner Hero Banner (Prime Video Style - Active until August 29, 2026) */}
+      {/* Featured Axcentra Partner Portal Banner (Prime Video Style - Active until August 29, 2026) */}
       {new Date() <= new Date("2026-08-29T23:59:59") && (
         <div className="relative overflow-hidden rounded-3xl border border-zinc-200/90 dark:border-zinc-900/60 bg-white/90 dark:bg-zinc-950/40 backdrop-blur-md p-8 md:p-10 mb-8 shadow-xl dark:shadow-2xl group transition-all duration-300">
           {/* Ambient Radial Glow Effect */}
@@ -840,6 +840,35 @@ function DashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Smart India Hackathon 2026 Teammate Matcher Banner */}
+      <div className="mb-8">
+        <div className="relative overflow-hidden rounded-3xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/60 dark:bg-gradient-to-r dark:from-zinc-950 dark:via-zinc-900 dark:to-orange-950/30 p-6 md:p-8 shadow-sm dark:shadow-xl transition-colors">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-[#B4F461]" />
+
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 mb-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 animate-pulse" />
+                <span>🇮🇳 SIH 2026 COLLEGE TEAM BUILDER</span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+                Smart India Hackathon 2026 Internal Round
+              </h2>
+              <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-300 mt-1.5 max-w-2xl leading-relaxed">
+                Form your official 6-member team from your college with diverse skills and mandatory female teammate representation. Open to all engineering & tech colleges across India.
+              </p>
+            </div>
+
+            <Link
+              href="/hackathons/sih"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
+            >
+              <span>Find SIH Teammates →</span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
       <div className="grid-2">
         <div className="panel">

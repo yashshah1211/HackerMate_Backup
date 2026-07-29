@@ -1,0 +1,742 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { useNotification } from "@/context/NotificationContext";
+import Footer from "@/components/Footer";
+import { COLLEGES } from "@/lib/colleges";
+
+const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
+
+type Profile = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  college: string | null;
+  bio: string | null;
+  github_url: string | null;
+  linkedin_url: string | null;
+  avatar_url: string | null;
+  skills: string[] | null;
+  gender?: string | null;
+  is_available?: boolean;
+};
+
+type TeamMember = {
+  id: string;
+  role: string;
+  project_role: string | null;
+  user_id: string;
+  profiles: {
+    id: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    skills: string[] | null;
+    gender?: string | null;
+  } | null;
+};
+
+type Team = {
+  id: string;
+  name: string;
+  description: string | null;
+  college: string | null;
+  skills: string[] | null;
+  roles_needed: string[] | null;
+  max_members: number;
+  is_recruiting: boolean;
+  owner_id: string;
+  team_members: TeamMember[];
+};
+
+type SIHHackathon = {
+  id: string;
+  name: string;
+  description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  location: string | null;
+  mode: string | null;
+  prize_pool: string | null;
+  website_url: string | null;
+  tags: string[] | null;
+};
+
+function isSameCollege(collegeA: string | null | undefined, collegeB: string | null | undefined): boolean {
+  if (!collegeA || !collegeB) return false;
+  const a = collegeA.toLowerCase().trim();
+  const b = collegeB.toLowerCase().trim();
+  if (a === b) return true;
+
+  const getFirstWord = (s: string) => s.split(/[\s,()]+/)[0];
+  const w1 = getFirstWord(a);
+  const w2 = getFirstWord(b);
+
+  const acronyms = ["djsce", "spit", "vjti", "tsec", "vesit", "coep", "pict", "vit", "mit", "vnit", "iit", "nit", "iiit"];
+  if (acronyms.includes(w1) && w1 === w2) return true;
+
+  return a.includes(b) || b.includes(a);
+}
+
+export default function SIHTeamBuilderPage() {
+  const { showToast } = useNotification();
+  const router = useRouter();
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
+  const [userCollege, setUserCollege] = useState<string>("");
+  const [editingCollege, setEditingCollege] = useState(false);
+  const [collegeInput, setCollegeInput] = useState("");
+  const [collegeSearch, setCollegeSearch] = useState("");
+  const [savingCollege, setSavingCollege] = useState(false);
+
+  const [hackathon, setHackathon] = useState<SIHHackathon | null>(null);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [allBuilders, setAllBuilders] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
+
+  async function loadSIHData() {
+    try {
+      setLoading(true);
+
+      // 1. Fetch SIH Hackathon row
+      const { data: hackathonData } = await supabase
+        .from("hackathons")
+        .select("id, name, description, start_date, end_date, location, mode, prize_pool, website_url, tags")
+        .eq("id", SIH_HACKATHON_ID)
+        .maybeSingle();
+
+      setHackathon(hackathonData);
+
+      // 2. Fetch logged in user profile & SIH registration status
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let currentCollege = "";
+
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (prof) {
+          setCurrentUserProfile(prof as Profile);
+          currentCollege = prof.college || "";
+          setUserCollege(currentCollege);
+          setCollegeInput(currentCollege);
+        }
+
+        const { data: userReg } = await supabase
+          .from("hackathon_registrations")
+          .select("id, looking_for_team")
+          .eq("user_id", user.id)
+          .eq("hackathon_id", SIH_HACKATHON_ID)
+          .maybeSingle();
+
+        setIsUserLookingForTeam(!!userReg?.looking_for_team);
+      }
+
+      // 3. Fetch Teams registered for SIH
+      const { data: teamHackathonsData } = await supabase
+        .from("team_hackathons")
+        .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, skills, gender)))")
+        .eq("hackathon_id", SIH_HACKATHON_ID);
+
+      const parsedTeams: Team[] = (teamHackathonsData || [])
+        .map((item: any) => item.teams)
+        .filter(Boolean);
+
+      setAllTeams(parsedTeams);
+
+      // 4. Fetch Builders registered for SIH looking for team
+      const { data: regData } = await supabase
+        .from("hackathon_registrations")
+        .select("user_id, looking_for_team, profiles(id, email, full_name, college, avatar_url, skills, gender, bio, github_url, linkedin_url, is_available)")
+        .eq("hackathon_id", SIH_HACKATHON_ID)
+        .eq("looking_for_team", true);
+
+      const parsedBuilders: Profile[] = (regData || [])
+        .map((r: any) => r.profiles)
+        .filter(Boolean);
+
+      setAllBuilders(parsedBuilders);
+    } catch (err) {
+      console.error("Error loading SIH data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSIHData();
+  }, []);
+
+  async function handleSaveCollege() {
+    if (!currentUserId) return;
+    const finalCollege = collegeInput.trim();
+    if (!finalCollege) {
+      showToast("Please enter a valid college name.", "warning");
+      return;
+    }
+
+    setSavingCollege(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ college: finalCollege })
+        .eq("id", currentUserId);
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        setUserCollege(finalCollege);
+        if (currentUserProfile) {
+          setCurrentUserProfile({ ...currentUserProfile, college: finalCollege });
+        }
+        setEditingCollege(false);
+        showToast("College updated! Filtered SIH listings for your institution.", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update college.", "error");
+    } finally {
+      setSavingCollege(false);
+    }
+  }
+
+  async function handleToggleLookingForTeam() {
+    if (!currentUserId) {
+      router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
+      return;
+    }
+
+    setTogglingStatus(true);
+    try {
+      if (isUserLookingForTeam) {
+        const { error } = await supabase
+          .from("hackathon_registrations")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("hackathon_id", SIH_HACKATHON_ID);
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          setIsUserLookingForTeam(false);
+          showToast("Removed yourself from SIH team seeker list.", "info");
+          loadSIHData();
+        }
+      } else {
+        const { error } = await supabase
+          .from("hackathon_registrations")
+          .upsert(
+            {
+              user_id: currentUserId,
+              hackathon_id: SIH_HACKATHON_ID,
+              looking_for_team: true,
+              status: "confirmed",
+            },
+            { onConflict: "user_id,hackathon_id" }
+          );
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          setIsUserLookingForTeam(true);
+          showToast("Listed! Builders and teams from your college can now find you for SIH 2026.", "success");
+          loadSIHData();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update status.", "error");
+    } finally {
+      setTogglingStatus(false);
+    }
+  }
+
+  function handleProtectedAction(targetUrl: string) {
+    if (!currentUserId) {
+      router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
+    } else {
+      router.push(targetUrl);
+    }
+  }
+
+  // Filter teams and builders by college
+  const filteredTeams = allTeams.filter((team) => {
+    if (!userCollege) return true; // Show all if no user college set
+    return isSameCollege(team.college, userCollege);
+  });
+
+  const filteredBuilders = allBuilders.filter((builder) => {
+    if (builder.id === currentUserId) return false; // Exclude self
+    if (!userCollege) return true;
+    return isSameCollege(builder.college, userCollege);
+  });
+
+  const filteredCollegesList = COLLEGES.filter((c) =>
+    c.toLowerCase().includes(collegeSearch.toLowerCase())
+  ).slice(0, 8);
+
+  if (loading) {
+    return (
+      <main className="max-w-5xl mx-auto px-6 pt-36 pb-16 min-h-screen">
+        <div className="flex flex-col items-center justify-center min-h-[40vh]">
+          <div className="w-8 h-8 border-2 border-zinc-300 dark:border-zinc-800 border-t-orange-500 rounded-full animate-spin mb-4" />
+          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading SIH Team Builder...</p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white flex flex-col justify-between transition-colors">
+      <main className="max-w-5xl mx-auto px-6 pt-32 pb-16 w-full">
+        {/* SIH Hero Banner */}
+        <div className="relative overflow-hidden rounded-2xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/70 dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-orange-950/20 p-8 md:p-10 shadow-lg dark:shadow-2xl mb-8 animate-fade-in-up transition-colors">
+          <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-[#B4F461]" />
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div>
+              {/* Co-Branded Badge */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3.5 py-1 text-xs font-mono uppercase tracking-wider mb-4">
+                <span className="text-orange-700 dark:text-orange-400 font-bold">🇮🇳 SMART INDIA HACKATHON 2026</span>
+                <span className="text-zinc-400 dark:text-zinc-500">×</span>
+                <span className="text-[#649a1f] dark:text-[#B4F461] font-bold">HACKERMATE</span>
+              </div>
+
+              <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+                SIH Team Builder
+              </h1>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 max-w-2xl mt-2 leading-relaxed font-sans">
+                Form your official 6-member team from your college for SIH 2026 internal selection round. Open to all engineering & tech institutions across India with balanced skill mix and female teammate representation.
+              </p>
+
+              {/* SIH Mandate Badges */}
+              <div className="flex flex-wrap items-center gap-2.5 mt-5">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-orange-800 dark:text-orange-300 font-medium shadow-sm">
+                  <span>🏫 Same College Only</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-amber-800 dark:text-amber-300 font-medium shadow-sm">
+                  <span>👥 6 Members / Team</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-emerald-800 dark:text-emerald-300 font-medium shadow-sm">
+                  <span>👩 1+ Female Member Mandate</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-sky-800 dark:text-sky-300 font-medium shadow-sm">
+                  <span>⚡ Diverse Skill Mix</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Hero CTAs */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+              <button
+                onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
+                className="btn text-xs py-3 px-5 font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
+              >
+                <span>+ Create SIH Team</span>
+              </button>
+
+              <button
+                onClick={handleToggleLookingForTeam}
+                disabled={togglingStatus}
+                className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  isUserLookingForTeam
+                    ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                    : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* College Context & Picker Bar */}
+        <div className="mb-8 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-lg shrink-0">
+              🎓
+            </div>
+            <div>
+              <div className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">College / Institution Filter</div>
+              <div className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2 mt-0.5">
+                {userCollege ? (
+                  <span>Showing builders & teams from: <strong className="text-orange-600 dark:text-orange-400">{userCollege}</strong></span>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-400">⚠️ No college selected in your profile. Select your college to filter teammates.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            {!editingCollege ? (
+              <button
+                onClick={() => setEditingCollege(true)}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 transition"
+              >
+                {userCollege ? "Change College" : "Select College"}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 relative">
+                <input
+                  type="text"
+                  value={collegeInput}
+                  onChange={(e) => {
+                    setCollegeInput(e.target.value);
+                    setCollegeSearch(e.target.value);
+                  }}
+                  placeholder="Type college name..."
+                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-orange-500 w-64"
+                />
+                <button
+                  onClick={handleSaveCollege}
+                  disabled={savingCollege}
+                  className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 font-bold text-xs text-white transition"
+                >
+                  {savingCollege ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={() => setEditingCollege(false)}
+                  className="px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                >
+                  Cancel
+                </button>
+
+                {/* College Autocomplete Dropdown */}
+                {collegeSearch.length > 1 && (
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                    {filteredCollegesList.map((col) => (
+                      <button
+                        key={col}
+                        onClick={() => {
+                          setCollegeInput(col);
+                          setCollegeSearch("");
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition truncate border-b border-zinc-100 dark:border-zinc-800/50 last:border-0"
+                      >
+                        {col}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tab & Controls Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-900">
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <span>College Teammate Matcher</span>
+            </h2>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              Filtered strictly by {userCollege ? userCollege : "all institutions across India"}.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-xs">
+              <button
+                onClick={() => setActiveTab("teams")}
+                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${
+                  activeTab === "teams"
+                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Teams Recruiting ({filteredTeams.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("builders")}
+                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${
+                  activeTab === "builders"
+                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Builders Looking for Teams ({filteredBuilders.length})
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Teams Feed */}
+        {activeTab === "teams" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredTeams.length === 0 ? (
+              <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
+                <div className="text-3xl mb-3">🚀</div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">No SIH Teams Recruiting Yet</h3>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
+                  {userCollege
+                    ? `No teams from ${userCollege} have registered for SIH 2026 yet. Be the first to create one!`
+                    : "No teams found. Select your college above or create a team."}
+                </p>
+                <button
+                  onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
+                  className="btn btn-primary text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
+                >
+                  + Create SIH Team
+                </button>
+              </div>
+            ) : (
+              filteredTeams.map((team) => {
+                const memberCount = team.team_members?.length || 1;
+                const members = team.team_members || [];
+
+                // Check female member status
+                const hasFemaleMember = members.some(
+                  (m) => m.profiles?.gender?.toLowerCase() === "female"
+                );
+
+                // Aggregate skills across members
+                const memberSkillsSet = new Set<string>();
+                members.forEach((m) => {
+                  (m.profiles?.skills || []).forEach((s) => memberSkillsSet.add(s));
+                });
+                const combinedSkills = Array.from(memberSkillsSet);
+
+                // Basic SIH skill coverage check
+                const coreRolesNeeded = ["Frontend", "Backend", "AI/ML", "UI/UX", "Mobile"];
+                const missingRoles = (team.roles_needed || coreRolesNeeded).filter(
+                  (role) => !combinedSkills.some((s) => s.toLowerCase().includes(role.toLowerCase()))
+                );
+
+                return (
+                  <div
+                    key={team.id}
+                    className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition flex flex-col justify-between shadow-sm"
+                  >
+                    <div>
+                      {/* Team Header */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug">
+                            {team.name}
+                          </h3>
+                          {team.college && (
+                            <span className="inline-block text-[11px] text-orange-600 dark:text-orange-400 font-mono mt-0.5">
+                              🏫 {team.college}
+                            </span>
+                          )}
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-mono uppercase font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                          {memberCount} / 6 Members
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2 mb-4 font-sans leading-relaxed">
+                        {team.description || "Building for Smart India Hackathon 2026."}
+                      </p>
+
+                      {/* SIH Team Composition Checklist */}
+                      <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 mb-4 space-y-2 text-xs">
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-bold border-b border-zinc-200 dark:border-zinc-800 pb-1 flex items-center justify-between">
+                          <span>SIH Compliance Checklist</span>
+                          <span className="text-orange-600 dark:text-orange-400">Target: 6 Members</span>
+                        </div>
+
+                        {/* Headcount */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-600 dark:text-zinc-400">Team Headcount:</span>
+                          <span className={memberCount === 6 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400 font-medium"}>
+                            {memberCount === 6 ? "✓ 6/6 Members (Complete)" : `${memberCount}/6 Members (${6 - memberCount} needed)`}
+                          </span>
+                        </div>
+
+                        {/* Female Representation */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-600 dark:text-zinc-400">Female Representation:</span>
+                          <span className={hasFemaleMember ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400 font-medium"}>
+                            {hasFemaleMember ? "✅ 1+ Female Member" : "⚠️ Requires Female Member"}
+                          </span>
+                        </div>
+
+                        {/* Skill Gap */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-600 dark:text-zinc-400">Skill Coverage:</span>
+                          <span className={missingRoles.length === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-sky-600 dark:text-sky-400 font-medium"}>
+                            {missingRoles.length === 0
+                              ? "✅ Core Roles Covered"
+                              : `Missing: ${missingRoles.slice(0, 2).join(", ")}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Prominent Member Skills */}
+                      <div className="mb-4">
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
+                          Team Skill Mix
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {combinedSkills.length > 0 ? (
+                            combinedSkills.slice(0, 6).map((skill) => (
+                              <span
+                                key={skill}
+                                className="px-2 py-0.5 rounded text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/60 font-mono"
+                              >
+                                {skill}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">No skills listed yet</span>
+                          )}
+                          {combinedSkills.length > 6 && (
+                            <span className="px-2 py-0.5 rounded text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-mono">
+                              +{combinedSkills.length - 6} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                      <div className="flex items-center -space-x-2">
+                        {members.map((m) => (
+                          <div
+                            key={m.id}
+                            className="w-7 h-7 rounded-full bg-zinc-200 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 overflow-hidden flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-300"
+                            title={m.profiles?.full_name || "Member"}
+                          >
+                            {m.profiles?.avatar_url ? (
+                              <img src={m.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              (m.profiles?.full_name || "M").substring(0, 1)
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <Link
+                        href={`/teams/${team.id}`}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm"
+                      >
+                        View & Apply →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Builders Feed */}
+        {activeTab === "builders" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredBuilders.length === 0 ? (
+              <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
+                <div className="text-3xl mb-3">🙋‍♂️</div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">No Builders Seeking Teams Yet</h3>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
+                  {userCollege
+                    ? `No other builders from ${userCollege} have listed themselves for SIH 2026 yet.`
+                    : "No builders listed. Select your college above or list yourself."}
+                </p>
+                <button
+                  onClick={handleToggleLookingForTeam}
+                  disabled={togglingStatus}
+                  className="btn btn-primary text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
+                >
+                  {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
+                </button>
+              </div>
+            ) : (
+              filteredBuilders.map((builder) => (
+                <div
+                  key={builder.id}
+                  className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition flex flex-col justify-between shadow-sm"
+                >
+                  <div>
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 overflow-hidden shrink-0 flex items-center justify-center text-lg font-bold text-zinc-700 dark:text-zinc-300">
+                        {builder.avatar_url ? (
+                          <img src={builder.avatar_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          (builder.full_name || builder.email || "B").substring(0, 1)
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                            {builder.full_name || "Anonymous Builder"}
+                          </h3>
+                          {builder.gender?.toLowerCase() === "female" && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/20 shrink-0">
+                              👩 Female Builder
+                            </span>
+                          )}
+                        </div>
+                        {builder.college && (
+                          <p className="text-[11px] text-orange-600 dark:text-orange-400 font-mono truncate mt-0.5">
+                            🏫 {builder.college}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2 mb-4 font-sans leading-relaxed">
+                      {builder.bio || "Builder looking to join a 6-member SIH team."}
+                    </p>
+
+                    {/* Prominent Skill Tags */}
+                    <div className="mb-4">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
+                        Prominent Skill Tags
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {builder.skills && builder.skills.length > 0 ? (
+                          builder.skills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="px-2 py-0.5 rounded text-[11px] bg-orange-50 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-500/20 font-mono"
+                            >
+                              {skill}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">No skills specified</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                    <span className="text-[11px] text-zinc-500 font-mono">
+                      {builder.is_available !== false ? "🟢 Available to join" : "⚪ Busy"}
+                    </span>
+
+                    <Link
+                      href={`/builders/${builder.id}`}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 transition"
+                    >
+                      View Profile →
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
