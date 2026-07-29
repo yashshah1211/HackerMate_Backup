@@ -182,35 +182,40 @@ export default function SIHTeamBuilderPage() {
   }, []);
 
   async function handleSaveCollege() {
-    if (!currentUserId) return;
     const finalCollege = collegeInput.trim();
     if (!finalCollege) {
       showToast("Please enter a valid college name.", "warning");
       return;
     }
 
-    setSavingCollege(true);
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ college: finalCollege })
-        .eq("id", currentUserId);
+    if (currentUserId) {
+      setSavingCollege(true);
+      try {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ college: finalCollege })
+          .eq("id", currentUserId);
 
-      if (error) {
-        showToast(error.message, "error");
-      } else {
-        setUserCollege(finalCollege);
-        if (currentUserProfile) {
-          setCurrentUserProfile({ ...currentUserProfile, college: finalCollege });
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          setUserCollege(finalCollege);
+          if (currentUserProfile) {
+            setCurrentUserProfile({ ...currentUserProfile, college: finalCollege });
+          }
+          setEditingCollege(false);
+          showToast("College updated! Filtered SIH listings for your institution.", "success");
         }
-        setEditingCollege(false);
-        showToast("College updated! Filtered SIH listings for your institution.", "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to update college.", "error");
+      } finally {
+        setSavingCollege(false);
       }
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to update college.", "error");
-    } finally {
-      setSavingCollege(false);
+    } else {
+      setUserCollege(finalCollege);
+      setEditingCollege(false);
+      showToast(`Filter applied for ${finalCollege}!`, "info");
     }
   }
 
@@ -352,11 +357,10 @@ export default function SIHTeamBuilderPage() {
               <button
                 onClick={handleToggleLookingForTeam}
                 disabled={togglingStatus}
-                className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                  isUserLookingForTeam
+                className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${isUserLookingForTeam
                     ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
                     : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                }`}
+                  }`}
               >
                 {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
               </button>
@@ -425,6 +429,31 @@ export default function SIHTeamBuilderPage() {
                         onClick={() => {
                           setCollegeInput(col);
                           setCollegeSearch("");
+                          // Apply filter immediately
+                          if (currentUserId) {
+                            setSavingCollege(true);
+                            supabase
+                              .from("profiles")
+                              .update({ college: col })
+                              .eq("id", currentUserId)
+                              .then(({ error }) => {
+                                setSavingCollege(false);
+                                if (error) {
+                                  showToast(error.message, "error");
+                                } else {
+                                  setUserCollege(col);
+                                  if (currentUserProfile) {
+                                    setCurrentUserProfile({ ...currentUserProfile, college: col });
+                                  }
+                                  setEditingCollege(false);
+                                  showToast("College updated! Filtered SIH listings for your institution.", "success");
+                                }
+                              });
+                          } else {
+                            setUserCollege(col);
+                            setEditingCollege(false);
+                            showToast(`Filter applied for ${col}!`, "info");
+                          }
                         }}
                         className="w-full text-left px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition truncate border-b border-zinc-100 dark:border-zinc-800/50 last:border-0"
                       >
@@ -453,21 +482,19 @@ export default function SIHTeamBuilderPage() {
             <div className="flex bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-xs">
               <button
                 onClick={() => setActiveTab("teams")}
-                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${
-                  activeTab === "teams"
+                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${activeTab === "teams"
                     ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                }`}
+                  }`}
               >
                 Teams Recruiting ({filteredTeams.length})
               </button>
               <button
                 onClick={() => setActiveTab("builders")}
-                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${
-                  activeTab === "builders"
+                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${activeTab === "builders"
                     ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                }`}
+                  }`}
               >
                 Builders Looking for Teams ({filteredBuilders.length})
               </button>
