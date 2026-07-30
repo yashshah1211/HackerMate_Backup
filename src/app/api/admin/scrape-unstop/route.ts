@@ -34,6 +34,15 @@ function extractValidEmails(text: string): string[] {
   return Array.from(new Set(valid.map((e) => e.trim())));
 }
 
+export function normalizeUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  try {
+    return url.trim().replace(/\/+$/, "");
+  } catch {
+    return (url || "").trim();
+  }
+}
+
 async function fetchUnstopCandidates(): Promise<any[]> {
   const raw: any[] = [];
   // Scrape Open, Upcoming, and Ended hackathons for organizer outreach
@@ -214,8 +223,8 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
   }
 
   const existingUrlsSet = new Set<string>([
-    ...(existingLeadsRes.data || []).map((l) => l.unstop_url).filter(Boolean),
-    ...(existingHackathonsRes.data || []).map((h) => h.website_url).filter(Boolean),
+    ...(existingLeadsRes.data || []).map((l) => normalizeUrl(l.unstop_url)).filter(Boolean),
+    ...(existingHackathonsRes.data || []).map((h) => normalizeUrl(h.website_url)).filter(Boolean),
   ]);
 
   // 2. Fetch candidates concurrently from Unstop (Open, Upcoming, Ended), Devfolio, and Hack2Skill
@@ -477,12 +486,17 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
   // 7. Upsert ONLY active/upcoming scraped hackathons into public.hackathons for student discovery
   if (activeHackathonsToUpsert.length > 0) {
+    const normalizedHackathons = activeHackathonsToUpsert.map((h) => ({
+      ...h,
+      website_url: normalizeUrl(h.website_url),
+    }));
+
     const { error: hackathonsDbErr } = await supabaseAdmin
       .from("hackathons")
-      .upsert(activeHackathonsToUpsert, { onConflict: "website_url" });
+      .upsert(normalizedHackathons, { onConflict: "website_url" });
 
     if (hackathonsDbErr) {
-      await supabaseAdmin.from("hackathons").insert(activeHackathonsToUpsert);
+      console.error("[Scraper] Error upserting active hackathons:", hackathonsDbErr);
     }
   }
 
