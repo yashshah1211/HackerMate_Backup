@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import Footer from "@/components/Footer";
 import { COLLEGES } from "@/lib/colleges";
+import SIHExportModal from "@/components/SIHExportModal";
+import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
 
 const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
 
@@ -32,6 +34,7 @@ type TeamMember = {
   profiles: {
     id: string;
     full_name: string | null;
+    email?: string | null;
     avatar_url: string | null;
     skills: string[] | null;
     gender?: string | null;
@@ -100,6 +103,10 @@ export default function SIHTeamBuilderPage() {
   const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
+  const [selectedExportTeam, setSelectedExportTeam] = useState<{
+    team: SIHTeamExport;
+    members: SIHTeamMemberExport[];
+  } | null>(null);
 
   async function loadSIHData() {
     try {
@@ -149,7 +156,7 @@ export default function SIHTeamBuilderPage() {
       // 3. Fetch Teams registered for SIH
       const { data: teamHackathonsData } = await supabase
         .from("team_hackathons")
-        .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, skills, gender)))")
+        .select("team_id, teams(*, team_members(*, profiles(id, full_name, email, avatar_url, skills, gender)))")
         .eq("hackathon_id", SIH_HACKATHON_ID);
 
       const parsedTeams: Team[] = (teamHackathonsData || [])
@@ -633,7 +640,7 @@ export default function SIHTeamBuilderPage() {
                     </div>
 
                     {/* Action Button */}
-                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
                       <div className="flex items-center -space-x-2">
                         {members.map((m) => (
                           <div
@@ -650,12 +657,49 @@ export default function SIHTeamBuilderPage() {
                         ))}
                       </div>
 
-                      <Link
-                        href={`/teams/${team.id}`}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm"
-                      >
-                        View & Apply →
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() =>
+                            setSelectedExportTeam({
+                              team: {
+                                id: team.id,
+                                name: team.name,
+                                description: team.description || "",
+                                owner_id: team.owner_id,
+                                max_members: team.max_members,
+                                college: team.college,
+                                hackathon_name: "Smart India Hackathon 2026",
+                                skills: team.skills,
+                                roles_needed: team.roles_needed,
+                              },
+                              members: members.map((m) => ({
+                                id: m.id,
+                                role: m.role,
+                                project_role: m.project_role || undefined,
+                                profiles: {
+                                  id: m.profiles?.id || m.user_id,
+                                  full_name: m.profiles?.full_name || "Member",
+                                  email: m.profiles?.email || "N/A",
+                                  avatar_url: m.profiles?.avatar_url,
+                                  skills: m.profiles?.skills,
+                                  gender: m.profiles?.gender,
+                                  college: team.college,
+                                },
+                              })),
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          📄 Export SPOC
+                        </button>
+
+                        <Link
+                          href={`/teams/${team.id}`}
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm"
+                        >
+                          View & Apply →
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );
@@ -762,6 +806,15 @@ export default function SIHTeamBuilderPage() {
           </div>
         )}
       </main>
+
+      {selectedExportTeam && (
+        <SIHExportModal
+          isOpen={!!selectedExportTeam}
+          onClose={() => setSelectedExportTeam(null)}
+          team={selectedExportTeam.team}
+          members={selectedExportTeam.members}
+        />
+      )}
 
       <Footer />
     </div>

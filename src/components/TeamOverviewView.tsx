@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
+import SIHExportModal from "@/components/SIHExportModal";
+import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -106,6 +108,7 @@ export default function TeamOverviewView({
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showSIHExportModal, setShowSIHExportModal] = useState(false);
 
   const redirectToSignIn = () => {
     const next = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : `/teams/${team.id}`;
@@ -440,12 +443,20 @@ export default function TeamOverviewView({
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white">
               {team.name}
             </h1>
-            <button
-              onClick={() => setShowShareModal(true)}
-              className="btn btn-lime px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
-            >
-              <span className="text-black dark:text-black">🔗 Share Team</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSIHExportModal(true)}
+                className="btn px-3.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-orange-500/30 shrink-0"
+              >
+                <span>🇮🇳 SIH SPOC Export</span>
+              </button>
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="btn btn-lime px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
+              >
+                <span className="text-black dark:text-black">🔗 Share Team</span>
+              </button>
+            </div>
           </div>
 
           <p className="text-sm text-zinc-400 leading-relaxed mb-8">
@@ -1337,6 +1348,38 @@ export default function TeamOverviewView({
           teamName: team.name,
           hackathonName: team.hackathon_name || undefined,
         }}
+      />
+
+      {/* Official SIH SPOC Export Modal */}
+      <SIHExportModal
+        isOpen={showSIHExportModal}
+        onClose={() => setShowSIHExportModal(false)}
+        team={{
+          id: team.id,
+          name: team.name,
+          description: team.description || "",
+          owner_id: team.owner_id,
+          max_members: team.max_members,
+          college: team.college,
+          hackathon_name: team.hackathon_name || "Smart India Hackathon 2026",
+          skills: team.skills,
+          roles_needed: team.roles_needed,
+          github_repo_url: team.github_repo_url,
+        }}
+        members={members.map((m) => ({
+          id: m.id,
+          role: m.role,
+          project_role: m.project_role,
+          profiles: {
+            id: m.profiles?.id || m.id,
+            full_name: m.profiles?.full_name || "Member",
+            email: m.profiles?.email || "N/A",
+            avatar_url: m.profiles?.avatar_url,
+            skills: m.profiles?.skills,
+            gender: (m.profiles as any)?.gender || "Unspecified",
+            college: team.college,
+          },
+        }))}
       />
     </main>
   );
