@@ -55,7 +55,8 @@ export default function Home() {
   const [realHackathons, setRealHackathons] = useState<RealHackathon[]>([]);
   const [realTeams, setRealTeams] = useState<RealTeam[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"match" | "hackathons" | "workspace">("match");
+  const [activeTab, setActiveTab] = useState<"match" | "hackathons" | "workspace" | "product">("match");
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   const openModal = () => {
     setConsentChecked(false);
@@ -149,6 +150,19 @@ export default function Home() {
     });
   }
 
+  // Calculate college counts with a minimum threshold (3+ builders per college)
+  const collegeCounts = realBuilders.reduce((acc, b) => {
+    if (b.college && b.college.trim()) {
+      const col = b.college.trim();
+      acc[col] = (acc[col] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const qualifiedColleges = Object.entries(collegeCounts)
+    .filter(([_, count]) => count >= 3)
+    .sort((a, b) => b[1] - a[1]);
+
   if (loading && email) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
@@ -173,7 +187,7 @@ export default function Home() {
       </div>
 
       {/* ─── Hero ─── */}
-      <section className="relative z-10 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-14 pb-10 text-center">
+      <section className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 pt-14 pb-10 text-center">
         <div className="space-y-5">
 
           {/* Badge */}
@@ -184,10 +198,12 @@ export default function Home() {
             <span className="text-zinc-400 font-mono text-[11px] hidden sm:inline">{userCount}+ Builders &amp; {hackathonCount}+ Live Events</span>
           </div>
 
-          {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1]">
-            Find your team. <br />
-            Build something great.
+          {/* Headline Option C (Approved) */}
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
+            Find your frontend, backend &amp; AI co-builders. <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-[#B4F461]/90">
+              The team operating system for college hackathons.
+            </span>
           </h1>
 
           {/* Subtext */}
@@ -235,28 +251,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── Live Demo Section ─── */}
+      {/* ─── Live Demo & Product Showcase Section ─── */}
       <section id="demo" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-6">
             <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
-              Live Database Feed
+              Platform Preview
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
-              Real builders, hackathons &amp; teams
+              Real builders &amp; 9-Tab team workspace
             </h2>
             <p className="text-xs text-zinc-400 max-w-xs sm:max-w-sm mx-auto">
-              Real registered engineering students and active hackathons on HackerMate.
+              Explore live database feeds and the built-in team operating system.
             </p>
           </div>
 
-          <div className="rounded-lg border border-zinc-800/80 bg-zinc-950 shadow-2xl overflow-hidden">
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-950 shadow-2xl overflow-hidden">
             {/* Window chrome */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-900">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 shrink-0" />
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 shrink-0" />
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shrink-0" />
-              <span className="ml-1 text-[10px] font-mono text-zinc-600 truncate">hackermate.com</span>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-900 bg-zinc-950">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shrink-0" />
+                <span className="ml-1 text-[10px] font-mono text-zinc-500 truncate">hackermate.com/workspace</span>
+              </div>
+              <span className="text-[9px] font-mono text-[#B4F461] bg-[#B4F461]/10 px-2 py-0.5 rounded border border-[#B4F461]/20 hidden sm:inline">
+                Live Interactive Feed
+              </span>
             </div>
 
             {/* Tab bar — wraps on mobile */}
@@ -265,7 +286,7 @@ export default function Home() {
                 [
                   {
                     key: "match",
-                    label: "Builders",
+                    label: "Builders Feed",
                     count: realBuilders.length || userCount,
                     icon: (
                       <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -285,11 +306,21 @@ export default function Home() {
                   },
                   {
                     key: "workspace",
-                    label: "Teams",
+                    label: "Active Teams",
                     count: realTeams.length || teamCount,
                     icon: (
                       <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "product",
+                    label: "Workspace OS Mockup",
+                    count: "9 Tabs",
+                    icon: (
+                      <svg className="w-3.5 h-3.5 shrink-0 text-[#B4F461]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     ),
                   },
@@ -300,7 +331,7 @@ export default function Home() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? "bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30"
+                      ? "bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30 font-bold"
                       : "text-zinc-400 hover:text-white border border-transparent"
                   }`}
                 >
@@ -428,6 +459,80 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              {/* Stylized Product Workspace Mockup Tab */}
+              {activeTab === "product" && (
+                <div className="space-y-4 bg-zinc-950 p-2 sm:p-4 rounded-xl border border-zinc-900">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-mono text-[10px] border border-emerald-800/60 font-bold">
+                        94% Match Radar
+                      </span>
+                      <h4 className="text-xs font-bold text-white">Team Workspace: AI Agents 2026</h4>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#B4F461] animate-ping" />
+                      <span className="text-[10px] font-mono text-zinc-400">Live Sync</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
+                    {/* Column 1: Live Chat & Members */}
+                    <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 border-b border-zinc-800/80 pb-1.5">
+                        <span>💬 Team Chat</span>
+                        <span className="text-[#B4F461]">3 online</span>
+                      </div>
+                      <div className="space-y-1.5 text-[11px]">
+                        <div className="p-2 rounded bg-zinc-950/80 border border-zinc-800/60">
+                          <span className="font-bold text-[#B4F461] text-[10px]">Aarav (Frontend): </span>
+                          <span className="text-zinc-300">FastAPI backend endpoint looks clean! Wiring up the UI now.</span>
+                        </div>
+                        <div className="p-2 rounded bg-zinc-950/80 border border-zinc-800/60">
+                          <span className="font-bold text-emerald-400 text-[10px]">Priya (AI/ML): </span>
+                          <span className="text-zinc-300">Model fine-tuning finished. Pushing weights to Vercel storage.</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 2: Realtime Kanban Board */}
+                    <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 border-b border-zinc-800/80 pb-1.5">
+                        <span>📌 Realtime Kanban</span>
+                        <span className="text-emerald-400">4/5 Done</span>
+                      </div>
+                      <div className="space-y-1.5 text-[11px]">
+                        <div className="p-2 rounded bg-zinc-950/80 border border-emerald-900/40 flex items-center justify-between">
+                          <span className="text-zinc-200">Submit Pitch Video</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Done</span>
+                        </div>
+                        <div className="p-2 rounded bg-zinc-950/80 border border-amber-900/40 flex items-center justify-between">
+                          <span className="text-zinc-200">Final Presentation Deck</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800/50">In Review</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 3: GitHub & Deployment Sync */}
+                    <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 border-b border-zinc-800/80 pb-1.5">
+                        <span>⚡ GitHub &amp; Deployment</span>
+                        <span className="text-[#B4F461]">Synced</span>
+                      </div>
+                      <div className="space-y-1.5 text-[10px] font-mono">
+                        <div className="p-2 rounded bg-zinc-950/80 border border-zinc-800/60 flex items-center justify-between">
+                          <span className="text-zinc-400 truncate">commit `main` (a4f21e)</span>
+                          <span className="text-[#B4F461]">Deployed</span>
+                        </div>
+                        <div className="p-2 rounded bg-zinc-950/80 border border-zinc-800/60 flex items-center justify-between">
+                          <span className="text-zinc-400">Vercel Build</span>
+                          <span className="text-emerald-400">100% Ready</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -436,29 +541,51 @@ export default function Home() {
       {/* ─── College Network ─── */}
       <section id="colleges" className="w-full border-t border-zinc-900 bg-zinc-950 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
+          <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono">
             College Network
           </span>
           <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
             Top engineering college builders
           </h2>
-          <p className="text-xs text-zinc-400 max-w-xs mx-auto mb-6">
-            Find teammates from premier institutes across India.
+          <p className="text-xs text-zinc-400 max-w-xs sm:max-w-sm mx-auto mb-6">
+            Connect with verified builders from premier engineering institutes across India.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {[
-              "IIT Bombay", "IIT Delhi", "IIT Madras", "IIT Kharagpur", "BITS Pilani",
-              "DTU Delhi", "COEP Pune", "VJTI Mumbai", "NIT Trichy", "NIT Surathkal",
-              "VIT Vellore", "SRM Chennai", "DJSCE Mumbai", "SPIT Mumbai", "PICT Pune"
-            ].map((col) => (
-              <span
-                key={col}
-                className="px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-900/60 text-xs font-mono text-zinc-300 hover:border-[#B4F461]/40 hover:text-[#B4F461] transition-colors"
-              >
-                {col}
-              </span>
-            ))}
-          </div>
+
+          {qualifiedColleges.length >= 4 ? (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {qualifiedColleges.map(([collegeName, count]) => (
+                <span
+                  key={collegeName}
+                  className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 text-xs font-mono text-zinc-300 hover:border-[#B4F461]/40 hover:text-[#B4F461] transition-colors inline-flex items-center gap-2"
+                >
+                  <span>{collegeName}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#B4F461]/15 text-[#B4F461] border border-[#B4F461]/30">
+                    {count} builders
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs font-mono text-zinc-200">
+                <span className="w-2 h-2 rounded-full bg-[#B4F461] animate-ping" />
+                <span>Builders from <strong>25+ engineering colleges</strong> across India active on HackerMate</span>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto">
+                {[
+                  "IIT Bombay", "IIT Delhi", "IIT Madras", "BITS Pilani", "COEP Pune",
+                  "VJTI Mumbai", "DTU Delhi", "NIT Surathkal", "VIT Vellore", "DJSCE Mumbai", "PICT Pune"
+                ].map((col) => (
+                  <span
+                    key={col}
+                    className="px-2.5 py-1 rounded-lg border border-zinc-800/80 bg-zinc-900/40 text-xs font-mono text-zinc-400"
+                  >
+                    {col}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -466,7 +593,7 @@ export default function Home() {
       <section id="how-it-works" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono">
               Workflow
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
@@ -475,8 +602,8 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { step: "01", title: "Build Your Profile", description: "Set up your bio, skills, college, and social links to build your profile." },
-              { step: "02", title: "Find Compatible Teammates", description: "Browse builders by skill and filter by college to form your team." },
+              { step: "01", title: "Build Your Profile", description: "Set up your bio, skills, college, and social links to build your builder identity." },
+              { step: "02", title: "Find Compatible Teammates", description: "Browse builders by skill and filter by college to form your dream team." },
               { step: "03", title: "Coordinate & Build", description: "Manage tasks, track progress, and collaborate seamlessly in team workspaces." },
             ].map((item) => (
               <div key={item.step} className="p-5 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:border-[#B4F461]/30 transition-all">
@@ -491,11 +618,37 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── Founder Note ─── */}
+      <section className="w-full border-t border-zinc-900 bg-zinc-950/80 py-10 sm:py-12">
+        <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="p-6 sm:p-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 relative overflow-hidden backdrop-blur-md">
+            <div className="absolute top-0 right-0 p-6 opacity-10 font-mono font-extrabold text-7xl text-[#B4F461] pointer-events-none select-none">
+              “
+            </div>
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono">
+              FOUNDER NOTE
+            </span>
+            <p className="text-sm sm:text-base text-zinc-200 mt-4 leading-relaxed font-normal italic">
+              &ldquo;As a second-year engineering student, I lost count of how many hackathons I almost skipped simply because I couldn&apos;t find a reliable frontend developer or AI builder in time. I built HackerMate so no student ever has to enter a hackathon alone or settle for a mismatched team.&rdquo;
+            </p>
+            <div className="mt-5 flex items-center gap-3 pt-4 border-t border-zinc-800/80">
+              <div className="w-9 h-9 rounded-full bg-[#B4F461]/15 border border-[#B4F461]/30 text-[#B4F461] flex items-center justify-center font-mono font-bold text-xs">
+                YS
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Yash Shah</h4>
+                <p className="text-[10px] text-zinc-400 font-mono">Founder &amp; 2nd-Year CS Engineering Student</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── Features ─── */}
       <section id="features" className="w-full border-t border-zinc-900 bg-zinc-950 py-10 sm:py-12">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
-            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono">
               Features
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
@@ -504,7 +657,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { title: "Skill Match Engine", description: "Matches you with builders who have complementary technical skills." },
+              { title: "Skill Match Engine", description: "Matches you with builders who have complementary technical skills and experience." },
               { title: "College & Alumni Filter", description: "Filter builders from your college or connect across engineering institutions." },
               { title: "Direct Event CTAs", description: "Discover hackathons from Unstop & Devfolio and form teams directly." },
             ].map((f, i) => (
@@ -514,6 +667,108 @@ export default function Home() {
                 </div>
                 <h3 className="text-sm font-semibold text-white mb-1.5">{f.title}</h3>
                 <p className="text-xs text-zinc-400 leading-relaxed">{f.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── For Organizers ─── */}
+      <section id="organizers" className="w-full border-t border-zinc-900 bg-gradient-to-b from-zinc-950 to-[#09090b] py-12 sm:py-16">
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="p-6 sm:p-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden backdrop-blur-md">
+            <div className="space-y-3 text-center md:text-left max-w-xl">
+              <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono">
+                FOR HACKATHON ORGANIZERS
+              </span>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                Hosting a Hackathon? Help your participants form winning teams.
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                Reduce solo-entry drop-offs and boost registration volume. HackerMate connects participants across 50+ engineering colleges to form complete, multi-disciplinary teams before your submission deadline.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0">
+              <a
+                href="mailto:contacthackermate@gmail.com?subject=Partner%20Hackathon%20with%20HackerMate"
+                onClick={() => {
+                  window.location.href = "mailto:contacthackermate@gmail.com?subject=Partner%20Hackathon%20with%20HackerMate";
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs transition-all text-center cursor-pointer shadow-lg shadow-[#B4F461]/20 whitespace-nowrap block"
+              >
+                Partner Your Hackathon →
+              </a>
+              <Link
+                href="/partners/axcentra"
+                className="px-5 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium text-xs transition-all text-center whitespace-nowrap block"
+              >
+                See a Partner Page Example →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Frequently Asked Questions (FAQ) ─── */}
+      <section id="faq" className="w-full border-t border-zinc-900 bg-zinc-950/60 py-12 sm:py-16">
+        <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-8">
+            <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono">
+              GOT QUESTIONS?
+            </span>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-3 mb-1 tracking-tight">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-xs text-zinc-400">Everything you need to know about HackerMate.</p>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                id: 1,
+                q: "Is HackerMate free to use for engineering students?",
+                a: "Yes, 100% free for all engineering students to create profiles, search builders, join teams, and collaborate in 9-tab team workspaces at zero cost.",
+              },
+              {
+                id: 2,
+                q: "How is HackerMate different from asking in WhatsApp or Discord groups?",
+                a: "WhatsApp groups lead to ghosting and skill mismatches. HackerMate matches you based on verified tech stacks (React, Python, AI/ML), college affiliations, and past hackathon experience — plus provides a real-time team operating system for task tracking and submission.",
+              },
+              {
+                id: 3,
+                q: "Do hackathon organizers need to pay to list an event?",
+                a: "No, event listing and builder matching for hackathon organizers is completely free. We also offer custom partner hubs and live applicant portals for official hackathon partnerships.",
+              },
+              {
+                id: 4,
+                q: "Is my personal data and profile information secure?",
+                a: "Absolutely. We only display the public developer details you explicitly choose to share (college, skills, bio, GitHub link). We only send essential updates about your matches, invitations, and profile — no third-party spam.",
+              },
+              {
+                id: 5,
+                q: "What if I don't have a team yet when registering for a hackathon?",
+                a: "That's exactly why HackerMate was built! You can list yourself as a 'Solo Builder Looking for Team' or create an open team workspace and invite matching builders before registration deadlines.",
+              },
+            ].map((faq) => (
+              <div
+                key={faq.id}
+                className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden transition-colors"
+              >
+                <button
+                  type="button"
+                  onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                  className="w-full p-4 text-left flex items-center justify-between gap-4 text-xs font-semibold text-white hover:text-[#B4F461] transition-colors cursor-pointer select-none"
+                >
+                  <span>{faq.q}</span>
+                  <span className="text-zinc-500 text-sm shrink-0 font-mono">
+                    {expandedFaq === faq.id ? "−" : "+"}
+                  </span>
+                </button>
+                {expandedFaq === faq.id && (
+                  <div className="px-4 pb-4 text-xs text-zinc-400 leading-relaxed border-t border-zinc-800/60 pt-3">
+                    {faq.a}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -543,7 +798,7 @@ export default function Home() {
 
       <Footer />
 
-      {/* ─── Auth Modal ─── */}
+      {/* ─── Auth Modal (UNTOUCHED) ─── */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-950 p-6 relative shadow-2xl">
