@@ -471,6 +471,7 @@ export type Database = {
           onboarding_nudge_sent_at: string | null
           role: string | null
           skills: string[] | null
+          updated_at?: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -496,6 +497,7 @@ export type Database = {
           onboarding_nudge_sent_at?: string | null
           role?: string | null
           skills?: string[] | null
+          updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -521,6 +523,7 @@ export type Database = {
           onboarding_nudge_sent_at?: string | null
           role?: string | null
           skills?: string[] | null
+          updated_at?: string | null
         }
         Relationships: []
       }

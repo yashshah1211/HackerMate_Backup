@@ -544,20 +544,20 @@ function DashboardContent() {
 
   return (
     <main>
-      {!profile?.onboarding_completed && (
-        <div className="bg-emerald-950/90 border-b border-emerald-800/60 px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-emerald-200">
-            <span className="text-base">⚡</span>
+      {profileCompleteness.percent < 100 && (
+        <div className="bg-zinc-900/90 border-b border-zinc-800 px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-fade-in">
+          <div className="flex items-center gap-2 text-zinc-300">
+            <span className="text-base text-[#B4F461]">⚡</span>
             <span>
-              <strong>Your profile is incomplete!</strong> Complete your profile to get your <strong>Verified Builder Badge</strong> & unlock teammate matching.
+              <strong>Profile Completeness: {profileCompleteness.percent}%</strong> — Add {profileCompleteness.pendingTasks.slice(0, 2).join(" & ")} to boost matching.
             </span>
           </div>
           <button
             type="button"
             onClick={() => setShowQuickOnboardingModal(true)}
-            className="btn btn-primary text-xs py-1.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-medium shrink-0 cursor-pointer shadow-lg shadow-emerald-950/50"
+            className="btn btn-lime text-xs py-1.5 px-3.5 bg-[#B4F461] hover:bg-[#a3e64f] text-[#09090b] font-bold shrink-0 cursor-pointer shadow-sm rounded-lg"
           >
-            ⚡ Complete Profile
+            Enhance Profile
           </button>
         </div>
       )}

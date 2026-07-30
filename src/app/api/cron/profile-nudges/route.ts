@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const { data: candidates, error: dbError } = await supabase
       .from("profiles")
       .select("id, full_name, email, created_at, profile_nudge_count, last_nudge_sent_at, bio, college, skills")
-      .eq("onboarding_completed", false)
+      .eq("onboarding_completed", true)
       .is("is_banned", false)
       .lt("created_at", twoDaysAgo)
       .or("profile_nudge_count.is.null,profile_nudge_count.lt.3");
