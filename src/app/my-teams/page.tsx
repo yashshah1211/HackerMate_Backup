@@ -14,47 +14,43 @@ type Team = {
 
 function TeamCard({ team, index, isLeader }: { team: Team; index: number; isLeader: boolean }) {
   return (
-    <Link
-      href={`/teams/${team.id}`}
+    <div
       className={`card p-5 group animate-fade-in-up stagger-${
         Math.min(index % 6, 6) + 1
-      }`}
+      } flex flex-col justify-between`}
     >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h2 className="text-sm font-semibold text-white group-hover:text-white truncate">
-          {team.name}
-        </h2>
+      <div>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h2 className="text-sm font-semibold text-white group-hover:text-violet-400 transition-colors truncate">
+            {team.name}
+          </h2>
 
-        <span className={`badge ${isLeader ? "badge-primary" : "badge-success"} text-[10px] py-0.5 px-1.5 flex-shrink-0`}>
-          {isLeader ? "Leader" : "Member"}
-        </span>
-      </div>
-
-      <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2 min-h-[32px]">
-        {team.description || "No description provided."}
-      </p>
-
-      <div className="flex items-center justify-between pt-3 border-t border-zinc-900">
-        <span className="text-[11px] text-zinc-500">Team Workspace</span>
-
-        <div className="flex items-center gap-1 text-[11px] font-medium text-zinc-300 group-hover:text-white transition-colors">
-          <span>Open Workspace</span>
-          <svg
-            className="w-3 h-3 group-hover:translate-x-0.5 transition-transform"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-            />
-          </svg>
+          <span className={`badge ${isLeader ? "badge-primary" : "badge-success"} text-[10px] py-0.5 px-1.5 flex-shrink-0`}>
+            {isLeader ? "Leader" : "Member"}
+          </span>
         </div>
+
+        <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2 min-h-[32px]">
+          {team.description || "No description provided."}
+        </p>
       </div>
-    </Link>
+
+      <div className="flex items-center justify-between pt-3 border-t border-zinc-900 gap-2">
+        <Link
+          href={`/teams/${team.id}`}
+          className="text-[11px] text-zinc-400 hover:text-white transition-colors font-medium underline-offset-2 hover:underline"
+        >
+          View Overview
+        </Link>
+
+        <Link
+          href={`/teams/${team.id}/workspace`}
+          className="flex items-center gap-1 text-[11px] font-bold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-md"
+        >
+          <span>Open Workspace →</span>
+        </Link>
+      </div>
+    </div>
   );
 }
 

@@ -1042,7 +1042,7 @@ function DashboardContent() {
                   <div
                     key={team.id}
                     className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
-                    onClick={() => router.push(`/teams/${team.id}`)}
+                    onClick={() => router.push(`/teams/${team.id}/workspace`)}
                   >
                     <div style={{ flex: 1 }}>
                       <div className="team-name">{team.name}</div>

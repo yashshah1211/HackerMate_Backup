@@ -6,5 +6,5 @@ export default async function TeamDashboard({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/teams/${id}`);
+  redirect(`/teams/${id}/workspace`);
 }

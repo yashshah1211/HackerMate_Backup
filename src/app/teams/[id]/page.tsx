@@ -3,8 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import TeamDetailsView from "@/components/TeamDetailsView";
-import AuthGuard from "@/components/AuthGuard";
+import TeamOverviewView from "@/components/TeamOverviewView";
 import { useNotification } from "@/context/NotificationContext";
 
 type Team = {
@@ -41,7 +40,6 @@ function TeamDetailsContent() {
   const teamId = params.id as string;
   const joinParam = searchParams.get("join") === "true";
   const tokenParam = searchParams.get("token") || "";
-  const tabParam = searchParams.get("tab") as "chat" | "tasks" | "brainstorm" | "resources" | "submission" | null;
 
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -283,7 +281,6 @@ function TeamDetailsContent() {
   }
 
   async function checkExistingRequest() {
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -357,7 +354,7 @@ function TeamDetailsContent() {
     setRequestSent(true);
     setRequestLoading(false);
 
-    // Trigger email alert
+    // Trigger email alert (points to overview page)
     if (team) {
       fetch("/api/send-email", {
         method: "POST",
@@ -431,32 +428,29 @@ function TeamDetailsContent() {
   }
 
   return (
-      <TeamDetailsView
-        team={team}
-        members={members}
-        isMember={isMember}
-        isOwner={isOwner}
-        teamFull={teamFull}
-        requestLoading={requestLoading}
-        requestSent={requestSent}
-        requestToJoin={requestToJoin}
-        removeMember={removeMember}
-        disbandTeam={disbandTeam}
-        leaveTeam={leaveTeam}
-        toggleRecruiting={toggleRecruiting}
-        matchScore={matchScore}
-        matchedSkills={matchedSkills}
-        missingSkills={missingSkills}
-        refreshTeam={loadTeam}
-        pendingInvite={pendingInvite}
-        listedHackathons={listedHackathons}
-        unlinkHackathon={unlinkHackathon}
-        initialTab={tabParam ?? undefined}
-        isPublicVisitor={!currentUser}
-      />
+    <TeamOverviewView
+      team={team}
+      members={members}
+      isMember={isMember}
+      isOwner={isOwner}
+      teamFull={teamFull}
+      requestLoading={requestLoading}
+      requestSent={requestSent}
+      requestToJoin={requestToJoin}
+      removeMember={removeMember}
+      disbandTeam={disbandTeam}
+      leaveTeam={leaveTeam}
+      toggleRecruiting={toggleRecruiting}
+      matchScore={matchScore}
+      matchedSkills={matchedSkills}
+      missingSkills={missingSkills}
+      refreshTeam={loadTeam}
+      pendingInvite={pendingInvite}
+      listedHackathons={listedHackathons}
+      unlinkHackathon={unlinkHackathon}
+      isPublicVisitor={!currentUser}
+    />
   );
-
-
 }
 
 export default function TeamDetailsPage() {
