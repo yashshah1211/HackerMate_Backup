@@ -57,6 +57,15 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState<"match" | "hackathons" | "workspace" | "product">("match");
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [showOrganizerModal, setShowOrganizerModal] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText("contacthackermate@gmail.com");
+    setCopiedEmail(true);
+    showToast("Copied contacthackermate@gmail.com to clipboard!", "success");
+    setTimeout(() => setCopiedEmail(false), 3000);
+  };
 
   const openModal = () => {
     setConsentChecked(false);
@@ -689,15 +698,13 @@ export default function Home() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0">
-              <a
-                href="mailto:contacthackermate@gmail.com?subject=Partner%20Hackathon%20with%20HackerMate"
-                onClick={() => {
-                  window.location.href = "mailto:contacthackermate@gmail.com?subject=Partner%20Hackathon%20with%20HackerMate";
-                }}
+              <button
+                type="button"
+                onClick={() => setShowOrganizerModal(true)}
                 className="px-5 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs transition-all text-center cursor-pointer shadow-lg shadow-[#B4F461]/20 whitespace-nowrap block"
               >
                 Partner Your Hackathon →
-              </a>
+              </button>
               <Link
                 href="/partners/axcentra"
                 className="px-5 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium text-xs transition-all text-center whitespace-nowrap block"
@@ -796,7 +803,67 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer />
+      {/* ─── Organizer Contact Modal ─── */}
+      {showOrganizerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 relative shadow-2xl space-y-5">
+            <button
+              onClick={() => setShowOrganizerModal(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer text-sm font-mono"
+            >
+              ✕
+            </button>
+
+            <div className="text-center space-y-2">
+              <span className="text-[10px] font-bold tracking-widest text-[#B4F461] uppercase bg-[#B4F461]/10 px-3 py-1 rounded-lg border border-[#B4F461]/20 font-mono inline-block">
+                ORGANIZER PARTNERSHIPS
+              </span>
+              <h3 className="text-xl font-bold text-white tracking-tight">Partner Your Hackathon</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                Get your event listed on HackerMate and connect participants across 50+ engineering colleges.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 text-center space-y-2">
+              <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Official Partner Contact Email</p>
+              <div className="flex items-center justify-center">
+                <span className="text-sm font-mono font-bold text-[#B4F461] select-all bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800/80">
+                  contacthackermate@gmail.com
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <a
+                href="https://mail.google.com/mail/?view=cm&fs=1&to=contacthackermate@gmail.com&su=Partner+Hackathon+with+HackerMate"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs transition-all cursor-pointer shadow-lg shadow-[#B4F461]/20"
+              >
+                <span>Open in Gmail Web</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+
+              <button
+                type="button"
+                onClick={handleCopyEmail}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-semibold text-xs transition-all cursor-pointer"
+              >
+                <span>{copiedEmail ? "✓ Email Address Copied!" : "📋 Copy Email Address"}</span>
+              </button>
+
+              <a
+                href="mailto:contacthackermate@gmail.com?subject=Partner%20Hackathon%20with%20HackerMate"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-transparent hover:border-zinc-800 text-zinc-400 hover:text-zinc-200 font-medium text-[11px] transition-all cursor-pointer text-center"
+              >
+                <span>Use Default Desktop Mail App</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Auth Modal (UNTOUCHED) ─── */}
       {showAuthModal && (
