@@ -153,6 +153,7 @@ function AdminContent() {
   const [leadNotesText, setLeadNotesText] = useState("");
   const [leadEmailText, setLeadEmailText] = useState("");
   const [updatingLeadStatus, setUpdatingLeadStatus] = useState(false);
+  const [syncingGmail, setSyncingGmail] = useState(false);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -580,6 +581,33 @@ function AdminContent() {
     setEditingLeadNotes(lead);
     setLeadNotesText(lead.notes || "");
     setLeadEmailText(lead.organizer_email || "");
+  }
+
+  async function handleSyncGmailReplies() {
+    setSyncingGmail(true);
+    try {
+      const res = await fetch("/api/admin/organizer-leads/sync-gmail-replies", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (!data.configured) {
+          showToast(data.message, "warning");
+        } else {
+          showToast(data.message, data.syncedCount > 0 ? "success" : "info");
+          if (data.syncedCount > 0) {
+            await loadLeads();
+          }
+        }
+      } else {
+        showToast(data.error || "Failed to sync Gmail inbox.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to sync Gmail inbox.", "error");
+    } finally {
+      setSyncingGmail(false);
+    }
   }
 
   function handleRestoreLeads() {
@@ -1805,6 +1833,25 @@ function AdminContent() {
                     <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-950 text-amber-200 font-mono text-[10px] font-bold">
                       {selectedLeadIds.size}
                     </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSyncGmailReplies}
+                  disabled={syncingGmail}
+                  className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 border-violet-900/60 hover:border-violet-500/60 text-violet-300 bg-violet-950/30 cursor-pointer"
+                  title="Scan Gmail inbox for organizer replies and auto-update CRM lead status"
+                >
+                  {syncingGmail ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+                      <span>Scanning Inbox...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📬 Sync Gmail Replies</span>
+                    </>
                   )}
                 </button>
 

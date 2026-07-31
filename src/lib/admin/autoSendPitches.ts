@@ -208,3 +208,30 @@ Founder, HackerMate`;
     budgetStats: budgetCheck,
   };
 }
+
+export async function autoRemoveUnopenedPitchedLeads(supabaseAdmin: SupabaseClient) {
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: removedLeads, error } = await supabaseAdmin
+    .from("organizer_leads")
+    .update({
+      status: "removed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("status", "pitch_sent")
+    .is("opened_at", null)
+    .lte("pitch_sent_at", fiveDaysAgo)
+    .select("id, title");
+
+  if (error) {
+    console.error("[Auto Remove 5-Day Unpitched Leads] Error:", error);
+    return { removedCount: 0, error: error.message };
+  }
+
+  const removedCount = removedLeads?.length || 0;
+  if (removedCount > 0) {
+    console.log(`[Auto Remove 5-Day Unpitched Leads] Automatically removed ${removedCount} organizers pitched >= 5 days ago with no response.`);
+  }
+
+  return { removedCount, removedLeads };
+}
