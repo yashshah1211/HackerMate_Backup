@@ -1504,25 +1504,6 @@ function AdminContent() {
                   Incomplete Onboarding
                 </button>
               </div>
-
-              {onboardingFilter === "incomplete" && (
-                <button
-                  onClick={handleBulkNudge}
-                  disabled={bulkNudging || filteredUsers.length === 0}
-                  className="btn btn-primary text-[10px] font-mono uppercase tracking-wider py-2 px-4 shrink-0 flex items-center gap-1.5 w-full md:w-auto justify-center cursor-pointer"
-                >
-                  {bulkNudging ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      <span>Nudging All...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Nudge All ({filteredUsers.filter(u => !u.onboarding_completed).length})</span>
-                    </>
-                  )}
-                </button>
-              )}
             </div>
 
             {/* List */}
@@ -1620,16 +1601,6 @@ function AdminContent() {
                           {/* Actions */}
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {!u.onboarding_completed && (
-                                <button
-                                  onClick={() => handleSingleNudge(u.id, u.full_name || "User")}
-                                  disabled={nudgingUserIds.has(u.id)}
-                                  className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-violet-500/20 hover:border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition disabled:opacity-50 cursor-pointer"
-                                >
-                                  {nudgingUserIds.has(u.id) ? "Nudging..." : "Nudge"}
-                                </button>
-                              )}
-
                               <button
                                 onClick={() => handleToggleRole(u.id, u.role, u.full_name || "User")}
                                 className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
