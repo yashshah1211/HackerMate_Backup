@@ -245,6 +245,7 @@ export default function SIHTeamBuilderPage() {
           showToast(error.message, "error");
         } else {
           setIsUserLookingForTeam(false);
+          setAllBuilders((prev) => prev.filter((b) => b.id !== currentUserId));
           showToast("Removed yourself from SIH team seeker list.", "info");
           loadSIHData();
         }
@@ -265,6 +266,12 @@ export default function SIHTeamBuilderPage() {
           showToast(error.message, "error");
         } else {
           setIsUserLookingForTeam(true);
+          if (currentUserProfile) {
+            setAllBuilders((prev) => {
+              if (prev.some((b) => b.id === currentUserId)) return prev;
+              return [currentUserProfile, ...prev];
+            });
+          }
           showToast("Listed! Builders and teams from your college can now find you for SIH 2026.", "success");
           loadSIHData();
         }
@@ -292,7 +299,6 @@ export default function SIHTeamBuilderPage() {
   });
 
   const filteredBuilders = allBuilders.filter((builder) => {
-    if (builder.id === currentUserId) return false; // Exclude self
     if (!userCollege) return true;
     return isSameCollege(builder.college, userCollege);
   });
@@ -748,6 +754,11 @@ export default function SIHTeamBuilderPage() {
                           <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                             {builder.full_name || "Anonymous Builder"}
                           </h3>
+                          {builder.id === currentUserId && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20 shrink-0">
+                              You
+                            </span>
+                          )}
                           {builder.gender?.toLowerCase() === "female" && (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/20 shrink-0">
                               👩 Female Builder

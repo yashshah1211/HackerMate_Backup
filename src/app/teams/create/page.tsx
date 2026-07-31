@@ -128,7 +128,11 @@ function CreateTeamForm() {
 
     showToast("Team created successfully!", "success");
     setLoading(false);
-    router.push("/teams");
+    if (hackathonId === "00000000-0000-0000-0000-000001703935") {
+      router.push("/hackathons/sih");
+    } else {
+      router.push("/teams");
+    }
   }
 
   const isDisabled =
