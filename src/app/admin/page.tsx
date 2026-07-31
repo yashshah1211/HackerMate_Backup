@@ -61,6 +61,7 @@ type OrganizerLead = {
   open_count?: number;
   notes: string | null;
   created_at: string;
+  updated_at?: string | null;
 };
 
 function getReferralSourceBadge(source?: string | null) {
@@ -146,6 +147,12 @@ function AdminContent() {
   const [bulkPitchSubject, setBulkPitchSubject] = useState("");
   const [bulkPitchBody, setBulkPitchBody] = useState("");
   const [bulkSending, setBulkSending] = useState(false);
+
+  // CRM Notes & Edit Modal states
+  const [editingLeadNotes, setEditingLeadNotes] = useState<any | null>(null);
+  const [leadNotesText, setLeadNotesText] = useState("");
+  const [leadEmailText, setLeadEmailText] = useState("");
+  const [updatingLeadStatus, setUpdatingLeadStatus] = useState(false);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -541,6 +548,38 @@ function AdminContent() {
         }
       },
     });
+  }
+
+  async function handleUpdateLeadStatus(leadId: string, status?: string, notes?: string, organizerEmail?: string) {
+    setUpdatingLeadStatus(true);
+    try {
+      const res = await fetch("/api/admin/organizer-leads/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, status, notes, organizerEmail }),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.lead) {
+        showToast("Lead updated successfully!", "success");
+        setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ...resData.lead } : l)));
+        if (editingLeadNotes && editingLeadNotes.id === leadId) {
+          setEditingLeadNotes(null);
+        }
+      } else {
+        showToast(resData.error || "Failed to update lead.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to update lead.", "error");
+    } finally {
+      setUpdatingLeadStatus(false);
+    }
+  }
+
+  function openEditNotesModal(lead: any) {
+    setEditingLeadNotes(lead);
+    setLeadNotesText(lead.notes || "");
+    setLeadEmailText(lead.organizer_email || "");
   }
 
   function handleRestoreLeads() {
@@ -1825,39 +1864,162 @@ function AdminContent() {
               </div>
             </div>
 
-            {/* Leads List Table */}
+            {/* Pipeline Stage Summary Funnel Bar */}
+            <div className="flex flex-wrap items-center gap-2 p-3 bg-zinc-950/80 border border-zinc-900 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "all" ? "bg-zinc-800 text-white font-semibold shadow" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>📦 All Leads</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-zinc-900 text-zinc-300 text-[10px]">{leads.length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("new")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "new" ? "bg-blue-950 text-blue-300 font-semibold border border-blue-800/80" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>📥 New (Pitch Ready)</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-blue-900/60 text-blue-200 text-[10px]">
+                  {leads.filter((l) => (l.status === "new" || !l.status) && l.organizer_email).length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("no_email")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "no_email" ? "bg-zinc-800 text-zinc-200 font-semibold border border-zinc-700" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>❓ Missing Email</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-zinc-900 text-zinc-400 text-[10px]">
+                  {leads.filter((l) => l.status === "no_email" || (!l.organizer_email && l.status !== "partner_live" && l.status !== "archived")).length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("pitch_sent")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "pitch_sent" ? "bg-amber-950 text-amber-300 font-semibold border border-amber-800/80" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>📤 Pitch Sent</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-900/60 text-amber-200 text-[10px]">
+                  {leads.filter((l) => (l.status === "pitch_sent" || l.pitch_sent_at) && !l.opened_at && l.status !== "replied" && l.status !== "negotiating" && l.status !== "partner_live").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("opened")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "opened" ? "bg-emerald-950 text-emerald-300 font-semibold border border-emerald-800/80" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>👁 Opened</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-900/60 text-emerald-200 text-[10px]">
+                  {leads.filter((l) => l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("replied")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "replied" ? "bg-violet-950 text-violet-300 font-semibold border border-violet-800/80" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>💬 Replied</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-violet-900/60 text-violet-200 text-[10px]">
+                  {leads.filter((l) => l.status === "replied").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("negotiating")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "negotiating" ? "bg-cyan-950 text-cyan-300 font-semibold border border-cyan-800/80" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>🤝 Negotiating</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-cyan-900/60 text-cyan-200 text-[10px]">
+                  {leads.filter((l) => l.status === "negotiating").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("partner_live")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "partner_live" ? "bg-emerald-950 text-emerald-300 font-semibold border border-emerald-600" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>🚀 Partner Live</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-900 text-emerald-200 text-[10px]">
+                  {leads.filter((l) => l.status === "partner_live").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("stale")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "stale" ? "bg-rose-950 text-rose-300 font-semibold border border-rose-800/80" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>⚠️ Stale Leads</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-rose-900/60 text-rose-200 text-[10px]">
+                  {leads.filter((l) => {
+                    const act = l.updated_at || l.opened_at || l.pitch_sent_at || l.created_at;
+                    const days = act ? Math.floor((Date.now() - new Date(act).getTime()) / 86400000) : 0;
+                    return ["pitch_sent", "opened", "replied", "negotiating"].includes(l.status) && days >= 5;
+                  }).length}
+                </span>
+              </button>
+            </div>
+
+            {/* Leads Pipeline Table */}
             <div className="card card-static p-0 overflow-hidden">
               <div className="p-4 border-b border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/40">
                 <div className="text-xs font-semibold text-zinc-300 flex flex-wrap items-center gap-1.5">
-                  <span>Total Leads ({leads.length}) •</span>
-                  <span className="text-emerald-400">
-                    Pitches Sent ({leads.filter((l) => l.pitch_sent_at || l.status === "pitch_sent" || l.status === "opened" || l.status === "replied").length})
-                  </span>
-                  <span>•</span>
-                  <span className="text-emerald-300 font-mono">
-                    Opened ({leads.filter((l) => l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened").length})
-                  </span>
-                  <span className="text-[10px] text-zinc-500 font-mono italic ml-1" title="Open rates are approximate because some mail clients pre-fetch or block tracking pixels.">
-                    *Approximate — some mail clients pre-fetch or block tracking pixels
-                  </span>
+                  <span>Showing {leads.filter((l) => {
+                    const matchesQuery =
+                      l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (l.college_or_host && l.college_or_host.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      (l.organizer_email && l.organizer_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      (l.notes && l.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+
+                    if (!matchesQuery) return false;
+
+                    const act = l.updated_at || l.opened_at || l.pitch_sent_at || l.created_at;
+                    const days = act ? Math.floor((Date.now() - new Date(act).getTime()) / 86400000) : 0;
+                    const isStale = ["pitch_sent", "opened", "replied", "negotiating"].includes(l.status) && days >= 5;
+
+                    if (statusFilter === "stale") return isStale;
+                    if (statusFilter === "no_email") return l.status === "no_email" || !l.organizer_email;
+                    if (statusFilter === "partner_live") return l.status === "partner_live";
+                    if (statusFilter === "negotiating") return l.status === "negotiating";
+                    if (statusFilter === "replied") return l.status === "replied";
+                    if (statusFilter === "opened") return l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened";
+                    if (statusFilter === "pitch_sent") return (l.status === "pitch_sent" || l.pitch_sent_at) && !l.opened_at;
+                    if (statusFilter === "new") return (l.status === "new" || !l.status) && l.organizer_email;
+
+                    return true;
+                  }).length} of {leads.length} Leads</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="input text-xs py-1.5 px-3 bg-zinc-950 text-zinc-200 border border-zinc-800 rounded"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="new">New Leads</option>
-                    <option value="sent">Pitch Sent (Unopened)</option>
-                    <option value="opened">Opened</option>
-                    <option value="replied">Replied</option>
-                  </select>
-
                   <input
                     type="text"
-                    placeholder="Search hackathons or colleges..."
+                    placeholder="Search titles, hosts, emails, notes..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="input text-xs py-1.5 px-3 max-w-xs"
@@ -1883,19 +2045,19 @@ function AdminContent() {
                           className="w-3.5 h-3.5 rounded border-zinc-800 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
                         />
                       </th>
-                      <th className="p-4">Hackathon</th>
-                      <th className="p-4">College / Host</th>
-                      <th className="p-4">Event Date</th>
-                      <th className="p-4">Organizer Email</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4 text-right">Action</th>
+                      <th className="p-4">Hackathon & Host</th>
+                      <th className="p-4">Pipeline Stage</th>
+                      <th className="p-4">Last Activity / Stale Status</th>
+                      <th className="p-4">Opens</th>
+                      <th className="p-4">Organizer Email & Notes</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900/60">
                     {leads.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-12 text-center text-zinc-500 text-xs">
-                          No Unstop hackathon leads found. Click <strong>"Fetch Unstop Hackathons"</strong> to import live events!
+                          No Unstop hackathon leads found. Click <strong>"Fetch Multi-Platform Leads"</strong> to import live events!
                         </td>
                       </tr>
                     ) : (
@@ -1903,127 +2065,181 @@ function AdminContent() {
                         .filter((l) => {
                           const matchesQuery =
                             l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            (l.college_or_host &&
-                              l.college_or_host.toLowerCase().includes(searchQuery.toLowerCase()));
+                            (l.college_or_host && l.college_or_host.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                            (l.organizer_email && l.organizer_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                            (l.notes && l.notes.toLowerCase().includes(searchQuery.toLowerCase()));
 
                           if (!matchesQuery) return false;
 
+                          const act = l.updated_at || l.opened_at || l.pitch_sent_at || l.created_at;
+                          const days = act ? Math.floor((Date.now() - new Date(act).getTime()) / 86400000) : 0;
+                          const isStale = ["pitch_sent", "opened", "replied", "negotiating"].includes(l.status) && days >= 5;
+
+                          if (statusFilter === "stale") return isStale;
+                          if (statusFilter === "no_email") return l.status === "no_email" || !l.organizer_email;
+                          if (statusFilter === "partner_live") return l.status === "partner_live";
+                          if (statusFilter === "negotiating") return l.status === "negotiating";
                           if (statusFilter === "replied") return l.status === "replied";
                           if (statusFilter === "opened") return l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened";
-                          if (statusFilter === "sent") return (l.status === "pitch_sent" || l.pitch_sent_at) && !l.opened_at && l.status !== "replied";
-                          if (statusFilter === "new") return !l.pitch_sent_at && l.status !== "pitch_sent" && l.status !== "opened" && l.status !== "replied";
+                          if (statusFilter === "pitch_sent") return (l.status === "pitch_sent" || l.pitch_sent_at) && !l.opened_at;
+                          if (statusFilter === "new") return (l.status === "new" || !l.status) && l.organizer_email;
 
                           return true;
                         })
-                        .map((lead) => (
-                          <tr key={lead.id} className={`hover:bg-zinc-900/30 transition-colors ${selectedLeadIds.has(lead.id) ? "bg-amber-950/10" : ""}`}>
-                            <td className="p-4 text-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedLeadIds.has(lead.id)}
-                                onChange={() => {
-                                  setSelectedLeadIds((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(lead.id)) next.delete(lead.id);
-                                    else next.add(lead.id);
-                                    return next;
-                                  });
-                                }}
-                                className="w-3.5 h-3.5 rounded border-zinc-800 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
-                              />
-                            </td>
-                            {/* Title & Link */}
-                            <td className="p-4 max-w-xs">
-                              <a
-                                href={lead.unstop_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="font-semibold text-white hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
-                              >
-                                <span className="line-clamp-1">{lead.title}</span>
-                                <span className="text-[10px] text-zinc-500 group-hover:text-emerald-400">↗</span>
-                              </a>
-                            </td>
+                        .map((lead) => {
+                          const lastActivity = lead.updated_at || lead.opened_at || lead.pitch_sent_at || lead.created_at;
+                          const daysSinceContact = lastActivity
+                            ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24))
+                            : 0;
+                          const isStale = ["pitch_sent", "opened", "replied", "negotiating"].includes(lead.status) && daysSinceContact >= 5;
 
-                            {/* Host */}
-                            <td className="p-4 text-zinc-300">
-                              <div className="line-clamp-1">{lead.college_or_host || "N/A"}</div>
-                            </td>
+                          return (
+                            <tr
+                              key={lead.id}
+                              className={`hover:bg-zinc-900/30 transition-colors ${
+                                isStale ? "bg-rose-950/15 border-l-2 border-l-rose-500" : selectedLeadIds.has(lead.id) ? "bg-amber-950/10" : ""
+                              }`}
+                            >
+                              <td className="p-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLeadIds.has(lead.id)}
+                                  onChange={() => {
+                                    setSelectedLeadIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(lead.id)) next.delete(lead.id);
+                                      else next.add(lead.id);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-3.5 h-3.5 rounded border-zinc-800 text-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                                />
+                              </td>
 
-                            {/* Event Date */}
-                            <td className="p-4 font-mono text-[10px] text-zinc-400">
-                              {lead.event_date || "Upcoming"}
-                            </td>
+                              {/* Title & Host */}
+                              <td className="p-4 max-w-xs">
+                                <a
+                                  href={lead.unstop_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-semibold text-white hover:text-emerald-400 transition-colors flex items-center gap-1.5 group"
+                                >
+                                  <span className="line-clamp-1">{lead.title}</span>
+                                  <span className="text-[10px] text-zinc-500 group-hover:text-emerald-400">↗</span>
+                                </a>
+                                <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
+                                  🏫 {lead.college_or_host || "Independent Host"} • {lead.event_date || "Upcoming"}
+                                </p>
+                              </td>
 
-                            {/* Contact Email */}
-                            <td className="p-4 font-mono text-[11px]">
-                              {lead.organizer_email ? (
-                                <div>
-                                  <span className="text-zinc-200">{lead.organizer_email}</span>
-                                  {lead.last_sent_to && lead.last_sent_to.toLowerCase() !== lead.organizer_email.toLowerCase() && (
-                                    <div className="text-[10px] text-emerald-400/90 font-mono mt-0.5" title="Sent to custom recipient email">
-                                      ✉ Sent to: {lead.last_sent_to}
-                                    </div>
-                                  )}
+                              {/* Pipeline Stage Select */}
+                              <td className="p-4">
+                                <select
+                                  value={lead.status || (lead.organizer_email ? "new" : "no_email")}
+                                  onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)}
+                                  className={`text-xs py-1 px-2.5 rounded font-mono font-medium border cursor-pointer ${
+                                    lead.status === "partner_live"
+                                      ? "bg-emerald-950 text-emerald-300 border-emerald-600"
+                                      : lead.status === "negotiating"
+                                      ? "bg-cyan-950 text-cyan-300 border-cyan-800"
+                                      : lead.status === "replied"
+                                      ? "bg-violet-950 text-violet-300 border-violet-800"
+                                      : lead.status === "opened"
+                                      ? "bg-emerald-950/70 text-emerald-400 border-emerald-800"
+                                      : lead.status === "pitch_sent"
+                                      ? "bg-amber-950/70 text-amber-300 border-amber-800"
+                                      : lead.status === "no_email"
+                                      ? "bg-zinc-900 text-zinc-400 border-zinc-800"
+                                      : "bg-blue-950/70 text-blue-300 border-blue-800"
+                                  }`}
+                                >
+                                  <option value="new">📥 New Lead</option>
+                                  <option value="no_email">❓ Missing Email</option>
+                                  <option value="pitch_sent">📤 Pitch Sent</option>
+                                  <option value="opened">👁 Opened</option>
+                                  <option value="replied">💬 Replied</option>
+                                  <option value="negotiating">🤝 Negotiating</option>
+                                  <option value="partner_live">🚀 Partner Live</option>
+                                  <option value="declined">❌ Declined / Archived</option>
+                                </select>
+                              </td>
+
+                              {/* Last Activity & Stale Warning */}
+                              <td className="p-4 font-mono text-[11px]">
+                                {isStale ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-950/90 text-rose-300 border border-rose-700/80 font-bold animate-pulse">
+                                    ⚠️ STALE ({daysSinceContact}d)
+                                  </span>
+                                ) : (
+                                  <span className="text-zinc-400">
+                                    {daysSinceContact === 0 ? "Today" : `${daysSinceContact}d ago`}
+                                  </span>
+                                )}
+                                <div className="text-[10px] text-zinc-500 mt-0.5">
+                                  {lastActivity ? new Date(lastActivity).toLocaleDateString() : "No activity"}
                                 </div>
-                              ) : (
-                                <span className="text-zinc-600 italic">Not listed on public API</span>
-                              )}
-                            </td>
+                              </td>
 
-                            {/* Status Tag */}
-                            <td className="p-4">
-                              {lead.status === "replied" ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-violet-950/90 text-violet-300 border border-violet-700/60 shadow-[0_0_8px_rgba(139,92,246,0.2)]">
-                                  💬 Replied
-                                </span>
-                              ) : lead.opened_at || (lead.open_count && lead.open_count > 0) || lead.status === "opened" ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-600/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-                                  👁 Opened {lead.open_count && lead.open_count > 1 ? `(${lead.open_count}x)` : ""}
-                                </span>
-                              ) : lead.status === "pitch_sent" || lead.pitch_sent_at ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">
-                                  ✓ Pitch Sent (Unopened)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-blue-950/80 text-blue-400 border border-blue-800/60">
-                                  New Lead
-                                </span>
-                              )}
-                            </td>
+                              {/* Opens Count */}
+                              <td className="p-4 font-mono text-[11px]">
+                                {lead.open_count && lead.open_count > 0 ? (
+                                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                                    <span>👁 {lead.open_count}x</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-zinc-600">0</span>
+                                )}
+                              </td>
 
-                            {/* Action Buttons */}
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {(lead.pitch_sent_at || lead.status === "pitch_sent" || lead.status === "opened") && lead.status !== "replied" && (
+                              {/* Email & Notes */}
+                              <td className="p-4 font-mono text-[11px] max-w-xs">
+                                {lead.organizer_email ? (
+                                  <div className="truncate text-zinc-200" title={lead.organizer_email}>
+                                    {lead.organizer_email}
+                                  </div>
+                                ) : (
+                                  <div className="text-zinc-500 italic">No email listed</div>
+                                )}
+                                {lead.notes && (
+                                  <p className="text-[10px] text-amber-300/90 font-sans italic mt-1 line-clamp-1" title={lead.notes}>
+                                    📝 {lead.notes}
+                                  </p>
+                                )}
+                              </td>
+
+                              {/* Action Buttons */}
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     type="button"
-                                    onClick={() => handleMarkReplied(lead.id, lead.title)}
-                                    title="Mark organizer response as replied"
-                                    className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-2.5 rounded border border-violet-900/60 hover:border-violet-500 bg-violet-950/30 hover:bg-violet-900/50 text-violet-300 transition cursor-pointer"
+                                    onClick={() => openEditNotesModal(lead)}
+                                    title="Edit Lead Notes & Email"
+                                    className="text-[10px] font-mono uppercase tracking-wider py-1 px-2 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 text-zinc-300 hover:text-white transition cursor-pointer"
                                   >
-                                    💬 Replied
+                                    📝 Notes
                                   </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => openPitchModal(lead)}
-                                  className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded border border-emerald-900/60 hover:border-emerald-500 bg-emerald-950/30 hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer"
-                                >
-                                  {lead.status === "pitch_sent" || lead.status === "replied" ? "Re-pitch" : "Preview & Send Pitch"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveLead(lead.id, lead.title)}
-                                  title="Remove lead from list so it is never re-fetched on future scrapes"
-                                  className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-2.5 rounded border border-rose-900/40 hover:border-rose-500/60 bg-rose-950/20 hover:bg-rose-950/50 text-rose-400 hover:text-rose-200 transition cursor-pointer flex items-center gap-1"
-                                >
-                                  <span>Remove</span>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+
+                                  <button
+                                    type="button"
+                                    onClick={() => openPitchModal(lead)}
+                                    className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-emerald-900/60 hover:border-emerald-500 bg-emerald-950/30 hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer"
+                                  >
+                                    {lead.status === "pitch_sent" || lead.status === "replied" ? "Re-pitch" : "Pitch"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveLead(lead.id, lead.title)}
+                                    title="Remove lead"
+                                    className="text-[10px] font-mono uppercase tracking-wider py-1 px-2 rounded border border-rose-900/40 hover:border-rose-500/60 bg-rose-950/20 hover:bg-rose-950/50 text-rose-400 hover:text-rose-200 transition cursor-pointer"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                     )}
                   </tbody>
                 </table>
@@ -2646,6 +2862,76 @@ function AdminContent() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lead Notes & Email Edit Modal */}
+      {editingLeadNotes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="card card-static w-full max-w-lg p-6 space-y-5 border-zinc-800 bg-zinc-950 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>📝 Edit Lead CRM Details</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">{editingLeadNotes.title}</p>
+              </div>
+              <button
+                onClick={() => setEditingLeadNotes(null)}
+                className="text-zinc-500 hover:text-white transition p-1 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Organizer Contact Email</label>
+                <input
+                  type="email"
+                  value={leadEmailText}
+                  onChange={(e) => setLeadEmailText(e.target.value)}
+                  placeholder="e.g. organizer@hackathon.com"
+                  className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                />
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Adding an email to a "Missing Email" lead automatically moves it to "New Lead (Pitch Ready)".
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">CRM Conversation Notes</label>
+                <textarea
+                  value={leadNotesText}
+                  onChange={(e) => setLeadNotesText(e.target.value)}
+                  placeholder="Record negotiation details, Telegram handles, custom requirements, or follow-up notes..."
+                  rows={4}
+                  className="input w-full bg-zinc-900 border-zinc-800 text-white resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
+              <button
+                type="button"
+                onClick={() => setEditingLeadNotes(null)}
+                className="btn btn-secondary text-xs py-1.5 px-4"
+                disabled={updatingLeadStatus}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleUpdateLeadStatus(editingLeadNotes.id, undefined, leadNotesText, leadEmailText)
+                }
+                disabled={updatingLeadStatus}
+                className="btn btn-primary text-xs py-1.5 px-5 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border-none cursor-pointer"
+              >
+                {updatingLeadStatus ? "Saving..." : "Save CRM Details"}
+              </button>
             </div>
           </div>
         </div>

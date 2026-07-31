@@ -410,7 +410,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               unstop_url: opp.url,
               organizer_email,
               event_date,
-              status: "new",
+              status: organizer_email ? "new" : "no_email",
             },
             hackathonRecord: {
               name: opp.title,
