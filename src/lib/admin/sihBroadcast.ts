@@ -239,7 +239,7 @@ export async function sendSIHBroadcastBatch(requestedBatchSize: number = 50): Pr
       id: profile.id,
       email: rawEmail,
       status: "sent",
-      resendId: resendMessageId,
+      resendId: resendMessageId || undefined,
     });
 
     // 200ms rate limit delay between dispatches
