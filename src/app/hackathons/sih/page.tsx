@@ -12,6 +12,7 @@ import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
 import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
+import SIHQuickOnboardingModal from "@/components/SIHQuickOnboardingModal";
 
 const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
 
@@ -27,6 +28,7 @@ type Profile = {
   skills: string[] | null;
   gender?: string | null;
   is_available?: boolean;
+  onboarding_completed?: boolean;
 };
 
 type TeamMember = {
@@ -110,6 +112,8 @@ export default function SIHTeamBuilderPage() {
     team: SIHTeamExport;
     members: SIHTeamMemberExport[];
   } | null>(null);
+
+  const [quickOnboardingModalOpen, setQuickOnboardingModalOpen] = useState(false);
 
   async function loadSIHData() {
     try {
@@ -313,7 +317,12 @@ export default function SIHTeamBuilderPage() {
 
   function handleToggleLookingForTeam() {
     if (!currentUserId) {
-      router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
+      router.push(`/?next=${encodeURIComponent("/hackathons/sih?action=list_myself")}&auth=true`);
+      return;
+    }
+    // If user profile is missing college or skills or onboarding not completed, open Quick Onboarding Modal directly on SIH page!
+    if (!currentUserProfile?.college || !currentUserProfile?.skills || currentUserProfile?.skills?.length === 0 || !currentUserProfile?.onboarding_completed) {
+      setQuickOnboardingModalOpen(true);
       return;
     }
     // Only nudge when user is opting in to be listed
@@ -326,10 +335,22 @@ export default function SIHTeamBuilderPage() {
 
   function handleProtectedAction(targetUrl: string) {
     if (!currentUserId) {
-      router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
+      router.push(`/?next=${encodeURIComponent(targetUrl)}&auth=true`);
+    } else if (!currentUserProfile?.college || !currentUserProfile?.skills || currentUserProfile?.skills?.length === 0 || !currentUserProfile?.onboarding_completed) {
+      setQuickOnboardingModalOpen(true);
     } else {
       triggerWithNudge(() => router.push(targetUrl), "Creating SIH Team");
     }
+  }
+
+  function handleQuickOnboardingSuccess(updatedProfile: any) {
+    setCurrentUserProfile(updatedProfile as Profile);
+    if (updatedProfile.college) {
+      setUserCollege(updatedProfile.college);
+      setCollegeInput(updatedProfile.college);
+    }
+    showToast("🎉 Profile set up! You are now listed for SIH 2026.", "success");
+    executeToggleLookingForTeam();
   }
 
   // Filter teams and builders by college
@@ -885,6 +906,37 @@ export default function SIHTeamBuilderPage() {
           setCurrentUserProfile(updated);
         }}
       />
+
+      {currentUserId && (
+        <SIHQuickOnboardingModal
+          isOpen={quickOnboardingModalOpen}
+          onClose={() => setQuickOnboardingModalOpen(false)}
+          userId={currentUserId}
+          initialCollege={userCollege}
+          onSuccess={handleQuickOnboardingSuccess}
+        />
+      )}
+
+      {/* Guest Sticky Bottom Action Bar for Unauthenticated Visitors */}
+      {!currentUserId && (
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-40 p-4 rounded-xl border border-emerald-500/40 bg-zinc-950/95 backdrop-blur-md shadow-2xl shadow-emerald-950/80 flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-lg shrink-0">
+              🏆
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white leading-snug">Building for SIH 2026?</p>
+              <p className="text-[11px] text-zinc-400">Connect with builders from your college.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push(`/?next=${encodeURIComponent("/hackathons/sih?action=list_myself")}&auth=true`)}
+            className="btn btn-primary text-xs py-2 px-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0 cursor-pointer border-none shadow-md"
+          >
+            Join Now
+          </button>
+        </div>
+      )}
 
       <Footer />
     </div>
