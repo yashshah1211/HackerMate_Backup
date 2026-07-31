@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { runMultiPlatformScraper } from "@/app/api/admin/scrape-unstop/route";
 import { autoSendPitchEmailsForLeads, autoRemoveUnopenedPitchedLeads } from "@/lib/admin/autoSendPitches";
+import { executeGmailInboxSync } from "@/app/api/admin/organizer-leads/sync-gmail-replies/route";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,18 +27,22 @@ export async function GET(req: NextRequest) {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // 3. Auto-remove any organizers pitched >= 5 days ago with status = pitch_sent (no open / response)
+    // 3. Scan Gmail Inbox for new organizer replies & auto-update CRM status
+    const gmailSyncResult = await executeGmailInboxSync(supabaseAdmin);
+
+    // 4. Auto-remove any organizers pitched >= 5 days ago with status = pitch_sent (no open / response)
     const autoRemoveResult = await autoRemoveUnopenedPitchedLeads(supabaseAdmin);
 
-    // 4. Execute Multi-Platform Scraper Pipeline
+    // 5. Execute Multi-Platform Scraper Pipeline
     const scrapeResult = await runMultiPlatformScraper(supabaseAdmin);
 
-    // 5. Ensure any remaining un-pitched leads are automatically sent pitch emails
+    // 6. Ensure any remaining un-pitched leads are automatically sent pitch emails
     const pitchResult = await autoSendPitchEmailsForLeads(supabaseAdmin);
 
     return NextResponse.json({
       cronExecuted: true,
       timestamp: new Date().toISOString(),
+      gmailSyncResult,
       autoRemoveResult,
       scrapeResult,
       autoPitchResult: {
