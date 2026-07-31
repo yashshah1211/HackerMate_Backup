@@ -1257,18 +1257,28 @@ function AdminContent() {
                 <span>📤 Outreach Pitches:</span>
                 <strong className="text-blue-400">{emailUsage.categories.outreach}</strong>
               </div>
-              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
-                <span>👤 Profile Nudges:</span>
-                <strong className="text-emerald-400">{emailUsage.categories.profile_nudges}</strong>
-              </div>
-              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
-                <span>👋 Onboarding Nudges:</span>
-                <strong className="text-purple-400">{emailUsage.categories.onboarding_nudges}</strong>
-              </div>
-              {emailUsage.categories.other > 0 && (
+              {emailUsage.categories.test_dispatches > 0 && (
                 <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
-                  <span>⚙️ Other Emails:</span>
-                  <strong className="text-zinc-400">{emailUsage.categories.other}</strong>
+                  <span>🧪 Sandbox / Pre-broadcast Testing:</span>
+                  <strong className="text-amber-400">{emailUsage.categories.test_dispatches}</strong>
+                </div>
+              )}
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>🔔 Notifications & Invites:</span>
+                <strong className="text-emerald-400">{emailUsage.categories.notifications}</strong>
+              </div>
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>📢 Organizer Broadcasts:</span>
+                <strong className="text-purple-400">{emailUsage.categories.organizer_broadcasts}</strong>
+              </div>
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>📊 Admin Daily Digests:</span>
+                <strong className="text-cyan-400">{emailUsage.categories.admin_reports}</strong>
+              </div>
+              {emailUsage.categories.contact_submissions > 0 && (
+                <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                  <span>📩 Contact Forms:</span>
+                  <strong className="text-pink-400">{emailUsage.categories.contact_submissions}</strong>
                 </div>
               )}
             </div>

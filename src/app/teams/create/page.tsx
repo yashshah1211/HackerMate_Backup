@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
+import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
+import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -94,13 +96,20 @@ function CreateTeamForm() {
     );
   }
 
-  async function handleCreateTeam() {
-    if (!name.trim()) { showToast("Team name is required", "warning"); return; }
-    if (!description.trim()) { showToast("Team description is required", "warning"); return; }
-    if (college === "Other" && !customCollege.trim()) { showToast("Please enter your college name", "warning"); return; }
-    if (selectedSkills.length === 0) { showToast("Please select at least one skill", "warning"); return; }
-    if (selectedRoles.length === 0) { showToast("Please select at least one role", "warning"); return; }
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
+  const [nudgeModalOpen, setNudgeModalOpen] = useState(false);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from("profiles").select("*").eq("id", user.id).single().then(({ data }) => {
+          if (data) setCurrentUserProfile(data);
+        });
+      }
+    });
+  }, []);
+
+  async function executeCreateTeam() {
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -133,6 +142,24 @@ function CreateTeamForm() {
     } else {
       router.push("/teams");
     }
+  }
+
+  function handleCreateTeam() {
+    if (!name.trim()) { showToast("Team name is required", "warning"); return; }
+    if (!description.trim()) { showToast("Team description is required", "warning"); return; }
+    if (college === "Other" && !customCollege.trim()) { showToast("Please enter your college name", "warning"); return; }
+    if (selectedSkills.length === 0) { showToast("Please select at least one skill", "warning"); return; }
+    if (selectedRoles.length === 0) { showToast("Please select at least one role", "warning"); return; }
+
+    if (currentUserProfile) {
+      const completeness = calculateProfileCompleteness(currentUserProfile);
+      if (completeness.score < 100) {
+        setNudgeModalOpen(true);
+        return;
+      }
+    }
+
+    executeCreateTeam();
   }
 
   const isDisabled =
@@ -359,6 +386,20 @@ function CreateTeamForm() {
         </div>
 
       </div>
+
+      <ContextualProfileNudgeModal
+        isOpen={nudgeModalOpen}
+        onClose={() => setNudgeModalOpen(false)}
+        onProceed={() => {
+          setNudgeModalOpen(false);
+          executeCreateTeam();
+        }}
+        userProfile={currentUserProfile}
+        actionTitle="Creating Team"
+        onProfileUpdated={(updated) => {
+          setCurrentUserProfile(updated);
+        }}
+      />
     </main>
   );
 }

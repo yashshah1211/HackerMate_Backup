@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import { formatPrizeDisplay } from "@/app/hackathons/page";
+import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 
 type Hackathon = {
   id: string;
@@ -1815,9 +1816,12 @@ function HackathonDetailContent() {
                             </div>
                           )}
                           <div className="min-w-0">
-                            <h3 className="font-semibold text-xs text-white truncate group-hover:text-violet-300 transition-colors">
-                              {builder.full_name}
-                            </h3>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-semibold text-xs text-white truncate group-hover:text-violet-300 transition-colors">
+                                {builder.full_name}
+                              </h3>
+                              <VerifiedBuilderBadge profile={builder} />
+                            </div>
                             <p className="text-zinc-500 text-[10px] truncate">
                               {builder.college || "Independent Builder"}
                             </p>

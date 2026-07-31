@@ -122,11 +122,13 @@ export type EmailUsageSummary = {
   limit: number;
   usage_percent: number;
   categories: {
-    outreach: number;
-    profile_nudges: number;
-    onboarding_nudges: number;
     sih_broadcast: number;
-    other: number;
+    outreach: number;
+    test_dispatches: number;
+    notifications: number;
+    organizer_broadcasts: number;
+    admin_reports: number;
+    contact_submissions: number;
   };
   remaining_global: number;
 };
@@ -137,40 +139,34 @@ export async function getTodayEmailUsageSummary(
   const todayStr = new Date().toISOString().split("T")[0]; // UTC Midnight Boundary (matches Resend 00:00 UTC reset)
   const todayStart = `${todayStr}T00:00:00Z`;
 
-  const stats = await getOrCreateTodayStats(supabaseAdmin);
+  const stats = (await getOrCreateTodayStats(supabaseAdmin)) as any;
 
-  // Query actual timestamps for precise category breakdown
+  // 1. SIH Broadcast (Query actual timestamps on profiles for live precision)
   const { count: sihCount } = await supabaseAdmin
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .gte("sih_broadcast_sent_at", todayStart);
 
-  const { count: profileNudgeCount } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .gte("last_nudge_sent_at", todayStart);
-
-  const { count: onboardingNudgeCount } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .gte("onboarding_nudge_sent_at", todayStart);
-
-  const { count: outreachPitchCount } = await supabaseAdmin
+  // 2. Outreach Pitches (Query actual timestamps on organizer_leads for live precision)
+  const { count: outreachCount } = await supabaseAdmin
     .from("organizer_leads")
     .select("id", { count: "exact", head: true })
     .gte("pitch_sent_at", todayStart);
 
   const sih = sihCount || 0;
-  const pNudge = profileNudgeCount || 0;
-  const oNudge = onboardingNudgeCount || 0;
-  const outreach = outreachPitchCount || 0;
+  const outreach = Math.max(outreachCount || 0, stats.outreach_sent || 0);
+  const testDispatches = stats.test_dispatches_sent || 0;
+  const notifications = stats.notifications_sent || 0;
+  const organizerBroadcasts = stats.organizer_broadcasts_sent || 0;
+  const adminReports = stats.admin_reports_sent || 0;
+  const contactSubmissions = stats.contact_submissions_sent || 0;
 
-  // Use stats.total_sent as the single source of truth enforced by budget guard
-  const totalSent = Math.max(stats.total_sent || 0, sih + pNudge + oNudge + outreach);
+  // Sum of all tracked category counts
+  const sumCategories = sih + outreach + testDispatches + notifications + organizerBroadcasts + adminReports + contactSubmissions;
+  const totalSent = Math.max(stats.total_sent || 0, sumCategories);
+
   const usagePercent = Math.min(100, Math.round((totalSent / RESEND_GLOBAL_DAILY_LIMIT) * 100));
   const remainingGlobal = Math.max(0, RESEND_GLOBAL_DAILY_LIMIT - totalSent);
-
-  const otherCount = Math.max(0, totalSent - (sih + pNudge + oNudge + outreach));
 
   return {
     date: todayStr,
@@ -178,11 +174,13 @@ export async function getTodayEmailUsageSummary(
     limit: RESEND_GLOBAL_DAILY_LIMIT,
     usage_percent: usagePercent,
     categories: {
-      outreach,
-      profile_nudges: pNudge,
-      onboarding_nudges: oNudge,
       sih_broadcast: sih,
-      other: otherCount,
+      outreach,
+      test_dispatches: testDispatches,
+      notifications,
+      organizer_broadcasts: organizerBroadcasts,
+      admin_reports: adminReports,
+      contact_submissions: contactSubmissions,
     },
     remaining_global: remainingGlobal,
   };

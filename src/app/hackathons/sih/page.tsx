@@ -9,6 +9,9 @@ import Footer from "@/components/Footer";
 import { COLLEGES } from "@/lib/colleges";
 import SIHExportModal from "@/components/SIHExportModal";
 import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
+import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
+import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
+import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 
 const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
 
@@ -231,7 +234,26 @@ export default function SIHTeamBuilderPage() {
     }
   }
 
-  async function handleToggleLookingForTeam() {
+  const [nudgeModalOpen, setNudgeModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [pendingActionTitle, setPendingActionTitle] = useState("");
+
+  const triggerWithNudge = (action: () => void, actionTitle: string) => {
+    if (!currentUserProfile) {
+      action();
+      return;
+    }
+    const completeness = calculateProfileCompleteness(currentUserProfile);
+    if (completeness.score < 100) {
+      setPendingAction(() => action);
+      setPendingActionTitle(actionTitle);
+      setNudgeModalOpen(true);
+    } else {
+      action();
+    }
+  };
+
+  async function executeToggleLookingForTeam() {
     if (!currentUserId) {
       router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
       return;
@@ -289,11 +311,24 @@ export default function SIHTeamBuilderPage() {
     }
   }
 
+  function handleToggleLookingForTeam() {
+    if (!currentUserId) {
+      router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
+      return;
+    }
+    // Only nudge when user is opting in to be listed
+    if (!isUserLookingForTeam) {
+      triggerWithNudge(executeToggleLookingForTeam, "Listing Yourself for SIH");
+    } else {
+      executeToggleLookingForTeam();
+    }
+  }
+
   function handleProtectedAction(targetUrl: string) {
     if (!currentUserId) {
       router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
     } else {
-      router.push(targetUrl);
+      triggerWithNudge(() => router.push(targetUrl), "Creating SIH Team");
     }
   }
 
@@ -759,6 +794,7 @@ export default function SIHTeamBuilderPage() {
                           <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                             {builder.full_name || "Anonymous Builder"}
                           </h3>
+                          <VerifiedBuilderBadge profile={builder} />
                           {builder.id === currentUserId && (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20 shrink-0">
                               You
@@ -831,6 +867,24 @@ export default function SIHTeamBuilderPage() {
           members={selectedExportTeam.members}
         />
       )}
+
+      <ContextualProfileNudgeModal
+        isOpen={nudgeModalOpen}
+        onClose={() => setNudgeModalOpen(false)}
+        onProceed={() => {
+          setNudgeModalOpen(false);
+          if (pendingAction) {
+            const act = pendingAction;
+            setPendingAction(null);
+            act();
+          }
+        }}
+        userProfile={currentUserProfile}
+        actionTitle={pendingActionTitle}
+        onProfileUpdated={(updated) => {
+          setCurrentUserProfile(updated);
+        }}
+      />
 
       <Footer />
     </div>

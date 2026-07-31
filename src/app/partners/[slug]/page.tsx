@@ -8,6 +8,7 @@ import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
 import { formatPrizeDisplay } from "@/app/hackathons/page";
+import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 
 type PartnerConfig = {
   id: string;
@@ -586,7 +587,10 @@ function PartnerPageContent() {
                       )}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white leading-tight">{builder.full_name}</h4>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-xs font-bold text-white leading-tight">{builder.full_name}</h4>
+                        <VerifiedBuilderBadge profile={builder} />
+                      </div>
                       <p className="text-[10px] text-zinc-500 truncate max-w-[150px]">{builder.college || "Developer"}</p>
                     </div>
                   </div>

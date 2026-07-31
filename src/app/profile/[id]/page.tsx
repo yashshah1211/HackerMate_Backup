@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
+import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
@@ -643,8 +644,9 @@ export default function ProfilePage() {
 
               {/* Title & Info */}
               <div className="text-center lg:text-left mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-white mb-1.5">
-                  {profile.full_name}
+                <h1 className="text-2xl font-bold tracking-tight text-white mb-1.5 flex items-center justify-center lg:justify-start gap-2">
+                  <span>{profile.full_name}</span>
+                  <VerifiedBuilderBadge profile={profile} />
                 </h1>
                 <p className="text-xs text-zinc-400 font-medium">
                   {profile.college || "Independent Builder"}

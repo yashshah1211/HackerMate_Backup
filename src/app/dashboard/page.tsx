@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import Logo from "@/components/Logo";
 
 import QuickOnboardingModal from "@/components/QuickOnboardingModal";
+import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 
 type Profile = {
   id: string;
@@ -182,35 +183,10 @@ function DashboardContent() {
         }
         setProfile(profileData);
 
-        // Calculate profile completeness
-        let completenessScore = 0;
-        const pending: string[] = [];
-        if (profileData.full_name) {
-          completenessScore += 20;
-        } else {
-          pending.push("Add your full name");
-        }
-        if (profileData.college) {
-          completenessScore += 20;
-        } else {
-          pending.push("Select your college / university");
-        }
-        if (profileData.bio) {
-          completenessScore += 20;
-        } else {
-          pending.push("Write a bio about yourself");
-        }
-        if (profileData.github_url) {
-          completenessScore += 20;
-        } else {
-          pending.push("Connect your GitHub account");
-        }
-        if (profileData.skills && (profileData.skills as string[]).length > 0) {
-          completenessScore += 20;
-        } else {
-          pending.push("Select your profile skills");
-        }
-        setProfileCompleteness({ percent: completenessScore, pendingTasks: pending });
+        // Calculate profile completeness using shared helper
+        const comp = calculateProfileCompleteness(profileData);
+        const pending: string[] = comp.missingFields.map((f) => `Add / set ${f.label}`);
+        setProfileCompleteness({ percent: comp.score, pendingTasks: pending });
 
         // Fetch user blocklists
         const blockedUserIds: string[] = [];
