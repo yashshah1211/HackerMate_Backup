@@ -156,7 +156,7 @@ export default function SIHTeamBuilderPage() {
       // 3. Fetch Teams registered for SIH
       const { data: teamHackathonsData } = await supabase
         .from("team_hackathons")
-        .select("team_id, teams(*, team_members(*, profiles(id, full_name, email, avatar_url, skills, gender)))")
+        .select("team_id, teams(*, team_members(*, profiles(*)))")
         .eq("hackathon_id", SIH_HACKATHON_ID);
 
       const parsedTeams: Team[] = (teamHackathonsData || [])
@@ -166,16 +166,21 @@ export default function SIHTeamBuilderPage() {
       setAllTeams(parsedTeams);
 
       // 4. Fetch Builders registered for SIH looking for team
-      const { data: regData } = await supabase
+      const { data: regData, error: regErr } = await supabase
         .from("hackathon_registrations")
-        .select("user_id, looking_for_team, profiles(id, email, full_name, college, avatar_url, skills, gender, bio, github_url, linkedin_url, is_available)")
+        .select("user_id, looking_for_team, profiles(*)")
         .eq("hackathon_id", SIH_HACKATHON_ID)
         .eq("looking_for_team", true);
 
-      const parsedBuilders: Profile[] = (regData || [])
+      if (regErr) {
+        console.error("Error fetching regData:", regErr);
+      }
+
+      const parsedBuilders: Profile[] = (Array.isArray(regData) ? regData : [])
         .map((r: any) => r.profiles)
         .filter(Boolean);
 
+      console.log("[SIH Data Loaded] parsedBuilders:", parsedBuilders);
       setAllBuilders(parsedBuilders);
     } catch (err) {
       console.error("Error loading SIH data:", err);
