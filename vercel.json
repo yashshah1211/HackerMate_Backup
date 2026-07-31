@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/daily-email-report",
       "schedule": "30 2 * * *"
-    },
-    {
-      "path": "/api/cron/profile-nudges",
-      "schedule": "0 9 * * *"
     }
   ]
 }

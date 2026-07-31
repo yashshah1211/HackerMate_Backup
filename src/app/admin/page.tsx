@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
+import type { EmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
 
 type Report = {
   id: string;
@@ -122,6 +123,7 @@ function AdminContent() {
   const [reports, setReports] = useState<Report[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [emailUsage, setEmailUsage] = useState<EmailUsageSummary | null>(null);
 
   // Outreach / Unstop Leads state (yashshah7117@gmail.com exclusive)
   const [leads, setLeads] = useState<OrganizerLead[]>([]);
@@ -575,6 +577,10 @@ function AdminContent() {
         const usersList = (data.users || []) as UserProfile[];
         const rawTeams = (data.teams || []) as Team[];
         const reportsData = (data.reports || []) as any[];
+
+        if (data.emailUsage) {
+          setEmailUsage(data.emailUsage);
+        }
 
         setUsers(usersList);
 
@@ -1185,6 +1191,89 @@ function AdminContent() {
             )}
           </div>
         </div>
+
+        {/* Daily Resend Email Limit Tracker Widget */}
+        {emailUsage && (
+          <div className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900/90 p-5 shadow-lg relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">📧</span>
+                  <h2 className="text-base font-bold text-white tracking-tight">
+                    Daily Resend Email Limit
+                  </h2>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-bold border ${
+                      emailUsage.usage_percent < 70
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : emailUsage.usage_percent < 90
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        : "bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse"
+                    }`}
+                  >
+                    {emailUsage.usage_percent < 70
+                      ? "Normal Usage"
+                      : emailUsage.usage_percent < 90
+                      ? "High Volume Warning"
+                      : "Critical Budget Cap"}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Source of Truth for Email Budget Guard. Resets daily at <strong className="text-zinc-200">00:00 UTC</strong> (Resend system boundary).
+                </p>
+              </div>
+
+              <div className="text-right shrink-0">
+                <div className="text-2xl font-extrabold font-mono text-white tracking-tight">
+                  {emailUsage.total_sent} <span className="text-sm font-normal text-zinc-500">/ {emailUsage.limit}</span>
+                </div>
+                <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
+                  {emailUsage.remaining_global} emails remaining today
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full h-3 rounded-full bg-zinc-950 border border-zinc-800 overflow-hidden mb-4">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  emailUsage.usage_percent < 70
+                    ? "bg-emerald-500"
+                    : emailUsage.usage_percent < 90
+                    ? "bg-amber-500"
+                    : "bg-rose-500"
+                }`}
+                style={{ width: `${Math.min(100, Math.max(2, emailUsage.usage_percent))}%` }}
+              />
+            </div>
+
+            {/* Category Breakdown Badges */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>🚀 SIH Broadcast:</span>
+                <strong className="text-orange-400">{emailUsage.categories.sih_broadcast}</strong>
+              </div>
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>📤 Outreach Pitches:</span>
+                <strong className="text-blue-400">{emailUsage.categories.outreach}</strong>
+              </div>
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>👤 Profile Nudges:</span>
+                <strong className="text-emerald-400">{emailUsage.categories.profile_nudges}</strong>
+              </div>
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>👋 Onboarding Nudges:</span>
+                <strong className="text-purple-400">{emailUsage.categories.onboarding_nudges}</strong>
+              </div>
+              {emailUsage.categories.other > 0 && (
+                <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                  <span>⚙️ Other Emails:</span>
+                  <strong className="text-zinc-400">{emailUsage.categories.other}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tab 1: Reports Logs */}
         {activeTab === "reports" && (

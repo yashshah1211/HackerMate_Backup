@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
+import { getTodayEmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,11 +58,15 @@ export async function GET(req: NextRequest) {
       teamsData = tData || [];
     }
 
+    // 4. Fetch daily email usage summary
+    const emailUsage = await getTodayEmailUsageSummary(supabaseAdmin);
+
     return NextResponse.json({
       success: true,
       users: profilesData || [],
       reports: reportsData || [],
       teams: teamsData || [],
+      emailUsage,
     });
   } catch (err: any) {
     console.error("[Admin Dashboard API] Unexpected error:", err);

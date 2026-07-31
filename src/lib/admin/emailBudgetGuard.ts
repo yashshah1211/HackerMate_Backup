@@ -115,3 +115,75 @@ export async function recordEmailSendSuccess(
     console.error("[Email Budget Guard] Error recording email send success:", error);
   }
 }
+
+export type EmailUsageSummary = {
+  date: string;
+  total_sent: number;
+  limit: number;
+  usage_percent: number;
+  categories: {
+    outreach: number;
+    profile_nudges: number;
+    onboarding_nudges: number;
+    sih_broadcast: number;
+    other: number;
+  };
+  remaining_global: number;
+};
+
+export async function getTodayEmailUsageSummary(
+  supabaseAdmin: SupabaseClient
+): Promise<EmailUsageSummary> {
+  const todayStr = new Date().toISOString().split("T")[0]; // UTC Midnight Boundary (matches Resend 00:00 UTC reset)
+  const todayStart = `${todayStr}T00:00:00Z`;
+
+  const stats = await getOrCreateTodayStats(supabaseAdmin);
+
+  // Query actual timestamps for precise category breakdown
+  const { count: sihCount } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .gte("sih_broadcast_sent_at", todayStart);
+
+  const { count: profileNudgeCount } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .gte("last_nudge_sent_at", todayStart);
+
+  const { count: onboardingNudgeCount } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .gte("onboarding_nudge_sent_at", todayStart);
+
+  const { count: outreachPitchCount } = await supabaseAdmin
+    .from("organizer_leads")
+    .select("id", { count: "exact", head: true })
+    .gte("pitch_sent_at", todayStart);
+
+  const sih = sihCount || 0;
+  const pNudge = profileNudgeCount || 0;
+  const oNudge = onboardingNudgeCount || 0;
+  const outreach = outreachPitchCount || 0;
+
+  // Use stats.total_sent as the single source of truth enforced by budget guard
+  const totalSent = Math.max(stats.total_sent || 0, sih + pNudge + oNudge + outreach);
+  const usagePercent = Math.min(100, Math.round((totalSent / RESEND_GLOBAL_DAILY_LIMIT) * 100));
+  const remainingGlobal = Math.max(0, RESEND_GLOBAL_DAILY_LIMIT - totalSent);
+
+  const otherCount = Math.max(0, totalSent - (sih + pNudge + oNudge + outreach));
+
+  return {
+    date: todayStr,
+    total_sent: totalSent,
+    limit: RESEND_GLOBAL_DAILY_LIMIT,
+    usage_percent: usagePercent,
+    categories: {
+      outreach,
+      profile_nudges: pNudge,
+      onboarding_nudges: oNudge,
+      sih_broadcast: sih,
+      other: otherCount,
+    },
+    remaining_global: remainingGlobal,
+  };
+}
