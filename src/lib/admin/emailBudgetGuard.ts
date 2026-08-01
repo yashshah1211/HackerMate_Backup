@@ -154,7 +154,7 @@ export async function getTodayEmailUsageSummary(
     .gte("pitch_sent_at", todayStart);
 
   const sih = sihCount || 0;
-  const outreach = Math.max(outreachCount || 0, stats.outreach_sent || 0);
+  const outreach = outreachCount || 0;
   const testDispatches = stats.test_dispatches_sent || 0;
   const notifications = stats.notifications_sent || 0;
   const organizerBroadcasts = stats.organizer_broadcasts_sent || 0;

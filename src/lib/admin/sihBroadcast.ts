@@ -219,7 +219,7 @@ export async function sendSIHBroadcastBatch(requestedBatchSize: number = 50): Pr
     const todayStr = new Date().toISOString().split("T")[0];
     const { data: currentStats } = await supabaseAdmin
       .from("daily_email_stats")
-      .select("total_sent, outreach_sent")
+      .select("total_sent")
       .eq("date", todayStr)
       .maybeSingle();
 
@@ -228,7 +228,6 @@ export async function sendSIHBroadcastBatch(requestedBatchSize: number = 50): Pr
         .from("daily_email_stats")
         .update({
           total_sent: (currentStats.total_sent || 0) + 1,
-          outreach_sent: (currentStats.outreach_sent || 0) + 1,
           updated_at: nowIso,
         })
         .eq("date", todayStr);
