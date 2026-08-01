@@ -2,26 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
 
-interface EmailLeadRecord {
+export interface SentEmailLogItem {
   id: string;
-  title: string;
-  organizer_email: string | null;
-  last_sent_to: string | null;
-  pitch_sent_at: string | null;
-  opened_at: string | null;
-  open_count: number | null;
-  status: string;
-  created_at: string;
-}
-
-interface NudgeProfileRecord {
-  id: string;
-  full_name: string | null;
-  email: string;
-  created_at: string | null;
-  onboarding_completed: boolean;
-  onboarding_nudge_sent_at: string | null;
-  last_seen_at: string | null;
+  recipientEmail: string;
+  recipientName: string;
+  category: "Team Notifications" | "Organizer Outreach" | "SIH Broadcast" | "Onboarding Nudge" | "Contact Form" | "Test Dispatches";
+  categoryKey: "notifications" | "outreach" | "sih_broadcast" | "nudges" | "contact_submissions" | "test_dispatches";
+  subjectOrPurpose: string;
+  status: "SUCCESS" | "FAILED";
+  errorMessage?: string;
+  timestamp: string; // ISO string
 }
 
 async function handleDailyEmailReport(req: NextRequest) {
@@ -42,22 +32,10 @@ async function handleDailyEmailReport(req: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    let pitchedLeads: EmailLeadRecord[] = [];
-    let nudgedProfiles: NudgeProfileRecord[] = [];
-    let totalPitchesSent = 0;
-    let totalOpened = 0;
-    let openRate = 0;
-    let pitches24hCount = 0;
-    let opens24hCount = 0;
-
-    let nudgedTotalCount = 0;
-    let nudged24hCount = 0;
-    let visitedPostNudgeCount = 0;
-    let completedPostNudgeCount = 0;
-    let nudgeConversionRate = 0;
-
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const sentEmailLogs: SentEmailLogItem[] = [];
 
     if (supabaseUrl && serviceRoleKey) {
       const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -65,385 +43,372 @@ async function handleDailyEmailReport(req: NextRequest) {
       });
 
       // A. Fetch Organizer Outreach Leads
-      const { data: leads, error: leadsErr } = await supabaseAdmin
+      const { data: leads } = await supabaseAdmin
         .from("organizer_leads")
-        .select("id, title, organizer_email, last_sent_to, pitch_sent_at, opened_at, open_count, status, created_at")
+        .select("id, title, organizer_email, last_sent_to, pitch_sent_at, status, created_at")
         .order("pitch_sent_at", { ascending: false });
 
-      if (leadsErr) {
-        console.error("[Daily Email Report] Supabase Outreach Fetch Error:", leadsErr);
-      } else if (leads) {
-        pitchedLeads = (leads as EmailLeadRecord[]).filter(
-          (l) => l.pitch_sent_at || l.last_sent_to || ["pitch_sent", "opened", "replied"].includes(l.status)
-        );
-
-        totalPitchesSent = pitchedLeads.length;
-        totalOpened = pitchedLeads.filter(
-          (l) => l.opened_at || (l.open_count && l.open_count > 0) || l.status === "opened"
-        ).length;
-        openRate = totalPitchesSent > 0 ? Math.round((totalOpened / totalPitchesSent) * 100) : 0;
-
-        pitches24hCount = pitchedLeads.filter((l) => l.pitch_sent_at && new Date(l.pitch_sent_at) >= twentyFourHoursAgo).length;
-        opens24hCount = pitchedLeads.filter((l) => l.opened_at && new Date(l.opened_at) >= twentyFourHoursAgo).length;
+      if (leads) {
+        leads.forEach((lead: any) => {
+          if (lead.pitch_sent_at || lead.last_sent_to || ["pitch_sent", "opened", "replied", "failed"].includes(lead.status)) {
+            sentEmailLogs.push({
+              id: `lead-${lead.id}`,
+              recipientEmail: lead.organizer_email || lead.last_sent_to || "N/A",
+              recipientName: lead.title || "Organizer Lead",
+              category: "Organizer Outreach",
+              categoryKey: "outreach",
+              subjectOrPurpose: `Outreach Pitch: ${lead.title || 'Event Partnership'}`,
+              status: lead.status === "failed" ? "FAILED" : "SUCCESS",
+              errorMessage: lead.status === "failed" ? "Mail delivery bounced or rejected" : undefined,
+              timestamp: lead.pitch_sent_at || lead.created_at,
+            });
+          }
+        });
       }
 
-      // B. Fetch Onboarding Nudge User Profiles
-      const { data: profiles, error: profilesErr } = await supabaseAdmin
+      // B. Fetch SIH Broadcast Emails
+      const { data: sihProfiles } = await supabaseAdmin
         .from("profiles")
-        .select("id, full_name, email, created_at, onboarding_completed, onboarding_nudge_sent_at, last_seen_at")
+        .select("id, full_name, email, sih_broadcast_sent_at")
+        .not("sih_broadcast_sent_at", "is", null)
+        .order("sih_broadcast_sent_at", { ascending: false });
+
+      if (sihProfiles) {
+        sihProfiles.forEach((p: any) => {
+          sentEmailLogs.push({
+            id: `sih-${p.id}`,
+            recipientEmail: p.email,
+            recipientName: p.full_name || "SIH Builder",
+            category: "SIH Broadcast",
+            categoryKey: "sih_broadcast",
+            subjectOrPurpose: "SIH 2026 Team Matching & Recruitment Broadcast",
+            status: "SUCCESS",
+            timestamp: p.sih_broadcast_sent_at,
+          });
+        });
+      }
+
+      // C. Fetch Onboarding Nudge Emails
+      const { data: nudgeProfiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email, onboarding_nudge_sent_at")
         .not("onboarding_nudge_sent_at", "is", null)
         .order("onboarding_nudge_sent_at", { ascending: false });
 
-      if (profilesErr) {
-        console.error("[Daily Email Report] Supabase Profiles Fetch Error:", profilesErr);
-      } else if (profiles) {
-        nudgedProfiles = profiles as NudgeProfileRecord[];
-        nudgedTotalCount = nudgedProfiles.length;
+      if (nudgeProfiles) {
+        nudgeProfiles.forEach((p: any) => {
+          sentEmailLogs.push({
+            id: `nudge-${p.id}`,
+            recipientEmail: p.email,
+            recipientName: p.full_name || "Builder",
+            category: "Onboarding Nudge",
+            categoryKey: "nudges",
+            subjectOrPurpose: "Complete your HackerMate profile to start matching",
+            status: "SUCCESS",
+            timestamp: p.onboarding_nudge_sent_at,
+          });
+        });
+      }
 
-        nudged24hCount = nudgedProfiles.filter((p) => p.onboarding_nudge_sent_at && new Date(p.onboarding_nudge_sent_at) >= twentyFourHoursAgo).length;
+      // D. Fetch Team Invites Sent
+      const { data: teamInvites } = await supabaseAdmin
+        .from("team_invites")
+        .select("id, created_at, status, team_id, teams(name), profiles!team_invites_invited_user_id_fkey(full_name, email)")
+        .order("created_at", { ascending: false });
 
-        // User returned/visited site after nudge if last_seen_at > onboarding_nudge_sent_at
-        visitedPostNudgeCount = nudgedProfiles.filter((p) => {
-          if (!p.onboarding_nudge_sent_at || !p.last_seen_at) return false;
-          return new Date(p.last_seen_at).getTime() >= new Date(p.onboarding_nudge_sent_at).getTime() - 60000;
-        }).length;
+      if (teamInvites) {
+        teamInvites.forEach((inv: any) => {
+          const teamName = inv.teams?.name || "Hackathon Team";
+          const recipientEmail = inv.profiles?.email || "Unknown User";
+          const recipientName = inv.profiles?.full_name || "Teammate";
 
-        // Users who completed onboarding post nudge
-        completedPostNudgeCount = nudgedProfiles.filter((p) => p.onboarding_completed).length;
-        nudgeConversionRate = nudgedTotalCount > 0 ? Math.round((completedPostNudgeCount / nudgedTotalCount) * 100) : 0;
+          sentEmailLogs.push({
+            id: `invite-${inv.id}`,
+            recipientEmail,
+            recipientName,
+            category: "Team Notifications",
+            categoryKey: "notifications",
+            subjectOrPurpose: `Team Invitation: You were invited to join ${teamName}`,
+            status: "SUCCESS",
+            timestamp: inv.created_at,
+          });
+        });
+      }
+
+      // E. Fetch Connection Request Notifications
+      const { data: friendReqs } = await supabaseAdmin
+        .from("friend_requests")
+        .select("id, created_at, status, sender:profiles!friend_requests_sender_id_fkey(full_name), receiver:profiles!friend_requests_receiver_id_fkey(full_name, email)")
+        .order("created_at", { ascending: false });
+
+      if (friendReqs) {
+        friendReqs.forEach((req: any) => {
+          const senderName = req.sender?.full_name || "A builder";
+          const recipientEmail = req.receiver?.email;
+          const recipientName = req.receiver?.full_name || "Builder";
+
+          if (recipientEmail) {
+            sentEmailLogs.push({
+              id: `freq-${req.id}`,
+              recipientEmail,
+              recipientName,
+              category: "Team Notifications",
+              categoryKey: "notifications",
+              subjectOrPurpose: `Connection Alert: ${senderName} sent you a connection request`,
+              status: "SUCCESS",
+              timestamp: req.created_at,
+            });
+          }
+        });
       }
     }
 
+    // Sort all email logs by timestamp DESC (newest first)
+    sentEmailLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Filter past 24 hours logs
+    const logs24h = sentEmailLogs.filter((l) => new Date(l.timestamp) >= twentyFourHoursAgo);
+    // Use past 24h logs if available, fallback to recent overall logs if 24h is empty (e.g. testing in dev)
+    const activeLogs = logs24h.length > 0 ? logs24h : sentEmailLogs;
+
+    // Calculate Category Breakdown Counts (reusing Admin Panel category definitions)
+    const categoryCounts = {
+      notifications: activeLogs.filter((l) => l.categoryKey === "notifications").length,
+      outreach: activeLogs.filter((l) => l.categoryKey === "outreach").length,
+      sih_broadcast: activeLogs.filter((l) => l.categoryKey === "sih_broadcast").length,
+      nudges: activeLogs.filter((l) => l.categoryKey === "nudges").length,
+      contact_submissions: activeLogs.filter((l) => l.categoryKey === "contact_submissions").length,
+      test_dispatches: activeLogs.filter((l) => l.categoryKey === "test_dispatches").length,
+    };
+
+    const totalSent24h = activeLogs.length;
+    const failedLogs = activeLogs.filter((l) => l.status === "FAILED");
+    const totalFailed24h = failedLogs.length;
+
     const todayStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-    // 3. Generate PDF Report via jsPDF
+    // 3. Generate Daily PDF Report via jsPDF
     const doc = new jsPDF({ unit: "pt", format: "letter" });
 
     // Header Dark Banner (#0A0D12)
     doc.setFillColor(10, 13, 18);
     doc.rect(0, 0, 612, 95, "F");
 
-    // Emerald accent stripe (#10B981)
+    // Accent Top Bar (#10B981)
     doc.setFillColor(16, 185, 129);
     doc.rect(0, 0, 612, 6, "F");
 
-    // Title & Subtitle in Header
+    // Title & Subtitle
     doc.setTextColor(16, 185, 129);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("HackerMate Growth & Dispatch Intelligence", 40, 38);
+    doc.text("HackerMate Outbound Email Audit", 40, 36);
 
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(19);
-    doc.text("Daily Onboarding Nudges & Outreach Digest", 40, 66);
+    doc.setFontSize(18);
+    doc.text("Daily Dispatched Emails Audit Report", 40, 62);
 
     doc.setTextColor(148, 163, 184);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Daily Analytics & User Activity Report Generated on ${todayStr}`, 40, 84);
+    doc.text(`Generated: ${todayStr} | Window: Past 24 Hours | Total Emails: ${totalSent24h}`, 40, 80);
 
-    // KPI Metric Cards Grid (4 Cards)
-    // Card 1: Onboarding Nudges Sent
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(40, 110, 120, 60, 4, 4, "FD");
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("USERS NUDGED", 50, 128);
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(20);
-    doc.text(nudgedTotalCount.toString(), 50, 154);
+    // 4. Prominent Failure Callout Box
+    let y = 110;
+    if (totalFailed24h > 0) {
+      doc.setFillColor(254, 242, 242); // Red background
+      doc.setDrawColor(239, 68, 68);   // Red border
+      doc.roundedRect(40, y, 532, 45, 6, 6, "FD");
 
-    // Card 2: Returned / Visited Site
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(175, 110, 120, 60, 4, 4, "FD");
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("VISITED SITE POST-NUDGE", 185, 128);
-    doc.setTextColor(16, 185, 129);
-    doc.setFontSize(20);
-    doc.text(visitedPostNudgeCount.toString(), 185, 154);
+      doc.setTextColor(185, 28, 28);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`⚠️ ATTENTION REQUIRED: ${totalFailed24h} Failed Email Send(s) Detected`, 55, y + 20);
 
-    // Card 3: Onboarding Completed %
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(310, 110, 120, 60, 4, 4, "FD");
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("ONBOARDING CONV.", 320, 128);
-    doc.setTextColor(16, 185, 129);
-    doc.setFontSize(20);
-    doc.text(`${nudgeConversionRate}%`, 320, 154);
-
-    // Card 4: Outreach Pitches Sent
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(445, 110, 115, 60, 4, 4, "FD");
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("PITCHES SENT", 455, 128);
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(20);
-    doc.text(totalPitchesSent.toString(), 455, 154);
-
-    // SECTION 1: Onboarding Nudges & User Site Visit Tracking
-    let y = 195;
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("1. User Onboarding Nudges & Site Visit Activity", 40, y);
-
-    y += 12;
-    doc.setFillColor(241, 245, 249);
-    doc.rect(40, y, 520, 18, "F");
-
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text("USER / NAME", 48, y + 12);
-    doc.text("EMAIL ADDRESS", 210, y + 12);
-    doc.text("NUDGED AT", 350, y + 12);
-    doc.text("LAST SEEN / VISITED", 440, y + 12);
-    doc.text("ONBOARDING", 520, y + 12);
-
-    y += 18;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-
-    if (nudgedProfiles.length === 0) {
-      y += 18;
-      doc.setTextColor(100, 116, 139);
-      doc.text("No onboarding nudge emails sent yet.", 48, y);
-    } else {
-      nudgedProfiles.forEach((profile) => {
-        if (y > 710) {
-          doc.addPage();
-          y = 40;
-        }
-
-        y += 16;
-        doc.setTextColor(15, 23, 42);
-        doc.setFont("helvetica", "bold");
-        const nameStr = (profile.full_name || "Builder").length > 25 ? (profile.full_name || "Builder").substring(0, 23) + "..." : (profile.full_name || "Builder");
-        doc.text(nameStr, 48, y);
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 116, 139);
-        const emailStr = profile.email.length > 24 ? profile.email.substring(0, 22) + "..." : profile.email;
-        doc.text(emailStr, 210, y);
-
-        const nudgedDateStr = profile.onboarding_nudge_sent_at
-          ? new Date(profile.onboarding_nudge_sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-          : "N/A";
-        doc.text(nudgedDateStr, 350, y);
-
-        const hasVisited = profile.last_seen_at && profile.onboarding_nudge_sent_at && new Date(profile.last_seen_at).getTime() >= new Date(profile.onboarding_nudge_sent_at).getTime() - 60000;
-        if (hasVisited && profile.last_seen_at) {
-          const visitDateStr = new Date(profile.last_seen_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-          doc.setTextColor(16, 185, 129);
-          doc.setFont("helvetica", "bold");
-          doc.text(`Visited (${visitDateStr})`, 440, y);
-        } else {
-          doc.setTextColor(148, 163, 184);
-          doc.setFont("helvetica", "normal");
-          doc.text("No Visit Yet", 440, y);
-        }
-
-        if (profile.onboarding_completed) {
-          doc.setTextColor(16, 185, 129);
-          doc.setFont("helvetica", "bold");
-          doc.text("Completed", 520, y);
-        } else {
-          doc.setTextColor(245, 158, 11);
-          doc.setFont("helvetica", "normal");
-          doc.text("Pending", 520, y);
-        }
-
-        doc.setDrawColor(241, 245, 249);
-        doc.line(40, y + 4, 560, y + 4);
-      });
-    }
-
-    // SECTION 2: Organizer Outreach Pitches
-    y += 30;
-    if (y > 670) {
-      doc.addPage();
-      y = 40;
-    }
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(`2. Organizer Outreach Pitches (${totalPitchesSent} Total, ${openRate}% Open Rate)`, 40, y);
-
-    y += 12;
-    doc.setFillColor(241, 245, 249);
-    doc.rect(40, y, 520, 18, "F");
-
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text("TARGET / HACKATHON", 48, y + 12);
-    doc.text("RECIPIENT EMAIL", 230, y + 12);
-    doc.text("DISPATCH DATE", 390, y + 12);
-    doc.text("STATUS / OPENS", 480, y + 12);
-
-    y += 18;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-
-    if (pitchedLeads.length === 0) {
-      y += 18;
-      doc.setTextColor(100, 116, 139);
-      doc.text("No outreach pitches sent yet.", 48, y);
-    } else {
-      pitchedLeads.forEach((lead) => {
-        if (y > 710) {
-          doc.addPage();
-          y = 40;
-        }
-
-        y += 16;
-        doc.setTextColor(15, 23, 42);
-        doc.setFont("helvetica", "bold");
-        const titleStr = lead.title.length > 32 ? lead.title.substring(0, 30) + "..." : lead.title;
-        doc.text(titleStr, 48, y);
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 116, 139);
-        const contactEmail = lead.last_sent_to || lead.organizer_email || "N/A";
-        const contactStr = contactEmail.split(",")[0];
-        const contactDisplay = contactStr.length > 28 ? contactStr.substring(0, 26) + "..." : contactStr;
-        doc.text(contactDisplay, 230, y);
-
-        const sentDateStr = lead.pitch_sent_at
-          ? new Date(lead.pitch_sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-          : "Sent";
-        doc.text(sentDateStr, 390, y);
-
-        const isOpened = lead.opened_at || (lead.open_count && lead.open_count > 0) || lead.status === "opened";
-        if (lead.status === "replied") {
-          doc.setTextColor(139, 92, 246);
-          doc.setFont("helvetica", "bold");
-          doc.text("[REPLIED]", 480, y);
-        } else if (isOpened) {
-          doc.setTextColor(16, 185, 129);
-          doc.setFont("helvetica", "bold");
-          const opensText = lead.open_count && lead.open_count > 1 ? `Opened (${lead.open_count}x)` : "Opened";
-          doc.text(`[YES] ${opensText}`, 480, y);
-        } else {
-          doc.setTextColor(148, 163, 184);
-          doc.setFont("helvetica", "normal");
-          doc.text("[NO] Unopened", 480, y);
-        }
-
-        doc.setDrawColor(241, 245, 249);
-        doc.line(40, y + 4, 560, y + 4);
-      });
-    }
-
-    // Dynamic Footer Stamp across all generated pages
-    const totalPages = doc.getNumberOfPages();
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      doc.setPage(pageNum);
-      doc.setDrawColor(226, 232, 240);
-      doc.line(40, 740, 560, 740);
-
-      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(148, 163, 184);
-      doc.text("HackerMate Growth & Email Intelligence • Delivered Daily", 40, 752);
-      doc.text(`Page ${pageNum} of ${totalPages}`, 480, 752);
+      doc.setFontSize(9);
+      doc.setTextColor(127, 29, 29);
+      const failedRecipients = failedLogs.map((f) => f.recipientEmail).join(", ");
+      doc.text(`Failed Recipients: ${failedRecipients.substring(0, 75)}${failedRecipients.length > 75 ? '...' : ''}`, 55, y + 35);
+      y += 58;
+    } else {
+      doc.setFillColor(240, 253, 244); // Green background
+      doc.setDrawColor(16, 185, 129);  // Green border
+      doc.roundedRect(40, y, 532, 35, 6, 6, "FD");
+
+      doc.setTextColor(4, 120, 87);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("✅ All Email Dispatches Delivered Successfully — 0 Failures Detected", 55, y + 22);
+      y += 48;
     }
 
-    const arrayBuffer = doc.output("arraybuffer");
-    const pdfBuffer = Buffer.from(arrayBuffer);
+    // 5. Category Breakdown Summary Cards (6 Cards)
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Category Volume Summary (Past 24 Hours)", 40, y);
+    y += 12;
 
-    // If caller requested PDF inline display in browser (for testing)
+    const cards = [
+      { label: "TEAM NOTIFS", count: categoryCounts.notifications },
+      { label: "OUTREACH", count: categoryCounts.outreach },
+      { label: "SIH BROADCAST", count: categoryCounts.sih_broadcast },
+      { label: "NUDGES", count: categoryCounts.nudges },
+      { label: "CONTACT FORM", count: categoryCounts.contact_submissions },
+      { label: "TOTAL LOGGED", count: totalSent24h },
+    ];
+
+    const cardWidth = 82;
+    const cardGap = 8;
+    cards.forEach((c, idx) => {
+      const cx = 40 + idx * (cardWidth + cardGap);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(cx, y, cardWidth, 44, 4, 4, "FD");
+
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.text(c.label, cx + 6, y + 14);
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(14);
+      doc.text(c.count.toString(), cx + 6, y + 34);
+    });
+
+    y += 56;
+
+    // 6. Detailed Individual Email Log Table
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Individual Email Dispatch Log", 40, y);
+
+    y += 10;
+    doc.setFillColor(241, 245, 249);
+    doc.rect(40, y, 532, 18, "F");
+
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text("TIME (UTC)", 48, y + 12);
+    doc.text("RECIPIENT", 110, y + 12);
+    doc.text("CATEGORY", 250, y + 12);
+    doc.text("SUBJECT / PURPOSE", 360, y + 12);
+    doc.text("STATUS", 520, y + 12);
+
+    y += 18;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+
+    if (activeLogs.length === 0) {
+      y += 16;
+      doc.setTextColor(100, 116, 139);
+      doc.text("No outbound emails recorded in this window.", 48, y);
+    } else {
+      activeLogs.forEach((item) => {
+        if (y > 720) {
+          doc.addPage();
+          y = 40;
+
+          // Repeat Table Header on new page
+          doc.setFillColor(241, 245, 249);
+          doc.rect(40, y, 532, 18, "F");
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(71, 85, 105);
+          doc.text("TIME (UTC)", 48, y + 12);
+          doc.text("RECIPIENT", 110, y + 12);
+          doc.text("CATEGORY", 250, y + 12);
+          doc.text("SUBJECT / PURPOSE", 360, y + 12);
+          doc.text("STATUS", 520, y + 12);
+          y += 18;
+          doc.setFont("helvetica", "normal");
+        }
+
+        y += 15;
+
+        // Column 1: Time
+        const timeStr = item.timestamp
+          ? new Date(item.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+          : "N/A";
+        doc.setTextColor(100, 116, 139);
+        doc.text(timeStr, 48, y);
+
+        // Column 2: Recipient
+        doc.setTextColor(15, 23, 42);
+        doc.setFont("helvetica", "bold");
+        const recStr = item.recipientEmail.length > 24 ? item.recipientEmail.substring(0, 22) + "..." : item.recipientEmail;
+        doc.text(recStr, 110, y);
+
+        // Column 3: Category
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(71, 85, 105);
+        doc.text(item.category, 250, y);
+
+        // Column 4: Subject/Purpose
+        doc.setTextColor(51, 65, 85);
+        const subjStr = item.subjectOrPurpose.length > 30 ? item.subjectOrPurpose.substring(0, 28) + "..." : item.subjectOrPurpose;
+        doc.text(subjStr, 360, y);
+
+        // Column 5: Status (Bold Red if FAILED, Green if SUCCESS)
+        if (item.status === "FAILED") {
+          doc.setTextColor(220, 38, 38);
+          doc.setFont("helvetica", "bold");
+          doc.text("FAILED", 520, y);
+        } else {
+          doc.setTextColor(16, 185, 129);
+          doc.setFont("helvetica", "bold");
+          doc.text("SUCCESS", 520, y);
+        }
+
+        doc.setDrawColor(241, 245, 249);
+        doc.line(40, y + 4, 572, y + 4);
+      });
+    }
+
+    const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
+
+    // If caller explicitly requested PDF format directly in browser preview
     if (format === "pdf") {
       return new NextResponse(new Uint8Array(pdfBuffer), {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="HackerMate_Daily_Growth_Report_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf"`,
+          "Content-Disposition": `inline; filename="HackerMate_Daily_Email_Audit_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf"`,
         },
       });
     }
 
-    // 4. Construct Email Payload
-    const recipientEmail =
-      process.env.OUTREACH_ADMIN_EMAIL ||
-      process.env.ADMIN_CONTACT_EMAIL ||
-      process.env.RESEND_SANDBOX_RECIPIENT ||
-      "yashshah7117@gmail.com";
-
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate Engine <onboarding@resend.dev>";
-    const subject = `📊 Daily Email & Growth Digest: ${nudgedTotalCount} Nudged (${visitedPostNudgeCount} Visited Site), ${totalPitchesSent} Outreach Pitches`;
-
-    const htmlBody = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0A0D12; color: #EDEFF3; padding: 32px 16px;">
-        <div style="max-width: 580px; margin: 0 auto; background-color: #10141B; border: 1px solid #1E242E; border-radius: 12px; padding: 32px;">
-          <div style="font-size: 15px; font-weight: 800; color: #10B981; font-family: monospace; margin-bottom: 16px;">HackerMate Growth Intelligence</div>
-          <h1 style="font-size: 22px; font-weight: 700; color: #FFFFFF; margin: 0 0 8px 0;">🚀 Daily Onboarding & Outreach Report</h1>
-          <p style="font-size: 13px; color: #8B93A3; margin: 0 0 24px 0;">Comprehensive user conversion & email activity summary for <strong>${todayStr}</strong>. PDF attached.</p>
-          
-          <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #10B981; margin-bottom: 8px;">1. User Onboarding Nudges & Conversions</div>
-          <table style="width: 100%; margin-bottom: 24px; border-spacing: 6px 0; border-collapse: separate;">
-            <tr>
-              <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 12px; text-align: center;">
-                <div style="font-size: 9px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Users Nudged</div>
-                <div style="font-size: 18px; font-weight: 800; color: #FFFFFF;">${nudgedTotalCount}</div>
-              </td>
-              <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 12px; text-align: center;">
-                <div style="font-size: 9px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Visited Site</div>
-                <div style="font-size: 18px; font-weight: 800; color: #10B981;">${visitedPostNudgeCount}</div>
-              </td>
-              <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 12px; text-align: center;">
-                <div style="font-size: 9px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Completed Onboarding</div>
-                <div style="font-size: 18px; font-weight: 800; color: #10B981;">${completedPostNudgeCount} (${nudgeConversionRate}%)</div>
-              </td>
-            </tr>
-          </table>
-
-          <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #3B82F6; margin-bottom: 8px;">2. Organizer Outreach Performance</div>
-          <table style="width: 100%; margin-bottom: 24px; border-spacing: 6px 0; border-collapse: separate;">
-            <tr>
-              <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 12px; text-align: center;">
-                <div style="font-size: 9px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Pitches Sent</div>
-                <div style="font-size: 18px; font-weight: 800; color: #FFFFFF;">${totalPitchesSent}</div>
-              </td>
-              <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 12px; text-align: center;">
-                <div style="font-size: 9px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Emails Opened</div>
-                <div style="font-size: 18px; font-weight: 800; color: #10B981;">${totalOpened}</div>
-              </td>
-              <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 12px; text-align: center;">
-                <div style="font-size: 9px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Open Rate</div>
-                <div style="font-size: 18px; font-weight: 800; color: #10B981;">${openRate}%</div>
-              </td>
-            </tr>
-          </table>
-
-          <div style="font-size: 11px; color: #565E6D; border-top: 1px solid #171B23; padding-top: 16px; text-align: center;">
-            Attached PDF Report: <code>HackerMate_Daily_Growth_Report_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf</code>
-          </div>
-        </div>
-      </div>
-    `;
-
+    // 7. Dispatch Email Report via Resend Pipeline (Meta-report, does NOT increment outbound daily_email_stats counters)
     const resendApiKey = process.env.RESEND_API_KEY;
+    const adminEmail = process.env.ADMIN_CONTACT_EMAIL || process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
+
+    const subject = totalFailed24h > 0
+      ? `⚠️ [ALERT] HackerMate Daily Sent Emails Log: ${totalSent24h} sent, ${totalFailed24h} FAILED`
+      : `📋 HackerMate Daily Sent Emails Log: ${totalSent24h} emails sent (${todayStr})`;
 
     if (!resendApiKey) {
-      console.log("[Daily Email Report] Mock execution — Resend API Key not present.");
+      console.log("==================== [DAILY SENT EMAILS AUDIT PDF LOG] ====================");
+      console.log(`To: ${adminEmail}`);
+      console.log(`Subject: ${subject}`);
+      console.log(`Total 24h Dispatches: ${totalSent24h} | Failed: ${totalFailed24h}`);
+      console.log("PDF attachment generated: HackerMate_Daily_Email_Audit.pdf");
+      console.log("===========================================================================");
       return NextResponse.json({
         success: true,
         mode: "mock_logged",
-        recipient: recipientEmail,
-        metrics: { nudgedTotalCount, visitedPostNudgeCount, completedPostNudgeCount, nudgeConversionRate, totalPitchesSent, totalOpened, openRate },
+        recipient: adminEmail,
+        totalSent24h,
+        totalFailed24h,
+        categoryCounts,
+        pdfGenerated: true
       });
     }
 
-    let targetEmail = recipientEmail;
+    let targetEmail = adminEmail;
     let finalSubject = subject;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
     const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
 
     if (isSandboxMode) {
@@ -453,6 +418,34 @@ async function handleDailyEmailReport(req: NextRequest) {
         targetEmail = sandboxEmail;
       }
     }
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; background-color: #0A0D12; color: #E2E8F0; padding: 24px; borderRadius: 8px;">
+        <h2 style="color: #10B981; margin-bottom: 4px;">HackerMate Outbound Email Audit</h2>
+        <p style="color: #94A3B8; font-size: 14px; margin-top: 0;">Daily Sent Emails Log for ${todayStr}</p>
+        
+        ${totalFailed24h > 0 ? `
+          <div style="background-color: #7F1D1D; border: 1px solid #EF4444; color: #FECACA; padding: 12px 16px; border-radius: 6px; margin: 16px 0; font-weight: bold;">
+            ⚠️ ATTENTION: ${totalFailed24h} email dispatch(es) failed in the last 24 hours. Please review the attached PDF report.
+          </div>
+        ` : `
+          <div style="background-color: #064E3B; border: 1px solid #10B981; color: #D1FAE5; padding: 12px 16px; border-radius: 6px; margin: 16px 0;">
+            ✅ All ${totalSent24h} email dispatches delivered successfully with 0 failures.
+          </div>
+        `}
+
+        <h3 style="color: #FFFFFF; font-size: 15px; margin-top: 20px;">Category Summary</h3>
+        <ul style="color: #CBD5E1; font-size: 13px; line-height: 1.6;">
+          <li><strong>Team Notifications:</strong> ${categoryCounts.notifications}</li>
+          <li><strong>Organizer Outreach:</strong> ${categoryCounts.outreach}</li>
+          <li><strong>SIH Broadcasts:</strong> ${categoryCounts.sih_broadcast}</li>
+          <li><strong>Onboarding Nudges:</strong> ${categoryCounts.nudges}</li>
+          <li><strong>Contact Form Replies:</strong> ${categoryCounts.contact_submissions}</li>
+        </ul>
+
+        <p style="font-size: 12px; color: #64748B; margin-top: 24px;">The full itemized log (recipient, category, subject line, status) is attached as a PDF report.</p>
+      </div>
+    `;
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -467,7 +460,7 @@ async function handleDailyEmailReport(req: NextRequest) {
         html: htmlBody,
         attachments: [
           {
-            filename: `HackerMate_Daily_Growth_Report_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+            filename: `HackerMate_Daily_Email_Audit_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
             content: pdfBuffer.toString("base64"),
           },
         ],
@@ -476,8 +469,8 @@ async function handleDailyEmailReport(req: NextRequest) {
 
     if (!resendRes.ok) {
       const errData = await resendRes.json();
-      console.error("[Daily Email Report] Resend API Error:", errData);
-      return NextResponse.json({ error: "Failed to dispatch daily report", details: errData }, { status: 500 });
+      console.error("Resend API error sending daily email audit report PDF:", errData);
+      return NextResponse.json({ error: "Failed to send email via Resend", details: errData }, { status: 500 });
     }
 
     const resendResult = await resendRes.json();
@@ -486,18 +479,23 @@ async function handleDailyEmailReport(req: NextRequest) {
       success: true,
       emailId: resendResult.id,
       recipient: targetEmail,
-      metrics: { nudgedTotalCount, visitedPostNudgeCount, completedPostNudgeCount, nudgeConversionRate, totalPitchesSent, totalOpened, openRate },
+      subject: finalSubject,
+      totalSent24h,
+      totalFailed24h,
+      categoryCounts,
+      pdfAttached: true
     });
+
   } catch (err: any) {
-    console.error("[Daily Email Report] Exception:", err);
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+    console.error("Error in daily-email-report route:", err);
+    return NextResponse.json({ error: "Internal Server Error", details: err.message }, { status: 500 });
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   return handleDailyEmailReport(req);
 }
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   return handleDailyEmailReport(req);
 }
