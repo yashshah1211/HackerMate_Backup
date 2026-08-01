@@ -1423,7 +1423,7 @@ export default function TeamWorkspaceView({
           }
           setSelectedTask(task);
         }}
-        className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-3 relative group/card hover:border-zinc-600 transition-all cursor-pointer shadow-md hover:shadow-lg"
+        className="p-3 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg space-y-3 relative group/card hover:border-[var(--card-hover-border)] transition-all cursor-pointer shadow-md hover:shadow-lg"
       >
         <div className="flex justify-between items-start gap-2">
           <h4 className="text-xs font-semibold text-white break-words pr-4">{task.title}</h4>
@@ -1445,7 +1445,7 @@ export default function TeamWorkspaceView({
             <select
               value={task.status}
               onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value as "todo" | "in_progress" | "completed")}
-              className="text-[9px] font-semibold bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700 cursor-pointer"
+              className="text-[9px] font-semibold bg-[var(--surface-2)] border border-[var(--card-border)] rounded px-1.5 py-0.5 text-[var(--text-secondary)] focus:outline-none hover:border-[var(--card-hover-border)] cursor-pointer"
             >
               <option value="todo">To Do</option>
               <option value="in_progress">In Progress</option>
@@ -1457,7 +1457,7 @@ export default function TeamWorkspaceView({
                 ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
                 : task.priority === "medium"
                   ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                  : "bg-zinc-800 border-zinc-700 text-zinc-400"
+                  : "bg-[var(--surface-3)] border-[var(--card-border)] text-[var(--text-secondary)]"
             }`}>
               {task.priority}
             </span>
@@ -1472,19 +1472,19 @@ export default function TeamWorkspaceView({
                   className="w-4 h-4 rounded-full object-cover border border-zinc-800 shrink-0"
                 />
               ) : (
-                <div className="w-4 h-4 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center font-bold text-zinc-400 text-[8px] shrink-0">
+                <div className="w-4 h-4 rounded-full bg-[var(--surface-2)] border border-[var(--card-border)] flex items-center justify-center font-bold text-[var(--text-secondary)] text-[8px] shrink-0">
                   {assignee.profiles.full_name.charAt(0)}
                 </div>
               )
             ) : (
-              <div className="w-4 h-4 rounded-full bg-zinc-950 border border-zinc-900 flex items-center justify-center text-zinc-600 text-[8px] shrink-0">
+              <div className="w-4 h-4 rounded-full bg-[var(--surface-2)] border border-[var(--card-border)] flex items-center justify-center text-[var(--text-muted)] text-[8px] shrink-0">
                 👤
               </div>
             )}
             <select
               value={task.assignee_id || ""}
               onChange={(e) => handleUpdateTaskAssignee(task.id, e.target.value || null)}
-              className="text-[9px] font-semibold bg-zinc-955 border border-zinc-800 rounded px-1 py-0.5 text-zinc-300 focus:outline-none hover:border-zinc-700 truncate max-w-[85px] cursor-pointer"
+              className="text-[9px] font-semibold bg-[var(--surface-2)] border border-[var(--card-border)] rounded px-1 py-0.5 text-[var(--text-secondary)] focus:outline-none hover:border-[var(--card-hover-border)] truncate max-w-[85px] cursor-pointer"
             >
               <option value="">Assignee</option>
               {members.map((m) => (
@@ -1520,7 +1520,7 @@ export default function TeamWorkspaceView({
             type="date"
             value={task.due_date ? task.due_date.split("T")[0] : ""}
             onChange={(e) => handleUpdateTaskDueDate(task.id, e.target.value || null)}
-            className="text-[9px] bg-zinc-950 border border-zinc-900 rounded px-1.5 py-0.5 text-zinc-500 focus:outline-none hover:border-zinc-800 cursor-pointer w-20 leading-none shrink-0"
+            className="text-[9px] bg-[var(--surface-2)] border border-[var(--card-border)] rounded px-1.5 py-0.5 text-[var(--text-tertiary)] focus:outline-none hover:border-[var(--card-hover-border)] cursor-pointer w-20 leading-none shrink-0"
           />
         </div>
       </div>
@@ -1718,20 +1718,20 @@ export default function TeamWorkspaceView({
               </div>
 
               {!countdownParts.ended ? (
-                <div className="flex gap-2 bg-black/40 border border-zinc-800/60 p-2 rounded-xl backdrop-blur-sm shadow-inner">
+                <div className="flex gap-2 bg-[var(--surface-2)] border border-[var(--card-border)] p-2 rounded-xl backdrop-blur-sm shadow-inner">
                   <div className="flex flex-col items-center">
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
-                      <span className="font-mono text-xs font-bold text-white tracking-tight">
+                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                      <span className="font-mono text-xs font-bold text-[var(--text-primary)] tracking-tight">
                         {String(countdownParts.days).padStart(2, "0")}
                       </span>
                     </div>
                     <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Days</span>
                   </div>
 
-                  <span className="text-zinc-700 self-center font-bold text-xs -mt-3">:</span>
+                  <span className="text-[var(--text-muted)] self-center font-bold text-xs -mt-3">:</span>
 
                   <div className="flex flex-col items-center">
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
                       <span className="font-mono text-xs font-bold text-violet-400 tracking-tight">
                         {String(countdownParts.hours).padStart(2, "0")}
                       </span>
@@ -1739,10 +1739,10 @@ export default function TeamWorkspaceView({
                     <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Hours</span>
                   </div>
 
-                  <span className="text-zinc-700 self-center font-bold text-xs -mt-3">:</span>
+                  <span className="text-[var(--text-muted)] self-center font-bold text-xs -mt-3">:</span>
 
                   <div className="flex flex-col items-center">
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
                       <span className="font-mono text-xs font-bold text-violet-300 tracking-tight">
                         {String(countdownParts.minutes).padStart(2, "0")}
                       </span>
@@ -1750,10 +1750,10 @@ export default function TeamWorkspaceView({
                     <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Mins</span>
                   </div>
 
-                  <span className="text-zinc-700 self-center font-bold text-xs -mt-3">:</span>
+                  <span className="text-[var(--text-muted)] self-center font-bold text-xs -mt-3">:</span>
 
                   <div className="flex flex-col items-center">
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
+                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
                       <span className="font-mono text-xs font-bold text-indigo-400 tracking-tight">
                         {String(countdownParts.seconds).padStart(2, "0")}
                       </span>
@@ -1762,7 +1762,7 @@ export default function TeamWorkspaceView({
                   </div>
                 </div>
               ) : (
-                <span className="text-[9px] font-mono font-bold text-zinc-400 bg-zinc-800 border border-zinc-700 px-3 py-1 rounded-full uppercase tracking-wider">
+                <span className="text-[9px] font-mono font-bold text-[var(--text-secondary)] bg-[var(--surface-3)] border border-[var(--card-border)] px-3 py-1 rounded-full uppercase tracking-wider">
                   Event Closed
                 </span>
               )}
@@ -1774,7 +1774,7 @@ export default function TeamWorkspaceView({
                   <span className="text-zinc-500 uppercase tracking-wider">Tasks</span>
                   <span className="text-zinc-350 font-bold">{completedTasksCount}/{totalTasksCount} ({taskProgressPct}%)</span>
                 </div>
-                <div className="w-full h-1.5 bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]" 
                     style={{ width: `${taskProgressPct}%` }}
@@ -1787,7 +1787,7 @@ export default function TeamWorkspaceView({
                   <span className="text-zinc-500 uppercase tracking-wider">Milestones</span>
                   <span className="text-zinc-350 font-bold">{completedChecklistCount}/{totalChecklistCount} ({checklistProgressPct}%)</span>
                 </div>
-                <div className="w-full h-1.5 bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
                     style={{ width: `${checklistProgressPct}%` }}
@@ -1802,12 +1802,12 @@ export default function TeamWorkspaceView({
         {teamDesiredSkills.length > 0 && (() => {
           const skillCoveragePct = teamDesiredSkills.length > 0 ? Math.round((coveredTeamSkills.length / teamDesiredSkills.length) * 100) : 100;
           return (
-            <div className="card p-6 bg-zinc-900/10 border border-zinc-800/80 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-lg relative overflow-hidden">
+            <div className="card p-6 bg-[var(--surface-2)] border border-[var(--card-border)] rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-lg relative overflow-hidden">
               <div className="flex flex-col sm:flex-row sm:items-center gap-6 flex-1">
-                <div className="relative w-16 h-16 rounded-full border-2 border-zinc-855 flex items-center justify-center shrink-0 bg-zinc-950/60 shadow-inner group">
-                  <div className="absolute inset-0.5 rounded-full border border-dashed border-zinc-800 animate-[spin_20s_linear_infinite]" />
+                <div className="relative w-16 h-16 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center shrink-0 bg-[var(--surface-1)] shadow-inner group">
+                  <div className="absolute inset-0.5 rounded-full border border-dashed border-[var(--card-border)] animate-[spin_20s_linear_infinite]" />
                   <div className="text-center z-10">
-                    <span className="text-[11px] font-bold text-white block -mb-0.5">{skillCoveragePct}%</span>
+                    <span className="text-[11px] font-bold text-[var(--text-primary)] block -mb-0.5">{skillCoveragePct}%</span>
                     <span className="text-[6px] font-mono text-zinc-500 uppercase tracking-widest block">Match</span>
                   </div>
                 </div>
@@ -1825,35 +1825,35 @@ export default function TeamWorkspaceView({
 
               <div className="flex flex-wrap gap-6 items-center shrink-0 z-10">
                 <div className="space-y-2">
-                  <span className="text-[8px] text-zinc-500 font-mono uppercase block font-bold tracking-wider">Acquired Stack ({coveredTeamSkills.length})</span>
+                  <span className="text-[8px] text-[var(--text-tertiary)] font-mono uppercase block font-bold tracking-wider">Acquired Stack ({coveredTeamSkills.length})</span>
                   <div className="flex flex-wrap gap-1 max-w-[240px]">
                     {coveredTeamSkills.map(s => (
-                      <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                      <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-emerald-600 dark:bg-emerald-400" />
                         {s}
                       </span>
                     ))}
-                    {coveredTeamSkills.length === 0 && <span className="text-[9px] text-zinc-650 italic">None yet</span>}
+                    {coveredTeamSkills.length === 0 && <span className="text-[9px] text-[var(--text-muted)] italic">None yet</span>}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <span className="text-[8px] text-zinc-500 font-mono uppercase block font-bold tracking-wider text-rose-400">Needed Stack ({missingTeamSkills.length})</span>
+                  <span className="text-[8px] font-mono uppercase block font-bold tracking-wider text-rose-600 dark:text-rose-400">Needed Stack ({missingTeamSkills.length})</span>
                   <div className="flex flex-wrap gap-1 max-w-[240px]">
                     {missingTeamSkills.map(s => (
-                      <span key={s} className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1 animate-pulse">
-                        <span className="w-1 h-1 rounded-full bg-rose-400" />
+                      <span key={s} className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1 animate-pulse">
+                        <span className="w-1 h-1 rounded-full bg-rose-600 dark:bg-rose-400" />
                         {s}
                       </span>
                     ))}
-                    {missingTeamSkills.length === 0 && <span className="text-[8px] text-emerald-400 italic font-medium">All stack requirements met</span>}
+                    {missingTeamSkills.length === 0 && <span className="text-[8px] text-emerald-700 dark:text-emerald-400 italic font-medium">All stack requirements met</span>}
                   </div>
                 </div>
 
                 {isOwner && missingTeamSkills.length > 0 && (
                   <button
                     onClick={() => setShowInviteBuilderModal(true)}
-                    className="btn btn-secondary text-[10px] px-3.5 py-1.5 whitespace-nowrap bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:text-white transition-all rounded-lg font-mono uppercase tracking-wider cursor-pointer"
+                    className="btn btn-secondary text-[10px] px-3.5 py-1.5 whitespace-nowrap bg-[var(--surface-1)] border-[var(--card-border)] hover:border-[var(--card-hover-border)] hover:text-[var(--text-primary)] transition-all rounded-lg font-mono uppercase tracking-wider cursor-pointer"
                   >
                     Find Builders
                   </button>
