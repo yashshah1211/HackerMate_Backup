@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       // Verify relationship: pending request exists
       const { data: connReq, error: connErr } = await supabase
         .from("friend_requests")
-        .select("id")
+        .select("id, message")
         .eq("sender_id", senderId)
         .eq("receiver_id", recipientId)
         .eq("status", "pending")
@@ -158,7 +158,13 @@ export async function POST(req: NextRequest) {
 
       subject = `[HackerMate] New Connection Request from ${escapedSenderName}`;
       title = "Connection Request";
-      textBody = `${escapedSenderName} wants to connect with you on HackerMate to explore potential hackathon collaborations.`;
+      const pitchMsg = (connReq as any)?.message;
+      if (pitchMsg && typeof pitchMsg === "string" && pitchMsg.trim().length > 0) {
+        const escapedNote = escapeHtml(pitchMsg.trim());
+        textBody = `${escapedSenderName} wants to connect with you on HackerMate and included a pitch note:\n\n"${escapedNote}"`;
+      } else {
+        textBody = `${escapedSenderName} wants to connect with you on HackerMate to explore potential hackathon collaborations.`;
+      }
       actionLabel = "View Connection Requests";
       actionUrl = `${baseUrl}/connections`;
     } else if (type === "team_invite") {

@@ -443,20 +443,22 @@ export default function TeamOverviewView({
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white">
               {team.name}
             </h1>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSIHExportModal(true)}
-                className="btn px-3.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-orange-500/30 shrink-0"
-              >
-                <span>🇮🇳 SIH SPOC Export</span>
-              </button>
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="btn btn-lime px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
-              >
-                <span className="text-black dark:text-black">🔗 Share Team</span>
-              </button>
-            </div>
+            {(isMember || isOwner) && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowSIHExportModal(true)}
+                  className="btn px-3.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-orange-500/30 shrink-0"
+                >
+                  <span>🇮🇳 SIH SPOC Export</span>
+                </button>
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="btn btn-lime px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"
+                >
+                  <span className="text-black dark:text-black">🔗 Share Team</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <p className="text-sm text-zinc-400 leading-relaxed mb-8">

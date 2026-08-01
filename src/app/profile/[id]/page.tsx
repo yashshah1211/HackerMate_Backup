@@ -9,6 +9,7 @@ import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
+import ConnectPitchModal from "@/components/ConnectPitchModal";
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
@@ -318,18 +319,27 @@ export default function ProfilePage() {
       : `https://${url}`;
   }
 
-  async function sendConnectionRequest() {
+  const [showPitchModal, setShowPitchModal] = useState(false);
+
+  function openPitchModal() {
+    if (!currentUserId || !profile) return;
+    setShowPitchModal(true);
+  }
+
+  async function handleSendPitch(pitchMessage?: string) {
     if (!currentUserId || !profile) return;
     setConnectionLoading(true);
 
     const { data, error } = await supabase.rpc("send_connection_request", {
       p_receiver_id: profile.id,
+      p_message: pitchMessage || null,
     });
 
     if (error) {
       console.error(error);
       showToast(error.message, "error");
       setConnectionLoading(false);
+      setShowPitchModal(false);
       return;
     }
 
@@ -337,6 +347,7 @@ export default function ProfilePage() {
     setConnectionState("request_sent");
     showToast("Connection request sent", "success");
     setConnectionLoading(false);
+    setShowPitchModal(false);
 
     // Trigger email alert
     fetch("/api/send-email", {
@@ -738,7 +749,7 @@ export default function ProfilePage() {
                         <ConnectionButton
                           state={connectionState}
                           loading={connectionLoading}
-                          onConnect={sendConnectionRequest}
+                          onConnect={openPitchModal}
                           onAccept={acceptConnectionRequest}
                           onCancelOrRemove={cancelOrRemoveConnection}
                         />
@@ -1291,6 +1302,23 @@ export default function ProfilePage() {
           issuerName: selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra",
         }}
       />
+
+      {/* Connect Pitch Modal */}
+      {showPitchModal && profile && (
+        <ConnectPitchModal
+          isOpen={showPitchModal}
+          onClose={() => setShowPitchModal(false)}
+          onSend={handleSendPitch}
+          targetProfile={{
+            id: profile.id,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            college: profile.college,
+            skills: profile.skills,
+          }}
+          loading={connectionLoading}
+        />
+      )}
     </main>
   );
 }

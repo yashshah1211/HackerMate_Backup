@@ -12,6 +12,7 @@ type RequestRow = {
   sender_id: string;
   receiver_id: string;
   status: string;
+  message?: string | null;
   created_at: string;
 };
 
@@ -229,50 +230,59 @@ function ConnectionsContent() {
             <p className="text-zinc-500 text-xs">No pending requests right now.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {incoming.map((req) => (
-              <div key={req.id} className="card card-static p-4 flex items-center justify-between gap-3">
-                <Link
-                  href={`/profile/${req.profile.id}`}
-                  className="flex items-center gap-3 min-w-0 flex-1"
-                >
-                  {req.profile.avatar_url ? (
-                    <img
-                      src={req.profile.avatar_url}
-                      alt={req.profile.full_name}
-                      className="w-9 h-9 rounded object-cover border border-zinc-800"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                      {req.profile.full_name?.charAt(0)}
+              <div key={req.id} className="card card-static p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <Link
+                    href={`/profile/${req.profile.id}`}
+                    className="flex items-center gap-3 min-w-0 flex-1"
+                  >
+                    {req.profile.avatar_url ? (
+                      <img
+                        src={req.profile.avatar_url}
+                        alt={req.profile.full_name}
+                        className="w-9 h-9 rounded object-cover border border-zinc-800"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
+                        {req.profile.full_name?.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-white truncate">
+                        {req.profile.full_name}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 truncate">
+                        {req.profile.college || "Independent Builder"}
+                      </p>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-xs text-white truncate">
-                      {req.profile.full_name}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 truncate">
-                      {req.profile.college || "Independent Builder"}
-                    </p>
-                  </div>
-                </Link>
+                  </Link>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => acceptRequest(req.id)}
-                    disabled={actionLoadingId === req.id}
-                    className="btn btn-primary btn-sm"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    onClick={() => rejectOrCancel(req.id)}
-                    disabled={actionLoadingId === req.id}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    Decline
-                  </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => acceptRequest(req.id)}
+                      disabled={actionLoadingId === req.id}
+                      className="btn btn-primary btn-sm"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => rejectOrCancel(req.id)}
+                      disabled={actionLoadingId === req.id}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Decline
+                    </button>
+                  </div>
                 </div>
+
+                {req.message && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40 text-[11px] text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed flex items-start gap-2">
+                    <span className="text-indigo-600 dark:text-indigo-400 font-bold shrink-0">💬</span>
+                    <span>&quot;{req.message}&quot;</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -283,41 +293,50 @@ function ConnectionsContent() {
       {outgoing.length > 0 && (
         <section className="mb-8 animate-fade-in-up stagger-2">
           <p className="section-label mb-3">SENT REQUESTS</p>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {outgoing.map((req) => (
-              <div key={req.id} className="card card-static p-4 flex items-center justify-between gap-3">
-                <Link
-                  href={`/profile/${req.profile.id}`}
-                  className="flex items-center gap-3 min-w-0 flex-1"
-                >
-                  {req.profile.avatar_url ? (
-                    <img
-                      src={req.profile.avatar_url}
-                      alt={req.profile.full_name}
-                      className="w-9 h-9 rounded object-cover border border-zinc-800"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                      {req.profile.full_name?.charAt(0)}
+              <div key={req.id} className="card card-static p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <Link
+                    href={`/profile/${req.profile.id}`}
+                    className="flex items-center gap-3 min-w-0 flex-1"
+                  >
+                    {req.profile.avatar_url ? (
+                      <img
+                        src={req.profile.avatar_url}
+                        alt={req.profile.full_name}
+                        className="w-9 h-9 rounded object-cover border border-zinc-800"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
+                        {req.profile.full_name?.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-white truncate">
+                        {req.profile.full_name}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 truncate">
+                        {req.profile.college || "Independent Builder"}
+                      </p>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-xs text-white truncate">
-                      {req.profile.full_name}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 truncate">
-                      {req.profile.college || "Independent Builder"}
-                    </p>
-                  </div>
-                </Link>
+                  </Link>
 
-                <button
-                  onClick={() => rejectOrCancel(req.id)}
-                  disabled={actionLoadingId === req.id}
-                  className="btn btn-secondary btn-sm flex-shrink-0"
-                >
-                  Cancel
-                </button>
+                  <button
+                    onClick={() => rejectOrCancel(req.id)}
+                    disabled={actionLoadingId === req.id}
+                    className="btn btn-secondary btn-sm flex-shrink-0"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {req.message && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 text-[11px] text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed flex items-start gap-2">
+                    <span className="text-zinc-500 font-bold shrink-0">💬 Your Pitch:</span>
+                    <span>&quot;{req.message}&quot;</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
