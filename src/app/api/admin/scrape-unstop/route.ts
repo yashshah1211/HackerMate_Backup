@@ -342,14 +342,16 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               location = opp.locations.join(", ");
               mode = "in-person";
             }
-            if (opp.prizes && opp.prizes[0]) {
-              const prizeObj = opp.prizes[0];
-              const pCurr = (prizeObj.currency || prizeObj.currency_code || "").toUpperCase();
+            if (opp.prizes && opp.prizes.length > 0) {
+              const prizeObj = opp.prizes.find((p: any) => p && p.cash) || opp.prizes[0];
+              const pCode = (prizeObj.currencyCode || prizeObj.currency_code || prizeObj.currency || "").toUpperCase();
               const pSym = prizeObj.currency_symbol || prizeObj.unit || "";
-              const prizesJsonStr = JSON.stringify(opp.prizes);
+              const pCurrName = (prizeObj.currency || "").toLowerCase();
 
-              if (pCurr === "USD" || pSym === "$" || prizesJsonStr.includes("$") || /\bUSD\b/i.test(prizesJsonStr)) {
+              if (pCode === "USD" || pSym === "$" || pCurrName.includes("dollar")) {
                 currency = "USD";
+              } else if (pCode === "INR" || pSym === "₹" || pCurrName.includes("rupee")) {
+                currency = "INR";
               } else {
                 currency = "INR";
               }
