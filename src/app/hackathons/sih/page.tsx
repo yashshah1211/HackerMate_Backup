@@ -619,6 +619,12 @@ export default function SIHTeamBuilderPage() {
                   (role) => !combinedSkills.some((s) => s.toLowerCase().includes(role.toLowerCase()))
                 );
 
+                const isUserTeamMember = Boolean(
+                  currentUserId &&
+                    (team.owner_id === currentUserId ||
+                      members.some((m) => m.user_id === currentUserId || m.profiles?.id === currentUserId))
+                );
+
                 return (
                   <div
                     key={team.id}
@@ -669,7 +675,7 @@ export default function SIHTeamBuilderPage() {
                           </span>
                         </div>
 
-                        {/* Skill Gap */}
+                        {/* Skill Coverage */}
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-600 dark:text-zinc-400">Skill Coverage:</span>
                           <span className={missingRoles.length === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-sky-600 dark:text-sky-400 font-medium"}>
@@ -726,40 +732,42 @@ export default function SIHTeamBuilderPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            setSelectedExportTeam({
-                              team: {
-                                id: team.id,
-                                name: team.name,
-                                description: team.description || "",
-                                owner_id: team.owner_id,
-                                max_members: team.max_members,
-                                college: team.college,
-                                hackathon_name: "Smart India Hackathon 2026",
-                                skills: team.skills,
-                                roles_needed: team.roles_needed,
-                              },
-                              members: members.map((m) => ({
-                                id: m.id,
-                                role: m.role,
-                                project_role: m.project_role || undefined,
-                                profiles: {
-                                  id: m.profiles?.id || m.user_id,
-                                  full_name: m.profiles?.full_name || "Member",
-                                  email: m.profiles?.email || "N/A",
-                                  avatar_url: m.profiles?.avatar_url,
-                                  skills: m.profiles?.skills,
-                                  gender: m.profiles?.gender,
+                        {isUserTeamMember && (
+                          <button
+                            onClick={() =>
+                              setSelectedExportTeam({
+                                team: {
+                                  id: team.id,
+                                  name: team.name,
+                                  description: team.description || "",
+                                  owner_id: team.owner_id,
+                                  max_members: team.max_members,
                                   college: team.college,
+                                  hackathon_name: "Smart India Hackathon 2026",
+                                  skills: team.skills,
+                                  roles_needed: team.roles_needed,
                                 },
-                              })),
-                            })
-                          }
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition flex items-center gap-1 cursor-pointer"
-                        >
-                          📄 Export SPOC
-                        </button>
+                                members: members.map((m) => ({
+                                  id: m.id,
+                                  role: m.role,
+                                  project_role: m.project_role || undefined,
+                                  profiles: {
+                                    id: m.profiles?.id || m.user_id,
+                                    full_name: m.profiles?.full_name || "Member",
+                                    email: m.profiles?.email || "N/A",
+                                    avatar_url: m.profiles?.avatar_url,
+                                    skills: m.profiles?.skills,
+                                    gender: m.profiles?.gender,
+                                    college: team.college,
+                                  },
+                                })),
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            📄 Export SPOC
+                          </button>
+                        )}
 
                         <Link
                           href={`/teams/${team.id}`}
