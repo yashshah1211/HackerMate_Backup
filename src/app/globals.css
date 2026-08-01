@@ -701,6 +701,22 @@ a:focus-visible {
   color: var(--text-muted) !important;
 }
 
+.light .text-zinc-700 {
+  color: #27272a !important;
+}
+
+.light .text-zinc-800 {
+  color: #18181b !important;
+}
+
+.light .text-emerald-400 {
+  color: var(--success-text) !important;
+}
+
+.light .text-amber-400 {
+  color: var(--warning-text) !important;
+}
+
 .light .bg-zinc-900 {
   background-color: var(--surface-2) !important;
 }
@@ -1144,6 +1160,21 @@ html.light .content-area {
   font-family: var(--sans) !important;
 }
 
+.light .dashboard-redesign,
+.light.dashboard-redesign {
+  --bg: #ffffff;
+  --bg-raised: #f4f4f5;
+  --bg-card: #ffffff;
+  --border: #e4e4e7;
+  --border-soft: #e4e4e7;
+  --text: #09090b;
+  --text-dim: #27272a;
+  --text-faint: #52525b;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --accent-border: rgba(37, 99, 235, 0.2);
+}
+
 .dashboard-redesign aside {
   width: 248px;
   flex-shrink: 0;
@@ -1471,11 +1502,19 @@ html.light .content-area {
 }
 
 .dashboard-redesign .match-pct {
-  font-size: 14px; font-weight: 600; color: var(--text) !important;
+  font-size: 14px; font-weight: 600; color: var(--text-primary, var(--text)) !important;
 }
 
 .dashboard-redesign .match-pct span {
-  font-size: 9px; color: var(--text-faint); display: block; font-weight: 400; text-align: right;
+  font-size: 9px; color: var(--text-secondary, var(--text-faint)) !important; display: block; font-weight: 500; text-align: right;
+}
+
+.light .dashboard-redesign .match-pct {
+  color: var(--text-primary) !important;
+}
+
+.light .dashboard-redesign .match-pct span {
+  color: var(--text-secondary) !important;
 }
 
 .dashboard-redesign .btn-connected {

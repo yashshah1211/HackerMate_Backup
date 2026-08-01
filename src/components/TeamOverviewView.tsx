@@ -471,13 +471,12 @@ export default function TeamOverviewView({
                   Your Skill Match
                 </h3>
                 <span
-                  className={`text-lg font-bold ${
-                    matchScore >= 70
+                  className={`text-lg font-bold ${matchScore >= 70
                       ? "text-emerald-400"
                       : matchScore >= 40
-                      ? "text-amber-400"
-                      : "text-zinc-500"
-                  }`}
+                        ? "text-amber-400"
+                        : "text-zinc-500"
+                    }`}
                 >
                   {matchScore}%
                 </span>
@@ -555,13 +554,12 @@ export default function TeamOverviewView({
           <div className="card card-static p-6 animate-fade-in-up stagger-1 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-6">
-                <span className={`badge text-[10px] ${
-                  teamFull 
-                    ? "badge-error" 
-                    : (team.is_recruiting === false) 
-                      ? "bg-zinc-800 text-zinc-400 border border-zinc-700" 
+                <span className={`badge text-[10px] ${teamFull
+                    ? "badge-error"
+                    : (team.is_recruiting === false)
+                      ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
                       : "badge-success"
-                }`}>
+                  }`}>
                   {teamFull ? "FULL" : (team.is_recruiting === false) ? "CLOSED" : "RECRUITING"}
                 </span>
 
@@ -823,9 +821,8 @@ export default function TeamOverviewView({
           {members.map((member, i) => (
             <div
               key={member.id}
-              className={`card card-static p-4 animate-fade-in-up stagger-${
-                Math.min(i % 6, 6) + 1
-              } flex flex-col justify-between`}
+              className={`card card-static p-4 animate-fade-in-up stagger-${Math.min(i % 6, 6) + 1
+                } flex flex-col justify-between`}
             >
               <div className="flex items-center gap-3">
                 {member.profiles?.avatar_url ? (
@@ -850,11 +847,10 @@ export default function TeamOverviewView({
                     </Link>
 
                     <span
-                      className={`badge text-[10px] py-0.5 px-1.5 ${
-                        member.role === "owner"
+                      className={`badge text-[10px] py-0.5 px-1.5 ${member.role === "owner"
                           ? "badge-primary"
                           : "badge-success"
-                      }`}
+                        }`}
                     >
                       {member.role}
                     </span>
@@ -891,7 +887,7 @@ export default function TeamOverviewView({
                           <option value="Project Manager">Project Manager</option>
                           <option value="Custom...">Custom...</option>
                         </select>
-                        
+
                         {isCustomProjectRole && (
                           <input
                             type="text"
@@ -901,7 +897,7 @@ export default function TeamOverviewView({
                             className="bg-zinc-950 border border-zinc-800 text-[10px] text-white rounded px-1.5 py-0.5 w-20 focus:outline-none focus:border-zinc-700"
                           />
                         )}
-                        
+
                         <button
                           onClick={() => handleSaveProjectRole(member.id)}
                           className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5 font-semibold cursor-pointer"
@@ -920,7 +916,7 @@ export default function TeamOverviewView({
                         <span className="text-[10px] font-semibold font-mono uppercase bg-zinc-900 border border-zinc-800/80 text-zinc-400 rounded px-2 py-0.5">
                           {member.project_role || "Developer"}
                         </span>
-                        
+
                         {isOwner && (
                           <button
                             onClick={() => {
@@ -987,7 +983,7 @@ export default function TeamOverviewView({
                 <h2 className="text-sm font-semibold text-white mb-0.5">Invite Builder</h2>
                 <p className="text-[10px] text-zinc-500">Send team invitations to other builders on HackerMate.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowInviteBuilderModal(false)}
                 className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
               >
@@ -1017,7 +1013,7 @@ export default function TeamOverviewView({
                 const memberUserIds = new Set(members.map((m) => m.profiles.id));
                 const filtered = inviteProfiles.filter((p) => {
                   if (p.id === currentUserId || memberUserIds.has(p.id)) return false;
-                  
+
                   if (!searchQuery) return true;
                   const query = searchQuery.toLowerCase();
                   const nameMatch = p.full_name?.toLowerCase().includes(query);
@@ -1095,11 +1091,10 @@ export default function TeamOverviewView({
                           }
                         }}
                         disabled={isAlreadyInvited}
-                        className={`btn btn-sm text-[10px] py-1 px-3 cursor-pointer ${
-                          isAlreadyInvited 
-                            ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border-transparent" 
+                        className={`btn btn-sm text-[10px] py-1 px-3 cursor-pointer ${isAlreadyInvited
+                            ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border-transparent"
                             : "btn-primary"
-                        }`}
+                          }`}
                       >
                         {isAlreadyInvited ? "Invited" : "Invite"}
                       </button>
@@ -1130,7 +1125,7 @@ export default function TeamOverviewView({
                 <h2 className="text-sm font-semibold text-white mb-0.5">Edit Team Details</h2>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Update name, mission, context, target skills, needed roles, and capacity.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowEditModal(false)}
                 className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
               >
@@ -1189,15 +1184,15 @@ export default function TeamOverviewView({
                       }}
                       className="input text-xs px-4 w-full"
                     />
-                    
+
                     {showEditCollegeDropdown && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-10" 
+                        <div
+                          className="fixed inset-0 z-10"
                           onClick={() => setShowEditCollegeDropdown(false)}
                         />
                         <div className="absolute left-0 right-0 top-full mt-1.5 max-h-48 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
-                          {COLLEGES.filter((col) => 
+                          {COLLEGES.filter((col) =>
                             col.toLowerCase().includes(editCollegeSearch.toLowerCase())
                           ).map((collegeName) => (
                             <button
@@ -1213,13 +1208,13 @@ export default function TeamOverviewView({
                               {collegeName}
                             </button>
                           ))}
-                          {COLLEGES.filter((col) => 
+                          {COLLEGES.filter((col) =>
                             col.toLowerCase().includes(editCollegeSearch.toLowerCase())
                           ).length === 0 && (
-                            <div className="text-center py-4 text-xs text-zinc-600">
-                              No colleges match your search.
-                            </div>
-                          )}
+                              <div className="text-center py-4 text-xs text-zinc-600">
+                                No colleges match your search.
+                              </div>
+                            )}
                         </div>
                       </>
                     )}
@@ -1266,11 +1261,10 @@ export default function TeamOverviewView({
                         type="button"
                         key={skill}
                         onClick={() => toggleEditSkill(skill)}
-                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border cursor-pointer ${
-                          active
+                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border cursor-pointer ${active
                             ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
                             : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
-                        }`}
+                          }`}
                       >
                         {skill}
                       </button>
@@ -1292,11 +1286,10 @@ export default function TeamOverviewView({
                         type="button"
                         key={role}
                         onClick={() => toggleEditRole(role)}
-                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border cursor-pointer ${
-                          active
+                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border cursor-pointer ${active
                             ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
                             : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
-                        }`}
+                          }`}
                       >
                         {role}
                       </button>

@@ -442,7 +442,7 @@ export default function TeamDetailsView({
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // Workspace V3 States
-  
+
   // Deployments
   type Deployment = {
     id: string;
@@ -673,7 +673,7 @@ export default function TeamDetailsView({
         .select()
         .maybeSingle();
       if (insertError) {
-         if (insertError.code === "23505") {
+        if (insertError.code === "23505") {
           // Concurrently created by another render/session, fetch it again
           const { data: retryDoc } = await supabase
             .from("team_documents")
@@ -768,17 +768,17 @@ export default function TeamDetailsView({
       if (!/^https?:\/\//i.test(url)) {
         fetchUrl = "https://" + url;
       }
-      
+
       // Use client-side fetch (with no-cors to prevent blocking by CORS policies)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
+
       await fetch(fetchUrl, {
         method: "HEAD",
         mode: "no-cors",
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
       const latency = Date.now() - startTime;
       setPingStatus((prev) => ({
@@ -797,7 +797,7 @@ export default function TeamDetailsView({
   const handleAddDeployment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDepName.trim() || !newDepUrl.trim() || !team.id) return;
-    
+
     setSubmittingDeployment(true);
     const { error } = await supabase
       .from("team_deployments")
@@ -1013,7 +1013,7 @@ export default function TeamDetailsView({
   // Load and save submission checklist
   useEffect(() => {
     if (!team.id) return;
-    
+
     const loadSubmission = async () => {
       try {
         const { data, error } = await supabase
@@ -1485,7 +1485,7 @@ export default function TeamDetailsView({
       .on("presence", { event: "sync" }, () => {
         const state = presenceChannel.presenceState();
         const onlineUsers: { id: string; name: string; avatarUrl: string | null }[] = [];
-        
+
         Object.keys(state).forEach((key) => {
           const userPresences = state[key] as any[];
           if (userPresences && userPresences.length > 0) {
@@ -1497,7 +1497,7 @@ export default function TeamDetailsView({
             });
           }
         });
-        
+
         setOnlineTeammates(onlineUsers);
       })
       .subscribe(async (status) => {
@@ -1648,12 +1648,12 @@ export default function TeamDetailsView({
         onClick={(e) => {
           const target = e.target as HTMLElement;
           if (
-            target.tagName === "SELECT" || 
-            target.tagName === "OPTION" || 
-            target.tagName === "INPUT" || 
-            target.tagName === "BUTTON" || 
-            target.closest("button") || 
-            target.closest("select") || 
+            target.tagName === "SELECT" ||
+            target.tagName === "OPTION" ||
+            target.tagName === "INPUT" ||
+            target.tagName === "BUTTON" ||
+            target.closest("button") ||
+            target.closest("select") ||
             target.closest("input")
           ) {
             return;
@@ -1689,13 +1689,12 @@ export default function TeamDetailsView({
               <option value="completed">Completed</option>
             </select>
 
-            <span className={`text-[8px] font-semibold px-1 py-0.5 rounded border uppercase ${
-              task.priority === "high"
+            <span className={`text-[8px] font-semibold px-1 py-0.5 rounded border uppercase ${task.priority === "high"
                 ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
                 : task.priority === "medium"
                   ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
                   : "bg-zinc-800 border-zinc-700 text-zinc-400"
-            }`}>
+              }`}>
               {task.priority}
             </span>
           </div>
@@ -1742,9 +1741,8 @@ export default function TeamDetailsView({
             const isOverdue = task.status !== "completed" && dueDate < now;
             const formatted = dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
             return (
-              <div className={`flex items-center gap-1 text-[9px] font-semibold font-mono ${
-                isOverdue ? "text-rose-455" : "text-zinc-500"
-              }`}>
+              <div className={`flex items-center gap-1 text-[9px] font-semibold font-mono ${isOverdue ? "text-rose-455" : "text-zinc-500"
+                }`}>
                 <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
@@ -1872,9 +1870,8 @@ export default function TeamDetailsView({
         id: `task-create-${t.id}`,
         type: "task",
         title: "Task Created",
-        description: `Created task "${t.title}" (Priority: ${t.priority.toUpperCase()})${
-          assignee ? ` assigned to ${assignee.full_name.split(" ")[0]}` : ""
-        }`,
+        description: `Created task "${t.title}" (Priority: ${t.priority.toUpperCase()})${assignee ? ` assigned to ${assignee.full_name.split(" ")[0]}` : ""
+          }`,
         timestamp: t.created_at,
         user: assignee
           ? { name: assignee.full_name, avatarUrl: assignee.avatar_url || null }
@@ -2052,13 +2049,12 @@ export default function TeamDetailsView({
                   Your Skill Match
                 </h3>
                 <span
-                  className={`text-lg font-bold ${
-                    matchScore >= 70
+                  className={`text-lg font-bold ${matchScore >= 70
                       ? "text-emerald-400"
                       : matchScore >= 40
-                      ? "text-amber-400"
-                      : "text-zinc-500"
-                  }`}
+                        ? "text-amber-400"
+                        : "text-zinc-500"
+                    }`}
                 >
                   {matchScore}%
                 </span>
@@ -2135,13 +2131,12 @@ export default function TeamDetailsView({
           <div className="card card-static p-6 animate-fade-in-up stagger-1 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-6">
-                <span className={`badge text-[10px] ${
-                  teamFull 
-                    ? "badge-error" 
-                    : (team.is_recruiting === false) 
-                      ? "bg-zinc-800 text-zinc-400 border border-zinc-700" 
+                <span className={`badge text-[10px] ${teamFull
+                    ? "badge-error"
+                    : (team.is_recruiting === false)
+                      ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
                       : "badge-success"
-                }`}>
+                  }`}>
                   {teamFull ? "FULL" : (team.is_recruiting === false) ? "CLOSED" : "RECRUITING"}
                 </span>
 
@@ -2397,9 +2392,8 @@ export default function TeamDetailsView({
           {members.map((member, i) => (
             <div
               key={member.id}
-              className={`card card-static p-4 animate-fade-in-up stagger-${
-                Math.min(i % 6, 6) + 1
-              } flex flex-col justify-between`}
+              className={`card card-static p-4 animate-fade-in-up stagger-${Math.min(i % 6, 6) + 1
+                } flex flex-col justify-between`}
             >
               <div className="flex items-center gap-3">
                 {member.profiles?.avatar_url ? (
@@ -2424,11 +2418,10 @@ export default function TeamDetailsView({
                     </Link>
 
                     <span
-                      className={`badge text-[10px] py-0.5 px-1.5 ${
-                        member.role === "owner"
+                      className={`badge text-[10px] py-0.5 px-1.5 ${member.role === "owner"
                           ? "badge-primary"
                           : "badge-success"
-                      }`}
+                        }`}
                     >
                       {member.role}
                     </span>
@@ -2465,7 +2458,7 @@ export default function TeamDetailsView({
                           <option value="Project Manager">Project Manager</option>
                           <option value="Custom...">Custom...</option>
                         </select>
-                        
+
                         {isCustomProjectRole && (
                           <input
                             type="text"
@@ -2475,7 +2468,7 @@ export default function TeamDetailsView({
                             className="bg-zinc-950 border border-zinc-800 text-[10px] text-white rounded px-1.5 py-0.5 w-20 focus:outline-none focus:border-zinc-700"
                           />
                         )}
-                        
+
                         <button
                           onClick={() => handleSaveProjectRole(member.id)}
                           className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5 font-semibold"
@@ -2494,7 +2487,7 @@ export default function TeamDetailsView({
                         <span className="text-[10px] font-semibold font-mono uppercase bg-zinc-900 border border-zinc-800/80 text-zinc-400 rounded px-2 py-0.5">
                           {member.project_role || "Developer"}
                         </span>
-                        
+
                         {isOwner && (
                           <button
                             onClick={() => {
@@ -2640,8 +2633,8 @@ export default function TeamDetailsView({
                     <span className="text-zinc-350 font-bold">{completedTasksCount}/{totalTasksCount} ({taskProgressPct}%)</span>
                   </div>
                   <div className="w-full h-1.5 bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]" 
+                    <div
+                      className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]"
                       style={{ width: `${taskProgressPct}%` }}
                     />
                   </div>
@@ -2654,8 +2647,8 @@ export default function TeamDetailsView({
                     <span className="text-zinc-350 font-bold">{completedChecklistCount}/{totalChecklistCount} ({checklistProgressPct}%)</span>
                   </div>
                   <div className="w-full h-1.5 bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                       style={{ width: `${checklistProgressPct}%` }}
                     />
                   </div>
@@ -2737,7 +2730,7 @@ export default function TeamDetailsView({
                 <p className="section-label mb-0.5 font-mono uppercase tracking-wider">Workspace</p>
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Workspace Hub</h2>
               </div>
-              
+
               {onlineTeammates.length > 0 && (
                 <div className="flex items-center -space-x-1.5 overflow-hidden p-1 bg-zinc-950/20 rounded-full border border-zinc-900/60 ml-2">
                   {onlineTeammates.map((u) => (
@@ -2763,81 +2756,73 @@ export default function TeamDetailsView({
             <div className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-800 overflow-x-auto whitespace-nowrap scrollbar-none max-w-full">
               <button
                 onClick={() => setWorkspaceTab("chat")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "chat"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "chat"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setWorkspaceTab("tasks")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "tasks"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "tasks"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 Tasks
               </button>
               <button
                 onClick={() => setWorkspaceTab("brainstorm")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "brainstorm"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "brainstorm"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 Brainstorm
               </button>
               <button
                 onClick={() => setWorkspaceTab("resources")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "resources"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "resources"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 Resources
               </button>
               <button
                 onClick={() => setWorkspaceTab("submission")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "submission"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "submission"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 Submission
               </button>
-               <button
+              <button
                 onClick={() => setWorkspaceTab("github")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "github"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "github"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 GitHub Sync
               </button>
               <button
                 onClick={() => setWorkspaceTab("deployments")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "deployments"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "deployments"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 🚀 Deployments
               </button>
               <button
                 onClick={() => setWorkspaceTab("activity")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                  workspaceTab === "activity"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${workspaceTab === "activity"
                     ? "bg-zinc-850 text-white"
                     : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 Activity Feed
               </button>
@@ -2911,7 +2896,7 @@ export default function TeamDetailsView({
                               const completed = assignedTasks.filter((t) => t.status === "completed").length;
                               const pending = assignedTasks.length - completed;
                               const taskSharePct = tasks.length > 0 ? Math.round((assignedTasks.length / tasks.length) * 100) : 0;
-                              
+
                               return (
                                 <div key={m.id} className="text-[10px] space-y-1">
                                   <div className="flex justify-between items-center text-zinc-350">
@@ -2919,8 +2904,8 @@ export default function TeamDetailsView({
                                     <span className="font-mono text-zinc-500">{pending} active / {completed} done ({taskSharePct}%)</span>
                                   </div>
                                   <div className="w-full h-1 bg-zinc-950 rounded-full overflow-hidden">
-                                    <div 
-                                      className="h-full bg-violet-500 rounded-full" 
+                                    <div
+                                      className="h-full bg-violet-500 rounded-full"
                                       style={{ width: `${taskSharePct}%` }}
                                     />
                                   </div>
@@ -2996,92 +2981,89 @@ export default function TeamDetailsView({
                     )}
 
                     <div className="grid md:grid-cols-3 gap-5">
-                    {/* TO DO COLUMN */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-300">To Do</span>
-                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
-                          {tasks.filter((t) => t.status === "todo").length}
-                        </span>
+                      {/* TO DO COLUMN */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-xs font-bold text-zinc-300">To Do</span>
+                          <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                            {tasks.filter((t) => t.status === "todo").length}
+                          </span>
+                        </div>
+                        <div
+                          onDragOver={(e) => e.preventDefault()}
+                          onDragEnter={() => setDraggedOverColumn("todo")}
+                          onDragLeave={() => setDraggedOverColumn(null)}
+                          onDrop={(e) => {
+                            setDraggedOverColumn(null);
+                            handleDrop(e, "todo");
+                          }}
+                          className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${draggedOverColumn === "todo"
+                              ? "bg-zinc-900/80 border border-dashed border-zinc-600"
+                              : "bg-zinc-950/40 border border-zinc-900/60"
+                            }`}
+                        >
+                          {tasks.filter((t) => t.status === "todo").map((task) => renderTaskCard(task))}
+                          {tasks.filter((t) => t.status === "todo").length === 0 && (
+                            <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                          )}
+                        </div>
                       </div>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnter={() => setDraggedOverColumn("todo")}
-                        onDragLeave={() => setDraggedOverColumn(null)}
-                        onDrop={(e) => {
-                          setDraggedOverColumn(null);
-                          handleDrop(e, "todo");
-                        }}
-                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
-                          draggedOverColumn === "todo"
-                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
-                            : "bg-zinc-950/40 border border-zinc-900/60"
-                        }`}
-                      >
-                        {tasks.filter((t) => t.status === "todo").map((task) => renderTaskCard(task))}
-                        {tasks.filter((t) => t.status === "todo").length === 0 && (
-                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* IN PROGRESS COLUMN */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-300">In Progress</span>
-                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
-                          {tasks.filter((t) => t.status === "in_progress").length}
-                        </span>
+                      {/* IN PROGRESS COLUMN */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-xs font-bold text-zinc-300">In Progress</span>
+                          <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                            {tasks.filter((t) => t.status === "in_progress").length}
+                          </span>
+                        </div>
+                        <div
+                          onDragOver={(e) => e.preventDefault()}
+                          onDragEnter={() => setDraggedOverColumn("in_progress")}
+                          onDragLeave={() => setDraggedOverColumn(null)}
+                          onDrop={(e) => {
+                            setDraggedOverColumn(null);
+                            handleDrop(e, "in_progress");
+                          }}
+                          className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${draggedOverColumn === "in_progress"
+                              ? "bg-zinc-900/80 border border-dashed border-zinc-600"
+                              : "bg-zinc-950/40 border border-zinc-900/60"
+                            }`}
+                        >
+                          {tasks.filter((t) => t.status === "in_progress").map((task) => renderTaskCard(task))}
+                          {tasks.filter((t) => t.status === "in_progress").length === 0 && (
+                            <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                          )}
+                        </div>
                       </div>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnter={() => setDraggedOverColumn("in_progress")}
-                        onDragLeave={() => setDraggedOverColumn(null)}
-                        onDrop={(e) => {
-                          setDraggedOverColumn(null);
-                          handleDrop(e, "in_progress");
-                        }}
-                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
-                          draggedOverColumn === "in_progress"
-                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
-                            : "bg-zinc-950/40 border border-zinc-900/60"
-                        }`}
-                      >
-                        {tasks.filter((t) => t.status === "in_progress").map((task) => renderTaskCard(task))}
-                        {tasks.filter((t) => t.status === "in_progress").length === 0 && (
-                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* COMPLETED COLUMN */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-300">Completed</span>
-                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
-                          {tasks.filter((t) => t.status === "completed").length}
-                        </span>
+                      {/* COMPLETED COLUMN */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-xs font-bold text-zinc-300">Completed</span>
+                          <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                            {tasks.filter((t) => t.status === "completed").length}
+                          </span>
+                        </div>
+                        <div
+                          onDragOver={(e) => e.preventDefault()}
+                          onDragEnter={() => setDraggedOverColumn("completed")}
+                          onDragLeave={() => setDraggedOverColumn(null)}
+                          onDrop={(e) => {
+                            setDraggedOverColumn(null);
+                            handleDrop(e, "completed");
+                          }}
+                          className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${draggedOverColumn === "completed"
+                              ? "bg-zinc-900/80 border border-dashed border-zinc-600"
+                              : "bg-zinc-950/40 border border-zinc-900/60"
+                            }`}
+                        >
+                          {tasks.filter((t) => t.status === "completed").map((task) => renderTaskCard(task))}
+                          {tasks.filter((t) => t.status === "completed").length === 0 && (
+                            <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                          )}
+                        </div>
                       </div>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnter={() => setDraggedOverColumn("completed")}
-                        onDragLeave={() => setDraggedOverColumn(null)}
-                        onDrop={(e) => {
-                          setDraggedOverColumn(null);
-                          handleDrop(e, "completed");
-                        }}
-                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
-                          draggedOverColumn === "completed"
-                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
-                            : "bg-zinc-950/40 border border-zinc-900/60"
-                        }`}
-                      >
-                        {tasks.filter((t) => t.status === "completed").map((task) => renderTaskCard(task))}
-                        {tasks.filter((t) => t.status === "completed").length === 0 && (
-                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
-                        )}
-                      </div>
-                    </div>
                     </div>
                   </div>
                 )}
@@ -3095,21 +3077,19 @@ export default function TeamDetailsView({
                   <div className="flex items-center bg-zinc-950 p-0.5 rounded-lg border border-zinc-800">
                     <button
                       onClick={() => setIsBrainstormListView(false)}
-                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${
-                        !isBrainstormListView
+                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${!isBrainstormListView
                           ? "bg-zinc-850 text-white font-semibold"
                           : "text-zinc-400 hover:text-white"
-                      }`}
+                        }`}
                     >
                       💡 Ideas Board
                     </button>
                     <button
                       onClick={() => setIsBrainstormListView(true)}
-                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${
-                        isBrainstormListView
+                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors ${isBrainstormListView
                           ? "bg-zinc-850 text-white font-semibold"
                           : "text-zinc-400 hover:text-white"
-                      }`}
+                        }`}
                     >
                       📝 Document Pad
                     </button>
@@ -3210,7 +3190,7 @@ export default function TeamDetailsView({
                           {brainstormIdeas.map((idea) => {
                             const creator = members.find((m) => m.profiles.id === idea.user_id)?.profiles;
                             const hasUpvoted = idea.upvotes?.includes(currentUserId || "");
-                            
+
                             const catLabels: Record<string, string> = {
                               "core": "Core MVP",
                               "nice-to-have": "Nice To Have",
@@ -3246,7 +3226,7 @@ export default function TeamDetailsView({
                                   </div>
 
                                   <h4 className="text-xs font-bold text-white break-words">{idea.title}</h4>
-                                  
+
                                   {idea.content && (
                                     <p className="text-[10px] text-zinc-400 leading-relaxed break-words line-clamp-4">{idea.content}</p>
                                   )}
@@ -3259,11 +3239,10 @@ export default function TeamDetailsView({
 
                                   <button
                                     onClick={() => handleToggleIdeaUpvote(idea.id)}
-                                    className={`px-2 py-1 rounded-lg border text-[9px] font-mono font-bold flex items-center gap-1.5 transition-colors ${
-                                      hasUpvoted 
-                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                                    className={`px-2 py-1 rounded-lg border text-[9px] font-mono font-bold flex items-center gap-1.5 transition-colors ${hasUpvoted
+                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                                         : "bg-zinc-950 border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-850"
-                                    }`}
+                                      }`}
                                   >
                                     <span>▲</span>
                                     <span>{idea.upvotes?.length || 0}</span>
@@ -3402,7 +3381,7 @@ export default function TeamDetailsView({
                   {/* Inputs */}
                   <div className="card card-static p-6 space-y-4">
                     <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 text-left">Project Metadata</h4>
-                    
+
                     <div className="flex flex-col gap-1.5 text-left">
                       <label className="text-xs font-medium text-zinc-300">Project Title</label>
                       <input
@@ -3463,7 +3442,7 @@ export default function TeamDetailsView({
                   <div className="card card-static p-6 flex flex-col justify-between">
                     <div>
                       <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 mb-4">Milestones Checklist</h4>
-                      
+
                       <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
                         {submission.checklist.map((item) => (
                           <div key={item.id} className="flex items-center justify-between group/check p-2 rounded-lg bg-zinc-950/60 border border-zinc-900/60 hover:border-zinc-800/80 transition-colors">
@@ -3540,7 +3519,7 @@ export default function TeamDetailsView({
                     <p className="text-xs text-zinc-500 max-w-sm mb-6 leading-relaxed">
                       Link your team's public GitHub repository to track commit logs, contributor statistics, and code progress directly from the workspace.
                     </p>
-                    
+
                     {isOwner ? (
                       <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
                         <input
@@ -3818,13 +3797,13 @@ export default function TeamDetailsView({
                         {deployments.map((dep) => {
                           const state = pingStatus[dep.id] || { status: "checking" };
                           const formattedUrl = /^https?:\/\//i.test(dep.url) ? dep.url : "https://" + dep.url;
-                          
+
                           return (
                             <div key={dep.id} className="card card-static p-5 bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700/60 rounded-2xl flex flex-col justify-between text-left space-y-4 group transition-all relative overflow-hidden">
                               <div className="space-y-2">
                                 <div className="flex justify-between items-start gap-2">
                                   <h4 className="text-xs font-bold text-white truncate max-w-[150px]">{dep.name}</h4>
-                                  
+
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                       onClick={() => pingUrl(dep.id, dep.url)}
@@ -3988,7 +3967,7 @@ export default function TeamDetailsView({
                 <h2 className="text-sm font-semibold text-white mb-0.5">Invite Builder</h2>
                 <p className="text-[10px] text-zinc-500">Send team invitations to other builders on HackerMate.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowInviteBuilderModal(false)}
                 className="text-zinc-500 hover:text-white transition-colors"
               >
@@ -4018,7 +3997,7 @@ export default function TeamDetailsView({
                 const memberUserIds = new Set(members.map((m) => m.profiles.id));
                 const filtered = inviteProfiles.filter((p) => {
                   if (p.id === currentUserId || memberUserIds.has(p.id)) return false;
-                  
+
                   if (!searchQuery) return true;
                   const query = searchQuery.toLowerCase();
                   const nameMatch = p.full_name?.toLowerCase().includes(query);
@@ -4096,11 +4075,10 @@ export default function TeamDetailsView({
                           }
                         }}
                         disabled={isAlreadyInvited}
-                        className={`btn btn-sm text-[10px] py-1 px-3 ${
-                          isAlreadyInvited 
-                            ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border-transparent" 
+                        className={`btn btn-sm text-[10px] py-1 px-3 ${isAlreadyInvited
+                            ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border-transparent"
                             : "btn-primary"
-                        }`}
+                          }`}
                       >
                         {isAlreadyInvited ? "Invited" : "Invite"}
                       </button>
@@ -4130,7 +4108,7 @@ export default function TeamDetailsView({
                 <h2 className="text-sm font-semibold text-white mb-0.5">Edit Team Details</h2>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Update name, mission, context, target skills, needed roles, and capacity.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowEditModal(false)}
                 className="text-zinc-500 hover:text-white transition-colors"
               >
@@ -4189,15 +4167,15 @@ export default function TeamDetailsView({
                       }}
                       className="input text-xs px-4 w-full"
                     />
-                    
+
                     {showEditCollegeDropdown && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-10" 
+                        <div
+                          className="fixed inset-0 z-10"
                           onClick={() => setShowEditCollegeDropdown(false)}
                         />
                         <div className="absolute left-0 right-0 top-full mt-1.5 max-h-48 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
-                          {COLLEGES.filter((col) => 
+                          {COLLEGES.filter((col) =>
                             col.toLowerCase().includes(editCollegeSearch.toLowerCase())
                           ).map((collegeName) => (
                             <button
@@ -4213,13 +4191,13 @@ export default function TeamDetailsView({
                               {collegeName}
                             </button>
                           ))}
-                          {COLLEGES.filter((col) => 
+                          {COLLEGES.filter((col) =>
                             col.toLowerCase().includes(editCollegeSearch.toLowerCase())
                           ).length === 0 && (
-                            <div className="text-center py-4 text-xs text-zinc-600">
-                              No colleges match your search.
-                            </div>
-                          )}
+                              <div className="text-center py-4 text-xs text-zinc-600">
+                                No colleges match your search.
+                              </div>
+                            )}
                         </div>
                       </>
                     )}
@@ -4266,11 +4244,10 @@ export default function TeamDetailsView({
                         type="button"
                         key={skill}
                         onClick={() => toggleEditSkill(skill)}
-                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border ${
-                          active
+                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border ${active
                             ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
                             : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
-                        }`}
+                          }`}
                       >
                         {skill}
                       </button>
@@ -4292,11 +4269,10 @@ export default function TeamDetailsView({
                         type="button"
                         key={role}
                         onClick={() => toggleEditRole(role)}
-                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border ${
-                          active
+                        className={`px-2 py-1 rounded text-[10px] font-medium transition-all border ${active
                             ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
                             : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
-                        }`}
+                          }`}
                       >
                         {role}
                       </button>
@@ -4340,18 +4316,17 @@ export default function TeamDetailsView({
           <div className="card card-static p-6 w-full max-w-lg flex flex-col max-h-[85vh] bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in text-left">
             <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
               <div>
-                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase mb-1.5 inline-block ${
-                  selectedTask.priority === "high"
+                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase mb-1.5 inline-block ${selectedTask.priority === "high"
                     ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
                     : selectedTask.priority === "medium"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
                       : "bg-zinc-800 border-zinc-700 text-zinc-400"
-                }`}>
+                  }`}>
                   {selectedTask.priority} Priority
                 </span>
                 <h2 className="text-sm font-semibold text-white leading-snug">{selectedTask.title}</h2>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedTask(null)}
                 className="text-zinc-500 hover:text-white transition-colors p-1"
               >
@@ -4406,7 +4381,7 @@ export default function TeamDetailsView({
             {/* Comments thread */}
             <div className="flex-1 flex flex-col min-h-0">
               <span className="text-zinc-500 text-[10px] font-mono uppercase block mb-2">Discussion Thread</span>
-              
+
               <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
                 {loadingComments ? (
                   <div className="text-center py-6">
@@ -4470,7 +4445,7 @@ export default function TeamDetailsView({
                 <h2 className="text-sm font-semibold text-white mb-0.5">Create New Task</h2>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Assign tasks to builders on your team.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowAddTaskModal(false)}
                 className="text-zinc-500 hover:text-white transition-colors"
               >
@@ -4580,7 +4555,7 @@ export default function TeamDetailsView({
                 <h2 className="text-sm font-semibold text-white mb-0.5">Add Resource Link</h2>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Save important workspace links for your team.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowAddLinkModal(false)}
                 className="text-zinc-500 hover:text-white transition-colors"
               >
