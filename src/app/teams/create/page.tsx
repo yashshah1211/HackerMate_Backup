@@ -49,6 +49,9 @@ function CreateTeamForm() {
   const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const preselectedHackathonId = searchParams.get("hackathon");
+  // Pre-populate invite from post-acceptance prompt
+  const inviteUserId = searchParams.get("invite");
+  const [inviteUserName, setInviteUserName] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -107,7 +110,19 @@ function CreateTeamForm() {
         });
       }
     });
-  }, []);
+
+    // Fetch the invited user's name for the banner
+    if (inviteUserId) {
+      supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", inviteUserId)
+        .single()
+        .then(({ data }) => {
+          if (data) setInviteUserName(data.full_name);
+        });
+    }
+  }, [inviteUserId]);
 
   async function executeCreateTeam() {
     setLoading(true);
@@ -117,7 +132,7 @@ function CreateTeamForm() {
 
     const selectedHackathon = hackathons.find((h) => h.id === hackathonId);
 
-    const { error } = await supabase.rpc("create_team_with_owner", {
+    const { data: teamId, error } = await supabase.rpc("create_team_with_owner", {
       p_name: name.trim(),
       p_description: description.trim(),
       p_max_members: maxMembers,
@@ -135,7 +150,34 @@ function CreateTeamForm() {
       return;
     }
 
-    showToast("Team created successfully!", "success");
+    // Auto-invite user from post-acceptance prompt if param present
+    if (inviteUserId && teamId) {
+      const { error: inviteErr } = await supabase.rpc("send_team_invite", {
+        p_team_id: teamId as string,
+        p_invited_user_id: inviteUserId,
+      });
+      if (inviteErr) {
+        console.error("Auto-invite failed:", inviteErr);
+        showToast("Team created! (Invite failed — please invite from workspace)", "warning");
+      } else {
+        const label = inviteUserName || "your new connection";
+        showToast(`Team created and invite sent to ${label}!`, "success");
+        // Fire invite email
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            senderId: user.id,
+            recipientId: inviteUserId,
+            type: "team_invite",
+            teamId,
+          }),
+        }).catch((err) => console.error("Failed to send invite email:", err));
+      }
+    } else {
+      showToast("Team created successfully!", "success");
+    }
+
     setLoading(false);
     if (hackathonId === "00000000-0000-0000-0000-000001703935") {
       router.push("/hackathons/sih");
@@ -184,6 +226,26 @@ function CreateTeamForm() {
           Build your dream team and start collaborating.
         </p>
       </div>
+
+      {/* Contextual invite banner — shown when coming from post-acceptance prompt */}
+      {inviteUserId && (
+        <div className="mb-6 px-4 py-3 rounded-xl bg-indigo-950/40 border border-indigo-800/50 flex items-center gap-3 animate-fade-in-up">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031a.005.005 0 01-.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5zm-3.75 9h7.5m-7.5 0H12" />
+            </svg>
+          </div>
+          <p className="text-xs text-zinc-300 leading-relaxed">
+            <span className="font-semibold text-indigo-300">
+              {inviteUserName ? `Building with ${inviteUserName}` : "Team invite queued"}
+            </span>
+            {" — "}
+            {inviteUserName
+              ? `${inviteUserName} will automatically receive an invite once your team is created.`
+              : "An invite will be sent automatically once your team is created."}
+          </p>
+        </div>
+      )}
 
       {/* Form Card */}
       <div className="card card-static animate-fade-in-up stagger-1">

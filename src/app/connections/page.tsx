@@ -3,9 +3,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
+import PostAcceptanceTeamPrompt, { type TeamWithSlots, type ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
 
 type RequestRow = {
   id: string;
@@ -27,11 +29,39 @@ type EnrichedRequest = RequestRow & { profile: Profile };
 
 function ConnectionsContent() {
   const { showToast } = useNotification();
+  const router = useRouter();
   const [incoming, setIncoming] = useState<EnrichedRequest[]>([]);
   const [outgoing, setOutgoing] = useState<EnrichedRequest[]>([]);
   const [connections, setConnections] = useState<EnrichedRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  // ── Post-acceptance team prompt ──
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptUser, setPromptUser] = useState<ConnectedUser | null>(null);
+  const [promptTeams, setPromptTeams] = useState<TeamWithSlots[]>([]);
+
+  async function fetchTeamsWithSlots(userId: string): Promise<TeamWithSlots[]> {
+    // Fetch teams owned by the accepting user with open slots
+    const { data: teamsData } = await supabase
+      .from("teams")
+      .select("id, name, max_members, team_members(count)")
+      .eq("owner_id", userId);
+
+    if (!teamsData) return [];
+
+    return (teamsData as unknown as {
+      id: string;
+      name: string;
+      max_members: number;
+      team_members: { count: number }[] | { count: number };
+    }[]).flatMap((t) => {
+      const countObj = Array.isArray(t.team_members) ? t.team_members[0] : t.team_members;
+      const memberCount = countObj ? countObj.count : 0;
+      const openSlots = (t.max_members ?? 4) - memberCount;
+      return openSlots > 0 ? [{ id: t.id, name: t.name, openSlots }] : [];
+    });
+  }
 
   useEffect(() => {
     let active = true;
@@ -157,7 +187,7 @@ function ConnectionsContent() {
     setLoading(false);
   }
 
-  async function acceptRequest(requestId: string) {
+  async function acceptRequest(requestId: string, otherProfile: Profile) {
     setActionLoadingId(requestId);
     const { error } = await supabase.rpc("accept_connection_request", {
       p_request_id: requestId,
@@ -172,6 +202,15 @@ function ConnectionsContent() {
     showToast("Connection accepted!", "success");
     await loadAll();
     setActionLoadingId(null);
+
+    // Fire team formation prompt
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const slots = await fetchTeamsWithSlots(user.id);
+      setPromptTeams(slots);
+      setPromptUser(otherProfile);
+      setPromptOpen(true);
+    }
   }
 
   async function rejectOrCancel(requestId: string) {
@@ -204,7 +243,8 @@ function ConnectionsContent() {
   }
 
   return (
-    <main className="max-w-4xl mx-auto px-6 pt-24 pb-16">
+    <>
+      <main className="max-w-4xl mx-auto px-6 pt-24 pb-16">
       {/* Header */}
       <div className="mb-8 animate-fade-in-up">
         <p className="section-label">NETWORK</p>
@@ -261,7 +301,7 @@ function ConnectionsContent() {
 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
-                      onClick={() => acceptRequest(req.id)}
+                      onClick={() => acceptRequest(req.id, req.profile)}
                       disabled={actionLoadingId === req.id}
                       className="btn btn-primary btn-sm"
                     >
@@ -426,6 +466,45 @@ function ConnectionsContent() {
         )}
       </section>
     </main>
+
+    {/* Post-acceptance team formation prompt */}
+    {promptUser && (
+      <PostAcceptanceTeamPrompt
+        open={promptOpen}
+        onClose={() => setPromptOpen(false)}
+        connectedUser={promptUser}
+        teamsWithSlots={promptTeams}
+        onCreateTeam={() =>
+          router.push(`/teams/create?invite=${promptUser.id}`)
+        }
+        onInviteToTeam={async (teamId) => {
+          const { error } = await supabase.rpc("send_team_invite", {
+            p_team_id: teamId,
+            p_invited_user_id: promptUser.id,
+          });
+          if (error) {
+            showToast(error.message, "error");
+          } else {
+            showToast(`Invite sent to ${promptUser.full_name}!`, "success");
+            // Fire email notification
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              fetch("/api/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  senderId: user.id,
+                  recipientId: promptUser.id,
+                  type: "team_invite",
+                  teamId,
+                }),
+              }).catch((err) => console.error("Failed to send invite email:", err));
+            }
+          }
+        }}
+      />
+    )}
+    </>
   );
 }
 

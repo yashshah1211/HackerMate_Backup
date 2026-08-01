@@ -10,6 +10,7 @@ import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import ConnectPitchModal from "@/components/ConnectPitchModal";
+import PostAcceptanceTeamPrompt from "@/components/PostAcceptanceTeamPrompt";
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
@@ -72,6 +73,9 @@ export default function ProfilePage() {
   const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // ── Post-acceptance team prompt ──
+  const [postAcceptPromptOpen, setPostAcceptPromptOpen] = useState(false);
 
   async function handleDeleteAccount() {
     setDeleting(true);
@@ -379,6 +383,9 @@ export default function ProfilePage() {
     setConnectionState("connected");
     showToast("Connection request accepted!", "success");
     setConnectionLoading(false);
+
+    // Fire team formation prompt — ownedTeams already loaded
+    setPostAcceptPromptOpen(true);
   }
 
   async function cancelOrRemoveConnection() {
@@ -1317,6 +1324,55 @@ export default function ProfilePage() {
             skills: profile.skills,
           }}
           loading={connectionLoading}
+        />
+      )}
+
+      {/* Post-acceptance team formation prompt */}
+      {profile && !isOwnProfile && (
+        <PostAcceptanceTeamPrompt
+          open={postAcceptPromptOpen}
+          onClose={() => setPostAcceptPromptOpen(false)}
+          connectedUser={{
+            id: profile.id,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            college: profile.college,
+          }}
+          teamsWithSlots={ownedTeams
+            .filter((t) => (t.max_members ?? 4) - t.memberCount > 0)
+            .map((t) => ({
+              id: t.id,
+              name: t.name,
+              openSlots: (t.max_members ?? 4) - t.memberCount,
+            }))}
+          onCreateTeam={() =>
+            router.push(`/teams/create?invite=${profile.id}`)
+          }
+          onInviteToTeam={async (teamId) => {
+            const { error } = await supabase.rpc("send_team_invite", {
+              p_team_id: teamId,
+              p_invited_user_id: profile.id,
+            });
+            if (error) {
+              showToast(error.message, "error");
+            } else {
+              showToast(`Invite sent to ${profile.full_name}!`, "success");
+              setPostAcceptPromptOpen(false);
+              // Fire email notification
+              if (currentUserId) {
+                fetch("/api/send-email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    senderId: currentUserId,
+                    recipientId: profile.id,
+                    type: "team_invite",
+                    teamId,
+                  }),
+                }).catch((err) => console.error("Failed to send invite email:", err));
+              }
+            }
+          }}
         />
       )}
     </main>
