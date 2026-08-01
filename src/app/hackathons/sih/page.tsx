@@ -868,7 +868,7 @@ export default function SIHTeamBuilderPage() {
                     </span>
 
                     <Link
-                      href={`/builders/${builder.id}`}
+                      href={`/profile/${builder.id}`}
                       className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 transition"
                     >
                       View Profile →
