@@ -13,6 +13,7 @@ import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModa
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import SIHQuickOnboardingModal from "@/components/SIHQuickOnboardingModal";
+import { trackEvent } from "@/lib/posthog";
 
 const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
 
@@ -328,6 +329,10 @@ function SIHTeamBuilderContent() {
           showToast(error.message, "error");
         } else {
           setIsUserLookingForTeam(true);
+          trackEvent("sih_listed_myself", {
+            college: currentUserProfile?.college || userCollege,
+            hackathon_id: SIH_HACKATHON_ID,
+          });
           if (currentUserProfile) {
             setAllBuilders((prev) => {
               if (prev.some((b) => b.id === currentUserId)) return prev;

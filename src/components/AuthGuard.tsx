@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+import { identifyUser } from "@/lib/posthog";
+
 export default function AuthGuard({
   children,
   adminOnly = false,
@@ -31,6 +33,13 @@ export default function AuthGuard({
         .select("id, onboarding_completed, is_banned, role")
         .eq("id", user.id)
         .single();
+
+      if (profile) {
+        identifyUser(profile.id, {
+          onboarding_completed: profile.onboarding_completed,
+          role: profile.role,
+        });
+      }
 
       if (profile?.is_banned) {
         setIsBanned(true);

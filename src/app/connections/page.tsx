@@ -8,6 +8,7 @@ import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import PostAcceptanceTeamPrompt, { type TeamWithSlots, type ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
+import { trackEvent } from "@/lib/posthog";
 
 type RequestRow = {
   id: string;
@@ -200,6 +201,9 @@ function ConnectionsContent() {
     }
 
     showToast("Connection accepted!", "success");
+    trackEvent("connection_request_accepted", {
+      other_user_id: otherProfile.id,
+    });
     await loadAll();
     setActionLoadingId(null);
 
@@ -227,6 +231,9 @@ function ConnectionsContent() {
     }
 
     showToast("Request updated.", "info");
+    trackEvent("connection_request_declined", {
+      request_id: requestId,
+    });
     await loadAll();
     setActionLoadingId(null);
   }

@@ -36,6 +36,8 @@ const POPULAR_SKILLS = [
   "TypeScript",
 ];
 
+import { trackEvent, identifyUser } from "@/lib/posthog";
+
 export default function SIHQuickOnboardingModal({
   isOpen,
   onClose,
@@ -100,6 +102,13 @@ export default function SIHQuickOnboardingModal({
       if (error) {
         throw error;
       }
+
+      identifyUser(userId, { onboarding_completed: true });
+      trackEvent("onboarding_completed", {
+        modal_type: "sih_quick_modal",
+        college: finalCollege,
+        skills_count: selectedSkills.length,
+      });
 
       onSuccess(data);
       onClose();

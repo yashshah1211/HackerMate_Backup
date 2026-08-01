@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { trackEvent } from "@/lib/posthog";
 
 export type TeamWithSlots = {
   id: string;
@@ -38,14 +39,29 @@ export default function PostAcceptanceTeamPrompt({
   );
   const [inviting, setInviting] = useState(false);
 
+  const isBranchB = teamsWithSlots.length > 0;
+
+  useEffect(() => {
+    if (open) {
+      trackEvent("post_acceptance_prompt_viewed", {
+        connected_user_id: connectedUser.id,
+        branch: isBranchB ? "invite_existing" : "create_team",
+      });
+    }
+  }, [open, connectedUser.id, isBranchB]);
+
   if (!open) return null;
 
-  const isBranchB = teamsWithSlots.length > 0;
   const firstName = connectedUser.full_name?.split(" ")[0] || connectedUser.full_name;
 
   async function handleInvite() {
     if (!selectedTeamId) return;
     setInviting(true);
+    trackEvent("post_acceptance_prompt_acted", {
+      action: "send_invite",
+      team_id: selectedTeamId,
+      connected_user_id: connectedUser.id,
+    });
     await onInviteToTeam(selectedTeamId);
     setInviting(false);
     onClose();
@@ -208,7 +224,14 @@ export default function PostAcceptanceTeamPrompt({
               {/* Actions */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => { onCreateTeam(); onClose(); }}
+                  onClick={() => {
+                    trackEvent("post_acceptance_prompt_acted", {
+                      action: "create_team_together",
+                      connected_user_id: connectedUser.id,
+                    });
+                    onCreateTeam();
+                    onClose();
+                  }}
                   className="btn btn-primary flex-1 text-xs py-2.5 flex items-center justify-center gap-1.5"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

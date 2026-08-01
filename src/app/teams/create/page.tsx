@@ -8,6 +8,7 @@ import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
 import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
+import { trackEvent } from "@/lib/posthog";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -149,6 +150,14 @@ function CreateTeamForm() {
       setLoading(false);
       return;
     }
+
+    trackEvent("team_created", {
+      team_id: teamId,
+      team_name: name.trim(),
+      hackathon_id: hackathonId || null,
+      max_members: maxMembers,
+      has_auto_invited_user: !!inviteUserId,
+    });
 
     // Auto-invite user from post-acceptance prompt if param present
     if (inviteUserId && teamId) {

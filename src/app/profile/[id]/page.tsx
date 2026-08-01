@@ -11,6 +11,7 @@ import ShareModal from "@/components/ShareModal";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import ConnectPitchModal from "@/components/ConnectPitchModal";
 import PostAcceptanceTeamPrompt from "@/components/PostAcceptanceTeamPrompt";
+import { trackEvent } from "@/lib/posthog";
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
@@ -350,6 +351,10 @@ export default function ProfilePage() {
     setConnectionRequestId(data);
     setConnectionState("request_sent");
     showToast("Connection request sent", "success");
+    trackEvent("connection_request_sent", {
+      receiver_id: profile.id,
+      has_pitch_message: !!pitchMessage,
+    });
     setConnectionLoading(false);
     setShowPitchModal(false);
 

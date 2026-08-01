@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
 import { COLLEGES } from "@/lib/colleges";
+import { trackEvent, identifyUser } from "@/lib/posthog";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "TailwindCSS",
@@ -41,6 +42,10 @@ export default function OnboardingPage() {
 
   // Load existing profile data on mount to preserve all partial entries
   useEffect(() => {
+    trackEvent("onboarding_started", {
+      referrer_source: typeof window !== 'undefined' ? localStorage.getItem('hm_referrer_source') : null,
+    });
+
     async function loadProfile() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -162,6 +167,13 @@ export default function OnboardingPage() {
       showToast(error.message, "error");
       return;
     }
+
+    identifyUser(user.id, { onboarding_completed: true });
+    trackEvent("onboarding_completed", {
+      college: finalCollege,
+      is_custom_college: college === "Other",
+      skills_count: selectedSkills.length,
+    });
 
     showToast("Profile set up successfully! Welcome to HackerMate.", "success");
 

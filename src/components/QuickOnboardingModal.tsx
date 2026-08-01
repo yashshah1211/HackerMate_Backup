@@ -13,6 +13,8 @@ interface QuickOnboardingModalProps {
   initialGithubUrl?: string;
 }
 
+import { trackEvent, identifyUser } from "@/lib/posthog";
+
 export default function QuickOnboardingModal({
   isOpen,
   onClose,
@@ -88,6 +90,12 @@ export default function QuickOnboardingModal({
         console.error("Error setting profile onboarding complete:", error);
         showToast(error.message, "error");
       } else {
+        identifyUser(user.id, { onboarding_completed: true });
+        trackEvent("onboarding_completed", {
+          modal_type: "quick_modal",
+          college: finalCollege,
+          skills_count: selectedSkills.length,
+        });
         showToast("Profile completed successfully! You are now a Verified Builder.", "success");
         onSuccess();
         onClose();
