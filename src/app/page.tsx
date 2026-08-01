@@ -808,6 +808,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── Footer ─── */}
+      <Footer />
+
       {/* ─── Organizer Contact Modal ─── */}
       {showOrganizerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
