@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
+import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 
 type Profile = {
   id: string;
@@ -443,6 +444,13 @@ function DevelopersContent() {
                       <span className="badge text-[9px] text-zinc-600">No skills added</span>
                     )}
                   </div>
+
+                  <MatchReasoningBadge
+                    userA={currentUserProfile}
+                    userB={dev}
+                    isSelfViewer={true}
+                    matchScore={matchScore}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">

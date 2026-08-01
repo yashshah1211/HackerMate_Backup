@@ -10,6 +10,7 @@ import Logo from "@/components/Logo";
 
 import QuickOnboardingModal from "@/components/QuickOnboardingModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
+import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 
 type Profile = {
   id: string;
@@ -246,7 +247,7 @@ function DashboardContent() {
           devsWithScore.sort((a, b) => b.compatibility - a.compatibility);
           setSpotlights(devsWithScore.slice(0, 4)); // Get top 4 compatible builders
 
-          // Filter builders from the same college
+          // Filter builders from the same college (fill up to 7 builders)
           const myCollege = profileData.college ? profileData.college.toLowerCase().trim() : "";
           if (myCollege) {
             const mates = devsWithScore.filter(other => {
@@ -265,9 +266,15 @@ function DashboardContent() {
               
               return myCollege.includes(otherCollege) || otherCollege.includes(myCollege);
             });
-            setCollegeMates(mates.slice(0, 4)); // Top 4 builders from the same college
+
+            // Fill remaining slots up to 7 with top compatible platform builders if college has < 7
+            const mateIds = new Set(mates.map(m => m.id));
+            const fallbackDevs = devsWithScore.filter(dev => !mateIds.has(dev.id));
+            const combined = [...mates, ...fallbackDevs];
+
+            setCollegeMates(combined.slice(0, 7));
           } else {
-            setCollegeMates([]);
+            setCollegeMates(devsWithScore.slice(0, 7));
           }
         }
       }
@@ -865,6 +872,7 @@ function DashboardContent() {
                         <span key={skill} className="skill-chip">{skill}</span>
                       ))}
                     </div>
+                    <MatchReasoningBadge userA={profile} userB={dev} isSelfViewer={true} matchScore={dev.compatibility} />
                   </div>
                   <div className="match-right">
                     <div className="match-pct">{dev.compatibility}%<span>match</span></div>
@@ -944,6 +952,7 @@ function DashboardContent() {
                     </div>
                   </div>
                   <div className="match-right">
+                    {dev.compatibility ? <div className="match-pct">{dev.compatibility}%<span>match</span></div> : null}
                     {connectionState === "connected" ? (
                       <div className="btn-connected">✓ Connected</div>
                     ) : connectionState === "request_sent" ? (
