@@ -309,6 +309,7 @@ export type Database = {
           banner_url: string | null
           college: string | null
           created_at: string | null
+          currency: string | null
           description: string | null
           end_date: string | null
           id: string
@@ -330,6 +331,7 @@ export type Database = {
           banner_url?: string | null
           college?: string | null
           created_at?: string | null
+          currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -351,6 +353,7 @@ export type Database = {
           banner_url?: string | null
           college?: string | null
           created_at?: string | null
+          currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string

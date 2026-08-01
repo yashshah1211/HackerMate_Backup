@@ -16,6 +16,7 @@ type Hackathon = {
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
+  currency?: string | null;
   website_url: string | null;
   tags: string[] | null;
   type: string | null;
@@ -58,11 +59,11 @@ function getPlainPreview(html: string | null, maxLength: number = 145): string {
   return plainText.slice(0, maxLength).trim() + "...";
 }
 
-function parsePrizeValue(prize: string | null): number {
+function parsePrizeValue(prize: string | null, currency?: string | null): number {
   if (!prize) return 0;
   // Strip any HTML tags first (handles legacy DB values with markup)
   const stripped = prize.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, "").trim();
-  const isUSD = stripped.includes("$");
+  const isUSD = currency === "USD" || currency === "$" || stripped.includes("$") || /\bUSD\b/i.test(stripped);
   // Remove commas and currency symbols, grab first number
   const clean = stripped.replace(/,/g, "").split(".")[0];
   const match = clean.match(/\d+/);
@@ -77,23 +78,40 @@ function stripHtml(str: string | null): string {
   return str.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, "").trim();
 }
 
-export function formatPrizeDisplay(prize: string | null | undefined): string {
+export function formatPrizeDisplay(prize: string | null | undefined, currency?: string | null): string {
   if (!prize) return "";
 
   const clean = stripHtml(prize);
   if (!clean) return "";
 
-  // If the prize contains '$' or 'USD' (case-insensitive)
-  if (clean.includes("$") || /\bUSD\b/i.test(clean)) {
-    // If it has leading '₹', strip leading '₹'
-    const sansRupee = clean.replace(/^₹\s*/, "").trim();
-    if (!sansRupee.includes("$")) {
-      return `$${sansRupee}`;
-    }
-    return sansRupee;
+  let isUSD = false;
+  if (currency) {
+    isUSD = currency === "USD" || currency === "$";
+  } else {
+    isUSD = clean.includes("$") || /\bUSD\b/i.test(clean);
   }
 
-  return clean;
+  const targetSymbol = isUSD ? "$" : "₹";
+
+  // If non-numeric description like "Certificate & Perks", return clean text as is
+  if (!/\d/.test(clean)) {
+    return clean;
+  }
+
+  // Format amount with target symbol
+  if (isUSD) {
+    const sansRupee = clean.replace(/^₹\s*/, "").trim();
+    if (!sansRupee.startsWith("$")) {
+      return `$ ${sansRupee.replace(/^\$\s*/, "")}`;
+    }
+    return sansRupee;
+  } else {
+    const sansDollar = clean.replace(/^\$\s*/, "").trim();
+    if (!sansDollar.startsWith("₹")) {
+      return `₹ ${sansDollar.replace(/^₹\s*/, "")}`;
+    }
+    return sansDollar;
+  }
 }
 
 function HackathonsContent() {
@@ -269,7 +287,7 @@ function HackathonsContent() {
 
     // Apply sorting
     if (sortBy === "prize") {
-      return result.sort((a, b) => parsePrizeValue(b.prize_pool) - parsePrizeValue(a.prize_pool));
+      return result.sort((a, b) => parsePrizeValue(b.prize_pool, b.currency) - parsePrizeValue(a.prize_pool, a.currency));
     } else {
       // Default: sort by start date
       return result.sort((a, b) => {
@@ -563,9 +581,9 @@ function HackathonsContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span>
-                        {formatPrizeDisplay(h.prize_pool).length > 35 
-                          ? `${formatPrizeDisplay(h.prize_pool).slice(0, 32)}...` 
-                          : formatPrizeDisplay(h.prize_pool)}
+                        {formatPrizeDisplay(h.prize_pool, h.currency).length > 35 
+                          ? `${formatPrizeDisplay(h.prize_pool, h.currency).slice(0, 32)}...` 
+                          : formatPrizeDisplay(h.prize_pool, h.currency)}
                       </span>
                     </div>
                   )}

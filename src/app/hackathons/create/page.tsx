@@ -18,6 +18,7 @@ export default function CreateHackathonPage() {
   const [mode, setMode] = useState("online");
   const [location, setLocation] = useState("");
   const [prizePool, setPrizePool] = useState("");
+  const [currency, setCurrency] = useState("INR");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [type, setType] = useState("external");
   const [maxParticipants, setMaxParticipants] = useState("");
@@ -64,6 +65,7 @@ export default function CreateHackathonPage() {
           location: mode === "online" ? "Online" : location.trim() || null,
           mode,
           prize_pool: prizePool.trim() || null,
+          currency,
           website_url: websiteUrl.trim() || null,
           type,
           max_participants: maxParticipants ? parseInt(maxParticipants, 10) : null,
@@ -257,17 +259,30 @@ export default function CreateHackathonPage() {
             </div>
           </div>
 
-          {/* Prize Pool & Registration Link */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="section-label block mb-1.5">Prize Pool</label>
-              <input
-                type="text"
-                placeholder="e.g. ₹ 1,00,000, Rs. 50,000, Swags"
-                value={prizePool}
-                onChange={(e) => setPrizePool(e.target.value)}
-                className="input text-xs"
-              />
+          {/* Prize Pool & Currency & Registration Link */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 flex gap-2">
+              <div className="w-28 shrink-0">
+                <label className="section-label block mb-1.5">Currency</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="input text-xs"
+                >
+                  <option value="INR">INR (₹)</option>
+                  <option value="USD">USD ($)</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="section-label block mb-1.5">Prize Pool</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1,00,000 or Perks"
+                  value={prizePool}
+                  onChange={(e) => setPrizePool(e.target.value)}
+                  className="input text-xs"
+                />
+              </div>
             </div>
             <div>
               <label className="section-label block mb-1.5">

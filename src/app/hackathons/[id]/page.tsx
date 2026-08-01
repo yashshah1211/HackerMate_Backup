@@ -18,6 +18,7 @@ type Hackathon = {
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
+  currency?: string | null;
   website_url: string | null;
   tags: string[] | null;
   type: string | null;
@@ -1452,7 +1453,7 @@ function HackathonDetailContent() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Prize Pool</p>
                     <p className="text-xs font-semibold text-white break-words whitespace-pre-wrap">
-                      {formatPrizeDisplay(hackathon.prize_pool)}
+                      {formatPrizeDisplay(hackathon.prize_pool, hackathon.currency)}
                     </p>
                   </div>
                 </div>

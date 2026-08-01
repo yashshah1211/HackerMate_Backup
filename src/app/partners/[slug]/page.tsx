@@ -33,6 +33,7 @@ type Hackathon = {
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
+  currency?: string | null;
   website_url: string | null;
   tags: string[] | null;
   college?: string | null;
@@ -184,7 +185,7 @@ function PartnerPageContent() {
       // 2. Fetch Hackathon details (explicit public fields)
       const { data: hackathonData } = await supabase
         .from("hackathons")
-        .select("id, name, description, start_date, end_date, location, mode, prize_pool, website_url, tags, type, college, max_participants")
+        .select("id, name, description, start_date, end_date, location, mode, prize_pool, currency, website_url, tags, type, college, max_participants")
         .eq("id", partnerData.hackathon_id)
         .maybeSingle();
 
@@ -286,7 +287,7 @@ function PartnerPageContent() {
   }
 
   const brandColor = partner.brand_color || "#3B82F6";
-  const displayPrize = formatPrizeDisplay(partner.override_prize_pool || hackathon?.prize_pool) || "Prize Pool TBA";
+  const displayPrize = formatPrizeDisplay(partner.override_prize_pool || hackathon?.prize_pool, hackathon?.currency) || "Prize Pool TBA";
 
   return (
     <main className="max-w-5xl mx-auto px-6 pt-32 pb-16">

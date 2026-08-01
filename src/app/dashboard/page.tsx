@@ -35,6 +35,7 @@ type Hackathon = {
   location: string;
   mode: string;
   prize_pool: string;
+  currency?: string;
   website_url: string;
   type: string;
 };

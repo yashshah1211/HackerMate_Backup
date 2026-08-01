@@ -25,6 +25,7 @@ type RealHackathon = {
   mode: string | null;
   location: string | null;
   prize_pool: string | null;
+  currency?: string | null;
   tags: string[] | null;
   type: string | null;
   website_url: string | null;
@@ -417,7 +418,7 @@ export default function Home() {
                             {h.mode || "Online"}{h.location ? ` • ${h.location}` : ""}
                           </span>
                           <span className="text-[11px] font-mono font-semibold text-[#B4F461] whitespace-nowrap">
-                            {formatPrizeDisplay(h.prize_pool) || "Prize Pool"}
+                            {formatPrizeDisplay(h.prize_pool, h.currency) || "Prize Pool"}
                           </span>
                         </div>
                         <h4 className="text-sm font-semibold text-white mb-2 line-clamp-2 leading-snug">{h.name}</h4>

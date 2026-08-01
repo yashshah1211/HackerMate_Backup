@@ -14,6 +14,7 @@ type Hackathon = {
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
+  currency?: string | null;
   website_url: string | null;
   tags: string[] | null;
 };

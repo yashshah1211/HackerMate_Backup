@@ -287,6 +287,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
           let location = opp.mode === "online" ? "Online" : "Venue in India";
           let mode = opp.mode || "online";
           let prize_pool = "Certificate & Perks";
+          let currency = "INR";
 
           let isEnded =
             opp.status === "ended" ||
@@ -341,20 +342,23 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               location = opp.locations.join(", ");
               mode = "in-person";
             }
-            if (opp.prizes && opp.prizes[0] && opp.prizes[0].cash) {
+            if (opp.prizes && opp.prizes[0]) {
               const prizeObj = opp.prizes[0];
-              const detailsText = `${opp.title || ""} ${opp.details || ""} ${JSON.stringify(opp.prizes)}`.toLowerCase();
-              const isUsd =
-                prizeObj.currency === "USD" ||
-                prizeObj.currency_symbol === "$" ||
-                prizeObj.unit === "$" ||
-                detailsText.includes("usd") ||
-                detailsText.includes("$") ||
-                detailsText.includes("dollar");
+              const pCurr = (prizeObj.currency || prizeObj.currency_code || "").toUpperCase();
+              const pSym = prizeObj.currency_symbol || prizeObj.unit || "";
+              const prizesJsonStr = JSON.stringify(opp.prizes);
 
-              const symbol = isUsd ? "$" : "₹";
-              const numVal = Number(prizeObj.cash);
-              prize_pool = `${symbol} ${numVal.toLocaleString(isUsd ? "en-US" : "en-IN")}`;
+              if (pCurr === "USD" || pSym === "$" || prizesJsonStr.includes("$") || /\bUSD\b/i.test(prizesJsonStr)) {
+                currency = "USD";
+              } else {
+                currency = "INR";
+              }
+
+              if (prizeObj.cash) {
+                const symbol = currency === "USD" ? "$" : "₹";
+                const numVal = Number(prizeObj.cash);
+                prize_pool = `${symbol} ${numVal.toLocaleString(currency === "USD" ? "en-US" : "en-IN")}`;
+              }
             }
           } else if (opp.platform === "Devfolio") {
             try {
@@ -382,6 +386,9 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
             mode = opp.isOnline ? "online" : "in-person";
             if (opp.city) {
               location = `${opp.city}${opp.country ? `, ${opp.country}` : ""}`;
+            }
+            if (opp.title && (opp.title.includes("$") || /\bUSD\b/i.test(opp.title))) {
+              currency = "USD";
             }
           } else if (opp.platform === "Hack2Skill") {
             try {
@@ -420,6 +427,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               location,
               mode,
               prize_pool,
+              currency,
               website_url: opp.url,
               type: "external",
               tags: [opp.platform, "Coding", "Hackathon"],

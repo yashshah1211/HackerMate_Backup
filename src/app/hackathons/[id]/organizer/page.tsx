@@ -16,6 +16,7 @@ type Hackathon = {
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
+  currency?: string | null;
   max_participants: number | null;
   organizer_id: string | null;
   type: string | null;
