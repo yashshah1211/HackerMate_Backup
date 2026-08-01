@@ -10,6 +10,8 @@ export const COLLEGES = [
   "Fr. Conceicao Rodrigues College of Engineering, Mumbai",
   "NMIMS MPSTME, Mumbai",
   "Sardar Patel College of Engineering, Mumbai (SPCE)",
+  "TCET Mumbai (Thakur College of Engineering and Technology)",
+  "KJSIT Mumbai (K. J. Somaiya Institute of Technology)",
   "RAIT Navi Mumbai",
   
   // Maharashtra - Pune
