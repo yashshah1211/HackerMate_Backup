@@ -41,14 +41,6 @@ export default function OnboardingPage() {
 
   // Load existing profile data on mount to preserve all partial entries
   useEffect(() => {
-    // If coming from SIH, redirect directly to SIH in-context quick onboarding
-    const params = new URLSearchParams(window.location.search);
-    const nextUrl = params.get("next");
-    if (nextUrl && nextUrl.includes("/hackathons/sih")) {
-      router.push("/hackathons/sih?action=list_myself");
-      return;
-    }
-
     async function loadProfile() {
       try {
         const { data: { user } } = await supabase.auth.getUser();

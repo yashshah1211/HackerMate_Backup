@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
@@ -90,8 +90,22 @@ function isSameCollege(collegeA: string | null | undefined, collegeB: string | n
 }
 
 export default function SIHTeamBuilderPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center">
+        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs text-zinc-500 font-mono">Loading SIH 2026 Directory...</p>
+      </div>
+    }>
+      <SIHTeamBuilderContent />
+    </Suspense>
+  );
+}
+
+function SIHTeamBuilderContent() {
   const { showToast } = useNotification();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
@@ -200,6 +214,22 @@ export default function SIHTeamBuilderPage() {
   useEffect(() => {
     loadSIHData();
   }, []);
+
+  useEffect(() => {
+    if (!loading && currentUserId) {
+      const action = searchParams ? searchParams.get("action") : null;
+      if (action === "list_myself") {
+        if (!currentUserProfile?.college || !currentUserProfile?.skills || currentUserProfile?.skills?.length === 0 || !currentUserProfile?.onboarding_completed) {
+          setQuickOnboardingModalOpen(true);
+        } else if (!isUserLookingForTeam) {
+          triggerWithNudge(executeToggleLookingForTeam, "Listing Yourself for SIH");
+        }
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }
+    }
+  }, [loading, currentUserId, currentUserProfile, isUserLookingForTeam, searchParams]);
 
   async function handleSaveCollege() {
     const finalCollege = collegeInput.trim();
