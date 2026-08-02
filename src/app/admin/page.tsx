@@ -101,7 +101,7 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats">("reports");
 
   // Partnering Organizers & Portal state
   const [allHackathons, setAllHackathons] = useState<{ id: string; name: string; website_url: string | null }[]>([]);
@@ -171,12 +171,42 @@ function AdminContent() {
   const [nudgingUserIds, setNudgingUserIds] = useState<Set<string>>(new Set());
   const [bulkNudging, setBulkNudging] = useState(false);
 
+  // SIH 2026 College Stats State
+  const [sihStatsData, setSihStatsData] = useState<any | null>(null);
+  const [loadingSihStats, setLoadingSihStats] = useState(false);
+  const [sihCollegeFilter, setSihCollegeFilter] = useState<"all" | "zero_teams">("all");
+  const [expandedCollege, setExpandedCollege] = useState<string | null>(null);
+
   // Partner Composition & Broadcast Modal States
   const [partnerConfigsList, setPartnerConfigsList] = useState<any[]>([]);
   const [selectedPartnerModal, setSelectedPartnerModal] = useState<any | null>(null);
   const [partnerAnalyticsData, setPartnerAnalyticsData] = useState<any | null>(null);
   const [loadingPartnerAnalytics, setLoadingPartnerAnalytics] = useState(false);
   const [sendingPartnerBroadcast, setSendingPartnerBroadcast] = useState(false);
+
+  async function loadSIHStats() {
+    setLoadingSihStats(true);
+    try {
+      const res = await fetch("/api/admin/sih-college-stats");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSihStatsData(data);
+      } else {
+        showToast(data.error || "Failed to load SIH college stats", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to load SIH college stats", "error");
+    } finally {
+      setLoadingSihStats(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "sih_stats") {
+      loadSIHStats();
+    }
+  }, [activeTab]);
 
   const outreachAdminEmail =
     process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
@@ -1217,8 +1247,8 @@ function AdminContent() {
   return (
     <>
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        {/* Header & Tab Navigation Bar */}
+        <div className="space-y-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-white flex items-center gap-2">
               <span>Moderation Center</span>
@@ -1228,14 +1258,14 @@ function AdminContent() {
             </p>
           </div>
 
-          {/* Tab buttons */}
-          <div className="flex bg-zinc-950/80 border border-zinc-900 rounded-lg p-1 select-none shrink-0 self-start md:self-center">
+          {/* Tab buttons - Responsive Wrap Container */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-zinc-950/90 border border-zinc-900 rounded-xl p-1.5 select-none w-full max-w-full overflow-x-auto">
             <button
               onClick={() => {
                 setActiveTab("reports");
                 setSearchQuery("");
               }}
-              className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
                 activeTab === "reports"
                   ? "bg-zinc-900 text-white shadow"
                   : "text-zinc-500 hover:text-zinc-300"
@@ -1243,12 +1273,13 @@ function AdminContent() {
             >
               Report Logs ({reports.length})
             </button>
+
             <button
               onClick={() => {
                 setActiveTab("users");
                 setSearchQuery("");
               }}
-              className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
                 activeTab === "users"
                   ? "bg-zinc-900 text-white shadow"
                   : "text-zinc-500 hover:text-zinc-300"
@@ -1256,12 +1287,13 @@ function AdminContent() {
             >
               Registered Users ({users.length})
             </button>
+
             <button
               onClick={() => {
                 setActiveTab("teams");
                 setSearchQuery("");
               }}
-              className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
                 activeTab === "teams"
                   ? "bg-zinc-900 text-white shadow"
                   : "text-zinc-500 hover:text-zinc-300"
@@ -1269,12 +1301,13 @@ function AdminContent() {
             >
               Teams ({teams.length})
             </button>
+
             <button
               onClick={() => {
                 setActiveTab("badges");
                 setSearchQuery("");
               }}
-              className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
                 activeTab === "badges"
                   ? "bg-blue-600 text-white shadow"
                   : "text-blue-400 hover:text-blue-300"
@@ -1290,7 +1323,7 @@ function AdminContent() {
                     setActiveTab("outreach");
                     setSearchQuery("");
                   }}
-                  className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
                     activeTab === "outreach"
                       ? "bg-zinc-900 text-emerald-400 shadow border border-emerald-500/20"
                       : "text-emerald-500/70 hover:text-emerald-400"
@@ -1298,12 +1331,13 @@ function AdminContent() {
                 >
                   Organizer Outreach 🎯 ({leads.length})
                 </button>
+
                 <button
                   onClick={() => {
                     setActiveTab("partnering");
                     setSearchQuery("");
                   }}
-                  className={`px-4 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider transition ${
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
                     activeTab === "partnering"
                       ? "bg-zinc-900 text-amber-400 shadow border border-amber-500/20"
                       : "text-amber-500/70 hover:text-amber-400"
@@ -1313,6 +1347,20 @@ function AdminContent() {
                 </button>
               </>
             )}
+
+            <button
+              onClick={() => {
+                setActiveTab("sih_stats");
+                setSearchQuery("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                activeTab === "sih_stats"
+                  ? "bg-orange-600 text-white shadow border border-orange-500/30 font-bold"
+                  : "text-orange-400 hover:text-orange-300"
+              }`}
+            >
+              🇮🇳 SIH 2026 Stats
+            </button>
           </div>
         </div>
 
@@ -2500,6 +2548,231 @@ function AdminContent() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* SIH 2026 COLLEGE STATS TAB PANEL */}
+        {activeTab === "sih_stats" && (
+          <div className="space-y-6">
+            {/* Header Banner */}
+            <div className="card card-static p-6 border-orange-500/30 bg-gradient-to-r from-zinc-950 via-orange-950/20 to-zinc-950 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-orange-400 mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                  <span>NATIONAL TEAM BUILDING TELEMETRY</span>
+                </div>
+                <h2 className="text-xl font-extrabold text-white tracking-tight">
+                  🇮🇳 Smart India Hackathon 2026 — College Breakdown
+                </h2>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Live college-wise breakdown of registered builders, active team searchers, team formations, and conversion bottlenecks.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadSIHStats}
+                disabled={loadingSihStats}
+                className="btn btn-secondary text-xs py-2 px-4 flex items-center gap-2 self-start md:self-auto shrink-0 cursor-pointer"
+              >
+                <span>🔄 Refresh Stats</span>
+              </button>
+            </div>
+
+            {loadingSihStats ? (
+              <div className="card card-static p-16 text-center">
+                <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs text-zinc-400 font-mono">Loading SIH 2026 College Telemetry...</p>
+              </div>
+            ) : !sihStatsData ? (
+              <div className="card card-static p-12 text-center text-xs text-zinc-500">
+                Failed to load SIH college statistics.
+              </div>
+            ) : (
+              <>
+                {/* Summary Metrics Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="card card-static p-4 border-zinc-800 bg-zinc-900/50">
+                    <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Total SIH Builders</div>
+                    <div className="text-2xl font-extrabold text-white mt-1">{sihStatsData.summary.totalBuilders}</div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">Registered participants</div>
+                  </div>
+
+                  <div className="card card-static p-4 border-amber-950/60 bg-amber-950/20">
+                    <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Looking For Team</div>
+                    <div className="text-2xl font-extrabold text-amber-300 mt-1">{sihStatsData.summary.totalLookingForTeam}</div>
+                    <div className="text-[10px] text-amber-500/80 mt-0.5">Active searchers</div>
+                  </div>
+
+                  <div className="card card-static p-4 border-emerald-950/60 bg-emerald-950/20">
+                    <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">SIH Teams Formed</div>
+                    <div className="text-2xl font-extrabold text-emerald-300 mt-1">{sihStatsData.summary.totalTeams}</div>
+                    <div className="text-[10px] text-emerald-500/80 mt-0.5">Created SIH teams</div>
+                  </div>
+
+                  <div className="card card-static p-4 border-sky-950/60 bg-sky-950/20">
+                    <div className="text-[10px] font-mono text-sky-400 uppercase tracking-wider">Colleges Represented</div>
+                    <div className="text-2xl font-extrabold text-sky-300 mt-1">{sihStatsData.summary.totalColleges}</div>
+                    <div className="text-[10px] text-sky-500/80 mt-0.5">Unique institutions</div>
+                  </div>
+
+                  <div className="card card-static p-4 border-rose-950/60 bg-rose-950/20 col-span-2 md:col-span-1">
+                    <div className="text-[10px] font-mono text-rose-400 uppercase tracking-wider">Bottleneck Colleges</div>
+                    <div className="text-2xl font-extrabold text-rose-300 mt-1">{sihStatsData.summary.highPotentialZeroTeamColleges}</div>
+                    <div className="text-[10px] text-rose-400/80 mt-0.5">2+ builders, 0 teams</div>
+                  </div>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSihCollegeFilter("all")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        sihCollegeFilter === "all"
+                          ? "bg-zinc-100 text-zinc-900 shadow"
+                          : "bg-zinc-950 text-zinc-400 hover:text-white border border-zinc-800"
+                      }`}
+                    >
+                      All Colleges ({sihStatsData.collegeStats.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSihCollegeFilter("zero_teams")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        sihCollegeFilter === "zero_teams"
+                          ? "bg-amber-500 text-black shadow font-extrabold"
+                          : "bg-amber-950/30 text-amber-400 hover:text-amber-300 border border-amber-800/60"
+                      }`}
+                    >
+                      <span>⚠️ Conversion Bottlenecks ({sihStatsData.summary.highPotentialZeroTeamColleges})</span>
+                    </button>
+                  </div>
+
+                  <div className="text-xs font-mono text-zinc-500">
+                    Sorted by Builder Count Descending
+                  </div>
+                </div>
+
+                {/* College Cards List */}
+                <div className="space-y-4">
+                  {sihStatsData.collegeStats
+                    .filter((c: any) => sihCollegeFilter === "all" || c.isHighPotentialZeroTeams)
+                    .map((c: any) => {
+                      const isExpanded = expandedCollege === c.collegeName;
+
+                      return (
+                        <div
+                          key={c.collegeName}
+                          className={`card card-static p-5 transition border ${
+                            c.isHighPotentialZeroTeams
+                              ? "border-amber-500/50 bg-amber-950/10 shadow-lg shadow-amber-950/20"
+                              : "border-zinc-800 bg-zinc-950 hover:border-zinc-700"
+                          }`}
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              {c.isHighPotentialZeroTeams && (
+                                <div className="inline-flex items-center gap-1.5 rounded bg-amber-500/20 border border-amber-500/40 px-2.5 py-0.5 text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider mb-2">
+                                  <span>⚠️ HIGH BUILDER INTEREST (2+ BUILDERS) — ZERO TEAMS FORMED</span>
+                                </div>
+                              )}
+                              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                <span>🏫 {c.collegeName}</span>
+                              </h3>
+                            </div>
+
+                            {/* Metrics Grid */}
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
+                                <div className="text-[10px] font-mono text-zinc-400 uppercase">Builders</div>
+                                <div className="text-sm font-extrabold text-white">{c.builderCount}</div>
+                              </div>
+
+                              <div className="px-3 py-1.5 rounded-lg bg-amber-950/30 border border-amber-800/60 text-center">
+                                <div className="text-[10px] font-mono text-amber-400 uppercase">Looking for Team</div>
+                                <div className="text-sm font-extrabold text-amber-300">{c.lookingForTeamCount}</div>
+                              </div>
+
+                              <div className="px-3 py-1.5 rounded-lg bg-emerald-950/30 border border-emerald-800/60 text-center">
+                                <div className="text-[10px] font-mono text-emerald-400 uppercase">Teams</div>
+                                <div className="text-sm font-extrabold text-emerald-300">{c.teamCount}</div>
+                              </div>
+
+                              <div className="px-3 py-1.5 rounded-lg bg-sky-950/30 border border-sky-800/60 text-center">
+                                <div className="text-[10px] font-mono text-sky-400 uppercase">Avg Team Size</div>
+                                <div className="text-sm font-extrabold text-sky-300">{c.avgTeamSize}</div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setExpandedCollege(isExpanded ? null : c.collegeName)}
+                                className="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-mono text-zinc-300 cursor-pointer transition ml-2"
+                              >
+                                {isExpanded ? "Hide Roster ▲" : "View Roster ▼"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Collapsible Roster & Teams Details */}
+                          {isExpanded && (
+                            <div className="mt-4 pt-4 border-t border-zinc-900 grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Builders List */}
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">
+                                  Registered Builders ({c.builders.length})
+                                </h4>
+                                <div className="space-y-1.5">
+                                  {c.builders.map((b: any) => (
+                                    <div key={b.id} className="p-2.5 rounded bg-zinc-900/60 border border-zinc-800 text-xs flex items-center justify-between">
+                                      <div>
+                                        <div className="font-bold text-white">{b.full_name || "Anonymous Builder"}</div>
+                                        <div className="text-[10px] text-zinc-500 font-mono">{b.email}</div>
+                                      </div>
+                                      {b.looking_for_team && (
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                          Looking for Team
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Teams List */}
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">
+                                  Teams Created ({c.teams.length})
+                                </h4>
+                                {c.teams.length === 0 ? (
+                                  <div className="p-4 text-center text-xs text-zinc-500 italic bg-zinc-900/40 rounded border border-zinc-900">
+                                    No teams created for this college yet.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {c.teams.map((t: any) => (
+                                      <div key={t.id} className="p-2.5 rounded bg-emerald-950/20 border border-emerald-900/40 text-xs space-y-1">
+                                        <div className="flex items-center justify-between font-bold text-white">
+                                          <span>{t.name}</span>
+                                          <span className="text-[10px] font-mono text-emerald-400">
+                                            {(t.team_members || []).length} / {t.max_members} members
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-zinc-400 line-clamp-1">{t.description || "No description"}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
+            )}
           </div>
         )}
 
