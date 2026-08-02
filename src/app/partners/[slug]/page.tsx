@@ -307,7 +307,7 @@ function PartnerPageContent() {
             <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1 text-xs font-mono uppercase tracking-wider mb-4">
               <span className="text-[#649a1f] dark:text-[#B4F461] font-bold">HACKERMATE</span>
               <span className="text-zinc-400 dark:text-zinc-500">×</span>
-              <span style={{ color: brandColor }} className="font-bold flex items-center gap-1.5">
+              <span style={{ color: brandColor }} className="font-bold flex items-center gap-1.5 dark:text-sky-400">
                 {slug === "axcentra" && (
                   <img
                     src="/partners/axcentra-icon-only-transparent.png"
@@ -315,7 +315,13 @@ function PartnerPageContent() {
                     className="h-3.5 w-auto object-contain inline-block"
                   />
                 )}
-                {slug === "axcentra" ? "AXCENTRA" : slug === "stampers" ? "STAMPERS" : partner.partner_name.split(" ")[0].toUpperCase()}
+                {slug === "axcentra"
+                  ? "AXCENTRA"
+                  : slug === "stampers"
+                  ? "STAMPERS"
+                  : slug === "gamnexis"
+                  ? "GAMNEXIS"
+                  : partner.partner_name.replace(/^HackerMate\s*x\s*/i, "").split(" ")[0].toUpperCase()}
               </span>
             </div>
 
