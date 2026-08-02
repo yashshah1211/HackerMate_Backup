@@ -59,7 +59,15 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 1. Verify caller is organizer of this hackathon
+    // 1. Verify caller authorization (Native Organizer OR Admin OR Partner Hackathon)
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const isAdmin = callerProfile?.role === "admin";
+
     const { data: hackathon, error: hackathonErr } = await supabaseAdmin
       .from("hackathons")
       .select("id, name, organizer_id")
@@ -70,9 +78,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Hackathon not found." }, { status: 404 });
     }
 
-    if (hackathon.organizer_id !== user.id) {
+    const { data: partnerConfig } = await supabaseAdmin
+      .from("partner_configs")
+      .select("id")
+      .eq("hackathon_id", hackathonId)
+      .maybeSingle();
+
+    const isNativeOrganizer = hackathon.organizer_id === user.id;
+    const isPartnerHackathon = !!partnerConfig;
+
+    if (!isNativeOrganizer && !isAdmin && !isPartnerHackathon) {
       return NextResponse.json(
-        { error: "Forbidden: Only the hackathon organizer can broadcast announcements." },
+        { error: "Forbidden: Only the hackathon organizer or admin can broadcast announcements." },
         { status: 403 }
       );
     }

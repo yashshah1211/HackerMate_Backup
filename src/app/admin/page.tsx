@@ -6,6 +6,7 @@ import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import type { EmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
+import PartnerCompositionModal from "@/components/PartnerCompositionModal";
 
 type Report = {
   id: string;
@@ -170,6 +171,13 @@ function AdminContent() {
   const [nudgingUserIds, setNudgingUserIds] = useState<Set<string>>(new Set());
   const [bulkNudging, setBulkNudging] = useState(false);
 
+  // Partner Composition & Broadcast Modal States
+  const [partnerConfigsList, setPartnerConfigsList] = useState<any[]>([]);
+  const [selectedPartnerModal, setSelectedPartnerModal] = useState<any | null>(null);
+  const [partnerAnalyticsData, setPartnerAnalyticsData] = useState<any | null>(null);
+  const [loadingPartnerAnalytics, setLoadingPartnerAnalytics] = useState(false);
+  const [sendingPartnerBroadcast, setSendingPartnerBroadcast] = useState(false);
+
   const outreachAdminEmail =
     process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
 
@@ -255,8 +263,9 @@ function AdminContent() {
       const { data: hData } = await supabase.from("hackathons").select("id, name, website_url");
       if (hData) setAllHackathons(hData);
 
-      const { data: pcData } = await supabase.from("partner_configs").select("id, slug, hackathon_id, partner_name");
+      const { data: pcData } = await supabase.from("partner_configs").select("*");
       if (pcData) {
+        setPartnerConfigsList(pcData);
         const map: Record<string, { id: string; slug: string; partner_name: string }> = {};
         pcData.forEach((pc) => {
           if (pc.hackathon_id) map[pc.hackathon_id] = pc;
@@ -267,6 +276,54 @@ function AdminContent() {
       console.error("Error in loadLeads:", err);
     }
     setLoadingLeads(false);
+  }
+
+  async function openPartnerCompositionModal(partnerConfig: any) {
+    setSelectedPartnerModal(partnerConfig);
+    setPartnerAnalyticsData(null);
+    setLoadingPartnerAnalytics(true);
+    try {
+      const res = await fetch(`/api/admin/partner-composition?hackathonId=${partnerConfig.hackathon_id}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPartnerAnalyticsData(data);
+      } else {
+        showToast(data.error || "Failed to load partner composition", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to load partner composition", "error");
+    } finally {
+      setLoadingPartnerAnalytics(false);
+    }
+  }
+
+  async function handleSendPartnerBroadcast(title: string, message: string) {
+    if (!selectedPartnerModal) return;
+    setSendingPartnerBroadcast(true);
+    try {
+      const res = await fetch("/api/organizer/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hackathonId: selectedPartnerModal.hackathon_id,
+          title,
+          message,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`📢 Announcement broadcast sent to ${data.count} participant(s)!`, "success");
+        await openPartnerCompositionModal(selectedPartnerModal);
+      } else {
+        showToast(data.error || "Failed to send broadcast", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send broadcast", "error");
+    } finally {
+      setSendingPartnerBroadcast(false);
+    }
   }
 
   async function handleCreatePartnerPortal(lead: OrganizerLead) {
@@ -2387,6 +2444,62 @@ function AdminContent() {
                   })}
               </div>
             )}
+
+            {/* Active Partner Portals Section (With Team Composition & Broadcast Controls) */}
+            <div className="space-y-4 pt-6 border-t border-zinc-900">
+              <h4 className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <span>Active Partner Portals ({partnerConfigsList.length})</span>
+                <span className="text-[10px] text-zinc-500 font-normal">
+                  (Live Team Composition & Announcement Broadcast Controls)
+                </span>
+              </h4>
+
+              {partnerConfigsList.length === 0 ? (
+                <div className="card card-static p-6 text-center text-xs text-zinc-500">
+                  No active partner configs found in database.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {partnerConfigsList.map((pc) => (
+                    <div
+                      key={pc.id}
+                      className="card card-static p-5 flex flex-col justify-between space-y-4 border-amber-500/20 bg-amber-950/10 hover:border-amber-500/40 transition"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            /partners/{pc.slug}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500 truncate max-w-[150px]" title={pc.hackathon_id}>
+                            ID: {pc.hackathon_id.slice(0, 8)}...
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-white">{pc.partner_name}</h4>
+                        <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{pc.tagline}</p>
+                      </div>
+
+                      <div className="pt-3 border-t border-zinc-900 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openPartnerCompositionModal(pc)}
+                          className="btn btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5 bg-[#B4F461] hover:bg-[#a3e64f] text-black border-none font-bold shadow cursor-pointer"
+                        >
+                          <span>📊 Team Composition & Broadcast →</span>
+                        </button>
+
+                        <Link
+                          href={`/partners/${pc.slug}`}
+                          target="_blank"
+                          className="text-[11px] font-mono text-blue-400 hover:underline flex items-center gap-1"
+                        >
+                          <span>View Portal ↗</span>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -2953,6 +3066,18 @@ function AdminContent() {
             </div>
           </div>
         </div>
+      )}
+      {/* Partner Team Composition & Broadcast Modal */}
+      {selectedPartnerModal && (
+        <PartnerCompositionModal
+          partnerConfig={selectedPartnerModal}
+          analyticsData={partnerAnalyticsData}
+          loading={loadingPartnerAnalytics}
+          onClose={() => setSelectedPartnerModal(null)}
+          onRefresh={() => openPartnerCompositionModal(selectedPartnerModal)}
+          onSendBroadcast={handleSendPartnerBroadcast}
+          sendingBroadcast={sendingPartnerBroadcast}
+        />
       )}
     </>
   );
