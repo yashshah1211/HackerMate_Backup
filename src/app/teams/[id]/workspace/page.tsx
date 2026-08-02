@@ -68,7 +68,7 @@ function TeamWorkspaceContent() {
   async function loadTeam() {
     const { data: teamData, error: teamError } = await supabase
       .from("teams")
-      .select("*")
+      .select("*, team_hackathons(hackathon_id)")
       .eq("id", teamId)
       .single();
 
@@ -78,7 +78,8 @@ function TeamWorkspaceContent() {
       return;
     }
 
-    setTeam(teamData);
+    const linkedHackathonId = teamData.team_hackathons?.[0]?.hackathon_id || teamData.hackathon_id;
+    setTeam({ ...teamData, hackathon_id: linkedHackathonId });
 
     const {
       data: { user },

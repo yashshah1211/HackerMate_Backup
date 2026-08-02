@@ -15,7 +15,7 @@ import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import SIHQuickOnboardingModal from "@/components/SIHQuickOnboardingModal";
 import { trackEvent } from "@/lib/posthog";
 
-const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
 
 type Profile = {
   id: string;

@@ -7,6 +7,7 @@ import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import type { EmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
 import PartnerCompositionModal from "@/components/PartnerCompositionModal";
+import { DEFAULT_HACKATHON_ID } from "@/lib/constants";
 
 type Report = {
   id: string;
@@ -109,7 +110,7 @@ function AdminContent() {
   const [creatingPortalId, setCreatingPortalId] = useState<string | null>(null);
 
   // Winner Badge Issuer & Directory state
-  const [badgeFormHackathonId, setBadgeFormHackathonId] = useState("00000000-0000-0000-0000-000001703933");
+  const [badgeFormHackathonId, setBadgeFormHackathonId] = useState(DEFAULT_HACKATHON_ID);
   const [badgeFormEmails, setBadgeFormEmails] = useState("");
   const [badgeFormType, setBadgeFormType] = useState("verified_winner");
   const [badgeFormName, setBadgeFormName] = useState("Verified Winner — All India Hackathon 2026");

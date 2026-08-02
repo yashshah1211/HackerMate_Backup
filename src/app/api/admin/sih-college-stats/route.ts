@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
-const SIH_HACKATHON_ID = "00000000-0000-0000-0000-000001703935";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
 
 function isSameCollege(collegeA: string | null | undefined, collegeB: string | null | undefined): boolean {
   if (!collegeA || !collegeB) return false;

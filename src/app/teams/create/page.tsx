@@ -9,6 +9,7 @@ import { COLLEGES } from "@/lib/colleges";
 import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import { trackEvent } from "@/lib/posthog";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -188,7 +189,7 @@ function CreateTeamForm() {
     }
 
     setLoading(false);
-    if (hackathonId === "00000000-0000-0000-0000-000001703935") {
+    if (hackathonId === SIH_HACKATHON_ID) {
       router.push("/hackathons/sih");
     } else {
       router.push("/teams");
