@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 function escapeHtml(text: string): string {
   if (!text) return "";
@@ -239,6 +240,10 @@ export async function POST(req: NextRequest) {
       if (i + BATCH_SIZE < targets.length) {
         await delay(150);
       }
+    }
+
+    if (successCount > 0) {
+      await recordEmailSendSuccess(supabaseAdmin, "nudge", successCount);
     }
 
     return NextResponse.json({

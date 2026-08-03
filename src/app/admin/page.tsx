@@ -1503,6 +1503,10 @@ function AdminContent() {
                 <span>📊 Admin Daily Digests:</span>
                 <strong className="text-cyan-400">{emailUsage.categories.admin_reports}</strong>
               </div>
+              <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
+                <span>⚡ Onboarding Nudges:</span>
+                <strong className="text-rose-400">{emailUsage.categories.onboarding_nudges}</strong>
+              </div>
               {emailUsage.categories.contact_submissions > 0 && (
                 <div className="px-3 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-300 flex items-center gap-1.5 font-mono">
                   <span>📩 Contact Forms:</span>

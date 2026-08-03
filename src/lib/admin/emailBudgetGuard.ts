@@ -129,6 +129,7 @@ export type EmailUsageSummary = {
     organizer_broadcasts: number;
     admin_reports: number;
     contact_submissions: number;
+    onboarding_nudges: number;
   };
   remaining_global: number;
 };
@@ -160,9 +161,10 @@ export async function getTodayEmailUsageSummary(
   const organizerBroadcasts = stats.organizer_broadcasts_sent || 0;
   const adminReports = stats.admin_reports_sent || 0;
   const contactSubmissions = stats.contact_submissions_sent || 0;
+  const onboardingNudges = stats.nudges_sent || 0;
 
   // Sum of all tracked category counts
-  const sumCategories = sih + outreach + testDispatches + notifications + organizerBroadcasts + adminReports + contactSubmissions;
+  const sumCategories = sih + outreach + testDispatches + notifications + organizerBroadcasts + adminReports + contactSubmissions + onboardingNudges;
   const totalSent = Math.max(stats.total_sent || 0, sumCategories);
 
   const usagePercent = Math.min(100, Math.round((totalSent / RESEND_GLOBAL_DAILY_LIMIT) * 100));
@@ -181,6 +183,7 @@ export async function getTodayEmailUsageSummary(
       organizer_broadcasts: organizerBroadcasts,
       admin_reports: adminReports,
       contact_submissions: contactSubmissions,
+      onboarding_nudges: onboardingNudges,
     },
     remaining_global: remainingGlobal,
   };
