@@ -9,6 +9,7 @@ import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
 import SIHExportModal from "@/components/SIHExportModal";
 import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -32,6 +33,7 @@ type Team = {
   owner_id: string;
   max_members: number;
   college: string | null;
+  hackathon_id?: string | null;
   hackathon_name: string | null;
   skills: string[] | null;
   roles_needed: string[] | null;
@@ -109,6 +111,18 @@ export default function TeamOverviewView({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showSIHExportModal, setShowSIHExportModal] = useState(false);
+
+  const isSIHTeam = Boolean(
+    team.hackathon_id === SIH_HACKATHON_ID ||
+    team.hackathon_name?.toLowerCase().includes("sih") ||
+    team.hackathon_name?.toLowerCase().includes("smart india hackathon") ||
+    listedHackathons?.some(
+      (h) =>
+        h.id === SIH_HACKATHON_ID ||
+        h.name.toLowerCase().includes("sih") ||
+        h.name.toLowerCase().includes("smart india hackathon")
+    )
+  );
 
   const redirectToSignIn = () => {
     const next = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : `/teams/${team.id}`;
@@ -445,12 +459,15 @@ export default function TeamOverviewView({
             </h1>
             {(isMember || isOwner) && (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowSIHExportModal(true)}
-                  className="btn px-3.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-orange-500/30 shrink-0"
-                >
-                  <span>🇮🇳 SIH SPOC Export</span>
-                </button>
+                {isSIHTeam && (
+                  <button
+                    onClick={() => setShowSIHExportModal(true)}
+                    className="btn px-3.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-orange-500/30 shrink-0"
+                    title="Export official SPOC PDF for Smart India Hackathon internal nomination round"
+                  >
+                    <span>🇮🇳 SIH SPOC Export</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowShareModal(true)}
                   className="btn btn-lime px-3.5 py-1.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-black dark:text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0"

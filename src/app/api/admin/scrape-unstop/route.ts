@@ -449,13 +449,12 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     (item): item is NonNullable<typeof item> => item !== null
   );
 
-  // 5. REQUIREMENT: Scrape ONLY hackathons that have a valid organizer email for organizer_leads
+  // 5. ORGANIZER OUTREACH LEADS: Strict email constraint (only save leads with valid organizer email)
   const validLeadsToUpsert = validProcessedItems
     .map((item) => item.lead)
     .filter((lead) => lead.organizer_email && lead.organizer_email.trim().length > 0);
 
-  // 6. REQUIREMENT: Show ended hackathons ONLY on organizer outreach page, NOT on hackathons tab
-  // Filter out ended hackathons before upserting to public.hackathons table
+  // 6. MAIN HACKATHONS TAB: ZERO email constraint! All live/upcoming hackathons appear for student team-building
   const todayStr = new Date().toISOString().split("T")[0];
   const activeHackathonsToUpsert = validProcessedItems
     .filter((item) => !item.isEnded)
@@ -494,7 +493,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     }
   }
 
-  // 7. Upsert ONLY active/upcoming scraped hackathons into public.hackathons for student discovery
+  // 7. Upsert ALL active/upcoming scraped hackathons into public.hackathons for student team-building (ZERO email constraint)
   if (activeHackathonsToUpsert.length > 0) {
     const normalizedHackathons = activeHackathonsToUpsert.map((h) => ({
       ...h,
@@ -506,7 +505,9 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
       .upsert(normalizedHackathons, { onConflict: "website_url" });
 
     if (hackathonsDbErr) {
-      console.error("[Scraper] Error upserting active hackathons:", hackathonsDbErr);
+      console.error("[Scraper] Error upserting active hackathons to public.hackathons:", hackathonsDbErr);
+    } else {
+      console.log(`[Scraper] Successfully upserted ${normalizedHackathons.length} live/upcoming hackathons to main Hackathons tab.`);
     }
   }
 
