@@ -102,7 +102,7 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs">("reports");
 
   // Partnering Organizers & Portal state
   const [allHackathons, setAllHackathons] = useState<{ id: string; name: string; website_url: string | null }[]>([]);
@@ -279,7 +279,7 @@ function AdminContent() {
   useEffect(() => {
     if (activeTab === "sih_stats") {
       loadSIHStats();
-    } else if (activeTab === "users") {
+    } else if (activeTab === "users" || activeTab === "deleted_logs") {
       loadDeletedUserLogs();
     }
   }, [activeTab]);
@@ -1366,6 +1366,20 @@ function AdminContent() {
 
             <button
               onClick={() => {
+                setActiveTab("deleted_logs");
+                setSearchQuery("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                activeTab === "deleted_logs"
+                  ? "bg-rose-950/40 text-rose-400 border border-rose-500/30 shadow"
+                  : "text-rose-500/80 hover:text-rose-400"
+              }`}
+            >
+              🛡️ Account Exits Log ({deletedUserLogs.length})
+            </button>
+
+            <button
+              onClick={() => {
                 setActiveTab("teams");
                 setSearchQuery("");
               }}
@@ -1691,14 +1705,24 @@ function AdminContent() {
                   </button>
                 </div>
 
-                <button
-                  onClick={handleNudgeAllIncomplete}
-                  disabled={nudgingAll}
-                  className="px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider bg-[#B4F461] hover:bg-[#a3e64f] text-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-md shadow-[#B4F461]/10 disabled:opacity-50"
-                  title="Send manual onboarding email nudge to all users who haven't completed their profile"
-                >
-                  <span>{nudgingAll ? "Sending Nudges..." : "⚡ Nudge All Incomplete"}</span>
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setActiveTab("deleted_logs")}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-500/30 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                    title="View historical user account deletion audit log"
+                  >
+                    <span>🛡️ Account Exits Log ({deletedUserLogs.length})</span>
+                  </button>
+
+                  <button
+                    onClick={handleNudgeAllIncomplete}
+                    disabled={nudgingAll}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider bg-[#B4F461] hover:bg-[#a3e64f] text-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-md shadow-[#B4F461]/10 disabled:opacity-50"
+                    title="Send manual onboarding email nudge to all users who haven't completed their profile"
+                  >
+                    <span>{nudgingAll ? "Sending Nudges..." : "⚡ Nudge All Incomplete"}</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1893,6 +1917,65 @@ function AdminContent() {
                             {log.college || "Unspecified"}
                           </td>
                           <td className="p-3 text-zinc-400 text-[10px]">
+                            {new Date(log.deleted_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Deleted Users Audit Log */}
+        {activeTab === "deleted_logs" && (
+          <div className="space-y-4">
+            <div className="card card-static p-6">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-900">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🛡️</span>
+                  <div>
+                    <h3 className="text-base font-bold text-white tracking-tight">Deleted User Audit Logs (Account Exits)</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">Automatic DB trigger captures user email, name, and college upon account deletion.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={loadDeletedUserLogs}
+                  disabled={loadingDeletedLogs}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-mono uppercase bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white cursor-pointer transition font-bold"
+                >
+                  {loadingDeletedLogs ? "Refreshing..." : "⚡ Refresh Audit Log"}
+                </button>
+              </div>
+
+              {deletedUserLogs.length === 0 ? (
+                <div className="p-8 text-center text-zinc-500 font-mono text-xs bg-zinc-950/40 rounded-xl border border-zinc-900">
+                  <p className="text-zinc-400 font-bold text-sm mb-1">No Account Deletions Recorded Yet</p>
+                  <p className="text-zinc-600">The audit trigger is actively listening. Any future user account deletion will automatically log the user's name, email, college, and exact deletion timestamp here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-zinc-900 bg-zinc-950/40 text-zinc-500 font-mono uppercase tracking-wider text-[10px]">
+                        <th className="p-3.5 font-semibold">User Details</th>
+                        <th className="p-3.5 font-semibold">College / Institution</th>
+                        <th className="p-3.5 font-semibold">Deleted Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900/60 font-mono">
+                      {deletedUserLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-rose-950/10 transition-colors">
+                          <td className="p-3.5">
+                            <div className="font-bold text-white text-sm">{log.full_name || "Unnamed Builder"}</div>
+                            <div className="text-xs text-rose-400 mt-0.5">{log.email || "No Email"}</div>
+                          </td>
+                          <td className="p-3.5 text-zinc-300 text-xs">
+                            {log.college || "Unspecified Institution"}
+                          </td>
+                          <td className="p-3.5 text-zinc-400 text-xs">
                             {new Date(log.deleted_at).toLocaleString()}
                           </td>
                         </tr>
