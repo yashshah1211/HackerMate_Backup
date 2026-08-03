@@ -75,20 +75,32 @@ export async function POST(req: NextRequest) {
     // Query profiles with incomplete onboarding
     let query = supabaseAdmin
       .from("profiles")
-      .select("id, full_name, email, onboarding_completed, college, skills")
+      .select("id, full_name, email, onboarding_completed, college, skills, created_at, last_onboarding_nudge_sent_at")
       .eq("is_banned", false);
 
     if (targetUserId) {
       query = query.eq("id", targetUserId);
     } else if (batchAll) {
-      query = query.or("onboarding_completed.is.null,onboarding_completed.eq.false");
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+      query = query
+        .or("onboarding_completed.is.null,onboarding_completed.eq.false")
+        .lte("created_at", twentyFourHoursAgo)
+        .or(`last_onboarding_nudge_sent_at.is.null,last_onboarding_nudge_sent_at.lte.${threeDaysAgo}`);
     }
 
     const { data: targets, error: targetErr } = await query;
 
     if (targetErr || !targets || targets.length === 0) {
       return NextResponse.json(
-        { success: true, count: 0, message: "No users with incomplete onboarding found matching criteria." },
+        {
+          success: true,
+          count: 0,
+          message: batchAll
+            ? "No eligible incomplete users found (Users must be registered at least 24h ago and not nudged in the last 3 days)."
+            : "Specified user profile not found or unavailable.",
+        },
         { status: 200 }
       );
     }
@@ -193,6 +205,10 @@ export async function POST(req: NextRequest) {
             console.log(`Subject: ${emailSubject}`);
             console.log("=====================================================================\n");
             successCount++;
+            await supabaseAdmin
+              .from("profiles")
+              .update({ last_onboarding_nudge_sent_at: new Date().toISOString() })
+              .eq("id", p.id);
             return;
           }
 
@@ -226,6 +242,10 @@ export async function POST(req: NextRequest) {
 
             if (resendRes.ok && resendData?.id) {
               successCount++;
+              await supabaseAdmin
+                .from("profiles")
+                .update({ last_onboarding_nudge_sent_at: new Date().toISOString() })
+                .eq("id", p.id);
             } else {
               failedCount++;
               errors.push(`Failed for ${p.email}: ${resendData?.message || "Resend API error"}`);
