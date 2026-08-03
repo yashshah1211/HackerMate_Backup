@@ -61,6 +61,7 @@ type RegisteredBuilder = {
   avatar_url: string | null;
   skills: string[] | null;
   is_available?: boolean;
+  metadata?: any;
 };
 
 function PartnerPageContent() {
@@ -84,6 +85,10 @@ function PartnerPageContent() {
   const [togglingStatus, setTogglingStatus] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
+  const [selectedEventTrack, setSelectedEventTrack] = useState<string>("all");
+
+  const [showTrackPickerModal, setShowTrackPickerModal] = useState(false);
+  const [selectedTrackForModal, setSelectedTrackForModal] = useState("");
 
   function handleProtectedAction(targetUrl: string) {
     if (!currentUserId) {
@@ -93,7 +98,7 @@ function PartnerPageContent() {
     }
   }
 
-  async function handleToggleLookingForTeam() {
+  async function handleToggleLookingForTeam(explicitTrackId?: string) {
     if (!currentUserId) {
       router.push(`/?next=${encodeURIComponent(`/partners/${slug}`)}&auth=true`);
       return;
@@ -101,9 +106,18 @@ function PartnerPageContent() {
 
     if (!partner) return;
 
+    // If user is not currently looking for team AND partner has multiple event tracks AND no track specified yet:
+    if (!isUserLookingForTeam && !explicitTrackId && partner.features?.events?.length > 0) {
+      setSelectedTrackForModal(partner.features.events[0].id);
+      setShowTrackPickerModal(true);
+      return;
+    }
+
+    const targetTrackId = explicitTrackId || selectedTrackForModal || (selectedEventTrack !== "all" ? selectedEventTrack : undefined);
+
     setTogglingStatus(true);
     try {
-      if (isUserLookingForTeam) {
+      if (isUserLookingForTeam && !explicitTrackId) {
         const { error } = await supabase
           .from("hackathon_registrations")
           .delete()
@@ -114,6 +128,7 @@ function PartnerPageContent() {
           showToast(error.message, "error");
         } else {
           setIsUserLookingForTeam(false);
+          setShowTrackPickerModal(false);
           showToast("Removed yourself from builders looking for teams.", "info");
           loadPartnerData();
         }
@@ -131,6 +146,14 @@ function PartnerPageContent() {
           }
         }
 
+        const selectedEvtObj = partner.features?.events?.find((e: any) => e.id === targetTrackId);
+        const metaPayload = targetTrackId
+          ? {
+              event_track: targetTrackId,
+              event_name: selectedEvtObj?.name || targetTrackId,
+            }
+          : {};
+
         const { error } = await supabase
           .from("hackathon_registrations")
           .upsert(
@@ -139,6 +162,7 @@ function PartnerPageContent() {
               hackathon_id: partner.hackathon_id,
               looking_for_team: true,
               status: regStatus,
+              metadata: metaPayload,
             },
             { onConflict: "user_id,hackathon_id" }
           );
@@ -147,10 +171,16 @@ function PartnerPageContent() {
           showToast(error.message, "error");
         } else {
           setIsUserLookingForTeam(true);
+          setShowTrackPickerModal(false);
+          const trackLabel = selectedEvtObj?.name ? ` for track '${selectedEvtObj.name}'` : "";
           if (regStatus === "waitlisted") {
-            showToast("Added to waitlist! Capacity limit reached for this event.", "info");
+            showToast(`Added to waitlist${trackLabel}! Capacity limit reached for this event.`, "info");
           } else {
-            showToast("Listed! Other builders can now find you for this event.", "success");
+            showToast(`Listed${trackLabel}! Other builders can now find you for this event track.`, "success");
+          }
+          if (targetTrackId) {
+            setSelectedEventTrack(targetTrackId);
+            setActiveTab("builders");
           }
           loadPartnerData();
         }
@@ -205,13 +235,16 @@ function PartnerPageContent() {
       // 4. Fetch Builders who are actively looking for a team for this hackathon
       const { data: regData } = await supabase
         .from("hackathon_registrations")
-        .select("user_id, looking_for_team, profiles(id, full_name, email, college, avatar_url, skills, is_available)")
+        .select("user_id, looking_for_team, metadata, profiles(id, full_name, email, college, avatar_url, skills, is_available)")
         .eq("hackathon_id", partnerData.hackathon_id)
         .eq("looking_for_team", true);
 
       const parsedBuilders = (regData || [])
-        .map((r: any) => r.profiles)
-        .filter(Boolean);
+        .map((r: any) => ({
+          ...(r.profiles || {}),
+          metadata: r.metadata,
+        }))
+        .filter((b: any) => b && b.id);
       setBuilders(parsedBuilders);
 
       // 5. Check if logged in user has won a badge for this hackathon and checking registration status
@@ -321,6 +354,8 @@ function PartnerPageContent() {
                   ? "STAMPERS"
                   : slug === "gamnexis"
                   ? "GAMNEXIS"
+                  : slug === "spiderverse"
+                  ? "XPLORE'26 SPIDER-VERSE"
                   : partner.partner_name.replace(/^HackerMate\s*x\s*/i, "").split(" ")[0].toUpperCase()}
               </span>
             </div>
@@ -395,7 +430,7 @@ function PartnerPageContent() {
             </button>
 
             <button
-              onClick={handleToggleLookingForTeam}
+              onClick={() => handleToggleLookingForTeam()}
               disabled={togglingStatus}
               className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 isUserLookingForTeam
@@ -406,19 +441,32 @@ function PartnerPageContent() {
               {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
             </button>
 
-            {hackathon?.website_url && (
-              <a
-                href={hackathon.website_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-900 border border-zinc-300 dark:border-zinc-800/80 transition-colors"
-              >
-                <span>Official Unstop Registration</span>
-                <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-              </a>
-            )}
+            {(() => {
+              if (!hackathon?.website_url) return null;
+              const url = hackathon.website_url.trim();
+              // Prevent circular self-referential links back to partner portal pages
+              if (
+                url.includes("/partners/") ||
+                url.includes("hackermate.in/partners")
+              ) {
+                return null;
+              }
+              const isUnstop = url.toLowerCase().includes("unstop");
+              const label = isUnstop ? "Official Unstop Registration" : "Official Event Website";
+              return (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-900 border border-zinc-300 dark:border-zinc-800/80 transition-colors"
+                >
+                  <span>{label}</span>
+                  <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -447,13 +495,137 @@ function PartnerPageContent() {
         </div>
       )}
 
+      {/* Featured Symposium Event Tracks Grid (If present in partner config) */}
+      {partner.features?.events && partner.features.events.length > 0 && (
+        <div className="mb-10 animate-fade-in-up">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
+                <span>🕸️ Official Symposium Events & Tracks ({partner.features.events.length})</span>
+              </h2>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                {partner.features.organizer || "LICET CSE"} — Separate Teams & Builders matching for each event track!
+              </p>
+            </div>
+            {selectedEventTrack !== "all" && (
+              <button
+                onClick={() => setSelectedEventTrack("all")}
+                className="text-xs font-mono font-bold text-rose-500 hover:underline px-3 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 cursor-pointer"
+              >
+                Reset Track Filter (Show All)
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {partner.features.events.map((evt: any) => {
+              const isSelected = selectedEventTrack === evt.id;
+              const trackTeamsCount = teams.filter((t) => {
+                const searchTerms: Record<string, string[]> = {
+                  "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
+                  "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
+                  "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
+                  "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
+                  "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
+                  "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
+                };
+                const keywords = searchTerms[evt.id] || [evt.id.replace(/-/g, " ")];
+                const text = [...(t.skills || []), t.description || ""].join(" ").toLowerCase();
+                return keywords.some((kw) => text.includes(kw));
+              }).length;
+
+              const trackBuildersCount = builders.filter((b) => {
+                const searchTerms: Record<string, string[]> = {
+                  "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
+                  "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
+                  "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
+                  "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
+                  "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
+                  "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
+                };
+                const keywords = searchTerms[evt.id] || [evt.id.replace(/-/g, " ")];
+                const text = (b.skills || []).join(" ").toLowerCase();
+                return keywords.some((kw) => text.includes(kw));
+              }).length;
+
+              return (
+                <div
+                  key={evt.id}
+                  className={`group relative p-5 rounded-2xl border transition-all ${
+                    isSelected
+                      ? "bg-rose-500/10 dark:bg-rose-950/30 border-rose-500/60 ring-2 ring-rose-500/40 shadow-lg"
+                      : "bg-white dark:bg-zinc-950/60 border-zinc-200/90 dark:border-zinc-900 hover:border-rose-500/40 hover:shadow-xl"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-xl shrink-0">
+                      {evt.icon || "🕸️"}
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                      {evt.category}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-extrabold text-zinc-900 dark:text-white group-hover:text-rose-500 transition-colors">
+                    {evt.name}
+                  </h3>
+
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1.5 leading-relaxed font-sans line-clamp-2">
+                    {evt.desc}
+                  </p>
+
+                  <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-900/80 flex items-center justify-between gap-2 text-xs">
+                    <button
+                      onClick={() => {
+                        setSelectedEventTrack(evt.id);
+                        setActiveTab("teams");
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg font-mono font-bold text-[11px] transition flex items-center gap-1 cursor-pointer ${
+                        isSelected && activeTab === "teams"
+                          ? "bg-rose-500 text-white shadow-sm"
+                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
+                      }`}
+                    >
+                      <span>🛡️ {trackTeamsCount} Teams</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedEventTrack(evt.id);
+                        setActiveTab("builders");
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg font-mono font-bold text-[11px] transition flex items-center gap-1 cursor-pointer ${
+                        isSelected && activeTab === "builders"
+                          ? "bg-sky-500 text-white shadow-sm"
+                          : "bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20"
+                      }`}
+                    >
+                      <span>🙋‍♂️ {trackBuildersCount} Builders</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Team Matching Header Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-900">
         <div>
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
             <span>Partner Team Matching Hub</span>
+            {selectedEventTrack !== "all" && (
+              <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                Track: {partner.features?.events?.find((e: any) => e.id === selectedEventTrack)?.name || selectedEventTrack}
+              </span>
+            )}
           </h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">Find compatible teammates or join recruiting teams specifically for {partner.partner_name}.</p>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            {selectedEventTrack !== "all"
+              ? `Showing teams and builders matching track '${partner.features?.events?.find((e: any) => e.id === selectedEventTrack)?.name || selectedEventTrack}'.`
+              : `Find compatible teammates or join recruiting teams specifically for ${partner.partner_name}.`}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -465,7 +637,22 @@ function PartnerPageContent() {
                 activeTab === "teams" ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white font-bold shadow-sm" : "text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
               }`}
             >
-              Teams ({teams.length})
+              Teams ({
+                teams.filter((t) => {
+                  if (selectedEventTrack === "all") return true;
+                  const searchTerms: Record<string, string[]> = {
+                    "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
+                    "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
+                    "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
+                    "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
+                    "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
+                    "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
+                  };
+                  const keywords = searchTerms[selectedEventTrack] || [selectedEventTrack.replace(/-/g, " ")];
+                  const text = [...(t.skills || []), t.description || ""].join(" ").toLowerCase();
+                  return keywords.some((kw) => text.includes(kw));
+                }).length
+              })
             </button>
             <button
               onClick={() => setActiveTab("builders")}
@@ -473,21 +660,36 @@ function PartnerPageContent() {
                 activeTab === "builders" ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white font-bold shadow-sm" : "text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
               }`}
             >
-              Builders Looking for Teams ({builders.length})
+              Builders Looking ({
+                builders.filter((b) => {
+                  if (selectedEventTrack === "all") return true;
+                  const searchTerms: Record<string, string[]> = {
+                    "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
+                    "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
+                    "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
+                    "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
+                    "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
+                    "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
+                  };
+                  const keywords = searchTerms[selectedEventTrack] || [selectedEventTrack.replace(/-/g, " ")];
+                  const text = (b.skills || []).join(" ").toLowerCase();
+                  return keywords.some((kw) => text.includes(kw));
+                }).length
+              })
             </button>
           </div>
 
           {/* Contextual Action Button */}
           {activeTab === "teams" ? (
             <button
-              onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
+              onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}&track=${selectedEventTrack}`)}
               className="btn btn-lime px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             >
               <span className="text-black dark:text-black">+ Create Team</span>
             </button>
           ) : (
             <button
-              onClick={handleToggleLookingForTeam}
+              onClick={() => handleToggleLookingForTeam()}
               disabled={togglingStatus}
               className={`text-xs py-1.5 px-3.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
                 isUserLookingForTeam
@@ -504,18 +706,41 @@ function PartnerPageContent() {
       {/* Teams Feed */}
       {activeTab === "teams" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {teams.length === 0 ? (
-            <div className="col-span-2 p-12 text-center card card-static border-dashed border-zinc-800">
-              <p className="text-xs text-zinc-400 mb-4">No recruiting teams created yet — be the first to create a team and start recruiting top talent for this event!</p>
-              <button
-                onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-                className="btn btn-primary btn-sm inline-flex cursor-pointer"
-              >
-                Be the first to create a team
-              </button>
-            </div>
-          ) : (
-            teams.map((team) => (
+          {(() => {
+            const filteredTeams = teams.filter((t) => {
+              if (selectedEventTrack === "all") return true;
+              const searchTerms: Record<string, string[]> = {
+                "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
+                "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
+                "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
+                "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
+                "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
+                "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
+              };
+              const keywords = searchTerms[selectedEventTrack] || [selectedEventTrack.replace(/-/g, " ")];
+              const text = [...(t.skills || []), t.description || ""].join(" ").toLowerCase();
+              return keywords.some((kw) => text.includes(kw));
+            });
+
+            if (filteredTeams.length === 0) {
+              return (
+                <div className="col-span-2 p-12 text-center card card-static border-dashed border-zinc-800">
+                  <p className="text-xs text-zinc-400 mb-4">
+                    {selectedEventTrack !== "all"
+                      ? `No teams listed for track '${partner.features?.events?.find((e: any) => e.id === selectedEventTrack)?.name || selectedEventTrack}' yet.`
+                      : "No recruiting teams created yet — be the first to create a team and start recruiting top talent for this event!"}
+                  </p>
+                  <button
+                    onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}&track=${selectedEventTrack}`)}
+                    className="btn btn-primary btn-sm inline-flex cursor-pointer"
+                  >
+                    Be the first to create a team
+                  </button>
+                </div>
+              );
+            }
+
+            return filteredTeams.map((team) => (
               <div
                 key={team.id}
                 className="card card-static p-5 flex flex-col justify-between hover:border-zinc-700 transition-all"
@@ -560,26 +785,49 @@ function PartnerPageContent() {
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            ));
+          })()}
         </div>
       )}
 
       {/* Builders Feed */}
       {activeTab === "builders" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {builders.length === 0 ? (
-            <div className="col-span-3 p-12 text-center card card-static border-dashed border-zinc-800">
-              <p className="text-xs text-zinc-400 mb-4">No individual builders listed yet — be the first to list yourself as looking for a team and get discovered!</p>
-              <button
-                onClick={handleToggleLookingForTeam}
-                className="btn btn-primary btn-sm inline-flex cursor-pointer"
-              >
-                Be the first to list yourself as looking for a team
-              </button>
-            </div>
-          ) : (
-            builders.map((builder) => (
+          {(() => {
+            const filteredBuilders = builders.filter((b) => {
+              if (selectedEventTrack === "all") return true;
+              const searchTerms: Record<string, string[]> = {
+                "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
+                "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
+                "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
+                "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
+                "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
+                "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
+              };
+              const keywords = searchTerms[selectedEventTrack] || [selectedEventTrack.replace(/-/g, " ")];
+              const text = (b.skills || []).join(" ").toLowerCase();
+              return keywords.some((kw) => text.includes(kw));
+            });
+
+            if (filteredBuilders.length === 0) {
+              return (
+                <div className="col-span-3 p-12 text-center card card-static border-dashed border-zinc-800">
+                  <p className="text-xs text-zinc-400 mb-4">
+                    {selectedEventTrack !== "all"
+                      ? `No builders listed for track '${partner.features?.events?.find((e: any) => e.id === selectedEventTrack)?.name || selectedEventTrack}' yet.`
+                      : "No individual builders listed yet — be the first to list yourself as looking for a team and get discovered!"}
+                  </p>
+                  <button
+                    onClick={() => handleToggleLookingForTeam()}
+                    className="btn btn-primary btn-sm inline-flex cursor-pointer"
+                  >
+                    Be the first to list yourself as looking for a team
+                  </button>
+                </div>
+              );
+            }
+
+            return filteredBuilders.map((builder) => (
               <div
                 key={builder.id}
                 className="card card-static p-4 flex flex-col justify-between hover:border-zinc-700 transition-all"
@@ -622,8 +870,8 @@ function PartnerPageContent() {
                   </button>
                 </div>
               </div>
-            ))
-          )}
+            ));
+          })()}
         </div>
       )}
 
@@ -635,6 +883,78 @@ function PartnerPageContent() {
           badge={userWinnerBadge}
           recipientName={userName || "Verified Winner"}
         />
+      )}
+
+      {/* Event Track Selection Modal */}
+      {showTrackPickerModal && partner?.features?.events && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl relative animate-fade-in-up">
+            <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-500/20">
+                  Select Event Track
+                </span>
+                <h3 className="text-lg font-extrabold text-zinc-900 dark:text-white mt-1">
+                  Which event are you looking a team for?
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTrackPickerModal(false)}
+                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-3 mb-4">
+              Select which specific event track at {partner.partner_name} you want to join or recruit teammates for:
+            </p>
+
+            <div className="space-y-2.5 my-3 max-h-72 overflow-y-auto pr-1">
+              {partner.features.events.map((evt: any) => {
+                const isSelected = selectedTrackForModal === evt.id;
+                return (
+                  <div
+                    key={evt.id}
+                    onClick={() => setSelectedTrackForModal(evt.id)}
+                    className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                      isSelected
+                        ? "bg-rose-50 dark:bg-rose-500/20 border-rose-500 text-rose-950 dark:text-white ring-1 ring-rose-500/50 shadow-sm"
+                        : "bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 text-zinc-800 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 hover:text-zinc-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{evt.icon || "🕸️"}</span>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-900 dark:text-white">{evt.name}</p>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{evt.category}</p>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? "border-rose-500 bg-rose-500 text-white" : "border-zinc-300 dark:border-zinc-700"}`}>
+                      {isSelected && <span className="text-[10px]">✓</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-900">
+              <button
+                onClick={() => setShowTrackPickerModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleToggleLookingForTeam(selectedTrackForModal)}
+                disabled={togglingStatus || !selectedTrackForModal}
+                className="btn btn-lime text-xs py-2 px-5 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] cursor-pointer"
+              >
+                List Myself for {partner.features.events.find((e: any) => e.id === selectedTrackForModal)?.name || "Event Track"} →
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Share Team Modal */}

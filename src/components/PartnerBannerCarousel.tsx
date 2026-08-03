@@ -12,10 +12,20 @@ export type PartnerSlide = {
   ctaText: string;
   href: string;
   gradient: string;
-  logoType: "gamnexis" | "axcentra";
+  logoType: "gamnexis" | "axcentra" | "spiderverse";
 };
 
 const PARTNER_SLIDES: PartnerSlide[] = [
+  {
+    id: "spiderverse",
+    tag: "FEATURED SPIDER-VERSE HACKATHON",
+    title: "HackerMate × XPLORE'26 — Spider-Verse Hackathon",
+    description: "Explore Beyond Limits! Build web3, AI, and multiverse innovations in this national Spider-Verse challenge. Connect with teammates, join recruiting teams, and compete.",
+    ctaText: "Explore Spider-Verse Portal",
+    href: "/partners/spiderverse",
+    gradient: "from-[#E11D48] via-fuchsia-600 to-[#06B6D4]",
+    logoType: "spiderverse",
+  },
   {
     id: "gamnexis",
     tag: "FEATURED GAMEDEV & AI HACKATHON",
@@ -150,7 +160,18 @@ export default function PartnerBannerCarousel() {
 
             {/* Partner Specific Logo */}
             <div className="flex items-center">
-              {currentSlide.logoType === "gamnexis" ? (
+              {currentSlide.logoType === "spiderverse" ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/partners/spiderverse-logo.jpg"
+                    alt="Spider-Verse XPLORE'26 Logo"
+                    className="h-8 md:h-10 w-auto object-contain rounded-lg shadow-md border border-rose-500/30"
+                  />
+                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-rose-500 via-fuchsia-500 to-cyan-400 text-lg md:text-xl font-mono">
+                    XPLORE&apos;26
+                  </span>
+                </div>
+              ) : currentSlide.logoType === "gamnexis" ? (
                 <div className="flex items-center gap-3">
                   <img
                     src="/partners/gamnexis-logo.jpg"
