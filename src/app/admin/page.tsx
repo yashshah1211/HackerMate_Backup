@@ -258,9 +258,29 @@ function AdminContent() {
     }
   }
 
+  const [deletedUserLogs, setDeletedUserLogs] = useState<{ id: string; user_id: string; email: string | null; full_name: string | null; college: string | null; deleted_at: string }[]>([]);
+  const [loadingDeletedLogs, setLoadingDeletedLogs] = useState(false);
+
+  async function loadDeletedUserLogs() {
+    setLoadingDeletedLogs(true);
+    try {
+      const res = await fetch("/api/admin/deleted-users-log");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDeletedUserLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingDeletedLogs(false);
+    }
+  }
+
   useEffect(() => {
     if (activeTab === "sih_stats") {
       loadSIHStats();
+    } else if (activeTab === "users") {
+      loadDeletedUserLogs();
     }
   }, [activeTab]);
 
@@ -1827,6 +1847,60 @@ function AdminContent() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Deleted Users Audit Log */}
+            <div className="card card-static p-6 mt-8">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-900">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🛡️</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-white tracking-tight">Deleted User Audit Logs (Account Exits)</h3>
+                    <p className="text-[11px] text-zinc-400">Automatic DB trigger captures user email, name, and college upon account deletion.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={loadDeletedUserLogs}
+                  disabled={loadingDeletedLogs}
+                  className="px-3 py-1 rounded text-[10px] font-mono uppercase bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white cursor-pointer"
+                >
+                  {loadingDeletedLogs ? "Refreshing..." : "Refresh Audit Log"}
+                </button>
+              </div>
+
+              {deletedUserLogs.length === 0 ? (
+                <div className="p-6 text-center text-zinc-500 font-mono text-xs">
+                  No user account deletions recorded since audit tracking was enabled.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-zinc-900 bg-zinc-950/40 text-zinc-500 font-mono uppercase tracking-wider text-[10px]">
+                        <th className="p-3 font-semibold">User Details</th>
+                        <th className="p-3 font-semibold">College / Institution</th>
+                        <th className="p-3 font-semibold">Deleted Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900/60 font-mono">
+                      {deletedUserLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-rose-950/10 transition-colors">
+                          <td className="p-3">
+                            <div className="font-bold text-white">{log.full_name || "Unnamed Builder"}</div>
+                            <div className="text-[10px] text-rose-400 mt-0.5">{log.email || "No Email"}</div>
+                          </td>
+                          <td className="p-3 text-zinc-300 text-[11px]">
+                            {log.college || "Unspecified"}
+                          </td>
+                          <td className="p-3 text-zinc-400 text-[10px]">
+                            {new Date(log.deleted_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
