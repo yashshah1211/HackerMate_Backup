@@ -122,11 +122,66 @@ function AdminContent() {
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [revokingBadgeId, setRevokingBadgeId] = useState<string | null>(null);
 
+  // Onboarding Nudge state
+  const [nudgingUserId, setNudgingUserId] = useState<string | null>(null);
+  const [nudgingAll, setNudgingAll] = useState(false);
+
   // Data
   const [reports, setReports] = useState<Report[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [emailUsage, setEmailUsage] = useState<EmailUsageSummary | null>(null);
+
+  async function handleNudgeUser(targetUserId: string, userName?: string) {
+    setNudgingUserId(targetUserId);
+    try {
+      const res = await fetch("/api/admin/nudge-incomplete-onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Email onboarding nudge sent to ${userName || "user"}!`, "success");
+      } else {
+        showToast(data.error || "Failed to send onboarding nudge.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send onboarding nudge.", "error");
+    } finally {
+      setNudgingUserId(null);
+    }
+  }
+
+  function handleNudgeAllIncomplete() {
+    confirm({
+      title: "SEND EMAIL NUDGE TO ALL INCOMPLETE USERS",
+      message: "Are you sure you want to send a manual onboarding email nudge to ALL users with incomplete profiles?",
+      confirmText: "Send Emails",
+      onConfirm: async () => {
+        setNudgingAll(true);
+        try {
+          const res = await fetch("/api/admin/nudge-incomplete-onboarding", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ batchAll: true }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast(`⚡ Onboarding nudge emails sent to ${data.count} incomplete user(s)!`, "success");
+          } else {
+            showToast(data.error || "Failed to send batch onboarding nudges.", "error");
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast(err.message || "Failed to send batch onboarding nudges.", "error");
+        } finally {
+          setNudgingAll(false);
+        }
+      },
+    });
+  }
 
   // Outreach / Unstop Leads state (yashshah7117@gmail.com exclusive)
   const [leads, setLeads] = useState<OrganizerLead[]>([]);
@@ -1588,26 +1643,37 @@ function AdminContent() {
               </div>
 
               {/* Onboarding Filter */}
-              <div className="flex bg-zinc-950 border border-zinc-900 rounded-lg p-1 select-none shrink-0 w-full md:w-auto justify-center">
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <div className="flex bg-zinc-950 border border-zinc-900 rounded-lg p-1 select-none shrink-0 justify-center">
+                  <button
+                    onClick={() => setOnboardingFilter("all")}
+                    className={`px-3 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
+                      onboardingFilter === "all"
+                        ? "bg-zinc-900 text-white shadow"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    All Users
+                  </button>
+                  <button
+                    onClick={() => setOnboardingFilter("incomplete")}
+                    className={`px-3 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
+                      onboardingFilter === "incomplete"
+                        ? "bg-zinc-900 text-white shadow"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    Incomplete Onboarding ({users.filter((u) => !u.onboarding_completed).length})
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => setOnboardingFilter("all")}
-                  className={`px-3 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
-                    onboardingFilter === "all"
-                      ? "bg-zinc-900 text-white shadow"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
+                  onClick={handleNudgeAllIncomplete}
+                  disabled={nudgingAll}
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider bg-[#B4F461] hover:bg-[#a3e64f] text-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-md shadow-[#B4F461]/10 disabled:opacity-50"
+                  title="Send manual onboarding email nudge to all users who haven't completed their profile"
                 >
-                  All Users
-                </button>
-                <button
-                  onClick={() => setOnboardingFilter("incomplete")}
-                  className={`px-3 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
-                    onboardingFilter === "incomplete"
-                      ? "bg-zinc-900 text-white shadow"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  Incomplete Onboarding
+                  <span>{nudgingAll ? "Sending Nudges..." : "⚡ Nudge All Incomplete"}</span>
                 </button>
               </div>
             </div>
@@ -1707,6 +1773,17 @@ function AdminContent() {
                           {/* Actions */}
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {!u.onboarding_completed && (
+                                <button
+                                  onClick={() => handleNudgeUser(u.id, u.full_name || u.email)}
+                                  disabled={nudgingUserId === u.id}
+                                  className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 font-bold transition cursor-pointer disabled:opacity-50"
+                                  title="Send manual email onboarding nudge"
+                                >
+                                  {nudgingUserId === u.id ? "Nudging..." : "📧 Nudge"}
+                                </button>
+                              )}
+
                               <button
                                 onClick={() => handleToggleRole(u.id, u.role, u.full_name || "User")}
                                 className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
