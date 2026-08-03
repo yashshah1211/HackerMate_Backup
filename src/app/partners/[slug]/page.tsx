@@ -81,6 +81,7 @@ function PartnerPageContent() {
   const [userName, setUserName] = useState("");
   const [shareTeamForModal, setShareTeamForModal] = useState<Team | null>(null);
   const [showCertModal, setShowCertModal] = useState(false);
+  const [showPartnerShareModal, setShowPartnerShareModal] = useState(false);
   const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
@@ -439,6 +440,14 @@ function PartnerPageContent() {
               }`}
             >
               {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
+            </button>
+
+            <button
+              onClick={() => setShowPartnerShareModal(true)}
+              className="btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
+              title="Share this partner teammate matcher to college WhatsApp groups"
+            >
+              <span>📲 Share to WhatsApp</span>
             </button>
 
             {(() => {
@@ -968,6 +977,21 @@ function PartnerPageContent() {
         type="team"
         metadata={{
           teamName: shareTeamForModal?.name,
+          hackathonName: partner?.partner_name,
+        }}
+      />
+
+      {/* Share Partner Hub Modal */}
+      <ShareModal
+        isOpen={showPartnerShareModal}
+        onClose={() => setShowPartnerShareModal(false)}
+        title={`Share ${partner?.partner_name || "Partner"} Teammate Matcher`}
+        subtitle="Broadcast to your college WhatsApp & Telegram groups"
+        shareUrl={typeof window !== "undefined" ? `${window.location.origin}/partners/${slug}` : `https://hackermate.in/partners/${slug}`}
+        shareText={`🚀 *${partner?.partner_name || "Hackathon"} — Teammate Matcher Hub* ⚡\n\nFind recruiting teams & verified developers for ${partner?.partner_name || "this hackathon"} on HackerMate:\n\n*(Share this in your college WhatsApp group to team up for this hackathon!)*`}
+        type="team"
+        metadata={{
+          teamName: `${partner?.partner_name || "Partner"} Teammate Hub`,
           hackathonName: partner?.partner_name,
         }}
       />

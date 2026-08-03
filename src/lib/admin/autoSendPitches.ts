@@ -25,6 +25,18 @@ export async function autoSendPitchEmailsForLeads(
 ) {
   let leads = leadsToPitch;
 
+  // 1. Fetch ALL email addresses that have EVER been pitched in history
+  const { data: pitchedRows } = await supabaseAdmin
+    .from("organizer_leads")
+    .select("organizer_email, last_sent_to")
+    .not("pitch_sent_at", "is", null);
+
+  const pitchedEmailsSet = new Set<string>();
+  (pitchedRows || []).forEach((row) => {
+    if (row.organizer_email) pitchedEmailsSet.add(row.organizer_email.trim().toLowerCase());
+    if (row.last_sent_to) pitchedEmailsSet.add(row.last_sent_to.trim().toLowerCase());
+  });
+
   // If no specific leads list passed, fetch all pending leads where pitch_sent_at is null
   if (!leads || leads.length === 0) {
     const { data: pendingLeads } = await supabaseAdmin
@@ -35,11 +47,33 @@ export async function autoSendPitchEmailsForLeads(
     leads = pendingLeads || [];
   }
 
+  // 2. Strict Filter: Exclude any lead whose organizer_email was ALREADY pitched in DB, or appears multiple times in this batch
+  const uniqueLeads: any[] = [];
+  const seenEmailsInRun = new Set<string>();
+
+  for (const lead of (leads || [])) {
+    if (lead.pitch_sent_at) continue;
+
+    const email = lead.organizer_email?.trim().toLowerCase();
+    const lastSent = lead.last_sent_to?.trim().toLowerCase();
+
+    if (email && pitchedEmailsSet.has(email)) continue;
+    if (lastSent && pitchedEmailsSet.has(lastSent)) continue;
+    if (email && seenEmailsInRun.has(email)) continue;
+
+    if (email) {
+      seenEmailsInRun.add(email);
+    }
+    uniqueLeads.push(lead);
+  }
+
+  leads = uniqueLeads;
+
   if (!leads || leads.length === 0) {
     return { attempted: 0, sent: 0, deferred: 0, failed: 0, details: [] };
   }
 
-  // 1. Check Daily Send-Budget Guard (Category: outreach, Cap: 60/day)
+  // 3. Check Daily Send-Budget Guard (Category: outreach, Cap: 60/day)
   const budgetCheck = await checkAndReserveEmailBudget(supabaseAdmin, "outreach", leads.length);
 
   if (budgetCheck.allowedCount === 0) {
@@ -79,9 +113,10 @@ export async function autoSendPitchEmailsForLeads(
         }
 
         const rawEmail = lead.organizer_email?.trim();
-        if (!rawEmail || !emailRegex.test(rawEmail)) {
+        const lowerEmail = rawEmail?.toLowerCase();
+        if (!rawEmail || !emailRegex.test(rawEmail) || (lowerEmail && pitchedEmailsSet.has(lowerEmail))) {
           failedCount++;
-          details.push({ id: lead.id, email: rawEmail, error: "Invalid email regex format" });
+          details.push({ id: lead.id, email: rawEmail, error: "Invalid email regex format or already pitched" });
           return;
         }
 
@@ -167,6 +202,9 @@ Founder, HackerMate`;
           resendMessageId = "mock_pitch_id";
         }
 
+        // Add email to pitched set to prevent parallel batch duplicates
+        if (lowerEmail) pitchedEmailsSet.add(lowerEmail);
+
         // Update DB status ONLY AFTER confirmed successful email dispatch
         const nowIso = new Date().toISOString();
         const { error: dbErr } = await supabaseAdmin
@@ -185,6 +223,21 @@ Founder, HackerMate`;
         } else {
           sentCount++;
           details.push({ id: lead.id, email: rawEmail, status: "sent", resendId: resendMessageId });
+
+          // Cascade update any other duplicate lead rows in DB with matching email so they are marked pitched
+          if (rawEmail) {
+            await supabaseAdmin
+              .from("organizer_leads")
+              .update({
+                status: "duplicate_pitched",
+                last_sent_to: rawEmail,
+                pitch_sent_at: nowIso,
+                updated_at: nowIso,
+              })
+              .ilike("organizer_email", rawEmail)
+              .neq("id", lead.id)
+              .is("pitch_sent_at", null);
+          }
         }
       })
     );

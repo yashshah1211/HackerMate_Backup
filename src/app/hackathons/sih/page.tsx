@@ -13,6 +13,7 @@ import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModa
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import SIHQuickOnboardingModal from "@/components/SIHQuickOnboardingModal";
+import ShareModal from "@/components/ShareModal";
 import { trackEvent } from "@/lib/posthog";
 
 import { SIH_HACKATHON_ID } from "@/lib/constants";
@@ -130,6 +131,7 @@ function SIHTeamBuilderContent() {
   } | null>(null);
 
   const [quickOnboardingModalOpen, setQuickOnboardingModalOpen] = useState(false);
+  const [showSIHShareModal, setShowSIHShareModal] = useState(false);
 
   async function loadSIHData() {
     try {
@@ -473,6 +475,14 @@ function SIHTeamBuilderContent() {
                   }`}
               >
                 {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
+              </button>
+
+              <button
+                onClick={() => setShowSIHShareModal(true)}
+                className="btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
+                title="Share SIH 2026 Teammate Matcher to college WhatsApp groups"
+              >
+                <span>📲 Share to WhatsApp</span>
               </button>
             </div>
           </div>
@@ -981,6 +991,21 @@ function SIHTeamBuilderContent() {
           </button>
         </div>
       )}
+
+      {/* SIH Hub Share Modal */}
+      <ShareModal
+        isOpen={showSIHShareModal}
+        onClose={() => setShowSIHShareModal(false)}
+        title="Share SIH 2026 Teammate Matcher"
+        subtitle="Broadcast to your college WhatsApp & Telegram groups"
+        shareUrl={typeof window !== "undefined" ? `${window.location.origin}/hackathons/sih` : "https://hackermate.in/hackathons/sih"}
+        shareText={`🚨 *Looking for SIH 2026 Teammates?* 🇮🇳\n\nFind verified engineering teammates & form official 6-member teams for Smart India Hackathon 2026 on HackerMate:\n\n*(Share this in your college WhatsApp group so everyone can complete their SIH teams!)* ⚡`}
+        type="team"
+        metadata={{
+          teamName: "SIH 2026 College Teammate Matcher",
+          hackathonName: "Smart India Hackathon 2026",
+        }}
+      />
 
       <Footer />
     </div>
