@@ -335,7 +335,7 @@ function PartnerPageContent() {
           style={{ background: `linear-gradient(to right, ${brandColor}, #6366f1, #B4F461)` }}
         />
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div className="flex flex-col gap-6 relative z-10">
           <div>
             {/* Co-Branded Tag */}
             <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1 text-xs font-mono uppercase tracking-wider mb-4">
@@ -357,6 +357,8 @@ function PartnerPageContent() {
                   ? "GAMNEXIS"
                   : slug === "spiderverse"
                   ? "XPLORE'26 SPIDER-VERSE"
+                  : slug === "morrow" || slug === "mnm"
+                  ? "MORROW 1.0"
                   : partner.partner_name.replace(/^HackerMate\s*x\s*/i, "").split(" ")[0].toUpperCase()}
               </span>
             </div>
@@ -371,18 +373,28 @@ function PartnerPageContent() {
                     const target = e.target as HTMLImageElement;
                     if (slug === "axcentra") {
                       target.src = "/partners/axcentra-icon-only-transparent.png";
+                    } else if (slug === "morrow" || slug === "mnm") {
+                      target.src = "/partners/morrow-icon.png";
                     } else {
                       target.style.display = "none";
                     }
                   }}
                 />
               ) : (
-                slug === "axcentra" && (
+                (slug === "morrow" || slug === "mnm") ? (
                   <img
-                    src="/partners/axcentra-icon-only-transparent.png"
-                    alt="Axcentra Logo"
-                    className="h-12 md:h-14 w-auto object-contain shrink-0"
+                    src="/partners/morrow-icon.png"
+                    alt="Morrow Logo"
+                    className="h-12 md:h-14 w-auto object-contain shrink-0 rounded-xl"
                   />
+                ) : (
+                  slug === "axcentra" && (
+                    <img
+                      src="/partners/axcentra-icon-only-transparent.png"
+                      alt="Axcentra Logo"
+                      className="h-12 md:h-14 w-auto object-contain shrink-0"
+                    />
+                  )
                 )
               )}
               <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
@@ -421,11 +433,11 @@ function PartnerPageContent() {
             </div>
           </div>
 
-          {/* Hero CTAs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+          {/* Hero CTAs - Full Width Wrapping Toolbar */}
+          <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 w-full">
             <button
               onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-              className="btn btn-lime text-xs py-3 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
+              className="btn btn-lime text-xs py-2.5 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
             >
               <span className="text-black dark:text-black">+ Create Team</span>
             </button>
@@ -433,7 +445,7 @@ function PartnerPageContent() {
             <button
               onClick={() => handleToggleLookingForTeam()}
               disabled={togglingStatus}
-              className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
+              className={`btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 isUserLookingForTeam
                   ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
                   : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
@@ -444,22 +456,47 @@ function PartnerPageContent() {
 
             <button
               onClick={() => setShowPartnerShareModal(true)}
-              className="btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
+              className="btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
               title="Share this partner teammate matcher to college WhatsApp groups"
             >
               <span>📲 Share to WhatsApp</span>
             </button>
 
+            {/* Secondary Link: WhatsApp Channel */}
+            {(partner.features?.whatsapp_channel || slug === "morrow" || slug === "mnm") && (
+              <a
+                href={partner.features?.whatsapp_channel || "https://whatsapp.com/channel/0029VbDGVGg96H4VGs87xO2Z"}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 transition-colors"
+              >
+                <span>💬 WhatsApp Channel</span>
+                <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </a>
+            )}
+
+            {/* Secondary Link: Website */}
+            {(partner.features?.website_url || slug === "morrow" || slug === "mnm") && (
+              <a
+                href={partner.features?.website_url || "https://www.mnmworks.xyz/"}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 transition-colors"
+              >
+                <span>🌐 Official Website</span>
+                <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </a>
+            )}
+
+            {/* Primary Link: Official Unstop Registration */}
             {(() => {
               if (!hackathon?.website_url) return null;
               const url = hackathon.website_url.trim();
-              // Prevent circular self-referential links back to partner portal pages
-              if (
-                url.includes("/partners/") ||
-                url.includes("hackermate.in/partners")
-              ) {
-                return null;
-              }
+              if (url.includes("/partners/") || url.includes("hackermate.in/partners")) return null;
               const isUnstop = url.toLowerCase().includes("unstop");
               const label = isUnstop ? "Official Unstop Registration" : "Official Event Website";
               return (
@@ -467,9 +504,9 @@ function PartnerPageContent() {
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-900 border border-zinc-300 dark:border-zinc-800/80 transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 transition-colors"
                 >
-                  <span>{label}</span>
+                  <span>🎓 {label}</span>
                   <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                   </svg>

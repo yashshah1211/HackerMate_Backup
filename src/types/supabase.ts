@@ -213,6 +213,7 @@ export type Database = {
           hackathon_id: string
           id: string
           looking_for_team: boolean
+          metadata: Json | null
           status: string
           team_id: string | null
           user_id: string
@@ -222,6 +223,7 @@ export type Database = {
           hackathon_id: string
           id?: string
           looking_for_team?: boolean
+          metadata?: Json | null
           status?: string
           team_id?: string | null
           user_id: string
@@ -231,6 +233,7 @@ export type Database = {
           hackathon_id?: string
           id?: string
           looking_for_team?: boolean
+          metadata?: Json | null
           status?: string
           team_id?: string | null
           user_id?: string

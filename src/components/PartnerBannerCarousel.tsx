@@ -12,10 +12,20 @@ export type PartnerSlide = {
   ctaText: string;
   href: string;
   gradient: string;
-  logoType: "gamnexis" | "axcentra" | "spiderverse";
+  logoType: "gamnexis" | "axcentra" | "spiderverse" | "morrow";
 };
 
 const PARTNER_SLIDES: PartnerSlide[] = [
+  {
+    id: "morrow",
+    tag: "FEATURED OPEN-SOURCE HACKATHON",
+    title: "HackerMate × Morrow 1.0 — Makers Need More",
+    description: "Build & ship open-source solutions at the speed of thought! Join the global open-source hackathon by MnM. Connect with teammates and build together.",
+    ctaText: "Explore Morrow 1.0 Portal",
+    href: "/partners/morrow",
+    gradient: "from-[#6366F1] via-emerald-500 to-[#10B981]",
+    logoType: "morrow",
+  },
   {
     id: "spiderverse",
     tag: "FEATURED SPIDER-VERSE HACKATHON",
@@ -160,7 +170,18 @@ export default function PartnerBannerCarousel() {
 
             {/* Partner Specific Logo */}
             <div className="flex items-center">
-              {currentSlide.logoType === "spiderverse" ? (
+              {currentSlide.logoType === "morrow" ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/partners/morrow-icon.png"
+                    alt="Morrow 1.0 Logo"
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm"
+                  />
+                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-emerald-400 to-teal-400 text-lg md:text-xl font-mono">
+                    MORROW 1.0
+                  </span>
+                </div>
+              ) : currentSlide.logoType === "spiderverse" ? (
                 <div className="flex items-center gap-3">
                   <img
                     src="/partners/spiderverse-logo.jpg"
