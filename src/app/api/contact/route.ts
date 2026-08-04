@@ -14,7 +14,11 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 function getIp(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    const ips = forwarded.split(",").map((ip) => ip.trim()).filter(Boolean);
+    if (ips.length > 0) {
+      // Use the last hop appended by trusted reverse proxy (e.g. Vercel/Cloudflare)
+      return ips[ips.length - 1];
+    }
   }
   const realIp = req.headers.get("x-real-ip");
   if (realIp) {

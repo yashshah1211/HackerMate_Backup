@@ -85,9 +85,8 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     const isNativeOrganizer = hackathon.organizer_id === user.id;
-    const isPartnerHackathon = !!partnerConfig;
 
-    if (!isNativeOrganizer && !isAdmin && !isPartnerHackathon) {
+    if (!isNativeOrganizer && !isAdmin) {
       return NextResponse.json(
         { error: "Forbidden: Only the hackathon organizer or admin can broadcast announcements." },
         { status: 403 }

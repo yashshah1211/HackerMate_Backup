@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
     const actionLabel = "View Notification";
 
     const escapedRecipientName = escapeHtml(recipientName || "Builder");
-    const escapedMessage = escapeHtml(message);
+    const safeMessage = message.length > 250 ? `${message.substring(0, 247)}...` : message;
+    const escapedMessage = escapeHtml(safeMessage);
 
     // 4. Construct Premium Responsive HTML Email (Linear/Vercel inspired dark theme)
     const html = `

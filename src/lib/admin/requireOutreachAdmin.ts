@@ -26,8 +26,15 @@ export async function requireOutreachAdmin(
     error: authError,
   } = await supabaseUserClient.auth.getUser();
 
-  const allowedEmail =
-    process.env.OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
+  const allowedEmail = process.env.OUTREACH_ADMIN_EMAIL;
+
+  if (!allowedEmail) {
+    console.error("[Auth] OUTREACH_ADMIN_EMAIL environment variable is not configured.");
+    return NextResponse.json(
+      { error: "Forbidden: Outreach administrator email is not configured." },
+      { status: 403 }
+    );
+  }
 
   if (
     authError ||
