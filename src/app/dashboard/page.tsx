@@ -988,7 +988,13 @@ function DashboardContent() {
                 const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
 
                 return (
-                  <div key={act.id} className="activity-item">
+                  <div
+                    key={act.id}
+                    onClick={() => {
+                      if (act.link) router.push(act.link);
+                    }}
+                    className={`activity-item ${act.link ? "cursor-pointer hover:bg-[var(--surface-2)] transition-colors rounded-lg p-1.5 -mx-1.5" : ""}`}
+                  >
                     <div className="activity-dot" style={{ background: randColor }}></div>
                     <div>
                       <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />

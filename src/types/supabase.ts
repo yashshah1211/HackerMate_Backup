@@ -393,6 +393,7 @@ export type Database = {
           is_pinned: boolean
           is_read: boolean | null
           mentions: string[] | null
+          reply_to_id: string | null
           sender_id: string
         }
         Insert: {
@@ -403,6 +404,7 @@ export type Database = {
           is_pinned?: boolean
           is_read?: boolean | null
           mentions?: string[] | null
+          reply_to_id?: string | null
           sender_id: string
         }
         Update: {
@@ -413,6 +415,7 @@ export type Database = {
           is_pinned?: boolean
           is_read?: boolean | null
           mentions?: string[] | null
+          reply_to_id?: string | null
           sender_id?: string
         }
         Relationships: [
@@ -1034,7 +1037,7 @@ export type Database = {
         Returns: string
       }
       send_message: {
-        Args: { p_content: string; p_conversation_id: string }
+        Args: { p_content: string; p_conversation_id: string; p_reply_to_id?: string }
         Returns: string
       }
       send_message_with_mentions: {
@@ -1042,6 +1045,7 @@ export type Database = {
           p_content: string
           p_conversation_id: string
           p_mentions?: string[]
+          p_reply_to_id?: string
         }
         Returns: string
       }

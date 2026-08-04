@@ -14,6 +14,7 @@ type Message = {
   is_read: boolean;
   is_pinned?: boolean;
   mentions?: string[] | null;
+  reply_to_id?: string | null;
   created_at: string;
 };
 
@@ -204,9 +205,22 @@ export default function ChatThread({
   const [recipientId, setRecipientId] = useState<string | null>(null);
   const [ownedTeams, setOwnedTeams] = useState<{ id: string; name: string }[]>([]);
   const [conversationType, setConversationType] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  function scrollToMessage(msgId: string) {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-violet-500", "rounded-lg", "transition-all", "duration-500");
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-violet-500");
+      }, 2000);
+    }
+  }
+
   const filteredParticipants = participants.filter((p) =>
-  p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
-);
+    p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
 
   async function loadMessages() {
     // Fetch conversation type
@@ -565,8 +579,10 @@ export default function ChatThread({
       })
     ));
 
+    const currentReplyToId = replyingTo?.id || undefined;
     setSending(true);
     setInput("");
+    setReplyingTo(null);
     setMentionIds([]);
     setShowMentions(false);
     setSafetyError(null);
@@ -575,6 +591,7 @@ export default function ChatThread({
       p_conversation_id: conversationId,
       p_content: safetyResult.sanitized,
       p_mentions: resolvedMentionIds,
+      p_reply_to_id: currentReplyToId,
     });
 
     if (error) {
@@ -751,8 +768,13 @@ async function unpinMessage(messageId: string) {
             const isMentioned = msg.mentions && msg.mentions.includes(currentUserId);
             const isInviteCard = msg.content.startsWith("__TEAM_INVITE__::");
 
+            const parentMsg = msg.reply_to_id
+              ? messages.find((m) => m.id === msg.reply_to_id)
+              : null;
+            const parentSender = parentMsg ? profiles[parentMsg.sender_id] : null;
+
             return (
-              <div key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}>
+              <div id={`msg-${msg.id}`} key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}>
                 {sender?.avatar_url ? (
                   <img
                     src={sender.avatar_url}
@@ -784,19 +806,51 @@ async function unpinMessage(messageId: string) {
                               : "bg-zinc-900 border border-zinc-800 text-zinc-200"
                         }`}
                       >
+                        {msg.reply_to_id && (
+                          <div
+                            onClick={() => scrollToMessage(msg.reply_to_id!)}
+                            className={`mb-1.5 p-2 rounded border text-[11px] cursor-pointer transition-all ${
+                              isMine
+                                ? "bg-zinc-200/90 border-zinc-300 text-zinc-800 hover:bg-zinc-300"
+                                : "bg-zinc-950/80 border-zinc-800/90 text-zinc-300 hover:border-zinc-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1 font-bold text-[10px] text-violet-500 dark:text-violet-400 mb-0.5">
+                              <span>↩️</span>
+                              <span className="truncate">
+                                {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
+                              </span>
+                            </div>
+                            <p className="truncate opacity-80">
+                              {parentMsg
+                                ? parentMsg.content.startsWith("__TEAM_INVITE__::")
+                                  ? "✉️ Team Invitation"
+                                  : parentMsg.content
+                                : "Click to jump to original message"}
+                            </p>
+                          </div>
+                        )}
                         {renderMessageContent(msg.content, isMine)}
                       </div>
 
-                      <button
-                        onClick={() =>
-                          msg.is_pinned
-                            ? unpinMessage(msg.id)
-                            : pinMessage(msg.id)
-                        }
-                        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-[10px]"
-                      >
-                        {msg.is_pinned ? "📍" : "📌"}
-                      </button>
+                      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded px-1 py-0.5 shadow-md z-10">
+                        <button
+                          onClick={() => setReplyingTo(msg)}
+                          className="px-1 text-zinc-400 hover:text-white text-[10px] transition-colors"
+                          title="Reply to message"
+                        >
+                          ↩️
+                        </button>
+                        <button
+                          onClick={() =>
+                            msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
+                          }
+                          className="px-1 text-zinc-400 hover:text-white text-[10px] transition-colors"
+                          title={msg.is_pinned ? "Unpin message" : "Pin message"}
+                        >
+                          {msg.is_pinned ? "📍" : "📌"}
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -832,6 +886,34 @@ async function unpinMessage(messageId: string) {
 
       {/* Input */}
       <div className="border-t border-zinc-900 bg-zinc-950/20 p-3">
+        {replyingTo && (
+          <div className="mb-2.5 p-2 rounded-lg bg-zinc-900/90 border border-zinc-800 flex items-center justify-between gap-2 text-xs animate-fade-in">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-1 h-7 rounded-full bg-violet-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-violet-400 flex items-center gap-1">
+                  <span>↩️ Replying to</span>
+                  <span className="text-zinc-200 truncate">
+                    {profiles[replyingTo.sender_id]?.full_name || "User"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 truncate">
+                  {replyingTo.content.startsWith("__TEAM_INVITE__::")
+                    ? "✉️ Team Invitation"
+                    : replyingTo.content}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="p-1 text-zinc-500 hover:text-zinc-300 rounded transition-colors"
+              title="Cancel reply"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {conversationType === "dm" && recipientId && ownedTeams.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-zinc-900/60">
             <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 mr-1 select-none">Quick Invites:</span>

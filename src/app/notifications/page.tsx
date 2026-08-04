@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
@@ -345,22 +346,33 @@ function NotifCard({
   idx: number;
   markAsRead: (id: string) => void;
 }) {
+  const router = useRouter();
   const meta = getNotifMeta(n.message);
+
+  const handleCardClick = async () => {
+    if (!n.is_read) {
+      await markAsRead(n.id);
+    }
+    if (n.link) {
+      router.push(n.link);
+    }
+  };
 
   return (
     <div
+      onClick={handleCardClick}
       className={`
-        group relative flex items-start gap-4 p-4 rounded-xl border transition-all duration-200
+        group relative flex items-start gap-4 p-4 rounded-xl border transition-all duration-200 cursor-pointer
         ${n.is_read
-          ? "bg-[var(--surface-1)] border-[var(--card-border)] opacity-70 hover:opacity-100"
-          : "bg-[var(--surface-2)] border-[var(--card-border)] hover:border-violet-500/20"
+          ? "bg-[var(--surface-1)] border-[var(--card-border)] opacity-80 hover:opacity-100"
+          : "bg-[var(--surface-2)] border-[var(--card-border)] hover:border-violet-500/30"
         }
         animate-fade-in-up stagger-${Math.min(idx + 1, 6)}
       `}
     >
       {/* Unread left accent bar */}
       {!n.is_read && (
-        <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-violet-500 rounded-full" />
+        <div className="absolute left-0 top-3 bottom-3 w-1 bg-violet-500 rounded-full" />
       )}
 
       {/* Icon */}
@@ -392,21 +404,25 @@ function NotifCard({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-2 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             {n.link && (
               <button
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.stopPropagation();
                   await markAsRead(n.id);
-                  if (n.link) window.location.href = n.link;
+                  if (n.link) router.push(n.link);
                 }}
-                className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 border border-violet-500/25 hover:border-violet-400/40 bg-violet-500/5 hover:bg-violet-500/10 px-3 py-1 rounded-lg transition-all cursor-pointer"
+                className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 border border-violet-500/30 hover:border-violet-400/50 bg-violet-500/10 hover:bg-violet-500/20 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm"
               >
                 Open →
               </button>
             )}
             {!n.is_read && (
               <button
-                onClick={() => markAsRead(n.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markAsRead(n.id);
+                }}
                 title="Mark as read"
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-[var(--card-border)] hover:border-emerald-500/30 hover:bg-emerald-500/5 text-[var(--text-muted)] hover:text-emerald-400 transition-all cursor-pointer"
               >
