@@ -1,41 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { verifyKey, InteractionType, InteractionResponseType } from "discord-interactions";
 import {
   handleFindTeamCommand,
   handleCreateTeamCommand,
   handleHackathonsCommand,
 } from "@/lib/discordCommandHelper";
-
-/**
- * Standard Node.js Ed25519 signature verification for Discord Webhook Interactions
- */
-function verifyDiscordSignature(
-  body: string,
-  signature: string | null,
-  timestamp: string | null,
-  publicKeyHex: string
-): boolean {
-  if (!signature || !timestamp || !publicKeyHex) return false;
-
-  try {
-    const key = crypto.createPublicKey({
-      key: Buffer.concat([
-        Buffer.from("302a300506032b6570032100", "hex"), // SPKI DER prefix for Ed25519
-        Buffer.from(publicKeyHex, "hex"),
-      ]),
-      format: "der",
-      type: "spki",
-    });
-
-    const message = Buffer.from(timestamp + body);
-    const sigBuffer = Buffer.from(signature, "hex");
-
-    return crypto.verify(null, message, key, sigBuffer);
-  } catch (err) {
-    console.error("[Discord Webhook] Signature verification error:", err);
-    return false;
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,9 +15,13 @@ export async function POST(req: NextRequest) {
 
     // Verify signature if DISCORD_PUBLIC_KEY environment variable is configured
     if (publicKey) {
-      const isValid = verifyDiscordSignature(rawBody, signature, timestamp, publicKey);
+      if (!signature || !timestamp) {
+        return new NextResponse("Missing signature headers", { status: 401 });
+      }
+
+      const isValid = await verifyKey(rawBody, signature, timestamp, publicKey);
       if (!isValid) {
-        console.warn("[Discord Webhook] Signature verification failed.");
+        console.warn("[Discord Webhook] Invalid request signature.");
         return new NextResponse("Invalid request signature", { status: 401 });
       }
     }
@@ -56,12 +29,12 @@ export async function POST(req: NextRequest) {
     const interaction = JSON.parse(rawBody);
 
     // Type 1: PING from Discord Developer Portal
-    if (interaction.type === 1) {
-      return NextResponse.json({ type: 1 });
+    if (interaction.type === InteractionType.PING) {
+      return NextResponse.json({ type: InteractionResponseType.PONG });
     }
 
     // Type 2: APPLICATION_COMMAND (Slash Commands)
-    if (interaction.type === 2) {
+    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       const commandName = interaction.data?.name;
       const optionsArray = interaction.data?.options || [];
       const optionsObj: Record<string, string> = {};
@@ -91,18 +64,24 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({
-        type: 4,
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
           content: `🤖 Command \`/${commandName}\` acknowledged by HackerMate.`,
         },
       });
     }
 
-    return NextResponse.json({ type: 4, data: { content: "Unknown interaction type" } });
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "Unknown interaction type" },
+    });
   } catch (error: any) {
     console.error("[Discord Webhook API Error]:", error);
     return NextResponse.json(
-      { type: 4, data: { content: "⚠️ HackerMate Bot service temporarily unavailable." } },
+      {
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: "⚠️ HackerMate Bot service temporarily unavailable." },
+      },
       { status: 500 }
     );
   }
