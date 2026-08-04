@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import {
   handleFindTeamCommand,
   handleCreateTeamCommand,
@@ -6,41 +7,33 @@ import {
 } from "@/lib/discordCommandHelper";
 
 /**
- * Web Crypto Ed25519 signature verification helper for Discord Webhook Interactions
+ * Standard Node.js Ed25519 signature verification for Discord Webhook Interactions
  */
-async function verifyDiscordSignature(
+function verifyDiscordSignature(
   body: string,
   signature: string | null,
   timestamp: string | null,
   publicKeyHex: string
-): Promise<boolean> {
+): boolean {
   if (!signature || !timestamp || !publicKeyHex) return false;
 
   try {
-    const encoder = new TextEncoder();
-    const message = encoder.encode(timestamp + body);
+    const key = crypto.createPublicKey({
+      key: Buffer.concat([
+        Buffer.from("302a300506032b6570032100", "hex"), // SPKI DER prefix for Ed25519
+        Buffer.from(publicKeyHex, "hex"),
+      ]),
+      format: "der",
+      type: "spki",
+    });
 
-    // Convert hex signature and public key to Uint8Array
-    const sigBytes = new Uint8Array(
-      signature.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
-    );
-    const keyBytes = new Uint8Array(
-      publicKeyHex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
-    );
+    const message = Buffer.from(timestamp + body);
+    const sigBuffer = Buffer.from(signature, "hex");
 
-    const cryptoKey = await crypto.subtle.importKey(
-      "raw",
-      keyBytes,
-      { name: "NODE-ED25519", namedCurve: "NODE-ED25519" },
-      false,
-      ["verify"]
-    );
-
-    return await crypto.subtle.verify("NODE-ED25519", cryptoKey, sigBytes, message);
+    return crypto.verify(null, message, key, sigBuffer);
   } catch (err) {
-    // If native Ed25519 web crypto fails or isn't supported in current runtime, log warning
-    console.warn("[Discord Webhook] Signature verification fallback triggered:", err);
-    return true; // Fallback for local testing/dev
+    console.error("[Discord Webhook] Signature verification error:", err);
+    return false;
   }
 }
 
@@ -51,10 +44,11 @@ export async function POST(req: NextRequest) {
     const timestamp = req.headers.get("x-signature-timestamp");
     const publicKey = process.env.DISCORD_PUBLIC_KEY;
 
-    // Verify signature if public key is set in env
+    // Verify signature if DISCORD_PUBLIC_KEY environment variable is configured
     if (publicKey) {
-      const isValid = await verifyDiscordSignature(rawBody, signature, timestamp, publicKey);
+      const isValid = verifyDiscordSignature(rawBody, signature, timestamp, publicKey);
       if (!isValid) {
+        console.warn("[Discord Webhook] Signature verification failed.");
         return new NextResponse("Invalid request signature", { status: 401 });
       }
     }
@@ -96,7 +90,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(response);
       }
 
-      // Default fallback
       return NextResponse.json({
         type: 4,
         data: {
