@@ -704,11 +704,11 @@ async function unpinMessage(messageId: string) {
 
   return (
     <div className="card card-static flex flex-col overflow-hidden">
-      <div className="px-4 py-2 border-b border-zinc-900 bg-zinc-950/40 flex items-center justify-between shrink-0">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Team Chat</span>
+      <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">Team Chat</span>
         <button
           onClick={clearChat}
-          className="text-[10px] font-mono text-zinc-500 hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5"
+          className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5 cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -779,17 +779,17 @@ async function unpinMessage(messageId: string) {
                   <img
                     src={sender.avatar_url}
                     alt={sender.full_name}
-                    className="w-7 h-7 rounded object-cover flex-shrink-0 border border-zinc-800"
+                    className="w-7 h-7 rounded object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-800"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 flex-shrink-0">
+                  <div className="w-7 h-7 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-600 dark:text-zinc-400 flex-shrink-0">
                     {sender?.full_name?.charAt(0) || "?"}
                   </div>
                 )}
 
                 <div className={`max-w-[75%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
                   {!isMine && (
-                    <span className="text-[10px] text-zinc-500 mb-0.5 px-0.5">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-0.5 px-0.5">
                       {sender?.full_name || "Unknown"}
                     </span>
                   )}
@@ -798,30 +798,30 @@ async function unpinMessage(messageId: string) {
                   ) : (
                     <div className="group relative">
                       <div
-                        className={`px-3 py-1.5 rounded text-xs leading-relaxed ${
+                        className={`px-3 py-2 rounded-xl text-xs leading-relaxed shadow-xs ${
                           isMine
-                            ? "bg-white text-black"
+                            ? "bg-violet-600 text-white"
                             : isMentioned
-                              ? "bg-violet-950/30 border border-violet-500/40 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
-                              : "bg-zinc-900 border border-zinc-800 text-zinc-200"
+                              ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-300 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 shadow-xs"
+                              : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
                         {msg.reply_to_id && (
                           <div
                             onClick={() => scrollToMessage(msg.reply_to_id!)}
-                            className={`mb-1.5 p-2 rounded border text-[11px] cursor-pointer transition-all ${
+                            className={`mb-1.5 p-2 rounded-lg border text-[11px] cursor-pointer transition-all ${
                               isMine
-                                ? "bg-zinc-200/90 border-zinc-300 text-zinc-800 hover:bg-zinc-300"
-                                : "bg-zinc-950/80 border-zinc-800/90 text-zinc-300 hover:border-zinc-700"
+                                ? "bg-violet-700/60 border-violet-500/50 text-white hover:bg-violet-700/80"
+                                : "bg-white dark:bg-zinc-950/80 border-zinc-200 dark:border-zinc-800/90 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
                             }`}
                           >
-                            <div className="flex items-center gap-1 font-bold text-[10px] text-violet-500 dark:text-violet-400 mb-0.5">
+                            <div className={`flex items-center gap-1 font-bold text-[10px] mb-0.5 ${isMine ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}>
                               <span>↩️</span>
                               <span className="truncate">
                                 {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
                               </span>
                             </div>
-                            <p className="truncate opacity-80">
+                            <p className="truncate opacity-90">
                               {parentMsg
                                 ? parentMsg.content.startsWith("__TEAM_INVITE__::")
                                   ? "✉️ Team Invitation"
@@ -833,10 +833,10 @@ async function unpinMessage(messageId: string) {
                         {renderMessageContent(msg.content, isMine)}
                       </div>
 
-                      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded px-1 py-0.5 shadow-md z-10">
+                      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-1 py-0.5 shadow-md z-10">
                         <button
                           onClick={() => setReplyingTo(msg)}
-                          className="px-1 text-zinc-400 hover:text-white text-[10px] transition-colors"
+                          className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-white text-[10px] transition-colors cursor-pointer"
                           title="Reply to message"
                         >
                           ↩️
@@ -845,7 +845,7 @@ async function unpinMessage(messageId: string) {
                           onClick={() =>
                             msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
                           }
-                          className="px-1 text-zinc-400 hover:text-white text-[10px] transition-colors"
+                          className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-white text-[10px] transition-colors cursor-pointer"
                           title={msg.is_pinned ? "Unpin message" : "Pin message"}
                         >
                           {msg.is_pinned ? "📍" : "📌"}
@@ -885,19 +885,20 @@ async function unpinMessage(messageId: string) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-900 bg-zinc-950/20 p-3">
+      {/* Input */}
+      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/40 p-3.5">
         {replyingTo && (
-          <div className="mb-2.5 p-2 rounded-lg bg-zinc-900/90 border border-zinc-800 flex items-center justify-between gap-2 text-xs animate-fade-in">
+          <div className="mb-2.5 p-2 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-1 h-7 rounded-full bg-violet-500 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="text-[10px] font-bold text-violet-400 flex items-center gap-1">
+                <div className="text-[10px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1">
                   <span>↩️ Replying to</span>
-                  <span className="text-zinc-200 truncate">
+                  <span className="text-zinc-900 dark:text-zinc-200 truncate">
                     {profiles[replyingTo.sender_id]?.full_name || "User"}
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 truncate">
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 truncate">
                   {replyingTo.content.startsWith("__TEAM_INVITE__::")
                     ? "✉️ Team Invitation"
                     : replyingTo.content}
@@ -906,7 +907,7 @@ async function unpinMessage(messageId: string) {
             </div>
             <button
               onClick={() => setReplyingTo(null)}
-              className="p-1 text-zinc-500 hover:text-zinc-300 rounded transition-colors"
+              className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
               title="Cancel reply"
             >
               ✕
@@ -915,14 +916,14 @@ async function unpinMessage(messageId: string) {
         )}
 
         {conversationType === "dm" && recipientId && ownedTeams.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-zinc-900/60">
-            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 mr-1 select-none">Quick Invites:</span>
+          <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-zinc-200 dark:border-zinc-800/60">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mr-1 select-none font-semibold">Quick Invites:</span>
             {ownedTeams.map((team) => (
               <button
                 key={team.id}
                 onClick={() => handleSendQuickInvite(team.id, team.name)}
                 disabled={sending}
-                className="px-2.5 py-1 text-[10px] rounded-full border border-violet-500/25 hover:border-violet-500/50 bg-violet-500/5 hover:bg-violet-500/15 text-violet-300 hover:text-white transition-all font-medium disabled:opacity-50 flex items-center gap-1"
+                className="px-2.5 py-1 text-[10px] rounded-full border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition-all font-medium disabled:opacity-50 flex items-center gap-1 cursor-pointer"
               >
                 <span>➕ Invite to {team.name}</span>
               </button>
@@ -931,7 +932,7 @@ async function unpinMessage(messageId: string) {
         )}
 
         {safetyError && (
-          <div className="mb-2 p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] leading-normal animate-fade-in">
+          <div className="mb-2 p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] leading-normal animate-fade-in">
             ⚠️ {safetyError}
           </div>
         )}
@@ -939,37 +940,37 @@ async function unpinMessage(messageId: string) {
           <textarea
             value={input}
             onChange={(e) => {
-  const value = e.target.value;
+              const value = e.target.value;
 
-  setInput(value);
+              setInput(value);
 
-  const match = value.match(/@([a-zA-Z\s]*)$/);
+              const match = value.match(/@([a-zA-Z\s]*)$/);
 
-  if (match) {
-    setMentionQuery(match[1]);
-    setShowMentions(true);
-  } else {
-    setShowMentions(false);
-  }
-}}
+              if (match) {
+                setMentionQuery(match[1]);
+                setShowMentions(true);
+              } else {
+                setShowMentions(false);
+              }
+            }}
             onKeyDown={handleKeyDown}
             disabled={isBlocked}
             placeholder={isBlocked ? "You cannot message this user." : "Type a message..."}
             rows={2}
-            className="input flex-1 resize-none py-1.5 px-3 text-xs bg-zinc-950/60 border-zinc-800 focus:border-zinc-700 min-h-[42px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-950/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[42px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim() || sending || isBlocked}
-            className="btn btn-primary flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ height: "36px", width: "36px", padding: 0 }}
+            className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+            style={{ height: "38px", width: "38px", padding: 0 }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
           {showMentions && filteredParticipants.length > 0 && (
-  <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg max-h-48 overflow-y-auto z-50">
+            <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl max-h-48 overflow-y-auto z-50">
     {filteredParticipants.map((user) => (
       <button
         key={user.id}
