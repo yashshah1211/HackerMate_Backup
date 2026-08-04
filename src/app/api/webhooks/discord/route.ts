@@ -8,25 +8,27 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    const rawBody = await req.text();
+    const rawBodyBuffer = Buffer.from(await req.arrayBuffer());
     const signature = req.headers.get("x-signature-ed25519");
     const timestamp = req.headers.get("x-signature-timestamp");
-    const publicKey = process.env.DISCORD_PUBLIC_KEY;
+    const publicKey = (process.env.DISCORD_PUBLIC_KEY || "").trim();
 
     // Verify signature if DISCORD_PUBLIC_KEY environment variable is configured
     if (publicKey) {
       if (!signature || !timestamp) {
+        console.warn("[Discord Webhook] Missing signature headers");
         return new NextResponse("Missing signature headers", { status: 401 });
       }
 
-      const isValid = await verifyKey(rawBody, signature, timestamp, publicKey);
+      const isValid = await verifyKey(rawBodyBuffer, signature, timestamp, publicKey);
       if (!isValid) {
-        console.warn("[Discord Webhook] Invalid request signature.");
+        console.warn("[Discord Webhook] Signature verification failed.");
         return new NextResponse("Invalid request signature", { status: 401 });
       }
     }
 
-    const interaction = JSON.parse(rawBody);
+    const rawBodyString = rawBodyBuffer.toString("utf8");
+    const interaction = JSON.parse(rawBodyString);
 
     // Type 1: PING from Discord Developer Portal
     if (interaction.type === InteractionType.PING) {
