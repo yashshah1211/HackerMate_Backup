@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Dispatch Email via Resend
     const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <onboarding@resend.dev>";
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <yash@hackermate.in>";
     const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
 
     let targetEmail = recipientEmail;
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           from: fromEmail,
           to: targetEmail,
-          reply_to: "yashshah7117@gmail.com",
+          reply_to: process.env.OUTREACH_REPLY_TO_EMAIL || "yashshah7117@gmail.com",
           subject: finalSubject,
           html: finalHtml,
         }),

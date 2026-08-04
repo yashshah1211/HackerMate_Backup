@@ -93,7 +93,7 @@ export async function autoSendPitchEmailsForLeads(
 
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <onboarding@resend.dev>";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <yash@hackermate.in>";
   const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.hackermate.in";
 
@@ -177,7 +177,7 @@ Founder, HackerMate`;
               body: JSON.stringify({
                 from: fromEmail,
                 to: targetEmail,
-                reply_to: "yashshah7117@gmail.com",
+                reply_to: process.env.OUTREACH_REPLY_TO_EMAIL || "yashshah7117@gmail.com",
                 subject: finalSubject,
                 html: finalHtml,
               }),
