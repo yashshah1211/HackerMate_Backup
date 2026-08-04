@@ -1,55 +1,50 @@
-# HackerMate
+# ⚡ HackerMate Frontend & Workspace
 
-HackerMate is a Next.js and Supabase workspace for discovering hackathons,
-meeting compatible builders, forming teams, and collaborating through direct
-and team messaging.
+This directory contains the Next.js 16 App Router application and Supabase database migrations for **HackerMate** — the Operating System for Hackathon Teams & Builders.
 
-## Requirements
+For full project documentation, architecture diagrams, and canonical routing matrix, please see the [Root README](../README.md).
 
-- Node.js 20 or newer
-- A Supabase project
-- Supabase CLI when applying database migrations
-- Google OAuth enabled in Supabase Auth
+## 🚀 Local Development
 
-## Local setup
+### 1. Environment Setup
 
-Copy the required public Supabase values into `.env.local`:
+Copy `.env.example` (or create `.env.local`):
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-Install dependencies and start the app:
+### 2. Install & Run
 
 ```bash
+# Install dependencies
 npm install
+
+# Start Next.js development server
 npm run dev
 ```
 
-The application is available at `http://localhost:3000`.
+App will run locally at [http://localhost:3000](http://localhost:3000).
 
-## Database security
+## 🗄️ Database Migrations
 
-The frontend expects the transactional RPCs and row-level security policies in
-[`supabase/migrations/202607020001_core_security.sql`](supabase/migrations/202607020001_core_security.sql).
-Apply them before using team, connection, or messaging features:
+Apply transactional database migrations located in `supabase/migrations/`:
 
 ```bash
 supabase link --project-ref <project-ref>
 supabase db push
 ```
 
-Back up an existing database first. The security migration replaces legacy
-policies on HackerMate tables so permissive policies cannot remain active.
-
-## Validation
+## 🧪 Validation Commands
 
 ```bash
+# TypeScript typecheck
+npx tsc --noEmit
+
+# Linting
 npm run lint
+
+# Production build test
 npm run build
 ```
-
-Hackathon import utilities live in `scripts/`. The direct seeder requires a
-Supabase service-role key supplied at execution time; never store that key in
-the repository.
