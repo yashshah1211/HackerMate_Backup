@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useNotification } from "@/context/NotificationContext";
 import Footer from "@/components/Footer";
+import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 
 export default function SIHSpocDashboardPage() {
   return (
@@ -38,8 +39,9 @@ function SpocDashboardContent() {
   const [editingNotes, setEditingNotes] = useState<string>("");
   const [updating, setUpdating] = useState(false);
 
-  // Restricted Access info modal
   const [showRestrictedModal, setShowRestrictedModal] = useState(false);
+  const [selectedCertBadge, setSelectedCertBadge] = useState<UserBadge | null>(null);
+  const [showCertModal, setShowCertModal] = useState(false);
 
   useEffect(() => {
     fetchSpocData();
@@ -393,16 +395,44 @@ function SpocDashboardContent() {
 
                       <td className="p-4 text-right">
                         {isSpocAuthorized ? (
-                          <button
-                            onClick={() => {
-                              setSelectedSub(sub);
-                              setEditingVivaScore(sub.jury_viva_score || "");
-                              setEditingNotes(sub.spoc_notes || "");
-                            }}
-                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition text-xs cursor-pointer shadow-md"
-                          >
-                            SPOC Review →
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {(sub.spoc_approval_status === "approved" || sub.spoc_approval_status === "nominated") && (
+                              <button
+                                onClick={() => {
+                                  const certBadge: UserBadge = {
+                                    id: sub.id,
+                                    user_id: sub.submitted_by,
+                                    badge_type: "sih_nomination",
+                                    badge_name: `SIH 2026 Official DJSCE Internal Finalist (${sub.ps_number})`,
+                                    issuer_name: "D.J. Sanghvi College of Engineering (DJSCE) x HackerMate",
+                                    rank_title: "Official College Nominee",
+                                    metadata: {
+                                      certificate_id: `DJSCE-SIH26-${sub.id.slice(0, 8).toUpperCase()}`,
+                                      team_name: team.name || "SIH Squad",
+                                      track: sub.ps_category === "software" ? "Software Edition" : "Hardware Edition",
+                                    },
+                                    issued_at: new Date().toISOString(),
+                                  };
+                                  setSelectedCertBadge(certBadge);
+                                  setShowCertModal(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-bold rounded-xl transition text-xs cursor-pointer flex items-center gap-1"
+                                title="View & Issue Official DJSCE Nomination Certificate PDF"
+                              >
+                                📜 Certificate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setSelectedSub(sub);
+                                setEditingVivaScore(sub.jury_viva_score || "");
+                                setEditingNotes(sub.spoc_notes || "");
+                              }}
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition text-xs cursor-pointer shadow-md"
+                            >
+                              SPOC Review →
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => setShowRestrictedModal(true)}
@@ -567,6 +597,14 @@ function SpocDashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Certificate Modal */}
+      <CertificateModal
+        isOpen={showCertModal}
+        onClose={() => setShowCertModal(false)}
+        badge={selectedCertBadge}
+        recipientName="DJSCE Student Nominee"
+      />
 
       <Footer />
     </div>

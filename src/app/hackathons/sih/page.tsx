@@ -18,6 +18,7 @@ import { trackEvent } from "@/lib/posthog";
 import MockSIHSubmissionModal from "@/components/MockSIHSubmissionModal";
 import MockSIHScorecardModal from "@/components/MockSIHScorecardModal";
 import DJSCEHackathonHeader from "@/components/DJSCEHackathonHeader";
+import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 
 import { SIH_HACKATHON_ID } from "@/lib/constants";
 
@@ -150,6 +151,8 @@ function SIHTeamBuilderContent() {
   const [mockScorecardModalOpen, setMockScorecardModalOpen] = useState(false);
   const [selectedSubmissionForScorecard, setSelectedSubmissionForScorecard] = useState<any | null>(null);
   const [selectedTeamNameForScorecard, setSelectedTeamNameForScorecard] = useState("");
+  const [selectedCertBadge, setSelectedCertBadge] = useState<UserBadge | null>(null);
+  const [showCertModal, setShowCertModal] = useState(false);
 
   async function loadSIHData() {
     try {
@@ -1212,6 +1215,65 @@ function SIHTeamBuilderContent() {
                             {score} <span className="text-[10px] text-zinc-500 font-normal">/ 100 PTS</span>
                           </div>
                         </div>
+
+                        {/* SPOC Revision Request Alert Banner */}
+                        {sub.spoc_approval_status === "revision_requested" && (
+                          <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/50 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-mono font-bold text-amber-800 dark:text-amber-300">
+                              <span>⚠️ SPOC REVISION REQUESTED</span>
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">Official Feedback</span>
+                            </div>
+                            {sub.spoc_notes && (
+                              <p className="text-[11px] text-amber-900 dark:text-amber-200 font-sans leading-relaxed">
+                                "{sub.spoc_notes}"
+                              </p>
+                            )}
+                            {(matchingTeam?.owner_id === currentUserId ||
+                              matchingTeam?.team_members?.some((m: TeamMember) => m.user_id === currentUserId)) && (
+                              <button
+                                onClick={() => {
+                                  setSelectedTeamForMockSubmit(matchingTeam);
+                                  setMockSubmissionModalOpen(true);
+                                }}
+                                className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                              >
+                                🔄 Update & Resubmit Pitch Deck →
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* SPOC Approved Nomination Certificate Banner */}
+                        {(sub.spoc_approval_status === "approved" || sub.spoc_approval_status === "nominated") && (
+                          <div className="mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/50 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                              <span>✅ OFFICIAL DJSCE SIH NOMINATION APPROVED</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const certBadge: UserBadge = {
+                                  id: sub.id,
+                                  user_id: currentUserId || sub.submitted_by,
+                                  badge_type: "sih_nomination",
+                                  badge_name: `SIH 2026 Official DJSCE Internal Finalist (${sub.ps_number})`,
+                                  issuer_name: "D.J. Sanghvi College of Engineering (DJSCE) x HackerMate",
+                                  rank_title: "Official College Nominee",
+                                  metadata: {
+                                    certificate_id: `DJSCE-SIH26-${sub.id.slice(0, 8).toUpperCase()}`,
+                                    team_name: matchingTeam?.name || "SIH Squad",
+                                    track: sub.ps_category === "software" ? "Software Edition" : "Hardware Edition",
+                                  },
+                                  issued_at: new Date().toISOString(),
+                                };
+                                setSelectedCertBadge(certBadge);
+                                setShowCertModal(true);
+                              }}
+                              className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-extrabold text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                            >
+                              📜 Download Official DJSCE Nomination Certificate (PDF) →
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
@@ -1387,6 +1449,14 @@ function SIHTeamBuilderContent() {
           );
         })()}
         onReEvaluated={() => loadSIHData()}
+      />
+
+      {/* Official DJSCE SIH Nomination Certificate Modal */}
+      <CertificateModal
+        isOpen={showCertModal}
+        onClose={() => setShowCertModal(false)}
+        badge={selectedCertBadge}
+        recipientName={currentUserProfile?.full_name || "DJSCE Builder"}
       />
 
       <Footer />
