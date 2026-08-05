@@ -139,6 +139,11 @@ export default function PartnerBannerCarousel() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
+                  <img
+                    src="/partners/axcentra-icon-only-transparent.png"
+                    alt="Axcentra Logo"
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm"
+                  />
                   <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-indigo-400 text-lg md:text-xl font-mono">
                     AXCENTRA
                   </span>
