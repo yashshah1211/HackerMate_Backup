@@ -747,9 +747,9 @@ function DashboardContent() {
 
             <Link
               href="/hackathons/sih"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-zinc-950 dark:text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold !text-zinc-950 text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
             >
-              <span className="text-zinc-950 dark:text-zinc-950">Find SIH Teammates →</span>
+              <span className="!text-zinc-950 text-zinc-950 font-extrabold">Find SIH Teammates →</span>
             </Link>
           </div>
         </div>
