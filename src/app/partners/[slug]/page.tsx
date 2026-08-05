@@ -355,8 +355,6 @@ function PartnerPageContent() {
                   ? "STAMPERS"
                   : slug === "gamnexis"
                   ? "GAMNEXIS"
-                  : slug === "spiderverse"
-                  ? "XPLORE'26 SPIDER-VERSE"
                   : slug === "morrow" || slug === "mnm"
                   ? "MORROW 1.0"
                   : partner.partner_name.replace(/^HackerMate\s*x\s*/i, "").split(" ")[0].toUpperCase()}
