@@ -199,7 +199,7 @@ function SIHTeamBuilderContent() {
         setIsUserLookingForTeam(!!userReg?.looking_for_team);
       }
 
-      // 3. Fetch Teams registered for SIH
+      // 3. Fetch Teams registered for SIH + User's own teams
       const { data: teamHackathonsData } = await supabase
         .from("team_hackathons")
         .select("team_id, teams(*, team_members(*, profiles(*)))")
@@ -208,6 +208,39 @@ function SIHTeamBuilderContent() {
       const parsedTeams: Team[] = (teamHackathonsData || [])
         .map((item: any) => item.teams)
         .filter(Boolean);
+
+      if (user) {
+        // Also fetch user's own created or joined teams
+        const { data: myTeamsData } = await supabase
+          .from("teams")
+          .select("*, team_members(*, profiles(*))")
+          .eq("owner_id", user.id);
+
+        const { data: myMemberTeamsData } = await supabase
+          .from("team_members")
+          .select("team_id, teams(*, team_members(*, profiles(*)))")
+          .eq("user_id", user.id);
+
+        const existingIds = new Set(parsedTeams.map((t) => t.id));
+
+        if (myTeamsData) {
+          myTeamsData.forEach((t: any) => {
+            if (t && !existingIds.has(t.id)) {
+              existingIds.add(t.id);
+              parsedTeams.push(t);
+            }
+          });
+        }
+
+        if (myMemberTeamsData) {
+          myMemberTeamsData.forEach((item: any) => {
+            if (item.teams && !existingIds.has(item.teams.id)) {
+              existingIds.add(item.teams.id);
+              parsedTeams.push(item.teams);
+            }
+          });
+        }
+      }
 
       setAllTeams(parsedTeams);
 
@@ -447,8 +480,14 @@ function SIHTeamBuilderContent() {
     executeToggleLookingForTeam();
   }
 
-  // Filter teams and builders by college
+  // Filter teams and builders by college (Always include user's own team)
   const filteredTeams = allTeams.filter((team) => {
+    const isOwnTeam = Boolean(
+      currentUserId &&
+        (team.owner_id === currentUserId ||
+          team.team_members?.some((m: any) => m.user_id === currentUserId || m.profiles?.id === currentUserId))
+    );
+    if (isOwnTeam) return true;
     if (!userCollege) return true;
     return isSameCollege(team.college, userCollege);
   });

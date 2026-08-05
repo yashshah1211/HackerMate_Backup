@@ -152,6 +152,17 @@ function CreateTeamForm() {
       return;
     }
 
+    if (teamId && hackathonId) {
+      try {
+        await supabase.from("team_hackathons").upsert(
+          { team_id: teamId, hackathon_id: hackathonId },
+          { onConflict: "team_id,hackathon_id" }
+        );
+      } catch (hErr) {
+        console.error("Failed to link team_hackathons:", hErr);
+      }
+    }
+
     trackEvent("team_created", {
       team_id: teamId,
       team_name: name.trim(),
