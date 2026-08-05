@@ -148,14 +148,16 @@ function SpocDashboardContent() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleExportCsv}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20"
-            >
-              📥 Download Official SIH CSV Bulk Export
-            </button>
-          </div>
+          {isSpocAuthorized && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportCsv}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20"
+              >
+                📥 Download Official SIH CSV Bulk Export
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
