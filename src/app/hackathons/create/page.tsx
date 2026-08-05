@@ -55,6 +55,8 @@ export default function CreateHackathonPage() {
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
+      const initialStatus = type === "native" ? "pending" : "approved";
+
       const { error } = await supabase
         .from("hackathons")
         .insert({
@@ -72,6 +74,8 @@ export default function CreateHackathonPage() {
           tags: tags.length > 0 ? tags : null,
           organizer_id: user.id,
           college: college === "Other" ? customCollege.trim() || null : college || null,
+          status: initialStatus,
+          ai_feedback: { status: initialStatus, submitted_at: new Date().toISOString() },
         })
         .select()
         .single();
@@ -79,7 +83,11 @@ export default function CreateHackathonPage() {
       if (error) {
         showToast(error.message, "error");
       } else {
-        showToast("Hackathon listed successfully!", "success");
+        if (type === "native") {
+          showToast("🎉 Native hackathon hosting request submitted! An admin will review and approve your listing shortly.", "success");
+        } else {
+          showToast("Hackathon listed successfully!", "success");
+        }
         router.push("/hackathons");
       }
     } catch (err) {

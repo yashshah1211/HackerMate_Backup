@@ -102,7 +102,12 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons">("reports");
+
+  // Native Hackathons approval & delete state
+  const [nativeHackathons, setNativeHackathons] = useState<any[]>([]);
+  const [loadingNativeHackathons, setLoadingNativeHackathons] = useState(false);
+  const [nativeFilterStatus, setNativeFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
 
   // Partnering Organizers & Portal state
   const [allHackathons, setAllHackathons] = useState<{ id: string; name: string; website_url: string | null }[]>([]);
@@ -131,6 +136,59 @@ function AdminContent() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [emailUsage, setEmailUsage] = useState<EmailUsageSummary | null>(null);
+
+  async function fetchNativeHackathons() {
+    setLoadingNativeHackathons(true);
+    try {
+      const res = await fetch("/api/admin/hackathons");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setNativeHackathons(data.hackathons || []);
+      } else {
+        showToast(data.error || "Failed to fetch native hackathons.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to fetch native hackathons.", "error");
+    } finally {
+      setLoadingNativeHackathons(false);
+    }
+  }
+
+  function handleNativeHackathonAction(hackathonId: string, action: "approve" | "reject" | "delete", name?: string) {
+    if (action === "delete") {
+      confirm({
+        title: "PERMANENTLY DELETE HACKATHON",
+        message: `Are you sure you want to permanently delete "${name || "this hackathon"}" from HackerMate? This will remove all associated teams and registrations. This action cannot be undone.`,
+        confirmText: "Delete Permanently",
+        onConfirm: async () => {
+          executeHackathonAction(hackathonId, action);
+        },
+      });
+      return;
+    }
+    executeHackathonAction(hackathonId, action);
+  }
+
+  async function executeHackathonAction(hackathonId: string, action: string) {
+    try {
+      const res = await fetch("/api/admin/hackathons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hackathonId, action }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || `Hackathon ${action} completed successfully!`, "success");
+        fetchNativeHackathons();
+      } else {
+        showToast(data.error || `Failed to ${action} hackathon.`, "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || `Failed to ${action} hackathon.`, "error");
+    }
+  }
 
   async function handleNudgeUser(targetUserId: string, userName?: string) {
     setNudgingUserId(targetUserId);
@@ -1262,6 +1320,9 @@ function AdminContent() {
     if (activeTab === "badges") {
       fetchIssuedBadges();
     }
+    if (activeTab === "native_hackathons") {
+      fetchNativeHackathons();
+    }
   }, [activeTab]);
 
   // Filter users based on query and onboarding status
@@ -1406,6 +1467,21 @@ function AdminContent() {
               🏆 Issue Winner Badges
             </button>
 
+            <button
+              onClick={() => {
+                setActiveTab("native_hackathons");
+                setSearchQuery("");
+                fetchNativeHackathons();
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                activeTab === "native_hackathons"
+                  ? "bg-purple-600 text-white shadow font-bold"
+                  : "text-purple-400 hover:text-purple-300"
+              }`}
+            >
+              🏰 Native Hackathons ({nativeHackathons.filter((h) => h.status === "pending").length > 0 ? `⏳ ${nativeHackathons.filter((h) => h.status === "pending").length}` : nativeHackathons.length})
+            </button>
+
             {userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
               <>
                 <button
@@ -1548,6 +1624,189 @@ function AdminContent() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Tab: Native Hackathons Approvals & Delete Management */}
+        {activeTab === "native_hackathons" && (
+          <div className="space-y-6">
+            {/* Status Metrics Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
+                <div className="text-2xl font-extrabold text-white font-mono">
+                  {nativeHackathons.length}
+                </div>
+                <div className="text-xs font-semibold text-zinc-400">Total Native Hackathons</div>
+                <div className="text-[10px] text-zinc-500 font-mono">Host Portal Submissions</div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-1">
+                <div className="text-2xl font-extrabold text-amber-400 font-mono">
+                  {nativeHackathons.filter((h) => h.status === "pending").length}
+                </div>
+                <div className="text-xs font-semibold text-amber-300">Pending Admin Approval</div>
+                <div className="text-[10px] text-amber-500/80 font-mono">Requires Action</div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-1">
+                <div className="text-2xl font-extrabold text-emerald-400 font-mono">
+                  {nativeHackathons.filter((h) => h.status === "approved").length}
+                </div>
+                <div className="text-xs font-semibold text-emerald-300">Approved & Live</div>
+                <div className="text-[10px] text-emerald-500/80 font-mono">Public Directory</div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setNativeFilterStatus("all")}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                    nativeFilterStatus === "all"
+                      ? "bg-purple-600 text-white"
+                      : "bg-zinc-800 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  All ({nativeHackathons.length})
+                </button>
+                <button
+                  onClick={() => setNativeFilterStatus("pending")}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                    nativeFilterStatus === "pending"
+                      ? "bg-amber-500 text-zinc-950"
+                      : "bg-zinc-800 text-amber-400 hover:text-amber-300"
+                  }`}
+                >
+                  Pending ⏳ ({nativeHackathons.filter((h) => h.status === "pending").length})
+                </button>
+                <button
+                  onClick={() => setNativeFilterStatus("approved")}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                    nativeFilterStatus === "approved"
+                      ? "bg-emerald-500 text-zinc-950"
+                      : "bg-zinc-800 text-emerald-400 hover:text-emerald-300"
+                  }`}
+                >
+                  Approved ✅ ({nativeHackathons.filter((h) => h.status === "approved").length})
+                </button>
+                <button
+                  onClick={() => setNativeFilterStatus("rejected")}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                    nativeFilterStatus === "rejected"
+                      ? "bg-rose-600 text-white"
+                      : "bg-zinc-800 text-rose-400 hover:text-rose-300"
+                  }`}
+                >
+                  Rejected 🚨 ({nativeHackathons.filter((h) => h.status === "rejected").length})
+                </button>
+              </div>
+
+              <button
+                onClick={() => fetchNativeHackathons()}
+                className="px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-300 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                🔄 Refresh List
+              </button>
+            </div>
+
+            {/* Table */}
+            {loadingNativeHackathons ? (
+              <div className="py-16 text-center text-zinc-500 flex flex-col items-center gap-2">
+                <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <span className="font-mono text-xs">Loading Native Hackathons...</span>
+              </div>
+            ) : nativeHackathons.filter((h) => nativeFilterStatus === "all" || h.status === nativeFilterStatus).length === 0 ? (
+              <div className="p-12 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 text-zinc-500 font-mono text-xs">
+                No native hackathons found matching selected filter.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-zinc-800 rounded-xl">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-zinc-900 text-zinc-400 font-mono text-[11px] border-b border-zinc-800">
+                      <th className="p-4">Hackathon Title</th>
+                      <th className="p-4">Organizer / Host</th>
+                      <th className="p-4">Mode & Location</th>
+                      <th className="p-4">Prize Pool</th>
+                      <th className="p-4 text-center">Status</th>
+                      <th className="p-4 text-right">Admin Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800 font-sans">
+                    {nativeHackathons
+                      .filter((h) => nativeFilterStatus === "all" || h.status === nativeFilterStatus)
+                      .map((h) => (
+                        <tr key={h.id} className="hover:bg-zinc-900/50 transition">
+                          <td className="p-4 font-bold text-white max-w-xs">
+                            <div>{h.name}</div>
+                            <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                              Type: <span className="uppercase text-purple-400 font-semibold">{h.type || "native"}</span>
+                              {h.college && ` • ${h.college}`}
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            <div className="font-medium text-zinc-200">{h.organizerName}</div>
+                            <div className="text-[10px] text-zinc-500 font-mono">{h.organizerEmail}</div>
+                          </td>
+
+                          <td className="p-4 font-mono text-xs text-zinc-300">
+                            <span className="capitalize">{h.mode || "Online"}</span>
+                            {h.location && <span className="text-zinc-500 text-[10px] block">{h.location}</span>}
+                          </td>
+
+                          <td className="p-4 font-mono font-bold text-emerald-400">
+                            {h.prize_pool ? `${h.currency || "INR"} ${h.prize_pool}` : "N/A"}
+                          </td>
+
+                          <td className="p-4 text-center">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase border ${
+                                h.status === "approved"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                  : h.status === "rejected"
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                  : "bg-amber-500/10 text-amber-300 border-amber-500/30 animate-pulse"
+                              }`}
+                            >
+                              {h.status || "pending"}
+                            </span>
+                          </td>
+
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {h.status !== "approved" && (
+                                <button
+                                  onClick={() => handleNativeHackathonAction(h.id, "approve", h.name)}
+                                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition text-xs cursor-pointer shadow-md"
+                                >
+                                  ✅ Approve
+                                </button>
+                              )}
+                              {h.status !== "rejected" && (
+                                <button
+                                  onClick={() => handleNativeHackathonAction(h.id, "reject", h.name)}
+                                  className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold transition text-xs cursor-pointer shadow-md"
+                                >
+                                  ❌ Reject
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleNativeHackathonAction(h.id, "delete", h.name)}
+                                className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition text-xs cursor-pointer shadow-md"
+                                title="Permanently Delete Hackathon"
+                              >
+                                🗑️ Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

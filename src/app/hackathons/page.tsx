@@ -148,7 +148,19 @@ function HackathonsContent() {
     if (hackathonError) {
       console.error(hackathonError);
     } else {
-      setHackathons(hackathonData || []);
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      const validHackathons = (hackathonData || []).filter((h: any) => {
+        const fb = h.ai_feedback || {};
+        const status = h.status || fb.status || (h.type === "native" ? "pending" : "approved");
+        if (status === "approved" || h.type === "external" || !h.type) return true;
+        if (currentUser && h.organizer_id === currentUser.id) return true;
+        return false;
+      });
+
+      setHackathons(validHackathons);
     }
 
     // 2. Fetch saved hackathons + user skills

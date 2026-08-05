@@ -221,11 +221,21 @@ function SIHTeamBuilderContent() {
           .select("team_id, teams(*, team_members(*, profiles(*)))")
           .eq("user_id", user.id);
 
+        const isForSIH = (t: any) => {
+          if (!t) return false;
+          if (t.hackathon_id === SIH_HACKATHON_ID) return true;
+          const hName = (t.hackathon_name || "").toLowerCase().trim();
+          if (hName.includes("smart india") || hName.includes("sih")) return true;
+          if (t.hackathon_id && t.hackathon_id !== SIH_HACKATHON_ID) return false;
+          if (hName.length > 0) return false;
+          return true;
+        };
+
         const existingIds = new Set(parsedTeams.map((t) => t.id));
 
         if (myTeamsData) {
           myTeamsData.forEach((t: any) => {
-            if (t && !existingIds.has(t.id)) {
+            if (t && !existingIds.has(t.id) && isForSIH(t)) {
               existingIds.add(t.id);
               parsedTeams.push(t);
             }
@@ -234,7 +244,7 @@ function SIHTeamBuilderContent() {
 
         if (myMemberTeamsData) {
           myMemberTeamsData.forEach((item: any) => {
-            if (item.teams && !existingIds.has(item.teams.id)) {
+            if (item.teams && !existingIds.has(item.teams.id) && isForSIH(item.teams)) {
               existingIds.add(item.teams.id);
               parsedTeams.push(item.teams);
             }
