@@ -58,7 +58,9 @@ export function checkSIHCompliance(
   const hasSixMembers = memberCount === 6;
 
   const femaleCount = members.filter(
-    (m) => m.profiles?.gender?.toLowerCase() === "female"
+    (m) =>
+      m.profiles?.gender?.toLowerCase() === "female" ||
+      m.profiles?.gender?.toLowerCase() === "f"
   ).length;
   const hasFemaleMember = femaleCount >= 1;
 

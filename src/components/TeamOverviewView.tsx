@@ -51,6 +51,7 @@ type Member = {
     email: string;
     avatar_url?: string | null;
     skills?: string[] | null;
+    gender?: string | null;
   };
 };
 
@@ -1388,7 +1389,7 @@ export default function TeamOverviewView({
             email: m.profiles?.email || "N/A",
             avatar_url: m.profiles?.avatar_url,
             skills: m.profiles?.skills,
-            gender: (m.profiles as any)?.gender || "Unspecified",
+            gender: m.profiles?.gender || "Unspecified",
             college: team.college,
           },
         }))}

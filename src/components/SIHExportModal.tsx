@@ -269,7 +269,8 @@ export default function SIHExportModal({
                         <td className="p-3">
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              m.profiles?.gender?.toLowerCase() === "female"
+                              m.profiles?.gender?.toLowerCase() === "female" ||
+                              m.profiles?.gender?.toLowerCase() === "f"
                                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                                 : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                             }`}

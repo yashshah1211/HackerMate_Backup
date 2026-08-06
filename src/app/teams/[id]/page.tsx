@@ -29,6 +29,8 @@ type Member = {
     full_name: string;
     email: string;
     avatar_url?: string | null;
+    skills?: string[] | null;
+    gender?: string | null;
   };
 };
 
@@ -154,7 +156,8 @@ function TeamDetailsContent() {
           full_name,
           email,
           avatar_url,
-          skills
+          skills,
+          gender
         )
       `)
       .eq("team_id", teamId);
