@@ -65,10 +65,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });
     }
 
-    // Fetch all hackathons with organizer profile info
+    // Fetch only native & partner hackathons explicitly hosted on HackerMate
     const { data: hackathons, error } = await supabaseAdmin
       .from("hackathons")
       .select("*, profiles:organizer_id(id, full_name, email)")
+      .or("type.eq.native,type.eq.partner,organizer_id.not.is.null")
       .order("created_at", { ascending: false });
 
     if (error) {

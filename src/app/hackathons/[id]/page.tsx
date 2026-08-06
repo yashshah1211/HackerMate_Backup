@@ -8,6 +8,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import { formatPrizeDisplay } from "@/app/hackathons/page";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
+import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 
 type Hackathon = {
   id: string;
@@ -1168,57 +1169,14 @@ function HackathonDetailContent() {
             </span>
           </div>
 
-          <h1 className="text-3xl font-semibold tracking-tight text-white mb-3">
+          <h1 className="text-3xl font-semibold tracking-tight text-white mb-6">
             {hackathon.name}
           </h1>
 
-          {(() => {
-            const desc = htmlToPlainText(
-              hackathon.description || "No description provided."
-            );
-            const limit = 400;
-            const shouldTruncate = desc.length > limit;
-            return (
-              <div className="mb-6">
-                <div 
-                  className={`relative overflow-hidden transition-all duration-300 ${
-                    shouldTruncate && !isDescExpanded ? "max-h-[240px]" : "max-h-none"
-                  }`}
-                >
-                  <div className="prose-hackathon whitespace-pre-line text-zinc-400 text-sm leading-relaxed">
-                    {desc}
-                  </div>
-                  {shouldTruncate && !isDescExpanded && (
-                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-                  )}
-                </div>
-                {shouldTruncate && (
-                  <div className="flex justify-center mt-3 pt-3 border-t border-zinc-900/50">
-                    <button
-                      onClick={() => setIsDescExpanded(!isDescExpanded)}
-                      className="text-xs font-semibold text-white hover:text-zinc-300 transition-colors inline-flex items-center gap-1 font-mono uppercase tracking-wider"
-                    >
-                      {isDescExpanded ? (
-                        <>
-                          <span>Read Less</span>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                          </svg>
-                        </>
-                      ) : (
-                        <>
-                          <span>Read More</span>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          <StructuredHackathonDescription
+            description={hackathon.description}
+            className="mb-6"
+          />
 
           {/* Tags */}
           <div className="pt-5 border-t border-zinc-900">
