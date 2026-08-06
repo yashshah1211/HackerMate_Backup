@@ -18,6 +18,7 @@ function EditProfileContent() {
 
   const [college, setCollege] = useState("");
   const [customCollege, setCustomCollege] = useState("");
+  const [gender, setGender] = useState("");
   const [bio, setBio] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [initialGithubUrl, setInitialGithubUrl] = useState("");
@@ -114,6 +115,7 @@ function EditProfileContent() {
       setCustomCollege(data.college || "");
     }
     setBio(data.bio || "");
+    setGender(data.gender || "");
     setGithubUrl(data.github_url || "");
     setInitialGithubUrl(data.github_url || "");
     setLinkedinUrl(data.linkedin_url || "");
@@ -213,6 +215,7 @@ function EditProfileContent() {
             ? customCollege
             : college,
         bio: bio,
+        gender: gender.trim() || null,
         github_url: githubUrl,
         linkedin_url: linkedinUrl,
         skills: selectedSkills,
@@ -365,6 +368,27 @@ function EditProfileContent() {
             />
             <p className="text-[10px] text-zinc-500 mt-1">
               A brief description helps others understand your background.
+            </p>
+          </div>
+
+          {/* Gender */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+              Gender
+            </label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className="input text-xs w-full bg-zinc-950 text-zinc-200"
+            >
+              <option value="">Select Gender (Optional)</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Non-Binary / Other</option>
+              <option value="prefer_not_to_say">Prefer not to say</option>
+            </select>
+            <p className="text-[10px] text-zinc-500 mt-1">
+              Used for hackathon team mandate compliance checks (e.g. SIH female teammate mandate).
             </p>
           </div>
 

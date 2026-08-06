@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { logSihEvent } from "@/lib/admin/sihLogger";
+import { extractPresentationText } from "@/lib/sihPresentationExtractor";
 
 export async function evaluateSubmission(submissionId: string) {
   const startTime = Date.now();
@@ -216,7 +217,20 @@ async function callGeminiWithFastTimeout(
   memberCount: number,
   hasFemaleMember: boolean
 ) {
+  let slideText = "";
+  try {
+    slideText = await extractPresentationText(sub.ppt_url);
+  } catch (err: any) {
+    console.warn("[SIH Evaluator] Slide extraction failed:", err.message);
+    slideText = "(Slide text extraction unavailable)";
+  }
+
   const promptText = `You are a Senior Smart India Hackathon (SIH) Jury Evaluator and College SPOC Committee Chair. Evaluate this SIH 2026 pitch submission with high rigor.
+
+CRITICAL SIH FORMAT NOTICE:
+- This is an SIH 2026 internal-round pitch deck evaluation.
+- DO NOT penalize decks for lacking a 36-hour hackathon sprint roadmap. Evaluate general implementation feasibility, phased rollout milestones, and technical readiness.
+- Read the EXTRACTED PRESENTATION SLIDE CONTENT below carefully. If quantitative baseline metrics (such as percentages, cost figures, or time savings) are present in the text, DO NOT state or deduct points for lacking quantitative metrics.
 
 SUBMISSION METADATA:
 - Problem Statement ID: ${sub.ps_number}
@@ -239,11 +253,16 @@ TEAM COMPOSITION:
     }))
   )}
 
+EXTRACTED PRESENTATION SLIDE CONTENT:
+---
+${slideText}
+---
+
 SIH SCORING RUBRIC (Max 100 Points):
 1. Problem Novelty & Alignment (Max 20 pts)
 2. Technical Architecture & Feasibility (Max 25 pts)
 3. UI/UX & Presentation Polish (Max 20 pts)
-4. Impact & 36-Hour Implementation Roadmap (Max 20 pts)
+4. Feasibility & Implementation Roadmap (Max 20 pts)
 5. Team Balance & SIH Rules (Max 15 pts)
 
 CRITICAL INSTRUCTION:
@@ -260,7 +279,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
     "novelty": "Specific explanation of why points were lost in Novelty",
     "tech": "Specific explanation of why points were lost in Technical Architecture",
     "uiUx": "Specific explanation of why points were lost in UI/UX",
-    "impact": "Specific explanation of why points were lost in Impact & Roadmap",
+    "impact": "Specific explanation of why points were lost in Implementation Roadmap",
     "team": "Specific explanation of why points were lost in Team Balance & SIH Rules"
   },
   "strengths": ["string", "string", "string"],
@@ -269,72 +288,100 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
     "slide1": "Problem statement clarity advice...",
     "slide2": "Proposed solution & innovation advice...",
     "slide3": "Technical architecture & stack advice...",
-    "slide4": "Feasibility & 36h implementation roadmap...",
-    "slide5": "Impact & target beneficiaries...",
-    "slide6": "Team member role division & SIH compliance..."
+    "slide4": "Feasibility & rollout roadmap advice...",
+    "slide5": "Impact & target beneficiaries advice...",
+    "slide6": "Team member role division & SIH compliance advice..."
   }
 }`;
 
+  console.log("==================== [SIH EVALUATOR GEMINI PROMPT START] ====================");
+  console.log(promptText);
+  console.log("==================== [SIH EVALUATOR GEMINI PROMPT END] ====================");
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4500);
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-  try {
-    const aiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
-        }),
-        signal: controller.signal,
+  const modelsToTry = [
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
+    "gemini-2.0-flash-lite-001",
+    "gemini-2.5-flash-lite",
+    "gemini-1.5-pro",
+  ];
+
+  let lastError: any = null;
+
+  for (const modelName of modelsToTry) {
+    try {
+      const aiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      if (!aiRes.ok) {
+        console.warn(`[SIH Evaluator] Model ${modelName} returned HTTP ${aiRes.status}`);
+        lastError = new Error(`Gemini API HTTP ${aiRes.status} (${modelName})`);
+        continue;
       }
-    );
 
-    clearTimeout(timeoutId);
+      const aiData = await aiRes.json();
+      let rawJsonText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawJsonText) {
+        console.warn(`[SIH Evaluator] Empty text response from ${modelName}`);
+        continue;
+      }
 
-    if (!aiRes.ok) {
-      throw new Error(`Gemini API HTTP ${aiRes.status}`);
+      clearTimeout(timeoutId);
+
+      rawJsonText = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      const parsed = JSON.parse(rawJsonText);
+      const scoreNovelty = Math.min(20, Math.max(0, parsed.scoreNovelty || 14));
+      const scoreTech = Math.min(25, Math.max(0, parsed.scoreTech || 18));
+      const scoreUiUx = Math.min(20, Math.max(0, parsed.scoreUiUx || 15));
+      const scoreImpact = Math.min(20, Math.max(0, parsed.scoreImpact || 16));
+      const scoreTeam = Math.min(15, Math.max(0, parsed.scoreTeam || (hasFemaleMember && memberCount === 6 ? 15 : 8)));
+      const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreImpact + scoreTeam;
+
+      return {
+        scoreNovelty,
+        scoreTech,
+        scoreUiUx,
+        scoreImpact,
+        scoreTeam,
+        totalScore,
+        grade: parsed.grade || "Nomination Ready ✅",
+        strengths: parsed.strengths || ["Well-aligned problem statement", "Robust architecture choice"],
+        spocRedFlags: parsed.spocRedFlags || [],
+        slideRecommendations: parsed.slideRecommendations || {},
+        scoreDeductions: {
+          novelty: parsed.scoreDeductions?.novelty || `Lost ${20 - scoreNovelty} points in Problem Alignment & Novelty.`,
+          tech: parsed.scoreDeductions?.tech || `Lost ${25 - scoreTech} points in Technical Architecture.`,
+          uiUx: parsed.scoreDeductions?.uiUx || `Lost ${20 - scoreUiUx} points in UI/UX & Polish.`,
+          impact: parsed.scoreDeductions?.impact || `Lost ${20 - scoreImpact} points in Implementation Roadmap.`,
+          team: parsed.scoreDeductions?.team || `Lost ${15 - scoreTeam} points in Team Squad Balance & Rules.`,
+        },
+      };
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        clearTimeout(timeoutId);
+        throw err;
+      }
+      lastError = err;
     }
-
-    const aiData = await aiRes.json();
-    let rawJsonText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawJsonText) throw new Error("Empty AI response text");
-
-    rawJsonText = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-    const parsed = JSON.parse(rawJsonText);
-    const scoreNovelty = Math.min(20, Math.max(0, parsed.scoreNovelty || 14));
-    const scoreTech = Math.min(25, Math.max(0, parsed.scoreTech || 18));
-    const scoreUiUx = Math.min(20, Math.max(0, parsed.scoreUiUx || 15));
-    const scoreImpact = Math.min(20, Math.max(0, parsed.scoreImpact || 16));
-    const scoreTeam = Math.min(15, Math.max(0, parsed.scoreTeam || (hasFemaleMember && memberCount === 6 ? 15 : 8)));
-    const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreImpact + scoreTeam;
-
-    return {
-      scoreNovelty,
-      scoreTech,
-      scoreUiUx,
-      scoreImpact,
-      scoreTeam,
-      totalScore,
-      grade: parsed.grade || "Nomination Ready ✅",
-      strengths: parsed.strengths || ["Well-aligned problem statement", "Robust architecture choice"],
-      spocRedFlags: parsed.spocRedFlags || [],
-      slideRecommendations: parsed.slideRecommendations || {},
-      scoreDeductions: {
-        novelty: parsed.scoreDeductions?.novelty || `Lost ${20 - scoreNovelty} points in Problem Alignment & Novelty.`,
-        tech: parsed.scoreDeductions?.tech || `Lost ${25 - scoreTech} points in Technical Architecture.`,
-        uiUx: parsed.scoreDeductions?.uiUx || `Lost ${20 - scoreUiUx} points in UI/UX & Polish.`,
-        impact: parsed.scoreDeductions?.impact || `Lost ${20 - scoreImpact} points in Implementation Roadmap.`,
-        team: parsed.scoreDeductions?.team || `Lost ${15 - scoreTeam} points in Team Squad Balance & Rules.`,
-      },
-    };
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    throw err;
   }
+
+  clearTimeout(timeoutId);
+  throw lastError || new Error("All Gemini AI model attempts failed");
 }
 
 function generateHeuristicEvaluation(sub: any, memberCount: number, hasFemaleMember: boolean) {
@@ -383,14 +430,14 @@ function generateHeuristicEvaluation(sub: any, memberCount: number, hasFemaleMem
   }
 
   const deductions = {
-    novelty: `Lost ${20 - scoreNovelty} points because problem alignment lacks quantitative baseline metrics in slide deck.`,
+    novelty: `Lost ${20 - scoreNovelty} points due to scope refinement or competitive differentiation gaps in problem alignment.`,
     tech: sub.github_url
-      ? `Lost ${25 - scoreTech} points because deployment infrastructure and DB schema details are incomplete.`
+      ? `Lost ${25 - scoreTech} points because deployment infrastructure and DB schema details can be expanded.`
       : `Lost ${25 - scoreTech} points due to missing GitHub repository proof of work.`,
     uiUx: sub.demo_url
       ? `Lost ${20 - scoreUiUx} points because slide visual hierarchy can be improved.`
       : `Lost ${20 - scoreUiUx} points because working video prototype link was not provided.`,
-    impact: `Lost ${20 - scoreImpact} points because 36-hour hackathon execution roadmap lacks clear 9-hour sprint milestones.`,
+    impact: `Lost ${20 - scoreImpact} points because rollout phases and implementation feasibility timeline need further detail.`,
     team:
       memberCount === 6 && hasFemaleMember
         ? "Full 15/15 pts awarded for full 6-member squad and mandatory female teammate representation."
@@ -409,7 +456,7 @@ function generateHeuristicEvaluation(sub: any, memberCount: number, hasFemaleMem
     slide1: `Title & Overview: Explicitly mention Ministry/Organization for PS #${sub.ps_number} and leader contact details.`,
     slide2: `Problem & Solution: Highlight key metrics showing how your solution solves ${sub.ps_title}.`,
     slide3: `Technical Stack: Detail database architecture, API design, and offline resilience.`,
-    slide4: `36-Hour Plan: Break down development into 4 clear 9-hour hackathon milestones.`,
+    slide4: `Feasibility & Rollout Plan: Break down development into clear phased execution milestones and rollout timeline.`,
     slide5: `Impact & Commercial Model: Quantify target beneficiaries and cost efficiency.`,
     slide6: `Team Roles: Map all 6 members strictly to specific technical domains (Frontend, Backend, ML/Hardware, Pitch Presenter).`,
   };
@@ -433,26 +480,59 @@ async function computeEmpiricalBenchmarks(supabaseAdmin: any, college: string | 
   try {
     const { data: allActive } = await supabaseAdmin
       .from("sih_mock_submissions")
-      .select("total_score")
+      .select("total_score, teams(college)")
       .gt("total_score", 0);
 
-    if (!allActive || allActive.length === 0) {
-      return { teamScore, collegeAvg: teamScore, nationalAvg: teamScore, top10Percent: Math.max(90, teamScore) };
-    }
+    const nationalScores: number[] = (allActive || [])
+      .map((a: any) => a.total_score)
+      .filter((s: any) => typeof s === "number" && s > 0);
 
-    const scores = allActive.map((a: any) => a.total_score).sort((a: number, b: number) => a - b);
-    const nationalAvg = Math.round(scores.reduce((acc: number, s: number) => acc + s, 0) / scores.length);
+    const collegeScores: number[] = college
+      ? (allActive || [])
+          .filter(
+            (a: any) =>
+              a.teams?.college &&
+              a.teams.college.toLowerCase().trim() === college.toLowerCase().trim()
+          )
+          .map((a: any) => a.total_score)
+          .filter((s: any) => typeof s === "number" && s > 0)
+      : [];
 
-    const top10Index = Math.floor(scores.length * 0.9);
-    const top10Percent = scores[top10Index] || 90;
+    const hasEnoughNational = nationalScores.length >= 5;
+    const hasEnoughCollege = collegeScores.length >= 3;
+
+    const nationalAvg = hasEnoughNational
+      ? Math.round(nationalScores.reduce((acc, s) => acc + s, 0) / nationalScores.length)
+      : null;
+
+    const collegeAvg = hasEnoughCollege
+      ? Math.round(collegeScores.reduce((acc, s) => acc + s, 0) / collegeScores.length)
+      : null;
+
+    const top10Percent = hasEnoughNational
+      ? nationalScores.sort((a, b) => a - b)[Math.floor(nationalScores.length * 0.9)] || null
+      : null;
 
     return {
       teamScore,
-      collegeAvg: nationalAvg,
+      collegeAvg,
       nationalAvg,
       top10Percent,
+      hasEnoughNationalData: hasEnoughNational,
+      hasEnoughCollegeData: hasEnoughCollege,
+      totalSubmissionsCount: nationalScores.length,
+      collegeSubmissionsCount: collegeScores.length,
     };
   } catch {
-    return { teamScore, collegeAvg: teamScore, nationalAvg: 72, top10Percent: 91 };
+    return {
+      teamScore,
+      collegeAvg: null,
+      nationalAvg: null,
+      top10Percent: null,
+      hasEnoughNationalData: false,
+      hasEnoughCollegeData: false,
+      totalSubmissionsCount: 0,
+      collegeSubmissionsCount: 0,
+    };
   }
 }

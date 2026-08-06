@@ -311,22 +311,53 @@ export default function MockSIHScorecardModal({
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
                 <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{benchmarks.teamScore}</div>
-                  <div className="text-[10px] text-zinc-500 font-sans">Your Team</div>
+                  <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    {benchmarks.teamScore}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-sans font-medium">Your Team</div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-lg font-bold text-amber-600 dark:text-amber-400">{benchmarks.collegeAvg}</div>
-                  <div className="text-[10px] text-zinc-500 font-sans">College Avg</div>
+                  <div className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                    {benchmarks.collegeAvg !== null && benchmarks.collegeAvg !== undefined
+                      ? benchmarks.collegeAvg
+                      : "N/A"}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-sans font-medium">
+                    {benchmarks.collegeAvg !== null && benchmarks.collegeAvg !== undefined
+                      ? "College Avg"
+                      : "College Avg (Not enough data)"}
+                  </div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-lg font-bold text-sky-600 dark:text-sky-400">{benchmarks.top10Percent}</div>
-                  <div className="text-[10px] text-zinc-500 font-sans">Top 10% Cutoff</div>
+                  <div className="text-lg font-bold text-sky-600 dark:text-sky-400">
+                    {benchmarks.top10Percent !== null && benchmarks.top10Percent !== undefined
+                      ? benchmarks.top10Percent
+                      : "N/A"}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-sans font-medium">
+                    {benchmarks.top10Percent !== null && benchmarks.top10Percent !== undefined
+                      ? "Top 10% Cutoff"
+                      : "Top 10% (Not enough data)"}
+                  </div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{benchmarks.nationalAvg}</div>
-                  <div className="text-[10px] text-zinc-500 font-sans">National Avg</div>
+                  <div className="text-lg font-bold text-zinc-700 dark:text-zinc-300">
+                    {benchmarks.nationalAvg !== null && benchmarks.nationalAvg !== undefined
+                      ? benchmarks.nationalAvg
+                      : "N/A"}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-sans font-medium">
+                    {benchmarks.nationalAvg !== null && benchmarks.nationalAvg !== undefined
+                      ? "National Avg"
+                      : "National Avg (Not enough data)"}
+                  </div>
                 </div>
               </div>
+              {(benchmarks.collegeAvg === null || benchmarks.nationalAvg === null) && (
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-sans italic text-center pt-1">
+                  * Comparative averages require at least 5 national submissions and 3 college submissions to compute. Metrics will update automatically as more teams submit.
+                </p>
+              )}
             </div>
           )}
 
