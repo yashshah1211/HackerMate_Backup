@@ -56,11 +56,23 @@ export async function evaluateSubmission(submissionId: string) {
 
   const geminiKey = process.env.GEMINI_API_KEY;
 
+  let slideText = "";
+  try {
+    slideText = await extractPresentationText(sub.ppt_url);
+  } catch (err: any) {
+    console.warn("[SIH Evaluator] Slide extraction failed:", err.message);
+    slideText = "(Slide text extraction unavailable)";
+  }
+
+  console.log("==================== [SIH EVALUATOR EXTRACTED SLIDE TEXT] ====================");
+  console.log(`[Submission ID: ${submissionId}] Length: ${slideText.length} characters`);
+  console.log(`[Extracted Content Snippet]:\n${slideText.slice(0, 800)}`);
+  console.log("=============================================================================");
+
   let evaluationResult: {
     scoreNovelty: number;
     scoreTech: number;
     scoreUiUx: number;
-    scoreImpact: number;
     scoreTeam: number;
     totalScore: number;
     grade: string;
@@ -71,7 +83,6 @@ export async function evaluateSubmission(submissionId: string) {
       novelty: string;
       tech: string;
       uiUx: string;
-      impact: string;
       team: string;
     };
   };
@@ -80,21 +91,31 @@ export async function evaluateSubmission(submissionId: string) {
 
   if (geminiKey) {
     try {
-      evaluationResult = await callGeminiWithFastTimeout(geminiKey, sub, team, members, memberCount, hasFemaleMember);
+      evaluationResult = await callGeminiWithFastTimeout(
+        geminiKey,
+        sub,
+        team,
+        members,
+        memberCount,
+        hasFemaleMember,
+        slideText
+      );
     } catch (e: any) {
       usedAiFallback = true;
+      console.warn(`[SIH Evaluator] Gemini AI unavailable or failed (${e.message}). Triggering Content-Aware Heuristic Fallback Engine.`);
       logSihEvent("info", {
         event: "SIH_FALLBACK",
         submissionId,
         teamId,
-        message: "Gemini AI API timed out or unavailable; evaluated using SIH Heuristic Engine.",
+        message: "Gemini AI API timed out or unavailable; evaluated using SIH Content-Aware Heuristic Engine.",
         details: { error: e.message },
       });
-      evaluationResult = generateHeuristicEvaluation(sub, memberCount, hasFemaleMember);
+      evaluationResult = generateHeuristicEvaluation(sub, memberCount, hasFemaleMember, slideText);
     }
   } else {
     usedAiFallback = true;
-    evaluationResult = generateHeuristicEvaluation(sub, memberCount, hasFemaleMember);
+    console.warn("[SIH Evaluator] GEMINI_API_KEY missing. Evaluating using Content-Aware Heuristic Engine.");
+    evaluationResult = generateHeuristicEvaluation(sub, memberCount, hasFemaleMember, slideText);
   }
 
   // Stage 3 -> Stage 4: Generating Scorecard & Benchmarks
@@ -141,7 +162,7 @@ export async function evaluateSubmission(submissionId: string) {
     score_novelty: evaluationResult.scoreNovelty,
     score_tech: evaluationResult.scoreTech,
     score_ui_ux: evaluationResult.scoreUiUx,
-    score_impact: evaluationResult.scoreImpact,
+    score_impact: 0,
     score_team: evaluationResult.scoreTeam,
     total_score: evaluationResult.totalScore,
     grade: evaluationResult.grade,
@@ -169,7 +190,7 @@ export async function evaluateSubmission(submissionId: string) {
       score_novelty: evaluationResult.scoreNovelty,
       score_tech: evaluationResult.scoreTech,
       score_ui_ux: evaluationResult.scoreUiUx,
-      score_impact: evaluationResult.scoreImpact,
+      score_impact: 0,
       score_team: evaluationResult.scoreTeam,
       total_score: evaluationResult.totalScore,
       grade: evaluationResult.grade,
@@ -209,27 +230,19 @@ export async function evaluateSubmission(submissionId: string) {
   };
 }
 
-async function callGeminiWithFastTimeout(
+export async function callGeminiWithFastTimeout(
   geminiKey: string,
   sub: any,
   team: any,
   members: any[],
   memberCount: number,
-  hasFemaleMember: boolean
+  hasFemaleMember: boolean,
+  slideText: string
 ) {
-  let slideText = "";
-  try {
-    slideText = await extractPresentationText(sub.ppt_url);
-  } catch (err: any) {
-    console.warn("[SIH Evaluator] Slide extraction failed:", err.message);
-    slideText = "(Slide text extraction unavailable)";
-  }
-
   const promptText = `You are a Senior Smart India Hackathon (SIH) Jury Evaluator and College SPOC Committee Chair. Evaluate this SIH 2026 pitch submission with high rigor.
 
 CRITICAL SIH FORMAT NOTICE:
 - This is an SIH 2026 internal-round pitch deck evaluation.
-- DO NOT penalize decks for lacking a 36-hour hackathon sprint roadmap. Evaluate general implementation feasibility, phased rollout milestones, and technical readiness.
 - Read the EXTRACTED PRESENTATION SLIDE CONTENT below carefully. If quantitative baseline metrics (such as percentages, cost figures, or time savings) are present in the text, DO NOT state or deduct points for lacking quantitative metrics.
 
 SUBMISSION METADATA:
@@ -259,19 +272,17 @@ ${slideText}
 ---
 
 SIH SCORING RUBRIC (Max 100 Points):
-1. Problem Novelty & Alignment (Max 20 pts)
-2. Technical Architecture & Feasibility (Max 25 pts)
-3. UI/UX & Presentation Polish (Max 20 pts)
-4. Feasibility & Implementation Roadmap (Max 20 pts)
-5. Team Balance & SIH Rules (Max 15 pts)
+1. Problem Novelty & Alignment (Max 25 pts)
+2. Technical Architecture & Feasibility (Max 35 pts)
+3. UI/UX & Presentation Polish (Max 25 pts)
+4. Team Balance & SIH Rules (Max 15 pts)
 
 CRITICAL INSTRUCTION:
 Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exact structure:
 {
-  "scoreNovelty": number (0-20),
-  "scoreTech": number (0-25),
-  "scoreUiUx": number (0-20),
-  "scoreImpact": number (0-20),
+  "scoreNovelty": number (0-25),
+  "scoreTech": number (0-35),
+  "scoreUiUx": number (0-25),
   "scoreTeam": number (0-15),
   "totalScore": number (0-100),
   "grade": "Nomination Gold 🏆" | "Nomination Ready ✅" | "Needs Iteration ⚠️" | "High SPOC Risk 🚨",
@@ -279,7 +290,6 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
     "novelty": "Specific explanation of why points were lost in Novelty",
     "tech": "Specific explanation of why points were lost in Technical Architecture",
     "uiUx": "Specific explanation of why points were lost in UI/UX",
-    "impact": "Specific explanation of why points were lost in Implementation Roadmap",
     "team": "Specific explanation of why points were lost in Team Balance & SIH Rules"
   },
   "strengths": ["string", "string", "string"],
@@ -288,32 +298,30 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
     "slide1": "Problem statement clarity advice...",
     "slide2": "Proposed solution & innovation advice...",
     "slide3": "Technical architecture & stack advice...",
-    "slide4": "Feasibility & rollout roadmap advice...",
-    "slide5": "Impact & target beneficiaries advice...",
+    "slide4": "Feasibility & key use-cases advice...",
+    "slide5": "Target beneficiaries & value proposition advice...",
     "slide6": "Team member role division & SIH compliance advice..."
   }
 }`;
 
   console.log("==================== [SIH EVALUATOR GEMINI PROMPT START] ====================");
-  console.log(promptText);
+  console.log(`[Prompt Length]: ${promptText.length} chars`);
   console.log("==================== [SIH EVALUATOR GEMINI PROMPT END] ====================");
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   const modelsToTry = [
-    "gemini-2.0-flash-lite",
     "gemini-flash-latest",
-    "gemini-pro-latest",
-    "gemini-2.0-flash-lite-001",
-    "gemini-2.5-flash-lite",
-    "gemini-1.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
   ];
 
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
     try {
+      console.log(`[SIH Evaluator] Attempting Gemini model: ${modelName}...`);
       const aiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`,
         {
@@ -345,18 +353,18 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
       rawJsonText = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
 
       const parsed = JSON.parse(rawJsonText);
-      const scoreNovelty = Math.min(20, Math.max(0, parsed.scoreNovelty || 14));
-      const scoreTech = Math.min(25, Math.max(0, parsed.scoreTech || 18));
-      const scoreUiUx = Math.min(20, Math.max(0, parsed.scoreUiUx || 15));
-      const scoreImpact = Math.min(20, Math.max(0, parsed.scoreImpact || 16));
+      const scoreNovelty = Math.min(25, Math.max(0, parsed.scoreNovelty || 18));
+      const scoreTech = Math.min(35, Math.max(0, parsed.scoreTech || 25));
+      const scoreUiUx = Math.min(25, Math.max(0, parsed.scoreUiUx || 18));
       const scoreTeam = Math.min(15, Math.max(0, parsed.scoreTeam || (hasFemaleMember && memberCount === 6 ? 15 : 8)));
-      const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreImpact + scoreTeam;
+      const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
+
+      console.log(`[SIH Evaluator] Gemini API (${modelName}) evaluation successful! Total score: ${totalScore}`);
 
       return {
         scoreNovelty,
         scoreTech,
         scoreUiUx,
-        scoreImpact,
         scoreTeam,
         totalScore,
         grade: parsed.grade || "Nomination Ready ✅",
@@ -364,10 +372,9 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
         spocRedFlags: parsed.spocRedFlags || [],
         slideRecommendations: parsed.slideRecommendations || {},
         scoreDeductions: {
-          novelty: parsed.scoreDeductions?.novelty || `Lost ${20 - scoreNovelty} points in Problem Alignment & Novelty.`,
-          tech: parsed.scoreDeductions?.tech || `Lost ${25 - scoreTech} points in Technical Architecture.`,
-          uiUx: parsed.scoreDeductions?.uiUx || `Lost ${20 - scoreUiUx} points in UI/UX & Polish.`,
-          impact: parsed.scoreDeductions?.impact || `Lost ${20 - scoreImpact} points in Implementation Roadmap.`,
+          novelty: parsed.scoreDeductions?.novelty || `Lost ${25 - scoreNovelty} points in Problem Alignment & Novelty.`,
+          tech: parsed.scoreDeductions?.tech || `Lost ${35 - scoreTech} points in Technical Architecture.`,
+          uiUx: parsed.scoreDeductions?.uiUx || `Lost ${25 - scoreUiUx} points in UI/UX & Polish.`,
           team: parsed.scoreDeductions?.team || `Lost ${15 - scoreTeam} points in Team Squad Balance & Rules.`,
         },
       };
@@ -384,80 +391,137 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
   throw lastError || new Error("All Gemini AI model attempts failed");
 }
 
-function generateHeuristicEvaluation(sub: any, memberCount: number, hasFemaleMember: boolean) {
-  const seedString = `${sub.id}_${sub.ps_number}_${sub.ps_title}_${sub.team_id}`;
-  let hash = 0;
-  for (let i = 0; i < seedString.length; i++) {
-    hash = (hash << 5) - hash + seedString.charCodeAt(i);
-    hash |= 0;
-  }
-  const positiveHash = Math.abs(hash);
+export function generateHeuristicEvaluation(
+  sub: any,
+  memberCount: number,
+  hasFemaleMember: boolean,
+  slideText: string = ""
+) {
+  console.log("[SIH Heuristic Engine] Executing Content-Aware Deterministic Evaluation...");
+  const lowerText = slideText.toLowerCase();
+  const textLength = slideText.length;
+  const words = slideText.trim().split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
 
-  let scoreNovelty = 15 + (positiveHash % 5);
-  let scoreTech    = 18 + ((positiveHash >> 2) % 5);
-  let scoreUiUx    = 14 + ((positiveHash >> 4) % 5);
-  let scoreImpact  = 15 + ((positiveHash >> 6) % 5);
+  // 1. Technical Architecture & Component Analysis
+  const dbKeywords = ["postgres", "supabase", "mongodb", "sql", "redis", "timescale", "dynamodb", "database", "schema"];
+  const archKeywords = ["microservice", "api", "rest", "mqtt", "grpc", "edge", "cloud", "aws", "docker", "jetson", "yolo", "architecture", "pipeline", "realtime", "rtsp"];
+  const frameworkKeywords = ["react", "next", "node", "python", "fastapi", "go", "java", "c++", "express", "tailwind", "flutter"];
+  const mlKeywords = ["model", "training", "map", "yolov8", "reinforcement", "dqn", "deep learning", "neural", "opencv", "computer vision", "dataset"];
 
-  let scoreTeam = 6;
+  const hasDb = dbKeywords.some(k => lowerText.includes(k));
+  const hasArch = archKeywords.some(k => lowerText.includes(k));
+  const hasFramework = frameworkKeywords.some(k => lowerText.includes(k));
+  const hasMl = mlKeywords.some(k => lowerText.includes(k));
+
+  const techKeywordCount = [...dbKeywords, ...archKeywords, ...frameworkKeywords, ...mlKeywords]
+    .filter(k => lowerText.includes(k)).length;
+
+  // 2. Quantitative Baseline Metrics Analysis (%, costs, response times, numbers)
+  const hasPercent = /%\s|percent|reduction|increase|\d+%/i.test(slideText);
+  const hasCost = /₹|\$|cost|rupees|budget|rs\.|inr/i.test(slideText);
+  const hasTimeMetrics = /min|sec|hour|delay|latency|ms\b|speed/i.test(slideText);
+  const hasNumbers = (slideText.match(/\d+/g) || []).length > 5;
+  const quantitativeScore = (hasPercent ? 1 : 0) + (hasCost ? 1 : 0) + (hasTimeMetrics ? 1 : 0) + (hasNumbers ? 1 : 0);
+
+  const hasBeneficiaries = /beneficiar|user|market|saas|municipal|revenue|business/i.test(slideText);
+
+  // 3. Content-Driven Rubric Scoring (4 Criteria = 100 Pts Total)
+  // Problem Novelty & Alignment (0-25)
+  let scoreNovelty = 5;
+  if (wordCount > 30) scoreNovelty += 5;
+  if (wordCount > 100) scoreNovelty += 5;
+  if (quantitativeScore >= 1) scoreNovelty += 5;
+  if (hasBeneficiaries || (sub.ps_number && lowerText.includes(sub.ps_number.toLowerCase()))) scoreNovelty += 5;
+  scoreNovelty = Math.min(25, Math.max(2, scoreNovelty));
+
+  // Technical Architecture & Feasibility (0-35)
+  let scoreTech = 5;
+  if (wordCount > 50) scoreTech += 5;
+  if (hasArch) scoreTech += 6;
+  if (hasDb) scoreTech += 6;
+  if (hasFramework || hasMl) scoreTech += 6;
+  if (techKeywordCount >= 5) scoreTech += 4;
+  if (sub.github_url) scoreTech += 3;
+  scoreTech = Math.min(35, Math.max(3, scoreTech));
+
+  // UI/UX & Presentation Polish (0-25)
+  let scoreUiUx = 4;
+  if (wordCount > 40) scoreUiUx += 5;
+  if (lowerText.includes("dashboard") || lowerText.includes("ui") || lowerText.includes("mockup") || lowerText.includes("wireframe") || lowerText.includes("interface")) scoreUiUx += 6;
+  if (sub.demo_url) scoreUiUx += 5;
+  if (textLength > 300) scoreUiUx += 5;
+  scoreUiUx = Math.min(25, Math.max(2, scoreUiUx));
+
+  // Team Squad Balance & SIH Rules (0-15)
+  let scoreTeam = 0;
+  if (memberCount >= 1) scoreTeam += 2;
   if (memberCount >= 4) scoreTeam += 3;
-  if (memberCount === 6) scoreTeam += 3;
-  if (hasFemaleMember) scoreTeam += 3;
+  if (memberCount === 6) scoreTeam += 4;
+  if (hasFemaleMember) scoreTeam += 6;
+  scoreTeam = Math.min(15, Math.max(0, scoreTeam));
 
-  if (sub.github_url) scoreTech = Math.min(25, scoreTech + 3);
-  if (sub.demo_url)   scoreUiUx = Math.min(20, scoreUiUx + 2);
-
-  const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreImpact + scoreTeam;
+  const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
 
   let grade = "Nomination Ready ✅";
   if (totalScore >= 88) grade = "Nomination Gold 🏆";
-  else if (totalScore < 75) grade = "Needs Iteration ⚠️";
+  else if (totalScore < 70) grade = "Needs Iteration ⚠️";
+  if (totalScore < 50 || !hasFemaleMember || memberCount < 6) grade = "High SPOC Risk 🚨";
 
+  // Dynamic Content-Aware Red Flags
   const spocRedFlags: string[] = [];
   if (memberCount < 6) {
-    spocRedFlags.push(
-      `Incomplete Squad Size (${memberCount}/6 members). Official SIH guidelines mandate a full 6-member team.`
-    );
+    spocRedFlags.push(`Incomplete Squad Size (${memberCount}/6 members). Official SIH guidelines mandate a full 6-member team.`);
   }
   if (!hasFemaleMember) {
-    spocRedFlags.push(
-      "Missing Female Teammate. At least 1 female builder is mandatory per official SIH regulations."
-    );
+    spocRedFlags.push("Missing Female Teammate. At least 1 female builder is mandatory per official SIH regulations.");
   }
   if (!sub.github_url) {
-    spocRedFlags.push(
-      "No GitHub Repository attached. Evaluators favor teams with open-source proof of work."
-    );
+    spocRedFlags.push("No GitHub Repository attached. Evaluators favor teams with open-source proof of work.");
+  }
+  if (wordCount < 40) {
+    spocRedFlags.push("Extremely sparse slide content. Presentation lacks technical specifications.");
   }
 
+  // Dynamic Content-Aware Score Deductions
   const deductions = {
-    novelty: `Lost ${20 - scoreNovelty} points due to scope refinement or competitive differentiation gaps in problem alignment.`,
-    tech: sub.github_url
-      ? `Lost ${25 - scoreTech} points because deployment infrastructure and DB schema details can be expanded.`
-      : `Lost ${25 - scoreTech} points due to missing GitHub repository proof of work.`,
+    novelty: wordCount < 40
+      ? `Lost ${25 - scoreNovelty} points due to extremely minimal slide text and missing problem context.`
+      : `Lost ${25 - scoreNovelty} points due to missing quantitative baseline metrics or competitive differentiation.`,
+    tech: !hasArch && !hasDb
+      ? `Lost ${35 - scoreTech} points due to lack of defined technical architecture, database design, and framework specifications.`
+      : `Lost ${35 - scoreTech} points because deployment infrastructure or fail-safe specifications can be expanded.`,
     uiUx: sub.demo_url
-      ? `Lost ${20 - scoreUiUx} points because slide visual hierarchy can be improved.`
-      : `Lost ${20 - scoreUiUx} points because working video prototype link was not provided.`,
-    impact: `Lost ${20 - scoreImpact} points because rollout phases and implementation feasibility timeline need further detail.`,
-    team:
-      memberCount === 6 && hasFemaleMember
-        ? "Full 15/15 pts awarded for full 6-member squad and mandatory female teammate representation."
-        : `Lost ${15 - scoreTeam} points due to incomplete squad size (${memberCount}/6) or missing female teammate.`,
+      ? `Lost ${25 - scoreUiUx} points because slide visual mockups and user flow diagrams need improvement.`
+      : `Lost ${25 - scoreUiUx} points due to missing working prototype video demonstration link.`,
+    team: memberCount === 6 && hasFemaleMember
+      ? "Full 15/15 pts awarded for full 6-member squad and mandatory female teammate representation."
+      : `Lost ${15 - scoreTeam} points due to incomplete squad size (${memberCount}/6) or missing mandatory female teammate.`,
   };
 
   const strengths: string[] = [
-    `Strong problem alignment with official ministry PS #${sub.ps_number} (${sub.theme}).`,
-    `Defined technical architecture for ${sub.ps_category === "software" ? "Software Edition" : "Hardware Edition"}.`,
+    `Problem alignment registered for official ministry PS #${sub.ps_number} (${sub.theme}).`,
   ];
+  if (hasArch || hasDb) strengths.push("Technical stack components (databases/architecture) defined in pitch text.");
+  if (hasPercent || hasCost) strengths.push("Quantitative baseline metrics or cost efficiency figures included.");
   if (memberCount === 6) strengths.push("Full 6-member team squad complete.");
   if (hasFemaleMember) strengths.push("Mandatory female team member rule satisfied.");
-  if (sub.github_url) strengths.push("GitHub Repository attached demonstrating initial codebase commits.");
+  if (sub.github_url) strengths.push("GitHub Repository attached demonstrating codebase proof of work.");
 
   const slideRecommendations: Record<string, string> = {
-    slide1: `Title & Overview: Explicitly mention Ministry/Organization for PS #${sub.ps_number} and leader contact details.`,
-    slide2: `Problem & Solution: Highlight key metrics showing how your solution solves ${sub.ps_title}.`,
-    slide3: `Technical Stack: Detail database architecture, API design, and offline resilience.`,
-    slide4: `Feasibility & Rollout Plan: Break down development into clear phased execution milestones and rollout timeline.`,
-    slide5: `Impact & Commercial Model: Quantify target beneficiaries and cost efficiency.`,
+    slide1: wordCount < 40
+      ? `Title & Overview: Slide text is minimal. Replace placeholder text with team name, PS ID #${sub.ps_number}, and college affiliation.`
+      : `Title & Overview: Explicitly mention Ministry/Organization for PS #${sub.ps_number} and leader contact details.`,
+    slide2: hasPercent
+      ? `Problem & Solution: Good baseline metrics. Add visual infographics contrasting before vs after solution implementation.`
+      : `Problem & Solution: Highlight quantitative baseline metrics showing current delays or costs before your solution.`,
+    slide3: hasArch || hasDb
+      ? `Technical Stack: System components detected. Add a high-level block diagram showing data flow and fail-safe behavior.`
+      : `Technical Stack: Insert detailed backend DB architecture, API frameworks, and hardware schematics instead of basic descriptions.`,
+    slide4: `Feasibility & Use Cases: Specify target deployment environments and primary user workflows.`,
+    slide5: hasCost
+      ? `Value Proposition: Cost efficiency figures noted. Detail target municipal/enterprise beneficiaries.`
+      : `Value Proposition: Quantify target beneficiaries and cost efficiency vs existing legacy solutions.`,
     slide6: `Team Roles: Map all 6 members strictly to specific technical domains (Frontend, Backend, ML/Hardware, Pitch Presenter).`,
   };
 
@@ -465,7 +529,6 @@ function generateHeuristicEvaluation(sub: any, memberCount: number, hasFemaleMem
     scoreNovelty,
     scoreTech,
     scoreUiUx,
-    scoreImpact,
     scoreTeam,
     totalScore,
     grade,

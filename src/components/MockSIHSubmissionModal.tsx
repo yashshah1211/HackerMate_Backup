@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useNotification } from "@/context/NotificationContext";
-import { TOP_100_SIH_PROBLEM_STATEMENTS, SIHProblemStatement } from "@/lib/sihProblemStatements";
+import { SIH_PROBLEM_STATEMENTS, SIHProblemStatement } from "@/lib/sihProblemStatements";
 import { isPptDomainWhitelisted, ALLOWED_PPT_DOMAINS } from "@/lib/sihUrlValidator";
 
 type Team = {
@@ -42,6 +42,7 @@ export default function MockSIHSubmissionModal({
   const [demoUrl, setDemoUrl] = useState(existingSubmission?.demo_url || "");
 
   const [psSearch, setPsSearch] = useState("");
+  const [psFilterCategory, setPsFilterCategory] = useState<"all" | "software" | "hardware">("all");
   const [showPsDropdown, setShowPsDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -60,13 +61,18 @@ export default function MockSIHSubmissionModal({
   }, [existingSubmission, isOpen]);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-  const filteredPsList = TOP_100_SIH_PROBLEM_STATEMENTS.filter(
-    (ps) =>
-      ps.id.toLowerCase().includes(psSearch.toLowerCase()) ||
-      ps.title.toLowerCase().includes(psSearch.toLowerCase()) ||
-      ps.theme.toLowerCase().includes(psSearch.toLowerCase()) ||
-      ps.organization.toLowerCase().includes(psSearch.toLowerCase())
-  );
+  const filteredPsList = SIH_PROBLEM_STATEMENTS.filter((ps) => {
+    const matchesCategory = psFilterCategory === "all" || ps.category === psFilterCategory;
+    const query = psSearch.toLowerCase().trim();
+    const matchesQuery =
+      !query ||
+      ps.id.toLowerCase().includes(query) ||
+      ps.title.toLowerCase().includes(query) ||
+      ps.theme.toLowerCase().includes(query) ||
+      ps.organization.toLowerCase().includes(query);
+
+    return matchesCategory && matchesQuery;
+  });
 
   function handleSelectPs(ps: SIHProblemStatement) {
     setPsNumber(ps.id);
@@ -245,12 +251,17 @@ export default function MockSIHSubmissionModal({
 
           {/* Search SIH PS Dropdown */}
           <div className="relative">
-            <label className="block text-zinc-700 dark:text-zinc-300 font-semibold mb-1">
-              Auto-Fill SIH 2026 Problem Statement (Search 100+ Official Statements)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-zinc-700 dark:text-zinc-300 font-semibold">
+                Auto-Fill SIH 2026 Problem Statement (Search {SIH_PROBLEM_STATEMENTS.length}+ Official Statements)
+              </label>
+              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                {SIH_PROBLEM_STATEMENTS.length} Available
+              </span>
+            </div>
             <input
               type="text"
-              placeholder="Search by PS ID, Keyword or Theme (e.g. 1524, Traffic, AI, Cyber, Drone)..."
+              placeholder="Search by PS ID, Keyword, Theme, or Ministry (e.g. 1280, Railway, AI, Drone, Medical)..."
               value={psSearch}
               onFocus={() => setShowPsDropdown(true)}
               onChange={(e) => {
@@ -261,41 +272,96 @@ export default function MockSIHSubmissionModal({
             />
 
             {showPsDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
-                {filteredPsList.length === 0 ? (
-                  <div className="p-3 text-zinc-500 dark:text-zinc-400 text-center text-xs">
-                    No matching SIH problem statement found. Type manually below!
-                  </div>
-                ) : (
-                  filteredPsList.map((ps) => (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-80">
+                {/* Category Filter Pills Header */}
+                <div className="p-2.5 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 font-mono text-[10px]">
                     <button
-                      key={ps.id}
                       type="button"
-                      onClick={() => handleSelectPs(ps)}
-                      className="w-full text-left p-3 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center justify-between gap-3 text-xs"
+                      onClick={() => setPsFilterCategory("all")}
+                      className={`px-2 py-0.5 rounded-md font-bold transition ${
+                        psFilterCategory === "all"
+                          ? "bg-emerald-600 text-white dark:bg-emerald-500"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300"
+                      }`}
                     >
-                      <div className="truncate">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{ps.id}</span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                            {ps.organization}
-                          </span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] uppercase font-mono bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">
-                            {ps.theme}
-                          </span>
-                        </div>
-                        <div className="text-zinc-800 dark:text-zinc-200 font-medium truncate mt-0.5">{ps.title}</div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
-                        Select →
-                      </span>
+                      All ({SIH_PROBLEM_STATEMENTS.length})
                     </button>
-                  ))
-                )}
+                    <button
+                      type="button"
+                      onClick={() => setPsFilterCategory("software")}
+                      className={`px-2 py-0.5 rounded-md font-bold transition ${
+                        psFilterCategory === "software"
+                          ? "bg-emerald-600 text-white dark:bg-emerald-500"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300"
+                      }`}
+                    >
+                      Software ({SIH_PROBLEM_STATEMENTS.filter((p) => p.category === "software").length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPsFilterCategory("hardware")}
+                      className={`px-2 py-0.5 rounded-md font-bold transition ${
+                        psFilterCategory === "hardware"
+                          ? "bg-emerald-600 text-white dark:bg-emerald-500"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300"
+                      }`}
+                    >
+                      Hardware ({SIH_PROBLEM_STATEMENTS.filter((p) => p.category === "hardware").length})
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                    Showing {filteredPsList.length}
+                  </span>
+                </div>
+
+                {/* List Items */}
+                <div className="overflow-y-auto flex-1 divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {filteredPsList.length === 0 ? (
+                    <div className="p-4 text-zinc-500 dark:text-zinc-400 text-center text-xs">
+                      No matching SIH problem statement found. Type manually below!
+                    </div>
+                  ) : (
+                    filteredPsList.map((ps) => (
+                      <button
+                        key={ps.id}
+                        type="button"
+                        onClick={() => handleSelectPs(ps)}
+                        className="w-full text-left p-3 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition flex items-center justify-between gap-3 text-xs group"
+                      >
+                        <div className="truncate">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{ps.id}</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                              {ps.organization}
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] uppercase font-mono bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">
+                              {ps.theme}
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[8px] uppercase font-mono font-bold ${
+                              ps.category === "software"
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400"
+                                : "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400"
+                            }`}>
+                              {ps.category}
+                            </span>
+                          </div>
+                          <div className="text-zinc-800 dark:text-zinc-200 font-medium truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                            {ps.title}
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
+                          Select →
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setShowPsDropdown(false)}
-                  className="w-full py-2 text-center text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 text-[10px] uppercase font-mono bg-zinc-50 dark:bg-zinc-950"
+                  className="w-full py-2 text-center text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 text-[10px] uppercase font-mono bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 shrink-0"
                 >
                   Close Dropdown
                 </button>

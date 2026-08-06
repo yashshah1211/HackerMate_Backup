@@ -5,10 +5,12 @@
 
 export async function extractPresentationText(pptUrl: string): Promise<string> {
   if (!pptUrl || !pptUrl.trim()) {
+    console.log("[SIH Extractor] No presentation link provided.");
     return "(No presentation link provided)";
   }
 
   const urlStr = pptUrl.trim();
+  console.log(`[SIH Extractor] Extracting presentation text from: ${urlStr}`);
 
   // 1. Google Slides / Google Drive Presentation Handling
   const googleSlidesMatch =
@@ -38,6 +40,7 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
         const text = await res.text();
         const cleaned = sanitizeExtractedText(text);
         if (cleaned.length > 50) {
+          console.log(`[SIH Extractor] Successfully extracted ${cleaned.length} chars via Google Slides export/txt`);
           return cleaned.slice(0, 4000);
         }
       }
@@ -66,6 +69,7 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
         const html = await res.text();
         const cleaned = stripHtmlToText(html);
         if (cleaned.length > 50) {
+          console.log(`[SIH Extractor] Successfully extracted ${cleaned.length} chars via Google Slides pub HTML`);
           return cleaned.slice(0, 4000);
         }
       }
@@ -97,6 +101,7 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
           const raw = await res.text();
           const cleaned = stripHtmlToText(raw);
           if (cleaned.length > 50) {
+            console.log(`[SIH Extractor] Successfully extracted ${cleaned.length} chars via web fetch`);
             return cleaned.slice(0, 4000);
           }
         }
@@ -106,6 +111,7 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
     }
   }
 
+  console.warn(`[SIH Extractor] Text extraction unavailable for link: ${urlStr}. Returning metadata fallback indicator.`);
   return `(Presentation hosted at ${urlStr}. Extracting raw text was unavailable due to host security settings. Evaluate based on problem statement metadata and project details.)`;
 }
 

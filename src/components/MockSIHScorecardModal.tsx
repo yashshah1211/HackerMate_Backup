@@ -425,12 +425,12 @@ export default function MockSIHScorecardModal({
               <div>
                 <div className="flex justify-between text-[11px] mb-1 font-medium">
                   <span className="text-zinc-700 dark:text-zinc-300">1. Problem Novelty & Alignment</span>
-                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreNovelty} / 20 pts</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreNovelty} / 25 pts</span>
                 </div>
                 <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden mb-1">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${(scoreNovelty / 20) * 100}%` }}
+                    style={{ width: `${(scoreNovelty / 25) * 100}%` }}
                   />
                 </div>
                 {deductions.novelty && (
@@ -444,12 +444,12 @@ export default function MockSIHScorecardModal({
               <div>
                 <div className="flex justify-between text-[11px] mb-1 font-medium">
                   <span className="text-zinc-700 dark:text-zinc-300">2. Technical Architecture & Feasibility</span>
-                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreTech} / 25 pts</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreTech} / 35 pts</span>
                 </div>
                 <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden mb-1">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${(scoreTech / 25) * 100}%` }}
+                    style={{ width: `${(scoreTech / 35) * 100}%` }}
                   />
                 </div>
                 {deductions.tech && (
@@ -463,12 +463,12 @@ export default function MockSIHScorecardModal({
               <div>
                 <div className="flex justify-between text-[11px] mb-1 font-medium">
                   <span className="text-zinc-700 dark:text-zinc-300">3. UI/UX & Presentation Polish</span>
-                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreUiUx} / 20 pts</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreUiUx} / 25 pts</span>
                 </div>
                 <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden mb-1">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${(scoreUiUx / 20) * 100}%` }}
+                    style={{ width: `${(scoreUiUx / 25) * 100}%` }}
                   />
                 </div>
                 {deductions.uiUx && (
@@ -478,29 +478,10 @@ export default function MockSIHScorecardModal({
                 )}
               </div>
 
-              {/* Impact */}
-              <div>
-                <div className="flex justify-between text-[11px] mb-1 font-medium">
-                  <span className="text-zinc-700 dark:text-zinc-300">4. Impact & 36h Implementation Roadmap</span>
-                  <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreImpact} / 20 pts</span>
-                </div>
-                <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden mb-1">
-                  <div
-                    className="h-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${(scoreImpact / 20) * 100}%` }}
-                  />
-                </div>
-                {deductions.impact && (
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-sans">
-                    💡 <strong className="text-zinc-700 dark:text-zinc-300">Feedback:</strong> {deductions.impact}
-                  </p>
-                )}
-              </div>
-
               {/* Team */}
               <div>
                 <div className="flex justify-between text-[11px] mb-1 font-medium">
-                  <span className="text-zinc-700 dark:text-zinc-300">5. Team Squad Balance & SIH Rules</span>
+                  <span className="text-zinc-700 dark:text-zinc-300">4. Team Squad Balance & SIH Rules</span>
                   <span className="font-mono text-emerald-700 dark:text-emerald-400">{scoreTeam} / 15 pts</span>
                 </div>
                 <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden mb-1">
