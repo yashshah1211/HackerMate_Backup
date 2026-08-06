@@ -12,10 +12,20 @@ export type PartnerSlide = {
   ctaText: string;
   href: string;
   gradient: string;
-  logoType: "gamnexis" | "axcentra" | "morrow";
+  logoType: "gamnexis" | "axcentra" | "morrow" | "orvix";
 };
 
 const PARTNER_SLIDES: PartnerSlide[] = [
+  {
+    id: "orvix",
+    tag: "FEATURED NATIONAL ONLINE HACKATHON",
+    title: "HackerMate × Orvix Hackathon 2026",
+    description: "Build AI, Web, Mobile, Web3 & Open Innovation solutions! National online hackathon by NIMBLUX. Find compatible teammates & join recruiting squads.",
+    ctaText: "Explore Orvix Hackathon Portal",
+    href: "/partners/orvix",
+    gradient: "from-[#8B5CF6] via-purple-500 to-[#06B6D4]",
+    logoType: "orvix",
+  },
   {
     id: "morrow",
     tag: "FEATURED OPEN-SOURCE HACKATHON",
@@ -115,7 +125,18 @@ export default function PartnerBannerCarousel() {
 
             {/* Custom Partner Logo Badges */}
             <div className="flex items-center gap-2 pl-1 border-l border-zinc-200 dark:border-zinc-800">
-              {currentSlide.logoType === "morrow" ? (
+              {currentSlide.logoType === "orvix" ? (
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/partners/orvix-logo-cropped.png"
+                    alt="Orvix Hackathon Logo"
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm"
+                  />
+                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 text-lg md:text-xl font-mono">
+                    ORVIX
+                  </span>
+                </div>
+              ) : currentSlide.logoType === "morrow" ? (
                 <div className="flex items-center gap-2">
                   <img
                     src="/partners/morrow-icon.png"
