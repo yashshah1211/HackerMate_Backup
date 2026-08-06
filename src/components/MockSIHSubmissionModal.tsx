@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNotification } from "@/context/NotificationContext";
 import { TOP_100_SIH_PROBLEM_STATEMENTS, SIHProblemStatement } from "@/lib/sihProblemStatements";
 import { isPptDomainWhitelisted, ALLOWED_PPT_DOMAINS } from "@/lib/sihUrlValidator";
@@ -18,6 +18,7 @@ type Props = {
   team: Team | null;
   existingSubmission?: any;
   onSubmitted: (submission?: any) => void;
+  onDeleted?: () => void;
 };
 
 export default function MockSIHSubmissionModal({
@@ -26,6 +27,7 @@ export default function MockSIHSubmissionModal({
   team,
   existingSubmission,
   onSubmitted,
+  onDeleted,
 }: Props) {
   const { showToast } = useNotification();
 
@@ -42,7 +44,20 @@ export default function MockSIHSubmissionModal({
   const [psSearch, setPsSearch] = useState("");
   const [showPsDropdown, setShowPsDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [evalStage, setEvalStage] = useState<string>("");
+
+  useEffect(() => {
+    if (existingSubmission && isOpen) {
+      setPsNumber(existingSubmission.ps_number || "");
+      setPsTitle(existingSubmission.ps_title || "");
+      setPsCategory(existingSubmission.ps_category || "software");
+      setTheme(existingSubmission.theme || "Smart Automation");
+      setPptUrl(existingSubmission.ppt_url || "");
+      setGithubUrl(existingSubmission.github_url || "");
+      setDemoUrl(existingSubmission.demo_url || "");
+    }
+  }, [existingSubmission, isOpen]);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const filteredPsList = TOP_100_SIH_PROBLEM_STATEMENTS.filter(
@@ -61,6 +76,34 @@ export default function MockSIHSubmissionModal({
     setPsSearch("");
     setShowPsDropdown(false);
     showToast(`Auto-filled ${ps.id} (${ps.organization})!`, "info");
+  }
+
+  async function handleDelete() {
+    if (!team) return;
+    if (!window.confirm("Are you sure you want to remove this pitch presentation? You can submit a new one anytime.")) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const subId = existingSubmission?.id;
+      const res = await fetch(`/api/sih/mock-submit?${subId ? `submissionId=${subId}&` : ""}teamId=${team.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("🗑️ Pitch presentation removed successfully.", "info");
+        if (onDeleted) onDeleted();
+        onClose();
+      } else {
+        showToast(data.error || "Failed to remove pitch presentation.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to remove pitch presentation.", "error");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (!isOpen || !team) return null;
@@ -408,22 +451,36 @@ export default function MockSIHSubmissionModal({
           )}
 
           {/* Footer Submit Action */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-zinc-200 dark:border-zinc-800">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-extrabold shadow-lg shadow-emerald-500/20 transition cursor-pointer flex items-center gap-2"
-            >
-              {submitting ? "Evaluating..." : "🚀 Submit & Screen Pitch Deck"}
-            </button>
+          <div className="pt-2 flex items-center justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800">
+            {existingSubmission ? (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={submitting || deleting}
+                className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:border-rose-800/60 dark:text-rose-300 font-semibold text-xs transition cursor-pointer"
+              >
+                {deleting ? "Removing..." : "🗑️ Remove Pitch Deck"}
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting || deleting}
+                className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || deleting}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-extrabold shadow-lg shadow-emerald-500/20 transition cursor-pointer flex items-center gap-2"
+              >
+                {submitting ? "Evaluating..." : existingSubmission ? "🚀 Save & Re-Evaluate Pitch" : "🚀 Submit & Screen Pitch Deck"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

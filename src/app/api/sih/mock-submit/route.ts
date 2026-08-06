@@ -260,3 +260,103 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const supabaseUser = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => cookieStore.getAll(),
+          setAll: (cookiesToSet) => {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabaseUser.auth.getUser();
+
+    if (authErr || !user) {
+      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const submissionId = searchParams.get("submissionId");
+    const teamIdParam = searchParams.get("teamId");
+
+    if (!submissionId && !teamIdParam) {
+      return NextResponse.json({ error: "Missing submissionId or teamId parameter." }, { status: 400 });
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    let targetTeamId = teamIdParam;
+    if (submissionId) {
+      const { data: subData } = await supabaseAdmin
+        .from("sih_mock_submissions")
+        .select("team_id")
+        .eq("id", submissionId)
+        .maybeSingle();
+      if (subData) {
+        targetTeamId = subData.team_id;
+      }
+    }
+
+    if (!targetTeamId) {
+      return NextResponse.json({ error: "Submission or team not found." }, { status: 404 });
+    }
+
+    // Authorization check: User MUST be team owner or member
+    const { data: teamData, error: teamErr } = await supabaseAdmin
+      .from("teams")
+      .select("id, owner_id, team_members(user_id)")
+      .eq("id", targetTeamId)
+      .single();
+
+    if (teamErr || !teamData) {
+      return NextResponse.json({ error: "Team not found." }, { status: 404 });
+    }
+
+    const isOwner = teamData.owner_id === user.id;
+    const isMember = teamData.team_members?.some((m: any) => m.user_id === user.id);
+
+    if (!isOwner && !isMember) {
+      return NextResponse.json(
+        { error: "Forbidden: Only team members can delete or remove pitch submissions." },
+        { status: 403 }
+      );
+    }
+
+    // Delete submission(s) for the team
+    if (submissionId) {
+      await supabaseAdmin.from("sih_mock_submissions").delete().eq("id", submissionId);
+    }
+    await supabaseAdmin.from("sih_mock_submissions").delete().eq("team_id", targetTeamId);
+
+    logSihEvent("info", {
+      event: "SIH_SUBMIT",
+      submissionId: submissionId || undefined,
+      teamId: targetTeamId,
+      userId: user.id,
+      message: "Pitch submission removed successfully.",
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Pitch presentation removed successfully.",
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || "Failed to remove pitch deck." }, { status: 500 });
+  }
+}

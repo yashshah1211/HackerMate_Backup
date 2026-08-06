@@ -1480,6 +1480,16 @@ function SIHTeamBuilderContent() {
             setMockScorecardModalOpen(true);
           }
         }}
+        onDeleted={() => {
+          if (selectedTeamForMockSubmit) {
+            setMockSubmissionsMap((prev) => {
+              const updated = { ...prev };
+              delete updated[selectedTeamForMockSubmit.id];
+              return updated;
+            });
+          }
+          loadSIHData();
+        }}
       />
 
       {/* Mock SIH Scorecard Modal */}
@@ -1498,6 +1508,24 @@ function SIHTeamBuilderContent() {
           );
         })()}
         onReEvaluated={() => loadSIHData()}
+        onEditRequested={(sub) => {
+          const t = allTeams.find((team) => team.id === sub.team_id);
+          if (t) {
+            setSelectedTeamForMockSubmit(t);
+            setMockScorecardModalOpen(false);
+            setMockSubmissionModalOpen(true);
+          }
+        }}
+        onDeleted={() => {
+          if (selectedSubmissionForScorecard) {
+            setMockSubmissionsMap((prev) => {
+              const updated = { ...prev };
+              delete updated[selectedSubmissionForScorecard.team_id];
+              return updated;
+            });
+          }
+          loadSIHData();
+        }}
       />
 
       {/* Official DJSCE SIH Nomination Certificate Modal */}

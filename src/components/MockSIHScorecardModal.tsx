@@ -10,6 +10,8 @@ type Props = {
   teamName: string;
   isOwnTeam?: boolean;
   onReEvaluated?: () => void;
+  onEditRequested?: (submission: any) => void;
+  onDeleted?: () => void;
 };
 
 export default function MockSIHScorecardModal({
@@ -19,9 +21,12 @@ export default function MockSIHScorecardModal({
   teamName,
   isOwnTeam = false,
   onReEvaluated,
+  onEditRequested,
+  onDeleted,
 }: Props) {
   const { showToast } = useNotification();
   const [reEvaluating, setReEvaluating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [historyVersions, setHistoryVersions] = useState<any[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [displayedSubmission, setDisplayedSubmission] = useState<any>(submission);
@@ -137,6 +142,32 @@ export default function MockSIHScorecardModal({
     }
   }
 
+  async function handleDeleteSubmission() {
+    if (!window.confirm("Are you sure you want to remove this pitch deck presentation? You can submit a new one anytime.")) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/sih/mock-submit?submissionId=${activeSub.id}&teamId=${activeSub.team_id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("🗑️ Pitch presentation removed successfully.", "info");
+        if (onDeleted) onDeleted();
+        onClose();
+      } else {
+        showToast(data.error || "Failed to remove pitch presentation.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to remove pitch presentation.", "error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function getGradeBadgeColor(g: string) {
     if (g.includes("Gold")) return "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30";
     if (g.includes("Ready")) return "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30";
@@ -179,6 +210,28 @@ export default function MockSIHScorecardModal({
                   </option>
                 ))}
               </select>
+            )}
+
+            {isOwnTeam && (
+              <>
+                <button
+                  onClick={() => {
+                    if (onEditRequested) onEditRequested(activeSub);
+                  }}
+                  className="px-2.5 py-1.5 bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 text-xs font-semibold rounded-lg transition flex items-center gap-1 cursor-pointer shadow-sm"
+                  title="Edit or replace pitch deck presentation link"
+                >
+                  ✏️ Edit / Replace
+                </button>
+                <button
+                  onClick={handleDeleteSubmission}
+                  disabled={deleting}
+                  className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:border-rose-800/60 dark:text-rose-300 text-xs font-semibold rounded-lg transition disabled:opacity-50 flex items-center gap-1 cursor-pointer shadow-sm"
+                  title="Remove pitch deck presentation from team"
+                >
+                  {deleting ? "Removing..." : "🗑️ Remove Pitch"}
+                </button>
+              </>
             )}
 
             <button
