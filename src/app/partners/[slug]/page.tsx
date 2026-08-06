@@ -361,12 +361,12 @@ function PartnerPageContent() {
               </span>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               {partner.logo_url ? (
                 <img
                   src={partner.logo_url}
                   alt={`${partner.partner_name} Logo`}
-                  className="h-16 md:h-20 w-auto object-contain shrink-0 rounded-xl"
+                  className="h-12 sm:h-16 w-auto object-contain shrink-0"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     if (slug === "axcentra") {
@@ -383,23 +383,36 @@ function PartnerPageContent() {
                   <img
                     src="/partners/morrow-icon.png"
                     alt="Morrow Logo"
-                    className="h-12 md:h-14 w-auto object-contain shrink-0 rounded-xl"
+                    className="h-12 sm:h-14 w-auto object-contain shrink-0 rounded-xl"
                   />
                 ) : (
                   slug === "axcentra" && (
                     <img
                       src="/partners/axcentra-icon-only-transparent.png"
                       alt="Axcentra Logo"
-                      className="h-12 md:h-14 w-auto object-contain shrink-0"
+                      className="h-12 sm:h-14 w-auto object-contain shrink-0"
                     />
                   )
                 )
               )}
+
+              {partner.features?.organizer_logo && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs shadow-sm shrink-0">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Presented by</span>
+                  <img
+                    src={partner.features.organizer_logo}
+                    alt={`${partner.features.organizer || "Organizer"} Logo`}
+                    className="h-5 w-auto object-contain"
+                  />
+                </div>
+              )}
+
               <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 {partner.partner_name}
               </h1>
             </div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-2xl mt-2 leading-relaxed font-sans">
+
+            <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-2xl mt-3 leading-relaxed font-sans">
               {partner.tagline || hackathon?.description?.slice(0, 180) + "..."}
             </p>
 
@@ -410,32 +423,32 @@ function PartnerPageContent() {
                 <strong className="text-blue-950 dark:text-white font-semibold">HackerMate Team Matching Hub:</strong> Browse individual builders, join a recruiting team, or list yourself to find teammates for this hackathon.
               </p>
             </div>
+          </div>
 
-            {/* Event Metrics Pills */}
-            <div className="flex flex-wrap items-center gap-3 mt-5">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-xs">
-                <span className="text-amber-500 dark:text-amber-400 font-bold">💰</span>
-                <span className="font-bold text-zinc-900 dark:text-white">{displayPrize}</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-xs">
-                <span className="text-blue-500 dark:text-blue-400">📅</span>
-                <span className="text-zinc-700 dark:text-zinc-300">
-                  {hackathon?.start_date ? new Date(hackathon.start_date).toLocaleDateString() : "Date TBA"} —{" "}
-                  {hackathon?.end_date ? new Date(hackathon.end_date).toLocaleDateString() : "Date TBA"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-xs">
-                <span className="text-emerald-500 dark:text-emerald-400">🌐</span>
-                <span className="text-zinc-700 dark:text-zinc-300 capitalize">{hackathon?.mode || "Online"} Sprint</span>
-              </div>
+          {/* Event Metrics Bar */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
+              <span className="text-amber-500 dark:text-amber-400 font-bold">💰</span>
+              <span className="font-bold text-zinc-900 dark:text-white">{displayPrize}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
+              <span className="text-blue-500 dark:text-blue-400">📅</span>
+              <span className="text-zinc-700 dark:text-zinc-300 font-medium">
+                {hackathon?.start_date ? new Date(hackathon.start_date).toLocaleDateString() : "Date TBA"} —{" "}
+                {hackathon?.end_date ? new Date(hackathon.end_date).toLocaleDateString() : "Date TBA"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
+              <span className="text-emerald-500 dark:text-emerald-400">🌐</span>
+              <span className="text-zinc-700 dark:text-zinc-300 font-medium capitalize">{hackathon?.mode || "Online"} Sprint</span>
             </div>
           </div>
 
           {/* Hero CTAs - Full Width Wrapping Toolbar */}
-          <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 w-full">
+          <div className="flex flex-wrap items-center gap-3 pt-5 border-t border-zinc-200/80 dark:border-zinc-800/80 w-full">
             <button
               onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-              className="btn btn-lime text-xs py-2.5 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
+              className="btn btn-lime text-xs py-2.5 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105 rounded-xl"
             >
               <span className="text-black dark:text-black">+ Create Team</span>
             </button>
@@ -443,7 +456,7 @@ function PartnerPageContent() {
             <button
               onClick={() => handleToggleLookingForTeam()}
               disabled={togglingStatus}
-              className={`btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${
+              className={`btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer rounded-xl ${
                 isUserLookingForTeam
                   ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
                   : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
@@ -454,7 +467,7 @@ function PartnerPageContent() {
 
             <button
               onClick={() => setShowPartnerShareModal(true)}
-              className="btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
+              className="btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
               title="Share this partner teammate matcher to college WhatsApp groups"
             >
               <span>📲 Share to WhatsApp</span>
@@ -475,7 +488,7 @@ function PartnerPageContent() {
               </a>
             )}
 
-            {/* Secondary Link: Website */}
+            {/* Secondary Link: Official Website */}
             {(partner.features?.website_url || slug === "morrow" || slug === "mnm") && (
               <a
                 href={partner.features?.website_url || "https://www.mnmworks.xyz/"}
