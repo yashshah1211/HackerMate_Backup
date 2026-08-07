@@ -1433,33 +1433,41 @@ function HackathonDetailContent() {
               </div>
 
               {/* Location */}
-              <div className="flex items-start gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                  </svg>
+              {!(hackathon.mode?.toLowerCase() === "online" && (!hackathon.location || hackathon.location.toLowerCase().includes("venue in india") || hackathon.location.toLowerCase().includes("online"))) && (
+                <div className="flex items-start gap-2.5">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">Location</p>
+                    <p className="text-xs font-semibold text-white break-words">
+                      {hackathon.location || "TBA"}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Location</p>
-                  <p className="text-xs font-semibold text-white break-words">
-                    {hackathon.location || "TBA"}
-                  </p>
-                </div>
-              </div>
+              )}
 
-              {/* College / University */}
+              {/* College / University / Organizing Communities */}
               {hackathon.college && (
                 <div className="flex items-start gap-2.5">
                   <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 014.887 5.906a50.57 50.57 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-zinc-500 font-mono uppercase">College / University</p>
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">
+                      {hackathon.college.toLowerCase().includes("alpha forge") || hackathon.college.toLowerCase().includes("together we solve") || hackathon.college.toLowerCase().includes("tws")
+                        ? "Organizing Communities"
+                        : "College / University"}
+                    </p>
                     <p className="text-xs font-semibold text-white break-words">
-                      {hackathon.college}
+                      {hackathon.college.toLowerCase().includes("alpha forge") || hackathon.college.toLowerCase().includes("together we solve") || hackathon.college.toLowerCase().includes("tws")
+                        ? "Alpha Forge & TWS (Together We Solve)"
+                        : hackathon.college}
                     </p>
                   </div>
                 </div>

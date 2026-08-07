@@ -406,14 +406,23 @@ function PartnerPageContent() {
                 )
               )}
 
-              {partner.features?.organizer_logo && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs shadow-sm shrink-0">
+              {(partner.features?.organizer_logo || partner.features?.organizers?.length > 0 || (slug === "aethos" || slug === "aethos-day-zero")) && (
+                <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs shadow-sm shrink-0">
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Presented by</span>
-                  <img
-                    src={partner.features.organizer_logo}
-                    alt={`${partner.features.organizer || "Organizer"} Logo`}
-                    className="h-5 w-auto object-contain"
-                  />
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={partner.features?.organizer_logo || "/partners/alpha-forge-logo.jpg"}
+                      alt="Alpha Forge Logo"
+                      className="h-5 w-auto object-contain rounded"
+                    />
+                    {(slug === "aethos" || slug === "aethos-day-zero" || partner.features?.organizers?.some((o: any) => o.name === "TWS")) && (
+                      <img
+                        src="/partners/tws-logo.jpg"
+                        alt="TWS Logo"
+                        className="h-5 w-auto object-contain rounded"
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -437,10 +446,12 @@ function PartnerPageContent() {
 
           {/* Event Metrics Bar */}
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
-              <span className="text-amber-500 dark:text-amber-400 font-bold">💰</span>
-              <span className="font-bold text-zinc-900 dark:text-white">{displayPrize}</span>
-            </div>
+            {!(slug === "aethos" || slug === "aethos-day-zero") && (
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
+                <span className="text-amber-500 dark:text-amber-400 font-bold">💰</span>
+                <span className="font-bold text-zinc-900 dark:text-white">{displayPrize}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
               <span className="text-blue-500 dark:text-blue-400">📅</span>
               <span className="text-zinc-700 dark:text-zinc-300 font-medium">
@@ -626,20 +637,35 @@ function PartnerPageContent() {
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-xl shrink-0">
-                      {evt.icon || "🕸️"}
+                      {evt.icon || (evt.id === "ignis" ? "🔥" : evt.id === "nexus" ? "📡" : evt.id === "atlas" ? "🌁" : evt.id === "vita" ? "🌱" : evt.id === "aether" ? "🚀" : evt.id === "sapientia" ? "🧠" : evt.id === "aegis" ? "🛡️" : evt.id === "nova" ? "❇️" : "🕸️")}
                     </div>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                      {evt.category}
-                    </span>
+                    {evt.category && (
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                        {evt.category}
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-base font-extrabold text-zinc-900 dark:text-white group-hover:text-rose-500 transition-colors">
                     {evt.name}
                   </h3>
 
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1.5 leading-relaxed font-sans line-clamp-2">
-                    {evt.desc}
-                  </p>
+                  {evt.desc && (
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1.5 leading-relaxed font-sans">
+                      {evt.desc}
+                    </p>
+                  )}
+
+                  {evt.challenge && (
+                    <div className="mt-3 p-3 rounded-xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 text-xs">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+                        🎯 Your Challenge
+                      </span>
+                      <p className="text-[11px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-sans">
+                        {evt.challenge}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-900/80 flex items-center justify-between gap-2 text-xs">
                     <button
