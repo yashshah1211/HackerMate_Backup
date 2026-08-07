@@ -53,6 +53,7 @@ function CreateTeamForm() {
   const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const preselectedHackathonId = searchParams.get("hackathon");
+  const preselectedTrack = searchParams.get("track");
   // Pre-populate invite from post-acceptance prompt
   const inviteUserId = searchParams.get("invite");
   const [inviteUserName, setInviteUserName] = useState<string | null>(null);
@@ -61,6 +62,8 @@ function CreateTeamForm() {
   const [description, setDescription] = useState("");
   const [college, setCollege] = useState("");
   const [hackathonId, setHackathonId] = useState(preselectedHackathonId || "");
+  const [selectedTrack, setSelectedTrack] = useState<string>(preselectedTrack || "");
+  const [availableTracks, setAvailableTracks] = useState<{ id: string; name: string }[]>([]);
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [hackathonsLoading, setHackathonsLoading] = useState(true);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -70,6 +73,25 @@ function CreateTeamForm() {
   const [customCollege, setCustomCollege] = useState("");
   const [collegeSearch, setCollegeSearch] = useState("");
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
+
+  useEffect(() => {
+    if (hackathonId) {
+      supabase
+        .from("partner_configs")
+        .select("features")
+        .eq("hackathon_id", hackathonId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.features?.events) {
+            setAvailableTracks(data.features.events);
+          } else {
+            setAvailableTracks([]);
+          }
+        });
+    } else {
+      setAvailableTracks([]);
+    }
+  }, [hackathonId]);
 
   async function loadHackathons() {
     const { data, error } = await supabase
@@ -145,9 +167,14 @@ function CreateTeamForm() {
 
     const selectedHackathon = hackathons.find((h) => h.id === hackathonId);
 
+    let finalDesc = description.trim();
+    if (selectedTrack) {
+      finalDesc = `[Track: ${selectedTrack}] ${finalDesc}`;
+    }
+
     const { data: teamId, error } = await supabase.rpc("create_team_with_owner", {
       p_name: name.trim(),
-      p_description: description.trim(),
+      p_description: finalDesc,
       p_max_members: maxMembers,
       p_college: college ? (college === "Other" ? customCollege.trim() : college) : null,
       p_hackathon_id: hackathonId || null,
@@ -396,6 +423,21 @@ function CreateTeamForm() {
                 </p>
               )}
             </Field>
+
+            {availableTracks.length > 0 && (
+              <Field label="Event Track / Pillar (Optional)">
+                <select
+                  value={selectedTrack}
+                  onChange={(e) => setSelectedTrack(e.target.value)}
+                  className="input px-4"
+                >
+                  <option value="">Select track / pillar...</option>
+                  {availableTracks.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
           </div>
         </section>
 

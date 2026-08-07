@@ -48,10 +48,23 @@ type Team = {
   skills: string[] | null;
   roles_needed: string[] | null;
   max_members: number;
-  is_recruiting?: boolean;
-  owner_id?: string;
-  team_members?: { id: string }[];
+  is_recruiting: boolean;
+  owner_id: string;
+  team_members: any[];
+  track?: string | null;
 };
+
+function getTeamTrack(team: any): string | null {
+  if (team.track) return team.track;
+  if (!team.description) return null;
+  const match = team.description.match(/\[Track:\s*([^\]]+)\]/i);
+  return match ? match[1].trim() : null;
+}
+
+function getCleanTeamDescription(desc: string | null | undefined): string {
+  if (!desc) return "";
+  return desc.replace(/\[Track:\s*[^\]]+\]/gi, "").trim();
+}
 
 type RegisteredBuilder = {
   id: string;
@@ -91,11 +104,51 @@ function PartnerPageContent() {
   const [showTrackPickerModal, setShowTrackPickerModal] = useState(false);
   const [selectedTrackForModal, setSelectedTrackForModal] = useState("");
 
-  function handleProtectedAction(targetUrl: string) {
+  const [showTeamTrackModal, setShowTeamTrackModal] = useState(false);
+  const [selectedTeamIdForTrack, setSelectedTeamIdForTrack] = useState("");
+  const [selectedTrackForTeamModal, setSelectedTrackForTeamModal] = useState("");
+  const [savingTeamTrack, setSavingTeamTrack] = useState(false);
+
+  function handleProtectedAction(targetUrl: string | (() => void)) {
     if (!currentUserId) {
       router.push(`/?next=${encodeURIComponent(`/partners/${slug}`)}&auth=true`);
+    } else if (typeof targetUrl === "function") {
+      targetUrl();
     } else {
       router.push(targetUrl);
+    }
+  }
+
+  async function handleSaveTeamTrack() {
+    if (!selectedTeamIdForTrack || !selectedTrackForTeamModal) return;
+    setSavingTeamTrack(true);
+    try {
+      const targetTeam = teams.find((t) => t.id === selectedTeamIdForTrack);
+      if (!targetTeam) return;
+
+      const cleanDesc = getCleanTeamDescription(targetTeam.description);
+      const newDesc = `[Track: ${selectedTrackForTeamModal}] ${cleanDesc}`;
+
+      const { error } = await supabase
+        .from("teams")
+        .update({ description: newDesc })
+        .eq("id", selectedTeamIdForTrack);
+
+      if (error) {
+        showToast(error.message, "error");
+      } else {
+        const trackObj = partner?.features?.events?.find((e: any) => e.id === selectedTrackForTeamModal);
+        showToast(`Registered team '${targetTeam.name}' for track '${trackObj?.name || selectedTrackForTeamModal}'!`, "success");
+        setShowTeamTrackModal(false);
+        setSelectedEventTrack(selectedTrackForTeamModal);
+        setActiveTab("teams");
+        loadPartnerData();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to save team track.", "error");
+    } finally {
+      setSavingTeamTrack(false);
     }
   }
 
@@ -474,6 +527,29 @@ function PartnerPageContent() {
               <span className="text-black dark:text-black">+ Create Team</span>
             </button>
 
+            {partner.features?.events && partner.features.events.length > 0 && (
+              <button
+                onClick={() => {
+                  handleProtectedAction(() => {
+                    const userTeams = teams.filter(
+                      (t) => t.owner_id === currentUserId || (t.team_members || []).some((m: any) => m.user_id === currentUserId || m.profiles?.id === currentUserId)
+                    );
+                    if (userTeams.length > 0) {
+                      setSelectedTeamIdForTrack(userTeams[0].id);
+                      const existingTrack = getTeamTrack(userTeams[0]);
+                      setSelectedTrackForTeamModal(existingTrack || partner.features.events[0].id);
+                      setShowTeamTrackModal(true);
+                    } else {
+                      router.push(`/teams/create?hackathon=${partner.hackathon_id}`);
+                    }
+                  });
+                }}
+                className="btn text-xs py-2.5 px-4 font-bold rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <span>🎯 Select Track for My Team</span>
+              </button>
+            )}
+
             <button
               onClick={() => handleToggleLookingForTeam()}
               disabled={togglingStatus}
@@ -495,14 +571,14 @@ function PartnerPageContent() {
             </button>
 
             {/* Secondary Link: WhatsApp Channel */}
-            {(partner.features?.whatsapp_channel || slug === "morrow" || slug === "mnm") && (
+            {(partner.features?.whatsapp_channel || slug === "morrow" || slug === "mnm" || slug === "aethos" || slug === "aethos-day-zero") && (
               <a
-                href={partner.features?.whatsapp_channel || "https://whatsapp.com/channel/0029VbDGVGg96H4VGs87xO2Z"}
+                href={slug === "aethos" || slug === "aethos-day-zero" ? "https://tinyurl.com/AETHOS-Group" : partner.features?.whatsapp_channel || "https://whatsapp.com/channel/0029VbDGVGg96H4VGs87xO2Z"}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 transition-colors shadow-sm"
               >
-                <span>💬 WhatsApp Channel</span>
+                <span>💬 Official WhatsApp Channel</span>
                 <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                 </svg>
@@ -599,7 +675,19 @@ function PartnerPageContent() {
             {partner.features.events.map((evt: any) => {
               const isSelected = selectedEventTrack === evt.id;
               const trackTeamsCount = teams.filter((t) => {
+                const teamTrack = getTeamTrack(t);
+                if (teamTrack) {
+                  return teamTrack.toLowerCase() === evt.id.toLowerCase();
+                }
                 const searchTerms: Record<string, string[]> = {
+                  "ignis": ["ignis", "energy", "power"],
+                  "nexus": ["nexus", "communication", "chat"],
+                  "atlas": ["atlas", "infrastructure", "mobility"],
+                  "vita": ["vita", "food", "water", "health"],
+                  "aether": ["aether", "exploration", "space"],
+                  "sapientia": ["sapientia", "knowledge", "ai"],
+                  "aegis": ["aegis", "security", "resilience"],
+                  "nova": ["nova", "open", "innovation"],
                   "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
                   "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
                   "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
@@ -802,7 +890,19 @@ function PartnerPageContent() {
           {(() => {
             const filteredTeams = teams.filter((t) => {
               if (selectedEventTrack === "all") return true;
+              const teamTrack = getTeamTrack(t);
+              if (teamTrack) {
+                return teamTrack.toLowerCase() === selectedEventTrack.toLowerCase();
+              }
               const searchTerms: Record<string, string[]> = {
+                "ignis": ["ignis", "energy", "power"],
+                "nexus": ["nexus", "communication", "chat"],
+                "atlas": ["atlas", "infrastructure", "mobility"],
+                "vita": ["vita", "food", "water", "health"],
+                "aether": ["aether", "exploration", "space"],
+                "sapientia": ["sapientia", "knowledge", "ai"],
+                "aegis": ["aegis", "security", "resilience"],
+                "nova": ["nova", "open", "innovation"],
                 "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
                 "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
                 "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
@@ -839,13 +939,29 @@ function PartnerPageContent() {
                 className="card card-static p-5 flex flex-col justify-between hover:border-zinc-700 transition-all"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
                     <h3 className="text-sm font-bold text-white">{team.name}</h3>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       {team.team_members?.length || 1} / {team.max_members} Members
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-400 line-clamp-2 mb-3">{team.description}</p>
+
+                  {(() => {
+                    const teamTrackId = getTeamTrack(team);
+                    const trackObj = partner.features?.events?.find((e: any) => e.id === teamTrackId);
+                    if (trackObj || teamTrackId) {
+                      return (
+                        <div className="mb-2">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
+                            🎯 Track: {trackObj?.name || teamTrackId}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  <p className="text-xs text-zinc-400 line-clamp-2 mb-3">{getCleanTeamDescription(team.description)}</p>
 
                   {team.skills && team.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -1056,6 +1172,126 @@ function PartnerPageContent() {
                 className="btn btn-lime text-xs py-2 px-5 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] cursor-pointer"
               >
                 List Myself for {partner.features.events.find((e: any) => e.id === selectedTrackForModal)?.name || "Event Track"} →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Track Selection Modal */}
+      {showTeamTrackModal && partner?.features?.events && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl relative animate-fade-in-up">
+            <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-500/20">
+                  Register Team for Track
+                </span>
+                <h3 className="text-lg font-extrabold text-zinc-900 dark:text-white mt-1">
+                  Select Event Track for Your Team
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTeamTrackModal(false)}
+                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {(() => {
+              const userTeams = teams.filter(
+                (t) => t.owner_id === currentUserId || (t.team_members || []).some((m: any) => m.user_id === currentUserId || m.profiles?.id === currentUserId)
+              );
+
+              if (userTeams.length === 0) {
+                return (
+                  <div className="py-8 text-center">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">You do not have any teams registered for this hackathon yet.</p>
+                    <button
+                      onClick={() => {
+                        setShowTeamTrackModal(false);
+                        router.push(`/teams/create?hackathon=${partner.hackathon_id}`);
+                      }}
+                      className="btn btn-primary btn-sm"
+                    >
+                      + Create a Team First
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4 my-4">
+                  {userTeams.length > 1 && (
+                    <div>
+                      <label className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">Select Team</label>
+                      <select
+                        value={selectedTeamIdForTrack}
+                        onChange={(e) => {
+                          setSelectedTeamIdForTrack(e.target.value);
+                          const selTeam = userTeams.find((t) => t.id === e.target.value);
+                          if (selTeam) {
+                            const trk = getTeamTrack(selTeam);
+                            if (trk) setSelectedTrackForTeamModal(trk);
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-900 dark:text-white"
+                      >
+                        {userTeams.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-2">Select Event Track / Pillar</label>
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {partner.features.events.map((evt: any) => {
+                        const isSelected = selectedTrackForTeamModal === evt.id;
+                        return (
+                          <div
+                            key={evt.id}
+                            onClick={() => setSelectedTrackForTeamModal(evt.id)}
+                            className={`p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                              isSelected
+                                ? "bg-amber-500/10 border-amber-500 text-zinc-900 dark:text-white ring-1 ring-amber-500/50 shadow-sm"
+                                : "bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xl">{evt.icon || "🎯"}</span>
+                              <div>
+                                <p className="text-xs font-bold text-zinc-900 dark:text-white">{evt.name}</p>
+                                {evt.desc && <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1">{evt.desc}</p>}
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? "border-amber-500 bg-amber-500 text-black font-bold" : "border-zinc-300 dark:border-zinc-700"}`}>
+                              {isSelected && <span className="text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-900">
+              <button
+                onClick={() => setShowTeamTrackModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTeamTrack}
+                disabled={savingTeamTrack || !selectedTeamIdForTrack || !selectedTrackForTeamModal}
+                className="btn btn-lime text-xs py-2 px-5 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] cursor-pointer disabled:opacity-50"
+              >
+                {savingTeamTrack ? "Saving..." : "Save Track Registration →"}
               </button>
             </div>
           </div>
