@@ -421,7 +421,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setShowMobileSidebar(false)} />
       )}
 
-      <FeedbackWidget />
+      {pathname !== "/hackathons/create" && <FeedbackWidget />}
       {showSignOutConfirm && <SignOutConfirmModal />}
     </div>
   );

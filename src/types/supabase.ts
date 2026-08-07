@@ -318,6 +318,8 @@ export type Database = {
           id: string
           location: string | null
           max_participants: number | null
+          min_team_size: number | null
+          max_team_size: number | null
           mode: string | null
           name: string
           organizer_id: string | null
@@ -325,6 +327,8 @@ export type Database = {
           registration_end: string | null
           registration_start: string | null
           registration_status: string | null
+          rounds_count: number | null
+          rounds_info: Json | null
           start_date: string | null
           tags: string[] | null
           type: string | null
@@ -340,6 +344,8 @@ export type Database = {
           id?: string
           location?: string | null
           max_participants?: number | null
+          min_team_size?: number | null
+          max_team_size?: number | null
           mode?: string | null
           name: string
           organizer_id?: string | null
@@ -347,6 +353,8 @@ export type Database = {
           registration_end?: string | null
           registration_start?: string | null
           registration_status?: string | null
+          rounds_count?: number | null
+          rounds_info?: Json | null
           start_date?: string | null
           tags?: string[] | null
           type?: string | null
@@ -362,6 +370,8 @@ export type Database = {
           id?: string
           location?: string | null
           max_participants?: number | null
+          min_team_size?: number | null
+          max_team_size?: number | null
           mode?: string | null
           name?: string
           organizer_id?: string | null
@@ -369,6 +379,8 @@ export type Database = {
           registration_end?: string | null
           registration_start?: string | null
           registration_status?: string | null
+          rounds_count?: number | null
+          rounds_info?: Json | null
           start_date?: string | null
           tags?: string[] | null
           type?: string | null

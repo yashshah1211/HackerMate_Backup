@@ -85,6 +85,11 @@ function isSameCollege(collegeA: string | null | undefined, collegeB: string | n
   const b = collegeB.toLowerCase().trim();
   if (a === b) return true;
 
+  // Handle DJSCE / Dwarkadas J. Sanghvi synonyms
+  const isDJSCEA = a.includes("djsce") || a.includes("dwarkadas");
+  const isDJSCEB = b.includes("djsce") || b.includes("dwarkadas");
+  if (isDJSCEA && isDJSCEB) return true;
+
   const getFirstWord = (s: string) => s.split(/[\s,()]+/)[0];
   const w1 = getFirstWord(a);
   const w2 = getFirstWord(b);

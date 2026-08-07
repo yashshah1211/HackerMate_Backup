@@ -27,6 +27,8 @@ const ROLES = [
 type Hackathon = {
   id: string;
   name: string;
+  min_team_size?: number | null;
+  max_team_size?: number | null;
 };
 
 export default function CreateTeamPage() {
@@ -72,13 +74,13 @@ function CreateTeamForm() {
   async function loadHackathons() {
     const { data, error } = await supabase
       .from("hackathons")
-      .select("id, name")
+      .select("id, name, min_team_size, max_team_size")
       .order("start_date", { ascending: true });
 
     if (error) {
       console.error(error);
     } else {
-      setHackathons(data || []);
+      setHackathons((data as unknown as Hackathon[]) || []);
     }
     setHackathonsLoading(false);
   }
@@ -88,6 +90,15 @@ function CreateTeamForm() {
       loadHackathons();
     });
   }, []);
+
+  useEffect(() => {
+    if (hackathonId && hackathons.length > 0) {
+      const selected = hackathons.find((h) => h.id === hackathonId);
+      if (selected?.max_team_size) {
+        setMaxMembers(selected.max_team_size);
+      }
+    }
+  }, [hackathonId, hackathons]);
 
   function toggleSkill(skill: string) {
     setSelectedSkills((prev) =>

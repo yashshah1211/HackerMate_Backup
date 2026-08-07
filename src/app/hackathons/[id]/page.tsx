@@ -10,6 +10,15 @@ import { formatPrizeDisplay } from "@/app/hackathons/page";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 
+type RoundInfo = {
+  round_number: number;
+  name: string;
+  type?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  description?: string | null;
+};
+
 type Hackathon = {
   id: string;
   name: string;
@@ -26,6 +35,10 @@ type Hackathon = {
   organizer_id: string | null;
   college?: string | null;
   max_participants?: number | null;
+  min_team_size?: number | null;
+  max_team_size?: number | null;
+  rounds_count?: number | null;
+  rounds_info?: RoundInfo[] | null;
 };
 
 type Team = {
@@ -1194,6 +1207,58 @@ function HackathonDetailContent() {
             </div>
           </div>
 
+          {/* Hackathon Rounds Breakdown */}
+          {hackathon.rounds_info && Array.isArray(hackathon.rounds_info) && hackathon.rounds_info.length > 0 && (
+            <div className="pt-6 border-t border-zinc-200 dark:border-zinc-900 mt-6">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <p className="section-label mb-0">🏆 HACKATHON ROUNDS ({hackathon.rounds_info.length})</p>
+                <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/60">
+                  {hackathon.rounds_info.length} {hackathon.rounds_info.length === 1 ? "Round" : "Rounds"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {hackathon.rounds_info.map((rd: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/50 hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-all space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800/80 flex items-center justify-center text-xs font-bold font-mono">
+                          {rd.round_number || idx + 1}
+                        </span>
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
+                          {rd.name || `Round ${idx + 1}`}
+                        </h4>
+                      </div>
+
+                      {rd.type && (
+                        <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 font-medium">
+                          {rd.type}
+                        </span>
+                      )}
+                    </div>
+
+                    {rd.description && (
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pl-8">
+                        {rd.description}
+                      </p>
+                    )}
+
+                    {(rd.start_date || rd.end_date) && (
+                      <div className="pl-8 pt-1 flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-500">
+                        {rd.start_date && (
+                          <span>🗓️ Start: {new Date(rd.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        )}
+                        {rd.end_date && (
+                          <span>→ Deadline: {new Date(rd.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Event Schedule & Timeline */}
           {stages.length > 0 && (
             <div className="pt-6 border-t border-zinc-900 mt-6">
@@ -1412,6 +1477,42 @@ function HackathonDetailContent() {
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Prize Pool</p>
                     <p className="text-xs font-semibold text-white break-words whitespace-pre-wrap">
                       {formatPrizeDisplay(hackathon.prize_pool, hackathon.currency)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Participant Team Sizes */}
+              <div className="flex items-start gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a5.97 5.97 0 00-.942 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Team Size Rule</p>
+                  <p className="text-xs font-semibold text-white break-words">
+                    {hackathon.min_team_size === 1 && hackathon.max_team_size === 1
+                      ? "👤 Solo Participation"
+                      : hackathon.min_team_size && hackathon.max_team_size
+                      ? `👥 ${hackathon.min_team_size} – ${hackathon.max_team_size} Members`
+                      : "👥 1 – 4 Members (Default)"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Hackathon Rounds Count */}
+              {hackathon.rounds_count && hackathon.rounds_count > 0 && (
+                <div className="flex items-start gap-2.5">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 003-3V8.25a3 3 0 00-3-3h-9a3 3 0 00-3 3v7.5a3 3 0 003 3m9 0v-1.5a1.5 1.5 0 00-1.5-1.5h-6a1.5 1.5 0 00-1.5 1.5v1.5m6-10.5h-6" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase">Hackathon Rounds</p>
+                    <p className="text-xs font-semibold text-white break-words">
+                      🏆 {hackathon.rounds_count} {hackathon.rounds_count === 1 ? "Round" : "Rounds"}
                     </p>
                   </div>
                 </div>

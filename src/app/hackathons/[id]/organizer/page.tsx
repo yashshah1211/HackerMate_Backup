@@ -18,6 +18,10 @@ type Hackathon = {
   prize_pool: string | null;
   currency?: string | null;
   max_participants: number | null;
+  min_team_size?: number | null;
+  max_team_size?: number | null;
+  rounds_count?: number | null;
+  rounds_info?: any | null;
   organizer_id: string | null;
   type: string | null;
 };
@@ -540,7 +544,7 @@ export default function OrganizerPortalPage() {
         </div>
 
         {/* Stats & Capacity Banners Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="p-5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 text-lg">
               ✓
@@ -571,6 +575,23 @@ export default function OrganizerPortalPage() {
               <span className="text-xs text-zinc-400 font-mono uppercase block">Matched Teams</span>
               <span className="text-xl font-bold text-white">
                 {registrations.filter((r) => r.teams !== null).length}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800/60 flex items-center justify-center text-purple-700 dark:text-purple-400 text-lg">
+              🏆
+            </div>
+            <div>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase block">Rounds & Team Rules</span>
+              <span className="text-base font-bold text-zinc-900 dark:text-white block">
+                {hackathon?.rounds_count || 1} {(hackathon?.rounds_count || 1) === 1 ? "Round" : "Rounds"}
+              </span>
+              <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-semibold">
+                {hackathon?.min_team_size === 1 && hackathon?.max_team_size === 1
+                  ? "Solo Only"
+                  : `${hackathon?.min_team_size || 1}–${hackathon?.max_team_size || 4} Members`}
               </span>
             </div>
           </div>
