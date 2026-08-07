@@ -12,10 +12,20 @@ export type PartnerSlide = {
   ctaText: string;
   href: string;
   gradient: string;
-  logoType: "gamnexis" | "axcentra" | "morrow" | "orvix";
+  logoType: "aethos" | "gamnexis" | "axcentra" | "morrow" | "orvix";
 };
 
 const PARTNER_SLIDES: PartnerSlide[] = [
+  {
+    id: "aethos",
+    tag: "FEATURED PARTNER HACKATHON",
+    title: "HackerMate × ÆTHOS — Day Zero",
+    description: "Build next-gen AI, Web3, & Open Innovation solutions! Official national hackathon by Alpha Forge. Connect with compatible builders, form squads, & build.",
+    ctaText: "Explore ÆTHOS Portal",
+    href: "/partners/aethos",
+    gradient: "from-[#F59E0B] via-red-500 to-[#EF4444]",
+    logoType: "aethos",
+  },
   {
     id: "orvix",
     tag: "FEATURED NATIONAL ONLINE HACKATHON",
@@ -125,7 +135,23 @@ export default function PartnerBannerCarousel() {
 
             {/* Custom Partner Logo Badges */}
             <div className="flex items-center gap-2 pl-1 border-l border-zinc-200 dark:border-zinc-800">
-              {currentSlide.logoType === "orvix" ? (
+              {currentSlide.logoType === "aethos" ? (
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/partners/aethos-logo.jpg"
+                    alt="ÆTHOS Day Zero Logo"
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm border border-amber-500/30"
+                  />
+                  <img
+                    src="/partners/alpha-forge-logo.jpg"
+                    alt="Alpha Forge Logo"
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm border border-amber-500/30"
+                  />
+                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-lg md:text-xl font-mono">
+                    ÆTHOS
+                  </span>
+                </div>
+              ) : currentSlide.logoType === "orvix" ? (
                 <div className="flex items-center gap-2">
                   <img
                     src="/partners/orvix-logo-cropped.png"

@@ -355,6 +355,8 @@ function PartnerPageContent() {
                   ? "STAMPERS"
                   : slug === "gamnexis"
                   ? "GAMNEXIS"
+                  : slug === "aethos" || slug === "aethos-day-zero"
+                  ? "ÆTHOS — DAY ZERO"
                   : slug === "morrow" || slug === "mnm"
                   ? "MORROW 1.0"
                   : partner.partner_name.replace(/^HackerMate\s*x\s*/i, "").split(" ")[0].toUpperCase()}
@@ -366,11 +368,13 @@ function PartnerPageContent() {
                 <img
                   src={partner.logo_url}
                   alt={`${partner.partner_name} Logo`}
-                  className="h-12 sm:h-16 w-auto object-contain shrink-0"
+                  className="h-12 sm:h-16 w-auto object-contain shrink-0 rounded-xl shadow-md"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     if (slug === "axcentra") {
                       target.src = "/partners/axcentra-icon-only-transparent.png";
+                    } else if (slug === "aethos" || slug === "aethos-day-zero") {
+                      target.src = "/partners/aethos-logo.jpg";
                     } else if (slug === "morrow" || slug === "mnm") {
                       target.src = "/partners/morrow-icon.png";
                     } else {
@@ -383,6 +387,12 @@ function PartnerPageContent() {
                   <img
                     src="/partners/morrow-icon.png"
                     alt="Morrow Logo"
+                    className="h-12 sm:h-14 w-auto object-contain shrink-0 rounded-xl"
+                  />
+                ) : (slug === "aethos" || slug === "aethos-day-zero") ? (
+                  <img
+                    src="/partners/aethos-logo.jpg"
+                    alt="ÆTHOS Logo"
                     className="h-12 sm:h-14 w-auto object-contain shrink-0 rounded-xl"
                   />
                 ) : (
