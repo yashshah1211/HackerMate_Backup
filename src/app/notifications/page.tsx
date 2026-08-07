@@ -171,6 +171,44 @@ function NotificationsContent() {
     };
   }, []);
 
+async function resolveNotificationLink(n: Notification, userInvites: any[]): Promise<string | null> {
+  if (n.link && n.link.startsWith("/teams/")) {
+    return n.link;
+  }
+
+  const lowerMsg = n.message.toLowerCase();
+  if (lowerMsg.includes("invited") || lowerMsg.includes("invite")) {
+    // 1. Try matching with user's team_invites
+    for (const inv of userInvites) {
+      if (inv.teams?.name && lowerMsg.includes(inv.teams.name.toLowerCase())) {
+        return `/teams/${inv.team_id}`;
+      }
+    }
+
+    // 2. Try extracting team name from "invited to join <Team Name>"
+    const match = n.message.match(/invited\s+to\s+join\s+(.+)$/i);
+    if (match && match[1]) {
+      const teamName = match[1].trim();
+      const { data: matchedTeams } = await supabase
+        .from("teams")
+        .select("id")
+        .ilike("name", teamName)
+        .limit(1);
+
+      if (matchedTeams && matchedTeams.length > 0) {
+        return `/teams/${matchedTeams[0].id}`;
+      }
+    }
+
+    // 3. Fallback: if user has 1 invite, return that team link
+    if (userInvites.length > 0 && userInvites[0].team_id) {
+      return `/teams/${userInvites[0].team_id}`;
+    }
+  }
+
+  return n.link || (lowerMsg.includes("invite") ? "/invites" : null);
+}
+
   async function loadNotifications() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
@@ -184,7 +222,26 @@ function NotificationsContent() {
       .not("message", "ilike", "%sent you a message%")
       .not("message", "ilike", "%new message%")
       .order("created_at", { ascending: false });
-    if (!error) setNotifications(data || []);
+
+    if (error || !data) {
+      setLoading(false);
+      return;
+    }
+
+    // Fetch user's team_invites to resolve team links for invitation notifications
+    const { data: userInvites } = await supabase
+      .from("team_invites")
+      .select("team_id, status, teams(id, name)")
+      .eq("invited_user_id", user.id);
+
+    const resolvedNotifs = await Promise.all(
+      data.map(async (n) => {
+        const resolvedLink = await resolveNotificationLink(n, userInvites || []);
+        return { ...n, link: resolvedLink };
+      })
+    );
+
+    setNotifications(resolvedNotifs);
     setLoading(false);
   }
 
