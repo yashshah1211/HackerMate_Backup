@@ -833,12 +833,24 @@ function PartnerPageContent() {
                     >
                       <span>🔗 Share</span>
                     </button>
-                    <button
-                      onClick={() => handleProtectedAction(`/teams/${team.id}`)}
-                      className="btn btn-secondary btn-xs py-1.5 px-3 text-xs cursor-pointer"
-                    >
-                      View & Apply →
-                    </button>
+                    {(() => {
+                      const isUserTeamMember = Boolean(
+                        currentUserId &&
+                          (team.owner_id === currentUserId ||
+                            (team.team_members || []).some(
+                              (m: any) => m.user_id === currentUserId || m.profiles?.id === currentUserId
+                            ))
+                      );
+                      return (
+                        <button
+                          onClick={() => handleProtectedAction(`/teams/${team.id}`)}
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm font-semibold cursor-pointer inline-flex items-center"
+                          style={{ color: "#09090b" }}
+                        >
+                          {isUserTeamMember ? "View Team →" : "View & Apply →"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

@@ -1010,9 +1010,10 @@ function SIHTeamBuilderContent() {
 
                         <Link
                           href={`/teams/${team.id}`}
-                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm"
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm font-semibold inline-flex items-center"
+                          style={{ color: "#09090b" }}
                         >
-                          View & Apply →
+                          {isUserTeamMember ? "View Team →" : "View & Apply →"}
                         </Link>
                       </div>
                     </div>

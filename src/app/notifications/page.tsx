@@ -348,13 +348,15 @@ function NotifCard({
 }) {
   const router = useRouter();
   const meta = getNotifMeta(n.message);
+  const isInviteNotif = meta.label === "Invitation" || n.message.toLowerCase().includes("invited") || n.message.toLowerCase().includes("invite");
+  const targetLink = n.link || (isInviteNotif ? "/invites" : null);
 
   const handleCardClick = async () => {
     if (!n.is_read) {
       await markAsRead(n.id);
     }
-    if (n.link) {
-      router.push(n.link);
+    if (targetLink) {
+      router.push(targetLink);
     }
   };
 
@@ -405,16 +407,20 @@ function NotifCard({
 
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-            {n.link && (
+            {targetLink && (
               <button
                 onClick={async (e) => {
                   e.stopPropagation();
                   await markAsRead(n.id);
-                  if (n.link) router.push(n.link);
+                  if (targetLink) router.push(targetLink);
                 }}
-                className="text-[11px] font-semibold text-violet-400 hover:text-violet-300 border border-violet-500/30 hover:border-violet-400/50 bg-violet-500/10 hover:bg-violet-500/20 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm"
+                className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm ${
+                  isInviteNotif
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
+                    : "text-violet-400 hover:text-violet-300 border border-violet-500/30 hover:border-violet-400/50 bg-violet-500/10 hover:bg-violet-500/20"
+                }`}
               >
-                Open →
+                {isInviteNotif ? "View Team Overview →" : "Open →"}
               </button>
             )}
             {!n.is_read && (

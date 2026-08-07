@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 
@@ -215,10 +216,17 @@ export default function InvitesPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                  <Link
+                    href={`/teams/${invite.team_id}`}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 transition inline-flex items-center gap-1"
+                  >
+                    View Team Overview →
+                  </Link>
+
                   <button
                     onClick={() => acceptInvite(invite)}
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-lime btn-sm font-bold bg-[#B4F461] text-[#09090b] hover:bg-[#a3e64f]"
                   >
                     Accept
                   </button>
