@@ -181,7 +181,11 @@ export default function ProfilePage() {
         .then((resData) => {
           if (resData.success && resData.data) {
             setTrackRecordData(resData.data);
+            if (resData.data.profile?.email) {
+              setProfile((prev) => (prev ? { ...prev, email: resData.data.profile.email } : prev));
+            }
           }
+
         })
         .catch((err) => console.error("Failed to load track record data:", err));
 

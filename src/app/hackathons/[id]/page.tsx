@@ -493,9 +493,9 @@ function HackathonDetailContent() {
               college,
               avatar_url,
               skills,
-              email,
               is_available
             )
+
           `)
           .in("team_id", registeredTeamIds);
 

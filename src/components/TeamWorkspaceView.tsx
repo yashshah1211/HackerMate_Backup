@@ -917,6 +917,9 @@ export default function TeamWorkspaceView({
     }
 
     setSavingSubmission(true);
+    const hasContent = (submission.projectTitle || "").trim() || (submission.demoUrl || "").trim() || (submission.githubUrl || "").trim();
+    const completionStatus = hasContent ? "submitted" : "draft";
+
     try {
       const { error } = await supabase
         .from("team_submissions")
@@ -930,10 +933,12 @@ export default function TeamWorkspaceView({
             pitch_video_url: submission.pitchVideoUrl,
             slides_url: submission.slidesUrl,
             checklist: submission.checklist,
+            completion_status: completionStatus,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "team_id,hackathon_id" }
         );
+
 
       if (error) {
         showToast(error.message, "error");

@@ -161,11 +161,11 @@ function TeamDetailsContent() {
         profiles (
           id,
           full_name,
-          email,
           avatar_url,
           skills,
           gender
         )
+
       `)
       .eq("team_id", teamId);
 

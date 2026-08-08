@@ -110,10 +110,10 @@ function TeamWorkspaceContent() {
         profiles (
           id,
           full_name,
-          email,
           avatar_url,
           skills
         )
+
       `)
       .eq("team_id", teamId);
 

@@ -289,7 +289,8 @@ function PartnerPageContent() {
       // 4. Fetch Builders who are actively looking for a team for this hackathon
       const { data: regData } = await supabase
         .from("hackathon_registrations")
-        .select("user_id, looking_for_team, metadata, profiles(id, full_name, email, college, avatar_url, skills, is_available)")
+        .select("user_id, looking_for_team, metadata, profiles(id, full_name, college, avatar_url, skills, is_available)")
+
         .eq("hackathon_id", partnerData.hackathon_id)
         .eq("looking_for_team", true);
 
