@@ -644,7 +644,8 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
           
           {/* ── LEFT COLUMN: Summary, Actions & Links ── */}
-          <div className="lg:border-r lg:border-zinc-900 lg:pr-8 flex flex-col justify-between">
+          <div className="lg:border-r lg:border-zinc-900 lg:pr-8 flex flex-col">
+
             <div>
               {/* Avatar Frame with custom outline and offset */}
               <div className="relative w-28 h-28 mx-auto lg:mx-0 mb-6 group">
