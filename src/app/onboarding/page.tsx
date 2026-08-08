@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, normalizeCollege } from "@/lib/colleges";
 import { trackEvent, identifyUser } from "@/lib/posthog";
+
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "TailwindCSS",
@@ -108,7 +109,9 @@ export default function OnboardingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const finalCollege = college === "Other" ? customCollege.trim() : college.trim();
+    const rawCollege = college === "Other" ? customCollege.trim() : college.trim();
+    const finalCollege = normalizeCollege(rawCollege);
+
 
     if (!finalCollege) {
       showToast("Please select or enter your college / university", "warning");

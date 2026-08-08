@@ -114,3 +114,95 @@ export const COLLEGES = [
   // Fallback
   "Other"
 ];
+
+export const COLLEGE_EXACT_ALIASES: Record<string, string> = {
+  // TCET
+  "tcet": "TCET Mumbai (Thakur College of Engineering and Technology)",
+  "thakur college of engineering and technology": "TCET Mumbai (Thakur College of Engineering and Technology)",
+  "thakur college of engineering & technology": "TCET Mumbai (Thakur College of Engineering and Technology)",
+  "thakur college of engineering": "TCET Mumbai (Thakur College of Engineering and Technology)",
+  
+  // DJSCE
+  "djsce": "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)",
+  "dwarkadas j sanghvi college of engineering": "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)",
+  "dwarkadas j. sanghvi college of engineering": "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)",
+  "dwarkadas j.  sanghvi college of engineering": "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)",
+  "dwarkadas sanghvi": "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)",
+
+  // VJTI
+  "vjti": "VJTI Mumbai (Veermata Jijabai Technological Institute)",
+  "veermata jijabai technological institute": "VJTI Mumbai (Veermata Jijabai Technological Institute)",
+
+  // SPIT
+  "spit": "SPIT Mumbai (Sardar Patel Institute of Technology)",
+  "sardar patel institute of technology": "SPIT Mumbai (Sardar Patel Institute of Technology)",
+
+  // TSEC
+  "tsec": "TSEC Mumbai (Thadomal Shahani Engineering College)",
+  "thadomal shahani engineering college": "TSEC Mumbai (Thadomal Shahani Engineering College)",
+
+  // VESIT
+  "vesit": "VESIT Mumbai (Vivekanand Education Society's Institute of Technology)",
+  "vivekanand education society's institute of technology": "VESIT Mumbai (Vivekanand Education Society's Institute of Technology)",
+
+  // KJSIT
+  "kjsit": "KJSIT Mumbai (K. J. Somaiya Institute of Technology)",
+  "k j somaiya institute of technology": "KJSIT Mumbai (K. J. Somaiya Institute of Technology)",
+  "kj somaiya institute of technology": "KJSIT Mumbai (K. J. Somaiya Institute of Technology)",
+
+  // COEP
+  "coep": "COEP Technological University, Pune",
+  "college of engineering pune": "COEP Technological University, Pune",
+
+  // PICT
+  "pict": "PICT Pune (Pune Institute of Computer Technology)",
+  "pune institute of computer technology": "PICT Pune (Pune Institute of Computer Technology)",
+
+  // VIT Pune
+  "vit pune": "VIT Pune (Vishwakarma Institute of Technology)",
+  "vishwakarma institute of technology": "VIT Pune (Vishwakarma Institute of Technology)",
+
+  // IITs
+  "iitb": "IIT Bombay",
+  "iit bombay": "IIT Bombay",
+  "iitd": "IIT Delhi",
+  "iit delhi": "IIT Delhi",
+  "iitm": "IIT Madras",
+  "iit madras": "IIT Madras",
+
+  // DTU
+  "dtu": "DTU Delhi",
+  "delhi technological university": "DTU Delhi",
+};
+
+/**
+ * Normalizes a given college input string.
+ * EXPLICIT RULE: Collapses all multiple consecutive whitespace characters (\s+)
+ * into a single space and trims leading/trailing whitespace before performing
+ * an EXACT-MATCH ONLY (case-insensitive) check against the canonical list and alias dictionary.
+ * 
+ * If no exact match is found, the cleaned/collapsed custom input is preserved untouched.
+ */
+export function normalizeCollege(input?: string | null): string {
+  if (!input) return "";
+  // Explicit Rule: Collapse multiple spaces & trim
+  const collapsed = input.replace(/\s+/g, " ").trim();
+  if (!collapsed) return "";
+
+  // 1. Direct match against canonical list (case-insensitive)
+  const canonicalMatch = COLLEGES.find(
+    (c) => c.toLowerCase() === collapsed.toLowerCase()
+  );
+  if (canonicalMatch) return canonicalMatch;
+
+  // 2. Exact match lookup in alias dictionary
+  const lowerKey = collapsed.toLowerCase();
+  if (COLLEGE_EXACT_ALIASES[lowerKey]) {
+    return COLLEGE_EXACT_ALIASES[lowerKey];
+  }
+
+  // 3. Fallback: Return collapsed input as-is for unlisted custom colleges
+  return collapsed;
+}
+
+

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+
 
 type Props = {
   isOpen: boolean;
@@ -83,7 +84,9 @@ export default function SIHQuickOnboardingModal({
     setErrorMsg("");
 
     try {
-      const finalCollege = college.trim() || collegeSearch.trim();
+      const rawCollege = college.trim() || collegeSearch.trim();
+      const finalCollege = normalizeCollege(rawCollege);
+
 
       const { data, error } = await supabase
         .from("profiles")

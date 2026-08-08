@@ -7,7 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+
 
 function EditProfileContent() {
   const router = useRouter();
@@ -210,10 +211,12 @@ function EditProfileContent() {
     const { error } = await supabase
       .from("profiles")
       .update({
-        college: 
+        college: normalizeCollege(
           college === "Other"
             ? customCollege
-            : college,
+            : college
+        ),
+
         bio: bio,
         gender: gender.trim() || null,
         github_url: githubUrl,

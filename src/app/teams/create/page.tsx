@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+
 import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import { trackEvent } from "@/lib/posthog";
@@ -176,7 +177,8 @@ function CreateTeamForm() {
       p_name: name.trim(),
       p_description: finalDesc,
       p_max_members: maxMembers,
-      p_college: college ? (college === "Other" ? customCollege.trim() : college) : null,
+      p_college: college ? normalizeCollege(college === "Other" ? customCollege.trim() : college) : null,
+
       p_hackathon_id: hackathonId || null,
       p_hackathon_name: selectedHackathon?.name || null,
       p_skills: selectedSkills,

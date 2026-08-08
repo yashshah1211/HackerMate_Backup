@@ -4,7 +4,8 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { parseGithubUsername } from "@/lib/github";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+
 
 interface QuickOnboardingModalProps {
   isOpen: boolean;
@@ -52,7 +53,9 @@ export default function QuickOnboardingModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const finalCollege = college === "Other" ? customCollege.trim() : college.trim();
+    const rawCollege = college === "Other" ? customCollege.trim() : college.trim();
+    const finalCollege = normalizeCollege(rawCollege);
+
 
     if (!finalCollege) {
       showToast("Please select your college / institution.", "warning");
