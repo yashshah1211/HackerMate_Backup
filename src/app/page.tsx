@@ -457,8 +457,11 @@ export default function Home() {
                       realTeams.map((t) => (
                         <div key={t.id} className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
                           <span className="text-[9px] font-mono text-[#B4F461] uppercase block truncate">
-                            {t.team_hackathons?.[0]?.hackathons?.name || "Active Team"}
+                            {t.team_hackathons && t.team_hackathons.length > 0
+                              ? t.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
+                              : "Active Team"}
                           </span>
+
                           <p className="text-xs text-white font-medium mt-1 truncate">{t.name}</p>
                           <p className="text-[10px] text-zinc-500 mt-1 line-clamp-2">
                             {t.description || "Looking for teammates"}

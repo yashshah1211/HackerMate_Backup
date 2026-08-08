@@ -440,9 +440,10 @@ export default function TeamOverviewView({
           </div>
 
           <Link
-            href={`/teams/${team.id}/workspace`}
+            href={`/teams/${team.id}/workspace${team.hackathon_id ? `?hackathon_id=${team.hackathon_id}` : ""}`}
             className="btn btn-lime w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-[#09090b] dark:text-[#09090b] font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 shrink-0 cursor-pointer"
           >
+
             <span>Open Workspace</span>
           </Link>
         </div>
@@ -711,9 +712,10 @@ export default function TeamOverviewView({
 
             {canAccessWorkspace && (
               <Link
-                href={`/teams/${team.id}/workspace`}
+                href={`/teams/${team.id}/workspace${team.hackathon_id ? `?hackathon_id=${team.hackathon_id}` : ""}`}
                 className="btn btn-lime w-full mb-2.5 flex items-center justify-center gap-2 font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-[#09090b] dark:text-[#09090b] border border-[#B4F461]/40 cursor-pointer py-2 text-xs rounded-xl shadow-md shadow-[#B4F461]/15"
               >
+
                 <span>Open Workspace</span>
               </Link>
             )}

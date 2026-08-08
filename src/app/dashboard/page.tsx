@@ -60,8 +60,10 @@ type Team = {
   memberCount?: number;
   members?: TeamMember[];
   hackathons: { name: string } | null;
+  team_hackathons?: { hackathon_id: string; hackathons: { id: string; name: string } | null }[];
   owner_id?: string;
 };
+
 
 type RecentActivity = {
   id: string;
@@ -331,7 +333,7 @@ function DashboardContent() {
         max_members: number;
         owner_id: string;
         hackathons: { name: string } | null;
-        team_hackathons?: { hackathons: { name: string } | null }[];
+        team_hackathons?: { hackathon_id: string; hackathons: { id: string; name: string } | null }[];
         memberCount: number;
         members: TeamMember[];
       }
@@ -339,7 +341,7 @@ function DashboardContent() {
       if (teamIds.length > 0) {
         const { data: batchTeams, error: batchErr } = await supabase
           .from("teams")
-          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathons(name))")
+          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathon_id, hackathons(id, name))")
           .in("id", teamIds);
 
         if (batchErr) {
@@ -351,7 +353,7 @@ function DashboardContent() {
             hackathon_id: string | null;
             max_members: number;
             owner_id: string;
-            team_hackathons: { hackathons: { name: string } | null }[];
+            team_hackathons: { hackathon_id: string; hackathons: { id: string; name: string } | null }[];
             team_members: TeamMember[];
           }[]).map((d) => {
             const members = d.team_members || [];
@@ -366,12 +368,14 @@ function DashboardContent() {
               max_members: d.max_members || 5,
               owner_id: d.owner_id,
               hackathons: hackathonsData,
+              team_hackathons: d.team_hackathons,
               memberCount: memberCount || 0,
               members: members,
             };
           });
         }
       }
+
 
       setActiveTeams(teamsWithDetails);
 
@@ -929,7 +933,10 @@ function DashboardContent() {
                   <div
                     key={team.id}
                     className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
-                    onClick={() => router.push(`/teams/${team.id}/workspace`)}
+                    onClick={() => {
+                      const firstHackathonId = team.team_hackathons?.[0]?.hackathon_id || team.hackathon_id;
+                      router.push(`/teams/${team.id}/workspace${firstHackathonId ? `?hackathon_id=${firstHackathonId}` : ''}`);
+                    }}
                   >
                     <div style={{ flex: 1 }}>
                       <div className="team-name">{team.name}</div>
@@ -942,8 +949,15 @@ function DashboardContent() {
                           }}
                         ></div>
                       </div>
-                      <div className="team-meta">{percent}% tasks done · {team.hackathons?.name || "Active Project"}</div>
+                      <div className="team-meta">
+                        {percent}% tasks done · {
+                          team.team_hackathons && team.team_hackathons.length > 0
+                            ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
+                            : team.hackathons?.name || "Active Project"
+                        }
+                      </div>
                     </div>
+
                     <div className="stack-avatars">
                       {team.members?.slice(0, 3).map((m, mIdx) => {
                         const initials = m.profiles?.full_name

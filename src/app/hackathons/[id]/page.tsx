@@ -168,7 +168,8 @@ function HackathonDetailContent() {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string; active_hackathon?: { id: string; name: string; end_date: string | null } | null }[]>([]);
+  const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string; active_hackathon?: { id: string; name: string; end_date: string | null } | null; is_linked_to_this_hackathon?: boolean }[]>([]);
+
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [buildersList, setBuildersList] = useState<BuilderWithMatch[]>([]);
@@ -361,50 +362,38 @@ function HackathonDetailContent() {
           .eq("owner_id", user.id);
 
         const teamIds = (ownedTeams || []).map((t) => t.id);
-        const activeHackathonsByTeam: Record<string, { id: string; name: string; end_date: string | null }> = {};
+        const linkedHackathonsByTeam: Record<string, string[]> = {};
 
         if (teamIds.length > 0) {
           const { data: allRelations } = await supabase
             .from("team_hackathons")
-            .select(`
-              team_id,
-              hackathon_id,
-              hackathons (
-                id,
-                name,
-                end_date
-              )
-            `)
+            .select("team_id, hackathon_id")
             .in("team_id", teamIds);
 
           if (allRelations) {
-            const now = new Date();
             allRelations.forEach((rel: any) => {
-              const h = rel.hackathons;
-              if (h) {
-                const hasEnded = h.end_date ? new Date(h.end_date) < now : false;
-                if (!hasEnded) {
-                  activeHackathonsByTeam[rel.team_id] = {
-                    id: h.id,
-                    name: h.name,
-                    end_date: h.end_date,
-                  };
-                }
+              if (!linkedHackathonsByTeam[rel.team_id]) {
+                linkedHackathonsByTeam[rel.team_id] = [];
+              }
+              if (rel.hackathon_id) {
+                linkedHackathonsByTeam[rel.team_id].push(rel.hackathon_id);
               }
             });
           }
         }
 
         const enrichedOwnedTeams = (ownedTeams || []).map((t) => {
-          const activeH = activeHackathonsByTeam[t.id];
+          const linkedIds = linkedHackathonsByTeam[t.id] || [];
+          const isLinkedToThisHackathon = linkedIds.includes(hackathonId);
           return {
             ...t,
-            active_hackathon: activeH || null,
-            hackathon_id: activeH && activeH.id === hackathonId ? hackathonId : null,
+            is_linked_to_this_hackathon: isLinkedToThisHackathon,
+            hackathon_id: isLinkedToThisHackathon ? hackathonId : null,
           };
         });
 
         setUserOwnedTeams(enrichedOwnedTeams);
+
 
         const { data: currentUserProfile } = await supabase
           .from("profiles")
@@ -752,11 +741,12 @@ function HackathonDetailContent() {
 
     try {
       const teamObj = userOwnedTeams.find((t) => t.id === selectedTeam);
-      if (teamObj?.active_hackathon) {
-        showToast(`This team is already registered for an active hackathon: ${teamObj.active_hackathon.name}.`, "error");
+      if (teamObj?.is_linked_to_this_hackathon) {
+        showToast(`This team is already registered for ${hackathon.name}.`, "error");
         setInviteLoading(false);
         return;
       }
+
 
       const { error } = await supabase
         .from("team_hackathons")
@@ -2378,16 +2368,16 @@ function HackathonDetailContent() {
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
-                .filter((t) => !t.active_hackathon || t.active_hackathon.id !== hackathon.id)
+                .filter((t) => !t.is_linked_to_this_hackathon)
                 .map((team) => (
                   <option 
                     key={team.id} 
                     value={team.id} 
-                    disabled={!!team.active_hackathon}
                   >
-                    {team.name} {team.active_hackathon ? ` (Active: ${team.active_hackathon.name})` : ""}
+                    {team.name}
                   </option>
                 ))}
+
             </select>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
@@ -2430,16 +2420,16 @@ function HackathonDetailContent() {
             >
               <option value="">Choose your team</option>
               {userOwnedTeams
-                .filter((t) => !t.active_hackathon || t.active_hackathon.id !== hackathon.id)
+                .filter((t) => !t.is_linked_to_this_hackathon)
                 .map((team) => (
                   <option 
                     key={team.id} 
                     value={team.id} 
-                    disabled={!!team.active_hackathon}
                   >
-                    {team.name} {team.active_hackathon ? ` (Active: ${team.active_hackathon.name})` : ""}
+                    {team.name}
                   </option>
                 ))}
+
             </select>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
@@ -2482,16 +2472,16 @@ function HackathonDetailContent() {
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
-                .filter((t) => !t.active_hackathon || t.active_hackathon.id !== hackathon.id)
+                .filter((t) => !t.is_linked_to_this_hackathon)
                 .map((team) => (
                   <option 
                     key={team.id} 
                     value={team.id} 
-                    disabled={!!team.active_hackathon}
                   >
-                    {team.name} {team.active_hackathon ? ` (Active: ${team.active_hackathon.name})` : ""}
+                    {team.name}
                   </option>
                 ))}
+
             </select>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">

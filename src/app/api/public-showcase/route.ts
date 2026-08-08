@@ -91,7 +91,9 @@ export async function GET(req: NextRequest) {
           { count: "exact" }
         )
         .in("team_id", teamIds)
+        .eq("hackathon_id", hackathonId)
         .in("completion_status", ["submitted", "completed"]);
+
 
       if (searchQuery) {
         query = query.or(`project_title.ilike.%${searchQuery}%,demo_url.ilike.%${searchQuery}%,github_url.ilike.%${searchQuery}%`);

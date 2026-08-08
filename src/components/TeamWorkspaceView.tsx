@@ -20,7 +20,9 @@ type Team = {
   roles_needed: string[] | null;
   is_recruiting?: boolean;
   github_repo_url?: string | null;
+  hackathon_id?: string | null;
 };
+
 
 type Member = {
   id: string;
@@ -126,18 +128,74 @@ export default function TeamWorkspaceView({
   };
 
   // GitHub Sync Tab States
+  const [activeGithubRepoUrl, setActiveGithubRepoUrl] = useState<string | null>(team.github_repo_url || null);
   const [githubRepoUrlInput, setGithubRepoUrlInput] = useState(team.github_repo_url || "");
   const [commits, setCommits] = useState<any[]>([]);
   const [loadingCommits, setLoadingCommits] = useState(false);
   const [errorCommits, setErrorCommits] = useState<string | null>(null);
 
+  // Load Hackathon-Scoped GitHub Repo
   useEffect(() => {
-    setGithubRepoUrlInput(team.github_repo_url || "");
-  }, [team.github_repo_url]);
+    const loadGithubRepo = async () => {
+      if (!team.id) return;
+      const primaryHackathon = listedHackathons && listedHackathons[0];
+      const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
+
+      if (currentHackathonId) {
+        const { data } = await supabase
+          .from("team_github_repos")
+          .select("github_repo_url")
+          .eq("team_id", team.id)
+          .eq("hackathon_id", currentHackathonId)
+          .maybeSingle();
+
+        if (data) {
+          setActiveGithubRepoUrl(data.github_repo_url || null);
+          setGithubRepoUrlInput(data.github_repo_url || "");
+          return;
+        }
+
+        // If no row exists for this hackathon track yet, GitHub repo is not linked for this event
+        setActiveGithubRepoUrl(null);
+        setGithubRepoUrlInput("");
+        return;
+      }
+
+      setActiveGithubRepoUrl(team.github_repo_url || null);
+      setGithubRepoUrlInput(team.github_repo_url || "");
+    };
+
+    loadGithubRepo();
+  }, [team.id, team.hackathon_id, listedHackathons, team.github_repo_url]);
 
   const handleLinkGithubRepo = async (url: string) => {
     if (!url.trim()) return;
+    const primaryHackathon = listedHackathons && listedHackathons[0];
+    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
+
     try {
+      if (currentHackathonId) {
+        const { error } = await supabase
+          .from("team_github_repos")
+          .upsert(
+            {
+              team_id: team.id,
+              hackathon_id: currentHackathonId,
+              github_repo_url: url.trim(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "team_id,hackathon_id" }
+          );
+
+        if (error) {
+          showToast(error.message, "error");
+        } else {
+          setActiveGithubRepoUrl(url.trim());
+          showToast("GitHub repository linked for this track!", "success");
+        }
+        return;
+      }
+
       const { error } = await supabase
         .from("teams")
         .update({ github_repo_url: url.trim() })
@@ -146,6 +204,7 @@ export default function TeamWorkspaceView({
       if (error) {
         showToast(error.message, "error");
       } else {
+        setActiveGithubRepoUrl(url.trim());
         showToast("GitHub repository linked successfully!", "success");
         if (refreshTeam) refreshTeam();
       }
@@ -163,17 +222,26 @@ export default function TeamWorkspaceView({
       cancelText: "Cancel",
       onConfirm: async () => {
         try {
-          const { error } = await supabase
-            .from("teams")
-            .update({ github_repo_url: null })
-            .eq("id", team.id);
+          const primaryHackathon = listedHackathons && listedHackathons[0];
+          const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
 
-          if (error) {
-            showToast(error.message, "error");
+          if (currentHackathonId) {
+            await supabase
+              .from("team_github_repos")
+              .delete()
+              .eq("team_id", team.id)
+              .eq("hackathon_id", currentHackathonId);
           } else {
-            showToast("GitHub repository disconnected.", "info");
-            if (refreshTeam) refreshTeam();
+            await supabase
+              .from("teams")
+              .update({ github_repo_url: null })
+              .eq("id", team.id);
           }
+
+          setActiveGithubRepoUrl(null);
+          setGithubRepoUrlInput("");
+          showToast("GitHub repository disconnected.", "info");
+          if (refreshTeam) refreshTeam();
         } catch (err) {
           console.error(err);
           showToast("Failed to disconnect repository.", "error");
@@ -182,8 +250,9 @@ export default function TeamWorkspaceView({
     });
   };
 
+
   const fetchCommits = async () => {
-    if (!team.github_repo_url) {
+    if (!activeGithubRepoUrl) {
       setCommits([]);
       return;
     }
@@ -192,9 +261,9 @@ export default function TeamWorkspaceView({
     setErrorCommits(null);
 
     try {
-      const cleanUrl = team.github_repo_url.endsWith("/")
-        ? team.github_repo_url.slice(0, -1)
-        : team.github_repo_url;
+      const cleanUrl = activeGithubRepoUrl.endsWith("/")
+        ? activeGithubRepoUrl.slice(0, -1)
+        : activeGithubRepoUrl;
       const match = cleanUrl.match(new RegExp("github\\.com/([^/]+)/([^/]+)"));
       if (!match) {
         setErrorCommits("Invalid GitHub URL format. Use https://github.com/owner/repo");
@@ -235,7 +304,8 @@ export default function TeamWorkspaceView({
       fetchCommits();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceTab, team.github_repo_url]);
+  }, [workspaceTab, activeGithubRepoUrl]);
+
 
   // Project Submission Tab State
   type ChecklistItem = {
@@ -341,12 +411,14 @@ export default function TeamWorkspaceView({
   type LinkType = {
     id: string;
     team_id: string;
+    hackathon_id?: string | null;
     title: string;
     url: string;
     category: "design" | "repo" | "document" | "other";
     created_by: string | null;
     created_at: string;
   };
+
   const [links, setLinks] = useState<LinkType[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [showAddLinkModal, setShowAddLinkModal] = useState(false);
@@ -457,18 +529,26 @@ export default function TeamWorkspaceView({
   // Fetch Resources (Links)
   const fetchLinks = async () => {
     setLoadingLinks(true);
+    const primaryHackathon = listedHackathons && listedHackathons[0];
+    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
+
     const { data, error } = await supabase
       .from("team_links")
       .select("*")
       .eq("team_id", team.id)
       .order("created_at", { ascending: false });
+
     if (error) {
       console.error(error);
     } else {
-      setLinks(data || []);
+      const filtered = (data || []).filter(
+        (l: any) => !l.hackathon_id || (currentHackathonId && l.hackathon_id === currentHackathonId)
+      );
+      setLinks(filtered);
     }
     setLoadingLinks(false);
   };
+
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -777,20 +857,27 @@ export default function TeamWorkspaceView({
   useEffect(() => {
     if (!team.id) return;
     
+    const primaryHackathon = listedHackathons && listedHackathons[0];
+    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
+
     const loadSubmission = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("team_submissions")
           .select("*")
-          .eq("team_id", team.id)
-          .maybeSingle();
+          .eq("team_id", team.id);
+
+        if (currentHackathonId) {
+          query = query.eq("hackathon_id", currentHackathonId);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) {
           console.error("Error loading team submissions:", error);
           return;
         }
 
-        const primaryHackathon = listedHackathons && listedHackathons[0];
         const parsedChecklist = parseHackathonRequirements(primaryHackathon?.description);
 
         if (data) {
@@ -818,23 +905,35 @@ export default function TeamWorkspaceView({
     };
 
     loadSubmission();
-  }, [team.id, listedHackathons]);
+  }, [team.id, team.hackathon_id, listedHackathons]);
 
   const handleSaveSubmission = async () => {
+    const primaryHackathon = listedHackathons && listedHackathons[0];
+    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
+
+    if (!currentHackathonId) {
+      showToast("Cannot save submission: No active hackathon linked to team.", "error");
+      return;
+    }
+
     setSavingSubmission(true);
     try {
       const { error } = await supabase
         .from("team_submissions")
-        .upsert({
-          team_id: team.id,
-          project_title: submission.projectTitle,
-          demo_url: submission.demoUrl,
-          github_url: submission.githubUrl,
-          pitch_video_url: submission.pitchVideoUrl,
-          slides_url: submission.slidesUrl,
-          checklist: submission.checklist,
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(
+          {
+            team_id: team.id,
+            hackathon_id: currentHackathonId,
+            project_title: submission.projectTitle,
+            demo_url: submission.demoUrl,
+            github_url: submission.githubUrl,
+            pitch_video_url: submission.pitchVideoUrl,
+            slides_url: submission.slidesUrl,
+            checklist: submission.checklist,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "team_id,hackathon_id" }
+        );
 
       if (error) {
         showToast(error.message, "error");
@@ -848,6 +947,7 @@ export default function TeamWorkspaceView({
       setSavingSubmission(false);
     }
   };
+
 
   const handleToggleChecklist = (itemId: string) => {
     setSubmission((prev) => ({
@@ -1012,6 +1112,8 @@ export default function TeamWorkspaceView({
   };
 
   // Add Link
+  const [linkScope, setLinkScope] = useState<"event" | "global">("event");
+
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!linkTitle.trim() || !linkUrl.trim()) return;
@@ -1021,11 +1123,15 @@ export default function TeamWorkspaceView({
       formattedUrl = `https://${formattedUrl}`;
     }
 
+    const primaryHackathon = listedHackathons && listedHackathons[0];
+    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
+
     setSavingLink(true);
     const { error } = await supabase
       .from("team_links")
       .insert({
         team_id: team.id,
+        hackathon_id: linkScope === "event" ? currentHackathonId : null,
         title: linkTitle.trim(),
         url: formattedUrl,
         category: linkCategory,
@@ -1044,6 +1150,7 @@ export default function TeamWorkspaceView({
     }
     setSavingLink(false);
   };
+
 
   // Delete Link
   const handleDeleteLink = async (linkId: string) => {
@@ -1542,14 +1649,26 @@ export default function TeamWorkspaceView({
           <div className="space-y-2 overflow-y-auto max-h-[140px] pr-0.5">
             {catLinks.map((link) => (
               <div key={link.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-900 hover:border-zinc-850 transition-colors group/link">
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-zinc-300 hover:text-white truncate font-medium flex-1 underline underline-offset-2"
-                >
-                  {link.title}
-                </a>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  {link.hackathon_id ? (
+                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20 shrink-0">
+                      Track
+                    </span>
+                  ) : (
+                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-zinc-800 text-zinc-400 shrink-0">
+                      Global
+                    </span>
+                  )}
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-zinc-300 hover:text-white truncate font-medium underline underline-offset-2"
+                  >
+                    {link.title}
+                  </a>
+                </div>
+
                 <button
                   onClick={() => handleDeleteLink(link.id)}
                   className="opacity-0 group-hover/link:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity shrink-0 cursor-pointer"
@@ -1711,9 +1830,32 @@ export default function TeamWorkspaceView({
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Event Track Cockpit — {team.name}
                 </span>
-                <h3 className="text-sm font-bold text-white tracking-tight leading-snug">
-                  {activeHackathon.name}
-                </h3>
+                {listedHackathons && listedHackathons.length > 1 ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-mono text-zinc-400">Switch Track:</span>
+                    <select
+                      value={activeHackathon.id}
+                      onChange={(e) => {
+                        const newHackathonId = e.target.value;
+                        const url = new URL(window.location.href);
+                        url.searchParams.set("hackathon_id", newHackathonId);
+                        window.location.href = url.toString();
+                      }}
+                      className="text-xs font-bold bg-zinc-900 border border-zinc-700 text-white rounded-lg px-2.5 py-1 focus:outline-none focus:border-zinc-500 cursor-pointer"
+                    >
+                      {listedHackathons.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          🏆 {h.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <h3 className="text-sm font-bold text-white tracking-tight leading-snug">
+                    {activeHackathon.name}
+                  </h3>
+                )}
+
                 <p className="text-[10px] text-zinc-500 font-medium">Chronological hackathon workspace coordination dashboard.</p>
               </div>
 
@@ -2641,7 +2783,7 @@ export default function TeamWorkspaceView({
             <div className="space-y-6 animate-fade-in text-left">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">GitHub Repository Sync</h3>
-                {team.github_repo_url && (
+                {activeGithubRepoUrl && (
                   <button
                     onClick={fetchCommits}
                     disabled={loadingCommits}
@@ -2655,7 +2797,8 @@ export default function TeamWorkspaceView({
                 )}
               </div>
 
-              {!team.github_repo_url ? (
+              {!activeGithubRepoUrl ? (
+
                 <div className="card card-static p-12 text-center flex flex-col items-center justify-center max-w-xl mx-auto border border-zinc-800 bg-zinc-950/40 rounded-2xl shadow-xl">
                   <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-4 shadow-inner">
                     <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -2797,13 +2940,14 @@ export default function TeamWorkspaceView({
                         <div>
                           <span className="text-[9px] font-mono text-zinc-500 uppercase block">GitHub URL</span>
                           <a
-                            href={team.github_repo_url}
+                            href={activeGithubRepoUrl || undefined}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs font-medium text-emerald-400 hover:underline break-all block mt-0.5"
                           >
-                            {team.github_repo_url}
+                            {activeGithubRepoUrl}
                           </a>
+
                         </div>
 
                         {isOwner && (
@@ -3390,6 +3534,19 @@ export default function TeamWorkspaceView({
                   <option value="document">Document / Slides</option>
                 </select>
               </div>
+
+              <div className="flex flex-col gap-1.5 text-left">
+                <label className="text-xs font-medium text-zinc-300">Link Visibility / Scope</label>
+                <select
+                  value={linkScope}
+                  onChange={(e) => setLinkScope(e.target.value as "event" | "global")}
+                  className="input text-xs px-4 cursor-pointer"
+                >
+                  <option value="event">🏆 This Event Track Only ({activeHackathon?.name || "Current Event"})</option>
+                  <option value="global">🌐 Global (Shared Across All Team Events)</option>
+                </select>
+              </div>
+
 
               <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">
                 <button

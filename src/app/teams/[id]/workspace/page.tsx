@@ -78,8 +78,15 @@ function TeamWorkspaceContent() {
       return;
     }
 
-    const linkedHackathonId = teamData.team_hackathons?.[0]?.hackathon_id || teamData.hackathon_id;
+    const requestedHackathonId = searchParams.get("hackathon_id");
+    const linkedHackathons = (teamData.team_hackathons || []).map((th: any) => th.hackathon_id).filter(Boolean);
+    const linkedHackathonId = 
+      (requestedHackathonId && linkedHackathons.includes(requestedHackathonId) ? requestedHackathonId : null) ||
+      teamData.team_hackathons?.[0]?.hackathon_id || 
+      teamData.hackathon_id;
+
     setTeam({ ...teamData, hackathon_id: linkedHackathonId });
+
 
     const {
       data: { user },
@@ -145,7 +152,13 @@ function TeamWorkspaceContent() {
       const list = hackData
         .map((h: any) => h.hackathons)
         .filter(Boolean);
+
+      if (linkedHackathonId) {
+        list.sort((a: any, b: any) => (a.id === linkedHackathonId ? -1 : b.id === linkedHackathonId ? 1 : 0));
+      }
+
       setListedHackathons(list);
+
     } else {
       setListedHackathons([]);
     }
