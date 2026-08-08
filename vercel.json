@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/sih-daily-pdf-report",
+      "schedule": "30 2 * * *"
+    },
+    {
       "path": "/api/cron/analytics-summary",
       "schedule": "30 3 * * *"
     },

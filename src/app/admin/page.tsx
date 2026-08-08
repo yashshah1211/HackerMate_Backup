@@ -316,7 +316,29 @@ function AdminContent() {
     }
   }
 
+  const [sendingSihPdf, setSendingSihPdf] = useState(false);
+
+
+  async function sendSIHPdfReport() {
+    setSendingSihPdf(true);
+    try {
+      const res = await fetch("/api/cron/sih-daily-pdf-report", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`SIH Daily PDF Report emailed to ${data.recipient || "yashshah7117@gmail.com"}!`, "success");
+      } else {
+        showToast(data.error || "Failed to dispatch SIH PDF report email.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send SIH PDF report", "error");
+    } finally {
+      setSendingSihPdf(false);
+    }
+  }
+
   const [deletedUserLogs, setDeletedUserLogs] = useState<{ id: string; user_id: string; email: string | null; full_name: string | null; college: string | null; deleted_at: string }[]>([]);
+
   const [loadingDeletedLogs, setLoadingDeletedLogs] = useState(false);
 
   async function loadDeletedUserLogs() {
@@ -3067,14 +3089,29 @@ function AdminContent() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={loadSIHStats}
-                disabled={loadingSihStats}
-                className="btn btn-secondary text-xs py-2 px-4 flex items-center gap-2 self-start md:self-auto shrink-0 cursor-pointer"
-              >
-                <span>🔄 Refresh Stats</span>
-              </button>
+              <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={sendSIHPdfReport}
+                  disabled={sendingSihPdf}
+                  className="btn text-xs py-2 px-3 flex items-center gap-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold cursor-pointer disabled:opacity-50 transition-all shadow-sm"
+                >
+                  {sendingSihPdf ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>📧 Email PDF Report</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={loadSIHStats}
+                  disabled={loadingSihStats}
+                  className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>🔄 Refresh Stats</span>
+                </button>
+              </div>
+
             </div>
 
             {loadingSihStats ? (
