@@ -493,21 +493,8 @@ function ConnectionsContent() {
             showToast(error.message, "error");
           } else {
             showToast(`Invite sent to ${promptUser.full_name}!`, "success");
-            // Fire email notification
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              fetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  senderId: user.id,
-                  recipientId: promptUser.id,
-                  type: "team_invite",
-                  teamId,
-                }),
-              }).catch((err) => console.error("Failed to send invite email:", err));
-            }
           }
+
         }}
       />
     )}

@@ -150,7 +150,8 @@ export async function GET(req: NextRequest) {
       .from("teams")
       .select("id, name, description, max_members, team_hackathons(hackathons(name))")
       .order("created_at", { ascending: false })
-      .limit(4);
+      .limit(6);
+
 
     return NextResponse.json({
       userCount: userCount ?? 0,

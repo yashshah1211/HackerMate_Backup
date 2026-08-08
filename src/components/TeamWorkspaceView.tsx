@@ -3617,20 +3617,8 @@ export default function TeamWorkspaceView({
                                 next.add(profile.id);
                                 return next;
                               });
-
-                              if (currentUserId) {
-                                fetch("/api/send-email", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    senderId: currentUserId,
-                                    recipientId: profile.id,
-                                    type: "team_invite",
-                                    teamId: team.id,
-                                  }),
-                                }).catch((err) => console.error("Failed to send fallback notification email:", err));
-                              }
                             }
+
                           } catch (err) {
                             console.error(err);
                             showToast("Failed to send invite", "error");

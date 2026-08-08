@@ -370,17 +370,6 @@ export default function ProfilePage() {
     });
     setConnectionLoading(false);
     setShowPitchModal(false);
-
-    // Trigger email alert
-    fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        senderId: currentUserId,
-        recipientId: profile.id,
-        type: "connection_request",
-      }),
-    }).catch((err) => console.error("Failed to send fallback notification email:", err));
   }
 
   async function acceptConnectionRequest() {
@@ -555,18 +544,6 @@ export default function ProfilePage() {
       setAlreadyInvited(true);
       setShowInviteModal(false);
       setSelectedTeam("");
-
-      // Trigger email alert
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          senderId: user.id,
-          recipientId: profile.id,
-          type: "team_invite",
-          teamId: selectedTeam,
-        }),
-      }).catch((err) => console.error("Failed to send fallback notification email:", err));
     } catch (err) {
       console.error(err);
       showToast("Failed to send invite", "error");
@@ -1376,19 +1353,6 @@ export default function ProfilePage() {
             } else {
               showToast(`Invite sent to ${profile.full_name}!`, "success");
               setPostAcceptPromptOpen(false);
-              // Fire email notification
-              if (currentUserId) {
-                fetch("/api/send-email", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    senderId: currentUserId,
-                    recipientId: profile.id,
-                    type: "team_invite",
-                    teamId,
-                  }),
-                }).catch((err) => console.error("Failed to send invite email:", err));
-              }
             }
           }}
         />

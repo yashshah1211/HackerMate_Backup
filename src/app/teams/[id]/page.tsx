@@ -364,21 +364,8 @@ function TeamDetailsContent() {
     showToast("Join request sent!", "success");
     setRequestSent(true);
     setRequestLoading(false);
-
-    // Trigger email alert (points to overview page)
-    if (team) {
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          senderId: user.id,
-          recipientId: team.owner_id,
-          type: "join_request",
-          teamId: teamId,
-        }),
-      }).catch((err) => console.error("Failed to send fallback notification email:", err));
-    }
   }
+
 
   async function unlinkHackathon(hackathonId: string) {
     if (!team) return;

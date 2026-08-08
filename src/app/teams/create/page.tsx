@@ -223,18 +223,8 @@ function CreateTeamForm() {
       } else {
         const label = inviteUserName || "your new connection";
         showToast(`Team created and invite sent to ${label}!`, "success");
-        // Fire invite email
-        fetch("/api/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            senderId: user.id,
-            recipientId: inviteUserId,
-            type: "team_invite",
-            teamId,
-          }),
-        }).catch((err) => console.error("Failed to send invite email:", err));
       }
+
     } else {
       showToast("Team created successfully!", "success");
     }
