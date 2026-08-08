@@ -814,19 +814,22 @@ export default function ProfilePage() {
 
             {/* Links and Contact Section */}
             {!isBlockedByMe && (
-              <div className="space-y-2 mt-8 pt-6 border-t border-zinc-900">
+              <div className="space-y-2 mt-6 pt-5 border-t border-zinc-900">
                 <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Links & Contact</p>
                 
                 {/* Email Link */}
-                <a
-                  href={`mailto:${profile.email}`}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/20 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all text-zinc-400 hover:text-white text-xs truncate"
-                >
-                  <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                  </svg>
-                  <span className="truncate">{profile.email}</span>
-                </a>
+                {profile.email && (
+                  <a
+                    href={`mailto:${profile.email}`}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/20 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all text-zinc-400 hover:text-white text-xs truncate"
+                  >
+                    <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                    <span className="truncate">{profile.email}</span>
+                  </a>
+                )}
+
 
                 {/* GitHub Link */}
                 {profile.github_url ? (
