@@ -15,7 +15,8 @@ import PartnerBannerCarousel from "@/components/PartnerBannerCarousel";
 
 type Profile = {
   id: string;
-  email: string;
+  email?: string | null;
+
   full_name: string;
   college: string;
   bio: string;
@@ -177,7 +178,8 @@ function DashboardContent() {
       // 1. Fetch current profile
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+
         .eq("id", user.id)
         .single();
 
@@ -215,7 +217,8 @@ function DashboardContent() {
         // 2. Fetch all other profiles for compatibility calculation
         const { data: otherProfiles } = await supabase
           .from("profiles")
-          .select("*")
+          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+
           .neq("id", user.id);
 
         if (otherProfiles) {
@@ -384,7 +387,8 @@ function DashboardContent() {
       // 5. Fetch stats counters dynamically
       const { count: buildersCount } = await supabase
         .from("profiles")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true });
+
 
       const { count: liveHacksCount } = await supabase
         .from("hackathons")

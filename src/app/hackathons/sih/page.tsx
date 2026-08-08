@@ -207,7 +207,7 @@ function SIHTeamBuilderContent() {
       // 3. Fetch Teams registered for SIH + User's own teams
       const { data: teamHackathonsData } = await supabase
         .from("team_hackathons")
-        .select("team_id, teams(*, team_members(*, profiles(*)))")
+        .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)))")
         .eq("hackathon_id", SIH_HACKATHON_ID);
 
       const parsedTeams: Team[] = (teamHackathonsData || [])
@@ -218,12 +218,12 @@ function SIHTeamBuilderContent() {
         // Also fetch user's own created or joined teams
         const { data: myTeamsData } = await supabase
           .from("teams")
-          .select("*, team_members(*, profiles(*))")
+          .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role))")
           .eq("owner_id", user.id);
 
         const { data: myMemberTeamsData } = await supabase
           .from("team_members")
-          .select("team_id, teams(*, team_members(*, profiles(*)))")
+          .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)))")
           .eq("user_id", user.id);
 
         const isForSIH = (t: any) => {
@@ -262,7 +262,7 @@ function SIHTeamBuilderContent() {
       // 4. Fetch Builders registered for SIH looking for team
       const { data: regData, error: regErr } = await supabase
         .from("hackathon_registrations")
-        .select("user_id, looking_for_team, profiles(*)")
+        .select("user_id, looking_for_team, profiles(id, full_name, avatar_url, college, skills, gender, role)")
         .eq("hackathon_id", SIH_HACKATHON_ID)
         .eq("looking_for_team", true);
 

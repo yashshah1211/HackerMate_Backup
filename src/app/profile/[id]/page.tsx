@@ -13,6 +13,8 @@ import ConnectPitchModal from "@/components/ConnectPitchModal";
 import PostAcceptanceTeamPrompt from "@/components/PostAcceptanceTeamPrompt";
 import { trackEvent } from "@/lib/posthog";
 import { moderateMessage } from "@/lib/safety";
+import BuilderTrackRecord, { TrackRecordData } from "@/components/BuilderTrackRecord";
+
 
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
@@ -127,6 +129,8 @@ export default function ProfilePage() {
   // ── Stats state ──
   const [connectionsCount, setConnectionsCount] = useState(0);
   const [teamsCount, setTeamsCount] = useState(0);
+  const [trackRecordData, setTrackRecordData] = useState<TrackRecordData | null>(null);
+
 
   async function loadConnectionState(myId: string, otherId: string) {
     const { data: existing } = await supabase
@@ -170,7 +174,17 @@ export default function ProfilePage() {
     } else {
       setProfile(data);
 
+      fetch(`/api/builder-track-record/${data.id}`)
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && resData.data) {
+            setTrackRecordData(resData.data);
+          }
+        })
+        .catch((err) => console.error("Failed to load track record data:", err));
+
       // Load statistics (connections count and teams count for this user id)
+
       const { count: connCount } = await supabase
         .from("friend_requests")
         .select("*", { count: "exact", head: true })
@@ -1093,7 +1107,15 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
+                {/* Builder Track Record Section */}
+                {trackRecordData && (
+                  <div className="animate-fade-in-up stagger-3">
+                    <BuilderTrackRecord data={trackRecordData} isOwner={isOwnProfile} />
+                  </div>
+                )}
+
                 {/* Verified Badges & Achievements Section */}
+
                 <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">

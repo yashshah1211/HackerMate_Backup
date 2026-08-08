@@ -28,7 +28,8 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
     if (activeUser) {
-      const { data } = await supabase.from("profiles").select("*").eq("id", activeUser.id).single();
+      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record").eq("id", activeUser.id).single();
+
       setProfile(data);
       // Immediately set user active status
       await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", activeUser.id);
