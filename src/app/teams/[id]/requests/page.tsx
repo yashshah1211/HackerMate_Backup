@@ -93,8 +93,9 @@ function TeamRequestsContent() {
         profiles (
           id,
           full_name,
-          email
+          avatar_url
         )
+
       `
       )
       .eq("team_id", teamId)
@@ -354,8 +355,9 @@ function TeamRequestsContent() {
                       {request.profiles?.full_name}
                     </h3>
                     <p className="text-xs text-zinc-500">
-                      {request.profiles?.email}
+                      Applicant
                     </p>
+
                   </div>
                 </div>
 
