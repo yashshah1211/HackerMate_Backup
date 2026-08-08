@@ -12,6 +12,8 @@ import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import ConnectPitchModal from "@/components/ConnectPitchModal";
 import PostAcceptanceTeamPrompt from "@/components/PostAcceptanceTeamPrompt";
 import { trackEvent } from "@/lib/posthog";
+import { moderateMessage } from "@/lib/safety";
+
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
 
@@ -333,12 +335,23 @@ export default function ProfilePage() {
 
   async function handleSendPitch(pitchMessage?: string) {
     if (!currentUserId || !profile) return;
+
+    if (pitchMessage && pitchMessage.trim()) {
+      const moderation = moderateMessage(pitchMessage.trim());
+      if (!moderation.isValid) {
+        showToast(moderation.error || "Message blocked due to inappropriate content.", "error");
+        return;
+      }
+      pitchMessage = moderation.sanitized;
+    }
+
     setConnectionLoading(true);
 
     const { data, error } = await supabase.rpc("send_connection_request", {
       p_receiver_id: profile.id,
       p_message: pitchMessage || null,
     });
+
 
     if (error) {
       console.error(error);
