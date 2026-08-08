@@ -1832,7 +1832,7 @@ export default function TeamWorkspaceView({
                 </span>
                 {listedHackathons && listedHackathons.length > 1 ? (
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-mono text-zinc-400">Switch Track:</span>
+                    <span className="text-[10px] font-mono text-[var(--text-tertiary)]">Switch Track:</span>
                     <select
                       value={activeHackathon.id}
                       onChange={(e) => {
@@ -1841,7 +1841,7 @@ export default function TeamWorkspaceView({
                         url.searchParams.set("hackathon_id", newHackathonId);
                         window.location.href = url.toString();
                       }}
-                      className="text-xs font-bold bg-zinc-900 border border-zinc-700 text-white rounded-lg px-2.5 py-1 focus:outline-none focus:border-zinc-500 cursor-pointer"
+                      className="text-xs font-bold bg-[var(--surface-1)] border border-[var(--card-border)] text-[var(--text-primary)] rounded-lg px-2.5 py-1 focus:outline-none hover:border-[var(--card-hover-border)] cursor-pointer"
                     >
                       {listedHackathons.map((h) => (
                         <option key={h.id} value={h.id}>
@@ -1851,10 +1851,11 @@ export default function TeamWorkspaceView({
                     </select>
                   </div>
                 ) : (
-                  <h3 className="text-sm font-bold text-white tracking-tight leading-snug">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight leading-snug">
                     {activeHackathon.name}
                   </h3>
                 )}
+
 
                 <p className="text-[10px] text-zinc-500 font-medium">Chronological hackathon workspace coordination dashboard.</p>
               </div>
@@ -2035,88 +2036,34 @@ export default function TeamWorkspaceView({
             )}
           </div>
 
-          <div className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-800 overflow-x-auto whitespace-nowrap scrollbar-none max-w-full">
-            <button
-              onClick={() => handleTabChange("chat")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "chat"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              Chat
-            </button>
-            <button
-              onClick={() => handleTabChange("tasks")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "tasks"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              Tasks
-            </button>
-            <button
-              onClick={() => handleTabChange("brainstorm")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "brainstorm"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              Brainstorm
-            </button>
-            <button
-              onClick={() => handleTabChange("resources")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "resources"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              Resources
-            </button>
-            <button
-              onClick={() => handleTabChange("submission")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "submission"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              Submission
-            </button>
-            <button
-              onClick={() => handleTabChange("github")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "github"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              GitHub Sync
-            </button>
-            <button
-              onClick={() => handleTabChange("deployments")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "deployments"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              🚀 Deployments
-            </button>
-            <button
-              onClick={() => handleTabChange("activity")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 cursor-pointer ${
-                workspaceTab === "activity"
-                  ? "bg-zinc-850 text-white"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-            >
-              Activity Feed
-            </button>
+          <div className="flex bg-[var(--surface-1)] p-1 rounded-xl border border-[var(--card-border)] overflow-x-auto whitespace-nowrap scrollbar-none max-w-full gap-1 shadow-xs">
+            {([
+              { id: "chat", label: "Chat" },
+              { id: "tasks", label: "Tasks" },
+              { id: "brainstorm", label: "Brainstorm" },
+              { id: "resources", label: "Resources" },
+              { id: "submission", label: "Submission" },
+              { id: "github", label: "GitHub Sync" },
+              { id: "deployments", label: "🚀 Deployments" },
+              { id: "activity", label: "Activity Feed" },
+            ] as const).map((tabItem) => {
+              const isActive = workspaceTab === tabItem.id;
+              return (
+                <button
+                  key={tabItem.id}
+                  onClick={() => handleTabChange(tabItem.id as WorkspaceTab)}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-all shrink-0 cursor-pointer ${
+                    isActive
+                      ? "bg-[var(--surface-2)] text-[var(--text-primary)] font-semibold shadow-xs border border-[var(--card-border)]"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]/60 font-medium"
+                  }`}
+                >
+                  {tabItem.label}
+                </button>
+              );
+            })}
           </div>
+
         </div>
 
         {/* Tab Contents */}
