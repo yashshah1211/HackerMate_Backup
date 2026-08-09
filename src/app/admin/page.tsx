@@ -359,6 +359,7 @@ function AdminContent() {
   // SPOC Allowlist State (yashshah7117@gmail.com Super Admin Exclusive)
   const [spocAllowlist, setSpocAllowlist] = useState<any[]>([]);
   const [loadingSpocAllowlist, setLoadingSpocAllowlist] = useState(false);
+  const [spocTableNotReady, setSpocTableNotReady] = useState(false);
   const [grantingSpoc, setGrantingSpoc] = useState(false);
   const [spocFormEmail, setSpocFormEmail] = useState("");
   const [spocFormCollege, setSpocFormCollege] = useState("D.J. Sanghvi College of Engineering (DJSCE)");
@@ -366,12 +367,17 @@ function AdminContent() {
 
   async function fetchSpocAllowlist() {
     setLoadingSpocAllowlist(true);
+    setSpocTableNotReady(false);
     try {
       const res = await fetch("/api/admin/spoc-allowlist");
       const data = await res.json();
       if (res.ok && data.success) {
         setSpocAllowlist(data.allowlist || []);
+      } else if (data.tableNotReady) {
+        setSpocTableNotReady(true);
+        setSpocAllowlist([]);
       } else {
+        console.error("[fetchSpocAllowlist error]:", data.error);
         showToast(data.error || "Failed to load SPOC allowlist.", "error");
       }
     } catch (err: any) {
@@ -410,6 +416,9 @@ function AdminContent() {
         showToast(`Granted SPOC access to ${targetEmail}!`, "success");
         setSpocFormEmail("");
         fetchSpocAllowlist();
+      } else if (data.tableNotReady) {
+        setSpocTableNotReady(true);
+        showToast("DB table not set up. Apply the migration first.", "error");
       } else {
         showToast(data.error || "Failed to grant SPOC access.", "error");
       }
@@ -435,6 +444,9 @@ function AdminContent() {
           if (res.ok && data.success) {
             showToast(`Revoked SPOC access for ${emailToRevoke}.`, "success");
             fetchSpocAllowlist();
+          } else if (data.tableNotReady) {
+            setSpocTableNotReady(true);
+            showToast("DB table not set up. Apply the migration first.", "error");
           } else {
             showToast(data.error || "Failed to revoke SPOC access.", "error");
           }
@@ -2528,6 +2540,45 @@ function AdminContent() {
               </p>
             </div>
 
+            {/* DB Setup Required Banner */}
+            {spocTableNotReady && (
+              <div className="p-5 rounded-2xl bg-red-950/40 border border-red-500/50 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-red-400 text-lg">🚨</span>
+                  <span className="font-mono font-bold text-red-300 text-sm uppercase tracking-wide">
+                    Database Table Not Found
+                  </span>
+                </div>
+                <p className="text-xs text-red-200/80 leading-relaxed font-sans">
+                  The <code className="font-mono bg-red-900/40 px-1 py-0.5 rounded text-red-300">sih_spoc_allowlist</code> table does not exist in the database.
+                  Grant and revoke actions are disabled until the migration is applied.
+                </p>
+                <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-[10px] text-zinc-300 leading-relaxed overflow-x-auto">
+                  <div className="text-zinc-500 mb-1">-- Run this in Supabase Dashboard › SQL Editor:</div>
+                  <pre className="whitespace-pre-wrap text-emerald-300">{`CREATE TABLE IF NOT EXISTS public.sih_spoc_allowlist (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    college_name TEXT NOT NULL DEFAULT 'D.J. Sanghvi College of Engineering (DJSCE)',
+    role TEXT NOT NULL DEFAULT 'spoc',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.sih_spoc_allowlist ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.sih_spoc_allowlist TO authenticated, anon;
+GRANT ALL ON public.sih_spoc_allowlist TO service_role;
+CREATE POLICY "Allow public select on sih_spoc_allowlist"
+    ON public.sih_spoc_allowlist FOR SELECT USING (true);`}</pre>
+                </div>
+                <button
+                  onClick={fetchSpocAllowlist}
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs transition cursor-pointer"
+                >
+                  🔄 Retry After Applying Migration
+                </button>
+              </div>
+            )}
+
             {/* Grant Access Form */}
             <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
               <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
@@ -2572,7 +2623,7 @@ function AdminContent() {
 
                     <button
                       onClick={() => handleGrantSpocAccess()}
-                      disabled={grantingSpoc}
+                      disabled={grantingSpoc || spocTableNotReady}
                       className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition cursor-pointer shrink-0 shadow-md disabled:opacity-50"
                     >
                       {grantingSpoc ? "Granting..." : "Grant Access"}

@@ -5,17 +5,15 @@ import { cookies } from "next/headers";
 
 const SUPER_ADMIN_EMAIL = "yashshah7117@gmail.com";
 
-// In-memory fallback store to ensure zero downtime or toast errors if table is absent
-let memoryAllowlistStore: any[] = [
-  {
-    id: "default-superadmin-1",
-    email: "yashshah7117@gmail.com",
-    college_name: "D.J. Sanghvi College of Engineering (DJSCE)",
-    role: "spoc_superadmin",
-    is_active: true,
-    created_at: new Date().toISOString(),
-  },
-];
+// NOTE: No in-memory fallback. On Vercel serverless, module-level state is NOT shared
+// across instances or cold starts — storing access grants in memory produces inconsistent
+// behavior (grant visible in one Lambda, invisible in another). The DB is the only source of
+// truth. If the table is missing, we surface a clear setup error to the admin UI.
+
+const TABLE_MISSING_MSG =
+  "The sih_spoc_allowlist table does not exist in the database. " +
+  "Apply the migration at supabase/migrations/20260809230000_create_sih_spoc_allowlist.sql " +
+  "via the Supabase Dashboard > SQL Editor.";
 
 async function verifySuperAdmin(req: NextRequest) {
   const cookieStore = await cookies();
@@ -72,24 +70,20 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.warn("[Admin SPOC Allowlist GET Notice]: Table sih_spoc_allowlist notice:", error.message);
-      return NextResponse.json({
-        success: true,
-        allowlist: memoryAllowlistStore,
-        notice: "Using system default super-admin allowlist fallback.",
-      });
+      console.error("[Admin SPOC Allowlist GET Error]: DB query failed:", error.message);
+      return NextResponse.json(
+        { success: false, tableNotReady: true, error: TABLE_MISSING_MSG },
+        { status: 503 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      allowlist: allowlist || memoryAllowlistStore,
-    });
+    return NextResponse.json({ success: true, allowlist: allowlist || [] });
   } catch (err: any) {
     console.error("[Admin SPOC Allowlist GET Error]:", err);
-    return NextResponse.json({
-      success: true,
-      allowlist: memoryAllowlistStore,
-    });
+    return NextResponse.json(
+      { success: false, error: err.message || "Internal server error." },
+      { status: 500 }
+    );
   }
 }
 
@@ -117,25 +111,7 @@ export async function POST(req: NextRequest) {
     const targetRole = role || "spoc";
     const activeState = isActive !== undefined ? Boolean(isActive) : true;
 
-    // Save to memory store first
-    const existingIdx = memoryAllowlistStore.findIndex((e) => e.email === cleanEmail);
-    const newEntry = {
-      id: existingIdx >= 0 ? memoryAllowlistStore[existingIdx].id : `spoc-${Date.now()}`,
-      email: cleanEmail,
-      college_name: targetCollege,
-      role: targetRole,
-      is_active: activeState,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    if (existingIdx >= 0) {
-      memoryAllowlistStore[existingIdx] = newEntry;
-    } else {
-      memoryAllowlistStore.unshift(newEntry);
-    }
-
-    // Try DB upsert
+    // DB upsert — the only source of truth
     const { data, error } = await supabaseAdmin
       .from("sih_spoc_allowlist")
       .upsert(
@@ -152,12 +128,16 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.warn("[Admin SPOC Allowlist POST Notice]: DB upsert notice, saved to memory store:", error.message);
+      console.error("[Admin SPOC Allowlist POST Error]: DB upsert failed:", error.message);
+      return NextResponse.json(
+        { success: false, tableNotReady: true, error: TABLE_MISSING_MSG },
+        { status: 503 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      entry: data || newEntry,
+      entry: data,
       message: `Granted SPOC access for ${cleanEmail} (${targetCollege}).`,
     });
   } catch (err: any) {
@@ -195,17 +175,18 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Remove from memory store
-    memoryAllowlistStore = memoryAllowlistStore.filter((e) => e.email !== cleanEmail);
-
-    // Try DB delete
+    // DB delete — the only source of truth
     const { error } = await supabaseAdmin
       .from("sih_spoc_allowlist")
       .delete()
       .eq("email", cleanEmail);
 
     if (error) {
-      console.warn("[Admin SPOC Allowlist DELETE Notice]: DB delete notice, removed from memory store:", error.message);
+      console.error("[Admin SPOC Allowlist DELETE Error]: DB delete failed:", error.message);
+      return NextResponse.json(
+        { success: false, tableNotReady: true, error: TABLE_MISSING_MSG },
+        { status: 503 }
+      );
     }
 
     return NextResponse.json({
