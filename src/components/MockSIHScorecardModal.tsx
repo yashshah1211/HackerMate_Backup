@@ -25,7 +25,7 @@ export default function MockSIHScorecardModal({
   onEditRequested,
   onDeleted,
 }: Props) {
-  const { showToast } = useNotification();
+  const { showToast, confirm } = useNotification();
   const [reEvaluating, setReEvaluating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [historyVersions, setHistoryVersions] = useState<any[]>([]);
@@ -163,30 +163,34 @@ export default function MockSIHScorecardModal({
     }
   }
 
-  async function handleDeleteSubmission() {
-    if (!window.confirm("Are you sure you want to remove this pitch deck presentation? You can submit a new one anytime.")) {
-      return;
-    }
+  function handleDeleteSubmission() {
+    confirm({
+      title: "Remove Pitch Presentation",
+      message: "Are you sure you want to remove this pitch deck presentation? You can submit a new one anytime.",
+      confirmText: "Remove Presentation",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setDeleting(true);
+        try {
+          const res = await fetch(`/api/sih/mock-submit?submissionId=${activeSub.id}&teamId=${activeSub.team_id}`, {
+            method: "DELETE",
+          });
 
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/sih/mock-submit?submissionId=${activeSub.id}&teamId=${activeSub.team_id}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast("🗑️ Pitch presentation removed successfully.", "info");
-        if (onDeleted) onDeleted();
-        onClose();
-      } else {
-        showToast(data.error || "Failed to remove pitch presentation.", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "Failed to remove pitch presentation.", "error");
-    } finally {
-      setDeleting(false);
-    }
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast("🗑️ Pitch presentation removed successfully.", "info");
+            if (onDeleted) onDeleted();
+            onClose();
+          } else {
+            showToast(data.error || "Failed to remove pitch presentation.", "error");
+          }
+        } catch (err: any) {
+          showToast(err.message || "Failed to remove pitch presentation.", "error");
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
   }
 
   function getGradeBadgeColor(g: string) {

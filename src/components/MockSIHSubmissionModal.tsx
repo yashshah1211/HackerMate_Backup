@@ -29,7 +29,7 @@ export default function MockSIHSubmissionModal({
   onSubmitted,
   onDeleted,
 }: Props) {
-  const { showToast } = useNotification();
+  const { showToast, confirm } = useNotification();
 
   const [psNumber, setPsNumber] = useState(existingSubmission?.ps_number || "");
   const [psTitle, setPsTitle] = useState(existingSubmission?.ps_title || "");
@@ -84,32 +84,36 @@ export default function MockSIHSubmissionModal({
     showToast(`Auto-filled ${ps.id} (${ps.organization})!`, "info");
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!team) return;
-    if (!window.confirm("Are you sure you want to remove this pitch presentation? You can submit a new one anytime.")) {
-      return;
-    }
+    confirm({
+      title: "Remove Pitch Presentation",
+      message: "Are you sure you want to remove this pitch presentation? You can submit a new one anytime.",
+      confirmText: "Remove Pitch",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setDeleting(true);
+        try {
+          const subId = existingSubmission?.id;
+          const res = await fetch(`/api/sih/mock-submit?${subId ? `submissionId=${subId}&` : ""}teamId=${team.id}`, {
+            method: "DELETE",
+          });
 
-    setDeleting(true);
-    try {
-      const subId = existingSubmission?.id;
-      const res = await fetch(`/api/sih/mock-submit?${subId ? `submissionId=${subId}&` : ""}teamId=${team.id}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast("🗑️ Pitch presentation removed successfully.", "info");
-        if (onDeleted) onDeleted();
-        onClose();
-      } else {
-        showToast(data.error || "Failed to remove pitch presentation.", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "Failed to remove pitch presentation.", "error");
-    } finally {
-      setDeleting(false);
-    }
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast("🗑️ Pitch presentation removed successfully.", "info");
+            if (onDeleted) onDeleted();
+            onClose();
+          } else {
+            showToast(data.error || "Failed to remove pitch presentation.", "error");
+          }
+        } catch (err: any) {
+          showToast(err.message || "Failed to remove pitch presentation.", "error");
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
   }
 
   if (!isOpen || !team) return null;

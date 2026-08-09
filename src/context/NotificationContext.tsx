@@ -139,25 +139,36 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       {/* Confirmation Dialog Overlay */}
       {dialog && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] px-4 animate-fade-in">
-          <div className="card card-static p-6 w-full max-w-sm border-zinc-800 bg-zinc-950/95 shadow-2xl animate-scale-in">
-            <h2 className="text-sm font-semibold text-white mb-2">
-              {dialog.title}
-            </h2>
-            <p className="text-xs text-zinc-400 leading-relaxed mb-6">
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] px-4 animate-fadeIn"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCancel();
+          }}
+        >
+          <div className="p-6 rounded-2xl w-full max-w-sm border border-zinc-800 bg-zinc-950/95 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-bold shrink-0">
+                ⚠️
+              </span>
+              <h2 className="text-sm font-bold text-white font-mono tracking-tight leading-snug">
+                {dialog.title}
+              </h2>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed font-sans">
               {dialog.message}
             </p>
 
-            <div className="flex justify-end gap-2.5 pt-2 border-t border-zinc-900">
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-900 font-mono">
               <button
                 onClick={handleCancel}
-                className="btn btn-secondary btn-sm text-xs font-mono uppercase tracking-wider"
+                className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-bold transition cursor-pointer"
               >
                 {dialog.cancelText || "Cancel"}
               </button>
               <button
                 onClick={handleConfirm}
-                className="btn btn-primary btn-sm text-xs font-mono uppercase tracking-wider"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-zinc-950 font-extrabold text-xs transition cursor-pointer shadow-lg shadow-emerald-500/20"
               >
                 {dialog.confirmText || "Confirm"}
               </button>
