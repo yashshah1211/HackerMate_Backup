@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useNotification } from "@/context/NotificationContext";
+import { supabase } from "@/lib/supabase";
 
 type Props = {
   isOpen: boolean;
@@ -38,6 +39,25 @@ export default function MockSIHScorecardModal({
       setSelectedVersionId(submission.id);
       fetchHistory(submission.team_id);
 
+      // If own team and ppt_url is missing, fetch full submission from RLS table
+      if (isOwnTeam && !submission.ppt_url) {
+        supabase
+          .from("sih_mock_submissions")
+          .select("ppt_url, github_url, demo_url")
+          .eq("id", submission.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data && (data.ppt_url || data.github_url || data.demo_url)) {
+              setDisplayedSubmission((prev: any) => ({
+                ...prev,
+                ppt_url: data.ppt_url || prev?.ppt_url,
+                github_url: data.github_url || prev?.github_url,
+                demo_url: data.demo_url || prev?.demo_url,
+              }));
+            }
+          });
+      }
+
       // Auto-evaluate ONCE if submission has 0 score or status evaluating
       if (
         (!submission.total_score || submission.total_score === 0 || submission.status === "evaluating") &&
@@ -47,7 +67,7 @@ export default function MockSIHScorecardModal({
         triggerAutoEval(submission.id);
       }
     }
-  }, [submission, isOpen]);
+  }, [submission, isOpen, isOwnTeam]);
 
   async function triggerAutoEval(subId: string) {
     setReEvaluating(true);
@@ -330,15 +350,26 @@ export default function MockSIHScorecardModal({
             </div>
 
             <div className="flex flex-col sm:items-end gap-2 shrink-0">
-              {activeSub.ppt_url && isOwnTeam ? (
-                <a
-                  href={activeSub.ppt_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3.5 py-2 bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-500/20 font-semibold transition text-center"
-                >
-                  📄 View Submitted Pitch PPT →
-                </a>
+              {isOwnTeam ? (
+                activeSub.ppt_url ? (
+                  <a
+                    href={activeSub.ppt_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3.5 py-2 bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-500/20 font-semibold transition text-center"
+                  >
+                    📄 View Submitted Pitch PPT →
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (onEditRequested) onEditRequested(activeSub);
+                    }}
+                    className="px-3.5 py-2 bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-500/20 font-semibold transition text-center text-xs"
+                  >
+                    ✏️ Attach Pitch PPT Link →
+                  </button>
+                )
               ) : (
                 <span className="px-3.5 py-2 rounded-lg text-xs font-mono text-zinc-400 dark:text-zinc-600 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed select-none" title="PPT link is private to the submitting team">
                   🔒 Pitch Deck (Private to Team)

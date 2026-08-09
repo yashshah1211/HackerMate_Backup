@@ -291,6 +291,28 @@ function SIHTeamBuilderContent() {
         subData.forEach((s: any) => {
           map[s.team_id] = s;
         });
+
+        // For logged in user, fetch full submission records for user's own teams to include ppt_url
+        if (user && parsedTeams.length > 0) {
+          const ownTeamIds = parsedTeams
+            .filter((t) => t.owner_id === user.id || t.team_members?.some((m) => m.user_id === user.id))
+            .map((t) => t.id);
+
+          if (ownTeamIds.length > 0) {
+            const { data: ownSubs } = await supabase
+              .from("sih_mock_submissions")
+              .select("*")
+              .in("team_id", ownTeamIds)
+              .eq("is_active", true);
+
+            if (ownSubs) {
+              ownSubs.forEach((os: any) => {
+                map[os.team_id] = { ...map[os.team_id], ...os };
+              });
+            }
+          }
+        }
+
         setMockSubmissionsMap(map);
       }
 
