@@ -177,21 +177,22 @@ function SIHTeamBuilderContent() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      let currentCollege = "";
+      const DEFAULT_COLLEGE = "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)";
+      let currentCollege = DEFAULT_COLLEGE;
 
       if (user) {
         setCurrentUserId(user.id);
         const { data: prof } = await supabase
           .from("profiles")
-          .select("*")
+          .select("id, email, full_name, avatar_url, college, skills, gender, role, bio, github_url, linkedin_url, website_url, badges, onboarding_completed")
           .eq("id", user.id)
           .single();
 
         if (prof) {
           setCurrentUserProfile(prof as Profile);
-          currentCollege = prof.college || "";
-          setUserCollege(currentCollege);
-          setCollegeInput(currentCollege);
+          if (prof.college && prof.college.trim().length > 0) {
+            currentCollege = prof.college.trim();
+          }
         }
 
         const { data: userReg } = await supabase
@@ -203,6 +204,9 @@ function SIHTeamBuilderContent() {
 
         setIsUserLookingForTeam(!!userReg?.looking_for_team);
       }
+
+      setUserCollege(currentCollege);
+      setCollegeInput(currentCollege);
 
       // 3. Fetch Teams registered for SIH + User's own teams
       const { data: teamHackathonsData } = await supabase
