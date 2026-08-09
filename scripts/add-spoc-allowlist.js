@@ -77,18 +77,21 @@ Example:
     console.log("✅ Successfully written to sih_spoc_allowlist table!");
   }
 
-  // 2. Also update matching profile role & college if user has signed up
+  // 2. Also update matching profile college & role (unless user is Super Admin)
   const { data: existingProfile } = await supabase
     .from("profiles")
-    .select("id, email, full_name")
+    .select("id, email, full_name, role")
     .eq("email", email)
     .maybeSingle();
 
   if (existingProfile) {
+    const isSuperAdmin = email === "yashshah7117@gmail.com" || existingProfile.role === "admin";
+    const newRole = isSuperAdmin ? "admin" : role;
+
     const { error: profErr } = await supabase
       .from("profiles")
       .update({
-        role,
+        role: newRole,
         college: collegeName,
       })
       .eq("id", existingProfile.id);
@@ -96,7 +99,7 @@ Example:
     if (profErr) {
       console.warn("⚠️ Failed to update profiles table role:", profErr.message);
     } else {
-      console.log(`✅ Updated existing user profile (${existingProfile.full_name || email}) to role='${role}' and college='${collegeName}'`);
+      console.log(`✅ Updated existing user profile (${existingProfile.full_name || email}) to role='${newRole}' and college='${collegeName}'`);
     }
   } else {
     console.log(`ℹ️ Note: User (${email}) has not registered an auth account yet. Once they sign in, their email on the allowlist will grant immediate SPOC access.`);

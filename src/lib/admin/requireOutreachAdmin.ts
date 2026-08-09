@@ -38,14 +38,9 @@ export async function requireOutreachAdmin(
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
 
-  if (
-    authError ||
-    !user ||
-    !user.email ||
-    !allowedEmails.includes(user.email.toLowerCase())
-  ) {
+  if (authError || !user || !user.email) {
     return NextResponse.json(
-      { error: "Forbidden: Access restricted to authorized administrator." },
+      { error: "Forbidden: Unauthorized administrator session." },
       { status: 403 }
     );
   }
@@ -54,6 +49,15 @@ export async function requireOutreachAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  const userEmailClean = user.email.toLowerCase().trim();
+
+  if (userEmailClean !== "yashshah7117@gmail.com" && !allowedEmails.includes(userEmailClean)) {
+    return NextResponse.json(
+      { error: "Forbidden: Outreach and SPOC Allowlist operations are strictly restricted to Super Admin (yashshah7117@gmail.com)." },
+      { status: 403 }
+    );
+  }
 
   return { user, supabaseAdmin };
 }

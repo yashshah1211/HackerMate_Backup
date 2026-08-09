@@ -513,7 +513,10 @@ function AdminContent() {
         .eq("id", user.id)
         .single();
 
-      if (dbError || !profile || profile.role !== "admin") {
+      const isSuperAdminEmail = user.email?.toLowerCase().trim() === "yashshah7117@gmail.com";
+      const isAllowedAdmin = isSuperAdminEmail || profile?.role === "admin";
+
+      if (!isAllowedAdmin) {
         setIsAdmin(false);
       } else {
         setIsAdmin(true);
@@ -1625,7 +1628,7 @@ function AdminContent() {
               🏰 Native Hackathons ({nativeHackathons.filter((h) => h.status === "pending").length > 0 ? `⏳ ${nativeHackathons.filter((h) => h.status === "pending").length}` : nativeHackathons.length})
             </button>
 
-            {userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
+            {userEmail?.toLowerCase().trim() === "yashshah7117@gmail.com" && (
               <>
                 <button
                   onClick={() => {

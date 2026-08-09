@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 import { getTodayEmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
 
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await requireOutreachAdmin(req);
+    const authResult = await requireAdmin(req);
     if (authResult instanceof NextResponse) {
       return authResult;
     }
