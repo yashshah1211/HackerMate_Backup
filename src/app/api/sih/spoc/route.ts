@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { logSihEvent } from "@/lib/admin/sihLogger";
 
-import { verifySpocAuthorization, SpocAuthResult } from "@/lib/sihSpocAuth";
+import { verifySpocAuthorization, SpocAuthResult, isSameCollege } from "@/lib/sihSpocAuth";
 export { verifySpocAuthorization };
 export type { SpocAuthResult };
 
@@ -71,9 +71,17 @@ export async function GET(req: NextRequest) {
       .select("*, teams!inner(id, name, college, owner_id, team_members(id, user_id, role, project_role, profiles(id, full_name, email, gender, skills, avatar_url)))")
       .order("total_score", { ascending: false });
 
-    // ENFORCE STRICT COLLEGE ISOLATION IN QUERY VIA JOINED TEAMS
+    // ENFORCE COLLEGE ISOLATION WITH SYNONYM MATCHING
     if (targetCollege) {
-      query = query.eq("teams.college", targetCollege);
+      const lower = targetCollege.toLowerCase();
+      if (lower.includes("djsce") || lower.includes("dwarkadas")) {
+        query = query.or("college.ilike.%djsce%,college.ilike.%dwarkadas%", { foreignTable: "teams" });
+      } else {
+        const firstWord = targetCollege.split(/[\s,()]+/)[0];
+        if (firstWord && firstWord.length > 2) {
+          query = query.or(`college.ilike.%${firstWord}%,college.eq.${targetCollege}`, { foreignTable: "teams" });
+        }
+      }
     }
 
     if (category !== "all") {
@@ -91,8 +99,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch submissions." }, { status: 500 });
     }
 
+    // Filter using isSameCollege helper for absolute accuracy across synonyms
+    const filteredByCollege = targetCollege
+      ? rawSubmissions.filter((sub: any) => isSameCollege(targetCollege, sub.teams?.college))
+      : rawSubmissions;
+
     // Map fields with fallback to ai_feedback JSONB
-    const normalizedSubmissions = rawSubmissions.map((sub: any) => {
+    const normalizedSubmissions = filteredByCollege.map((sub: any) => {
       const fb = sub.ai_feedback || {};
       const spocStatus = sub.spoc_approval_status || fb.spoc_approval_status || "pending";
       const vivaScore = sub.jury_viva_score !== undefined && sub.jury_viva_score !== null

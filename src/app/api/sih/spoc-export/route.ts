@@ -3,48 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
-async function checkIsUserAuthorizedSpoc(user: any, supabaseAdmin: any): Promise<boolean> {
-  if (!user) return false;
-
-  const email = user.email?.toLowerCase() || "";
-
-  if (
-    email.includes("spoc") ||
-    email.includes("hod") ||
-    email.includes("admin") ||
-    email.includes("faculty") ||
-    email.includes("prof") ||
-    email.includes("principal") ||
-    email.includes("yashshah7117@gmail.com") ||
-    email.includes("yashshah111@gmail.com") ||
-    email.startsWith("yashshah")
-  ) {
-    return true;
-  }
-
-  try {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("is_admin, role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (
-      profile &&
-      (profile.is_admin ||
-        profile.role === "spoc" ||
-        profile.role === "hod" ||
-        profile.role === "faculty" ||
-        profile.role === "admin")
-    ) {
-      return true;
-    }
-  } catch (err) {
-    console.error("[SPOC Export Auth Check Error]:", err);
-  }
-
-  return false;
-}
+import { verifySpocAuthorization, isSameCollege } from "@/lib/sihSpocAuth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -77,8 +36,8 @@ export async function GET(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const isAuthorized = await checkIsUserAuthorizedSpoc(user, supabaseAdmin);
-    if (!isAuthorized) {
+    const authResult = await verifySpocAuthorization(user, supabaseAdmin);
+    if (!authResult.isAuthorized) {
       return NextResponse.json(
         { error: "Forbidden: Exporting official SIH nominations CSV requires SPOC or HOD authorization." },
         { status: 403 }
@@ -88,6 +47,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category") || "all";
     const status = searchParams.get("status") || "all";
+    const targetCollege = authResult.isAdminOverride
+      ? searchParams.get("college") || authResult.collegeName || "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)"
+      : authResult.collegeName!;
 
     let query = supabaseAdmin
       .from("sih_mock_submissions")
@@ -98,11 +60,15 @@ export async function GET(req: NextRequest) {
       query = query.eq("ps_category", category);
     }
 
-    const { data: submissions, error } = await query;
+    const { data: rawSubmissions, error } = await query;
 
-    if (error || !submissions) {
+    if (error || !rawSubmissions) {
       return NextResponse.json({ error: "Failed to generate SPOC export." }, { status: 500 });
     }
+
+    const submissions = targetCollege
+      ? rawSubmissions.filter((sub: any) => isSameCollege(targetCollege, sub.teams?.college))
+      : rawSubmissions;
 
     // Build CSV Headers
     const headers = [
