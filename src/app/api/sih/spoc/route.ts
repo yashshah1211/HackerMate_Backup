@@ -4,49 +4,92 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { logSihEvent } from "@/lib/admin/sihLogger";
 
-async function checkIsUserAuthorizedSpoc(user: any, supabaseAdmin: any): Promise<boolean> {
-  if (!user) return false;
+export type SpocAuthResult = {
+  isAuthorized: boolean;
+  role: string;
+  collegeName: string | null;
+  isAdminOverride: boolean;
+};
 
-  const email = user.email?.toLowerCase() || "";
-
-  // 1. Explicit SPOC / HOD / Faculty Email Keywords Check (Excludes generic student accounts)
-  if (
-    email.includes("spoc") ||
-    email.includes("hod") ||
-    email.includes("admin") ||
-    email.includes("faculty") ||
-    email.includes("prof") ||
-    email.includes("principal") ||
-    email.includes("yashshah7117@gmail.com") ||
-    email.includes("yashshah111@gmail.com") ||
-    email.startsWith("yashshah")
-  ) {
-    return true;
+export async function verifySpocAuthorization(user: any, supabaseAdmin: any): Promise<SpocAuthResult> {
+  if (!user || !user.email) {
+    return { isAuthorized: false, role: "none", collegeName: null, isAdminOverride: false };
   }
 
-  // 2. Database Profile Role Verification (is_admin or role === 'spoc' / 'hod' / 'faculty')
+  const email = user.email.toLowerCase().trim();
+
+  // 1. Platform Super Admin Check (is_admin === true on profile or explicit super-admin email)
   try {
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("is_admin, role")
+      .select("is_admin, role, college")
       .eq("id", user.id)
       .maybeSingle();
 
     if (
-      profile &&
-      (profile.is_admin ||
-        profile.role === "spoc" ||
-        profile.role === "hod" ||
-        profile.role === "faculty" ||
-        profile.role === "admin")
+      profile?.is_admin ||
+      profile?.role === "admin" ||
+      email === "yashshah7117@gmail.com" ||
+      email === "yashshah111@gmail.com"
     ) {
-      return true;
+      return {
+        isAuthorized: true,
+        role: "admin",
+        collegeName: profile?.college || "D.J. Sanghvi College of Engineering (DJSCE)",
+        isAdminOverride: true,
+      };
     }
   } catch (err) {
     console.error("[SPOC Auth Profile Check Error]:", err);
   }
 
-  return false;
+  // 2. Strict Database Allowlist Lookup (sih_spoc_allowlist table)
+  try {
+    const { data: allowlistEntry } = await supabaseAdmin
+      .from("sih_spoc_allowlist")
+      .select("email, college_name, role, is_active")
+      .eq("email", email)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (allowlistEntry) {
+      return {
+        isAuthorized: true,
+        role: allowlistEntry.role || "spoc",
+        collegeName: allowlistEntry.college_name,
+        isAdminOverride: false,
+      };
+    }
+  } catch (err) {
+    console.error("[SPOC Allowlist Table Check Error]:", err);
+  }
+
+  // 3. Fallback Check on Verified User Profile Role & College
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, college")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (
+      profile &&
+      profile.college &&
+      (profile.role === "spoc" || profile.role === "hod" || profile.role === "faculty")
+    ) {
+      return {
+        isAuthorized: true,
+        role: profile.role,
+        collegeName: profile.college,
+        isAdminOverride: false,
+      };
+    }
+  } catch (err) {
+    console.error("[SPOC Profile Role Check Error]:", err);
+  }
+
+  // Default DENY: Fuzzy keyword substring matching completely removed
+  return { isAuthorized: false, role: "none", collegeName: null, isAdminOverride: false };
 }
 
 export async function GET(req: NextRequest) {
@@ -80,18 +123,42 @@ export async function GET(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const isAuthorized = await checkIsUserAuthorizedSpoc(user, supabaseAdmin);
+    const authResult = await verifySpocAuthorization(user, supabaseAdmin);
+
+    if (!authResult.isAuthorized) {
+      return NextResponse.json(
+        {
+          success: false,
+          isSpocAuthorized: false,
+          userEmail: user.email,
+          error: "Access Denied. Your account is not on the authorized SPOC allowlist.",
+          submissions: [],
+          stats: null,
+        },
+        { status: 403 }
+      );
+    }
 
     const { searchParams } = new URL(req.url);
-    const college = searchParams.get("college") || "D.J. Sanghvi College of Engineering (DJSCE)";
     const category = searchParams.get("category") || "all";
     const status = searchParams.get("status") || "all";
     const search = searchParams.get("search")?.trim() || "";
 
+    // Determine target college for query:
+    // Platform admins can pass ?college= parameter; SPOC accounts are strictly locked to their assigned college.
+    const targetCollege = authResult.isAdminOverride
+      ? searchParams.get("college") || authResult.collegeName || "D.J. Sanghvi College of Engineering (DJSCE)"
+      : authResult.collegeName!;
+
     let query = supabaseAdmin
       .from("sih_mock_submissions")
-      .select("*, teams(id, name, college, owner_id, team_members(id, user_id, role, project_role, profiles(id, full_name, email, gender, skills, avatar_url)))")
+      .select("*, teams!inner(id, name, college, owner_id, team_members(id, user_id, role, project_role, profiles(id, full_name, email, gender, skills, avatar_url)))")
       .order("total_score", { ascending: false });
+
+    // ENFORCE STRICT COLLEGE ISOLATION IN QUERY VIA JOINED TEAMS
+    if (targetCollege) {
+      query = query.eq("teams.college", targetCollege);
+    }
 
     if (category !== "all") {
       query = query.eq("ps_category", category);
@@ -117,6 +184,7 @@ export async function GET(req: NextRequest) {
         : fb.jury_viva_score || 0;
       const compositeScore = sub.final_composite_score || fb.final_composite_score || sub.total_score || 0;
       const spocNotes = sub.spoc_notes || fb.spoc_notes || "";
+      const roundStage = sub.round_stage || fb.round_stage || (spocStatus === "approved" || spocStatus === "nominated" ? "shortlisted_round2" : "round1_submitted");
 
       return {
         ...sub,
@@ -124,22 +192,29 @@ export async function GET(req: NextRequest) {
         jury_viva_score: vivaScore,
         final_composite_score: compositeScore,
         spoc_notes: spocNotes,
+        round_stage: roundStage,
       };
     });
 
-    // Apply status filter after normalization
+    const stageParam = searchParams.get("stage") || "all";
+
+    // Apply status and stage filters after normalization
     let filteredSubmissions = normalizedSubmissions;
     if (status !== "all") {
-      filteredSubmissions = normalizedSubmissions.filter((s: any) => s.spoc_approval_status === status);
+      filteredSubmissions = filteredSubmissions.filter((s: any) => s.spoc_approval_status === status);
+    }
+    if (stageParam !== "all") {
+      filteredSubmissions = filteredSubmissions.filter((s: any) => s.round_stage === stageParam);
     }
 
     const stats = calculateQuotaStats(normalizedSubmissions);
 
     return NextResponse.json({
       success: true,
-      college,
+      college: targetCollege,
       userEmail: user.email,
-      isSpocAuthorized: isAuthorized,
+      isSpocAuthorized: authResult.isAuthorized,
+      spocRole: authResult.role,
       submissions: filteredSubmissions,
       stats,
     });
@@ -180,18 +255,102 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const isAuthorized = await checkIsUserAuthorizedSpoc(user, supabaseAdmin);
+    const authResult = await verifySpocAuthorization(user, supabaseAdmin);
 
-    if (!isAuthorized) {
+    if (!authResult.isAuthorized) {
       return NextResponse.json(
-        { error: `Access Denied (${user.email}). Only authorized DJSCE SPOC, HOD, and Faculty accounts can perform review actions or assign viva scores.` },
+        { error: `Access Denied (${user.email}). Only authorized SPOC allowlist accounts can perform review actions or assign viva scores.` },
         { status: 403 }
       );
     }
 
     const body = await req.json();
-    const { submissionId, spocStatus, spocNotes, juryVivaScore } = body;
+    const { submissionId, submissionIds, spocStatus, roundStage, spocNotes, juryVivaScore } = body;
 
+    // BULK SHORTLIST ACTION
+    if (Array.isArray(submissionIds) && submissionIds.length > 0) {
+      if (!roundStage && !spocStatus) {
+        return NextResponse.json({ error: "Missing roundStage or spocStatus for bulk update." }, { status: 400 });
+      }
+
+      // Fetch all target submissions
+      const { data: targetSubs, error: targetErr } = await supabaseAdmin
+        .from("sih_mock_submissions")
+        .select("id, ai_feedback, spoc_approval_status, round_stage, teams(college)")
+        .in("id", submissionIds);
+
+      if (targetErr || !targetSubs) {
+        return NextResponse.json({ error: "Failed to fetch target submissions." }, { status: 500 });
+      }
+
+      // Check college isolation on all target submissions
+      if (!authResult.isAdminOverride) {
+        const hasForeignSub = targetSubs.some(
+          (s: any) => s.teams?.college && s.teams.college !== authResult.collegeName
+        );
+        if (hasForeignSub) {
+          return NextResponse.json(
+            { error: `Access Denied. One or more selected submissions do not belong to ${authResult.collegeName}.` },
+            { status: 403 }
+          );
+        }
+      }
+
+      let updatedCount = 0;
+
+      for (const sub of targetSubs) {
+        const existingFb = sub.ai_feedback || {};
+        const newStage = roundStage || sub.round_stage || existingFb.round_stage || "round1_submitted";
+        const newStatus = spocStatus || sub.spoc_approval_status || existingFb.spoc_approval_status || "approved";
+
+        const updatedFb = {
+          ...existingFb,
+          round_stage: newStage,
+          spoc_approval_status: newStatus,
+          spoc_updated_at: new Date().toISOString(),
+        };
+
+        // Update JSONB
+        await supabaseAdmin
+          .from("sih_mock_submissions")
+          .update({
+            ai_feedback: updatedFb,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", sub.id);
+
+        // Try updating schema columns if available
+        try {
+          await supabaseAdmin
+            .from("sih_mock_submissions")
+            .update({
+              round_stage: newStage,
+              spoc_approval_status: newStatus,
+              round1_decided_at: newStage === "shortlisted_round2" ? new Date().toISOString() : undefined,
+              round2_decided_at: newStage === "final_nominated" ? new Date().toISOString() : undefined,
+            })
+            .eq("id", sub.id);
+        } catch {
+          // Ignore column missing
+        }
+
+        updatedCount++;
+      }
+
+      logSihEvent("info", {
+        event: "SPOC_UPDATE",
+        userId: user.id,
+        message: `Bulk updated ${updatedCount} teams to stage '${roundStage || spocStatus}'.`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        count: updatedCount,
+        message: `Successfully updated ${updatedCount} teams to ${roundStage || spocStatus}.`,
+      });
+    }
+
+    // SINGLE SUBMISSION UPDATE
     if (!submissionId) {
       return NextResponse.json({ error: "Missing submissionId" }, { status: 400 });
     }
@@ -199,7 +358,7 @@ export async function POST(req: NextRequest) {
     // Get existing submission
     const { data: sub, error: fetchErr } = await supabaseAdmin
       .from("sih_mock_submissions")
-      .select("id, total_score, team_id, ai_feedback")
+      .select("id, total_score, team_id, ai_feedback, teams(college)")
       .eq("id", submissionId)
       .single();
 
@@ -208,17 +367,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Submission not found in database." }, { status: 404 });
     }
 
+    // ENFORCE STRICT COLLEGE ISOLATION FOR SPOC ACTIONS
+    const subCollege = (sub as any).teams?.college;
+    if (!authResult.isAdminOverride && subCollege && subCollege !== authResult.collegeName) {
+      return NextResponse.json(
+        { error: `Access Denied. You are only authorized to review submissions for ${authResult.collegeName}.` },
+        { status: 403 }
+      );
+    }
+
     const vivaScore = Math.min(100, Math.max(0, parseInt(juryVivaScore || "0", 10)));
     const aiScore = sub.total_score || 0;
-    // Composite: 60% AI Pitch Screening + 40% Faculty Viva
     const finalCompositeScore = Math.round(aiScore * 0.6 + vivaScore * 0.4);
 
     const existingFeedback = sub.ai_feedback || {};
     const newStatus = spocStatus || existingFeedback.spoc_approval_status || "approved";
+    const newStage = roundStage || existingFeedback.round_stage || (newStatus === "approved" || newStatus === "nominated" ? "shortlisted_round2" : "round1_submitted");
 
     const updatedFeedback = {
       ...existingFeedback,
       spoc_approval_status: newStatus,
+      round_stage: newStage,
       spoc_notes: spocNotes !== undefined ? spocNotes : (existingFeedback.spoc_notes || ""),
       jury_viva_score: vivaScore,
       final_composite_score: finalCompositeScore,
@@ -248,6 +417,7 @@ export async function POST(req: NextRequest) {
     try {
       const colPayload: any = {
         spoc_approval_status: newStatus,
+        round_stage: newStage,
         spoc_notes: spocNotes !== undefined ? spocNotes : "",
         jury_viva_score: vivaScore,
         final_composite_score: finalCompositeScore,
@@ -268,12 +438,13 @@ export async function POST(req: NextRequest) {
       submissionId,
       teamId: sub.team_id,
       userId: user.id,
-      message: `Updated SPOC status to ${newStatus}. Composite Score: ${finalCompositeScore}`,
+      message: `Updated SPOC status to ${newStatus}, Stage to ${newStage}. Composite Score: ${finalCompositeScore}`,
     });
 
     const normalizedSub = {
       ...updatedSub,
       spoc_approval_status: newStatus,
+      round_stage: newStage,
       jury_viva_score: vivaScore,
       final_composite_score: finalCompositeScore,
       spoc_notes: spocNotes !== undefined ? spocNotes : "",

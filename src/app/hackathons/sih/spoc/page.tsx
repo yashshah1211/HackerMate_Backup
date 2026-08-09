@@ -32,7 +32,11 @@ function SpocDashboardContent() {
   const [collegeName, setCollegeName] = useState("D.J. Sanghvi College of Engineering (DJSCE)");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const [selectedSub, setSelectedSub] = useState<any>(null);
   const [editingVivaScore, setEditingVivaScore] = useState<number | "">("");
@@ -45,7 +49,7 @@ function SpocDashboardContent() {
 
   useEffect(() => {
     fetchSpocData();
-  }, [categoryFilter, statusFilter, searchTerm, collegeName]);
+  }, [categoryFilter, statusFilter, stageFilter, searchTerm, collegeName]);
 
   async function fetchSpocData() {
     setLoading(true);
@@ -54,6 +58,7 @@ function SpocDashboardContent() {
         college: collegeName,
         category: categoryFilter,
         status: statusFilter,
+        stage: stageFilter,
         search: searchTerm,
       });
 
@@ -122,6 +127,57 @@ function SpocDashboardContent() {
     showToast("📥 Generating official SIH CSV nomination file...", "info");
   }
 
+  async function handleBulkShortlist(targetStage: string) {
+    if (!isSpocAuthorized) {
+      setShowRestrictedModal(true);
+      return;
+    }
+    if (selectedSubIds.length === 0) return;
+
+    setBulkUpdating(true);
+    try {
+      const res = await fetch("/api/sih/spoc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionIds: selectedSubIds,
+          roundStage: targetStage,
+          spocStatus: targetStage === "shortlisted_round2" ? "approved" : targetStage === "final_nominated" ? "nominated" : "approved",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Updated ${data.count} teams to ${targetStage === "shortlisted_round2" ? "Round 2 Shortlist ⭐" : "Final Nominees 🏆"}!`, "success");
+        setSelectedSubIds([]);
+        fetchSpocData();
+      } else {
+        showToast(data.error || "Failed to execute bulk action.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to execute bulk shortlist action.", "error");
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
+  function toggleSelectAll() {
+    if (selectedSubIds.length === submissions.length && submissions.length > 0) {
+      setSelectedSubIds([]);
+    } else {
+      setSelectedSubIds(submissions.map((s) => s.id));
+    }
+  }
+
+  function toggleSelectRow(subId: string) {
+    if (selectedSubIds.includes(subId)) {
+      setSelectedSubIds(selectedSubIds.filter((id) => id !== subId));
+    } else {
+      setSelectedSubIds([...selectedSubIds, subId]);
+    }
+  }
+
   const numericViva = typeof editingVivaScore === "number" ? editingVivaScore : 0;
 
   return (
@@ -176,58 +232,78 @@ function SpocDashboardContent() {
                   {collegeName}
                 </span>
                 <span className="text-xs font-mono text-zinc-500 dark:text-emerald-300 font-semibold">
-                  Internal Hackathon Round 2026
+                  2-Round Selection Pipeline 2026
                 </span>
               </div>
               <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
                 SIH 2026 SPOC & HOD Master Command Dashboard
               </h1>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed font-sans max-w-2xl">
-                Manage all internal screening pitch submissions, faculty jury viva scores, SIH 6-member squad compliance, and generate official bulk nomination exports for the SIH National Portal.
+                Screen initial pitch decks in Round 1, advance top teams to the Round 2 live presentation round, assign faculty viva scores, and generate official nomination exports.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-emerald-50 dark:bg-zinc-900/90 border border-emerald-200 dark:border-emerald-500/30 text-right space-y-1 font-mono shrink-0">
-              <div className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold">Internal Round Status</div>
-              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">Submissions Active ●</div>
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Official DJSCE Screening</div>
+              <div className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold">2-Round Selection Pipeline</div>
+              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">R1 Screening / R2 Shortlist ●</div>
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Official {collegeName} Screening</div>
             </div>
           </div>
         </div>
 
-        {/* Status Metrics Grid */}
-        {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-1">
-              <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
-                {stats.totalTeams}
-              </div>
-              <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-300">Total Registered Pitches</div>
-              <div className="text-[10px] text-zinc-500 font-mono">Internal DJSCE Master List</div>
+        {/* 2-Round Pipeline Stage Tabs */}
+        <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
+          {[
+            { id: "all", label: "All Submissions", icon: "📋" },
+            { id: "round1_submitted", label: "Round 1 Screening (Submitted)", icon: "📄" },
+            { id: "shortlisted_round2", label: "Round 2 Shortlist", icon: "⭐" },
+            { id: "final_nominated", label: "Final Nominees (Winners)", icon: "🏆" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStageFilter(tab.id)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition flex items-center gap-2 cursor-pointer shrink-0 border ${
+                stageFilter === tab.id
+                  ? "bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20"
+                  : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400"
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Floating Bulk Shortlist Action Bar */}
+        {selectedSubIds.length > 0 && isSpocAuthorized && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-zinc-900 to-zinc-950 border border-emerald-500/40 shadow-2xl flex flex-wrap items-center justify-between gap-4 animate-fadeIn">
+            <div className="flex items-center gap-3 font-mono text-xs text-white">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-bold">{selectedSubIds.length} Teams Selected</span>
+              <span className="text-zinc-400">| Perform Bulk Action:</span>
             </div>
 
-            <div className="p-5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 shadow-sm space-y-1">
-              <div className="text-3xl font-extrabold text-emerald-800 dark:text-emerald-400 font-mono">
-                {stats.nominatedSoftware}
-              </div>
-              <div className="text-xs font-semibold text-emerald-950 dark:text-emerald-300">Software Edition Approved</div>
-              <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">Approved Pitches</div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-500/30 shadow-sm space-y-1">
-              <div className="text-3xl font-extrabold text-sky-800 dark:text-sky-400 font-mono">
-                {stats.nominatedHardware}
-              </div>
-              <div className="text-xs font-semibold text-sky-950 dark:text-sky-300">Hardware Edition Approved</div>
-              <div className="text-[10px] text-sky-700 dark:text-sky-400 font-mono">Approved Pitches</div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 shadow-sm space-y-1">
-              <div className="text-3xl font-extrabold text-rose-800 dark:text-rose-400 font-mono">
-                {stats.ruleViolations}
-              </div>
-              <div className="text-xs font-semibold text-rose-950 dark:text-rose-300">Rule Violation Flags</div>
-              <div className="text-[10px] text-rose-800 dark:text-rose-400 font-mono">Missing Female Teammate / &lt;6 Members</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => handleBulkShortlist("shortlisted_round2")}
+                disabled={bulkUpdating}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                ⭐ Advance Selected ({selectedSubIds.length}) to Round 2 Shortlist
+              </button>
+              <button
+                onClick={() => handleBulkShortlist("final_nominated")}
+                disabled={bulkUpdating}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                🏆 Nominate Selected ({selectedSubIds.length}) as Final Winners
+              </button>
+              <button
+                onClick={() => setSelectedSubIds([])}
+                className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs transition cursor-pointer"
+              >
+                Clear Selection
+              </button>
             </div>
           </div>
         )}
@@ -267,7 +343,7 @@ function SpocDashboardContent() {
           </div>
 
           <div className="flex items-center gap-3 font-mono text-xs">
-            <span className="text-zinc-500">Master Record Count:</span>
+            <span className="text-zinc-500">Filtered Count:</span>
             <span className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-900 dark:text-white">
               {submissions.length} Teams
             </span>
@@ -278,21 +354,29 @@ function SpocDashboardContent() {
         {loading ? (
           <div className="py-20 text-center text-zinc-500 flex flex-col items-center gap-3 bg-white dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800">
             <span className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-            <span className="font-mono text-xs font-bold">Loading DJSCE Internal Hackathon Submissions...</span>
+            <span className="font-mono text-xs font-bold">Loading {collegeName} Hackathon Submissions...</span>
           </div>
         ) : submissions.length === 0 ? (
           <div className="py-20 text-center text-zinc-500 bg-white dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 font-mono text-xs space-y-2">
-            <p className="text-base font-bold text-zinc-800 dark:text-zinc-300">No teams found matching current filters.</p>
-            <p className="text-zinc-500 font-sans">Try searching for a different Problem Statement ID or clear category filters.</p>
+            <p className="text-base font-bold text-zinc-800 dark:text-zinc-300">No teams found matching current pipeline stage or filters.</p>
+            <p className="text-zinc-500 font-sans">Try selecting "All Submissions" tab or clearing search term filters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 shadow-xl">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-zinc-100 dark:bg-zinc-900/90 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+                  <th className="p-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubIds.length === submissions.length && submissions.length > 0}
+                      onChange={toggleSelectAll}
+                      className="rounded border-zinc-400 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="p-4">Rank & Team</th>
                   <th className="p-4">SIH Problem Statement</th>
-                  <th className="p-4">Rule Compliance</th>
+                  <th className="p-4">Round Stage</th>
                   <th className="p-4 text-center">AI Score</th>
                   <th className="p-4 text-center">Faculty Viva</th>
                   <th className="p-4 text-center">Final Score</th>
@@ -312,9 +396,25 @@ function SpocDashboardContent() {
                   const aiScore = sub.total_score || 0;
                   const vivaScore = sub.jury_viva_score || 0;
                   const compositeScore = sub.final_composite_score || aiScore;
+                  const isChecked = selectedSubIds.includes(sub.id);
 
                   return (
-                    <tr key={sub.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
+                    <tr
+                      key={sub.id}
+                      className={`transition ${
+                        isChecked
+                          ? "bg-emerald-500/10 dark:bg-emerald-950/30"
+                          : "hover:bg-zinc-50 dark:hover:bg-zinc-900/40"
+                      }`}
+                    >
+                      <td className="p-4 w-10">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelectRow(sub.id)}
+                          className="rounded border-zinc-400 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="p-4 font-medium">
                         <div className="flex items-center gap-3">
                           <span className="font-mono font-bold text-zinc-400 text-sm">#{idx + 1}</span>
@@ -325,7 +425,7 @@ function SpocDashboardContent() {
                         </div>
                       </td>
 
-                      <td className="p-4 max-w-sm">
+                      <td className="p-4 max-w-xs">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{sub.ps_number}</span>
                           <span className="px-2 py-0.5 rounded text-[9px] uppercase font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
@@ -348,27 +448,13 @@ function SpocDashboardContent() {
                       </td>
 
                       <td className="p-4 font-mono text-[11px]">
-                        <div className="space-y-1">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                              memberCount === 6
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                : "bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400"
-                            }`}
-                          >
-                            {memberCount}/6 Members
-                          </span>
-                          <br />
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                              hasFemale
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                : "bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400"
-                            }`}
-                          >
-                            {hasFemale ? "✓ Female Teammate" : "🚨 No Female"}
-                          </span>
-                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${getRoundStageBadgeClass(
+                            sub.round_stage
+                          )}`}
+                        >
+                          {getRoundStageLabel(sub.round_stage)}
+                        </span>
                       </td>
 
                       <td className="p-4 text-center font-mono font-bold text-zinc-900 dark:text-white text-base">
@@ -620,3 +706,22 @@ function getSpocBadgeClass(status: string) {
     return "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30";
   return "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700";
 }
+
+function getRoundStageBadgeClass(stage: string) {
+  if (stage === "shortlisted_round2")
+    return "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30";
+  if (stage === "final_nominated")
+    return "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30";
+  if (stage === "round1_rejected" || stage === "final_rejected")
+    return "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30";
+  return "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700";
+}
+
+function getRoundStageLabel(stage: string) {
+  if (stage === "shortlisted_round2") return "⭐ Round 2 Shortlist";
+  if (stage === "final_nominated") return "🏆 Final Nominee";
+  if (stage === "round1_rejected") return "🚨 R1 Eliminated";
+  if (stage === "final_rejected") return "🚨 R2 Eliminated";
+  return "📄 R1 Submitted";
+}
+
