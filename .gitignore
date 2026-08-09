@@ -30,6 +30,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# scratch and temporary diagnostic directories
+/scratch
+scratch/
+/tmp
+tmp/
+/debug
+debug/
+
 # env files (can opt-in for committing if needed)
 .env*
 .env.local
