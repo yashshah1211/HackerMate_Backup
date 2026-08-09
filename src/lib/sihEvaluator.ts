@@ -468,36 +468,66 @@ export function generateHeuristicEvaluation(
   const quantitativeScore = (hasPercent ? 1 : 0) + (hasCost ? 1 : 0) + (hasTimeMetrics ? 1 : 0) + (hasNumbers ? 1 : 0);
   const hasBeneficiaries = /beneficiar|user|market|saas|municipal|revenue|business|citizen/i.test(slideText);
 
-  // 3. Format Infractions Detection
+  // 3. Robust Format Infractions Detection
   const formatViolations: string[] = [];
-  const slideMatches = slideText.match(/slide\s*(\d+)/gi);
+
+  // Detect total slide count: check [Slide N] markers, slide N matches, or trailing slide numbers
+  const bracketSlideMatches = slideText.match(/\[Slide\s*(\d+)\]/gi);
+  const literalSlideMatches = slideText.match(/slide\s*(\d+)/gi);
+  const trailingNumMatches = slideText.match(/\n\s*(\d{1,2})\s*\n+@SIH/gi);
+
   let detectedMaxSlide = 0;
-  if (slideMatches) {
-    slideMatches.forEach((m) => {
+  if (bracketSlideMatches) detectedMaxSlide = Math.max(detectedMaxSlide, bracketSlideMatches.length);
+  if (literalSlideMatches) {
+    literalSlideMatches.forEach((m) => {
       const num = parseInt(m.replace(/slide\s*/i, ""), 10);
       if (!isNaN(num) && num > detectedMaxSlide) detectedMaxSlide = num;
     });
+  }
+  if (trailingNumMatches) {
+    trailingNumMatches.forEach((m) => {
+      const num = parseInt(m.replace(/[^\d]/g, ""), 10);
+      if (!isNaN(num) && num > detectedMaxSlide) detectedMaxSlide = num;
+    });
+  }
+
+  // Fallback: If text contains leftover instructions slide mentioning "maximum slides limit up to six", slide count is >= 8
+  const hasLeftoverInstructions = /maximum slides limit up to six|IMPORTANT INSTRUCTIONS|You can delete this slide/i.test(slideText);
+  if (hasLeftoverInstructions) {
+    detectedMaxSlide = Math.max(detectedMaxSlide, 8);
+    formatViolations.push("Format Violation: Leftover SIH template instructions slide (Slide 8) was not deleted prior to submission.");
   }
 
   if (detectedMaxSlide > 6) {
     formatViolations.push(`Format Violation: Exceeds mandatory 6-slide limit (${detectedMaxSlide} slides detected).`);
   }
 
-  const hasSlide1Title = /slide\s*1|title page|problem statement id|team name/i.test(slideText);
-  const hasSlide2Solution = /slide\s*2|proposed solution|idea title|innovation|novelty/i.test(slideText);
-  const hasSlide3Tech = /slide\s*3|technical approach|tech stack|methodology|architecture/i.test(slideText);
-  const hasSlide4Feasibility = /slide\s*4|feasibility|viability|risk|mitigation|challenges/i.test(slideText);
-  const hasSlide5Impact = /slide\s*5|impact|benefits|beneficiar/i.test(slideText);
-  const hasSlide6Research = /slide\s*6|research|reference|citation|dataset/i.test(slideText);
+  // Detect mandatory 6 sections across slide text
+  const hasSlide1Title = /title page|problem statement id|team name|category/i.test(slideText);
+  const hasSlide2Solution = /proposed solution|idea title|innovation|novelty/i.test(slideText);
+  const hasSlide3Tech = /technical approach|tech stack|methodology|architecture/i.test(slideText);
+  const hasSlide4Feasibility = /feasibility|viability|risk|mitigation|challenges/i.test(slideText);
+  const hasSlide5Impact = /impact|benefits|beneficiar/i.test(slideText);
+  const hasSlide6Research = /research|reference|citation|dataset/i.test(slideText);
 
   let missingSectionCount = 0;
-  if (slideMatches && slideMatches.length >= 3) {
-    if (!hasSlide1Title) { formatViolations.push("Format Violation: Missing Slide 1 Title Page metadata (PS ID, Category, Team Name)."); missingSectionCount++; }
-    if (!hasSlide2Solution) { formatViolations.push("Format Violation: Missing Slide 2 (Proposed Solution & Innovation)."); missingSectionCount++; }
-    if (!hasSlide3Tech) { formatViolations.push("Format Violation: Missing Slide 3 (Technical Approach & Architecture)."); missingSectionCount++; }
-    if (!hasSlide4Feasibility) { formatViolations.push("Format Violation: Missing Slide 4 (Feasibility & Technical Risk Mitigation)."); missingSectionCount++; }
-    if (!hasSlide5Impact) { formatViolations.push("Format Violation: Missing Slide 5 (Impact & Beneficiaries)."); missingSectionCount++; }
-    if (!hasSlide6Research) { formatViolations.push("Format Violation: Missing Slide 6 (Research and References)."); missingSectionCount++; }
+  if (!hasSlide1Title) { formatViolations.push("Format Violation: Missing Slide 1 Title Page metadata (PS ID, Category, Team Name)."); missingSectionCount++; }
+  if (!hasSlide2Solution) { formatViolations.push("Format Violation: Missing Slide 2 (Proposed Solution & Innovation)."); missingSectionCount++; }
+  if (!hasSlide3Tech) { formatViolations.push("Format Violation: Missing Slide 3 (Technical Approach & Architecture)."); missingSectionCount++; }
+  if (!hasSlide4Feasibility) { formatViolations.push("Format Violation: Missing Slide 4 (Feasibility & Technical Risk Mitigation)."); missingSectionCount++; }
+  if (!hasSlide5Impact) { formatViolations.push("Format Violation: Missing Slide 5 (Impact & Beneficiaries)."); missingSectionCount++; }
+  if (!hasSlide6Research) { formatViolations.push("Format Violation: Missing Slide 6 (Research and References)."); missingSectionCount++; }
+
+  // Detect duplicate section headers (e.g. TECHNICAL APPROACH appearing > 1 time across separate slides)
+  const techApproachMatches = (slideText.match(/TECHNICAL APPROACH/gi) || []).length;
+  if (techApproachMatches > 1) {
+    formatViolations.push(`Format Violation: Technical Approach section is duplicated ${techApproachMatches}x across slides instead of following the single 6-slide template structure.`);
+  }
+
+  // Detect unfilled template placeholders
+  const hasUnfilledPlaceholders = /Potential impact on the target audience|Benefits of the solution \(social, economic|Team Name \(Registered on portal\) - CodeSquad|Your Team Name/i.test(slideText);
+  if (hasUnfilledPlaceholders) {
+    formatViolations.push("Format Violation: Presentation contains unfilled template guidance placeholders on Impact & Title slides.");
   }
 
   if (wordCount > 100 && !hasBullets) {
@@ -615,20 +645,24 @@ export function generateHeuristicEvaluation(
   if (sub.github_url) strengths.push("GitHub Repository attached demonstrating codebase proof of work.");
 
   const slideRecommendations: Record<string, string> = {
-    titlePage: wordCount < 40
-      ? `Slide 1 (Title Page): Slide text is minimal. Ensure team name, PS ID #${sub.ps_number}, theme, and college affiliation are explicitly listed.`
-      : `Slide 1 (Title Page): Ensure PS Category (${sub.ps_category}), Ministry ID, and Leader contact details are clearly formatted.`,
-    proposedSolution: hasPercent
-      ? `Slide 2 (Proposed Solution): Good baseline metrics. Contrast existing solution drawbacks vs your proposed innovation using visual infographics.`
-      : `Slide 2 (Proposed Solution): Clearly articulate why your solution is unique and novel compared to standard existing web/mobile apps.`,
-    technicalApproach: hasDataFlowPipeline || techDomainCount > 0
-      ? `Slide 3 (Technical Approach): Good technical stack. Include a high-level block architecture diagram and data pipeline flowchart.`
-      : `Slide 3 (Technical Approach): Specify backend databases, API protocols, edge AI models, and hardware schematics instead of generic descriptions.`,
-    feasibilityAndRisks: `Slide 4 (Feasibility & Risks): List 2-3 specific technical risks (e.g. latency, offline edge fallback) and exact mitigation strategies.`,
-    impactAndBenefits: hasCost
-      ? `Slide 5 (Impact & Benefits): Cost metrics noted. Quantify specific target audience beneficiaries and environmental/economic impact.`
-      : `Slide 5 (Impact & Benefits): Quantify target beneficiaries and cost efficiency figures vs legacy manual processes.`,
-    researchAndReferences: `Slide 6 (Research & References): Cite official research papers, open datasets, and external technical documentation links.`,
+    titlePage: hasSlide1Title
+      ? `Slide 1 (Title Page): Ensure PS Category (${sub.ps_category}), Ministry ID, and Leader contact details are clearly formatted.`
+      : `Slide 1 (Title Page): 🚨 SECTION MISSING/UNFILLED — Ensure team name, PS ID #${sub.ps_number}, theme, and college affiliation are explicitly filled out.`,
+    proposedSolution: hasSlide2Solution
+      ? (hasPercent ? `Slide 2 (Proposed Solution): Good baseline metrics. Contrast existing solution drawbacks vs your proposed innovation using visual infographics.` : `Slide 2 (Proposed Solution): Clearly articulate why your solution is unique and novel compared to standard existing web/mobile apps.`)
+      : `Slide 2 (Proposed Solution): 🚨 SECTION MISSING — Official SIH guidelines mandate Slide 2 dedicated to your idea title, proposed solution, and core innovation.`,
+    technicalApproach: techApproachMatches > 1
+      ? `Slide 3 (Technical Approach): ⚠️ DUPLICATED SECTION — Technical Approach is duplicated across ${techApproachMatches} slides. Consolidate into Slide 3 with a block architecture diagram.`
+      : (hasSlide3Tech ? `Slide 3 (Technical Approach): Good technical stack. Include a high-level block architecture diagram and data pipeline flowchart.` : `Slide 3 (Technical Approach): 🚨 SECTION MISSING — Official SIH guidelines mandate Slide 3 dedicated to technical methodology and data flow.`),
+    feasibilityAndRisks: hasSlide4Feasibility
+      ? `Slide 4 (Feasibility & Risks): List 2-3 specific technical risks (e.g. latency, offline edge fallback) and exact mitigation strategies.`
+      : `Slide 4 (Feasibility & Risks): 🚨 SECTION MISSING — Official SIH guidelines mandate Slide 4 dedicated to feasibility analysis and technical risk mitigation.`,
+    impactAndBenefits: hasSlide5Impact
+      ? (hasCost ? `Slide 5 (Impact & Benefits): Cost metrics noted. Quantify specific target audience beneficiaries.` : `Slide 5 (Impact & Benefits): Quantify target beneficiaries and cost efficiency figures vs legacy manual processes.`)
+      : `Slide 5 (Impact & Benefits): 🚨 SECTION MISSING — Official SIH guidelines mandate Slide 5 dedicated to target beneficiaries and impact metrics.`,
+    researchAndReferences: hasSlide6Research
+      ? `Slide 6 (Research & References): Cite official research papers, open datasets, and external technical documentation links.`
+      : `Slide 6 (Research & References): 🚨 SECTION MISSING — Official SIH guidelines mandate Slide 6 dedicated to research papers, open datasets, and reference citations.`,
   };
 
   return {

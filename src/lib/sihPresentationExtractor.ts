@@ -40,8 +40,9 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
         const text = await res.text();
         const cleaned = sanitizeExtractedText(text);
         if (cleaned.length > 50) {
-          console.log(`[SIH Extractor] Successfully extracted ${cleaned.length} chars via Google Slides export/txt`);
-          return cleaned.slice(0, 4000);
+          const segmented = segmentPresentationSlides(cleaned);
+          console.log(`[SIH Extractor] Successfully extracted & segmented ${segmented.length} chars via Google Slides export/txt`);
+          return segmented.slice(0, 5000);
         }
       }
     } catch (err: any) {
@@ -69,8 +70,9 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
         const html = await res.text();
         const cleaned = stripHtmlToText(html);
         if (cleaned.length > 50) {
-          console.log(`[SIH Extractor] Successfully extracted ${cleaned.length} chars via Google Slides pub HTML`);
-          return cleaned.slice(0, 4000);
+          const segmented = segmentPresentationSlides(cleaned);
+          console.log(`[SIH Extractor] Successfully extracted & segmented ${segmented.length} chars via Google Slides pub HTML`);
+          return segmented.slice(0, 5000);
         }
       }
     } catch (err: any) {
@@ -101,8 +103,9 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
           const raw = await res.text();
           const cleaned = stripHtmlToText(raw);
           if (cleaned.length > 50) {
-            console.log(`[SIH Extractor] Successfully extracted ${cleaned.length} chars via web fetch`);
-            return cleaned.slice(0, 4000);
+            const segmented = segmentPresentationSlides(cleaned);
+            console.log(`[SIH Extractor] Successfully extracted & segmented ${segmented.length} chars via web fetch`);
+            return segmented.slice(0, 5000);
           }
         }
       }
@@ -113,6 +116,60 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
 
   console.warn(`[SIH Extractor] Text extraction unavailable for link: ${urlStr}. Returning metadata fallback indicator.`);
   return `(Presentation hosted at ${urlStr}. Extracting raw text was unavailable due to host security settings. Evaluate based on problem statement metadata and project details.)`;
+}
+
+export function segmentPresentationSlides(rawText: string): string {
+  if (!rawText || !rawText.trim()) return rawText;
+  if (/\[Slide\s*\d+\]/i.test(rawText)) return rawText;
+
+  let rawSlides: string[] = [];
+
+  // Form-feed split (\f)
+  if (rawText.includes("\f")) {
+    rawSlides = rawText.split(/\f+/).map((s) => s.trim()).filter(Boolean);
+  }
+
+  // Split on SIH template footer numbers: e.g. "\n2\n@SIH" or "\n3\n@SIH" or "\n\d+\n"
+  if (rawSlides.length <= 1) {
+    const lines = rawText.split("\n");
+    const tempSlides: string[] = [];
+    let currentChunk: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // Check if line is a standalone slide number (e.g. "2", "3", "8") or footer "@SIH"
+      const isSlideNum = /^\d{1,2}$/.test(line);
+      const isSihFooter = /^@SIH/i.test(line) || /^Your Team Name$/i.test(line);
+      const isNextHeading = /^(TITLE PAGE|IDEA TITLE|PROPOSED SOLUTION|TECHNICAL APPROACH|FEASIBILITY AND VIABILITY|IMPACT AND BENEFITS|RESEARCH AND REFERENCES|IMPORTANT INSTRUCTIONS)$/i.test(line);
+
+      if ((isNextHeading || (isSlideNum && currentChunk.length > 3)) && currentChunk.length > 0) {
+        const textChunk = currentChunk.join("\n").trim();
+        if (textChunk.length > 20) {
+          tempSlides.push(textChunk);
+        }
+        currentChunk = [line];
+      } else {
+        currentChunk.push(lines[i]);
+      }
+    }
+
+    if (currentChunk.length > 0) {
+      const textChunk = currentChunk.join("\n").trim();
+      if (textChunk.length > 10) tempSlides.push(textChunk);
+    }
+
+    if (tempSlides.length > 1) {
+      rawSlides = tempSlides;
+    }
+  }
+
+  if (rawSlides.length <= 1) {
+    return rawText;
+  }
+
+  return rawSlides
+    .map((slideContent, idx) => `[Slide ${idx + 1}]\n${slideContent}`)
+    .join("\n\n");
 }
 
 function sanitizeExtractedText(raw: string): string {

@@ -586,10 +586,34 @@ export default function MockSIHScorecardModal({
                       ? "Slide 6 (Research & References)"
                       : `Slide ${idx + 1}`;
 
+                  const recStr = String(text || "");
+                  const cleanText = recStr.replace(/^Slide\s*\d+\s*\([^)]+\):\s*/i, "");
+                  const isMissing = recStr.includes("SECTION MISSING");
+                  const isDuplicated = recStr.includes("DUPLICATED SECTION");
+
                   return (
-                    <div key={slideKey} className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300 text-[11px]">
-                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 mr-1.5">{label}:</span>
-                      {text}
+                    <div
+                      key={slideKey}
+                      className={`p-2.5 rounded-lg border text-[11px] transition-all ${
+                        isMissing
+                          ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-500/40 text-rose-950 dark:text-rose-300"
+                          : isDuplicated
+                          ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-500/40 text-amber-950 dark:text-amber-300"
+                          : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      <span
+                        className={`font-mono font-bold mr-1.5 ${
+                          isMissing
+                            ? "text-rose-700 dark:text-rose-400"
+                            : isDuplicated
+                            ? "text-amber-700 dark:text-amber-400"
+                            : "text-emerald-700 dark:text-emerald-400"
+                        }`}
+                      >
+                        {label}:
+                      </span>
+                      {cleanText}
                     </div>
                   );
                 })}
