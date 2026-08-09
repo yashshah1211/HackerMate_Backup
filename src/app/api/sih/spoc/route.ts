@@ -4,93 +4,9 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { logSihEvent } from "@/lib/admin/sihLogger";
 
-export type SpocAuthResult = {
-  isAuthorized: boolean;
-  role: string;
-  collegeName: string | null;
-  isAdminOverride: boolean;
-};
-
-export async function verifySpocAuthorization(user: any, supabaseAdmin: any): Promise<SpocAuthResult> {
-  if (!user || !user.email) {
-    return { isAuthorized: false, role: "none", collegeName: null, isAdminOverride: false };
-  }
-
-  const email = user.email.toLowerCase().trim();
-
-  // 1. Platform Super Admin Check (is_admin === true on profile or explicit super-admin email)
-  try {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("is_admin, role, college")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (
-      profile?.is_admin ||
-      profile?.role === "admin" ||
-      email === "yashshah7117@gmail.com" ||
-      email === "yashshah111@gmail.com"
-    ) {
-      return {
-        isAuthorized: true,
-        role: "admin",
-        collegeName: profile?.college || "D.J. Sanghvi College of Engineering (DJSCE)",
-        isAdminOverride: true,
-      };
-    }
-  } catch (err) {
-    console.error("[SPOC Auth Profile Check Error]:", err);
-  }
-
-  // 2. Strict Database Allowlist Lookup (sih_spoc_allowlist table)
-  try {
-    const { data: allowlistEntry } = await supabaseAdmin
-      .from("sih_spoc_allowlist")
-      .select("email, college_name, role, is_active")
-      .eq("email", email)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (allowlistEntry) {
-      return {
-        isAuthorized: true,
-        role: allowlistEntry.role || "spoc",
-        collegeName: allowlistEntry.college_name,
-        isAdminOverride: false,
-      };
-    }
-  } catch (err) {
-    console.error("[SPOC Allowlist Table Check Error]:", err);
-  }
-
-  // 3. Fallback Check on Verified User Profile Role & College
-  try {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("role, college")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (
-      profile &&
-      profile.college &&
-      (profile.role === "spoc" || profile.role === "hod" || profile.role === "faculty")
-    ) {
-      return {
-        isAuthorized: true,
-        role: profile.role,
-        collegeName: profile.college,
-        isAdminOverride: false,
-      };
-    }
-  } catch (err) {
-    console.error("[SPOC Profile Role Check Error]:", err);
-  }
-
-  // Default DENY: Fuzzy keyword substring matching completely removed
-  return { isAuthorized: false, role: "none", collegeName: null, isAdminOverride: false };
-}
+import { verifySpocAuthorization, SpocAuthResult } from "@/lib/sihSpocAuth";
+export { verifySpocAuthorization };
+export type { SpocAuthResult };
 
 export async function GET(req: NextRequest) {
   try {

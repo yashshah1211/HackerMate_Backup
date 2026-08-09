@@ -232,16 +232,16 @@ export default function MockSIHScorecardModal({
                 >
                   {deleting ? "Removing..." : "🗑️ Remove Pitch"}
                 </button>
+                <button
+                  onClick={handleReEvaluate}
+                  disabled={reEvaluating}
+                  className="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 text-xs font-semibold rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="Re-evaluate pitch deck using HackerMate AI Jury"
+                >
+                  {reEvaluating ? "Evaluating..." : "🔄 Re-Run AI Jury"}
+                </button>
               </>
             )}
-
-            <button
-              onClick={handleReEvaluate}
-              disabled={reEvaluating}
-              className="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 text-xs font-semibold rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              {reEvaluating ? "Evaluating..." : "🔄 Re-Run AI Jury"}
-            </button>
 
             <button
               onClick={onClose}

@@ -1510,16 +1510,23 @@ function SIHTeamBuilderContent() {
         teamName={selectedTeamNameForScorecard}
         isOwnTeam={(() => {
           if (!selectedSubmissionForScorecard || !currentUserId) return false;
-          const t = allTeams.find((team) => team.id === selectedSubmissionForScorecard.team_id);
-          return (
-            t?.owner_id === currentUserId ||
-            t?.team_members?.some((m: TeamMember) => m.user_id === currentUserId) ||
-            false
-          );
+          const sub = selectedSubmissionForScorecard;
+          const subTeam = sub.teams;
+          if (subTeam) {
+            if (subTeam.owner_id === currentUserId) return true;
+            if (subTeam.team_members?.some((m: any) => (m.user_id || m.profiles?.id) === currentUserId)) return true;
+          }
+          const t = allTeams.find((team) => team.id === sub.team_id);
+          if (t) {
+            if (t.owner_id === currentUserId) return true;
+            if (t.team_members?.some((m: any) => (m.user_id || m.profiles?.id) === currentUserId)) return true;
+          }
+          return false;
         })()}
         onReEvaluated={() => loadSIHData()}
         onEditRequested={(sub) => {
-          const t = allTeams.find((team) => team.id === sub.team_id);
+          const subTeam = sub.teams;
+          const t = subTeam || allTeams.find((team) => team.id === sub.team_id);
           if (t) {
             setSelectedTeamForMockSubmit(t);
             setMockScorecardModalOpen(false);
