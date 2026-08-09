@@ -78,6 +78,7 @@ export async function evaluateSubmission(submissionId: string) {
     grade: string;
     strengths: string[];
     spocRedFlags: string[];
+    formatViolations: string[];
     slideRecommendations: Record<string, string>;
     scoreDeductions: {
       novelty: string;
@@ -151,6 +152,7 @@ export async function evaluateSubmission(submissionId: string) {
   const aiFeedbackObj = {
     strengths: evaluationResult.strengths,
     spocRedFlags: evaluationResult.spocRedFlags,
+    formatViolations: evaluationResult.formatViolations || [],
     slideRecommendations: evaluationResult.slideRecommendations,
     scoreDeductions: evaluationResult.scoreDeductions,
     benchmarks,
@@ -239,11 +241,35 @@ export async function callGeminiWithFastTimeout(
   hasFemaleMember: boolean,
   slideText: string
 ) {
-  const promptText = `You are a Senior Smart India Hackathon (SIH) Jury Evaluator and College SPOC Committee Chair. Evaluate this SIH 2026 pitch submission with high rigor.
+  const promptText = `You are a Senior Smart India Hackathon (SIH) Jury Evaluator and College SPOC Committee Chair. Evaluate this SIH 2026 pitch submission against the OFFICIAL SIH 2026 MANDATORY 6-SLIDE TEMPLATE FORMAT.
 
-CRITICAL SIH FORMAT NOTICE:
-- This is an SIH 2026 internal-round pitch deck evaluation.
-- Read the EXTRACTED PRESENTATION SLIDE CONTENT below carefully. If quantitative baseline metrics (such as percentages, cost figures, or time savings) are present in the text, DO NOT state or deduct points for lacking quantitative metrics.
+OFFICIAL SIH 2026 PRESENTATION TEMPLATE STRUCTURE (MANDATORY 6 SLIDES MAX):
+1. SLIDE 1 - TITLE PAGE: PS ID, PS Title, Theme, PS Category (Software/Hardware), Team ID, Team Name, College Name.
+2. SLIDE 2 - IDEA TITLE & PROPOSED SOLUTION: Detailed explanation, how it addresses the problem, innovation & uniqueness/novelty.
+3. SLIDE 3 - TECHNICAL APPROACH: Technologies to be used (languages, frameworks, DBs, models/hardware), methodology/implementation process (flowcharts/architecture/prototype link).
+4. SLIDE 4 - FEASIBILITY AND VIABILITY: Feasibility analysis, potential challenges & technical risks, clear mitigation strategies.
+5. SLIDE 5 - IMPACT AND BENEFITS: Impact on target audience, social/economic/environmental benefits, quantified metrics.
+6. SLIDE 6 - RESEARCH AND REFERENCES: Supporting research papers, dataset sources, citations, reference links.
+
+OFFICIAL SIH FORMAT RULES & CONSTRAINTS:
+- Maximum 6 slides total (including title slide).
+- Template structure must NOT be altered or re-ordered.
+- Paragraphs must be avoided; bullet points, flowcharts, architecture diagrams, and infographics are strongly preferred.
+- Idea must demonstrate novelty/uniqueness over generic existing solutions.
+
+FEW-SHOT EVALUATION EXAMPLES:
+
+Example 1 (Strong Technical Approach - Slide 3):
+Text: "Slide 3: Technical Approach. Stack: Next.js 16, Supabase PostgreSQL, FastAPI, YOLOv8 edge model on Jetson Nano. Flow: RTSP Stream -> OpenCV Sampling (15fps) -> Edge YOLO -> MQTT -> Supabase -> Dashboard. Prototype: https://demo.hackermate.in"
+Evaluation: scoreTech=34/35. FormatViolations=[]. Reason: "Explicit tech stack, data pipeline, edge target, and working prototype provided."
+
+Example 2 (Weak Feasibility - Slide 4):
+Text: "Slide 4: Feasibility. Our project is very feasible because we will work hard to build it. We will use cloud servers to solve all problems automatically."
+Evaluation: scoreTech=14/35. FormatViolations=["Format Warning: Slide 4 is paragraph-heavy and lacks specific technical risks, latency constraints, or mitigation protocols."].
+
+Example 3 (Format Violation - Over Slide Limit & Missing References):
+Text: 8 slides total; missing Slide 6 Research/References; Slide 1 missing PS ID.
+Evaluation: scoreNovelty=10/25. FormatViolations=["Format Violation: Exceeds mandatory 6-slide limit (8 slides detected).", "Format Violation: Missing Slide 6 (Research and References).", "Format Violation: Slide 1 missing mandatory PS ID."].
 
 SUBMISSION METADATA:
 - Problem Statement ID: ${sub.ps_number}
@@ -272,10 +298,10 @@ ${slideText}
 ---
 
 SIH SCORING RUBRIC (Max 100 Points):
-1. Problem Novelty & Alignment (Max 25 pts)
-2. Technical Architecture & Feasibility (Max 35 pts)
-3. UI/UX & Presentation Polish (Max 25 pts)
-4. Team Balance & SIH Rules (Max 15 pts)
+1. Problem Novelty & Alignment (Max 25 pts) -> Evaluated via Slide 1 & Slide 2.
+2. Technical Architecture & Feasibility (Max 35 pts) -> Evaluated via Slide 3 & Slide 4.
+3. UI/UX, Impact & Research Polish (Max 25 pts) -> Evaluated via Slide 5 & Slide 6 + Prototype Link.
+4. Team Squad Balance & Rule Compliance (Max 15 pts) -> 6-member squad, female teammate, 6-slide max rule.
 
 CRITICAL INSTRUCTION:
 Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exact structure:
@@ -286,6 +312,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
   "scoreTeam": number (0-15),
   "totalScore": number (0-100),
   "grade": "Nomination Gold 🏆" | "Nomination Ready ✅" | "Needs Iteration ⚠️" | "High SPOC Risk 🚨",
+  "formatViolations": ["Format Violation: ..."],
   "scoreDeductions": {
     "novelty": "Specific explanation of why points were lost in Novelty",
     "tech": "Specific explanation of why points were lost in Technical Architecture",
@@ -295,12 +322,12 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
   "strengths": ["string", "string", "string"],
   "spocRedFlags": ["string", "string"],
   "slideRecommendations": {
-    "slide1": "Problem statement clarity advice...",
-    "slide2": "Proposed solution & innovation advice...",
-    "slide3": "Technical architecture & stack advice...",
-    "slide4": "Feasibility & key use-cases advice...",
-    "slide5": "Target beneficiaries & value proposition advice...",
-    "slide6": "Team member role division & SIH compliance advice..."
+    "titlePage": "Slide 1 Title Page guidance...",
+    "proposedSolution": "Slide 2 Idea guidance...",
+    "technicalApproach": "Slide 3 Tech Approach guidance...",
+    "feasibilityAndRisks": "Slide 4 Feasibility & Risk guidance...",
+    "impactAndBenefits": "Slide 5 Impact guidance...",
+    "researchAndReferences": "Slide 6 References guidance..."
   }
 }`;
 
@@ -370,6 +397,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) with exac
         grade: parsed.grade || "Nomination Ready ✅",
         strengths: parsed.strengths || ["Well-aligned problem statement", "Robust architecture choice"],
         spocRedFlags: parsed.spocRedFlags || [],
+        formatViolations: Array.isArray(parsed.formatViolations) ? parsed.formatViolations : [],
         slideRecommendations: parsed.slideRecommendations || {},
         scoreDeductions: {
           novelty: parsed.scoreDeductions?.novelty || `Lost ${25 - scoreNovelty} points in Problem Alignment & Novelty.`,
@@ -403,54 +431,114 @@ export function generateHeuristicEvaluation(
   const words = slideText.trim().split(/\s+/).filter(Boolean);
   const wordCount = words.length;
 
-  // 1. Technical Architecture & Component Analysis
-  const dbKeywords = ["postgres", "supabase", "mongodb", "sql", "redis", "timescale", "dynamodb", "database", "schema"];
-  const archKeywords = ["microservice", "api", "rest", "mqtt", "grpc", "edge", "cloud", "aws", "docker", "jetson", "yolo", "architecture", "pipeline", "realtime", "rtsp"];
-  const frameworkKeywords = ["react", "next", "node", "python", "fastapi", "go", "java", "c++", "express", "tailwind", "flutter"];
-  const mlKeywords = ["model", "training", "map", "yolov8", "reinforcement", "dqn", "deep learning", "neural", "opencv", "computer vision", "dataset"];
+  // 1. Broad & Extensible Technology Category Registry
+  const databases = ["postgres", "postgresql", "supabase", "mongodb", "redis", "mysql", "sqlite", "timescale", "dynamodb", "firebase", "firestore", "cassandra", "neo4j", "cockroachdb"];
+  const cloudPlatforms = ["aws", "gcp", "azure", "vercel", "render", "docker", "kubernetes", "k8s", "serverless", "lambda", "cloudflare", "edge"];
+  const frameworks = ["react", "next", "vue", "angular", "svelte", "node", "express", "fastapi", "flask", "django", "spring", "nestjs", "rails", "laravel", "flutter"];
+  const mlAi = ["yolo", "yolov8", "opencv", "pytorch", "tensorflow", "keras", "scikit-learn", "huggingface", "llm", "gemini", "openai", "rag", "bert", "neural", "computer vision"];
+  const protocols = ["rest", "api", "mqtt", "grpc", "websocket", "rtsp", "graphql", "microservice"];
+  const hardware = ["jetson", "raspberry pi", "esp32", "arduino", "nvidia", "sensor", "iot"];
 
-  const hasDb = dbKeywords.some(k => lowerText.includes(k));
-  const hasArch = archKeywords.some(k => lowerText.includes(k));
-  const hasFramework = frameworkKeywords.some(k => lowerText.includes(k));
-  const hasMl = mlKeywords.some(k => lowerText.includes(k));
+  const foundDb = databases.filter(k => lowerText.includes(k));
+  const foundCloud = cloudPlatforms.filter(k => lowerText.includes(k));
+  const foundFramework = frameworks.filter(k => lowerText.includes(k));
+  const foundMl = mlAi.filter(k => lowerText.includes(k));
+  const foundProtocol = protocols.filter(k => lowerText.includes(k));
+  const foundHw = hardware.filter(k => lowerText.includes(k));
 
-  const techKeywordCount = [...dbKeywords, ...archKeywords, ...frameworkKeywords, ...mlKeywords]
-    .filter(k => lowerText.includes(k)).length;
+  const techDomainCount = [
+    foundDb.length > 0,
+    foundCloud.length > 0,
+    foundFramework.length > 0,
+    foundMl.length > 0,
+    foundProtocol.length > 0,
+    foundHw.length > 0,
+  ].filter(Boolean).length;
 
-  // 2. Quantitative Baseline Metrics Analysis (%, costs, response times, numbers)
+  // 2. Specificity & Technical Pipeline Analysis (vs Generic Buzzwords)
+  const hasDataFlowPipeline = /->|-->|=>|pipeline|architecture|data flow|flowchart|ingests|streams|serializes|publishes/i.test(slideText);
+  const hasRiskMitigation = /mitigation|technical risk|fail-safe|offline|fallback|occlusion|latency mitigation|redundancy/i.test(slideText);
+  const hasBullets = /[•\-\*]\s|\d+\.\s/.test(slideText);
+
+  // Quantitative Baseline Metrics Analysis (%, costs, response times, numbers)
   const hasPercent = /%\s|percent|reduction|increase|\d+%/i.test(slideText);
   const hasCost = /₹|\$|cost|rupees|budget|rs\.|inr/i.test(slideText);
-  const hasTimeMetrics = /min|sec|hour|delay|latency|ms\b|speed/i.test(slideText);
-  const hasNumbers = (slideText.match(/\d+/g) || []).length > 5;
+  const hasTimeMetrics = /min|sec|hour|delay|latency|ms\b|speed|fps/i.test(slideText);
+  const hasNumbers = (slideText.match(/\d+/g) || []).length > 3;
   const quantitativeScore = (hasPercent ? 1 : 0) + (hasCost ? 1 : 0) + (hasTimeMetrics ? 1 : 0) + (hasNumbers ? 1 : 0);
+  const hasBeneficiaries = /beneficiar|user|market|saas|municipal|revenue|business|citizen/i.test(slideText);
 
-  const hasBeneficiaries = /beneficiar|user|market|saas|municipal|revenue|business/i.test(slideText);
+  // 3. Format Infractions Detection
+  const formatViolations: string[] = [];
+  const slideMatches = slideText.match(/slide\s*(\d+)/gi);
+  let detectedMaxSlide = 0;
+  if (slideMatches) {
+    slideMatches.forEach((m) => {
+      const num = parseInt(m.replace(/slide\s*/i, ""), 10);
+      if (!isNaN(num) && num > detectedMaxSlide) detectedMaxSlide = num;
+    });
+  }
 
-  // 3. Content-Driven Rubric Scoring (4 Criteria = 100 Pts Total)
+  if (detectedMaxSlide > 6) {
+    formatViolations.push(`Format Violation: Exceeds mandatory 6-slide limit (${detectedMaxSlide} slides detected).`);
+  }
+
+  const hasSlide1Title = /slide\s*1|title page|problem statement id|team name/i.test(slideText);
+  const hasSlide2Solution = /slide\s*2|proposed solution|idea title|innovation|novelty/i.test(slideText);
+  const hasSlide3Tech = /slide\s*3|technical approach|tech stack|methodology|architecture/i.test(slideText);
+  const hasSlide4Feasibility = /slide\s*4|feasibility|viability|risk|mitigation|challenges/i.test(slideText);
+  const hasSlide5Impact = /slide\s*5|impact|benefits|beneficiar/i.test(slideText);
+  const hasSlide6Research = /slide\s*6|research|reference|citation|dataset/i.test(slideText);
+
+  let missingSectionCount = 0;
+  if (slideMatches && slideMatches.length >= 3) {
+    if (!hasSlide1Title) { formatViolations.push("Format Violation: Missing Slide 1 Title Page metadata (PS ID, Category, Team Name)."); missingSectionCount++; }
+    if (!hasSlide2Solution) { formatViolations.push("Format Violation: Missing Slide 2 (Proposed Solution & Innovation)."); missingSectionCount++; }
+    if (!hasSlide3Tech) { formatViolations.push("Format Violation: Missing Slide 3 (Technical Approach & Architecture)."); missingSectionCount++; }
+    if (!hasSlide4Feasibility) { formatViolations.push("Format Violation: Missing Slide 4 (Feasibility & Technical Risk Mitigation)."); missingSectionCount++; }
+    if (!hasSlide5Impact) { formatViolations.push("Format Violation: Missing Slide 5 (Impact & Beneficiaries)."); missingSectionCount++; }
+    if (!hasSlide6Research) { formatViolations.push("Format Violation: Missing Slide 6 (Research and References)."); missingSectionCount++; }
+  }
+
+  if (wordCount > 100 && !hasBullets) {
+    formatViolations.push("Format Notice: Presentation contains dense text blocks. SIH guidelines strongly prefer bullet points, flowcharts, and architecture block diagrams over paragraphs.");
+  }
+
+  // 4. Content-Driven Rubric Scoring (4 Criteria = 100 Pts Max)
+
   // Problem Novelty & Alignment (0-25)
   let scoreNovelty = 5;
-  if (wordCount > 30) scoreNovelty += 5;
-  if (wordCount > 100) scoreNovelty += 5;
+  if (wordCount > 30) scoreNovelty += 4;
+  if (wordCount > 100) scoreNovelty += 3;
   if (quantitativeScore >= 1) scoreNovelty += 5;
-  if (hasBeneficiaries || (sub.ps_number && lowerText.includes(sub.ps_number.toLowerCase()))) scoreNovelty += 5;
+  if (hasBeneficiaries || (sub.ps_number && lowerText.includes(sub.ps_number.toLowerCase()))) scoreNovelty += 4;
+  if (hasRiskMitigation) scoreNovelty += 4;
+  if (!hasRiskMitigation && quantitativeScore === 0) {
+    scoreNovelty = Math.min(12, scoreNovelty); // Vague deck cap
+  }
   scoreNovelty = Math.min(25, Math.max(2, scoreNovelty));
 
   // Technical Architecture & Feasibility (0-35)
   let scoreTech = 5;
-  if (wordCount > 50) scoreTech += 5;
-  if (hasArch) scoreTech += 6;
-  if (hasDb) scoreTech += 6;
-  if (hasFramework || hasMl) scoreTech += 6;
-  if (techKeywordCount >= 5) scoreTech += 4;
-  if (sub.github_url) scoreTech += 3;
+  if (wordCount > 40) scoreTech += 4;
+  if (hasDataFlowPipeline) scoreTech += 8;
+  if (techDomainCount >= 2) scoreTech += 8;
+  if (foundMl.length > 0 || foundHw.length > 0 || foundProtocol.length > 0) scoreTech += 5;
+  if (sub.github_url) scoreTech += 5;
+  if (!hasDataFlowPipeline && techDomainCount < 2) {
+    scoreTech = Math.min(14, scoreTech); // Vague deck cap: no concrete pipeline or tech stack
+  }
   scoreTech = Math.min(35, Math.max(3, scoreTech));
 
   // UI/UX & Presentation Polish (0-25)
   let scoreUiUx = 4;
-  if (wordCount > 40) scoreUiUx += 5;
-  if (lowerText.includes("dashboard") || lowerText.includes("ui") || lowerText.includes("mockup") || lowerText.includes("wireframe") || lowerText.includes("interface")) scoreUiUx += 6;
+  if (wordCount > 40) scoreUiUx += 4;
+  if (hasBullets) scoreUiUx += 6;
+  if (lowerText.includes("dashboard") || lowerText.includes("mockup") || lowerText.includes("flowchart") || lowerText.includes("wireframe") || lowerText.includes("interface")) scoreUiUx += 6;
   if (sub.demo_url) scoreUiUx += 5;
-  if (textLength > 300) scoreUiUx += 5;
+  if (!hasBullets && wordCount > 60) {
+    scoreUiUx = Math.max(2, scoreUiUx - 5); // Dense paragraph penalty
+  }
   scoreUiUx = Math.min(25, Math.max(2, scoreUiUx));
 
   // Team Squad Balance & SIH Rules (0-15)
@@ -459,14 +547,29 @@ export function generateHeuristicEvaluation(
   if (memberCount >= 4) scoreTeam += 3;
   if (memberCount === 6) scoreTeam += 4;
   if (hasFemaleMember) scoreTeam += 6;
+  if (detectedMaxSlide > 6) scoreTeam = Math.max(0, scoreTeam - 5);
   scoreTeam = Math.min(15, Math.max(0, scoreTeam));
 
-  const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
+  // Calculate Raw Score
+  let rawTotalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
+
+  // Apply Hard Score Caps & Grade Assignment
+  let totalScore = rawTotalScore;
+
+  if (detectedMaxSlide > 6) {
+    totalScore = Math.min(48, totalScore); // Cap format-violating 8-slide decks at 48 max
+  } else if (missingSectionCount >= 2) {
+    totalScore = Math.min(45, totalScore); // Cap sparse decks missing multiple sections at 45 max
+  } else if (!hasDataFlowPipeline && !hasRiskMitigation) {
+    totalScore = Math.min(48, totalScore); // Cap vague decks lacking architecture flow & risk mitigation at 48 max (High SPOC Risk 🚨)
+  }
 
   let grade = "Nomination Ready ✅";
-  if (totalScore >= 88) grade = "Nomination Gold 🏆";
+  if (totalScore >= 85 && formatViolations.length === 0) grade = "Nomination Gold 🏆";
   else if (totalScore < 70) grade = "Needs Iteration ⚠️";
-  if (totalScore < 50 || !hasFemaleMember || memberCount < 6) grade = "High SPOC Risk 🚨";
+  if (totalScore < 50 || !hasFemaleMember || memberCount < 6 || formatViolations.some((f) => f.includes("Exceeds mandatory"))) {
+    grade = "High SPOC Risk 🚨";
+  }
 
   // Dynamic Content-Aware Red Flags
   const spocRedFlags: string[] = [];
@@ -482,47 +585,50 @@ export function generateHeuristicEvaluation(
   if (wordCount < 40) {
     spocRedFlags.push("Extremely sparse slide content. Presentation lacks technical specifications.");
   }
+  if (formatViolations.length > 0) {
+    spocRedFlags.push(`Template Format Non-Compliance: ${formatViolations.length} slide format infractions detected.`);
+  }
 
   // Dynamic Content-Aware Score Deductions
   const deductions = {
     novelty: wordCount < 40
       ? `Lost ${25 - scoreNovelty} points due to extremely minimal slide text and missing problem context.`
       : `Lost ${25 - scoreNovelty} points due to missing quantitative baseline metrics or competitive differentiation.`,
-    tech: !hasArch && !hasDb
-      ? `Lost ${35 - scoreTech} points due to lack of defined technical architecture, database design, and framework specifications.`
-      : `Lost ${35 - scoreTech} points because deployment infrastructure or fail-safe specifications can be expanded.`,
+    tech: !hasDataFlowPipeline && techDomainCount === 0
+      ? `Lost ${35 - scoreTech} points due to lack of defined technical architecture data flow, database design, and framework specifications.`
+      : `Lost ${35 - scoreTech} points because deployment infrastructure, data pipeline flowcharts, or fail-safe specifications can be expanded.`,
     uiUx: sub.demo_url
       ? `Lost ${25 - scoreUiUx} points because slide visual mockups and user flow diagrams need improvement.`
       : `Lost ${25 - scoreUiUx} points due to missing working prototype video demonstration link.`,
-    team: memberCount === 6 && hasFemaleMember
-      ? "Full 15/15 pts awarded for full 6-member squad and mandatory female teammate representation."
-      : `Lost ${15 - scoreTeam} points due to incomplete squad size (${memberCount}/6) or missing mandatory female teammate.`,
+    team: memberCount === 6 && hasFemaleMember && detectedMaxSlide <= 6
+      ? "Full 15/15 pts awarded for full 6-member squad, mandatory female teammate, and 6-slide template compliance."
+      : `Lost ${15 - scoreTeam} points due to incomplete squad size (${memberCount}/6), missing female teammate, or exceeding 6-slide max limit.`,
   };
 
   const strengths: string[] = [
     `Problem alignment registered for official ministry PS #${sub.ps_number} (${sub.theme}).`,
   ];
-  if (hasArch || hasDb) strengths.push("Technical stack components (databases/architecture) defined in pitch text.");
+  if (hasDataFlowPipeline || techDomainCount > 0) strengths.push("Technical stack components (databases/architecture/pipeline) defined in pitch text.");
   if (hasPercent || hasCost) strengths.push("Quantitative baseline metrics or cost efficiency figures included.");
   if (memberCount === 6) strengths.push("Full 6-member team squad complete.");
   if (hasFemaleMember) strengths.push("Mandatory female team member rule satisfied.");
   if (sub.github_url) strengths.push("GitHub Repository attached demonstrating codebase proof of work.");
 
   const slideRecommendations: Record<string, string> = {
-    slide1: wordCount < 40
-      ? `Title & Overview: Slide text is minimal. Replace placeholder text with team name, PS ID #${sub.ps_number}, and college affiliation.`
-      : `Title & Overview: Explicitly mention Ministry/Organization for PS #${sub.ps_number} and leader contact details.`,
-    slide2: hasPercent
-      ? `Problem & Solution: Good baseline metrics. Add visual infographics contrasting before vs after solution implementation.`
-      : `Problem & Solution: Highlight quantitative baseline metrics showing current delays or costs before your solution.`,
-    slide3: hasArch || hasDb
-      ? `Technical Stack: System components detected. Add a high-level block diagram showing data flow and fail-safe behavior.`
-      : `Technical Stack: Insert detailed backend DB architecture, API frameworks, and hardware schematics instead of basic descriptions.`,
-    slide4: `Feasibility & Use Cases: Specify target deployment environments and primary user workflows.`,
-    slide5: hasCost
-      ? `Value Proposition: Cost efficiency figures noted. Detail target municipal/enterprise beneficiaries.`
-      : `Value Proposition: Quantify target beneficiaries and cost efficiency vs existing legacy solutions.`,
-    slide6: `Team Roles: Map all 6 members strictly to specific technical domains (Frontend, Backend, ML/Hardware, Pitch Presenter).`,
+    titlePage: wordCount < 40
+      ? `Slide 1 (Title Page): Slide text is minimal. Ensure team name, PS ID #${sub.ps_number}, theme, and college affiliation are explicitly listed.`
+      : `Slide 1 (Title Page): Ensure PS Category (${sub.ps_category}), Ministry ID, and Leader contact details are clearly formatted.`,
+    proposedSolution: hasPercent
+      ? `Slide 2 (Proposed Solution): Good baseline metrics. Contrast existing solution drawbacks vs your proposed innovation using visual infographics.`
+      : `Slide 2 (Proposed Solution): Clearly articulate why your solution is unique and novel compared to standard existing web/mobile apps.`,
+    technicalApproach: hasDataFlowPipeline || techDomainCount > 0
+      ? `Slide 3 (Technical Approach): Good technical stack. Include a high-level block architecture diagram and data pipeline flowchart.`
+      : `Slide 3 (Technical Approach): Specify backend databases, API protocols, edge AI models, and hardware schematics instead of generic descriptions.`,
+    feasibilityAndRisks: `Slide 4 (Feasibility & Risks): List 2-3 specific technical risks (e.g. latency, offline edge fallback) and exact mitigation strategies.`,
+    impactAndBenefits: hasCost
+      ? `Slide 5 (Impact & Benefits): Cost metrics noted. Quantify specific target audience beneficiaries and environmental/economic impact.`
+      : `Slide 5 (Impact & Benefits): Quantify target beneficiaries and cost efficiency figures vs legacy manual processes.`,
+    researchAndReferences: `Slide 6 (Research & References): Cite official research papers, open datasets, and external technical documentation links.`,
   };
 
   return {
@@ -534,6 +640,7 @@ export function generateHeuristicEvaluation(
     grade,
     strengths,
     spocRedFlags,
+    formatViolations,
     slideRecommendations,
     scoreDeductions: deductions,
   };

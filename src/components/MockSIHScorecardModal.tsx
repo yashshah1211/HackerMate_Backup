@@ -110,6 +110,7 @@ export default function MockSIHScorecardModal({
 
   const strengths = feedback.strengths || [];
   const redFlags = feedback.spocRedFlags || [];
+  const formatViolations: string[] = feedback.formatViolations || [];
   const slideRecs = feedback.slideRecommendations || {};
 
   const previousVersion = historyVersions.find((v) => v.version === (activeSub.version || 1) - 1);
@@ -499,6 +500,24 @@ export default function MockSIHScorecardModal({
             </div>
           </div>
 
+          {/* SIH 2026 Template Format Infractions Alert */}
+          {formatViolations.length > 0 && (
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 space-y-2">
+              <h4 className="font-bold text-amber-900 dark:text-amber-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
+                <span>📐 SIH 2026 Template Format Infractions</span>
+                <span>({formatViolations.length})</span>
+              </h4>
+              <ul className="space-y-1.5">
+                {formatViolations.map((fv: string, idx: number) => (
+                  <li key={idx} className="text-amber-950 dark:text-amber-300 text-[11px] flex items-start gap-1.5">
+                    <span className="shrink-0 font-bold">•</span>
+                    <span>{fv}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Red Flags & Strengths Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Red Flags / Rejection Risks */}
@@ -551,12 +570,29 @@ export default function MockSIHScorecardModal({
               <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">No slide feedback available.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {Object.entries(slideRecs).map(([slideKey, text]: [string, any], idx) => (
-                  <div key={slideKey} className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300 text-[11px]">
-                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 mr-1.5">Slide {idx + 1}:</span>
-                    {text}
-                  </div>
-                ))}
+                {Object.entries(slideRecs).map(([slideKey, text]: [string, any], idx) => {
+                  const label =
+                    slideKey === "titlePage"
+                      ? "Slide 1 (Title Page)"
+                      : slideKey === "proposedSolution"
+                      ? "Slide 2 (Proposed Solution)"
+                      : slideKey === "technicalApproach"
+                      ? "Slide 3 (Technical Approach)"
+                      : slideKey === "feasibilityAndRisks"
+                      ? "Slide 4 (Feasibility & Risks)"
+                      : slideKey === "impactAndBenefits"
+                      ? "Slide 5 (Impact & Benefits)"
+                      : slideKey === "researchAndReferences"
+                      ? "Slide 6 (Research & References)"
+                      : `Slide ${idx + 1}`;
+
+                  return (
+                    <div key={slideKey} className="p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300 text-[11px]">
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 mr-1.5">{label}:</span>
+                      {text}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
