@@ -554,31 +554,69 @@ function DashboardContent() {
           const strongMatchesCount = spotlights.filter((dev) => (dev.compatibility ?? 0) >= 40).length;
 
           if (profileCompleteness.percent < 100) {
+            const pct = profileCompleteness.percent;
+            // 1. Determine gradient colors & badge styling based on urgency tier
+            let strokeGradientStart = "#F43F5E"; // Rose 500
+            let strokeGradientEnd = "#F97316";   // Orange 500
+            let badgeBg = "bg-rose-500/10 border-rose-500/30 text-rose-400";
+            let pulseDotBg = "bg-rose-500";
+            let dropShadowColor = "rgba(244,63,94,0.3)";
+
+            if (pct >= 80) {
+              strokeGradientStart = "#EAB308"; // Yellow 500
+              strokeGradientEnd = "#84CC16";   // Lime 500
+              badgeBg = "bg-amber-500/10 border-amber-500/30 text-amber-300";
+              pulseDotBg = "bg-amber-400";
+              dropShadowColor = "rgba(234,179,8,0.25)";
+            } else if (pct >= 50) {
+              strokeGradientStart = "#F59E0B"; // Amber 500
+              strokeGradientEnd = "#EAB308";   // Yellow 500
+              badgeBg = "bg-amber-500/10 border-amber-500/30 text-amber-400";
+              pulseDotBg = "bg-amber-500";
+              dropShadowColor = "rgba(245,158,11,0.25)";
+            }
+
+            // 2. Prioritize dynamic subtext by impact
+            let impactSubtext = "Add your skills — without skills, you're invisible to skill-based matching.";
+            if (profile?.skills && profile.skills.length > 0) {
+              if (!profile.github_url) {
+                impactSubtext = "Link your GitHub — teammates check code stats before sending invites.";
+              } else if (!profile.college) {
+                impactSubtext = "Set your college — unlock your campus teammate matching hub.";
+              } else if (!profile.bio) {
+                impactSubtext = "Write a bio — tell teammates what project roles you're looking for.";
+              } else if (!profile.full_name) {
+                impactSubtext = "Set your full name — build trust with team recruiters.";
+              }
+            }
+
             return (
               <div className="profile-strength-card group relative">
-                {/* Circle Progress Indicator */}
+                {/* Circle Progress Indicator with dashed track & pulsing arc */}
                 <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center z-10">
-                  <svg className="w-full h-full transform -rotate-90 drop-shadow-[0_0_6px_rgba(180,244,97,0.2)]" viewBox="0 0 64 64">
+                  <svg className="w-full h-full transform -rotate-90" style={{ filter: `drop-shadow(0 0 6px ${dropShadowColor})` }} viewBox="0 0 64 64">
                     <defs>
-                      <linearGradient id="profileProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#B4F461" />
-                        <stop offset="100%" stopColor="#34d399" />
+                      <linearGradient id="profileUrgencyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={strokeGradientStart} />
+                        <stop offset="100%" stopColor={strokeGradientEnd} />
                       </linearGradient>
                     </defs>
-                    <circle cx="32" cy="32" r="26" className="stroke-zinc-800/80 dark:stroke-zinc-800/80 light:stroke-zinc-200" strokeWidth="4" fill="transparent" />
+                    {/* Unfinished dashed track */}
+                    <circle cx="32" cy="32" r="26" className="stroke-zinc-800/80 dark:stroke-zinc-800/80 light:stroke-zinc-200" strokeWidth="4" strokeDasharray="4 4" fill="transparent" />
+                    {/* Active progress arc with pulse animation */}
                     <circle 
                       cx="32" cy="32" r="26" 
-                      stroke="url(#profileProgressGradient)"
+                      stroke="url(#profileUrgencyGradient)"
                       strokeWidth="4" 
                       fill="transparent" 
                       strokeLinecap="round"
                       strokeDasharray={163.36}
-                      strokeDashoffset={163.36 * (1 - profileCompleteness.percent / 100)}
-                      className="transition-all duration-700 ease-out" 
+                      strokeDashoffset={163.36 * (1 - pct / 100)}
+                      className="transition-all duration-700 ease-out animate-pulse" 
                     />
                   </svg>
                   <span className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-xs font-mono font-extrabold circle-progress-percent leading-none tracking-tight">{profileCompleteness.percent}%</span>
+                    <span className="text-xs font-mono font-extrabold circle-progress-percent leading-none tracking-tight">{pct}%</span>
                   </span>
                 </div>
                 
@@ -586,25 +624,23 @@ function DashboardContent() {
                 <div className="flex-1 min-w-0 text-left z-10">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B4F461] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B4F461]"></span>
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${pulseDotBg} opacity-75`}></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${pulseDotBg}`}></span>
                     </span>
-                    <p className="status-title tracking-wider text-xs">Profile Completeness</p>
-                    <span className="text-[9px] font-mono font-bold text-[#B4F461] bg-[#B4F461]/10 border border-[#B4F461]/20 px-1.5 py-0.5 rounded uppercase">
-                      {profileCompleteness.percent}%
+                    <p className="status-title tracking-wider text-xs font-bold text-zinc-100">
+                      Your profile is missing pieces builders look for
+                    </p>
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase border ${badgeBg}`}>
+                      {pct}% Unverified
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    {profileCompleteness.pendingTasks.length > 0 && (
-                      <span className="status-task-pill inline-flex items-center gap-1.5 text-xs truncate max-w-[220px]">
-                        <span className="text-[#B4F461] font-bold text-[10px]">⚡ Next:</span>
-                        <span className="truncate">{profileCompleteness.pendingTasks[0]}</span>
-                        <span className="text-[9px] font-mono text-emerald-500 dark:text-emerald-400 font-semibold bg-emerald-950/60 dark:bg-emerald-950/60 light:bg-emerald-100 px-1 rounded border border-emerald-800/40 shrink-0">+20%</span>
-                      </span>
-                    )}
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    <p className="text-xs text-zinc-300 font-medium">
+                      {impactSubtext}
+                    </p>
                     {profileCompleteness.pendingTasks.length > 1 && (
-                      <span className="text-[10px] text-zinc-400 font-mono font-medium shrink-0">
-                        +{profileCompleteness.pendingTasks.length - 1} more
+                      <span className="text-[10px] text-zinc-400 font-mono font-medium shrink-0 bg-zinc-900/80 px-1.5 py-0.5 rounded border border-zinc-800">
+                        +{profileCompleteness.pendingTasks.length - 1} more items
                       </span>
                     )}
                   </div>
@@ -628,9 +664,9 @@ function DashboardContent() {
                 <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-zinc-950/95 dark:bg-zinc-950/95 light:bg-white backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 light:border-zinc-200 rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-800 light:border-zinc-200 pb-2.5 mb-2.5">
                     <p className="text-[11px] text-zinc-300 dark:text-zinc-300 light:text-zinc-800 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="text-[#B4F461]">⚡</span> Profile Checklist ({profileCompleteness.percent}%)
+                      <span className="text-amber-400">⚡</span> Profile Checklist ({pct}%)
                     </p>
-                    <span className="text-[10px] text-zinc-400 font-mono">5 items</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">{profileCompleteness.pendingTasks.length} items left</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {profileCompleteness.pendingTasks.map((task, idx) => (
