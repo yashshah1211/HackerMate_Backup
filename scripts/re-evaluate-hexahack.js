@@ -1,7 +1,8 @@
-// Re-evaluate HexaHack submission in the database to update its evaluation record
+// Re-evaluate HexaHack submission in the database dynamically
 
 const fs = require("fs");
 const path = require("path");
+const { createClient } = require("@supabase/supabase-js");
 
 const envPath = path.resolve(__dirname, "../.env.local");
 if (fs.existsSync(envPath)) {
@@ -22,18 +23,30 @@ if (fs.existsSync(envPath)) {
 const { evaluateSubmission } = require("../src/lib/sihEvaluator");
 
 async function reEvaluateHexaHack() {
-  const subId = "81233b10-a01e-4ab5-877c-b835d84d0ab9"; // HexaHack submission ID
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data: sub } = await supabase
+    .from("sih_mock_submissions")
+    .select("id")
+    .eq("ps_number", "SIH1365")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!sub) {
+    console.error("HexaHack submission not found!");
+    return;
+  }
+
   console.log("==========================================================");
-  console.log("🔄 RE-EVALUATING HEXAHACK SUBMISSION IN DATABASE");
+  console.log(`🔄 RE-EVALUATING HEXAHACK SUBMISSION (${sub.id}) IN DATABASE`);
   console.log("==========================================================\n");
 
-  const res = await evaluateSubmission(subId);
+  const res = await evaluateSubmission(sub.id);
 
   console.log(`[Re-Evaluation Complete] Total Score: ${res.submission.total_score} | Grade: ${res.submission.grade}`);
   console.log(`Format Violations (${res.evaluation.formatViolations.length}):`);
   res.evaluation.formatViolations.forEach((fv) => console.log(`  • ${fv}`));
 
-  console.log(`\nUpdated AI Feedback in DB:`, JSON.stringify(res.submission.ai_feedback, null, 2));
   console.log("\n==========================================================");
   console.log("✅ DATABASE RECORD UPDATED SUCCESSFULLY!");
 }

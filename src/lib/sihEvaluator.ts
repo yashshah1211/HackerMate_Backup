@@ -471,30 +471,25 @@ export function generateHeuristicEvaluation(
   // 3. Robust Format Infractions Detection
   const formatViolations: string[] = [];
 
-  // Detect total slide count: check [Slide N] markers, slide N matches, or trailing slide numbers
-  const bracketSlideMatches = slideText.match(/\[Slide\s*(\d+)\]/gi);
-  const literalSlideMatches = slideText.match(/slide\s*(\d+)/gi);
-  const trailingNumMatches = slideText.match(/\n\s*(\d{1,2})\s*\n+@SIH/gi);
-
+  // Detect total slide count: check [Slide N] markers from segmenter
+  const bracketSlideMatches = slideText.match(/\[Slide\s*\d+\]/gi);
   let detectedMaxSlide = 0;
-  if (bracketSlideMatches) detectedMaxSlide = Math.max(detectedMaxSlide, bracketSlideMatches.length);
-  if (literalSlideMatches) {
-    literalSlideMatches.forEach((m) => {
-      const num = parseInt(m.replace(/slide\s*/i, ""), 10);
-      if (!isNaN(num) && num > detectedMaxSlide) detectedMaxSlide = num;
-    });
-  }
-  if (trailingNumMatches) {
-    trailingNumMatches.forEach((m) => {
-      const num = parseInt(m.replace(/[^\d]/g, ""), 10);
-      if (!isNaN(num) && num > detectedMaxSlide) detectedMaxSlide = num;
-    });
+  if (bracketSlideMatches) {
+    detectedMaxSlide = bracketSlideMatches.length;
+  } else {
+    const literalSlideMatches = slideText.match(/slide\s*(\d+)/gi);
+    if (literalSlideMatches) {
+      literalSlideMatches.forEach((m) => {
+        const num = parseInt(m.replace(/slide\s*/i, ""), 10);
+        if (!isNaN(num) && num > detectedMaxSlide) detectedMaxSlide = num;
+      });
+    }
   }
 
-  // Fallback: If text contains leftover instructions slide mentioning "maximum slides limit up to six", slide count is >= 8
+  // Check for leftover instructions slide
   const hasLeftoverInstructions = /maximum slides limit up to six|IMPORTANT INSTRUCTIONS|You can delete this slide/i.test(slideText);
   if (hasLeftoverInstructions) {
-    detectedMaxSlide = Math.max(detectedMaxSlide, 8);
+    if (detectedMaxSlide < 7) detectedMaxSlide = 8;
     formatViolations.push("Format Violation: Leftover SIH template instructions slide (Slide 8) was not deleted prior to submission.");
   }
 

@@ -120,54 +120,40 @@ export async function extractPresentationText(pptUrl: string): Promise<string> {
 
 export function segmentPresentationSlides(rawText: string): string {
   if (!rawText || !rawText.trim()) return rawText;
-  if (/\[Slide\s*\d+\]/i.test(rawText)) return rawText;
 
-  let rawSlides: string[] = [];
-
-  // Form-feed split (\f)
-  if (rawText.includes("\f")) {
-    rawSlides = rawText.split(/\f+/).map((s) => s.trim()).filter(Boolean);
+  // 1. If explicit [Slide N] markers exist, split and re-label
+  if (/\[Slide\s*\d+\]/i.test(rawText)) {
+    const rawChunks = rawText.split(/\[Slide\s*\d+\]/i).map((s) => s.trim()).filter((s) => s.length > 10);
+    return rawChunks.map((slideContent, idx) => `[Slide ${idx + 1}]\n${slideContent}`).join("\n\n");
   }
 
-  // Split on SIH template footer numbers: e.g. "\n2\n@SIH" or "\n3\n@SIH" or "\n\d+\n"
-  if (rawSlides.length <= 1) {
-    const lines = rawText.split("\n");
-    const tempSlides: string[] = [];
-    let currentChunk: string[] = [];
+  // 2. Normalize vertical tabs (\u000b) and form-feeds (\f) to explicit slide break marker \f
+  let text = rawText.replace(/[\u000b\f]+/g, "\f").replace(/\r\n/g, "\n");
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      // Check if line is a standalone slide number (e.g. "2", "3", "8") or footer "@SIH"
-      const isSlideNum = /^\d{1,2}$/.test(line);
-      const isSihFooter = /^@SIH/i.test(line) || /^Your Team Name$/i.test(line);
-      const isNextHeading = /^(TITLE PAGE|IDEA TITLE|PROPOSED SOLUTION|TECHNICAL APPROACH|FEASIBILITY AND VIABILITY|IMPACT AND BENEFITS|RESEARCH AND REFERENCES|IMPORTANT INSTRUCTIONS)$/i.test(line);
+  // 3. Replace SIH template footer transitions with \f
+  text = text.replace(/\n+\s*(?:\d{1,2}\s*\n+)?@SIH[^\n]*\n+(?:Your Team Name[^\n]*\n+)?(?:\d{1,2}\s*\n+)?/gi, "\f");
 
-      if ((isNextHeading || (isSlideNum && currentChunk.length > 3)) && currentChunk.length > 0) {
-        const textChunk = currentChunk.join("\n").trim();
-        if (textChunk.length > 20) {
-          tempSlides.push(textChunk);
-        }
-        currentChunk = [line];
-      } else {
-        currentChunk.push(lines[i]);
-      }
-    }
+  // 4. Replace "Slide 1:", "Slide 2:", etc. with \f Slide 1:
+  text = text.replace(/(?=\n\s*Slide\s*\d+[:.\s])/gi, "\f");
 
-    if (currentChunk.length > 0) {
-      const textChunk = currentChunk.join("\n").trim();
-      if (textChunk.length > 10) tempSlides.push(textChunk);
-    }
+  // 5. Split on \f
+  const chunks = text.split(/\f+/).map((s) => s.trim()).filter(Boolean);
 
-    if (tempSlides.length > 1) {
-      rawSlides = tempSlides;
-    }
-  }
+  // 6. Filter out empty or non-content chunks
+  const validSlides = chunks.filter((chunk) => {
+    const cleaned = chunk
+      .replace(/^@SIH[^\n]*/gm, "")
+      .replace(/^Your Team Name/gm, "")
+      .replace(/^\d{1,2}$/gm, "")
+      .trim();
+    return cleaned.length > 10;
+  });
 
-  if (rawSlides.length <= 1) {
+  if (validSlides.length <= 1) {
     return rawText;
   }
 
-  return rawSlides
+  return validSlides
     .map((slideContent, idx) => `[Slide ${idx + 1}]\n${slideContent}`)
     .join("\n\n");
 }
