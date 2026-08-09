@@ -117,6 +117,8 @@ export async function GET(req: NextRequest) {
       let roundStage = sub.round_stage || fb.round_stage;
       if (spocStatus === "rejected") {
         roundStage = "round1_rejected";
+      } else if (spocStatus === "revision_requested") {
+        roundStage = "round1_submitted";
       } else if (!roundStage) {
         roundStage = (spocStatus === "approved" || spocStatus === "nominated") ? "shortlisted_round2" : "round1_submitted";
       }
@@ -140,9 +142,13 @@ export async function GET(req: NextRequest) {
     }
     if (stageParam !== "all") {
       if (stageParam === "shortlisted_round2") {
-        // STRICT RULE: Never show pitches rejected in Round 1 in Round 2 shortlist
+        // STRICT RULE: Never show pitches rejected or revision_requested in Round 2 shortlist
         filteredSubmissions = filteredSubmissions.filter(
-          (s: any) => s.round_stage === "shortlisted_round2" && s.spoc_approval_status !== "rejected" && s.round_stage !== "round1_rejected"
+          (s: any) =>
+            s.round_stage === "shortlisted_round2" &&
+            s.spoc_approval_status !== "rejected" &&
+            s.spoc_approval_status !== "revision_requested" &&
+            s.round_stage !== "round1_rejected"
         );
       } else {
         filteredSubmissions = filteredSubmissions.filter((s: any) => s.round_stage === stageParam);
@@ -324,11 +330,15 @@ export async function POST(req: NextRequest) {
 
     const existingFeedback = sub.ai_feedback || {};
     const newStatus = spocStatus || existingFeedback.spoc_approval_status || "approved";
-    let newStage = roundStage || existingFeedback.round_stage;
+    let newStage = roundStage;
     if (newStatus === "rejected") {
       newStage = "round1_rejected";
+    } else if (newStatus === "revision_requested") {
+      newStage = "round1_submitted";
+    } else if (newStatus === "approved" || newStatus === "nominated") {
+      newStage = "shortlisted_round2";
     } else if (!newStage) {
-      newStage = (newStatus === "approved" || newStatus === "nominated") ? "shortlisted_round2" : "round1_submitted";
+      newStage = existingFeedback.round_stage || "round1_submitted";
     }
 
     const updatedFeedback = {
