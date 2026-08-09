@@ -131,6 +131,7 @@ function SIHTeamBuilderContent() {
   const [allBuilders, setAllBuilders] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [isSpocAuthorized, setIsSpocAuthorized] = useState(false);
   const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<"teams" | "builders" | "mock_sih">("teams");
@@ -203,23 +204,50 @@ function SIHTeamBuilderContent() {
           .maybeSingle();
 
         setIsUserLookingForTeam(!!userReg?.looking_for_team);
+
+        // Check if user is an authorized SPOC or Admin
+        const userEmailClean = (user.email || "").toLowerCase().trim();
+        const isAdmin = userEmailClean === "yashshah7117@gmail.com";
+        const { data: allowData } = await supabase
+          .from("sih_spoc_allowlist")
+          .select("id")
+          .eq("email", userEmailClean)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        setIsSpocAuthorized(isAdmin || !!allowData);
       }
 
       setUserCollege(currentCollege);
       setCollegeInput(currentCollege);
 
-      // 3. Fetch Teams registered for SIH + User's own teams
-      const { data: teamHackathonsData } = await supabase
-        .from("team_hackathons")
-        .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)))")
-        .eq("hackathon_id", SIH_HACKATHON_ID);
+      // 3. Fetch ALL Teams registered for SIH (Universally accessible for logged-in and incognito users)
+      const { data: sihMockSubs } = await supabase
+        .from("sih_mock_submissions_public")
+        .select("team_id");
 
-      const parsedTeams: Team[] = (teamHackathonsData || [])
-        .map((item: any) => item.teams)
-        .filter(Boolean);
+      const mockTeamIds = (sihMockSubs || []).map((s: any) => s.team_id).filter(Boolean);
+
+      const { data: sihTeamsData } = await supabase
+        .from("teams")
+        .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role))")
+        .or(`hackathon_id.eq.${SIH_HACKATHON_ID},hackathon_id.eq.00000000-0000-0000-0000-000001703935,hackathon_name.ilike.%sih%,hackathon_name.ilike.%smart india%${mockTeamIds.length > 0 ? `,id.in.(${mockTeamIds.join(",")})` : ""}`);
+
+      const parsedTeams: Team[] = (sihTeamsData || []).filter(Boolean) as Team[];
+      const existingIds = new Set(parsedTeams.map((t) => t.id));
+
+      const isForSIH = (t: any) => {
+        if (!t) return false;
+        if (t.hackathon_id === SIH_HACKATHON_ID || t.hackathon_id === "00000000-0000-0000-0000-000001703935") return true;
+        const hName = (t.hackathon_name || "").toLowerCase().trim();
+        if (hName.includes("smart india") || hName.includes("sih")) return true;
+        if (t.hackathon_id && t.hackathon_id !== SIH_HACKATHON_ID && t.hackathon_id !== "00000000-0000-0000-0000-000001703935") return false;
+        if (hName.length > 0) return false;
+        return true;
+      };
 
       if (user) {
-        // Also fetch user's own created or joined teams
+        // Also fetch user's own created or joined teams if not already present
         const { data: myTeamsData } = await supabase
           .from("teams")
           .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role))")
@@ -229,18 +257,6 @@ function SIHTeamBuilderContent() {
           .from("team_members")
           .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)))")
           .eq("user_id", user.id);
-
-        const isForSIH = (t: any) => {
-          if (!t) return false;
-          if (t.hackathon_id === SIH_HACKATHON_ID) return true;
-          const hName = (t.hackathon_name || "").toLowerCase().trim();
-          if (hName.includes("smart india") || hName.includes("sih")) return true;
-          if (t.hackathon_id && t.hackathon_id !== SIH_HACKATHON_ID) return false;
-          if (hName.length > 0) return false;
-          return true;
-        };
-
-        const existingIds = new Set(parsedTeams.map((t) => t.id));
 
         if (myTeamsData) {
           myTeamsData.forEach((t: any) => {
@@ -624,11 +640,13 @@ function SIHTeamBuilderContent() {
           </div>
         </div>
 
-        {/* D.J. Sanghvi College of Engineering SIH 2026 Internal Portal Header */}
-        <DJSCEHackathonHeader
-          activeCollege={userCollege}
-          onSelectCollege={(col) => setUserCollege(col)}
-        />
+        {/* D.J. Sanghvi College of Engineering SIH 2026 Internal Portal Header (Visible exclusively to authorized SPOC/HOD users) */}
+        {isSpocAuthorized && (
+          <DJSCEHackathonHeader
+            activeCollege={userCollege}
+            onSelectCollege={(col) => setUserCollege(col)}
+          />
+        )}
 
         {/* Prominent Mock SIH Practice Screening Guidance Banner */}
         <div className="mb-8 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-zinc-900 dark:to-zinc-950 shadow-md dark:shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden transition-colors">

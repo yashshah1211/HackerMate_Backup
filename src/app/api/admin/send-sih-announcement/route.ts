@@ -44,7 +44,6 @@ export async function GET(req: NextRequest) {
     const isAuthorized =
       profile?.is_admin ||
       user.email === "yashshah7117@gmail.com" ||
-      user.email === "yashshah111@gmail.com" ||
       user.email?.includes("admin");
 
     if (!isAuthorized) {
@@ -133,7 +132,6 @@ export async function POST(req: NextRequest) {
     const isAuthorized =
       profile?.is_admin ||
       user.email === "yashshah7117@gmail.com" ||
-      user.email === "yashshah111@gmail.com" ||
       user.email?.includes("admin");
 
     if (!isAuthorized) {

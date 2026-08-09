@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { logSihEvent } from "@/lib/admin/sihLogger";
 
 import { verifySpocAuthorization, SpocAuthResult, isSameCollege } from "@/lib/sihSpocAuth";
+import { createSihNotification } from "@/lib/sihNotifier";
 export { verifySpocAuthorization };
 export type { SpocAuthResult };
 
@@ -123,8 +124,16 @@ export async function GET(req: NextRequest) {
         roundStage = (spocStatus === "approved" || spocStatus === "nominated") ? "shortlisted_round2" : "round1_submitted";
       }
 
+      const team = sub.teams || {};
+      const isOwner = team.owner_id === user.id;
+      const isMember = team.team_members?.some((m: any) => m.user_id === user.id);
+      const isPrivileged = authResult.isAuthorized || isOwner || isMember;
+
       return {
         ...sub,
+        ppt_url: isPrivileged ? sub.ppt_url : null,
+        github_url: isPrivileged ? sub.github_url : null,
+        demo_url: isPrivileged ? sub.demo_url : null,
         spoc_approval_status: spocStatus,
         jury_viva_score: vivaScore,
         final_composite_score: compositeScore,
@@ -213,7 +222,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { submissionId, submissionIds, spocStatus, roundStage, spocNotes, juryVivaScore } = body;
+    const { submissionId, submissionIds, spocStatus, roundStage, spocNotes, juryVivaScore, vivaBreakdown } = body;
 
     // BULK SHORTLIST ACTION
     if (Array.isArray(submissionIds) && submissionIds.length > 0) {
@@ -341,6 +350,11 @@ export async function POST(req: NextRequest) {
       newStage = existingFeedback.round_stage || "round1_submitted";
     }
 
+    const teamName = (sub as any).teams?.name || "Team";
+    const notif = createSihNotification(newStatus, newStage, teamName, spocNotes);
+    const existingNotifs = Array.isArray(existingFeedback.notifications) ? existingFeedback.notifications : [];
+    const notifications = [notif, ...existingNotifs];
+
     const updatedFeedback = {
       ...existingFeedback,
       spoc_approval_status: newStatus,
@@ -348,6 +362,8 @@ export async function POST(req: NextRequest) {
       spoc_notes: spocNotes !== undefined ? spocNotes : (existingFeedback.spoc_notes || ""),
       jury_viva_score: vivaScore,
       final_composite_score: finalCompositeScore,
+      viva_breakdown: vivaBreakdown || existingFeedback.viva_breakdown || null,
+      notifications,
       spoc_updated_at: new Date().toISOString(),
     };
 
@@ -404,6 +420,8 @@ export async function POST(req: NextRequest) {
       round_stage: newStage,
       jury_viva_score: vivaScore,
       final_composite_score: finalCompositeScore,
+      viva_breakdown: vivaBreakdown || null,
+      notifications,
       spoc_notes: spocNotes !== undefined ? spocNotes : "",
     };
 
@@ -440,6 +458,18 @@ function calculateQuotaStats(submissions: any[]) {
     return count < 6 || !hasFemale;
   }).length;
 
+  // PS Distribution & Over-saturation Analytics (Feature 2)
+  const psCountMap: Record<string, number> = {};
+  submissions.forEach((s) => {
+    const ps = s.ps_number?.trim();
+    if (ps) {
+      psCountMap[ps] = (psCountMap[ps] || 0) + 1;
+    }
+  });
+
+  const oversaturatedPsList = Object.keys(psCountMap).filter((ps) => psCountMap[ps] >= 3);
+  const totalOverSaturatedTeams = submissions.filter((s) => s.ps_number && psCountMap[s.ps_number.trim()] >= 3).length;
+
   return {
     totalTeams,
     softwareTeamsCount: softwareTeams.length,
@@ -447,6 +477,9 @@ function calculateQuotaStats(submissions: any[]) {
     nominatedSoftware,
     nominatedHardware,
     ruleViolations,
+    psCountMap,
+    oversaturatedPsList,
+    totalOverSaturatedTeams,
     pendingVerificationCount: submissions.filter((s) => !s.spoc_approval_status || s.spoc_approval_status === "pending").length,
   };
 }

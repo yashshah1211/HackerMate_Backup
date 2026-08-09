@@ -531,126 +531,172 @@ export default function MockSIHScorecardModal({
             </div>
           </div>
 
-          {/* SIH 2026 Template Format Infractions Alert */}
-          {formatViolations.length > 0 && (
-            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 space-y-2">
-              <h4 className="font-bold text-amber-900 dark:text-amber-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
-                <span>📐 SIH 2026 Template Format Infractions</span>
-                <span>({formatViolations.length})</span>
-              </h4>
-              <ul className="space-y-1.5">
-                {formatViolations.map((fv: string, idx: number) => (
-                  <li key={idx} className="text-amber-950 dark:text-amber-300 text-[11px] flex items-start gap-1.5">
-                    <span className="shrink-0 font-bold">•</span>
-                    <span>{fv}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Teammate-Exclusive Detailed Diagnostic Sections */}
+          {isOwnTeam ? (
+            <>
+              {/* SIH 2026 Template Format Infractions Alert */}
+              {formatViolations.length > 0 && (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 space-y-2">
+                  <h4 className="font-bold text-amber-900 dark:text-amber-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
+                    <span>📐 SIH 2026 Template Format Infractions</span>
+                    <span>({formatViolations.length})</span>
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {formatViolations.map((fv: string, idx: number) => (
+                      <li key={idx} className="text-amber-950 dark:text-amber-300 text-[11px] flex items-start gap-1.5">
+                        <span className="shrink-0 font-bold">•</span>
+                        <span>{fv}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Red Flags & Strengths Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Red Flags / Rejection Risks */}
+                <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-2">
+                  <h4 className="font-bold text-rose-800 dark:text-rose-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
+                    <span>🚨 SPOC Rejection Risks</span>
+                    <span>({redFlags.length})</span>
+                  </h4>
+                  {redFlags.length === 0 ? (
+                    <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">No critical red flags detected. Clean submission!</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {redFlags.map((rf: string, idx: number) => (
+                        <li key={idx} className="text-rose-900 dark:text-rose-300 text-[11px] flex items-start gap-1.5">
+                          <span className="shrink-0">•</span>
+                          <span>{rf}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Strengths */}
+                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 space-y-2">
+                  <h4 className="font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
+                    <span>⭐ Key Strengths</span>
+                    <span>({strengths.length})</span>
+                  </h4>
+                  {strengths.length === 0 ? (
+                    <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">Evaluating key strengths...</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {strengths.map((st: string, idx: number) => (
+                        <li key={idx} className="text-emerald-900 dark:text-emerald-300 text-[11px] flex items-start gap-1.5">
+                          <span className="shrink-0">✓</span>
+                          <span>{st}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              {/* SPOC Audit Notifications Log Section (Feature 3) */}
+              {Array.isArray(activeSub?.ai_feedback?.notifications) && activeSub.ai_feedback.notifications.length > 0 && (
+                <div className="p-4 rounded-xl bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 space-y-3 shadow-lg">
+                  <h4 className="font-bold text-emerald-400 uppercase tracking-wider text-[11px] font-mono flex items-center gap-2">
+                    <span>🔔 SPOC Review Notifications & Status History</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                      {activeSub.ai_feedback.notifications.length} updates
+                    </span>
+                  </h4>
+
+                  <div className="space-y-2 font-mono text-xs">
+                    {activeSub.ai_feedback.notifications.map((n: any) => (
+                      <div key={n.id} className="p-3 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-zinc-200">{n.title}</span>
+                          <span className="text-zinc-500 text-[10px]">
+                            {new Date(n.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">{n.message}</p>
+                        {n.spocNotes && (
+                          <div className="text-[11px] text-amber-300/90 pt-1 border-t border-zinc-900 font-sans">
+                            💬 <strong className="font-mono">SPOC Feedback:</strong> {n.spocNotes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Slide Advice Section */}
+              <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-3">
+                <h4 className="font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-[11px] font-mono flex items-center gap-1.5">
+                  💡 Slide-by-Slide Recommendations for National Finals
+                </h4>
+                {Object.keys(slideRecs).length === 0 ? (
+                  <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">No slide feedback available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {Object.entries(slideRecs).map(([slideKey, text]: [string, any], idx) => {
+                      const label =
+                        slideKey === "titlePage"
+                          ? "Slide 1 (Title Page)"
+                          : slideKey === "proposedSolution"
+                          ? "Slide 2 (Proposed Solution)"
+                          : slideKey === "technicalApproach"
+                          ? "Slide 3 (Technical Approach)"
+                          : slideKey === "feasibilityAndRisks"
+                          ? "Slide 4 (Feasibility & Risks)"
+                          : slideKey === "impactAndBenefits"
+                          ? "Slide 5 (Impact & Benefits)"
+                          : slideKey === "researchAndReferences"
+                          ? "Slide 6 (Research & References)"
+                          : `Slide ${idx + 1}`;
+
+                      const recStr = String(text || "");
+                      const cleanText = recStr.replace(/^Slide\s*\d+\s*\([^)]+\):\s*/i, "");
+                      const isMissing = recStr.includes("SECTION MISSING");
+                      const isDuplicated = recStr.includes("DUPLICATED SECTION");
+
+                      return (
+                        <div
+                          key={slideKey}
+                          className={`p-2.5 rounded-lg border text-[11px] transition-all ${
+                            isMissing
+                              ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-500/40 text-rose-950 dark:text-rose-300"
+                              : isDuplicated
+                              ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-500/40 text-amber-950 dark:text-amber-300"
+                              : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300"
+                          }`}
+                        >
+                          <span
+                            className={`font-mono font-bold mr-1.5 ${
+                              isMissing
+                                ? "text-rose-700 dark:text-rose-400"
+                                : isDuplicated
+                                ? "text-amber-700 dark:text-amber-400"
+                                : "text-emerald-700 dark:text-emerald-400"
+                            }`}
+                          >
+                            {label}:
+                          </span>
+                          {cleanText}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Non-Teammate Privacy Lock Banner */
+            <div className="p-5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-mono text-center space-y-2 shadow-inner">
+              <div className="flex items-center justify-center gap-2 font-bold text-amber-400 text-sm">
+                <span>🔒 Teammate-Exclusive Detailed Diagnostic Feedback</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-relaxed font-sans max-w-lg mx-auto">
+                Detailed slide-by-slide recommendations, SPOC rejection risks, format infractions, and status history logs are strictly private to members of team <strong className="text-white">{teamName || "Team"}</strong>.
+              </p>
             </div>
           )}
-
-          {/* Red Flags & Strengths Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Red Flags / Rejection Risks */}
-            <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-2">
-              <h4 className="font-bold text-rose-800 dark:text-rose-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
-                <span>🚨 SPOC Rejection Risks</span>
-                <span>({redFlags.length})</span>
-              </h4>
-              {redFlags.length === 0 ? (
-                <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">No critical red flags detected. Clean submission!</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {redFlags.map((rf: string, idx: number) => (
-                    <li key={idx} className="text-rose-900 dark:text-rose-300 text-[11px] flex items-start gap-1.5">
-                      <span className="shrink-0">•</span>
-                      <span>{rf}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Strengths */}
-            <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 space-y-2">
-              <h4 className="font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1.5">
-                <span>⭐ Key Strengths</span>
-                <span>({strengths.length})</span>
-              </h4>
-              {strengths.length === 0 ? (
-                <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">Evaluating key strengths...</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {strengths.map((st: string, idx: number) => (
-                    <li key={idx} className="text-emerald-900 dark:text-emerald-300 text-[11px] flex items-start gap-1.5">
-                      <span className="shrink-0">✓</span>
-                      <span>{st}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Slide Advice Section */}
-          <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-3">
-            <h4 className="font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-[11px] font-mono flex items-center gap-1.5">
-              💡 Slide-by-Slide Recommendations for National Finals
-            </h4>
-            {Object.keys(slideRecs).length === 0 ? (
-              <p className="text-zinc-600 dark:text-zinc-400 text-[11px]">No slide feedback available.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {Object.entries(slideRecs).map(([slideKey, text]: [string, any], idx) => {
-                  const label =
-                    slideKey === "titlePage"
-                      ? "Slide 1 (Title Page)"
-                      : slideKey === "proposedSolution"
-                      ? "Slide 2 (Proposed Solution)"
-                      : slideKey === "technicalApproach"
-                      ? "Slide 3 (Technical Approach)"
-                      : slideKey === "feasibilityAndRisks"
-                      ? "Slide 4 (Feasibility & Risks)"
-                      : slideKey === "impactAndBenefits"
-                      ? "Slide 5 (Impact & Benefits)"
-                      : slideKey === "researchAndReferences"
-                      ? "Slide 6 (Research & References)"
-                      : `Slide ${idx + 1}`;
-
-                  const recStr = String(text || "");
-                  const cleanText = recStr.replace(/^Slide\s*\d+\s*\([^)]+\):\s*/i, "");
-                  const isMissing = recStr.includes("SECTION MISSING");
-                  const isDuplicated = recStr.includes("DUPLICATED SECTION");
-
-                  return (
-                    <div
-                      key={slideKey}
-                      className={`p-2.5 rounded-lg border text-[11px] transition-all ${
-                        isMissing
-                          ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-500/40 text-rose-950 dark:text-rose-300"
-                          : isDuplicated
-                          ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-500/40 text-amber-950 dark:text-amber-300"
-                          : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      <span
-                        className={`font-mono font-bold mr-1.5 ${
-                          isMissing
-                            ? "text-rose-700 dark:text-rose-400"
-                            : isDuplicated
-                            ? "text-amber-700 dark:text-amber-400"
-                            : "text-emerald-700 dark:text-emerald-400"
-                        }`}
-                      >
-                        {label}:
-                      </span>
-                      {cleanText}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Footer */}

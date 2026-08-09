@@ -43,6 +43,25 @@ function SpocDashboardContent() {
   const [editingNotes, setEditingNotes] = useState<string>("");
   const [updating, setUpdating] = useState(false);
 
+  // Live Viva Timer & Rubric States (Feature 1)
+  const [vivaTimerSeconds, setVivaTimerSeconds] = useState(300);
+  const [vivaTimerActive, setVivaTimerActive] = useState(false);
+  const [presScore, setPresScore] = useState<number>(25);
+  const [qaScore, setQaScore] = useState<number>(30);
+  const [protoScore, setProtoScore] = useState<number>(25);
+
+  useEffect(() => {
+    let interval: any = null;
+    if (vivaTimerActive && vivaTimerSeconds > 0) {
+      interval = setInterval(() => {
+        setVivaTimerSeconds((prev) => prev - 1);
+      }, 1000);
+    } else if (vivaTimerSeconds === 0) {
+      setVivaTimerActive(false);
+    }
+    return () => clearInterval(interval);
+  }, [vivaTimerActive, vivaTimerSeconds]);
+
   const [showRestrictedModal, setShowRestrictedModal] = useState(false);
   const [selectedCertBadge, setSelectedCertBadge] = useState<UserBadge | null>(null);
   const [showCertModal, setShowCertModal] = useState(false);
@@ -81,7 +100,7 @@ function SpocDashboardContent() {
     }
   }
 
-  async function handleUpdateSpocStatus(subId: string, status: string, vivaScore?: number | "", notes?: string) {
+  async function handleUpdateSpocStatus(subId: string, status: string, vivaScore?: number | "", notes?: string, vivaBreakdown?: any) {
     if (!isSpocAuthorized) {
       setShowRestrictedModal(true);
       return;
@@ -98,6 +117,7 @@ function SpocDashboardContent() {
           spocStatus: status,
           juryVivaScore: numericViva,
           spocNotes: notes,
+          vivaBreakdown,
         }),
       });
 
@@ -435,7 +455,7 @@ function SpocDashboardContent() {
                         <div className="font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2" title={sub.ps_title}>
                           {sub.ps_title}
                         </div>
-                        {sub.ppt_url && (
+                        {sub.ppt_url ? (
                           <a
                             href={sub.ppt_url}
                             target="_blank"
@@ -444,6 +464,10 @@ function SpocDashboardContent() {
                           >
                             📄 View PPT Deck →
                           </a>
+                        ) : (
+                          <span className="inline-block text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-1 select-none" title="Pitch PPT URL is strictly private to team members & authorized SPOC jury members">
+                            🔒 PPT Deck (Private)
+                          </span>
                         )}
                       </td>
 
@@ -511,8 +535,14 @@ function SpocDashboardContent() {
                             <button
                               onClick={() => {
                                 setSelectedSub(sub);
-                                setEditingVivaScore(sub.jury_viva_score || "");
+                                setEditingVivaScore(sub.jury_viva_score || 80);
                                 setEditingNotes(sub.spoc_notes || "");
+                                setVivaTimerSeconds(300);
+                                setVivaTimerActive(false);
+                                const vb = sub.viva_breakdown || sub.ai_feedback?.viva_breakdown || {};
+                                setPresScore(vb.presentationScore ?? 25);
+                                setQaScore(vb.qaScore ?? 30);
+                                setProtoScore(vb.prototypeScore ?? 25);
                               }}
                               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition text-xs cursor-pointer shadow-md"
                             >
@@ -602,7 +632,7 @@ function SpocDashboardContent() {
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
               <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-1">
                 <div className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                   PS #{selectedSub.ps_number} • {selectedSub.theme}
@@ -610,31 +640,138 @@ function SpocDashboardContent() {
                 <div className="text-zinc-800 dark:text-zinc-200 font-medium">{selectedSub.ps_title}</div>
               </div>
 
-              <div>
-                <label className="block font-semibold mb-1 text-zinc-700 dark:text-zinc-300">
-                  Faculty / Jury Live Viva Score (0 - 100 pts)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="Enter viva score (e.g. 85)..."
-                  value={editingVivaScore}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "") setEditingVivaScore("");
-                    else setEditingVivaScore(Math.min(100, Math.max(0, parseInt(val, 10))));
-                  }}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl p-2.5 font-mono text-sm text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                />
-                <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
-                  Composite Score: {Math.round((selectedSub.total_score || 0) * 0.6 + numericViva * 0.4)} pts (60% AI Pitch + 40% Viva)
-                </span>
+              {/* Live 5-Minute Presentation Timer (Feature 1) */}
+              <div className="p-4 rounded-xl bg-slate-900 dark:bg-zinc-950 border border-slate-800 dark:border-zinc-800 text-white space-y-3 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Live Jury Presentation Timer
+                    </span>
+                  </div>
+                  <span className={`font-mono text-xs px-2.5 py-1 rounded-md font-bold border ${
+                    vivaTimerSeconds === 0
+                      ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                      : vivaTimerSeconds <= 60
+                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40 animate-pulse"
+                      : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                  }`}>
+                    {vivaTimerSeconds === 0 ? "🚨 TIME'S UP" : vivaTimerSeconds <= 60 ? "⚠️ 1 MIN REMAINING" : "⏱️ IN PROGRESS"}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+                  <div className="font-mono text-3xl font-black tracking-widest text-emerald-400">
+                    {Math.floor(vivaTimerSeconds / 60).toString().padStart(2, "0")}:
+                    {(vivaTimerSeconds % 60).toString().padStart(2, "0")}
+                  </div>
+
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setVivaTimerActive(!vivaTimerActive)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition cursor-pointer shadow-md flex items-center gap-1.5 ${
+                        vivaTimerActive
+                          ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                          : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
+                      }`}
+                    >
+                      {vivaTimerActive ? "⏸️ Pause" : "▶️ Start Timer"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVivaTimerActive(false);
+                        setVivaTimerSeconds(300);
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold font-mono bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                      title="Reset timer to 5:00"
+                    >
+                      🔄 Reset Timer
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3-Part Faculty Viva Rubric (Feature 1) */}
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-4">
+                <div className="flex items-center justify-between font-mono">
+                  <span className="font-bold text-zinc-900 dark:text-white text-xs">Faculty Live Viva Rubric Breakdown</span>
+                  <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">
+                    Calculated Viva Score: {presScore + qaScore + protoScore} / 100 pts
+                  </span>
+                </div>
+
+                <div className="space-y-3 font-mono text-xs">
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-zinc-600 dark:text-zinc-400">1. Pitch Presentation & Slides (0-30 pts):</span>
+                      <span className="font-bold text-zinc-900 dark:text-white">{presScore} pts</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      value={presScore}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setPresScore(val);
+                        setEditingVivaScore(val + qaScore + protoScore);
+                      }}
+                      className="w-full accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-zinc-600 dark:text-zinc-400">2. Technical Q&A & Defense (0-40 pts):</span>
+                      <span className="font-bold text-zinc-900 dark:text-white">{qaScore} pts</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      value={qaScore}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setQaScore(val);
+                        setEditingVivaScore(presScore + val + protoScore);
+                      }}
+                      className="w-full accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-zinc-600 dark:text-zinc-400">3. Working Prototype / Tech Proof (0-30 pts):</span>
+                      <span className="font-bold text-zinc-900 dark:text-white">{protoScore} pts</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      value={protoScore}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setProtoScore(val);
+                        setEditingVivaScore(presScore + qaScore + val);
+                      }}
+                      className="w-full accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center text-[11px] font-mono">
+                  <span className="text-zinc-500">Composite Score Formula:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {Math.round((selectedSub.total_score || 0) * 0.6 + (presScore + qaScore + protoScore) * 0.4)} pts (60% AI Pitch + 40% Viva)
+                  </span>
+                </div>
               </div>
 
               <div>
                 <label className="block font-semibold mb-1 text-zinc-700 dark:text-zinc-300">
-                  SPOC Committee Notes / Feedback for Team
+                  SPOC Committee Notes & Student Feedback
                 </label>
                 <textarea
                   rows={3}
@@ -652,7 +789,13 @@ function SpocDashboardContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     onClick={() =>
-                      handleUpdateSpocStatus(selectedSub.id, "approved", editingVivaScore, editingNotes)
+                      handleUpdateSpocStatus(
+                        selectedSub.id,
+                        "approved",
+                        presScore + qaScore + protoScore,
+                        editingNotes,
+                        { presentationScore: presScore, qaScore, prototypeScore: protoScore }
+                      )
                     }
                     disabled={updating}
                     className="p-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition text-center cursor-pointer shadow-md"
@@ -661,7 +804,13 @@ function SpocDashboardContent() {
                   </button>
                   <button
                     onClick={() =>
-                      handleUpdateSpocStatus(selectedSub.id, "revision_requested", editingVivaScore, editingNotes)
+                      handleUpdateSpocStatus(
+                        selectedSub.id,
+                        "revision_requested",
+                        presScore + qaScore + protoScore,
+                        editingNotes,
+                        { presentationScore: presScore, qaScore, prototypeScore: protoScore }
+                      )
                     }
                     disabled={updating}
                     className="p-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition text-center cursor-pointer shadow-md"
@@ -670,12 +819,18 @@ function SpocDashboardContent() {
                   </button>
                   <button
                     onClick={() =>
-                      handleUpdateSpocStatus(selectedSub.id, "rejected", editingVivaScore, editingNotes)
+                      handleUpdateSpocStatus(
+                        selectedSub.id,
+                        "rejected",
+                        presScore + qaScore + protoScore,
+                        editingNotes,
+                        { presentationScore: presScore, qaScore, prototypeScore: protoScore }
+                      )
                     }
                     disabled={updating}
                     className="p-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition text-center cursor-pointer shadow-md"
                   >
-                    🚨 Flag / Reject
+                    🚨 Reject Pitch
                   </button>
                 </div>
               </div>

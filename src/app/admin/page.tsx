@@ -102,7 +102,7 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons" | "spoc_allowlist">("reports");
 
   // Native Hackathons approval & delete state
   const [nativeHackathons, setNativeHackathons] = useState<any[]>([]);
@@ -356,11 +356,103 @@ function AdminContent() {
     }
   }
 
+  // SPOC Allowlist State (yashshah7117@gmail.com Super Admin Exclusive)
+  const [spocAllowlist, setSpocAllowlist] = useState<any[]>([]);
+  const [loadingSpocAllowlist, setLoadingSpocAllowlist] = useState(false);
+  const [grantingSpoc, setGrantingSpoc] = useState(false);
+  const [spocFormEmail, setSpocFormEmail] = useState("");
+  const [spocFormCollege, setSpocFormCollege] = useState("D.J. Sanghvi College of Engineering (DJSCE)");
+  const [spocFormRole, setSpocFormRole] = useState("spoc");
+
+  async function fetchSpocAllowlist() {
+    setLoadingSpocAllowlist(true);
+    try {
+      const res = await fetch("/api/admin/spoc-allowlist");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSpocAllowlist(data.allowlist || []);
+      } else {
+        showToast(data.error || "Failed to load SPOC allowlist.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to load SPOC allowlist.", "error");
+    } finally {
+      setLoadingSpocAllowlist(false);
+    }
+  }
+
+  async function handleGrantSpocAccess(emailToGrant?: string, collegeToGrant?: string, roleToGrant?: string) {
+    const targetEmail = emailToGrant || spocFormEmail;
+    const targetCollege = collegeToGrant || spocFormCollege;
+    const targetRole = roleToGrant || spocFormRole;
+
+    if (!targetEmail || !targetEmail.includes("@")) {
+      showToast("Please enter a valid user email address.", "error");
+      return;
+    }
+
+    setGrantingSpoc(true);
+    try {
+      const res = await fetch("/api/admin/spoc-allowlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail.trim(),
+          collegeName: targetCollege.trim(),
+          role: targetRole,
+          isActive: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Granted SPOC access to ${targetEmail}!`, "success");
+        setSpocFormEmail("");
+        fetchSpocAllowlist();
+      } else {
+        showToast(data.error || "Failed to grant SPOC access.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to grant SPOC access.", "error");
+    } finally {
+      setGrantingSpoc(false);
+    }
+  }
+
+  async function handleRevokeSpocAccess(emailToRevoke: string) {
+    confirm({
+      title: "REVOKE SPOC ACCESS",
+      message: `Are you sure you want to revoke SPOC Dashboard access for ${emailToRevoke}?`,
+      confirmText: "Revoke Access",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/spoc-allowlist?email=${encodeURIComponent(emailToRevoke)}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast(`Revoked SPOC access for ${emailToRevoke}.`, "success");
+            fetchSpocAllowlist();
+          } else {
+            showToast(data.error || "Failed to revoke SPOC access.", "error");
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast(err.message || "Failed to revoke SPOC access.", "error");
+        }
+      },
+    });
+  }
+
   useEffect(() => {
     if (activeTab === "sih_stats") {
       loadSIHStats();
     } else if (activeTab === "users" || activeTab === "deleted_logs") {
       loadDeletedUserLogs();
+    } else if (activeTab === "spoc_allowlist") {
+      fetchSpocAllowlist();
     }
   }, [activeTab]);
 
@@ -1447,6 +1539,23 @@ function AdminContent() {
               Registered Users ({users.length})
             </button>
 
+            {userEmail?.toLowerCase().trim() === "yashshah7117@gmail.com" && (
+              <button
+                onClick={() => {
+                  setActiveTab("spoc_allowlist");
+                  setSearchQuery("");
+                  fetchSpocAllowlist();
+                }}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                  activeTab === "spoc_allowlist"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow"
+                    : "text-amber-400/80 hover:text-amber-300"
+                }`}
+              >
+                👑 SPOC Allowlist Manager ({spocAllowlist.length})
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setActiveTab("deleted_logs");
@@ -2388,6 +2497,156 @@ function AdminContent() {
                               className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded border border-rose-900/60 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white transition cursor-pointer"
                             >
                               Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SPOC ALLOWLIST MANAGER TAB (yashshah7117@gmail.com Super Admin Exclusive) */}
+        {activeTab === "spoc_allowlist" && userEmail?.toLowerCase().trim() === "yashshah7117@gmail.com" && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Header Banner */}
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-950/40 via-zinc-900 to-zinc-950 border border-amber-500/30 shadow-xl space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  👑 SUPER ADMIN EXCLUSIVE
+                </span>
+                <span className="text-xs font-mono text-zinc-400">SIH SPOC & HOD Dashboard Access Manager</span>
+              </div>
+              <h2 className="text-xl font-extrabold text-white tracking-tight">
+                College SPOC Allowlist & Live Jury Permissions
+              </h2>
+              <p className="text-xs text-zinc-300 leading-relaxed font-sans max-w-3xl">
+                Grant or revoke SPOC Dashboard access for college faculty, HODs, and designated jury members. Users on this allowlist gain permission to access the SPOC portal, conduct live 5-minute faculty viva scoring, and issue official nomination exports.
+              </p>
+            </div>
+
+            {/* Grant Access Form */}
+            <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
+              <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
+                <span>➕ Grant SPOC Access to Profile Email</span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-zinc-400 mb-1">User Email Address *</label>
+                  <input
+                    type="email"
+                    placeholder="Enter email (e.g. spoc@djsce.ac.in)..."
+                    value={spocFormEmail}
+                    onChange={(e) => setSpocFormEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-zinc-400 mb-1">Assigned College / Institution</label>
+                  <input
+                    type="text"
+                    placeholder="College Name..."
+                    value={spocFormCollege}
+                    onChange={(e) => setSpocFormCollege(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-zinc-400 mb-1">Assigned Role</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={spocFormRole}
+                      onChange={(e) => setSpocFormRole(e.target.value)}
+                      className="px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-amber-500 flex-1"
+                    >
+                      <option value="spoc">College SPOC</option>
+                      <option value="hod">Department HOD</option>
+                      <option value="jury">Faculty Jury Evaluator</option>
+                    </select>
+
+                    <button
+                      onClick={() => handleGrantSpocAccess()}
+                      disabled={grantingSpoc}
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition cursor-pointer shrink-0 shadow-md disabled:opacity-50"
+                    >
+                      {grantingSpoc ? "Granting..." : "Grant Access"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SPOC Allowlist Table */}
+            <div className="card card-static overflow-hidden">
+              <div className="p-4 border-b border-zinc-900 flex items-center justify-between">
+                <span className="font-mono text-xs font-bold text-white uppercase tracking-wider">
+                  Active SPOC Allowlist ({spocAllowlist.length} Accounts)
+                </span>
+                <button
+                  onClick={fetchSpocAllowlist}
+                  className="px-3 py-1 rounded-lg text-xs font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+                >
+                  🔄 Refresh List
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-900 bg-zinc-950/40 text-zinc-500 font-mono uppercase tracking-wider text-[10px]">
+                      <th className="p-4 font-semibold">User Email</th>
+                      <th className="p-4 font-semibold">Assigned College</th>
+                      <th className="p-4 font-semibold">Role</th>
+                      <th className="p-4 font-semibold">Status</th>
+                      <th className="p-4 font-semibold">Granted Date</th>
+                      <th className="p-4 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-900/60">
+                    {loadingSpocAllowlist ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-zinc-500 font-mono">
+                          Loading SPOC Allowlist...
+                        </td>
+                      </tr>
+                    ) : spocAllowlist.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-zinc-500 font-mono">
+                          No SPOC allowlist entries found. Use the form above to grant access.
+                        </td>
+                      </tr>
+                    ) : (
+                      spocAllowlist.map((entry) => (
+                        <tr key={entry.id || entry.email} className="hover:bg-zinc-900/30 transition">
+                          <td className="p-4 font-mono font-bold text-white">{entry.email}</td>
+                          <td className="p-4 font-mono text-zinc-300 text-[11px]">{entry.college_name}</td>
+                          <td className="p-4 font-mono">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              {entry.role || "spoc"}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              entry.is_active !== false ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            }`}>
+                              {entry.is_active !== false ? "Active ✅" : "Disabled ❌"}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono text-zinc-500 text-[11px]">
+                            {entry.created_at ? new Date(entry.created_at).toLocaleDateString() : "System Default"}
+                          </td>
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => handleRevokeSpocAccess(entry.email)}
+                              className="px-3 py-1 rounded-lg text-xs font-mono bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 transition cursor-pointer"
+                            >
+                              Revoke Access
                             </button>
                           </td>
                         </tr>

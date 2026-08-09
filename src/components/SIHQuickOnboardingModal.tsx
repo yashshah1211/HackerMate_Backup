@@ -80,13 +80,20 @@ export default function SIHQuickOnboardingModal({
       return;
     }
 
+    if (!userId) {
+      setErrorMsg("Authentication required. Please sign in to list yourself on the builder board.");
+      if (typeof window !== "undefined") {
+        window.location.href = `/?next=${encodeURIComponent("/hackathons/sih?action=list_myself")}&auth=true`;
+      }
+      return;
+    }
+
     setSaving(true);
     setErrorMsg("");
 
     try {
       const rawCollege = college.trim() || collegeSearch.trim();
       const finalCollege = normalizeCollege(rawCollege);
-
 
       const { data, error } = await supabase
         .from("profiles")
@@ -99,7 +106,7 @@ export default function SIHQuickOnboardingModal({
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId)
-        .select()
+        .select("id, full_name, avatar_url, college, skills, gender, role, bio, github_url, linkedin_url, onboarding_completed, is_available")
         .single();
 
       if (error) {

@@ -8,7 +8,6 @@ async function checkIsUserAdmin(user: any, supabaseAdmin: any): Promise<boolean>
   const email = user.email?.toLowerCase() || "";
   if (
     email === "yashshah7117@gmail.com" ||
-    email === "yashshah111@gmail.com" ||
     email.includes("admin")
   ) {
     return true;

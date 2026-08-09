@@ -46,8 +46,7 @@ export async function verifySpocAuthorization(user: any, supabaseAdmin: any): Pr
     if (
       profile?.is_admin ||
       profile?.role === "admin" ||
-      email === "yashshah7117@gmail.com" ||
-      email === "yashshah111@gmail.com"
+      email === "yashshah7117@gmail.com"
     ) {
       return {
         isAuthorized: true,

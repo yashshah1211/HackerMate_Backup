@@ -38,8 +38,7 @@ async function runSecurityTests() {
     if (
       profile?.is_admin ||
       profile?.role === "admin" ||
-      email === "yashshah7117@gmail.com" ||
-      email === "yashshah111@gmail.com"
+      email === "yashshah7117@gmail.com"
     ) {
       return { isAuthorized: true, role: "admin", collegeName: profile?.college || "D.J. Sanghvi College of Engineering (DJSCE)", isAdminOverride: true };
     }
