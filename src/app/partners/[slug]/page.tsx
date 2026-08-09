@@ -587,19 +587,29 @@ function PartnerPageContent() {
             )}
 
             {/* Secondary Link: Official Website */}
-            {(partner.features?.website_url || slug === "morrow" || slug === "mnm") && (
-              <a
-                href={partner.features?.website_url || "https://www.mnmworks.xyz/"}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 transition-colors"
-              >
-                <span>🌐 Official Website</span>
-                <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-              </a>
-            )}
+            {(() => {
+              const rawWebsiteUrl = partner.features?.website_url || (slug === "morrow" || slug === "mnm" ? "https://www.mnmworks.xyz/" : null);
+              if (!rawWebsiteUrl) return null;
+              const websiteUrl = rawWebsiteUrl.trim();
+              // If the website URL points to Unstop, don't show it as "Official Website" because "Official Unstop Registration" already links to Unstop.
+              if (websiteUrl.toLowerCase().includes("unstop")) return null;
+              // If it's identical to the hackathon's registration website_url, don't duplicate it
+              if (hackathon?.website_url && websiteUrl === hackathon.website_url.trim()) return null;
+
+              return (
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 transition-colors"
+                >
+                  <span>🌐 Official Website</span>
+                  <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+              );
+            })()}
 
             {/* Primary Link: Official Unstop Registration */}
             {(() => {
