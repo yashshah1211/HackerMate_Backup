@@ -137,6 +137,39 @@ function AdminContent() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [emailUsage, setEmailUsage] = useState<EmailUsageSummary | null>(null);
 
+  // Email count calibration state
+  const [showSyncEmailModal, setShowSyncEmailModal] = useState(false);
+  const [syncingEmailStats, setSyncingEmailStats] = useState(false);
+  const [customEmailCount, setCustomEmailCount] = useState<string>("");
+
+  async function handleSyncEmailStats() {
+    const num = parseInt(customEmailCount.trim(), 10);
+    if (isNaN(num) || num < 0 || num > 1000) {
+      showToast("Please enter a valid email count (0-1000).", "error");
+      return;
+    }
+    setSyncingEmailStats(true);
+    try {
+      const res = await fetch("/api/admin/sync-email-stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ total_sent: num }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Email count calibrated to ${num}`, "success");
+        setShowSyncEmailModal(false);
+        loadData();
+      } else {
+        showToast(data.error || "Failed to sync email count.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to sync email count.", "error");
+    } finally {
+      setSyncingEmailStats(false);
+    }
+  }
+
   async function fetchNativeHackathons() {
     setLoadingNativeHackathons(true);
     try {
@@ -1701,9 +1734,15 @@ function AdminContent() {
                       ? "High Volume Warning"
                       : "Critical Budget Cap"}
                   </span>
+                  {emailUsage.is_resend_live && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-bold border bg-cyan-500/10 text-cyan-400 border-cyan-500/20 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                      Live Resend Sync
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Source of Truth for Email Budget Guard. Resets daily at <strong className="text-zinc-200">00:00 UTC</strong> (Resend system boundary).
+                  Source of Truth for Email Budget Guard. {emailUsage.is_resend_live ? "Synced directly with Resend API." : "Full database audit tracking active."} Resets daily at <strong className="text-zinc-200">00:00 UTC</strong>.
                 </p>
               </div>
 
@@ -1714,6 +1753,20 @@ function AdminContent() {
                 <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
                   {emailUsage.remaining_global} emails remaining today
                 </div>
+                {!emailUsage.is_resend_live && (
+                  <div className="flex items-center gap-2 mt-1.5 justify-end">
+                    <button
+                      onClick={() => {
+                        setCustomEmailCount(emailUsage.total_sent.toString());
+                        setShowSyncEmailModal(true);
+                      }}
+                      className="text-[10px] font-mono font-bold text-zinc-400 hover:text-cyan-400 border border-zinc-800 hover:border-cyan-500/40 bg-zinc-950 px-2 py-0.5 rounded transition flex items-center gap-1 cursor-pointer"
+                      title="Manually calibrate today's total count to match resend.com"
+                    >
+                      <span>⚙️ Calibrate Count</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -4199,6 +4252,59 @@ CREATE POLICY "Allow public select on sih_spoc_allowlist"
           onSendBroadcast={handleSendPartnerBroadcast}
           sendingBroadcast={sendingPartnerBroadcast}
         />
+      )}
+
+      {/* Calibrate Email Count Modal */}
+      {showSyncEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span>📧</span> Calibrate Daily Email Count
+              </h3>
+              <button
+                onClick={() => setShowSyncEmailModal(false)}
+                className="text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Enter the exact sent email count shown for today on <a href="https://resend.com/emails" target="_blank" rel="noreferrer" className="text-cyan-400 underline hover:text-cyan-300">resend.com</a>. This updates your database baseline count for today so future emails stay 100% in sync.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-zinc-300 font-semibold">
+                Today&apos;s Sent Count on Resend.com
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="1000"
+                value={customEmailCount}
+                onChange={(e) => setCustomEmailCount(e.target.value)}
+                placeholder="e.g. 52"
+                className="w-full rounded-xl bg-zinc-950 border border-zinc-800 px-3.5 py-2 text-sm text-white font-mono focus:border-cyan-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setShowSyncEmailModal(false)}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={syncingEmailStats}
+                onClick={handleSyncEmailStats}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-xs font-semibold text-white transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {syncingEmailStats ? "Saving..." : "Save Baseline"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

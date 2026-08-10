@@ -188,6 +188,12 @@ async function fetchHack2skill() {
       }
       
       description = description
+        .replace(/&zwj;/gi, "")
+        .replace(/&zwnj;/gi, "")
+        .replace(/&#8205;/g, "")
+        .replace(/&#8204;/g, "")
+        .replace(/&#8203;/g, "")
+        .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
         .replace(/<[^>]*>/g, "")
         .replace(/&nbsp;/g, " ")
         .replace(/&amp;/g, "&")

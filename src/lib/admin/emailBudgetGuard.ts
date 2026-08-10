@@ -87,28 +87,62 @@ export async function checkAndReserveEmailBudget(
   };
 }
 
+export type EmailCategory =
+  | "outreach"
+  | "nudge"
+  | "sih_broadcast"
+  | "notifications"
+  | "organizer_broadcasts"
+  | "admin_reports"
+  | "contact_submissions"
+  | "test_dispatches";
+
 export async function recordEmailSendSuccess(
   supabaseAdmin: SupabaseClient,
-  category: "outreach" | "nudge",
-  actualSentCount: number
+  category: EmailCategory,
+  actualSentCount: number = 1
 ) {
   if (actualSentCount <= 0) return;
 
   const todayStr = new Date().toISOString().split("T")[0];
-  const stats = await getOrCreateTodayStats(supabaseAdmin);
+  const stats = (await getOrCreateTodayStats(supabaseAdmin)) as any;
 
-  const newOutreach = stats.outreach_sent + (category === "outreach" ? actualSentCount : 0);
-  const newNudges = stats.nudges_sent + (category === "nudge" ? actualSentCount : 0);
-  const newTotal = stats.total_sent + actualSentCount;
+  const updates: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  switch (category) {
+    case "outreach":
+      updates.outreach_sent = (stats.outreach_sent || 0) + actualSentCount;
+      break;
+    case "nudge":
+      updates.nudges_sent = (stats.nudges_sent || 0) + actualSentCount;
+      break;
+    case "notifications":
+      updates.notifications_sent = (stats.notifications_sent || 0) + actualSentCount;
+      break;
+    case "organizer_broadcasts":
+      updates.organizer_broadcasts_sent = (stats.organizer_broadcasts_sent || 0) + actualSentCount;
+      break;
+    case "admin_reports":
+      updates.admin_reports_sent = (stats.admin_reports_sent || 0) + actualSentCount;
+      break;
+    case "contact_submissions":
+      updates.contact_submissions_sent = (stats.contact_submissions_sent || 0) + actualSentCount;
+      break;
+    case "test_dispatches":
+      updates.test_dispatches_sent = (stats.test_dispatches_sent || 0) + actualSentCount;
+      break;
+    case "sih_broadcast":
+      break;
+  }
+
+  const newTotal = (stats.total_sent || 0) + actualSentCount;
+  updates.total_sent = newTotal;
 
   const { error } = await supabaseAdmin
     .from("daily_email_stats")
-    .update({
-      outreach_sent: newOutreach,
-      nudges_sent: newNudges,
-      total_sent: newTotal,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updates)
     .eq("date", todayStr);
 
   if (error) {
@@ -121,6 +155,7 @@ export type EmailUsageSummary = {
   total_sent: number;
   limit: number;
   usage_percent: number;
+  is_resend_live?: boolean;
   categories: {
     sih_broadcast: number;
     outreach: number;
@@ -139,6 +174,34 @@ export async function getTodayEmailUsageSummary(
 ): Promise<EmailUsageSummary> {
   const todayStr = new Date().toISOString().split("T")[0]; // UTC Midnight Boundary (matches Resend 00:00 UTC reset)
   const todayStart = `${todayStr}T00:00:00Z`;
+
+  let liveResendCount: number | null = null;
+  let isResendLive = false;
+
+  // Try live fetch from Resend API if API key is present
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "User-Agent": "HackerMate/1.0",
+        },
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        if (Array.isArray(resData?.data)) {
+          const todayEmails = resData.data.filter(
+            (e: any) => e.created_at && new Date(e.created_at) >= new Date(todayStart)
+          );
+          liveResendCount = todayEmails.length;
+          isResendLive = true;
+        }
+      }
+    } catch (err) {
+      console.warn("[Email Budget Guard] Live Resend API fetch fallback to DB:", err);
+    }
+  }
 
   const stats = (await getOrCreateTodayStats(supabaseAdmin)) as any;
 
@@ -164,8 +227,20 @@ export async function getTodayEmailUsageSummary(
   const onboardingNudges = stats.nudges_sent || 0;
 
   // Sum of all tracked category counts
-  const sumCategories = sih + outreach + testDispatches + notifications + organizerBroadcasts + adminReports + contactSubmissions + onboardingNudges;
-  const totalSent = Math.max(stats.total_sent || 0, sumCategories);
+  const sumCategories =
+    sih +
+    outreach +
+    testDispatches +
+    notifications +
+    organizerBroadcasts +
+    adminReports +
+    contactSubmissions +
+    onboardingNudges;
+
+  const totalSent =
+    isResendLive && liveResendCount !== null
+      ? Math.max(liveResendCount, sumCategories)
+      : Math.max(stats.total_sent || 0, sumCategories);
 
   const usagePercent = Math.min(100, Math.round((totalSent / RESEND_GLOBAL_DAILY_LIMIT) * 100));
   const remainingGlobal = Math.max(0, RESEND_GLOBAL_DAILY_LIMIT - totalSent);
@@ -175,6 +250,7 @@ export async function getTodayEmailUsageSummary(
     total_sent: totalSent,
     limit: RESEND_GLOBAL_DAILY_LIMIT,
     usage_percent: usagePercent,
+    is_resend_live: isResendLive,
     categories: {
       sih_broadcast: sih,
       outreach,

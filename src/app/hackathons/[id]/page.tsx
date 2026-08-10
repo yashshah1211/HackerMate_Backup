@@ -129,6 +129,12 @@ function formatDateRange(start: string | null, end: string | null) {
 
 function htmlToPlainText(html: string) {
   return html
+    .replace(/&zwj;/gi, "")
+    .replace(/&zwnj;/gi, "")
+    .replace(/&#8205;/g, "")
+    .replace(/&#8204;/g, "")
+    .replace(/&#8203;/g, "")
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(?:p|div|li|h[1-6])>/gi, "\n")
     .replace(/<li[^>]*>/gi, "• ")
@@ -139,6 +145,7 @@ function htmlToPlainText(html: string) {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
+    .replace(/[\s•\-*✦●▪◦▸·]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

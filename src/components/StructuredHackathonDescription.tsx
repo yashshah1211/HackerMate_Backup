@@ -23,17 +23,27 @@ interface DescriptionSection {
 }
 
 /**
- * Decodes HTML entities commonly found in web-scraped descriptions
+ * Decodes HTML entities and strips invisible zero-width characters
  */
 function cleanHtmlEntities(raw: string): string {
   if (!raw) return "";
   return raw
+    // Strip zero-width joiners and spaces (e.g. &zwj;, &#8205;, \u200B)
+    .replace(/&zwj;/gi, "")
+    .replace(/&zwnj;/gi, "")
+    .replace(/&#8205;/g, "")
+    .replace(/&#8204;/g, "")
+    .replace(/&#8203;/g, "")
+    .replace(/&#x200B;/gi, "")
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
+    // Formatting line breaks
     .replace(/<hr\s*\/?>/gi, "\n\n")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(?:p|div|h[1-6])>/gi, "\n\n")
     .replace(/<\/li>/gi, "\n")
     .replace(/<li[^>]*>/gi, "• ")
     .replace(/<[^>]*>/g, "")
+    // Entity decoding
     .replace(/&nbsp;/gi, " ")
     .replace(/&AElig;/gi, "Æ")
     .replace(/&aelig;/gi, "æ")
@@ -48,6 +58,7 @@ function cleanHtmlEntities(raw: string): string {
     .replace(/&ndash;/gi, "–")
     .replace(/&mdash;/gi, "—")
     .replace(/&bull;/gi, "•")
+    .replace(/&middot;/gi, "·")
     .replace(/&rsquo;/gi, "'")
     .replace(/&lsquo;/gi, "'")
     .replace(/&rdquo;/gi, '"')
@@ -62,6 +73,17 @@ function cleanHtmlEntities(raw: string): string {
     .trim();
 }
 
+/**
+ * Trims leading/trailing whitespace and cleans trailing bullet artifacts (e.g. "Rules •")
+ */
+function cleanLineNoise(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/[\s•\-*✦●▪◦▸·]+$/, "") // remove trailing bullets/symbols
+    .replace(/^[\s\u200B\u200C\u200D\uFEFF]+/, "")
+    .trim();
+}
+
 const SECTION_CONFIGS: Array<{
   keywords: string[];
   title: string;
@@ -69,49 +91,49 @@ const SECTION_CONFIGS: Array<{
   accentColor: DescriptionSection["accentColor"];
 }> = [
   {
-    keywords: ["about the event", "about the opportunity", "about the hackathon", "overview", "about code rush", "event overview", "about us", "description"],
+    keywords: ["about the event", "about the opportunity", "about the hackathon", "overview", "event overview", "about us", "description"],
     title: "About the Event",
     icon: "🚀",
     accentColor: "blue",
   },
   {
-    keywords: ["eligibility", "who can participate", "eligibility criteria", "prerequisites", "allowed participants"],
+    keywords: ["eligibility & team guidelines", "eligibility & team rules", "eligibility criteria", "eligibility", "who can participate", "prerequisites", "allowed participants"],
     title: "Eligibility & Team Rules",
     icon: "🎓",
     accentColor: "emerald",
   },
   {
-    keywords: ["selection criteria", "shortlisting criteria", "evaluation criteria", "judging criteria", "scoring"],
+    keywords: ["selection criteria", "shortlisting criteria", "evaluation criteria", "judging criteria", "scoring criteria", "scoring"],
     title: "Selection & Evaluation Criteria",
     icon: "⚖️",
     accentColor: "amber",
   },
   {
-    keywords: ["competition format", "process & rounds", "event format", "rounds", "event structure", "hackathon format", "stages", "competition structure"],
+    keywords: ["competition format", "process & rounds", "event format", "rounds & stages", "rounds", "stages", "duration"],
     title: "Competition Format & Rounds",
     icon: "⚔️",
     accentColor: "violet",
   },
   {
-    keywords: ["prizes", "rewards", "prize pool", "perks", "swag", "benefits", "certificates"],
+    keywords: ["why participate?", "why participate", "prizes & perks", "prizes and perks", "prizes & rewards", "prizes and rewards", "prizes", "rewards", "prize pool", "certificates & swags", "swags & certificates", "swag & perks", "perks & benefits", "incubation support", "perks"],
     title: "Prizes & Rewards",
     icon: "🏆",
     accentColor: "rose",
   },
   {
-    keywords: ["rules", "guidelines", "code of conduct", "general rules", "important rules", "terms", "accommodation"],
+    keywords: ["team formation rules", "rules of the hackathon", "rules & guidelines", "rules and guidelines", "general rules", "important rules", "code of conduct", "rules", "guidelines", "terms & conditions"],
     title: "Rules & Guidelines",
     icon: "📋",
     accentColor: "teal",
   },
   {
-    keywords: ["tracks", "themes", "problem statements", "domain", "challenges", "categories"],
+    keywords: ["tracks & problem statements", "tracks and problem statements", "problem statements", "hackathon format & themes", "tracks & themes", "themes & tracks", "themes", "tracks", "challenges"],
     title: "Tracks & Problem Statements",
     icon: "💡",
     accentColor: "indigo",
   },
   {
-    keywords: ["contact", "queries", "organizer contact", "helpdesk", "support", "coordinators"],
+    keywords: ["contact & support", "contact us", "contact info", "contact information", "organizer contact", "helpdesk & support", "helpdesk", "queries & support", "queries"],
     title: "Contact & Support",
     icon: "📞",
     accentColor: "zinc",
@@ -125,81 +147,111 @@ function parseDescription(raw: string): DescriptionSection[] {
   const text = cleanHtmlEntities(raw);
   if (!text) return [];
 
-  // Match headers like "About the Event:", "About the Opportunity:", "Eligibility:", "Process & Rounds:"
-  const headerRegex = /(?:^|\n+)(About the Event|About the Opportunity|About the Hackathon|Overview|Eligibility Criteria|Eligibility|Selection Criteria|Evaluation Criteria|Competition Format|Process & Rounds|Event Format|Prizes & Perks|Prizes|Rewards|Rules & Guidelines|Rules|Code of Conduct|Tracks|Themes|Problem Statements|Contact Us|Contact Info|Organizers|Important Notes|General Guidelines)[\s:]*/gi;
+  // Split into raw non-empty lines
+  const rawLines = text
+    .split(/\n+/)
+    .map((l) => cleanLineNoise(l))
+    .filter(Boolean);
 
-  const matches: { index: number; text: string; headerName: string }[] = [];
-  let match: RegExpExecArray | null;
+  if (rawLines.length === 0) return [];
 
-  while ((match = headerRegex.exec(text)) !== null) {
-    matches.push({
-      index: match.index,
-      text: match[0],
-      headerName: match[1].trim(),
-    });
+  // Line-by-line section matching
+  type RawSection = {
+    title: string;
+    icon: string;
+    accentColor: DescriptionSection["accentColor"];
+    lines: string[];
+  };
+
+  const rawSections: RawSection[] = [];
+  let currentSec: RawSection = {
+    title: "About the Event",
+    icon: "🚀",
+    accentColor: "blue",
+    lines: [],
+  };
+
+  for (const line of rawLines) {
+    const cleanL = cleanLineNoise(line);
+    const lowerLine = cleanL.toLowerCase().replace(/[:\s•\-*]+$/, "");
+
+    // Do NOT treat bullet lines or long body lines (> 60 chars) as Section Headers
+    const isBulletLine = /^[•\-*✦●▪◦▸\d+\.]\s*/.test(cleanL);
+    const isHeaderCandidate = !isBulletLine && cleanL.length <= 60;
+
+    let matchedConfig: typeof SECTION_CONFIGS[0] | undefined = undefined;
+
+    if (isHeaderCandidate) {
+      matchedConfig = SECTION_CONFIGS.find((cfg) =>
+        cfg.keywords.some((kw) => {
+          if (lowerLine === kw) return true;
+          if (lowerLine.startsWith(kw + ":") || lowerLine.startsWith(kw + " ")) return true;
+          if (kw.length >= 6 && lowerLine.startsWith(kw)) return true;
+          return false;
+        })
+      );
+    }
+
+    if (matchedConfig) {
+      if (currentSec.lines.length > 0) {
+        rawSections.push(currentSec);
+      }
+      currentSec = {
+        title: matchedConfig.title,
+        icon: matchedConfig.icon,
+        accentColor: matchedConfig.accentColor,
+        lines: [],
+      };
+
+      // If the line had text beyond the matched keyword, check if there's trailing body content
+      const inlineBody = cleanL.replace(/^(About the Event|About the Opportunity|About the Hackathon|Overview|Eligibility Criteria|Eligibility & Team Guidelines|Eligibility & Team Rules|Eligibility|Selection Criteria|Evaluation Criteria|Competition Format|Process & Rounds|Event Format|Prizes & Perks|Prizes & Rewards|Why Participate\??|Prizes|Rewards|Rules of the Hackathon|Rules & Guidelines|Team Formation Rules|Rules|Code of Conduct|Tracks|Themes|Problem Statements|Contact Us|Contact Info|Organizers|Important Notes|General Guidelines)[\s:]*/gi, "").trim();
+      const cleanedInline = cleanLineNoise(inlineBody);
+      if (cleanedInline && cleanedInline.length > 5) {
+        currentSec.lines.push(cleanedInline);
+      }
+      continue;
+    }
+
+    currentSec.lines.push(line);
   }
 
-  // If no explicit section headers found, check if text has sentence sentences or bullet points
-  if (matches.length === 0) {
-    return [
-      {
-        id: "general-overview",
-        title: "Event Details & Overview",
-        icon: "📌",
-        accentColor: "blue",
-        ...parseSectionContent(text),
-      },
-    ];
+  if (currentSec.lines.length > 0) {
+    rawSections.push(currentSec);
+  }
+
+  // If no sections were identified, wrap all lines in overview
+  if (rawSections.length === 0) {
+    rawSections.push({
+      title: "Event Details & Overview",
+      icon: "📌",
+      accentColor: "blue",
+      lines: rawLines,
+    });
   }
 
   const sections: DescriptionSection[] = [];
 
-  // Pre-header text if any
-  if (matches[0].index > 0) {
-    const leadText = text.slice(0, matches[0].index).trim();
-    if (leadText.length > 20) {
-      sections.push({
-        id: "lead-overview",
-        title: "About the Event",
-        icon: "🚀",
-        accentColor: "blue",
-        ...parseSectionContent(leadText),
-      });
+  for (let i = 0; i < rawSections.length; i++) {
+    const rawSec = rawSections[i];
+    const parsed = parseSectionLines(rawSec.lines);
+
+    // Skip section if it contains no actual content after cleaning
+    if (parsed.contentParagraphs.length === 0 && parsed.bulletPoints.length === 0 && parsed.subItems.length === 0) {
+      continue;
     }
-  }
 
-  for (let i = 0; i < matches.length; i++) {
-    const current = matches[i];
-    const startIndex = current.index + current.text.length;
-    const endIndex = i + 1 < matches.length ? matches[i + 1].index : text.length;
-    const sectionBody = text.slice(startIndex, endIndex).trim();
-
-    if (!sectionBody) continue;
-
-    const lowerHeader = current.headerName.toLowerCase();
-    const config = SECTION_CONFIGS.find((c) =>
-      c.keywords.some((kw) => lowerHeader.includes(kw))
-    ) || {
-      title: current.headerName,
-      icon: "📌",
-      accentColor: "zinc" as const,
-    };
-
-    const parsedContent = parseSectionContent(sectionBody);
-
-    // Prevent duplicate section titles by appending index if needed
-    const existing = sections.find((s) => s.title === config.title);
+    const existing = sections.find((s) => s.title === rawSec.title);
     if (existing) {
-      existing.contentParagraphs.push(...parsedContent.contentParagraphs);
-      existing.bulletPoints.push(...parsedContent.bulletPoints);
-      existing.subItems.push(...parsedContent.subItems);
+      existing.contentParagraphs.push(...parsed.contentParagraphs);
+      existing.bulletPoints.push(...parsed.bulletPoints);
+      existing.subItems.push(...parsed.subItems);
     } else {
       sections.push({
         id: `section-${i}`,
-        title: config.title,
-        icon: config.icon,
-        accentColor: config.accentColor,
-        ...parsedContent,
+        title: rawSec.title,
+        icon: rawSec.icon,
+        accentColor: rawSec.accentColor,
+        ...parsed,
       });
     }
   }
@@ -208,9 +260,9 @@ function parseDescription(raw: string): DescriptionSection[] {
 }
 
 /**
- * Splits section body text into paragraphs, bullet items, and key-value sub-items (e.g. Relay Sprint: ...)
+ * Splits section lines into paragraphs, bullet items, and key-value sub-items
  */
-function parseSectionContent(bodyText: string): {
+function parseSectionLines(lines: string[]): {
   contentParagraphs: string[];
   bulletPoints: string[];
   subItems: SubItem[];
@@ -219,25 +271,23 @@ function parseSectionContent(bodyText: string): {
   const bulletPoints: string[] = [];
   const subItems: SubItem[] = [];
 
-  // Split into sentences / lines
-  const lines = bodyText
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
   let currentPara = "";
 
-  for (const line of lines) {
-    const cleanLine = line.replace(/^(About the (Event|Opportunity|Hackathon)|Process & Rounds|Overview|Eligibility Criteria|Eligibility|Selection Criteria|Competition Format)[\s:]*/gi, "").trim();
+  for (const rawLine of lines) {
+    const cleanLine = cleanLineNoise(rawLine);
     if (!cleanLine) continue;
 
-    // Check if line is a bullet point (starts with •, -, *, 1., 2., etc.)
-    if (/^[•\-*\d+\.]\s+/.test(cleanLine)) {
-      if (currentPara) {
-        contentParagraphs.push(currentPara);
-        currentPara = "";
+    // Check if line is a bullet point (starts with •, -, *, ✦, ●, ▪, ◦, ▸, 1., 2., etc.)
+    if (/^[•\-*✦●▪◦▸\d+\.]\s*/.test(cleanLine)) {
+      const bpText = cleanLineNoise(cleanLine.replace(/^[•\-*✦●▪◦▸\d+\.]+\s*/, ""));
+      // Crucial: ONLY push if bullet point text is non-empty after stripping bullet symbols!
+      if (bpText.length > 0) {
+        if (currentPara) {
+          contentParagraphs.push(cleanLineNoise(currentPara));
+          currentPara = "";
+        }
+        bulletPoints.push(bpText);
       }
-      bulletPoints.push(cleanLine.replace(/^[•\-*\d+\.]\s+/, "").trim());
       continue;
     }
 
@@ -245,38 +295,42 @@ function parseSectionContent(bodyText: string): {
     const subItemMatch = cleanLine.match(/^([A-Z0-9\s\-_]{3,35}):\s*(.+)/i);
     if (subItemMatch && !subItemMatch[1].toLowerCase().includes("http")) {
       if (currentPara) {
-        contentParagraphs.push(currentPara);
+        contentParagraphs.push(cleanLineNoise(currentPara));
         currentPara = "";
       }
       subItems.push({
-        title: subItemMatch[1].trim(),
-        text: subItemMatch[2].trim(),
+        title: cleanLineNoise(subItemMatch[1]),
+        text: cleanLineNoise(subItemMatch[2]),
       });
       continue;
     }
 
-    // Check for inline bullet separators like "Each participant... . Selection Criteria: ..."
-    if (line.includes(". ") && line.length > 120) {
-      // If line is very long, break it into readable sentences
-      const sentences = line.split(/(?<=\.)\s+/).filter(Boolean);
+    // Check for inline bullet separators or long sentence blocks
+    if (cleanLine.includes(". ") && cleanLine.length > 120) {
+      const sentences = cleanLine.split(/(?<=\.)\s+/).filter(Boolean);
       for (const sent of sentences) {
+        const cleanedSent = cleanLineNoise(sent);
+        if (!cleanedSent) continue;
         if (currentPara) {
-          contentParagraphs.push(currentPara);
+          contentParagraphs.push(cleanLineNoise(currentPara));
           currentPara = "";
         }
-        contentParagraphs.push(sent.trim());
+        contentParagraphs.push(cleanedSent);
       }
     } else {
       if (currentPara) {
-        currentPara += " " + line;
+        currentPara += " " + cleanLine;
       } else {
-        currentPara = line;
+        currentPara = cleanLine;
       }
     }
   }
 
   if (currentPara) {
-    contentParagraphs.push(currentPara);
+    const finalPara = cleanLineNoise(currentPara);
+    if (finalPara) {
+      contentParagraphs.push(finalPara);
+    }
   }
 
   return { contentParagraphs, bulletPoints, subItems };
@@ -318,6 +372,15 @@ export default function StructuredHackathonDescription({
   }
 
   const sections = parseDescription(description);
+
+  if (sections.length === 0) {
+    return (
+      <div className="p-6 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 text-center text-zinc-500 text-xs font-mono">
+        No detailed description available.
+      </div>
+    );
+  }
+
   const totalTextLength = cleanHtmlEntities(description).length;
   const isLong = totalTextLength > 500 && sections.length > 1;
 
@@ -379,15 +442,17 @@ export default function StructuredHackathonDescription({
           {/* Section Body - Bullet Points */}
           {sec.bulletPoints.length > 0 && (
             <ul className="space-y-2 pt-1">
-              {sec.bulletPoints.map((bp, idx) => (
-                <li
-                  key={idx}
-                  className="text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-2 leading-relaxed break-words overflow-hidden"
-                >
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 mt-0.5">✦</span>
-                  <span className="break-words">{bp}</span>
-                </li>
-              ))}
+              {sec.bulletPoints
+                .filter((bp) => bp.trim().length > 0)
+                .map((bp, idx) => (
+                  <li
+                    key={idx}
+                    className="text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-2 leading-relaxed break-words overflow-hidden"
+                  >
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 mt-0.5">✦</span>
+                    <span className="break-words">{bp}</span>
+                  </li>
+                ))}
             </ul>
           )}
         </div>
@@ -416,3 +481,4 @@ export default function StructuredHackathonDescription({
     </div>
   );
 }
+

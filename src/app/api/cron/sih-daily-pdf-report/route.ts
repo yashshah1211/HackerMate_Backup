@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SIH_HACKATHON_ID } from "@/lib/constants";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { generateSIHPdfReport, SIHReportData } from "@/lib/admin/sihPdfReport";
 
 function isSameCollege(collegeA: string | null | undefined, collegeB: string | null | undefined): boolean {
@@ -340,6 +341,12 @@ async function handleSihDailyPdfReport(req: NextRequest) {
         { success: false, error: "Failed to dispatch PDF email via Resend API", details: resendData },
         { status: 500 }
       );
+    }
+
+    try {
+      await recordEmailSendSuccess(supabaseAdmin, "admin_reports", 1);
+    } catch (dbErr) {
+      console.warn("[SIH Daily PDF Cron] Failed to record email stats:", dbErr);
     }
 
     return NextResponse.json({

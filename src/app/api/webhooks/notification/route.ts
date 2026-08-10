@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 export async function POST(req: NextRequest) {
   try {
@@ -265,6 +267,17 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Email dispatch failed via Resend API", details: resendData?.message || resendData || "Unknown Resend API error" },
         { status: 500 }
       );
+    }
+
+    // Record email send in database budget guard
+    try {
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+      );
+      await recordEmailSendSuccess(supabaseAdmin, "notifications", 1);
+    } catch (dbErr) {
+      console.warn("[Webhook Notification] Failed to record email stats:", dbErr);
     }
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -313,6 +314,12 @@ export async function POST(req: NextRequest) {
         { error: "Failed to dispatch email inquiry." },
         { status: 500 }
       );
+    }
+
+    try {
+      await recordEmailSendSuccess(supabaseAdmin, "contact_submissions", 1);
+    } catch (dbErr) {
+      console.warn("[Contact Submit API] Failed to record email stats:", dbErr);
     }
 
     return NextResponse.json({

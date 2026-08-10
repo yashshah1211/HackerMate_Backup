@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 function escapeHtml(text: string): string {
   if (!text) return "";
@@ -309,6 +310,15 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    const successfulCount = participants.length - failedCount;
+    if (successfulCount > 0) {
+      try {
+        await recordEmailSendSuccess(supabaseAdmin, "organizer_broadcasts", successfulCount);
+      } catch (dbErr) {
+        console.warn("[Organizer Broadcast] Failed to record email stats:", dbErr);
+      }
     }
 
     // Mark sent_at timestamp upon confirmed delivery

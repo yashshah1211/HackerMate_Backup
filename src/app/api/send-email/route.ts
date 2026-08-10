@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 export async function POST(req: NextRequest) {
   try {
@@ -406,6 +407,12 @@ export async function POST(req: NextRequest) {
         { error: "Email dispatch failed", details: resendData },
         { status: 500 }
       );
+    }
+
+    try {
+      await recordEmailSendSuccess(supabaseAdmin, "notifications", 1);
+    } catch (dbErr) {
+      console.warn("[Send Email API] Failed to record email stats:", dbErr);
     }
 
     return NextResponse.json({
