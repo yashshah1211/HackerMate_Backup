@@ -587,7 +587,31 @@ function DashboardContent() {
       <div className="header-row">
         <div className="greet">
           <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
-          <p>Here&apos;s what&apos;s happening in your network.</p>
+          {!yearDismissed ? (
+            <div className="flex items-center gap-2 mt-1.5 p-1.5 px-2.5 rounded-lg bg-cyan-500/10 dark:bg-cyan-950/40 border border-cyan-500/30 text-xs text-zinc-800 dark:text-zinc-300 w-fit animate-fade-in-up">
+              <span className="text-cyan-700 dark:text-cyan-400 font-mono font-semibold text-[11px]">🎓 Confirm Year:</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-[11px] px-2 py-0.5 rounded cursor-pointer focus:border-cyan-500 font-mono"
+              >
+                <option value="1st Year">1st Year (Fresher)</option>
+                <option value="2nd Year">2nd Year (Sophomore)</option>
+                <option value="3rd Year">3rd Year (Junior)</option>
+                <option value="4th Year">4th Year (Senior)</option>
+                <option value="Postgrad / Alumni">Postgrad</option>
+              </select>
+              <button
+                onClick={handleConfirmYear}
+                disabled={savingYear}
+                className="px-2.5 py-0.5 bg-cyan-500 dark:bg-cyan-400 hover:bg-cyan-600 dark:hover:bg-cyan-300 text-white dark:text-black text-[11px] font-bold rounded cursor-pointer transition-all shadow-sm"
+              >
+                {savingYear ? "Saving..." : "Save ✓"}
+              </button>
+            </div>
+          ) : (
+            <p>Here&apos;s what&apos;s happening in your network.</p>
+          )}
         </div>
 
         {/* Primary Action Banner driven by user state */}
@@ -792,50 +816,6 @@ function DashboardContent() {
           + Create a team
         </button>
       </div>
-
-      {/* Academic Year Confirmation Nudge Banner */}
-      {!yearDismissed && (
-        <div className="mx-6 mt-4 p-4 rounded-xl bg-gradient-to-r from-cyan-950/50 via-zinc-950 to-indigo-950/50 border border-cyan-500/30 text-white relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in-up shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl shrink-0 shadow-inner">
-              🎓
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <span>Confirm your Academic Year of Study</span>
-                <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-500/30">
-                  Action Required
-                </span>
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Help team leads and recruiters match with you for hackathons by confirming your college year.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="input text-xs py-2 px-3 bg-zinc-900 border-zinc-700 text-white rounded-lg cursor-pointer focus:border-cyan-500"
-            >
-              <option value="1st Year">1st Year (Fresher)</option>
-              <option value="2nd Year">2nd Year (Sophomore)</option>
-              <option value="3rd Year">3rd Year (Junior)</option>
-              <option value="4th Year">4th Year (Senior)</option>
-              <option value="Postgrad / Alumni">Postgrad / Alumni</option>
-            </select>
-
-            <button
-              onClick={handleConfirmYear}
-              disabled={savingYear}
-              className="btn text-xs py-2 px-4 bg-cyan-400 hover:bg-cyan-300 text-black font-bold rounded-lg shrink-0 transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(34,211,238,0.2)]"
-            >
-              {savingYear ? "Saving..." : "Save Year ✓"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Purposeful & Clickable Stat Cards */}
       <div className="stats-row">
