@@ -137,6 +137,25 @@ function AdminContent() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [emailUsage, setEmailUsage] = useState<EmailUsageSummary | null>(null);
 
+  // Email Analytics & Webhook Event state
+  const [emailAnalytics, setEmailAnalytics] = useState<{
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+    deliveryRate: string;
+    openRate: string;
+    clickRate: string;
+  } | null>(null);
+  const [recentWebhookEvents, setRecentWebhookEvents] = useState<{
+    id: string;
+    resend_email_id: string;
+    event_type: string;
+    recipient_email: string;
+    subject: string | null;
+    created_at: string;
+  }[]>([]);
+
   // Email count calibration state
   const [showSyncEmailModal, setShowSyncEmailModal] = useState(false);
   const [syncingEmailStats, setSyncingEmailStats] = useState(false);
@@ -1032,6 +1051,17 @@ function AdminContent() {
           setEmailUsage(data.emailUsage);
         }
 
+        try {
+          const analyticsRes = await fetch("/api/admin/email-analytics");
+          const analyticsData = await analyticsRes.json();
+          if (analyticsRes.ok && analyticsData.success) {
+            setEmailAnalytics(analyticsData.stats);
+            setRecentWebhookEvents(analyticsData.recentEvents || []);
+          }
+        } catch (e) {
+          console.warn("Failed to fetch email analytics:", e);
+        }
+
         setUsers(usersList);
 
         if (rawTeams.length > 0 && usersList.length > 0) {
@@ -1827,6 +1857,102 @@ function AdminContent() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Email Analytics & Delivery Health Widget */}
+        {emailAnalytics && (
+          <div className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900/90 p-5 shadow-lg relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-base font-bold text-white tracking-tight">
+                    Resend Delivery & Engagement Health
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                    Live Webhooks Active
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Real-time webhook events for delivery, open rate, clicks, and bounce monitoring.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-center px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800">
+                  <div className="text-[10px] text-zinc-400 font-mono uppercase">Delivery Rate</div>
+                  <div className="text-sm font-bold font-mono text-emerald-400">{emailAnalytics.deliveryRate}</div>
+                </div>
+                <div className="text-center px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800">
+                  <div className="text-[10px] text-zinc-400 font-mono uppercase">Open Rate</div>
+                  <div className="text-sm font-bold font-mono text-cyan-400">{emailAnalytics.openRate}</div>
+                </div>
+                <div className="text-center px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800">
+                  <div className="text-[10px] text-zinc-400 font-mono uppercase">Click Rate</div>
+                  <div className="text-sm font-bold font-mono text-purple-400">{emailAnalytics.clickRate}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Metrics Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-mono">✅ Delivered</span>
+                <span className="text-sm font-bold font-mono text-emerald-400">{emailAnalytics.delivered}</span>
+              </div>
+              <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-mono">👁️ Opened</span>
+                <span className="text-sm font-bold font-mono text-cyan-400">{emailAnalytics.opened}</span>
+              </div>
+              <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-mono">🖱️ Clicked</span>
+                <span className="text-sm font-bold font-mono text-purple-400">{emailAnalytics.clicked}</span>
+              </div>
+              <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-mono">⚠️ Bounced</span>
+                <span className={`text-sm font-bold font-mono ${emailAnalytics.bounced > 0 ? "text-rose-400" : "text-zinc-400"}`}>{emailAnalytics.bounced}</span>
+              </div>
+            </div>
+
+            {/* Recent Webhook Events Log */}
+            {recentWebhookEvents.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-zinc-800/80">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 mb-2.5">
+                  Recent Email Events Stream ({recentWebhookEvents.length})
+                </h3>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {recentWebhookEvents.slice(0, 10).map((ev) => (
+                    <div key={ev.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-950 border border-zinc-800/60 text-xs font-mono">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
+                          ev.event_type === "delivered"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : ev.event_type === "opened"
+                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                            : ev.event_type === "clicked"
+                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                            : ev.event_type === "bounced"
+                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            : "bg-zinc-800 text-zinc-300"
+                        }`}>
+                          {ev.event_type}
+                        </span>
+                        <span className="text-zinc-200 truncate max-w-[200px] sm:max-w-xs">{ev.recipient_email}</span>
+                        {ev.subject && <span className="text-zinc-500 truncate hidden md:inline">— {ev.subject}</span>}
+                      </div>
+                      <span className="text-[10px] text-zinc-500 shrink-0">
+                        {new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
