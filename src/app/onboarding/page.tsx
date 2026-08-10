@@ -28,6 +28,7 @@ export default function OnboardingPage() {
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
 
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [yearOfStudy, setYearOfStudy] = useState("2nd Year");
   const [bio, setBio] = useState("");
   const [github, setGithub] = useState("");
   const [linkedin, setLinkedin] = useState("");
@@ -140,6 +141,7 @@ export default function OnboardingPage() {
 
     const fieldsToSave: any = {
       college: finalCollege,
+      year_of_study: yearOfStudy,
       skills: selectedSkills,
       bio: bio.trim() || null,
       github_url: github.trim() || null,
@@ -159,10 +161,23 @@ export default function OnboardingPage() {
       fieldsToSave.referrer_source = storedReferrer;
     }
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from("profiles")
       .update(fieldsToSave)
       .eq("id", user.id);
+
+    if (error) {
+      delete fieldsToSave.year_of_study;
+      const { error: fbErr } = await supabase
+        .from("profiles")
+        .update(fieldsToSave)
+        .eq("id", user.id);
+      error = fbErr;
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`year_confirmed_${user.id}`, "true");
+    }
 
     setLoading(false);
 
@@ -291,6 +306,24 @@ export default function OnboardingPage() {
                     required
                   />
                 )}
+              </div>
+
+              {/* Academic Year of Study */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+                  Academic Year of Study <span className="text-[#B4F461]">*</span>
+                </label>
+                <select
+                  value={yearOfStudy}
+                  onChange={(e) => setYearOfStudy(e.target.value)}
+                  className="input text-xs w-full bg-zinc-950 text-zinc-200 cursor-pointer"
+                >
+                  <option value="1st Year">1st Year (Fresher)</option>
+                  <option value="2nd Year">2nd Year (Sophomore)</option>
+                  <option value="3rd Year">3rd Year (Junior)</option>
+                  <option value="4th Year">4th Year (Senior)</option>
+                  <option value="Postgrad / Alumni">Postgrad / Alumni</option>
+                </select>
               </div>
 
               {/* Skills & Tech Stack */}

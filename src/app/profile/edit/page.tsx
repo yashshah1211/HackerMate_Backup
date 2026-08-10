@@ -19,6 +19,7 @@ function EditProfileContent() {
 
   const [college, setCollege] = useState("");
   const [customCollege, setCustomCollege] = useState("");
+  const [yearOfStudy, setYearOfStudy] = useState("2nd Year");
   const [gender, setGender] = useState("");
   const [bio, setBio] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
@@ -97,15 +98,22 @@ function EditProfileContent() {
       return;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
-
+      .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
       .eq("id", user.id)
       .single();
 
     if (error) {
-      console.error(error);
+      const { data: fbData } = await supabase
+        .from("profiles")
+        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+        .eq("id", user.id)
+        .single();
+      data = fbData as any;
+    }
+
+    if (!data) {
       setLoading(false);
       return;
     }
@@ -116,6 +124,7 @@ function EditProfileContent() {
       setCollege("Other");
       setCustomCollege(data.college || "");
     }
+    setYearOfStudy(data.year_of_study || "2nd Year");
     setBio(data.bio || "");
     setGender(data.gender || "");
     setGithubUrl(data.github_url || "");
@@ -209,28 +218,39 @@ function EditProfileContent() {
       }
     }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        college: normalizeCollege(
-          college === "Other"
-            ? customCollege
-            : college
-        ),
+    const updatePayload: any = {
+      college: normalizeCollege(
+        college === "Other"
+          ? customCollege
+          : college
+      ),
+      year_of_study: yearOfStudy,
+      bio: bio,
+      gender: gender.trim() || null,
+      github_url: githubUrl,
+      linkedin_url: linkedinUrl,
+      skills: selectedSkills,
+      is_available: isAvailable,
+      has_participated_hackathon: hasParticipated,
+      hackathon_participations: hasParticipated ? Number(participationsCount) : 0,
+      has_won_hackathon: hasParticipated && hasWon ? true : false,
+      hackathon_wins: hasParticipated && hasWon ? Number(winsCount) : 0,
+      ...(stats ? { github_stats: stats, github_stats_updated_at: statsUpdated } : {})
+    };
 
-        bio: bio,
-        gender: gender.trim() || null,
-        github_url: githubUrl,
-        linkedin_url: linkedinUrl,
-        skills: selectedSkills,
-        is_available: isAvailable,
-        has_participated_hackathon: hasParticipated,
-        hackathon_participations: hasParticipated ? Number(participationsCount) : 0,
-        has_won_hackathon: hasParticipated && hasWon ? true : false,
-        hackathon_wins: hasParticipated && hasWon ? Number(winsCount) : 0,
-        ...(stats ? { github_stats: stats, github_stats_updated_at: statsUpdated } : {})
-      })
+    let { error } = await supabase
+      .from("profiles")
+      .update(updatePayload)
       .eq("id", user.id);
+
+    if (error) {
+      delete updatePayload.year_of_study;
+      const { error: fbErr } = await supabase
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", user.id);
+      error = fbErr;
+    }
 
     if (error) {
       console.error(error);
@@ -239,6 +259,9 @@ function EditProfileContent() {
       return;
     }
 
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`year_confirmed_${user.id}`, "true");
+    }
     showToast("Profile updated successfully!", "success");
     router.push("/dashboard");
   }
@@ -356,6 +379,27 @@ function EditProfileContent() {
                 className="input text-xs mt-2"
               />
             )}
+          </div>
+
+          {/* Academic Year of Study */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+              Academic Year of Study
+            </label>
+            <select
+              value={yearOfStudy}
+              onChange={(e) => setYearOfStudy(e.target.value)}
+              className="input text-xs w-full bg-zinc-950 text-zinc-200 cursor-pointer"
+            >
+              <option value="1st Year">1st Year (Fresher)</option>
+              <option value="2nd Year">2nd Year (Sophomore)</option>
+              <option value="3rd Year">3rd Year (Junior)</option>
+              <option value="4th Year">4th Year (Senior)</option>
+              <option value="Postgrad / Alumni">Postgrad / Alumni</option>
+            </select>
+            <p className="text-[10px] text-zinc-500 mt-1">
+              Helps team leads & teammates match with builders in your academic batch.
+            </p>
           </div>
 
           {/* Bio */}

@@ -27,6 +27,7 @@ export default function QuickOnboardingModal({
   const [githubInput, setGithubInput] = useState(initialGithubUrl);
   const [college, setCollege] = useState("");
   const [customCollege, setCustomCollege] = useState("");
+  const [yearOfStudy, setYearOfStudy] = useState("2nd Year");
   const [collegeSearch, setCollegeSearch] = useState("");
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
 
@@ -75,19 +76,35 @@ export default function QuickOnboardingModal({
       const cleanGithubUrl = parsedGithub ? `https://github.com/${parsedGithub}` : githubInput.trim() || null;
       const storedReferrer = typeof window !== 'undefined' ? localStorage.getItem('hm_referrer_source') : null;
 
-      const { error } = await supabase
+      const updatePayload: any = {
+        college: finalCollege,
+        year_of_study: yearOfStudy,
+        bio: bio.trim() || null,
+        github_url: cleanGithubUrl,
+        skills: selectedSkills.length > 0 ? selectedSkills : ["Coding", "Hackathons"],
+        avatar_url: avatarUrl || undefined,
+        referrer_source: storedReferrer || undefined,
+        onboarding_completed: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      let { error } = await supabase
         .from("profiles")
-        .update({
-          college: finalCollege,
-          bio: bio.trim() || null,
-          github_url: cleanGithubUrl,
-          skills: selectedSkills.length > 0 ? selectedSkills : ["Coding", "Hackathons"],
-          avatar_url: avatarUrl || undefined,
-          referrer_source: storedReferrer || undefined,
-          onboarding_completed: true,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", user.id);
+
+      if (error) {
+        delete updatePayload.year_of_study;
+        const { error: fbErr } = await supabase
+          .from("profiles")
+          .update(updatePayload)
+          .eq("id", user.id);
+        error = fbErr;
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`year_confirmed_${user.id}`, "true");
+      }
 
       if (error) {
         console.error("Error setting profile onboarding complete:", error);
@@ -209,6 +226,24 @@ export default function QuickOnboardingModal({
                 required
               />
             )}
+          </div>
+
+          {/* Academic Year of Study */}
+          <div>
+            <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
+              Academic Year of Study <span className="text-emerald-400">*</span>
+            </label>
+            <select
+              value={yearOfStudy}
+              onChange={(e) => setYearOfStudy(e.target.value)}
+              className="input text-xs w-full bg-zinc-950 text-zinc-200 cursor-pointer"
+            >
+              <option value="1st Year">1st Year (Fresher)</option>
+              <option value="2nd Year">2nd Year (Sophomore)</option>
+              <option value="3rd Year">3rd Year (Junior)</option>
+              <option value="4th Year">4th Year (Senior)</option>
+              <option value="Postgrad / Alumni">Postgrad / Alumni</option>
+            </select>
           </div>
 
           {/* Bio */}

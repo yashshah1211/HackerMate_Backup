@@ -113,6 +113,11 @@ function DashboardContent() {
   const [profileCompleteness, setProfileCompleteness] = useState({ percent: 0, pendingTasks: [] as string[] });
   const [showQuickOnboardingModal, setShowQuickOnboardingModal] = useState(false);
 
+  // Academic Year Confirmation Banner state
+  const [yearDismissed, setYearDismissed] = useState(true);
+  const [selectedYear, setSelectedYear] = useState("2nd Year");
+  const [savingYear, setSavingYear] = useState(false);
+
 
   // Statistics counters
   const [stats, setStats] = useState({
@@ -162,6 +167,35 @@ function DashboardContent() {
     setConnectionStates(nextStates);
   }
 
+  async function handleConfirmYear() {
+    if (!profile) return;
+    setSavingYear(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ year_of_study: selectedYear })
+        .eq("id", profile.id);
+
+      if (error) {
+        console.warn("Could not save year_of_study to DB:", error);
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`year_confirmed_${profile.id}`, "true");
+      }
+      setProfile((prev) => (prev ? ({ ...prev, year_of_study: selectedYear } as any) : prev));
+      setYearDismissed(true);
+    } catch (err) {
+      console.error(err);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`year_confirmed_${profile.id}`, "true");
+      }
+      setYearDismissed(true);
+    } finally {
+      setSavingYear(false);
+    }
+  }
+
   async function loadDashboardData() {
     try {
       const {
@@ -189,6 +223,13 @@ function DashboardContent() {
           return;
         }
         setProfile(profileData);
+
+        // Check if academic year was confirmed by user
+        const isConfirmed = typeof window !== "undefined" && localStorage.getItem(`year_confirmed_${user.id}`) === "true";
+        if (!isConfirmed) {
+          setYearDismissed(false);
+          setSelectedYear((profileData as any).year_of_study || "2nd Year");
+        }
 
         // Calculate profile completeness using shared helper
         const comp = calculateProfileCompleteness(profileData);
@@ -751,6 +792,50 @@ function DashboardContent() {
           + Create a team
         </button>
       </div>
+
+      {/* Academic Year Confirmation Nudge Banner */}
+      {!yearDismissed && (
+        <div className="mx-6 mt-4 p-4 rounded-xl bg-gradient-to-r from-cyan-950/50 via-zinc-950 to-indigo-950/50 border border-cyan-500/30 text-white relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in-up shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl shrink-0 shadow-inner">
+              🎓
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <span>Confirm your Academic Year of Study</span>
+                <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-500/30">
+                  Action Required
+                </span>
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Help team leads and recruiters match with you for hackathons by confirming your college year.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="input text-xs py-2 px-3 bg-zinc-900 border-zinc-700 text-white rounded-lg cursor-pointer focus:border-cyan-500"
+            >
+              <option value="1st Year">1st Year (Fresher)</option>
+              <option value="2nd Year">2nd Year (Sophomore)</option>
+              <option value="3rd Year">3rd Year (Junior)</option>
+              <option value="4th Year">4th Year (Senior)</option>
+              <option value="Postgrad / Alumni">Postgrad / Alumni</option>
+            </select>
+
+            <button
+              onClick={handleConfirmYear}
+              disabled={savingYear}
+              className="btn text-xs py-2 px-4 bg-cyan-400 hover:bg-cyan-300 text-black font-bold rounded-lg shrink-0 transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(34,211,238,0.2)]"
+            >
+              {savingYear ? "Saving..." : "Save Year ✓"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Purposeful & Clickable Stat Cards */}
       <div className="stats-row">

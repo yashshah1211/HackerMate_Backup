@@ -25,6 +25,7 @@ type Profile = {
   email?: string | null;
 
   college: string;
+  year_of_study?: string | null;
   bio: string;
   github_url: string;
   linkedin_url: string;
@@ -164,17 +165,27 @@ export default function ProfilePage() {
   }
 
   async function loadProfile() {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
-
+      .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
       .eq("id", id)
       .single();
 
     if (error) {
-      console.error(error);
-    } else {
-      setProfile(data);
+      const { data: fbData } = await supabase
+        .from("profiles")
+        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+        .eq("id", id)
+        .single();
+      data = fbData as any;
+    }
+
+    if (!data) {
+      setLoading(false);
+      return;
+    }
+
+    setProfile(data);
 
       fetch(`/api/builder-track-record/${data.id}`)
         .then((res) => res.json())
@@ -274,8 +285,6 @@ export default function ProfilePage() {
           setAlreadyInvited(
             !!existingInvite && existingInvite.length > 0
           );
-        }
-
         // ── Load connection state ──
         if (user.id !== data.id) {
           await loadConnectionState(user.id, data.id);
@@ -682,12 +691,17 @@ export default function ProfilePage() {
                   <span>{profile.full_name}</span>
                   <VerifiedBuilderBadge profile={profile} />
                 </h1>
-                <p className="text-xs text-zinc-400 font-medium">
-                  {profile.college || "Independent Builder"}
+                <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                  🏫 {profile.college || "Independent Builder"}
                 </p>
 
                 {/* Status Badges */}
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-3.5">
+                  {/* Academic Year Badge */}
+                  <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-cyan-500/10 text-cyan-300 border-cyan-500/30 flex items-center gap-1 font-semibold">
+                    🎓 {profile.year_of_study || "2nd Year"}
+                  </span>
+
                   <span className={`text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border ${
                     isBlockedByMe
                       ? "bg-rose-500/10 text-rose-400 border-rose-500/20"

@@ -14,6 +14,7 @@ type Profile = {
   email?: string | null;
 
   college: string;
+  year_of_study?: string | null;
   bio: string;
   avatar_url: string;
   skills: string[];
@@ -39,6 +40,7 @@ function DevelopersContent() {
   const [search, setSearch] = useState("");
 
   const [collegeFilter, setCollegeFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
 
   // Invite states
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -76,11 +78,20 @@ function DevelopersContent() {
 
       if (user) {
         // Fetch current user profile
-        const { data: profile } = await supabase
+        let { data: profile, error: pErr } = await supabase
           .from("profiles")
-          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+          .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
           .eq("id", user.id)
           .single();
+
+        if (pErr) {
+          const { data: fbProfile } = await supabase
+            .from("profiles")
+            .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+            .eq("id", user.id)
+            .single();
+          profile = fbProfile as any;
+        }
 
         activeProfile = profile as Profile | null;
         setCurrentUserProfile(profile);
@@ -115,7 +126,7 @@ function DevelopersContent() {
       // Fetch all developers with database-level search or up to 1000 builders
       let queryBuilder = supabase
         .from("profiles")
-        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+        .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
         .order("created_at", { ascending: false });
 
       const term = (searchQuery !== undefined ? searchQuery : search).trim();
@@ -125,11 +136,24 @@ function DevelopersContent() {
 
       queryBuilder = queryBuilder.limit(1000);
 
-      const { data, error } = await queryBuilder;
+      let { data, error } = await queryBuilder;
 
       if (error) {
-        console.error(error);
-      } else {
+        console.warn("Primary developers query error, running fallback:", error);
+        let fbBuilder = supabase
+          .from("profiles")
+          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+          .order("created_at", { ascending: false });
+
+        if (term) {
+          fbBuilder = fbBuilder.or(`full_name.ilike.%${term}%,college.ilike.%${term}%,skills.cs.{${term}}`);
+        }
+        fbBuilder = fbBuilder.limit(1000);
+        const { data: fbData } = await fbBuilder;
+        data = fbData as any;
+      }
+
+      if (data) {
         const filteredDevs = (data || []).filter(
           (d) => d.id !== user?.id && !blockedUserIds.includes(d.id)
         );
@@ -238,7 +262,7 @@ function DevelopersContent() {
     setInviteLoading(false);
   }
 
-  // Filter developers: exclude current logged-in user + apply search + college filter + sort by compatibility
+  // Filter developers: exclude current logged-in user + apply search + college filter + year filter + sort by compatibility
   const filteredDevelopers = developers
     .filter((dev) => dev.id !== currentUserProfile?.id)
     .filter((dev) => {
@@ -248,12 +272,20 @@ function DevelopersContent() {
           return false;
         }
       }
+      // Year Filter
+      if (yearFilter) {
+        const devYear = (dev.year_of_study || "2nd Year").toLowerCase().trim();
+        if (devYear !== yearFilter.toLowerCase().trim()) {
+          return false;
+        }
+      }
       // Text Search
       if (!search.trim()) return true;
       const query = search.toLowerCase();
       return (
         dev.full_name?.toLowerCase().includes(query) ||
         dev.college?.toLowerCase().includes(query) ||
+        dev.year_of_study?.toLowerCase().includes(query) ||
         dev.skills?.some((skill) => skill.toLowerCase().includes(query))
       );
     })
@@ -317,7 +349,7 @@ function DevelopersContent() {
         </div>
 
         {/* College Filter Select */}
-        <div className="relative sm:w-64">
+        <div className="relative sm:w-56">
           <select
             value={collegeFilter}
             onChange={(e) => setCollegeFilter(e.target.value)}
@@ -326,7 +358,7 @@ function DevelopersContent() {
             <option value="">🏫 All Colleges ({developers.length})</option>
             {uniqueColleges.map(({ displayName, count }) => (
               <option key={displayName} value={displayName}>
-                {displayName.length > 40 ? displayName.substring(0, 38) + "..." : displayName} ({count})
+                {displayName.length > 32 ? displayName.substring(0, 30) + "..." : displayName} ({count})
               </option>
             ))}
           </select>
@@ -335,13 +367,35 @@ function DevelopersContent() {
           </div>
         </div>
 
-        {collegeFilter && (
+        {/* Year of Study Filter Select */}
+        <div className="relative sm:w-44">
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
+          >
+            <option value="">🎓 All Years</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+            <option value="Postgrad / Alumni">Postgrad / Alumni</option>
+          </select>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 text-[10px]">
+            ▼
+          </div>
+        </div>
+
+        {(collegeFilter || yearFilter) && (
           <button
             type="button"
-            onClick={() => setCollegeFilter("")}
-            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-400 hover:text-white"
+            onClick={() => {
+              setCollegeFilter("");
+              setYearFilter("");
+            }}
+            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-400 hover:text-white cursor-pointer"
           >
-            <span>Clear Filter</span>
+            <span>Clear Filters</span>
           </button>
         )}
       </div>
@@ -371,9 +425,17 @@ function DevelopersContent() {
                         <h2 className="font-semibold text-sm text-white truncate group-hover:text-white">
                           {dev.full_name}
                         </h2>
-                        <p className="text-zinc-500 text-[10px] truncate">
-                          {dev.college || "Independent Builder"}
-                        </p>
+                        <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] truncate mt-0.5">
+                          <span className="truncate">{dev.college || "Independent Builder"}</span>
+                          {dev.year_of_study && (
+                            <>
+                              <span className="text-zinc-600">•</span>
+                              <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono text-[9px] font-semibold shrink-0">
+                                🎓 {dev.year_of_study}
+                              </span>
+                            </>
+                          )}
+                        </div>
                         {/* Tiny Hackathon Badge */}
                         <div className="mt-1 flex items-center gap-1.5">
                           {dev.hackathon_wins && dev.hackathon_wins > 0 ? (
