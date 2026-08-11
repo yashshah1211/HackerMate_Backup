@@ -54,7 +54,7 @@ export async function requireOutreachAdmin(
 
   if (userEmailClean !== "yashshah7117@gmail.com" && !allowedEmails.includes(userEmailClean)) {
     return NextResponse.json(
-      { error: "Forbidden: Outreach and SPOC Allowlist operations are strictly restricted to Super Admin (yashshah7117@gmail.com)." },
+      { error: "Forbidden: Outreach operations are strictly restricted to Super Admin (yashshah7117@gmail.com)." },
       { status: 403 }
     );
   }

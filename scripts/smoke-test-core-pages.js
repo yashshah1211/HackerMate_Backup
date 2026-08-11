@@ -70,7 +70,7 @@ async function runSmokeTests() {
 
   for (const filePath of allSrcFiles) {
     // Exclude admin API endpoints that explicitly use service role key with authorization checks
-    if (filePath.includes(path.join("api", "admin")) || filePath.includes(path.join("api", "sih", "spoc")) || filePath.includes(path.join("api", "send-email"))) {
+    if (filePath.includes(path.join("api", "admin")) || filePath.includes(path.join("api", "send-email"))) {
       continue;
     }
 

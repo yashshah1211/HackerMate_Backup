@@ -15,9 +15,6 @@ import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import SIHQuickOnboardingModal from "@/components/SIHQuickOnboardingModal";
 import ShareModal from "@/components/ShareModal";
 import { trackEvent } from "@/lib/posthog";
-import MockSIHSubmissionModal from "@/components/MockSIHSubmissionModal";
-import MockSIHScorecardModal from "@/components/MockSIHScorecardModal";
-import DJSCEHackathonHeader from "@/components/DJSCEHackathonHeader";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 
 import { SIH_HACKATHON_ID } from "@/lib/constants";
@@ -131,10 +128,9 @@ function SIHTeamBuilderContent() {
   const [allBuilders, setAllBuilders] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [isSpocAuthorized, setIsSpocAuthorized] = useState(false);
   const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState<"teams" | "builders" | "mock_sih">("teams");
+  const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
   const [selectedExportTeam, setSelectedExportTeam] = useState<{
     team: SIHTeamExport;
     members: SIHTeamMemberExport[];
@@ -143,20 +139,6 @@ function SIHTeamBuilderContent() {
   const [quickOnboardingModalOpen, setQuickOnboardingModalOpen] = useState(false);
   const [showSIHShareModal, setShowSIHShareModal] = useState(false);
 
-  // Mock SIH states
-  const [mockSubmissionsMap, setMockSubmissionsMap] = useState<Record<string, any>>({});
-  const [mockLeaderboardList, setMockLeaderboardList] = useState<any[]>([]);
-  const [mockLeaderboardTotal, setMockLeaderboardTotal] = useState(0);
-  const [mockLeaderboardPage, setMockLeaderboardPage] = useState(1);
-  const [mockLeaderboardCategory, setMockLeaderboardCategory] = useState("all");
-  const [mockLeaderboardSearch, setMockLeaderboardSearch] = useState("");
-
-  const [mockSubmissionModalOpen, setMockSubmissionModalOpen] = useState(false);
-  const [selectedTeamForMockSubmit, setSelectedTeamForMockSubmit] = useState<Team | null>(null);
-
-  const [mockScorecardModalOpen, setMockScorecardModalOpen] = useState(false);
-  const [selectedSubmissionForScorecard, setSelectedSubmissionForScorecard] = useState<any | null>(null);
-  const [selectedTeamNameForScorecard, setSelectedTeamNameForScorecard] = useState("");
   const [selectedCertBadge, setSelectedCertBadge] = useState<UserBadge | null>(null);
   const [showCertModal, setShowCertModal] = useState(false);
 
@@ -204,34 +186,16 @@ function SIHTeamBuilderContent() {
           .maybeSingle();
 
         setIsUserLookingForTeam(!!userReg?.looking_for_team);
-
-        // Check if user is an authorized SPOC or Admin
-        const userEmailClean = (user.email || "").toLowerCase().trim();
-        const isAdmin = userEmailClean === "yashshah7117@gmail.com";
-        const { data: allowData } = await supabase
-          .from("sih_spoc_allowlist")
-          .select("id")
-          .eq("email", userEmailClean)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        setIsSpocAuthorized(isAdmin || !!allowData);
       }
 
       setUserCollege(currentCollege);
       setCollegeInput(currentCollege);
 
       // 3. Fetch ALL Teams registered for SIH (Universally accessible for logged-in and incognito users)
-      const { data: sihMockSubs } = await supabase
-        .from("sih_mock_submissions_public")
-        .select("team_id");
-
-      const mockTeamIds = (sihMockSubs || []).map((s: any) => s.team_id).filter(Boolean);
-
       const { data: sihTeamsData } = await supabase
         .from("teams")
         .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role))")
-        .or(`hackathon_id.eq.${SIH_HACKATHON_ID},hackathon_id.eq.00000000-0000-0000-0000-000001703935,hackathon_name.ilike.%sih%,hackathon_name.ilike.%smart india%${mockTeamIds.length > 0 ? `,id.in.(${mockTeamIds.join(",")})` : ""}`);
+        .or(`hackathon_id.eq.${SIH_HACKATHON_ID},hackathon_id.eq.00000000-0000-0000-0000-000001703935,hackathon_name.ilike.%sih%,hackathon_name.ilike.%smart india%`);
 
       const parsedTeams: Team[] = (sihTeamsData || []).filter(Boolean) as Team[];
       const existingIds = new Set(parsedTeams.map((t) => t.id));
@@ -296,69 +260,11 @@ function SIHTeamBuilderContent() {
 
       setAllBuilders(parsedBuilders);
 
-      // 5. Fetch Mock SIH active submissions map
-      const { data: subData } = await supabase
-        .from("sih_mock_submissions_public")
-        .select("*")
-        .eq("is_active", true);
-
-      if (subData) {
-        const map: Record<string, any> = {};
-        subData.forEach((s: any) => {
-          map[s.team_id] = s;
-        });
-
-        // For logged in user, fetch full submission records for user's own teams to include ppt_url
-        if (user && parsedTeams.length > 0) {
-          const ownTeamIds = parsedTeams
-            .filter((t) => t.owner_id === user.id || t.team_members?.some((m) => m.user_id === user.id))
-            .map((t) => t.id);
-
-          if (ownTeamIds.length > 0) {
-            const { data: ownSubs } = await supabase
-              .from("sih_mock_submissions")
-              .select("*")
-              .in("team_id", ownTeamIds)
-              .eq("is_active", true);
-
-            if (ownSubs) {
-              ownSubs.forEach((os: any) => {
-                map[os.team_id] = { ...map[os.team_id], ...os };
-              });
-            }
-          }
-        }
-
-        setMockSubmissionsMap(map);
-      }
-
-      // Load Paginated Leaderboard
-      fetchLeaderboard(1, mockLeaderboardCategory, mockLeaderboardSearch);
+      setAllBuilders(parsedBuilders);
     } catch (err) {
       console.error("Error loading SIH data:", err);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function fetchLeaderboard(page: number, category: string, search: string) {
-    try {
-      const query = new URLSearchParams({
-        page: page.toString(),
-        limit: "20",
-        category,
-        search,
-      });
-
-      const res = await fetch(`/api/sih/leaderboard?${query.toString()}`);
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMockLeaderboardList(data.submissions || []);
-        setMockLeaderboardTotal(data.pagination?.total || 0);
-        setMockLeaderboardPage(data.pagination?.page || 1);
-      }
-    } catch (e) {
-      console.error("Failed to fetch paginated leaderboard:", e);
     }
   }
 
@@ -640,68 +546,7 @@ function SIHTeamBuilderContent() {
           </div>
         </div>
 
-        {/* D.J. Sanghvi College of Engineering SIH 2026 Internal Portal Header (Visible exclusively to authorized SPOC/HOD users) */}
-        {isSpocAuthorized && (
-          <DJSCEHackathonHeader
-            activeCollege={userCollege}
-            onSelectCollege={(col) => setUserCollege(col)}
-          />
-        )}
 
-        {/* Prominent Mock SIH Practice Screening Guidance Banner */}
-        <div className="mb-8 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-zinc-900 dark:to-zinc-950 shadow-md dark:shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden transition-colors">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-3xl pointer-events-none rounded-full" />
-          
-          <div className="flex items-start gap-4 relative z-10">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 flex items-center justify-center text-2xl shrink-0">
-              🏆
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase bg-emerald-200/80 text-emerald-900 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30">
-                  FREE SIH PRACTICE SCREENING
-                </span>
-                <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono">100+ Official SIH PS Auto-Fill</span>
-              </div>
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
-                Will Your SIH Pitch Pass Your College SPOC Internal Screening?
-              </h3>
-              <p className="text-xs text-zinc-700 dark:text-zinc-300 max-w-xl mt-1 leading-relaxed">
-                Submit your 6-slide SIH pitch deck for diagnostic evaluation before your college internal round. Get scored out of 100 on <strong className="text-emerald-700 dark:text-emerald-400">SIH Rules, Tech Feasibility, UI/UX, and SPOC Rejection Red Flags</strong>.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto relative z-10">
-            <button
-              onClick={() => setActiveTab("mock_sih")}
-              className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-            >
-              📊 View Scorecards
-            </button>
-            <button
-              onClick={() => {
-                if (!currentUserId) {
-                  router.push(`/?next=${encodeURIComponent("/hackathons/sih")}&auth=true`);
-                  return;
-                }
-                const userTeam = allTeams.find(
-                  (t) => t.owner_id === currentUserId || t.team_members?.some((m) => m.user_id === currentUserId)
-                );
-                if (userTeam) {
-                  setSelectedTeamForMockSubmit(userTeam);
-                  setMockSubmissionModalOpen(true);
-                } else {
-                  showToast("Create or join an SIH team below first to run a Mock Evaluation!", "info");
-                  handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`);
-                }
-              }}
-              className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-zinc-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              🚀 Practice Screen My Pitch →
-            </button>
-          </div>
-        </div>
 
         {/* College Context & Picker Bar */}
         <div className="mb-8 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -805,7 +650,7 @@ function SIHTeamBuilderContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-900">
           <div>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-              <span>College Teammate Matcher & Mock Hub</span>
+              <span>College Teammate Matcher</span>
             </h2>
             <p className="text-xs text-zinc-600 dark:text-zinc-400">
               Filtered strictly by {userCollege ? userCollege : "all institutions across India"}.
@@ -831,15 +676,6 @@ function SIHTeamBuilderContent() {
                   }`}
               >
                 Builders Looking ({filteredBuilders.length})
-              </button>
-              <button
-                onClick={() => setActiveTab("mock_sih")}
-                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer flex items-center gap-1.5 ${activeTab === "mock_sih"
-                    ? "bg-emerald-500 text-zinc-950 font-bold shadow-sm"
-                    : "text-emerald-400 hover:text-emerald-300 font-semibold"
-                  }`}
-              >
-                🏆 Mock SIH Pitches ({mockLeaderboardTotal})
               </button>
             </div>
           </div>
@@ -1027,30 +863,7 @@ function SIHTeamBuilderContent() {
                           </button>
                         )}
 
-                        {mockSubmissionsMap[team.id] ? (
-                          <button
-                            onClick={() => {
-                              setSelectedSubmissionForScorecard(mockSubmissionsMap[team.id]);
-                              setSelectedTeamNameForScorecard(team.name);
-                              setMockScorecardModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer"
-                          >
-                            🏆 {mockSubmissionsMap[team.id].total_score || 0}/100 Scorecard
-                          </button>
-                        ) : (
-                          isUserTeamMember && (
-                            <button
-                              onClick={() => {
-                                setSelectedTeamForMockSubmit(team);
-                                setMockSubmissionModalOpen(true);
-                              }}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition flex items-center gap-1 cursor-pointer"
-                            >
-                              🚀 Mock Pitch
-                            </button>
-                          )
-                        )}
+                        
 
                         <Link
                           href={`/teams/${team.id}`}
@@ -1171,419 +984,7 @@ function SIHTeamBuilderContent() {
           </div>
         )}
 
-        {/* Mock SIH Scalable Leaderboard (Req 6) */}
-        {activeTab === "mock_sih" && (
-          <div className="space-y-6">
-            <div className="p-6 rounded-2xl bg-emerald-50/80 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-zinc-900 dark:to-zinc-950 border border-emerald-200 dark:border-emerald-500/30 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md dark:shadow-xl transition-colors">
-              <div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase bg-emerald-200/80 text-emerald-900 border border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
-                  SIH 2026 Practice Screening Hub
-                </span>
-                <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white tracking-tight mt-1">
-                  National Mock SIH Pitch Leaderboard
-                </h3>
-                <p className="text-xs text-zinc-700 dark:text-zinc-400 max-w-xl mt-1 leading-relaxed">
-                  Teams submitted their SIH 6-Slide Pitch PPTs for diagnostic AI + Jury scoring across Problem Novelty, Tech Architecture, UI/UX, Impact, and Team Balance.
-                </p>
-              </div>
-
-              {currentUserId && (
-                <button
-                  onClick={() => {
-                    const userTeam = allTeams.find(
-                      (t) => t.owner_id === currentUserId || t.team_members?.some((m) => m.user_id === currentUserId)
-                    );
-                    if (userTeam) {
-                      setSelectedTeamForMockSubmit(userTeam);
-                      setMockSubmissionModalOpen(true);
-                    } else {
-                      showToast("Please create or join a team first to submit for Mock SIH.", "warning");
-                    }
-                  }}
-                  className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-zinc-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition shrink-0 cursor-pointer"
-                >
-                  🚀 Submit My Team Pitch for Review
-                </button>
-              )}
-            </div>
-
-            {/* Filters & Search Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <input
-                  type="text"
-                  placeholder="Search by PS ID or Title..."
-                  value={mockLeaderboardSearch}
-                  onChange={(e) => {
-                    setMockLeaderboardSearch(e.target.value);
-                    fetchLeaderboard(1, mockLeaderboardCategory, e.target.value);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 text-xs w-full sm:w-64 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 font-mono">
-                <button
-                  onClick={() => {
-                    setMockLeaderboardCategory("all");
-                    fetchLeaderboard(1, "all", mockLeaderboardSearch);
-                  }}
-                  className={`px-3 py-1 rounded-lg transition ${
-                    mockLeaderboardCategory === "all"
-                      ? "bg-emerald-500 text-zinc-950 font-bold"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-                  }`}
-                >
-                  All ({mockLeaderboardTotal})
-                </button>
-                <button
-                  onClick={() => {
-                    setMockLeaderboardCategory("software");
-                    fetchLeaderboard(1, "software", mockLeaderboardSearch);
-                  }}
-                  className={`px-3 py-1 rounded-lg transition ${
-                    mockLeaderboardCategory === "software"
-                      ? "bg-emerald-500 text-zinc-950 font-bold"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-                  }`}
-                >
-                  Software
-                </button>
-                <button
-                  onClick={() => {
-                    setMockLeaderboardCategory("hardware");
-                    fetchLeaderboard(1, "hardware", mockLeaderboardSearch);
-                  }}
-                  className={`px-3 py-1 rounded-lg transition ${
-                    mockLeaderboardCategory === "hardware"
-                      ? "bg-emerald-500 text-zinc-950 font-bold"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-                  }`}
-                >
-                  Hardware
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {mockLeaderboardList.length === 0 ? (
-                <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                  <div className="text-3xl mb-3">🏆</div>
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">
-                    No Mock SIH Submissions Found
-                  </h3>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
-                    Be the first team to submit your SIH pitch deck for diagnostic evaluation before your college internal screening!
-                  </p>
-                </div>
-              ) : (
-                mockLeaderboardList.map((sub: any) => {
-                  const matchingTeam = sub.teams || allTeams.find((t) => t.id === sub.team_id);
-                  const score = sub.total_score || 0;
-                  const grade = sub.grade || "Pending Evaluation";
-
-                  return (
-                    <div
-                      key={sub.id}
-                      className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-sm hover:border-emerald-500/40 transition flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                            PS #{sub.ps_number}
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            {grade}
-                          </span>
-                        </div>
-
-                        <h4 className="font-bold text-zinc-900 dark:text-white text-sm line-clamp-1">
-                          {sub.ps_title}
-                        </h4>
-
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                          Team: <strong className="text-zinc-900 dark:text-zinc-200">{matchingTeam?.name || "SIH Squad"}</strong>
-                          {matchingTeam?.college && ` • ${matchingTeam.college}`}
-                        </div>
-
-                        <div className="mt-4 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 flex items-center justify-between">
-                          <div className="text-[11px] text-zinc-500 font-mono">
-                            Category: <span className="capitalize font-bold text-zinc-700 dark:text-zinc-300">{sub.ps_category}</span>
-                          </div>
-                          <div className="text-right font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-                            {score} <span className="text-[10px] text-zinc-500 font-normal">/ 100 PTS</span>
-                          </div>
-                        </div>
-
-                        {/* SPOC Revision Request Alert Banner */}
-                        {sub.spoc_approval_status === "revision_requested" && (
-                          <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/50 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-mono font-bold text-amber-800 dark:text-amber-300">
-                              <span>⚠️ SPOC REVISION REQUESTED</span>
-                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">Official Feedback</span>
-                            </div>
-                            {sub.spoc_notes && (
-                              <p className="text-[11px] text-amber-900 dark:text-amber-200 font-sans leading-relaxed">
-                                "{sub.spoc_notes}"
-                              </p>
-                            )}
-                            {(matchingTeam?.owner_id === currentUserId ||
-                              matchingTeam?.team_members?.some((m: TeamMember) => m.user_id === currentUserId)) && (
-                              <button
-                                onClick={() => {
-                                  setSelectedTeamForMockSubmit(matchingTeam);
-                                  setMockSubmissionModalOpen(true);
-                                }}
-                                className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
-                              >
-                                🔄 Update & Resubmit Pitch Deck →
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {/* SPOC Approved Nomination Certificate Banner */}
-                        {(sub.spoc_approval_status === "approved" || sub.spoc_approval_status === "nominated") && (
-                          <div className="mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/50 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-mono font-bold text-emerald-800 dark:text-emerald-300">
-                              <span>✅ OFFICIAL DJSCE SIH NOMINATION APPROVED</span>
-                            </div>
-                            <button
-                              onClick={() => {
-                                const certBadge: UserBadge = {
-                                  id: sub.id,
-                                  user_id: currentUserId || sub.submitted_by,
-                                  badge_type: "sih_nomination",
-                                  badge_name: `SIH 2026 Official DJSCE Internal Finalist (${sub.ps_number})`,
-                                  issuer_name: "D.J. Sanghvi College of Engineering (DJSCE) x HackerMate",
-                                  rank_title: "Official College Nominee",
-                                  metadata: {
-                                    certificate_id: `DJSCE-SIH26-${sub.id.slice(0, 8).toUpperCase()}`,
-                                    team_name: matchingTeam?.name || "SIH Squad",
-                                    track: sub.ps_category === "software" ? "Software Edition" : "Hardware Edition",
-                                  },
-                                  issued_at: new Date().toISOString(),
-                                };
-                                setSelectedCertBadge(certBadge);
-                                setShowCertModal(true);
-                              }}
-                              className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-extrabold text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                            >
-                              📜 Download Official DJSCE Nomination Certificate (PDF) →
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
-                        {sub.ppt_url && (() => {
-                          const isOwnTeam =
-                            matchingTeam?.owner_id === currentUserId ||
-                            matchingTeam?.team_members?.some((m: TeamMember) => m.user_id === currentUserId);
-                          return isOwnTeam ? (
-                            <a
-                              href={sub.ppt_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 transition"
-                            >
-                              📄 View Pitch PPT
-                            </a>
-                          ) : (
-                            <span className="px-3 py-1.5 rounded-lg text-xs font-mono text-zinc-400 dark:text-zinc-600 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed select-none" title="PPT link is private to the submitting team">
-                              🔒 Pitch Deck (Private)
-                            </span>
-                          );
-                        })()}
-
-                        <button
-                          onClick={() => {
-                            setSelectedSubmissionForScorecard(sub);
-                            setSelectedTeamNameForScorecard(matchingTeam?.name || "SIH Squad");
-                            setMockScorecardModalOpen(true);
-                          }}
-                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 transition shadow-sm"
-                        >
-                          📊 View Scorecard →
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Pagination Controls */}
-            {mockLeaderboardTotal > 20 && (
-              <div className="flex items-center justify-between pt-4 border-t border-zinc-200 dark:border-zinc-800 text-xs font-mono">
-                <button
-                  disabled={mockLeaderboardPage <= 1}
-                  onClick={() => fetchLeaderboard(mockLeaderboardPage - 1, mockLeaderboardCategory, mockLeaderboardSearch)}
-                  className="px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 disabled:opacity-50"
-                >
-                  ← Previous
-                </button>
-                <span>
-                  Page {mockLeaderboardPage} of {Math.ceil(mockLeaderboardTotal / 20)}
-                </span>
-                <button
-                  disabled={mockLeaderboardPage >= Math.ceil(mockLeaderboardTotal / 20)}
-                  onClick={() => fetchLeaderboard(mockLeaderboardPage + 1, mockLeaderboardCategory, mockLeaderboardSearch)}
-                  className="px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 disabled:opacity-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </main>
-
-      {selectedExportTeam && (
-        <SIHExportModal
-          isOpen={!!selectedExportTeam}
-          onClose={() => setSelectedExportTeam(null)}
-          team={selectedExportTeam.team}
-          members={selectedExportTeam.members}
-        />
-      )}
-
-      <ContextualProfileNudgeModal
-        isOpen={nudgeModalOpen}
-        onClose={() => setNudgeModalOpen(false)}
-        onProceed={() => {
-          setNudgeModalOpen(false);
-          if (pendingAction) {
-            const act = pendingAction;
-            setPendingAction(null);
-            act();
-          }
-        }}
-        userProfile={currentUserProfile}
-        actionTitle={pendingActionTitle}
-        onProfileUpdated={(updated) => {
-          setCurrentUserProfile(updated);
-        }}
-      />
-
-      {currentUserId && (
-        <SIHQuickOnboardingModal
-          isOpen={quickOnboardingModalOpen}
-          onClose={() => setQuickOnboardingModalOpen(false)}
-          userId={currentUserId}
-          initialCollege={userCollege}
-          onSuccess={handleQuickOnboardingSuccess}
-        />
-      )}
-
-      {/* Guest Sticky Bottom Action Bar for Unauthenticated Visitors */}
-      {!currentUserId && (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-40 p-4 rounded-xl border border-emerald-500/40 bg-zinc-950/95 backdrop-blur-md shadow-2xl shadow-emerald-950/80 flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-lg shrink-0">
-              🏆
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white leading-snug">Building for SIH 2026?</p>
-              <p className="text-[11px] text-zinc-400">Connect with builders from your college.</p>
-            </div>
-          </div>
-          <button
-            onClick={() => router.push(`/?next=${encodeURIComponent("/hackathons/sih?action=list_myself")}&auth=true`)}
-            className="btn btn-primary text-xs py-2 px-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0 cursor-pointer border-none shadow-md"
-          >
-            Join Now
-          </button>
-        </div>
-      )}
-
-      {/* SIH Hub Share Modal */}
-      <ShareModal
-        isOpen={showSIHShareModal}
-        onClose={() => setShowSIHShareModal(false)}
-        title="Share SIH 2026 Teammate Matcher"
-        subtitle="Broadcast to your college WhatsApp & Telegram groups"
-        shareUrl={typeof window !== "undefined" ? `${window.location.origin}/hackathons/sih` : "https://hackermate.in/hackathons/sih"}
-        shareText={`🚨 *Looking for SIH 2026 Teammates?* 🇮🇳\n\nFind verified engineering teammates & form official 6-member teams for Smart India Hackathon 2026 on HackerMate:\n\n*(Share this in your college WhatsApp group so everyone can complete their SIH teams!)* ⚡`}
-        type="team"
-        metadata={{
-          teamName: "SIH 2026 College Teammate Matcher",
-          hackathonName: "Smart India Hackathon 2026",
-        }}
-      />
-
-      {/* Mock SIH Submission Modal */}
-      <MockSIHSubmissionModal
-        isOpen={mockSubmissionModalOpen}
-        onClose={() => setMockSubmissionModalOpen(false)}
-        team={selectedTeamForMockSubmit}
-        existingSubmission={
-          selectedTeamForMockSubmit ? mockSubmissionsMap[selectedTeamForMockSubmit.id] : undefined
-        }
-        onSubmitted={(newSub?: any) => {
-          loadSIHData();
-          setActiveTab("mock_sih");
-          if (newSub) {
-            const tName = selectedTeamForMockSubmit?.name || "SIH Team";
-            setSelectedSubmissionForScorecard(newSub);
-            setSelectedTeamNameForScorecard(tName);
-            setMockScorecardModalOpen(true);
-          }
-        }}
-        onDeleted={() => {
-          if (selectedTeamForMockSubmit) {
-            setMockSubmissionsMap((prev) => {
-              const updated = { ...prev };
-              delete updated[selectedTeamForMockSubmit.id];
-              return updated;
-            });
-          }
-          loadSIHData();
-        }}
-      />
-
-      {/* Mock SIH Scorecard Modal */}
-      <MockSIHScorecardModal
-        isOpen={mockScorecardModalOpen}
-        onClose={() => setMockScorecardModalOpen(false)}
-        submission={selectedSubmissionForScorecard}
-        teamName={selectedTeamNameForScorecard}
-        isOwnTeam={(() => {
-          if (!selectedSubmissionForScorecard || !currentUserId) return false;
-          const sub = selectedSubmissionForScorecard;
-          const subTeam = sub.teams;
-          if (subTeam) {
-            if (subTeam.owner_id === currentUserId) return true;
-            if (subTeam.team_members?.some((m: any) => (m.user_id || m.profiles?.id) === currentUserId)) return true;
-          }
-          const t = allTeams.find((team) => team.id === sub.team_id);
-          if (t) {
-            if (t.owner_id === currentUserId) return true;
-            if (t.team_members?.some((m: any) => (m.user_id || m.profiles?.id) === currentUserId)) return true;
-          }
-          return false;
-        })()}
-        onReEvaluated={() => loadSIHData()}
-        onEditRequested={(sub) => {
-          const subTeam = sub.teams;
-          const t = subTeam || allTeams.find((team) => team.id === sub.team_id);
-          if (t) {
-            setSelectedTeamForMockSubmit(t);
-            setMockScorecardModalOpen(false);
-            setMockSubmissionModalOpen(true);
-          }
-        }}
-        onDeleted={() => {
-          if (selectedSubmissionForScorecard) {
-            setMockSubmissionsMap((prev) => {
-              const updated = { ...prev };
-              delete updated[selectedSubmissionForScorecard.team_id];
-              return updated;
-            });
-          }
-          loadSIHData();
-        }}
-      />
 
       {/* Official DJSCE SIH Nomination Certificate Modal */}
       <CertificateModal
