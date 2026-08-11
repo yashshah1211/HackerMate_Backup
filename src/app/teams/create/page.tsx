@@ -178,7 +178,11 @@ function CreateTeamForm() {
       p_name: name.trim(),
       p_description: finalDesc,
       p_max_members: maxMembers,
-      p_college: college ? normalizeCollege(college === "Other" ? customCollege.trim() : college) : null,
+      p_college: college
+        ? normalizeCollege(college === "Other" ? customCollege.trim() : college)
+        : currentUserProfile?.college
+        ? normalizeCollege(currentUserProfile.college)
+        : null,
 
       p_hackathon_id: hackathonId || null,
       p_hackathon_name: selectedHackathon?.name || null,

@@ -43,6 +43,7 @@ type TeamMember = {
     id: string;
     full_name: string | null;
     email?: string | null;
+    college?: string | null;
     avatar_url: string | null;
     skills: string[] | null;
     gender?: string | null;
@@ -465,10 +466,17 @@ function SIHTeamBuilderContent() {
     executeToggleLookingForTeam();
   }
 
+  const getTeamCollege = (team: Team) =>
+    team.college ||
+    team.team_members?.find((m) => m.user_id === team.owner_id)?.profiles?.college ||
+    team.team_members?.find((m) => m.profiles?.college)?.profiles?.college ||
+    null;
+
   // Filter teams and builders by college
   const filteredTeams = allTeams.filter((team) => {
     if (!userCollege) return true;
-    return isSameCollege(team.college, userCollege);
+    const effCollege = getTeamCollege(team);
+    return isSameCollege(effCollege, userCollege);
   });
 
   const filteredBuilders = allBuilders.filter((builder) => {
@@ -755,9 +763,9 @@ function SIHTeamBuilderContent() {
                           <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug">
                             {team.name}
                           </h3>
-                          {team.college && (
+                          {getTeamCollege(team) && (
                             <span className="inline-block text-[11px] text-orange-600 dark:text-orange-400 font-mono mt-0.5">
-                              🏫 {team.college}
+                              🏫 {getTeamCollege(team)}
                             </span>
                           )}
                         </div>
