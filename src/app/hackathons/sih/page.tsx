@@ -142,6 +142,19 @@ function SIHTeamBuilderContent() {
   const [selectedCertBadge, setSelectedCertBadge] = useState<UserBadge | null>(null);
   const [showCertModal, setShowCertModal] = useState(false);
 
+  function updateCollegeInUrl(newCollege: string) {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (newCollege && newCollege.trim().length > 0) {
+      params.set("college", newCollege.trim());
+    } else {
+      params.delete("college");
+    }
+    const newQuery = params.toString();
+    const newUrl = window.location.pathname + (newQuery ? `?${newQuery}` : "");
+    router.replace(newUrl, { scroll: false });
+  }
+
   async function loadSIHData() {
     try {
       setLoading(true);
@@ -160,6 +173,7 @@ function SIHTeamBuilderContent() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      const urlCollege = searchParams ? searchParams.get("college") : null;
       const DEFAULT_COLLEGE = "DJSCE Mumbai (Dwarkadas J. Sanghvi College of Engineering)";
       let currentCollege = DEFAULT_COLLEGE;
 
@@ -186,6 +200,11 @@ function SIHTeamBuilderContent() {
           .maybeSingle();
 
         setIsUserLookingForTeam(!!userReg?.looking_for_team);
+      }
+
+      // URL parameter takes highest priority if explicitly specified
+      if (urlCollege !== null) {
+        currentCollege = urlCollege.trim();
       }
 
       setUserCollege(currentCollege);
@@ -307,6 +326,7 @@ function SIHTeamBuilderContent() {
           showToast(error.message, "error");
         } else {
           setUserCollege(finalCollege);
+          updateCollegeInUrl(finalCollege);
           if (currentUserProfile) {
             setCurrentUserProfile({ ...currentUserProfile, college: finalCollege });
           }
@@ -321,6 +341,7 @@ function SIHTeamBuilderContent() {
       }
     } else {
       setUserCollege(finalCollege);
+      updateCollegeInUrl(finalCollege);
       setEditingCollege(false);
       showToast(`Filter applied for ${finalCollege}!`, "info");
     }
@@ -437,6 +458,7 @@ function SIHTeamBuilderContent() {
     setCurrentUserProfile(updatedProfile as Profile);
     if (updatedProfile.college) {
       setUserCollege(updatedProfile.college);
+      updateCollegeInUrl(updatedProfile.college);
       setCollegeInput(updatedProfile.college);
     }
     showToast("🎉 Profile set up! You are now listed for SIH 2026.", "success");
@@ -615,6 +637,7 @@ function SIHTeamBuilderContent() {
                                   showToast(error.message, "error");
                                 } else {
                                   setUserCollege(col);
+                                  updateCollegeInUrl(col);
                                   if (currentUserProfile) {
                                     setCurrentUserProfile({ ...currentUserProfile, college: col });
                                   }
@@ -624,6 +647,7 @@ function SIHTeamBuilderContent() {
                               });
                           } else {
                             setUserCollege(col);
+                            updateCollegeInUrl(col);
                             setEditingCollege(false);
                             showToast(`Filter applied for ${col}!`, "info");
                           }
