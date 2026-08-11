@@ -95,16 +95,26 @@ function CreateTeamForm() {
   }, [hackathonId]);
 
   async function loadHackathons() {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("hackathons")
       .select("id, name, min_team_size, max_team_size")
       .order("start_date", { ascending: true });
 
     if (error) {
-      console.error(error);
-    } else {
-      setHackathons((data as unknown as Hackathon[]) || []);
+      console.error("[loadHackathons] Primary query failed, attempting fallback:", error);
+      const fallback = await supabase
+        .from("hackathons")
+        .select("id, name")
+        .order("start_date", { ascending: true });
+
+      if (fallback.error) {
+        console.error("[loadHackathons] Fallback query failed:", fallback.error);
+      } else {
+        data = fallback.data as any;
+      }
     }
+
+    setHackathons((data as unknown as Hackathon[]) || []);
     setHackathonsLoading(false);
   }
 

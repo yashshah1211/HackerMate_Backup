@@ -10,6 +10,9 @@ type Props = {
   onClose: () => void;
   userId: string;
   initialCollege?: string;
+  title?: string;
+  subtitle?: string;
+  buttonText?: string;
   onSuccess: (updatedProfile: any) => void;
 };
 
@@ -44,6 +47,9 @@ export default function SIHQuickOnboardingModal({
   onClose,
   userId,
   initialCollege = "",
+  title,
+  subtitle,
+  buttonText,
   onSuccess,
 }: Props) {
   const [college, setCollege] = useState(initialCollege);
@@ -145,10 +151,10 @@ export default function SIHQuickOnboardingModal({
               </span>
             </div>
             <h2 className="text-lg font-bold text-white tracking-tight mt-1.5">
-              List Yourself for SIH 2026 Teammate Matching
+              {title || "List Yourself for SIH 2026 Teammate Matching"}
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Teammates from your college will find you on the SIH builder board.
+              {subtitle || "Teammates from your college will find you on the SIH builder board."}
             </p>
           </div>
           <button
@@ -288,11 +294,11 @@ export default function SIHQuickOnboardingModal({
             {saving ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                <span>Publishing Profile...</span>
+                <span>Saving Profile...</span>
               </>
             ) : (
               <>
-                <span>🚀 Publish Profile & Get Matched</span>
+                <span>{buttonText || "🚀 Publish Profile & Get Matched"}</span>
               </>
             )}
           </button>

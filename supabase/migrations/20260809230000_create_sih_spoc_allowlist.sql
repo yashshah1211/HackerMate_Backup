@@ -17,6 +17,7 @@ GRANT SELECT ON public.sih_spoc_allowlist TO authenticated, anon;
 GRANT ALL ON public.sih_spoc_allowlist TO service_role;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "Allow public select on sih_spoc_allowlist" ON public.sih_spoc_allowlist;
 CREATE POLICY "Allow public select on sih_spoc_allowlist"
     ON public.sih_spoc_allowlist
     FOR SELECT

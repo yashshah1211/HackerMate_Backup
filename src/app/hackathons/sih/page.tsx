@@ -138,6 +138,7 @@ function SIHTeamBuilderContent() {
   } | null>(null);
 
   const [quickOnboardingModalOpen, setQuickOnboardingModalOpen] = useState(false);
+  const [onboardingIntent, setOnboardingIntent] = useState<{ mode: "create_team" | "list_myself"; targetUrl?: string } | null>(null);
   const [showSIHShareModal, setShowSIHShareModal] = useState(false);
 
   const [selectedCertBadge, setSelectedCertBadge] = useState<UserBadge | null>(null);
@@ -435,6 +436,7 @@ function SIHTeamBuilderContent() {
       return;
     }
     if (!currentUserProfile?.college || !currentUserProfile?.skills || currentUserProfile?.skills?.length === 0 || !currentUserProfile?.onboarding_completed) {
+      setOnboardingIntent({ mode: "list_myself" });
       setQuickOnboardingModalOpen(true);
       return;
     }
@@ -448,10 +450,8 @@ function SIHTeamBuilderContent() {
   function handleProtectedAction(targetUrl: string) {
     if (!currentUserId) {
       router.push(`/?next=${encodeURIComponent(targetUrl)}&auth=true`);
-    } else if (!currentUserProfile?.college || !currentUserProfile?.skills || currentUserProfile?.skills?.length === 0 || !currentUserProfile?.onboarding_completed) {
-      setQuickOnboardingModalOpen(true);
     } else {
-      triggerWithNudge(() => router.push(targetUrl), "Creating SIH Team");
+      router.push(targetUrl);
     }
   }
 
@@ -462,6 +462,8 @@ function SIHTeamBuilderContent() {
       updateCollegeInUrl(updatedProfile.college);
       setCollegeInput(updatedProfile.college);
     }
+
+    setOnboardingIntent(null);
     showToast("🎉 Profile set up! You are now listed for SIH 2026.", "success");
     executeToggleLookingForTeam();
   }
@@ -1019,6 +1021,66 @@ function SIHTeamBuilderContent() {
         badge={selectedCertBadge}
         recipientName={currentUserProfile?.full_name || "DJSCE Builder"}
       />
+
+      {/* SIH Quick Onboarding Modal (only for "List Myself" flow) */}
+      <SIHQuickOnboardingModal
+        isOpen={quickOnboardingModalOpen}
+        onClose={() => {
+          setQuickOnboardingModalOpen(false);
+          setOnboardingIntent(null);
+        }}
+        userId={currentUserId || ""}
+        initialCollege={userCollege}
+        title="List Yourself for SIH 2026 Teammate Matching"
+        subtitle="Teammates from your college will find you on the SIH builder board."
+        buttonText="🚀 Publish Profile & Get Matched"
+        onSuccess={(updatedProfile) => {
+          setQuickOnboardingModalOpen(false);
+          handleQuickOnboardingSuccess(updatedProfile);
+        }}
+      />
+
+      {/* Contextual Profile Nudge Modal */}
+      <ContextualProfileNudgeModal
+        isOpen={nudgeModalOpen}
+        onClose={() => setNudgeModalOpen(false)}
+        onProceed={() => {
+          setNudgeModalOpen(false);
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
+        }}
+        userProfile={currentUserProfile}
+        actionTitle={pendingActionTitle || "SIH Action"}
+        onProfileUpdated={(updated) => {
+          setCurrentUserProfile(updated);
+        }}
+      />
+
+      {/* WhatsApp & Social Share Modal */}
+      <ShareModal
+        isOpen={showSIHShareModal}
+        onClose={() => setShowSIHShareModal(false)}
+        title="Share SIH 2026 Teammate Matcher"
+        subtitle={`Connect with builders from ${userCollege || "your college"} looking for SIH 2026 teams!`}
+        shareUrl={typeof window !== "undefined" ? `${window.location.origin}/hackathons/sih${userCollege ? `?college=${encodeURIComponent(userCollege)}` : ""}` : "https://hackermate.in/hackathons/sih"}
+        shareText={`🚀 Building for Smart India Hackathon 2026? Find 6-member team updates and teammates from ${userCollege || "our college"} on HackerMate!`}
+        type="team"
+        metadata={{
+          hackathonName: "Smart India Hackathon 2026",
+        }}
+      />
+
+      {/* SIH Team Export Modal */}
+      {selectedExportTeam && (
+        <SIHExportModal
+          isOpen={!!selectedExportTeam}
+          onClose={() => setSelectedExportTeam(null)}
+          team={selectedExportTeam.team}
+          members={selectedExportTeam.members}
+        />
+      )}
 
       <Footer />
     </div>

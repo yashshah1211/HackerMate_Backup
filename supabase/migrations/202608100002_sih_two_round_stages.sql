@@ -2,12 +2,30 @@
 -- Adds round_stage column to sih_mock_submissions table and updates sih_mock_submissions_public view.
 
 ALTER TABLE public.sih_mock_submissions
+  ADD COLUMN IF NOT EXISTS evaluation_stage TEXT DEFAULT 'completed',
   ADD COLUMN IF NOT EXISTS round_stage TEXT DEFAULT 'round1_submitted',
   ADD COLUMN IF NOT EXISTS round1_decided_at TIMESTAMP WITH TIME ZONE,
-  ADD COLUMN IF NOT EXISTS round2_decided_at TIMESTAMP WITH TIME ZONE;
+  ADD COLUMN IF NOT EXISTS round2_decided_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS version INT DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS is_stale BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS score_novelty INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS score_tech INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS score_ui_ux INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS score_impact INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS score_team INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_score INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS jury_viva_score INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS final_composite_score INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS grade TEXT,
+  ADD COLUMN IF NOT EXISTS spoc_approval_status TEXT DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS spoc_notes TEXT,
+  ADD COLUMN IF NOT EXISTS ai_feedback JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS score_deductions JSONB DEFAULT '{}'::jsonb;
 
 -- Update sih_mock_submissions_public view to include round_stage safely
-CREATE OR REPLACE VIEW public.sih_mock_submissions_public AS
+DROP VIEW IF EXISTS public.sih_mock_submissions_public CASCADE;
+CREATE VIEW public.sih_mock_submissions_public AS
 SELECT 
   id,
   team_id,
