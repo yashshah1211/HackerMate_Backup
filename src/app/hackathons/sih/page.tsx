@@ -443,14 +443,8 @@ function SIHTeamBuilderContent() {
     executeToggleLookingForTeam();
   }
 
-  // Filter teams and builders by college (Always include user's own team)
+  // Filter teams and builders by college
   const filteredTeams = allTeams.filter((team) => {
-    const isOwnTeam = Boolean(
-      currentUserId &&
-        (team.owner_id === currentUserId ||
-          team.team_members?.some((m: any) => m.user_id === currentUserId || m.profiles?.id === currentUserId))
-    );
-    if (isOwnTeam) return true;
     if (!userCollege) return true;
     return isSameCollege(team.college, userCollege);
   });
