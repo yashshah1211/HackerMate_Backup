@@ -14,11 +14,17 @@ export async function GET(
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // Sanitize input to allow only valid ID / certificate string characters (alphanumeric, hyphens, underscores)
+  const cleanId = id.replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!cleanId) {
+    return NextResponse.json({ error: "Invalid certificate ID format" }, { status: 400 });
+  }
+
   // Search by exact badge ID or metadata certificate_id
   const { data: badge, error } = await supabase
     .from("user_badges")
     .select("id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name, college), hackathons:hackathon_id(name)")
-    .or(`id.eq.${id},metadata->>certificate_id.eq.${id}`)
+    .or(`id.eq.${cleanId},metadata->>certificate_id.eq.${cleanId}`)
     .maybeSingle();
 
   if (error || !badge) {
