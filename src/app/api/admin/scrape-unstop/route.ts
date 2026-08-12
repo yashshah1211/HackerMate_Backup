@@ -211,11 +211,22 @@ async function fetchHack2SkillCandidates(): Promise<any[]> {
   }
 }
 
+function normalizeNameForDedup(name: string | null | undefined): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .replace(/hackathon|202\d|–|-|—|:|\|/gi, "")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
-  // 1. Fetch all previously scraped URLs from DB (organizer_leads + hackathons) for deduplication
-  const [existingLeadsRes, existingHackathonsRes] = await Promise.all([
+  // 1. Fetch all previously scraped URLs & names from DB (organizer_leads + hackathons + partner_configs) for deduplication
+  const [existingLeadsRes, existingHackathonsRes, partnerConfigsRes] = await Promise.all([
     supabaseAdmin.from("organizer_leads").select("unstop_url"),
-    supabaseAdmin.from("hackathons").select("website_url"),
+    supabaseAdmin.from("hackathons").select("name, website_url"),
+    supabaseAdmin.from("partner_configs").select("partner_name, features"),
   ]);
 
   if (existingLeadsRes.error) {
@@ -225,6 +236,12 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
   const existingUrlsSet = new Set<string>([
     ...(existingLeadsRes.data || []).map((l) => normalizeUrl(l.unstop_url)).filter(Boolean),
     ...(existingHackathonsRes.data || []).map((h) => normalizeUrl(h.website_url)).filter(Boolean),
+    ...(partnerConfigsRes.data || []).map((p) => normalizeUrl(p.features?.website_url)).filter(Boolean),
+  ]);
+
+  const existingNamesSet = new Set<string>([
+    ...(existingHackathonsRes.data || []).map((h) => normalizeNameForDedup(h.name)).filter(Boolean),
+    ...(partnerConfigsRes.data || []).map((p) => normalizeNameForDedup(p.partner_name)).filter(Boolean),
   ]);
 
   // 2. Fetch candidates concurrently from Unstop (Open, Upcoming, Ended), Devfolio, and Hack2Skill
@@ -249,14 +266,24 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     };
   }
 
-  // 3. Strict Filter: Skip any hackathons that were EVER scraped before or are currently in DB
+  // 3. Strict Filter: Skip any hackathons that were EVER scraped before, are currently in DB by URL/name, or match partner pages
   const seenUrlsInBatch = new Set<string>();
+  const seenNamesInBatch = new Set<string>();
+
   const freshCandidates = allCandidates.filter((opp) => {
     if (!opp.url) return false;
-    if (existingUrlsSet.has(opp.url) || seenUrlsInBatch.has(opp.url)) {
+    const normUrl = opp.url;
+    const normName = normalizeNameForDedup(opp.title);
+
+    if (existingUrlsSet.has(normUrl) || seenUrlsInBatch.has(normUrl)) {
       return false;
     }
-    seenUrlsInBatch.add(opp.url);
+    if (normName && (existingNamesSet.has(normName) || seenNamesInBatch.has(normName))) {
+      return false;
+    }
+
+    seenUrlsInBatch.add(normUrl);
+    if (normName) seenNamesInBatch.add(normName);
     return true;
   });
 

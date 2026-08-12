@@ -409,6 +409,8 @@ function PartnerPageContent() {
                   ? "STAMPERS"
                   : slug === "gamnexis"
                   ? "GAMNEXIS"
+                  : slug === "startupx"
+                  ? "GAMNEXIS — STARTUPX 2026"
                   : slug === "aethos" || slug === "aethos-day-zero"
                   ? "ÆTHOS — DAY ZERO"
                   : slug === "morrow" || slug === "mnm"
