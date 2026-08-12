@@ -7,8 +7,10 @@ export const SAFE_SPONSOR_LEAD_COLUMNS =
   "id, company_name, website_url, contact_email, public_source_url, target_role, pitch_type, status, draft_pitch_subject, draft_pitch_body, pitch_sent_at, notes, created_at, updated_at";
 
 export async function GET(req: NextRequest) {
-  const authError = await requireOutreachAdmin(req);
-  if (authError) return authError as NextResponse;
+  const authResult = await requireOutreachAdmin(req);
+  if (authResult instanceof NextResponse) {
+    return authResult;
+  }
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -31,8 +33,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authError = await requireOutreachAdmin(req);
-  if (authError) return authError as NextResponse;
+  const authResult = await requireOutreachAdmin(req);
+  if (authResult instanceof NextResponse) {
+    return authResult;
+  }
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -160,8 +164,10 @@ ${unsubscribeUrl}`;
 }
 
 export async function PATCH(req: NextRequest) {
-  const authError = await requireOutreachAdmin(req);
-  if (authError) return authError as NextResponse;
+  const authResult = await requireOutreachAdmin(req);
+  if (authResult instanceof NextResponse) {
+    return authResult;
+  }
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
