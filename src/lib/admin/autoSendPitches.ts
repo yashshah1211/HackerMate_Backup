@@ -288,3 +288,71 @@ export async function autoRemoveUnopenedPitchedLeads(supabaseAdmin: SupabaseClie
 
   return { removedCount, removedLeads };
 }
+
+export async function autoSendSinglePitchEmail(
+  supabaseAdmin: SupabaseClient,
+  params: { recipientEmail: string; recipientName: string; subject: string; bodyText: string }
+) {
+  const { recipientEmail, recipientName, subject, bodyText } = params;
+  const rawEmail = recipientEmail?.trim();
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  if (!rawEmail || !emailRegex.test(rawEmail)) {
+    return { success: false, error: `Invalid recipient email address: ${recipientEmail}` };
+  }
+
+  // 1. Check & reserve budget from centralized Daily Send-Budget Guard
+  const budgetCheck = await checkAndReserveEmailBudget(supabaseAdmin, "outreach", 1);
+  if (budgetCheck.allowedCount === 0) {
+    return {
+      success: false,
+      error: `Daily outreach email budget depleted (${budgetCheck.todayStats.outreach_sent}/${OUTREACH_DAILY_CAP} sent today). Cannot send pitch right now.`,
+    };
+  }
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <yash@hackermate.in>";
+  const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
+
+  if (!resendApiKey) {
+    console.log(`[Dev Simulation Mode] Single Pitch to ${recipientName} <${rawEmail}>:\nSubject: ${subject}\n\n${bodyText}`);
+    await recordEmailSendSuccess(supabaseAdmin, "outreach", 1);
+    return { success: true, mode: "simulation" };
+  }
+
+  let finalRecipientEmail = rawEmail;
+  if (isSandboxMode) {
+    const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || process.env.RESEND_FROM_EMAIL;
+    if (sandboxEmail && sandboxEmail.includes("@")) {
+      finalRecipientEmail = sandboxEmail.trim();
+    }
+  }
+
+  try {
+    const formattedHtml = bodyText.replace(/\n/g, "<br/>");
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [finalRecipientEmail],
+        subject,
+        html: `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6; color: #222;">${formattedHtml}</div>`,
+        text: bodyText,
+      }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData.message || "Resend API returned error status" };
+    }
+
+    await recordEmailSendSuccess(supabaseAdmin, "outreach", 1);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to dispatch email via Resend API" };
+  }
+}

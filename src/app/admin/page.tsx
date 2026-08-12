@@ -102,7 +102,7 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons" | "tech_sponsors">("reports");
 
   // Native Hackathons approval & delete state
   const [nativeHackathons, setNativeHackathons] = useState<any[]>([]);
@@ -298,6 +298,137 @@ function AdminContent() {
   const [fetchingUnstop, setFetchingUnstop] = useState(false);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [sendingSummaryPdf, setSendingSummaryPdf] = useState(false);
+
+  // Tech Sponsors State (yashshah7117@gmail.com exclusive)
+  const [techSponsors, setTechSponsors] = useState<any[]>([]);
+  const [loadingTechSponsors, setLoadingTechSponsors] = useState(false);
+  const [generatingSponsorDrafts, setGeneratingSponsorDrafts] = useState(false);
+  const [sendingSponsorId, setSendingSponsorId] = useState<string | null>(null);
+  const [selectedSponsorModal, setSelectedSponsorModal] = useState<any | null>(null);
+  const [editSponsorSubject, setEditSponsorSubject] = useState("");
+  const [editSponsorBody, setEditSponsorBody] = useState("");
+  const [addSponsorModalOpen, setAddSponsorModalOpen] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
+  const [newContactEmail, setNewContactEmail] = useState("");
+  const [newPublicSourceUrl, setNewPublicSourceUrl] = useState("");
+  const [newTargetRole, setNewTargetRole] = useState("DevRel / Community Lead");
+  const [addingSponsor, setAddingSponsor] = useState(false);
+
+  async function loadTechSponsors() {
+    setLoadingTechSponsors(true);
+    try {
+      const res = await fetch("/api/admin/tech-sponsors");
+      const data = await res.json();
+      if (res.ok) {
+        setTechSponsors(data.leads || []);
+      }
+    } catch (e) {
+      console.error("Failed to load tech sponsors:", e);
+    } finally {
+      setLoadingTechSponsors(false);
+    }
+  }
+
+  async function handleGenerateSponsorDrafts() {
+    setGeneratingSponsorDrafts(true);
+    try {
+      const res = await fetch("/api/admin/tech-sponsors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate_drafts" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`✨ Generated ${data.generatedCount} personalized draft pitch(es) using live metrics!`, "success");
+        await loadTechSponsors();
+      } else {
+        showToast(data.error || "Failed to generate sponsor drafts", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to generate sponsor drafts", "error");
+    } finally {
+      setGeneratingSponsorDrafts(false);
+    }
+  }
+
+  function openSponsorDraftModal(sponsor: any) {
+    setSelectedSponsorModal(sponsor);
+    setEditSponsorSubject(sponsor.draft_pitch_subject || `Partnering HackerMate × ${sponsor.company_name} — Dev Perks & Student Credits`);
+    setEditSponsorBody(sponsor.draft_pitch_body || "");
+  }
+
+  async function handleApproveAndSendSponsorPitch() {
+    if (!selectedSponsorModal || !editSponsorSubject.trim() || !editSponsorBody.trim()) {
+      showToast("Subject and draft pitch body cannot be empty.", "error");
+      return;
+    }
+    setSendingSponsorId(selectedSponsorModal.id);
+    try {
+      const res = await fetch("/api/admin/tech-sponsors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: selectedSponsorModal.id,
+          customSubject: editSponsorSubject.trim(),
+          customBody: editSponsorBody.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`🚀 Sponsor pitch approved & dispatched to ${selectedSponsorModal.company_name} (${selectedSponsorModal.contact_email})!`, "success");
+        setSelectedSponsorModal(null);
+        await loadTechSponsors();
+      } else {
+        showToast(data.error || "Failed to send sponsor pitch", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send sponsor pitch", "error");
+    } finally {
+      setSendingSponsorId(null);
+    }
+  }
+
+  async function handleAddTechSponsorLead() {
+    if (!newCompanyName.trim() || !newContactEmail.trim() || !newPublicSourceUrl.trim()) {
+      showToast("Company name, contact email, and public source URL are required.", "error");
+      return;
+    }
+    setAddingSponsor(true);
+    try {
+      const res = await fetch("/api/admin/tech-sponsors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_lead",
+          company_name: newCompanyName.trim(),
+          website_url: newWebsiteUrl.trim(),
+          contact_email: newContactEmail.trim(),
+          public_source_url: newPublicSourceUrl.trim(),
+          target_role: newTargetRole.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Added ${newCompanyName} to Tech Sponsors directory!`, "success");
+        setAddSponsorModalOpen(false);
+        setNewCompanyName("");
+        setNewWebsiteUrl("");
+        setNewContactEmail("");
+        setNewPublicSourceUrl("");
+        await loadTechSponsors();
+      } else {
+        showToast(data.error || "Failed to add tech sponsor", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to add tech sponsor", "error");
+    } finally {
+      setAddingSponsor(false);
+    }
+  }
 
   // Pitch Modal state
   const [pitchModalOpen, setPitchModalOpen] = useState(false);
@@ -1602,6 +1733,21 @@ function AdminContent() {
                   }`}
                 >
                   Partnering Organizers 🤝 ({leads.filter((l) => l.status === "replied").length})
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab("tech_sponsors");
+                    setSearchQuery("");
+                    loadTechSponsors();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                    activeTab === "tech_sponsors"
+                      ? "bg-zinc-900 text-cyan-400 shadow border border-cyan-500/20"
+                      : "text-cyan-500/70 hover:text-cyan-400"
+                  }`}
+                >
+                  Tech Sponsors 🏢 ({techSponsors.length})
                 </button>
               </>
             )}
@@ -3259,6 +3405,339 @@ function AdminContent() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TECH SPONSORS TAB PANEL */}
+        {activeTab === "tech_sponsors" && (
+          <div className="space-y-6">
+            <div className="card card-static p-6 border-cyan-500/30 bg-gradient-to-r from-zinc-950 via-cyan-950/20 to-zinc-950 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400 mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>DEVELOPER PERKS & CLOUD SPONSOR OUTREACH</span>
+                </div>
+                <h2 className="text-xl font-extrabold text-white tracking-tight">
+                  🏢 Tech Sponsor & Infrastructure Directory
+                </h2>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Engage developer-first companies (DigitalOcean, Postman, GitHub, Sentry, Appwrite, MongoDB, Auth0) for cloud credits, developer perks, and prize tracks.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={handleGenerateSponsorDrafts}
+                  disabled={generatingSponsorDrafts}
+                  className="btn text-xs py-2 px-3 flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer disabled:opacity-50 transition-all shadow-sm"
+                >
+                  {generatingSponsorDrafts ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>✨ Generate Draft Pitches</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAddSponsorModalOpen(true)}
+                  className="btn text-xs py-2 px-3 flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 text-zinc-200 hover:text-white font-bold cursor-pointer transition-all shadow-sm"
+                >
+                  <span>➕ Add Tech Sponsor</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tech Sponsor Directory Table */}
+            <div className="card card-static overflow-hidden">
+              <div className="p-4 border-b border-zinc-900 bg-zinc-950/40 flex items-center justify-between">
+                <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                  Targeted Tech Companies ({techSponsors.length})
+                </h3>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  No automatic first-contact sending — drafts require manual admin approval
+                </span>
+              </div>
+
+              {loadingTechSponsors ? (
+                <div className="p-12 text-center text-xs text-zinc-500 font-mono">
+                  Loading tech sponsor directory...
+                </div>
+              ) : techSponsors.length === 0 ? (
+                <div className="p-12 text-center text-xs text-zinc-500 font-mono">
+                  No tech sponsors found. Click "Add Tech Sponsor" above to add one.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-zinc-900 bg-zinc-950/60 text-zinc-500 font-mono uppercase tracking-wider text-[10px]">
+                        <th className="p-4 font-semibold">Company & Website</th>
+                        <th className="p-4 font-semibold">Contact & Source Verification</th>
+                        <th className="p-4 font-semibold">Target Pitch</th>
+                        <th className="p-4 font-semibold">Status</th>
+                        <th className="p-4 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900/60 font-mono">
+                      {techSponsors.map((sponsor) => (
+                        <tr key={sponsor.id} className="hover:bg-zinc-900/30 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-white text-sm">{sponsor.company_name}</div>
+                            {sponsor.website_url && (
+                              <a
+                                href={sponsor.website_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-sky-400 hover:underline inline-flex items-center gap-1 mt-0.5"
+                              >
+                                <span>{sponsor.website_url.replace("https://", "").replace("www.", "")}</span>
+                                <span>↗</span>
+                              </a>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="text-zinc-300 text-xs">{sponsor.contact_email}</div>
+                            <div className="text-[10px] text-zinc-500 mt-1">
+                              Role: <span className="text-zinc-400">{sponsor.target_role || "DevRel"}</span>
+                            </div>
+                            {sponsor.public_source_url && (
+                              <a
+                                href={sponsor.public_source_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800 transition"
+                              >
+                                🔍 Verified Source ↗
+                              </a>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <span className="px-2.5 py-1 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                              {sponsor.pitch_type === "credits_perks" ? "Cloud / Dev Perks" : sponsor.pitch_type}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${
+                                sponsor.status === "pitch_sent"
+                                  ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                  : sponsor.status === "replied" || sponsor.status === "partnered"
+                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                  : sponsor.status === "opted_out"
+                                  ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                  : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              }`}
+                            >
+                              {sponsor.status === "draft" ? "Draft Ready" : sponsor.status.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            {sponsor.status === "draft" ? (
+                              <button
+                                type="button"
+                                onClick={() => openSponsorDraftModal(sponsor)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white cursor-pointer transition shadow-sm"
+                              >
+                                ✏️ Review & Approve Draft →
+                              </button>
+                            ) : sponsor.status === "pitch_sent" ? (
+                              <span className="text-[11px] text-zinc-500">
+                                Sent {sponsor.pitch_sent_at ? new Date(sponsor.pitch_sent_at).toLocaleDateString() : ""}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-zinc-500">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 1: Sponsor Draft Review & Single Send Modal */}
+        {selectedSponsorModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="card card-static w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 border-cyan-500/30 bg-zinc-950 space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-900">
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    Draft Pitch Review
+                  </span>
+                  <h3 className="text-lg font-bold text-white mt-1">
+                    Sponsor Pitch for {selectedSponsorModal.company_name}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSponsorModal(null)}
+                  className="text-zinc-500 hover:text-white text-xl font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono uppercase text-zinc-400 mb-1">Recipient</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${selectedSponsorModal.company_name} (${selectedSponsorModal.contact_email})`}
+                    className="input text-xs bg-zinc-900 border-zinc-800 text-zinc-300 w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase text-zinc-400 mb-1">Subject Line</label>
+                  <input
+                    type="text"
+                    value={editSponsorSubject}
+                    onChange={(e) => setEditSponsorSubject(e.target.value)}
+                    className="input text-xs bg-zinc-900 border-zinc-800 text-white w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase text-zinc-400 mb-1">
+                    Customized Pitch Draft Body (Live DB Metrics Auto-Inserted)
+                  </label>
+                  <textarea
+                    rows={12}
+                    value={editSponsorBody}
+                    onChange={(e) => setEditSponsorBody(e.target.value)}
+                    className="input text-xs font-mono bg-zinc-900 border-zinc-800 text-zinc-200 w-full p-3 leading-relaxed"
+                  />
+                </div>
+
+                <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-lg text-[11px] text-zinc-400 font-mono">
+                  <div className="font-bold text-cyan-400 mb-1">🛡️ Safety & Budget Verification</div>
+                  - Standard B2B Opt-Out Link included: <span className="text-zinc-300">https://hackermate.in/api/unsubscribe?email=...</span>
+                  <br />
+                  - Routes through single daily send-budget guard (100 emails/day limit).
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSponsorModal(null)}
+                  className="px-4 py-2 rounded-lg text-xs font-mono text-zinc-400 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApproveAndSendSponsorPitch}
+                  disabled={sendingSponsorId === selectedSponsorModal.id}
+                  className="btn text-xs py-2 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow"
+                >
+                  {sendingSponsorId === selectedSponsorModal.id ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>🚀 Approve & Send Pitch Email</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 2: Add New Tech Sponsor Lead Modal */}
+        {addSponsorModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="card card-static w-full max-w-lg p-6 border-zinc-800 bg-zinc-950 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-900">
+                <h3 className="text-base font-bold text-white">Add New Tech Sponsor Lead</h3>
+                <button
+                  type="button"
+                  onClick={() => setAddSponsorModalOpen(false)}
+                  className="text-zinc-500 hover:text-white font-bold text-xl cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-zinc-400 font-mono mb-1">Company Name *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Supabase, Vercel, Resend"
+                    value={newCompanyName}
+                    onChange={(e) => setNewCompanyName(e.target.value)}
+                    className="input bg-zinc-900 border-zinc-800 text-white w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 font-mono mb-1">Company Website URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://supabase.com"
+                    value={newWebsiteUrl}
+                    onChange={(e) => setNewWebsiteUrl(e.target.value)}
+                    className="input bg-zinc-900 border-zinc-800 text-white w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 font-mono mb-1">Contact Email *</label>
+                  <input
+                    type="email"
+                    placeholder="devrel@company.com"
+                    value={newContactEmail}
+                    onChange={(e) => setNewContactEmail(e.target.value)}
+                    className="input bg-zinc-900 border-zinc-800 text-white w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 font-mono mb-1">Public Verification Source URL *</label>
+                  <input
+                    type="text"
+                    placeholder="https://company.com/sponsorships or team page"
+                    value={newPublicSourceUrl}
+                    onChange={(e) => setNewPublicSourceUrl(e.target.value)}
+                    className="input bg-zinc-900 border-zinc-800 text-white w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 font-mono mb-1">Target Contact Role</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DevRel Lead, Community Manager"
+                    value={newTargetRole}
+                    onChange={(e) => setNewTargetRole(e.target.value)}
+                    className="input bg-zinc-900 border-zinc-800 text-white w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
+                <button
+                  type="button"
+                  onClick={() => setAddSponsorModalOpen(false)}
+                  className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddTechSponsorLead}
+                  disabled={addingSponsor}
+                  className="btn text-xs py-1.5 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {addingSponsor ? "Saving..." : "Save Sponsor Lead"}
+                </button>
+              </div>
             </div>
           </div>
         )}
