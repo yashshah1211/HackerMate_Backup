@@ -346,6 +346,28 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
                   if (emails.length > 0) {
                     organizer_email = Array.from(new Set(emails)).join(", ");
+                  } else {
+                    // Deep Contact Extraction: Scan full competition payload (overview, rules, attachments) for '@' emails
+                    const deepEmails = extractValidEmails(JSON.stringify(compJson));
+                    if (deepEmails.length > 0) {
+                      organizer_email = Array.from(new Set(deepEmails)).join(", ");
+                    }
+                  }
+
+                  // Second Deep Fallback: Fetch raw HTML page if email is still missing
+                  if (!organizer_email && opp.url) {
+                    try {
+                      const pageRes = await fetch(opp.url, {
+                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+                      });
+                      if (pageRes.ok) {
+                        const html = await pageRes.text();
+                        const pageEmails = extractValidEmails(html);
+                        if (pageEmails.length > 0) {
+                          organizer_email = Array.from(new Set(pageEmails)).join(", ");
+                        }
+                      }
+                    } catch (e) {}
                   }
 
                   const regReq = comp.regnRequirements || {};
