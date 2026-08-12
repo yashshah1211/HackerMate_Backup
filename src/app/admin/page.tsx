@@ -3564,8 +3564,8 @@ function AdminContent() {
         {/* MODAL 1: Sponsor Draft Review & Single Send Modal */}
         {selectedSponsorModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="card card-static w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 border-cyan-500/30 bg-zinc-950 space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-900">
+            <div className="card card-static w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border-cyan-500/30 bg-zinc-950 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-900 shrink-0">
                 <div>
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                     Draft Pitch Review
@@ -3583,7 +3583,7 @@ function AdminContent() {
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto pr-1 flex-1">
                 <div>
                   <label className="block text-xs font-mono uppercase text-zinc-400 mb-1">Recipient</label>
                   <input
@@ -3609,10 +3609,10 @@ function AdminContent() {
                     Customized Pitch Draft Body (Live DB Metrics Auto-Inserted)
                   </label>
                   <textarea
-                    rows={12}
+                    rows={7}
                     value={editSponsorBody}
                     onChange={(e) => setEditSponsorBody(e.target.value)}
-                    className="input text-xs font-mono bg-zinc-900 border-zinc-800 text-zinc-200 w-full p-3 leading-relaxed"
+                    className="input text-xs font-mono bg-zinc-900 border-zinc-800 text-zinc-200 w-full p-3 leading-relaxed resize-y"
                   />
                 </div>
 
@@ -3624,7 +3624,7 @@ function AdminContent() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900 shrink-0 bg-zinc-950">
                 <button
                   type="button"
                   onClick={() => setSelectedSponsorModal(null)}
@@ -3636,7 +3636,7 @@ function AdminContent() {
                   type="button"
                   onClick={handleApproveAndSendSponsorPitch}
                   disabled={sendingSponsorId === selectedSponsorModal.id}
-                  className="btn text-xs py-2 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow"
+                  className="btn text-xs py-2.5 px-5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-lg"
                 >
                   {sendingSponsorId === selectedSponsorModal.id ? (
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
