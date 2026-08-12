@@ -12,10 +12,20 @@ export type PartnerSlide = {
   ctaText: string;
   href: string;
   gradient: string;
-  logoType: "aethos" | "gamnexis" | "axcentra" | "morrow" | "orvix";
+  logoType: "aethos" | "gamnexis" | "startupx" | "axcentra" | "morrow" | "orvix";
 };
 
 const PARTNER_SLIDES: PartnerSlide[] = [
+  {
+    id: "startupx",
+    tag: "FEATURED STARTUP HACKATHON",
+    title: "HackerMate × Gamnexis — StartupX 2026",
+    description: "Turn your idea into a real startup! National innovation & startup hackathon by Gamnexis. Connect with compatible builders, form squads, and launch.",
+    ctaText: "Explore StartupX Portal",
+    href: "/partners/startupx",
+    gradient: "from-[#0284C7] via-blue-500 to-[#38BDF8]",
+    logoType: "startupx",
+  },
   {
     id: "aethos",
     tag: "FEATURED PARTNER HACKATHON",
@@ -171,6 +181,17 @@ export default function PartnerBannerCarousel() {
                   />
                   <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-emerald-400 to-teal-400 text-lg md:text-xl font-mono">
                     MORROW 1.0
+                  </span>
+                </div>
+              ) : currentSlide.logoType === "startupx" ? (
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/partners/startupx-logo.jpg"
+                    alt="StartupX Logo"
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm"
+                  />
+                  <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400 text-lg md:text-xl font-mono">
+                    STARTUPX
                   </span>
                 </div>
               ) : currentSlide.logoType === "gamnexis" ? (
