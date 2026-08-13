@@ -530,17 +530,23 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     }
   }
 
-  // 8. Automatic Purge: Clean up any existing external hackathons in public.hackathons that have ended
+  // 8. Automatic Purge: Clean up any existing external hackathons in public.hackathons that have ended (Excluding Partner Portals!)
   try {
-    const { data: pastExternalHackathons } = await supabaseAdmin
-      .from("hackathons")
-      .select("id, end_date")
-      .eq("type", "external");
+    const [pastExternalRes, partnerConfigsRes] = await Promise.all([
+      supabaseAdmin.from("hackathons").select("id, end_date").eq("type", "external"),
+      supabaseAdmin.from("partner_configs").select("hackathon_id"),
+    ]);
 
-    if (pastExternalHackathons && pastExternalHackathons.length > 0) {
+    const partnerHackathonIds = new Set(
+      (partnerConfigsRes.data || []).map((p) => p.hackathon_id).filter(Boolean)
+    );
+
+    const pastExternalHackathons = pastExternalRes.data || [];
+
+    if (pastExternalHackathons.length > 0) {
       const now = new Date();
       const closedIds = pastExternalHackathons
-        .filter((h) => h.end_date && new Date(h.end_date) < now)
+        .filter((h) => h.end_date && new Date(h.end_date) < now && !partnerHackathonIds.has(h.id))
         .map((h) => h.id);
 
       if (closedIds.length > 0) {
@@ -548,7 +554,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
       }
     }
   } catch (purgeErr) {
-    console.warn("[Scraper] Non-critical error puring ended hackathons:", purgeErr);
+    console.warn("[Scraper] Non-critical error purging ended hackathons:", purgeErr);
   }
 
   return {

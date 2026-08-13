@@ -47,16 +47,6 @@ const PARTNER_SLIDES: PartnerSlide[] = [
     logoType: "orvix",
   },
   {
-    id: "morrow",
-    tag: "FEATURED OPEN-SOURCE HACKATHON",
-    title: "HackerMate × Morrow 1.0 — Makers Need More",
-    description: "Build & ship open-source solutions at the speed of thought! Join the global open-source hackathon by MnM. Connect with teammates and build together.",
-    ctaText: "Explore Morrow 1.0 Portal",
-    href: "/partners/morrow",
-    gradient: "from-[#6366F1] via-emerald-500 to-[#10B981]",
-    logoType: "morrow",
-  },
-  {
     id: "gamnexis",
     tag: "FEATURED GAMEDEV & AI HACKATHON",
     title: "HackerMate × Gamnexis — Puzzle Masters 2026",
