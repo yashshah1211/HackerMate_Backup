@@ -1814,12 +1814,14 @@ export default function TeamWorkspaceView({
           Back to Team Overview
         </Link>
 
-        <button
-          onClick={() => setShowShareModal(true)}
-          className="btn btn-lime px-3.5 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
-        >
-          <span className="text-black">🔗 Share Workspace</span>
-        </button>
+        {(isOwner || Boolean(currentUserId && members?.some((m: any) => m.user_id === currentUserId || m.id === currentUserId))) && (
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="btn btn-lime px-3.5 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+          >
+            <span className="text-black">🔗 Share Workspace</span>
+          </button>
+        )}
       </div>
 
       <section className="animate-fade-in-up space-y-6">

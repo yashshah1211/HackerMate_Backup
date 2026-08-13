@@ -992,12 +992,6 @@ function PartnerPageContent() {
                     {team.college || "Cross-College"}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShareTeamForModal(team)}
-                      className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <span>🔗 Share</span>
-                    </button>
                     {(() => {
                       const isUserTeamMember = Boolean(
                         currentUserId &&
@@ -1007,13 +1001,23 @@ function PartnerPageContent() {
                             ))
                       );
                       return (
-                        <button
-                          onClick={() => handleProtectedAction(`/teams/${team.id}`)}
-                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm font-semibold cursor-pointer inline-flex items-center"
-                          style={{ color: "#09090b" }}
-                        >
-                          {isUserTeamMember ? "View Team →" : "View & Apply →"}
-                        </button>
+                        <>
+                          {isUserTeamMember && (
+                            <button
+                              onClick={() => setShareTeamForModal(team)}
+                              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-1 transition cursor-pointer"
+                            >
+                              <span>🔗 Share</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleProtectedAction(`/teams/${team.id}`)}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm font-semibold cursor-pointer inline-flex items-center"
+                            style={{ color: "#09090b" }}
+                          >
+                            {isUserTeamMember ? "View Team →" : "View & Apply →"}
+                          </button>
+                        </>
                       );
                     })()}
                   </div>
