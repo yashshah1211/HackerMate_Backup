@@ -392,7 +392,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>",
+        from: fromEmail,
         to: targetEmail,
         subject: finalSubject,
         html: html,

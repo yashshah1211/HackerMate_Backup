@@ -2,58 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { autoSendPitchEmailsForLeads } from "@/lib/admin/autoSendPitches";
-
-function extractValidEmails(text: string): string[] {
-  if (!text) return [];
-  const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-  const validTldRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|in|org|io|co|net|edu|dev|tech|app|xyz|me|global|ai)$/i;
-
-  const valid = matches.filter((email) => {
-    const lower = email.toLowerCase().trim();
-    if (
-      lower.endsWith(".css") ||
-      lower.endsWith(".js") ||
-      lower.endsWith(".png") ||
-      lower.endsWith(".jpg") ||
-      lower.endsWith(".svg") ||
-      lower.endsWith(".webp")
-    ) {
-      return false;
-    }
-    const excludedPatterns = [
-      "sentry",
-      "w3.org",
-      "schema.org",
-      "example.com",
-      "domain.com",
-      "infegy.com",
-      "unstop.com",
-      "devfolio.co",
-      "hack2skill.com",
-      "google-analytics.com",
-      "googletagmanager.com",
-      "doubleclick.net",
-      "segment.io",
-      "mixpanel.com",
-      "hotjar.com",
-      "intercom.io",
-      "zendesk.com",
-      "hubspot.com",
-      "cloudflare.com",
-      "bugsnag.com",
-      "rollbar.com",
-      "datadoghq.com",
-      "newrelic.com",
-    ];
-
-    if (excludedPatterns.some((pat) => lower.includes(pat))) {
-      return false;
-    }
-    return validTldRegex.test(lower);
-  });
-
-  return Array.from(new Set(valid.map((e) => e.trim())));
-}
+import { extractValidEmails } from "@/lib/admin/constants";
 
 export function normalizeUrl(url: string | null | undefined): string {
   if (!url) return "";
