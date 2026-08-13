@@ -12,11 +12,13 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
+    "@types/pdf-parse": "^1.1.5",
     "@vercel/analytics": "^2.0.1",
     "discord-interactions": "^4.4.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.24.0",
     "next": "16.2.9",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",
     "posthog-js": "^1.405.3",
     "react": "19.2.4",

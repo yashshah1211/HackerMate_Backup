@@ -31,13 +31,33 @@ function extractValidEmails(text) {
     ) {
       return false;
     }
-    if (
-      lower.includes("sentry") ||
-      lower.includes("w3.org") ||
-      lower.includes("schema.org") ||
-      lower.includes("example.com") ||
-      lower.includes("domain.com")
-    ) {
+    const excludedPatterns = [
+      "sentry",
+      "w3.org",
+      "schema.org",
+      "example.com",
+      "domain.com",
+      "infegy.com",
+      "unstop.com",
+      "devfolio.co",
+      "hack2skill.com",
+      "google-analytics.com",
+      "googletagmanager.com",
+      "doubleclick.net",
+      "segment.io",
+      "mixpanel.com",
+      "hotjar.com",
+      "intercom.io",
+      "zendesk.com",
+      "hubspot.com",
+      "cloudflare.com",
+      "bugsnag.com",
+      "rollbar.com",
+      "datadoghq.com",
+      "newrelic.com",
+    ];
+
+    if (excludedPatterns.some((pat) => lower.includes(pat))) {
       return false;
     }
     return validTldRegex.test(lower);
