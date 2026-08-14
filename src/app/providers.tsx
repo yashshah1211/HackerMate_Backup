@@ -2,8 +2,7 @@
 
 import { useEffect, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import posthog from 'posthog-js';
-import { PostHogProvider as PHProvider } from 'posthog-js/react';
+import { pageview, GA_TRACKING_ID } from '@/lib/gtag';
 
 function parseReferrerSource(utmSource: string | null, referrer: string): string {
   if (utmSource) {
@@ -33,7 +32,7 @@ function parseReferrerSource(utmSource: string | null, referrer: string): string
   return "direct";
 }
 
-function PostHogPageView() {
+function AnalyticsPageView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -49,39 +48,28 @@ function PostHogPageView() {
       }
     }
 
-    if (pathname && posthog) {
-      let url = window.origin + pathname;
-      if (searchParams.toString()) {
+    if (pathname && GA_TRACKING_ID) {
+      let url = pathname;
+      if (searchParams?.toString()) {
         url = `${url}?${searchParams.toString()}`;
       }
-      posthog.capture('$pageview', { '$current_url': url });
+      pageview(url);
     }
   }, [pathname, searchParams]);
 
   return null;
 }
 
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-
-    if (key) {
-      posthog.init(key, {
-        api_host: host || 'https://us.i.posthog.com',
-        person_profiles: 'identified_only',
-        capture_pageview: false,
-      });
-    }
-  }, []);
-
+export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <PHProvider client={posthog}>
+    <>
       <Suspense fallback={null}>
-        <PostHogPageView />
+        <AnalyticsPageView />
       </Suspense>
       {children}
-    </PHProvider>
+    </>
   );
 }
 
+// Backward-compatible alias for existing layout imports
+export { AppProviders as PostHogProvider };

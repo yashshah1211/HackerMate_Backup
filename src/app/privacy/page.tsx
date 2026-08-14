@@ -66,7 +66,7 @@ export default function PrivacyPage() {
               We do not sell, trade, or share your personal database records with third-party advertising companies. Contact information shared with essential infrastructure providers (like Supabase for database hosting and Resend for transactional email dispatch) is securely processed under strict API guidelines.
             </p>
             <p className="text-zinc-400">
-              <strong className="text-zinc-200">Product Analytics & Telemetry:</strong> We utilize PostHog as a third-party analytics processor to analyze feature performance and conversion funnels. PostHog captures pseudonymous usage metrics (such as page views, button clicks, and feature interactions) mapped strictly to a random user ID (<code className="text-[11px] text-[#B4F461] bg-zinc-900 px-1 py-0.5 rounded font-mono">user.id</code>). We do <strong>not</strong> share your full name, email address, or personal identifying information (PII) with PostHog.
+              <strong className="text-zinc-200">Product Analytics & Telemetry:</strong> We utilize Google Analytics 4 (GA4) to analyze traffic patterns, page views, and feature interactions. Google Analytics captures pseudonymous usage metrics mapped strictly to anonymous identifiers. We do <strong>not</strong> share your full name, email address, or personal identifying information (PII) with analytics providers.
             </p>
           </section>
 
