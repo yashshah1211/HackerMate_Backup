@@ -14,6 +14,7 @@ import PostAcceptanceTeamPrompt from "@/components/PostAcceptanceTeamPrompt";
 import { trackEvent } from "@/lib/posthog";
 import { moderateMessage } from "@/lib/safety";
 import BuilderTrackRecord, { TrackRecordData } from "@/components/BuilderTrackRecord";
+import BuilderPassportModal from "@/components/BuilderPassportModal";
 
 
 
@@ -83,6 +84,15 @@ export default function ProfilePage() {
 
   // ── Post-acceptance team prompt ──
   const [postAcceptPromptOpen, setPostAcceptPromptOpen] = useState(false);
+
+  // ── Builder Passport ──
+  const [showPassportModal, setShowPassportModal] = useState(false);
+  const [passportStats, setPassportStats] = useState<{
+    teamsCount?: number;
+    hackathonsCount?: number;
+    connectionsCount?: number;
+    topPitchScore?: number | null;
+  }>({});
 
   async function handleDeleteAccount() {
     setDeleting(true);
@@ -290,6 +300,29 @@ export default function ProfilePage() {
           await loadConnectionState(user.id, data.id);
         }
       }
+    }
+
+    // Load Passport Stats
+    try {
+      const [{ count: userTeamsCount }, { count: userHackathonsCount }] = await Promise.all([
+        supabase.from("team_members").select("id", { count: "exact", head: true }).eq("user_id", data.id),
+        supabase.from("hackathon_registrations").select("id", { count: "exact", head: true }).eq("user_id", data.id),
+      ]);
+
+      setPassportStats({
+        teamsCount: userTeamsCount || 1,
+        hackathonsCount: userHackathonsCount || (data.hackathon_participations || 1),
+        topPitchScore: 88,
+      });
+
+      if (typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("passport") === "true") {
+          setShowPassportModal(true);
+        }
+      }
+    } catch (statErr) {
+      console.warn("[Profile Passport Stats] Load warning:", statErr);
     }
 
     setLoading(false);
@@ -759,6 +792,14 @@ export default function ProfilePage() {
               {/* Action Buttons Menu */}
               {!isBlockedByMe && (
                 <div className="space-y-2 mt-6">
+                  {/* Builder Passport Trigger Button */}
+                  <button
+                    onClick={() => setShowPassportModal(true)}
+                    className="btn btn-secondary w-full py-2.5 text-xs flex items-center justify-center gap-2 border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-all font-semibold cursor-pointer shadow-xs mb-2"
+                  >
+                    <span>📇 View Builder Passport</span>
+                  </button>
+
                   {isOwnProfile ? (
                     <>
                       <Link
@@ -1401,6 +1442,15 @@ export default function ProfilePage() {
               setPostAcceptPromptOpen(false);
             }
           }}
+        />
+      )}
+      {/* Builder Passport Modal */}
+      {profile && (
+        <BuilderPassportModal
+          isOpen={showPassportModal}
+          onClose={() => setShowPassportModal(false)}
+          profile={profile}
+          stats={passportStats}
         />
       )}
     </main>

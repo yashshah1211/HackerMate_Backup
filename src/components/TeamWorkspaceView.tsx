@@ -8,6 +8,7 @@ import ChatThread from "@/components/chatThread";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import PPTEvaluatorTab from "@/components/PPTEvaluatorTab";
+import SmartGapFiller from "@/components/SmartGapFiller";
 
 type Team = {
   id: string;
@@ -46,7 +47,7 @@ type InviteProfile = {
   skills: string[] | null;
 };
 
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments" | "ppt";
+type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 type Props = {
   team: Team;
@@ -2055,6 +2056,7 @@ export default function TeamWorkspaceView({
               { id: "deployments", label: "🚀 Deployments" },
               { id: "activity", label: "Activity Feed" },
               { id: "ppt", label: "🎯 PPT AI Evaluator" },
+              { id: "gap_filler", label: "⚡ Squad Matcher" },
             ] as const).map((tabItem) => {
               const isActive = workspaceTab === tabItem.id;
               return (
@@ -3201,6 +3203,21 @@ export default function TeamWorkspaceView({
           {workspaceTab === "ppt" && (
             <div className="animate-fade-in text-left">
               <PPTEvaluatorTab teamId={team.id} />
+            </div>
+          )}
+
+          {/* 10. SMART GAP FILLER TAB */}
+          {workspaceTab === "gap_filler" && (
+            <div className="animate-fade-in text-left">
+              <SmartGapFiller
+                teamId={team.id}
+                teamName={team.name}
+                requiredSkills={team.skills}
+                rolesNeeded={team.roles_needed}
+                members={members as any}
+                isOwnerOrMember={isOwner || members.some(m => m.profiles?.id === currentUserId || (m as any).user_id === currentUserId)}
+                onInviteSent={refreshTeam}
+              />
             </div>
           )}
         </div>

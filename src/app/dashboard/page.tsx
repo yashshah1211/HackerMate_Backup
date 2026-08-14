@@ -12,6 +12,7 @@ import QuickOnboardingModal from "@/components/QuickOnboardingModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 import PartnerBannerCarousel from "@/components/PartnerBannerCarousel";
+import TeamWorkspaceSpotlightBanner from "@/components/TeamWorkspaceSpotlightBanner";
 
 type Profile = {
   id: string;
@@ -816,6 +817,9 @@ function DashboardContent() {
           + Create a team
         </button>
       </div>
+
+      {/* Team Workspace Spotlight & Feature Value Banner */}
+      <TeamWorkspaceSpotlightBanner userTeams={activeTeams} />
 
       {/* Purposeful & Clickable Stat Cards */}
       <div className="stats-row">
