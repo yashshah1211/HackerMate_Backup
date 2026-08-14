@@ -16,6 +16,7 @@ type Team = {
   is_recruiting?: boolean;
   team_members?: { id: string }[];
   team_hackathons?: { hackathons: { id: string; name: string } | null }[];
+  team_ppt_evaluations?: { total_score: number; grade: string; status: string }[];
 };
 
 function TeamsContent() {
@@ -46,7 +47,7 @@ function TeamsContent() {
 
     const { data, error } = await supabase
       .from("teams")
-      .select("*, team_members(id), team_hackathons(hackathons(id, name))")
+      .select("*, team_members(id), team_hackathons(hackathons(id, name)), team_ppt_evaluations(total_score, grade, status)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -392,6 +393,23 @@ function TeamsContent() {
                     </span>
                   </div>
                 </div>
+
+                {/* SIH Pitch Score Badge */}
+                {(() => {
+                  const pptEval = team.team_ppt_evaluations?.find((e: any) => e.status === "completed");
+                  if (!pptEval) return null;
+                  return (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/80 border border-zinc-800/80 mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-mono font-bold text-violet-400">🎯 Pitch Deck:</span>
+                        <span className="text-[11px] font-bold text-emerald-400">{pptEval.total_score}/100</span>
+                      </div>
+                      <span className="badge bg-violet-500/10 text-violet-300 border-violet-500/20 text-[9px] py-0.5 px-1.5">
+                        {pptEval.grade}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* CTA */}
                 <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">

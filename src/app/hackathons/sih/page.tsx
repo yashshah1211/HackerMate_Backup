@@ -61,6 +61,7 @@ type Team = {
   is_recruiting: boolean;
   owner_id: string;
   team_members: TeamMember[];
+  team_ppt_evaluations?: { total_score: number; grade: string; status: string }[];
 };
 
 type SIHHackathon = {
@@ -215,7 +216,7 @@ function SIHTeamBuilderContent() {
       // 3. Fetch ALL Teams registered for SIH (Universally accessible for logged-in and incognito users)
       const { data: sihTeamsData } = await supabase
         .from("teams")
-        .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role))")
+        .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)), team_ppt_evaluations(total_score, grade, status)")
         .or(`hackathon_id.eq.${SIH_HACKATHON_ID},hackathon_id.eq.00000000-0000-0000-0000-000001703935,hackathon_name.ilike.%sih%,hackathon_name.ilike.%smart india%`);
 
       const parsedTeams: Team[] = (sihTeamsData || []).filter(Boolean) as Team[];
@@ -235,12 +236,12 @@ function SIHTeamBuilderContent() {
         // Also fetch user's own created or joined teams if not already present
         const { data: myTeamsData } = await supabase
           .from("teams")
-          .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role))")
+          .select("*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)), team_ppt_evaluations(total_score, grade, status)")
           .eq("owner_id", user.id);
 
         const { data: myMemberTeamsData } = await supabase
           .from("team_members")
-          .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)))")
+          .select("team_id, teams(*, team_members(*, profiles(id, full_name, avatar_url, college, skills, gender, role)), team_ppt_evaluations(total_score, grade, status))")
           .eq("user_id", user.id);
 
         if (myTeamsData) {
@@ -808,6 +809,26 @@ function SIHTeamBuilderContent() {
                               : `Missing: ${missingRoles.slice(0, 2).join(", ")}`}
                           </span>
                         </div>
+
+                        {/* SIH Pitch Deck Diagnostic Score */}
+                        {(() => {
+                          const pptEval = team.team_ppt_evaluations?.find((e: any) => e.status === "completed");
+                          return (
+                            <div className="flex items-center justify-between pt-1 border-t border-zinc-200 dark:border-zinc-800">
+                              <span className="text-zinc-600 dark:text-zinc-400">Pitch Deck AI:</span>
+                              {pptEval ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                  <span>🎯 {pptEval.total_score}/100</span>
+                                  <span className="text-[10px] font-normal text-zinc-500">({pptEval.grade})</span>
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[10px]">
+                                  Not Evaluated
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="mb-4">

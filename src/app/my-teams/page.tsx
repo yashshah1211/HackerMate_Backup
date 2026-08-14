@@ -10,9 +10,25 @@ type Team = {
   name: string;
   description: string;
   owner_id: string;
+  ppt_evaluations?: {
+    id: string;
+    total_score: number;
+    grade: string;
+    status: string;
+    version: number;
+  }[];
 };
 
 function TeamCard({ team, index, isLeader }: { team: Team; index: number; isLeader: boolean }) {
+  const latestEval = team.ppt_evaluations?.find((e) => e.status === "completed") || team.ppt_evaluations?.[0];
+
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return "text-amber-400";
+    if (score >= 70) return "text-emerald-400";
+    if (score >= 50) return "text-yellow-400";
+    return "text-rose-400";
+  };
+
   return (
     <div
       className={`card p-5 group animate-fade-in-up stagger-${
@@ -30,9 +46,37 @@ function TeamCard({ team, index, isLeader }: { team: Team; index: number; isLead
           </span>
         </div>
 
-        <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2 min-h-[32px]">
+        <p className="text-zinc-400 text-xs leading-relaxed mb-3 line-clamp-2 min-h-[32px]">
           {team.description || "No description provided."}
         </p>
+
+        {/* AI Pitch Deck Evaluation Badge / Trigger */}
+        {latestEval && latestEval.status === "completed" ? (
+          <Link
+            href={`/teams/${team.id}/workspace?tab=ppt`}
+            className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-violet-500/40 transition-colors mb-4 group/eval"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-mono font-bold text-violet-400">🎯 SIH Pitch:</span>
+              <span className={`text-[11px] font-bold ${getScoreColor(latestEval.total_score)}`}>
+                {latestEval.total_score}/100
+              </span>
+            </div>
+            <span className="text-[10px] text-zinc-400 group-hover/eval:text-violet-300 font-medium">
+              View Scorecard →
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href={`/teams/${team.id}/workspace?tab=ppt`}
+            className="flex items-center justify-between p-2 rounded-lg bg-violet-950/20 border border-violet-500/20 hover:bg-violet-900/30 transition-colors mb-4 group/eval"
+          >
+            <span className="text-[11px] font-medium text-violet-300">🤖 AI Pitch Deck</span>
+            <span className="text-[10px] font-semibold text-violet-400 group-hover/eval:translate-x-0.5 transition-transform">
+              Evaluate Deck →
+            </span>
+          </Link>
+        )}
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-zinc-900 gap-2">
@@ -77,7 +121,14 @@ function MyTeamsContent() {
           id,
           name,
           description,
-          owner_id
+          owner_id,
+          team_ppt_evaluations (
+            id,
+            total_score,
+            grade,
+            status,
+            version
+          )
         )
       `
       )
@@ -89,7 +140,13 @@ function MyTeamsContent() {
       return;
     }
 
-    const formattedTeams = (data as unknown as { teams: Team }[])?.map((item) => item.teams) || [];
+    const formattedTeams = (data as unknown as { teams: any }[])?.map((item) => {
+      const t = item.teams;
+      return {
+        ...t,
+        ppt_evaluations: t?.team_ppt_evaluations || [],
+      };
+    }) || [];
 
     setTeams(formattedTeams);
     setLoading(false);

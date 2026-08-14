@@ -7,6 +7,7 @@ import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
+import PPTEvaluatorTab from "@/components/PPTEvaluatorTab";
 
 type Team = {
   id: string;
@@ -45,7 +46,7 @@ type InviteProfile = {
   skills: string[] | null;
 };
 
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments";
+type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments" | "ppt";
 
 type Props = {
   team: Team;
@@ -2053,6 +2054,7 @@ export default function TeamWorkspaceView({
               { id: "github", label: "GitHub Sync" },
               { id: "deployments", label: "🚀 Deployments" },
               { id: "activity", label: "Activity Feed" },
+              { id: "ppt", label: "🎯 PPT AI Evaluator" },
             ] as const).map((tabItem) => {
               const isActive = workspaceTab === tabItem.id;
               return (
@@ -3192,6 +3194,13 @@ export default function TeamWorkspaceView({
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+          {/* 9. PPT AI EVALUATOR TAB */}
+          {workspaceTab === "ppt" && (
+            <div className="animate-fade-in text-left">
+              <PPTEvaluatorTab teamId={team.id} />
             </div>
           )}
         </div>
