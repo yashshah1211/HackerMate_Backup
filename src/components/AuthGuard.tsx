@@ -23,7 +23,7 @@ export default function AuthGuard({
 
       if (!user) {
         const next = `${window.location.pathname}${window.location.search}`;
-        window.location.href = `/?next=${encodeURIComponent(next)}`;
+        window.location.href = `/login?next=${encodeURIComponent(next)}`;
         return;
       }
 

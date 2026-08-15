@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/";
+    loginUrl.pathname = "/login";
     loginUrl.search = "";
     loginUrl.searchParams.set(
       "next",

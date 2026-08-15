@@ -177,7 +177,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     window.location.href = "/";
   }
 
-  const isWorkspaceLayout = user && pathname !== "/" && pathname !== "/onboarding";
+  if (pathname === "/" || pathname === "/login") {
+    return (
+      <>
+        {children}
+        {showSignOutConfirm && <SignOutConfirmModal />}
+      </>
+    );
+  }
+
+  const isWorkspaceLayout = Boolean(user && pathname !== "/" && pathname !== "/onboarding");
 
   if (!isWorkspaceLayout) {
     return (
@@ -410,7 +419,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
                 <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-violet-500 text-white text-[8px] font-bold flex items-center justify-center border border-[var(--background)]">{unreadCount}</span>
               )}
             </Link>
-            <Link href={`/profile/${user.id}`} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
+            <Link href={user ? `/profile/${user.id}` : "/dashboard"} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
               {userInitials}
             </Link>
           </div>
