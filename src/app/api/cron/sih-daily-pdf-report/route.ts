@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SIH_HACKATHON_ID } from "@/lib/constants";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { generateSIHPdfReport, SIHReportData } from "@/lib/admin/sihPdfReport";
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 function isSameCollege(collegeA: string | null | undefined, collegeB: string | null | undefined): boolean {
   if (!collegeA || !collegeB) return false;
@@ -35,23 +36,25 @@ export async function POST(req: NextRequest) {
 async function handleSihDailyPdfReport(req: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      console.error("[SIH Daily PDF Cron] CRON_SECRET is not configured on the server.");
-      return NextResponse.json(
-        { error: "Server misconfiguration: CRON_SECRET is required." },
-        { status: 500 }
-      );
-    }
 
-    // 1. Verify Secret Authorization (allows Vercel Cron or manual query key)
+    // 1. Verify Authorization: Either valid CRON_SECRET (Vercel Cron) OR logged-in Admin Session (Admin Dashboard UI)
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     const { searchParams } = new URL(req.url);
     const secret = searchParams.get("secret");
 
-    const isAuthorizedHeader = authHeader === `Bearer ${cronSecret}`;
-    const isAuthorizedQuery = secret === cronSecret;
+    const isAuthorizedCron =
+      (Boolean(cronSecret) && authHeader === `Bearer ${cronSecret}`) ||
+      (Boolean(cronSecret) && secret === cronSecret);
 
-    if (!isAuthorizedHeader && !isAuthorizedQuery) {
+    let isAuthorizedAdmin = false;
+    if (!isAuthorizedCron) {
+      const adminCheck = await requireAdmin(req);
+      if (!(adminCheck instanceof NextResponse)) {
+        isAuthorizedAdmin = true;
+      }
+    }
+
+    if (!isAuthorizedCron && !isAuthorizedAdmin) {
       console.warn("[SIH Daily PDF Cron] Unauthorized trigger attempt.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

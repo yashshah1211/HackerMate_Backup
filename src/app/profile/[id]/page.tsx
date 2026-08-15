@@ -315,12 +315,13 @@ export default function ProfilePage() {
         topPitchScore: 88,
       });
 
-      if (typeof window !== "undefined") {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("passport") === "true") {
-          setShowPassportModal(true);
-        }
-      }
+      // Disabled pending feature review
+      // if (typeof window !== "undefined") {
+      //   const urlParams = new URLSearchParams(window.location.search);
+      //   if (urlParams.get("passport") === "true") {
+      //     setShowPassportModal(true);
+      //   }
+      // }
     } catch (statErr) {
       console.warn("[Profile Passport Stats] Load warning:", statErr);
     }
@@ -792,13 +793,13 @@ export default function ProfilePage() {
               {/* Action Buttons Menu */}
               {!isBlockedByMe && (
                 <div className="space-y-2 mt-6">
-                  {/* Builder Passport Trigger Button */}
-                  <button
+                  {/* Builder Passport Trigger Button (Disabled pending review) */}
+                  {/* <button
                     onClick={() => setShowPassportModal(true)}
                     className="btn btn-secondary w-full py-2.5 text-xs flex items-center justify-center gap-2 border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-all font-semibold cursor-pointer shadow-xs mb-2"
                   >
                     <span>📇 View Builder Passport</span>
-                  </button>
+                  </button> */}
 
                   {isOwnProfile ? (
                     <>
@@ -1444,15 +1445,15 @@ export default function ProfilePage() {
           }}
         />
       )}
-      {/* Builder Passport Modal */}
-      {profile && (
+      {/* Builder Passport Modal (Disabled pending review) */}
+      {/* {profile && (
         <BuilderPassportModal
           isOpen={showPassportModal}
           onClose={() => setShowPassportModal(false)}
           profile={profile}
           stats={passportStats}
         />
-      )}
+      )} */}
     </main>
   );
 }

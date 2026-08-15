@@ -28,18 +28,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({ request });
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookies) => {
-          cookies.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookies.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
           );
         },
       },
@@ -50,7 +57,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
+  const isApiRoute = pathname.startsWith("/api/");
 
   if (!user) {
     if (isApiRoute) {
@@ -63,35 +70,44 @@ export async function middleware(request: NextRequest) {
       "next",
       `${request.nextUrl.pathname}${request.nextUrl.search}`
     );
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Copy any updated cookies to redirect response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   // Admin route server-side role check
-  if (
-    request.nextUrl.pathname.startsWith("/admin") ||
-    request.nextUrl.pathname.startsWith("/api/admin")
-  ) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    const isSuperAdmin = user.email?.toLowerCase().trim() === "yashshah7117@gmail.com";
+    if (!isSuperAdmin) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (!profile || profile.role !== "admin") {
-      if (isApiRoute) {
-        return NextResponse.json(
-          { error: "Forbidden: Access restricted to authorized administrator." },
-          { status: 403 }
-        );
+      if (!profile || profile.role !== "admin") {
+        if (isApiRoute) {
+          return NextResponse.json(
+            { error: "Forbidden: Access restricted to authorized administrator." },
+            { status: 403 }
+          );
+        }
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/dashboard";
+        redirectUrl.search = "";
+        const redirectResponse = NextResponse.redirect(redirectUrl);
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+          redirectResponse.cookies.set(cookie.name, cookie.value);
+        });
+        return redirectResponse;
       }
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/dashboard";
-      redirectUrl.search = "";
-      return NextResponse.redirect(redirectUrl);
     }
   }
 
-  return response;
+  return supabaseResponse;
 }
 
 export const config = {

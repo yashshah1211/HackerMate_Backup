@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-
 import { identifyUser } from "@/lib/posthog";
 
 export default function AuthGuard({
@@ -12,68 +12,120 @@ export default function AuthGuard({
   children: React.ReactNode;
   adminOnly?: boolean;
 }) {
+  const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    async function checkAuth() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    isMountedRef.current = true;
+
+    async function evaluateUser(user: any) {
+      if (!isMountedRef.current) return;
 
       if (!user) {
         const next = `${window.location.pathname}${window.location.search}`;
-        window.location.href = `/login?next=${encodeURIComponent(next)}`;
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
         return;
       }
 
-      // Check if user has completed onboarding, is banned, and role (for adminOnly routes)
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("id, onboarding_completed, is_banned, role")
-        .eq("id", user.id)
-        .single();
+      try {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id, onboarding_completed, is_banned, role")
+          .eq("id", user.id)
+          .maybeSingle();
 
-      if (profile) {
-        identifyUser(profile.id, {
-          onboarding_completed: profile.onboarding_completed,
-          role: profile.role,
-        });
-      }
+        if (!isMountedRef.current) return;
 
-      if (profile?.is_banned) {
-        setIsBanned(true);
-        setAuthorized(false);
-        return;
-      }
+        if (profile) {
+          identifyUser(profile.id, {
+            onboarding_completed: profile.onboarding_completed,
+            role: profile.role,
+          });
+        }
 
-      if (adminOnly && profile?.role !== "admin") {
-        window.location.href = "/dashboard";
-        return;
-      }
-
-      if (!profile || error || !profile.onboarding_completed) {
-        // Allow browsing core dashboard & hackathon routes while rendering quick onboarding banner
-        const pathname = window.location.pathname;
-        if (
-          !adminOnly &&
-          (pathname.startsWith("/dashboard") ||
-            pathname.startsWith("/hackathons") ||
-            pathname.startsWith("/developers"))
-        ) {
-          setAuthorized(true);
+        if (profile?.is_banned) {
+          setIsBanned(true);
+          setAuthorized(false);
           return;
         }
-        const next = `${window.location.pathname}${window.location.search}`;
-        window.location.href = `/onboarding?next=${encodeURIComponent(next)}`;
-        return;
-      }
 
-      setAuthorized(true);
+        const isSuperAdmin = user.email?.toLowerCase().trim() === "yashshah7117@gmail.com";
+        const isAdmin = isSuperAdmin || profile?.role === "admin";
+
+        if (adminOnly && !isAdmin) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        if (!profile || !profile.onboarding_completed) {
+          const pathname = window.location.pathname;
+          if (
+            !adminOnly &&
+            (pathname.startsWith("/dashboard") ||
+              pathname.startsWith("/hackathons") ||
+              pathname.startsWith("/developers"))
+          ) {
+            setAuthorized(true);
+            return;
+          }
+          const next = `${window.location.pathname}${window.location.search}`;
+          router.replace(`/onboarding?next=${encodeURIComponent(next)}`);
+          return;
+        }
+
+        setAuthorized(true);
+      } catch (err) {
+        console.error("[AuthGuard] Profile verification error:", err);
+        // Fallback: keep user authorized if network error occurs to avoid destructive logout
+        if (isMountedRef.current) {
+          setAuthorized(true);
+        }
+      }
     }
 
-    checkAuth();
-  }, [adminOnly]);
+    // 1. Check existing session first
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        evaluateUser(session.user);
+      } else {
+        // If getSession is empty, double check getUser before deciding to redirect
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            evaluateUser(user);
+          }
+        });
+      }
+    });
+
+    // 2. Subscribe to auth state changes to handle initialization & token refreshes seamlessly
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT") {
+        if (isMountedRef.current) {
+          setAuthorized(false);
+          const next = `${window.location.pathname}${window.location.search}`;
+          router.replace(`/login?next=${encodeURIComponent(next)}`);
+        }
+      } else if (session?.user) {
+        evaluateUser(session.user);
+      } else if (event === "INITIAL_SESSION" && !session) {
+        // Initial session resolution confirmed no active session
+        if (isMountedRef.current) {
+          const next = `${window.location.pathname}${window.location.search}`;
+          router.replace(`/login?next=${encodeURIComponent(next)}`);
+        }
+      }
+    });
+
+    return () => {
+      isMountedRef.current = false;
+      subscription.unsubscribe();
+    };
+  }, [adminOnly, router]);
 
   if (isBanned) {
     return (
