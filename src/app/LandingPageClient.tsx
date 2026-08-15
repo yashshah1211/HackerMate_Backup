@@ -41,9 +41,15 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
   const [hackathonCount] = useState<number>(initialData.hackathonCount || 120);
   const [teamCount] = useState<number>(initialData.teamCount || 10);
 
-  const [realBuilders] = useState<RealProfile[]>(initialData.builders || []);
+  const [realBuilders, setRealBuilders] = useState<RealProfile[]>(initialData.builders || []);
   const [realHackathons] = useState<RealHackathon[]>(initialData.hackathons || []);
-  const [realTeams] = useState<RealTeam[]>(initialData.teams || []);
+  const [realTeams, setRealTeams] = useState<RealTeam[]>(initialData.teams || []);
+
+  // Live rotating indices
+  const [activeBuilderIdx, setActiveBuilderIdx] = useState(0);
+  const [activeTeamIdx, setActiveTeamIdx] = useState(0);
+  const [activeHackathonIdx, setActiveHackathonIdx] = useState(0);
+  const [fadeOpacity, setFadeOpacity] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"match" | "hackathons" | "workspace" | "product">("product");
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -56,6 +62,50 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
     showToast("Copied contacthackermate@gmail.com to clipboard!", "success");
     setTimeout(() => setCopiedEmail(false), 3000);
   };
+
+  // Auto-rotation timer for live cards (every 4.5s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFadeOpacity(false);
+      setTimeout(() => {
+        setActiveBuilderIdx((prev) => (realBuilders.length > 0 ? (prev + 1) % realBuilders.length : 0));
+        setActiveTeamIdx((prev) => (realTeams.length > 0 ? (prev + 1) % realTeams.length : 0));
+        setActiveHackathonIdx((prev) => (realHackathons.length > 0 ? (prev + 1) % realHackathons.length : 0));
+        setFadeOpacity(true);
+      }, 250);
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [realBuilders.length, realTeams.length, realHackathons.length]);
+
+  // Realtime subscription for incoming registrations
+  useEffect(() => {
+    const channel = supabase
+      .channel("landing-realtime-feed")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "profiles" },
+        (payload) => {
+          if (payload.new && payload.new.full_name) {
+            setRealBuilders((prev) => [payload.new as RealProfile, ...prev.slice(0, 19)]);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "teams" },
+        (payload) => {
+          if (payload.new && payload.new.name) {
+            setRealTeams((prev) => [payload.new as RealTeam, ...prev.slice(0, 11)]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     async function checkUserSession() {
@@ -104,57 +154,121 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
     .filter(([_, count]) => count >= 3)
     .sort((a, b) => b[1] - a[1]);
 
+  // Live rotating items from real DB data
+  const currentBuilder1 = realBuilders[activeBuilderIdx] || {
+    full_name: "Aarav Sharma",
+    college: "IIT Bombay",
+    skills: ["Next.js", "Tailwind CSS", "React"],
+  };
+
+  const currentTeam = realTeams[activeTeamIdx] || {
+    name: "AI Agents Squad",
+    hackathon_name: "SIH 2026",
+    description: "Looking for full-stack engineer",
+  };
+
+  const currentHackathon = realHackathons[activeHackathonIdx] || {
+    name: "Smart India Hackathon 2026",
+    mode: "National",
+    location: "India",
+    prize_pool: "₹1,00,000",
+    currency: "INR",
+    tags: ["SIH", "AI"],
+  };
+
+  const currentBuilder2 = realBuilders[(activeBuilderIdx + 1) % (realBuilders.length || 1)] || {
+    full_name: "Priya Nair",
+    college: "DTU Delhi",
+    skills: ["PyTorch", "FastAPI", "Python"],
+  };
+
   return (
     <main className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 selection:bg-[#B4F461] selection:text-black overflow-x-hidden">
       <h1 className="sr-only">HackerMate - Hackathon Team Operating System</h1>
 
-      {/* ─── Hero Section (Full-bleed container with flanking activity cards) ─── */}
+      {/* ─── Hero Section (Full-bleed container with live updating flank activity cards) ─── */}
       <section className="relative w-full pt-10 sm:pt-14 pb-14 sm:pb-18 overflow-hidden">
         {/* Full-bleed background treatment */}
         <HeroBackground />
 
-        {/* Left Flank Floating Activity Cards (Linear / Raycast Style - Wide Screens Only) */}
-        <div className="hidden xl:flex absolute left-6 2xl:left-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[250px] z-10 select-none pointer-events-none">
-          <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform -rotate-1">
+        {/* Left Flank Real Live Activity Cards (Wide Screens Only) */}
+        <div className="hidden xl:flex absolute left-6 2xl:left-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[260px] z-10 select-none">
+          {/* Card 1: Real Builder */}
+          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform -rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461]" />
-                <span className="text-zinc-300">Live Match</span>
+                <span className="text-zinc-300">Verified Builder</span>
               </span>
-              <span className="text-zinc-500">2m ago</span>
+              <span className="text-zinc-500">Live</span>
             </div>
-            <p className="text-xs font-semibold text-zinc-200">Aarav (IIT-B) matched with Priya (AI/ML)</p>
-            <p className="text-[10px] font-mono text-zinc-400">Next.js + PyTorch • SIH 2026</p>
+            <p className="text-xs font-semibold text-zinc-200 truncate">
+              {currentBuilder1.full_name || "Active Builder"}
+            </p>
+            <p className="text-[10px] font-mono text-zinc-400 truncate">
+              {currentBuilder1.college || "Engineering College"}
+            </p>
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {(currentBuilder1.skills && currentBuilder1.skills.length > 0 ? currentBuilder1.skills : ["Full Stack"]).slice(0, 2).map((s) => (
+                <span key={s} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-300 border border-zinc-800">
+                  {s}
+                </span>
+              ))}
+            </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform rotate-1">
+          {/* Card 2: Real Team */}
+          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="text-zinc-300">Backend Slot Filled</span>
-              <span className="text-zinc-500">9m ago</span>
+              <span className="text-zinc-300">Active Squad</span>
+              <span className="text-zinc-500 truncate max-w-[90px]">{currentTeam.hackathon_name || "Hackathon"}</span>
             </div>
-            <p className="text-xs font-semibold text-zinc-200">Rohan Patel joined Axcentra Squad</p>
-            <p className="text-[10px] font-mono text-zinc-400">FastAPI • BITS Pilani Verified</p>
+            <p className="text-xs font-semibold text-zinc-200 truncate">
+              {currentTeam.name}
+            </p>
+            <p className="text-[10px] font-mono text-zinc-400 truncate">
+              {currentTeam.description || "Recruiting teammates"}
+            </p>
           </div>
         </div>
 
-        {/* Right Flank Floating Activity Cards (Linear / Raycast Style - Wide Screens Only) */}
-        <div className="hidden xl:flex absolute right-6 2xl:right-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[250px] z-10 select-none pointer-events-none">
-          <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform rotate-1">
+        {/* Right Flank Real Live Activity Cards (Wide Screens Only) */}
+        <div className="hidden xl:flex absolute right-6 2xl:right-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[260px] z-10 select-none">
+          {/* Card 3: Real Hackathon */}
+          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="text-zinc-300">SIH 2026 Squad</span>
-              <span className="text-zinc-300 font-bold">6/6</span>
+              <span className="text-zinc-300">Featured Hackathon</span>
+              <span className="text-zinc-300 font-bold truncate">
+                {formatPrizeDisplay(currentHackathon.prize_pool, currentHackathon.currency) || "Open"}
+              </span>
             </div>
-            <p className="text-xs font-semibold text-zinc-200">Full Team Structure Verified</p>
-            <p className="text-[10px] font-mono text-zinc-400">1+ Female Builder Quota Met ✓</p>
+            <p className="text-xs font-semibold text-zinc-200 truncate">
+              {currentHackathon.name}
+            </p>
+            <p className="text-[10px] font-mono text-zinc-400 truncate">
+              {currentHackathon.mode || "Online"}{currentHackathon.location ? ` • ${currentHackathon.location}` : ""}
+            </p>
           </div>
 
-          <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform -rotate-1">
+          {/* Card 4: Real Builder 2 */}
+          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform -rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="text-zinc-300">Active Hackathon</span>
-              <span className="text-zinc-500">2d left</span>
+              <span className="text-zinc-300">Co-Builder Profile</span>
+              <span className="text-zinc-500">Live</span>
             </div>
-            <p className="text-xs font-semibold text-zinc-200">Smart Odisha Hackathon 2026</p>
-            <p className="text-[10px] font-mono text-zinc-400">₹2,50,000 Prize Pool • 14 Teams</p>
+            <p className="text-xs font-semibold text-zinc-200 truncate">
+              {currentBuilder2.full_name || "Active Builder"}
+            </p>
+            <p className="text-[10px] font-mono text-zinc-400 truncate">
+              {currentBuilder2.college || "Engineering College"}
+            </p>
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {(currentBuilder2.skills && currentBuilder2.skills.length > 0 ? currentBuilder2.skills : ["Full Stack"]).slice(0, 2).map((s) => (
+                <span key={s} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-300 border border-zinc-800">
+                  {s}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 

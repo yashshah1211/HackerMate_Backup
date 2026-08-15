@@ -14,6 +14,7 @@ export type RealProfile = {
   skills: string[] | null;
   avatar_url: string | null;
   github_url?: string | null;
+  created_at?: string | null;
 };
 
 export type RealHackathon = {
@@ -57,23 +58,23 @@ export async function getLandingData(): Promise<LandingData> {
 
     const { data: builders } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, college, bio, skills, avatar_url, github_url")
+      .select("id, full_name, college, bio, skills, avatar_url, github_url, created_at")
       .not("full_name", "is", null)
       .eq("onboarding_completed", true)
       .order("created_at", { ascending: false })
-      .limit(8);
+      .limit(20);
 
     const { data: hackathons } = await supabaseAdmin
       .from("hackathons")
-      .select("id, name, mode, location, prize_pool, tags, type, website_url, start_date")
+      .select("id, name, mode, location, prize_pool, currency, tags, type, website_url, start_date")
       .order("start_date", { ascending: false })
-      .limit(6);
+      .limit(12);
 
     const { data: rawTeams } = await supabaseAdmin
       .from("teams")
       .select("id, name, description, max_members, team_hackathons(hackathons(name))")
       .order("created_at", { ascending: false })
-      .limit(6);
+      .limit(12);
 
     const teams: RealTeam[] = (rawTeams || []).map((t: any) => {
       let hackathonName: string | null = null;
