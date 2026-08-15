@@ -34,22 +34,26 @@ export async function POST(req: NextRequest) {
 
 async function handleSihDailyPdfReport(req: NextRequest) {
   try {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      console.error("[SIH Daily PDF Cron] CRON_SECRET is not configured on the server.");
+      return NextResponse.json(
+        { error: "Server misconfiguration: CRON_SECRET is required." },
+        { status: 500 }
+      );
+    }
+
     // 1. Verify Secret Authorization (allows Vercel Cron or manual query key)
-    const authHeader = req.headers.get("authorization");
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     const { searchParams } = new URL(req.url);
     const secret = searchParams.get("secret");
 
-    const expectedSecret = process.env.CRON_SECRET || process.env.NOTIFICATION_WEBHOOK_SECRET || "sih_daily_report_secret";
-    const isAuthorizedHeader = authHeader === `Bearer ${expectedSecret}`;
-    const isAuthorizedQuery = secret === expectedSecret;
+    const isAuthorizedHeader = authHeader === `Bearer ${cronSecret}`;
+    const isAuthorizedQuery = secret === cronSecret;
 
-    // Allow internal admin triggers if authenticated session, or secret match
     if (!isAuthorizedHeader && !isAuthorizedQuery) {
-      // Check if manual trigger from admin session
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader && process.env.NODE_ENV === "production") {
-        console.warn("[SIH Daily PDF Cron] Unauthorized trigger attempt.");
-      }
+      console.warn("[SIH Daily PDF Cron] Unauthorized trigger attempt.");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const targetRecipient = "yashshah7117@gmail.com";

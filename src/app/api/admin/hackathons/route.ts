@@ -3,23 +3,22 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
+const SUPER_ADMINS = ["yashshah7117@gmail.com"];
+
 async function checkIsUserAdmin(user: any, supabaseAdmin: any): Promise<boolean> {
-  if (!user) return false;
-  const email = user.email?.toLowerCase() || "";
-  if (
-    email === "yashshah7117@gmail.com" ||
-    email.includes("admin")
-  ) {
+  if (!user || !user.email) return false;
+  const email = user.email.toLowerCase().trim();
+  if (SUPER_ADMINS.includes(email)) {
     return true;
   }
   try {
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("is_admin, role")
+      .select("role")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profile && (profile.is_admin || profile.role === "admin")) {
+    if (profile && profile.role === "admin") {
       return true;
     }
   } catch (err) {

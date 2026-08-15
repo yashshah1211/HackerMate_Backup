@@ -3,6 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
+const SUPER_ADMINS = ["yashshah7117@gmail.com"];
+
 export async function GET(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -35,16 +37,19 @@ export async function GET(req: NextRequest) {
     );
 
     // Verify Admin Authorization
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("is_admin, role, email")
-      .eq("id", user.id)
-      .maybeSingle();
+    const userEmailClean = user.email?.toLowerCase().trim() || "";
+    const isSuperAdmin = SUPER_ADMINS.includes(userEmailClean);
 
-    const isAuthorized =
-      profile?.is_admin ||
-      user.email === "yashshah7117@gmail.com" ||
-      user.email?.includes("admin");
+    let isAuthorized = isSuperAdmin;
+    if (!isAuthorized) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      isAuthorized = profile?.role === "admin";
+    }
 
     if (!isAuthorized) {
       return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });
@@ -123,16 +128,19 @@ export async function POST(req: NextRequest) {
     );
 
     // Verify Admin Authorization
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("is_admin, role, email")
-      .eq("id", user.id)
-      .maybeSingle();
+    const userEmailClean = user.email?.toLowerCase().trim() || "";
+    const isSuperAdmin = SUPER_ADMINS.includes(userEmailClean);
 
-    const isAuthorized =
-      profile?.is_admin ||
-      user.email === "yashshah7117@gmail.com" ||
-      user.email?.includes("admin");
+    let isAuthorized = isSuperAdmin;
+    if (!isAuthorized) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      isAuthorized = profile?.role === "admin";
+    }
 
     if (!isAuthorized) {
       return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });

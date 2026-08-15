@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
     "/messages",
     "/my-teams",
     "/admin",
+    "/api/admin",
     "/hackathons/create",
   ];
 

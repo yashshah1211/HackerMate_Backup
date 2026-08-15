@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { extractTextFromPDF, extractPresentationFromUrl } from "@/lib/ppt/presentationExtractor";
+import { extractTextFromPDF, extractPresentationFromUrl, validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
 import { runPitchDeckEvaluation } from "@/lib/ppt/evaluatorEngine";
 
 function getSupabaseAdmin() {
@@ -96,6 +96,13 @@ export async function POST(
         { error: "Please upload a PDF presentation file or provide a Google Slides presentation link." },
         { status: 400 }
       );
+    }
+
+    if (externalLinkUrl) {
+      const urlCheck = validatePresentationUrl(externalLinkUrl);
+      if (!urlCheck.valid) {
+        return NextResponse.json({ error: urlCheck.error }, { status: 400 });
+      }
     }
 
     // 5. Version numbering
