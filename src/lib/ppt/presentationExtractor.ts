@@ -1,4 +1,4 @@
-import { PDFParse } from "pdf-parse";
+import { extractText } from "unpdf";
 
 export interface ExtractedSlide {
   slideNumber: number;
@@ -27,24 +27,23 @@ export const SIH_SLIDE_CATEGORIES = [
 ];
 
 /**
- * Extracts plain text from an uploaded PDF binary buffer using pdf-parse v2.
+ * Extracts plain text from an uploaded PDF binary buffer using unpdf (Next.js / serverless compatible).
  */
 export async function extractTextFromPDF(pdfBuffer: Buffer): Promise<ExtractionResult> {
   try {
     const uint8Data = new Uint8Array(pdfBuffer);
-    const parser = new PDFParse(uint8Data);
-    const textResult = await parser.getText();
+    const textResult = await extractText(uint8Data, { mergePages: false });
 
-    const fullText = textResult?.text || "";
-    const pages = textResult?.pages || [];
+    const pages = (textResult?.text || []).map((p) => sanitizeExtractedText(p || ""));
+    const fullText = pages.join("\n\n").trim();
 
     let slideChunks: string[] = [];
 
     if (pages.length >= 2) {
-      slideChunks = pages.map((p) => sanitizeExtractedText(p.text || "")).filter((s) => s.length > 5);
+      slideChunks = pages.filter((s) => s.length > 5);
     }
 
-    if (slideChunks.length === 0 && fullText.trim().length > 20) {
+    if (slideChunks.length === 0 && fullText.length > 20) {
       slideChunks = segmentSlidesFromText(fullText);
     }
 

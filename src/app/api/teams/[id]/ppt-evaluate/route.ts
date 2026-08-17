@@ -123,6 +123,24 @@ export async function POST(
 
     // 6. Extract Text & Upload
     if (file) {
+      const fileNameLower = file.name.toLowerCase();
+      if (fileNameLower.endsWith(".pptx") || fileNameLower.endsWith(".ppt")) {
+        return NextResponse.json(
+          {
+            error:
+              "PowerPoint files (.pptx / .ppt) cannot be parsed directly. Please export or download your presentation as a PDF (.pdf) and upload the PDF file.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!fileNameLower.endsWith(".pdf") && file.type !== "application/pdf") {
+        return NextResponse.json(
+          { error: "Unsupported file type. Please upload a valid presentation PDF document (.pdf)." },
+          { status: 400 }
+        );
+      }
+
       const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json({ error: "File size exceeds 15 MB limit." }, { status: 400 });

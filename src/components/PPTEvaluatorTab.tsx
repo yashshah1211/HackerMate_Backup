@@ -81,6 +81,41 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     loadEvaluations();
   }, [teamId]);
 
+  function handleFileSelection(selectedFile: File | null) {
+    if (!selectedFile) {
+      setFile(null);
+      return;
+    }
+
+    const name = selectedFile.name.toLowerCase();
+    if (name.endsWith(".pptx") || name.endsWith(".ppt")) {
+      setErrorMsg(
+        "PowerPoint files (.pptx / .ppt) cannot be evaluated directly. Please export or download your presentation as a PDF (.pdf) and upload that."
+      );
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (!name.endsWith(".pdf") && selectedFile.type !== "application/pdf") {
+      setErrorMsg("Only PDF files (.pdf) are supported. Please select a valid PDF presentation.");
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const MAX_SIZE = 15 * 1024 * 1024;
+    if (selectedFile.size > MAX_SIZE) {
+      setErrorMsg("File size exceeds 15 MB limit. Please compress or optimize your PDF.");
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setErrorMsg(null);
+    setFile(selectedFile);
+  }
+
   async function loadEvaluations() {
     setLoading(true);
     try {
@@ -99,7 +134,8 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         },
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
         const list = data.evaluations || [];
         setEvaluations(list);
@@ -120,9 +156,22 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (inputMode === "upload" && !file) {
-      setErrorMsg("Please select a presentation PDF file to upload.");
-      return;
+    if (inputMode === "upload") {
+      if (!file) {
+        setErrorMsg("Please select a presentation PDF file to upload.");
+        return;
+      }
+      const name = file.name.toLowerCase();
+      if (name.endsWith(".pptx") || name.endsWith(".ppt")) {
+        setErrorMsg(
+          "PowerPoint files (.pptx / .ppt) must be exported to PDF format first. Open PowerPoint or Google Slides, choose 'Export/Download as PDF', and upload the .pdf file."
+        );
+        return;
+      }
+      if (!name.endsWith(".pdf") && file.type !== "application/pdf") {
+        setErrorMsg("Only PDF files (.pdf) are supported. Please select a valid PDF presentation.");
+        return;
+      }
     }
 
     if (inputMode === "link" && !externalLink.trim()) {
@@ -161,11 +210,24 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         body: formData,
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
 
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error || "Evaluation failed. Please try again.");
-      } else if (data.evaluation) {
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const rawText = await res.text();
+        console.error("[PPTEvaluatorTab] Server error response:", res.status, rawText.slice(0, 300));
+        setErrorMsg(
+          `Server returned status ${res.status} (${res.statusText || "Error"}). Please verify your presentation file is a valid PDF and try again.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!res.ok || data?.error) {
+        setErrorMsg(data?.error || "Evaluation failed. Please try again.");
+      } else if (data?.evaluation) {
         setEvaluations((prev) => [data.evaluation, ...prev]);
         setSelectedEval(data.evaluation);
         setFile(null);
@@ -173,6 +235,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch (err: any) {
+      console.error("[PPTEvaluatorTab] Network/Evaluation exception:", err);
       setErrorMsg(err.message || "Network exception occurred during evaluation.");
     } finally {
       setIsSubmitting(false);
@@ -200,10 +263,14 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         },
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      }
 
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error || "Failed to delete evaluation record.");
+      if (!res.ok || data?.error) {
+        setErrorMsg(data?.error || "Failed to delete evaluation record.");
       } else {
         const remaining = evaluations.filter((e) => e.id !== evalId);
         setEvaluations(remaining);
@@ -373,7 +440,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   ref={fileInputRef}
                   type="file"
                   accept=".pdf,application/pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={(e) => handleFileSelection(e.target.files?.[0] || null)}
                   className="hidden"
                 />
               </div>
@@ -441,7 +508,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           {/* 4 Core Rubric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Novelty */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
@@ -457,13 +524,13 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_novelty / 25) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.novelty || "Originality and problem alignment analysis complete."}
               </p>
             </div>
 
             {/* Technical Architecture */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
@@ -479,13 +546,13 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_tech / 35) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.tech || "Tech stack feasibility and pipeline architecture analysis."}
               </p>
             </div>
 
             {/* UI/UX & Polish */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -501,13 +568,13 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_ui_ux / 25) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Interface presentation, prototype demo, and quantified metrics."}
               </p>
             </div>
 
             {/* Team Squad & Rules */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
@@ -523,7 +590,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_team / 15) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.team || "6-member squad size, female builder rule, and 6-slide max compliance."}
               </p>
             </div>
