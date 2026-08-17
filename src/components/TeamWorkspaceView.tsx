@@ -47,7 +47,7 @@ type InviteProfile = {
   skills: string[] | null;
 };
 
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
+type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 type Props = {
   team: Team;
@@ -57,44 +57,6 @@ type Props = {
   listedHackathons?: { id: string; name: string; description?: string | null; start_date?: string; end_date?: string }[];
   refreshTeam?: () => void;
 };
-
-function parseHackathonRequirements(description: string | null | undefined): { id: string; label: string; checked: boolean }[] {
-  const defaults = [
-    { id: "1", label: "Push source code to GitHub repository", checked: false },
-    { id: "2", label: "Deploy project to production (Live Demo URL)", checked: false },
-    { id: "3", label: "Finalize presentation deck / slides", checked: false },
-    { id: "4", label: "Record and upload project video pitch", checked: false },
-    { id: "5", label: "Submission created on Devpost/Portal", checked: false },
-  ];
-
-  if (!description) return defaults;
-
-  const descLower = description.toLowerCase();
-  const requirements = [];
-  let currentId = 1;
-
-  if (descLower.includes("github") || descLower.includes("repository") || descLower.includes("source code") || descLower.includes("repo")) {
-    requirements.push({ id: String(currentId++), label: "Push source code to GitHub repository", checked: false });
-  }
-
-  if (descLower.includes("deploy") || descLower.includes("live link") || descLower.includes("live demo") || descLower.includes("vercel") || descLower.includes("netlify") || descLower.includes("prototype link") || descLower.includes("working prototype")) {
-    requirements.push({ id: String(currentId++), label: "Deploy project to production (Live Demo URL)", checked: false });
-  }
-
-  if (descLower.includes("ppt") || descLower.includes("pitch deck") || descLower.includes("slides") || descLower.includes("presentation") || descLower.includes("powerpoint") || descLower.includes("proposal document")) {
-    requirements.push({ id: String(currentId++), label: "Finalize presentation deck / slides", checked: false });
-  }
-
-  if (descLower.includes("video") || descLower.includes("pitch video") || descLower.includes("loom") || descLower.includes("demonstration video") || descLower.includes("youtube")) {
-    requirements.push({ id: String(currentId++), label: "Record and upload project video pitch", checked: false });
-  }
-
-  if (descLower.includes("figma") || descLower.includes("ui/ux") || descLower.includes("design prototype") || descLower.includes("wireframe") || descLower.includes("poster")) {
-    requirements.push({ id: String(currentId++), label: "Complete UI/UX design prototype in Figma", checked: false });
-  }
-
-  return requirements.length > 0 ? requirements : defaults;
-}
 
 export default function TeamWorkspaceView({
   team,
@@ -308,32 +270,6 @@ export default function TeamWorkspaceView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceTab, activeGithubRepoUrl]);
 
-
-  // Project Submission Tab State
-  type ChecklistItem = {
-    id: string;
-    label: string;
-    checked: boolean;
-  };
-  type SubmissionData = {
-    projectTitle: string;
-    demoUrl: string;
-    githubUrl: string;
-    pitchVideoUrl: string;
-    slidesUrl: string;
-    checklist: ChecklistItem[];
-  };
-
-  const [submission, setSubmission] = useState<SubmissionData>({
-    projectTitle: "",
-    demoUrl: "",
-    githubUrl: "",
-    pitchVideoUrl: "",
-    slidesUrl: "",
-    checklist: [],
-  });
-
-  const [newChecklistItem, setNewChecklistItem] = useState("");
 
   // Tasks Tab State
   type Task = {
@@ -851,139 +787,6 @@ export default function TeamWorkspaceView({
           });
       }
     }
-  };
-
-  const [savingSubmission, setSavingSubmission] = useState(false);
-
-  // Load and save submission checklist
-  useEffect(() => {
-    if (!team.id) return;
-    
-    const primaryHackathon = listedHackathons && listedHackathons[0];
-    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
-
-    const loadSubmission = async () => {
-      try {
-        let query = supabase
-          .from("team_submissions")
-          .select("*")
-          .eq("team_id", team.id);
-
-        if (currentHackathonId) {
-          query = query.eq("hackathon_id", currentHackathonId);
-        }
-
-        const { data, error } = await query.maybeSingle();
-
-        if (error) {
-          console.error("Error loading team submissions:", error);
-          return;
-        }
-
-        const parsedChecklist = parseHackathonRequirements(primaryHackathon?.description);
-
-        if (data) {
-          setSubmission({
-            projectTitle: data.project_title || "",
-            demoUrl: data.demo_url || "",
-            githubUrl: data.github_url || "",
-            pitchVideoUrl: data.pitch_video_url || "",
-            slidesUrl: data.slides_url || "",
-            checklist: data.checklist && data.checklist.length > 0 ? data.checklist : parsedChecklist,
-          });
-        } else {
-          setSubmission({
-            projectTitle: "",
-            demoUrl: "",
-            githubUrl: "",
-            pitchVideoUrl: "",
-            slidesUrl: "",
-            checklist: parsedChecklist,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load submission:", err);
-      }
-    };
-
-    loadSubmission();
-  }, [team.id, team.hackathon_id, listedHackathons]);
-
-  const handleSaveSubmission = async () => {
-    const primaryHackathon = listedHackathons && listedHackathons[0];
-    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
-
-    if (!currentHackathonId) {
-      showToast("Cannot save submission: No active hackathon linked to team.", "error");
-      return;
-    }
-
-    setSavingSubmission(true);
-    const hasContent = (submission.projectTitle || "").trim() || (submission.demoUrl || "").trim() || (submission.githubUrl || "").trim();
-    const completionStatus = hasContent ? "submitted" : "draft";
-
-    try {
-      const { error } = await supabase
-        .from("team_submissions")
-        .upsert(
-          {
-            team_id: team.id,
-            hackathon_id: currentHackathonId,
-            project_title: submission.projectTitle,
-            demo_url: submission.demoUrl,
-            github_url: submission.githubUrl,
-            pitch_video_url: submission.pitchVideoUrl,
-            slides_url: submission.slidesUrl,
-            checklist: submission.checklist,
-            completion_status: completionStatus,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "team_id,hackathon_id" }
-        );
-
-
-      if (error) {
-        showToast(error.message, "error");
-      } else {
-        showToast("Submission deck saved successfully!", "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to save submission.", "error");
-    } finally {
-      setSavingSubmission(false);
-    }
-  };
-
-
-  const handleToggleChecklist = (itemId: string) => {
-    setSubmission((prev) => ({
-      ...prev,
-      checklist: prev.checklist.map((item) =>
-        item.id === itemId ? { ...item, checked: !item.checked } : item
-      ),
-    }));
-  };
-
-  const handleAddChecklistItem = () => {
-    if (!newChecklistItem.trim()) return;
-    const newItem: ChecklistItem = {
-      id: Date.now().toString(),
-      label: newChecklistItem.trim(),
-      checked: false,
-    };
-    setSubmission((prev) => ({
-      ...prev,
-      checklist: [...prev.checklist, newItem],
-    }));
-    setNewChecklistItem("");
-  };
-
-  const handleDeleteChecklistItem = (itemId: string) => {
-    setSubmission((prev) => ({
-      ...prev,
-      checklist: prev.checklist.filter((item) => item.id !== itemId),
-    }));
   };
 
   // Update Task Status
@@ -1798,10 +1601,6 @@ export default function TeamWorkspaceView({
   const completedTasksCount = tasks.filter((t) => t.status === "completed").length;
   const taskProgressPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  const totalChecklistCount = submission?.checklist?.length || 0;
-  const completedChecklistCount = submission?.checklist?.filter((c) => c.checked).length || 0;
-  const checklistProgressPct = totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0;
-
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
       {/* Header Back Link to Team Overview */}
@@ -1933,19 +1732,6 @@ export default function TeamWorkspaceView({
                   />
                 </div>
               </div>
-
-              <div className="flex flex-col gap-1.5 min-w-[125px]">
-                <div className="flex items-center justify-between text-[9px] font-mono">
-                  <span className="text-zinc-500 uppercase tracking-wider">Milestones</span>
-                  <span className="text-zinc-350 font-bold">{completedChecklistCount}/{totalChecklistCount} ({checklistProgressPct}%)</span>
-                </div>
-                <div className="w-full h-1.5 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
-                    style={{ width: `${checklistProgressPct}%` }}
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -2051,7 +1837,6 @@ export default function TeamWorkspaceView({
               { id: "tasks", label: "Tasks" },
               { id: "brainstorm", label: "Brainstorm" },
               { id: "resources", label: "Resources" },
-              { id: "submission", label: "Submission" },
               { id: "github", label: "GitHub Sync" },
               { id: "deployments", label: "🚀 Deployments" },
               { id: "activity", label: "Activity Feed" },
@@ -2567,174 +2352,7 @@ export default function TeamWorkspaceView({
             </div>
           )}
 
-          {/* 5. SUBMISSION TAB */}
-          {workspaceTab === "submission" && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Submission Deck</h3>
-                <button
-                  onClick={handleSaveSubmission}
-                  disabled={savingSubmission}
-                  className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {savingSubmission ? (
-                    <div className="w-3.5 h-3.5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
-                  <span>{savingSubmission ? "Saving..." : "Save Submission"}</span>
-                </button>
-              </div>
 
-              {listedHackathons && listedHackathons.length > 0 && (
-                <div className="card card-static p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between gap-4">
-                  <div className="text-left">
-                    <h4 className="text-xs font-bold text-emerald-400 font-mono uppercase tracking-wider">Active Hackathon: {listedHackathons[0].name}</h4>
-                    <p className="text-[10px] text-zinc-400 mt-0.5">Your submission checklist is dynamically tailored to this event&apos;s description requirements.</p>
-                  </div>
-                  <span className="px-2 py-0.5 text-[8px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded uppercase font-mono tracking-widest leading-none shrink-0">
-                    Tailored
-                  </span>
-                </div>
-              )}
-
-              {/* Progress bar */}
-              {(() => {
-                const completedCount = submission.checklist.filter((item) => item.checked).length;
-                const totalCount = submission.checklist.length;
-                const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-                return (
-                  <div className="card card-static p-6 bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="text-left">
-                        <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider mb-1">Submission Readiness</h4>
-                        <p className="text-xs text-zinc-400">Track your project completion checklist before the final hackathon deadline.</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-48 bg-zinc-955 rounded-full h-2.5 overflow-hidden border border-zinc-800">
-                          <div className="bg-gradient-to-r from-violet-500 to-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
-                        </div>
-                        <span className="text-sm font-bold text-white font-mono">{percent}%</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Inputs */}
-                <div className="card card-static p-6 space-y-4">
-                  <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 text-left">Project Metadata</h4>
-                  
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Project Title</label>
-                    <input
-                      type="text"
-                      value={submission.projectTitle}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, projectTitle: e.target.value }))}
-                      placeholder="e.g. HackerMate OS"
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">GitHub Repository Link</label>
-                    <input
-                      type="text"
-                      value={submission.githubUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, githubUrl: e.target.value }))}
-                      placeholder="https://github.com/..."
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Live Demo URL</label>
-                    <input
-                      type="text"
-                      value={submission.demoUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, demoUrl: e.target.value }))}
-                      placeholder="https://..."
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Video Pitch Link</label>
-                    <input
-                      type="text"
-                      value={submission.pitchVideoUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, pitchVideoUrl: e.target.value }))}
-                      placeholder="https://youtube.com/watch?v=... or Loom"
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Presentation Slides / PDF Link</label>
-                    <input
-                      type="text"
-                      value={submission.slidesUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, slidesUrl: e.target.value }))}
-                      placeholder="https://docs.google.com/presentation/... or Canva"
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-                </div>
-
-                {/* Checklist */}
-                <div className="card card-static p-6 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 mb-4 text-left">Milestones Checklist</h4>
-                    
-                    <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
-                      {submission.checklist.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between group/check p-2 rounded-lg bg-zinc-950/60 border border-zinc-900/60 hover:border-zinc-800/80 transition-colors">
-                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300 hover:text-white select-none min-w-0 flex-1">
-                            <input
-                              type="checkbox"
-                              checked={item.checked}
-                              onChange={() => handleToggleChecklist(item.id)}
-                              className="w-3.5 h-3.5 rounded border-zinc-800 bg-zinc-900 text-primary-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                            />
-                            <span className={`truncate ${item.checked ? "line-through text-zinc-500" : ""}`}>{item.label}</span>
-                          </label>
-                          <button
-                            onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover/check:opacity-100 text-zinc-600 hover:text-rose-400 transition-opacity ml-2 shrink-0 cursor-pointer"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-zinc-800/60 flex gap-2">
-                    <input
-                      type="text"
-                      value={newChecklistItem}
-                      onChange={(e) => setNewChecklistItem(e.target.value)}
-                      placeholder="Add custom task..."
-                      className="input text-xs flex-1 py-1 px-3 bg-zinc-950 border-zinc-900 focus:border-zinc-800"
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
-                    />
-                    <button
-                      onClick={handleAddChecklistItem}
-                      disabled={!newChecklistItem.trim()}
-                      className="btn btn-secondary text-xs px-3 py-1 flex items-center justify-center disabled:opacity-50 cursor-pointer"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* 6. GITHUB TAB */}
           {workspaceTab === "github" && (

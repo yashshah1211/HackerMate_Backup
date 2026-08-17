@@ -32,7 +32,7 @@ type Member = {
   };
 };
 
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments";
+type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 function TeamWorkspaceContent() {
   const router = useRouter();

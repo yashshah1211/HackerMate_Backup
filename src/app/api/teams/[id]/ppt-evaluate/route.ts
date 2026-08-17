@@ -84,25 +84,34 @@ export async function POST(
       );
     }
 
-    // 4. Parse Form Payload
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
-    const psTitle = (formData.get("ps_title") as string)?.trim() || "SIH 2026 Problem Statement";
-    const psCategory = (formData.get("ps_category") as string)?.trim() || "software";
+    // 4. Parse Presentation Link Payload
+    let externalLinkUrl: string | null = null;
+    let psTitle = "SIH 2026 Problem Statement";
+    let psCategory = "software";
 
-    if (!file && !externalLinkUrl) {
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await req.json().catch(() => ({}));
+      externalLinkUrl = body.external_link_url?.trim() || null;
+      psTitle = body.ps_title?.trim() || "SIH 2026 Problem Statement";
+      psCategory = body.ps_category?.trim() || "software";
+    } else {
+      const formData = await req.formData().catch(() => new FormData());
+      externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
+      psTitle = (formData.get("ps_title") as string)?.trim() || "SIH 2026 Problem Statement";
+      psCategory = (formData.get("ps_category") as string)?.trim() || "software";
+    }
+
+    if (!externalLinkUrl) {
       return NextResponse.json(
-        { error: "Please upload a PDF presentation file or provide a Google Slides presentation link." },
+        { error: "Please provide a Google Slides or Google Drive presentation link." },
         { status: 400 }
       );
     }
 
-    if (externalLinkUrl) {
-      const urlCheck = validatePresentationUrl(externalLinkUrl);
-      if (!urlCheck.valid) {
-        return NextResponse.json({ error: urlCheck.error }, { status: 400 });
-      }
+    const urlCheck = validatePresentationUrl(externalLinkUrl);
+    if (!urlCheck.valid) {
+      return NextResponse.json({ error: urlCheck.error }, { status: 400 });
     }
 
     // 5. Version numbering
@@ -115,64 +124,27 @@ export async function POST(
 
     const currentVersion = (versionRows?.[0]?.version || 0) + 1;
 
-    let pptStorageUrl = externalLinkUrl || "";
-    let fileName = file ? file.name : "Google_Slides_Presentation.gslides";
-    let submissionType = file ? "pdf_upload" : "external_link";
+    let pptStorageUrl = externalLinkUrl;
+    let fileName = "Google_Slides_Presentation.gslides";
+    let submissionType = "external_link";
     let extractedDocText = "";
     let extractedSlidesList: any[] = [];
 
-    // 6. Extract Text & Upload
-    if (file) {
-      const fileNameLower = file.name.toLowerCase();
-      if (fileNameLower.endsWith(".pptx") || fileNameLower.endsWith(".ppt")) {
-        return NextResponse.json(
-          {
-            error:
-              "PowerPoint files (.pptx / .ppt) cannot be parsed directly. Please export or download your presentation as a PDF (.pdf) and upload the PDF file.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (!fileNameLower.endsWith(".pdf") && file.type !== "application/pdf") {
-        return NextResponse.json(
-          { error: "Unsupported file type. Please upload a valid presentation PDF document (.pdf)." },
-          { status: 400 }
-        );
-      }
-
-      const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
-      if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json({ error: "File size exceeds 15 MB limit." }, { status: 400 });
-      }
-
-      const arrBuffer = await file.arrayBuffer();
-      const pdfBuffer = Buffer.from(arrBuffer);
-      pptStorageUrl = file.name; // In-memory reference for file metadata
-
-      // Extract text directly in-memory via pdf-parse v2 (0 storage used)
-      const extraction = await extractTextFromPDF(pdfBuffer);
-      if (!extraction.success || extraction.slides.length === 0) {
-        return NextResponse.json(
-          { error: extraction.errorMessage || "Failed to extract text from PDF slides." },
-          { status: 422 }
-        );
-      }
-
-      extractedDocText = extraction.rawDocumentText;
-      extractedSlidesList = extraction.slides;
-    } else if (externalLinkUrl) {
-      const extraction = await extractPresentationFromUrl(externalLinkUrl);
-      if (!extraction.success || extraction.slides.length === 0) {
-        return NextResponse.json(
-          { error: extraction.errorMessage || "Failed to extract text from presentation link." },
-          { status: 422 }
-        );
-      }
-
-      extractedDocText = extraction.rawDocumentText;
-      extractedSlidesList = extraction.slides;
+    // 6. Extract Text from Presentation Link
+    const extraction = await extractPresentationFromUrl(externalLinkUrl);
+    if (!extraction.success || extraction.slides.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            extraction.errorMessage ||
+            "Failed to extract text from presentation link. Please make sure the link sharing permissions are set to 'Anyone with the link can view'.",
+        },
+        { status: 422 }
+      );
     }
+
+    extractedDocText = extraction.rawDocumentText;
+    extractedSlidesList = extraction.slides;
 
     // 7. Team Composition Metadata
     const members = teamData?.team_members || [];
