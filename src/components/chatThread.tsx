@@ -45,6 +45,11 @@ type Props = {
 
 const STANDARD_EMOJIS = ["👍", "❤️", "🔥", "🚀", "🎉", "😂", "👀"];
 
+const HACKATHON_EMOJIS = [
+  "🚀", "🔥", "💻", "💡", "🐛", "⚡", "🤝", "🙌",
+  "🎯", "✨", "💯", "🧠", "☕", "👍", "❤️", "🎉", "😂", "👀"
+];
+
 function TeamInviteCard({ 
   inviteId, 
   teamName, 
@@ -326,26 +331,9 @@ export default function ChatThread({
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSuccessToast, setReportSuccessToast] = useState(false);
 
-  const handleReportMessage = async () => {
-    if (!reportingMsg) return;
-    setSubmittingReport(true);
-    const { error } = await supabase.from("user_reports").insert({
-      reported_id: reportingMsg.sender_id,
-      reporter_id: currentUserId,
-      reason: reportReason,
-      details: reportDetails ? `${reportDetails} (Message preview: ${reportingMsg.content.slice(0, 200)})` : `Reported in chat. Preview: ${reportingMsg.content.slice(0, 200)}`,
-    });
-
-    setSubmittingReport(false);
-    if (!error) {
-      setReportingMsg(null);
-      setReportDetails("");
-      setReportSuccessToast(true);
-      setTimeout(() => setReportSuccessToast(false), 4000);
-    } else {
-      console.error("Report error:", error);
-    }
-  };
+  // Drag-and-drop & Emoji picker state
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const myProfile = profiles[currentUserId] || null;
 
@@ -855,6 +843,27 @@ export default function ChatThread({
     }
   }
 
+  const handleReportMessage = async () => {
+    if (!reportingMsg) return;
+    setSubmittingReport(true);
+    const { error } = await supabase.from("user_reports").insert({
+      reported_id: reportingMsg.sender_id,
+      reporter_id: currentUserId,
+      reason: reportReason,
+      details: reportDetails ? `${reportDetails} (Message preview: ${reportingMsg.content.slice(0, 200)})` : `Reported in chat. Preview: ${reportingMsg.content.slice(0, 200)}`,
+    });
+
+    setSubmittingReport(false);
+    if (!error) {
+      setReportingMsg(null);
+      setReportDetails("");
+      setReportSuccessToast(true);
+      setTimeout(() => setReportSuccessToast(false), 4000);
+    } else {
+      console.error("Report error:", error);
+    }
+  };
+
   async function handleSendQuickInvite(teamId: string, teamName: string) {
     if (!recipientId || isBlocked || sending) return;
 
@@ -895,12 +904,8 @@ export default function ChatThread({
     setSending(false);
   }
 
-  // Image Upload handler with WebP compression
-  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = ""; // reset input
-
+  // Unified image upload handler (for picker, paste, and drag & drop)
+  const uploadAndSendImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       setSafetyError("Please select a valid image file.");
       setTimeout(() => setSafetyError(null), 4000);
@@ -917,10 +922,10 @@ export default function ChatThread({
       setUploadingMedia(true);
       setSafetyError(null);
 
-      // Compress to WebP in browser
+      // Compress to WebP in browser (strips EXIF GPS metadata)
       const compressedBlob = await compressImageToWebP(file);
 
-      // Upload via server endpoint (prevents browser CORS issues)
+      // Upload via server endpoint
       const formData = new FormData();
       formData.append("file", compressedBlob, "image.webp");
       formData.append("folder", "chat_images");
@@ -937,7 +942,7 @@ export default function ChatThread({
 
       const { publicUrl } = await uploadRes.json();
 
-      // 3. Post image message in chat
+      // Post image message in chat
       const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: file.name })}`;
       soundManager.playSent();
 
@@ -957,6 +962,67 @@ export default function ChatThread({
     } finally {
       setUploadingMedia(false);
     }
+  };
+
+  const handleImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    uploadAndSendImageFile(file);
+  };
+
+  // Clipboard Paste handler (Ctrl + V images)
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          uploadAndSendImageFile(file);
+          return;
+        }
+      }
+    }
+  };
+
+  // Drag & Drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingOver) setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0 && files[0].type.startsWith("image/")) {
+      uploadAndSendImageFile(files[0]);
+    }
+  };
+
+  const insertEmoji = (emoji: string) => {
+    setInput((prev) => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const insertCodeBlock = () => {
+    setInput((prev) => {
+      if (prev.trim()) {
+        return `${prev}\n\`\`\`typescript\n// Code snippet\n\n\`\`\`\n`;
+      }
+      return "```typescript\n// Code snippet\n\n```\n";
+    });
   };
 
   // Voice Note Recorder handlers
@@ -980,7 +1046,6 @@ export default function ChatThread({
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
           if (prev >= 120) {
-            // max 2 minutes
             stopAndSendVoiceNote();
             return prev;
           }
@@ -1022,7 +1087,7 @@ export default function ChatThread({
       setRecordingSeconds(0);
 
       if (audioBlob.size < 500 || finalSeconds < 1) {
-        return; // too short
+        return;
       }
 
       try {
@@ -1193,11 +1258,11 @@ export default function ChatThread({
         const payloadStr = content.substring("__IMAGE__::".length);
         const payload = JSON.parse(payloadStr);
         return (
-          <div className="my-1.5 overflow-hidden rounded-xl max-w-xs border border-zinc-200 dark:border-zinc-800 shadow-sm group/img cursor-pointer" onClick={() => setLightboxImg(payload.url)}>
+          <div className="my-1.5 overflow-hidden rounded-2xl max-w-xs border border-zinc-700/60 shadow-md group/img cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setLightboxImg(payload.url)}>
             <img
               src={payload.url}
               alt={payload.name || "Photo attachment"}
-              className="w-full max-h-72 object-cover transition-transform duration-200 group-hover/img:scale-105"
+              className="w-full max-h-72 object-cover"
               loading="lazy"
             />
           </div>
@@ -1274,8 +1339,8 @@ export default function ChatThread({
                     rel="noreferrer"
                     className={`underline underline-offset-2 break-all ${
                       isMine 
-                        ? "text-blue-200 hover:text-white font-semibold" 
-                        : "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold"
+                        ? "text-blue-100 hover:text-white font-semibold" 
+                        : "text-blue-400 hover:text-blue-300 font-semibold"
                     }`}
                   >
                     {part}
@@ -1297,7 +1362,25 @@ export default function ChatThread({
   const activeTyperNames = Object.values(typingUsers).map((u) => u.fullName);
 
   return (
-    <div className="card card-static flex flex-col overflow-hidden relative">
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`card card-static flex flex-col overflow-hidden relative transition-all ${
+        isDraggingOver ? "ring-2 ring-violet-500 bg-violet-950/20" : ""
+      }`}
+    >
+      {/* Drag & Drop Visual Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 bg-violet-950/80 backdrop-blur-xs border-2 border-dashed border-violet-400 rounded-2xl flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-none">
+          <div className="w-12 h-12 rounded-2xl bg-violet-600/30 flex items-center justify-center text-2xl mb-2 animate-bounce">
+            📸
+          </div>
+          <p className="text-sm font-bold text-white">Drop image to send in chat</p>
+          <p className="text-xs text-violet-300">Images are optimized and safety-verified</p>
+        </div>
+      )}
+
       {/* Lightbox Modal */}
       {lightboxImg && (
         <ImageLightbox src={lightboxImg} onClose={() => setLightboxImg(null)} />
@@ -1393,7 +1476,7 @@ export default function ChatThread({
           {uploadingMedia && (
             <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
-              Uploading to R2...
+              Uploading media...
             </span>
           )}
         </div>
@@ -1503,17 +1586,17 @@ export default function ChatThread({
                   <img
                     src={sender.avatar_url}
                     alt={sender.full_name}
-                    className="w-7 h-7 rounded object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-800"
+                    className="w-7 h-7 rounded-xl object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-800"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-600 dark:text-zinc-400 flex-shrink-0">
+                  <div className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-600 dark:text-zinc-400 flex-shrink-0">
                     {sender?.full_name?.charAt(0) || "?"}
                   </div>
                 )}
 
                 <div className={`max-w-[75%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
                   {!isMine && (
-                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-0.5 px-0.5">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-0.5 px-0.5 font-medium">
                       {sender?.full_name || "Unknown"}
                     </span>
                   )}
@@ -1522,9 +1605,9 @@ export default function ChatThread({
                   ) : (
                     <div className="group relative">
                       <div
-                        className={`px-3 py-2 rounded-xl text-xs leading-relaxed shadow-xs ${
+                        className={`px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
                           isMine
-                            ? "bg-violet-600 text-white"
+                            ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/10"
                             : isMentioned
                               ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-300 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 shadow-xs"
                               : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100"
@@ -1533,9 +1616,9 @@ export default function ChatThread({
                         {msg.reply_to_id && (
                           <div
                             onClick={() => scrollToMessage(msg.reply_to_id!)}
-                            className={`mb-1.5 p-2 rounded-lg border text-[11px] cursor-pointer transition-all ${
+                            className={`mb-2 p-2 rounded-xl border text-[11px] cursor-pointer transition-all ${
                               isMine
-                                ? "bg-violet-700/60 border-violet-500/50 text-white hover:bg-violet-700/80"
+                                ? "bg-black/20 border-white/20 text-white hover:bg-black/30"
                                 : "bg-white dark:bg-zinc-950/80 border-zinc-200 dark:border-zinc-800/90 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
                             }`}
                           >
@@ -1545,7 +1628,7 @@ export default function ChatThread({
                                 {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
                               </span>
                             </div>
-                            <p className="truncate opacity-90">
+                            <p className="truncate opacity-90 text-[10px]">
                               {parentMsg
                                 ? parentMsg.content.startsWith("__TEAM_INVITE__::")
                                   ? "✉️ Team Invitation"
@@ -1562,7 +1645,7 @@ export default function ChatThread({
                       </div>
 
                       {/* Floating Action & Quick Reaction Bar */}
-                      <div className={`absolute -top-3 ${isMine ? "-left-2" : "-right-2"} opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-lg z-20`}>
+                      <div className={`absolute -top-3.5 ${isMine ? "-left-2" : "-right-2"} opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-lg z-20`}>
                         {STANDARD_EMOJIS.slice(0, 4).map((emoji) => (
                           <button
                             key={emoji}
@@ -1613,7 +1696,7 @@ export default function ChatThread({
                           key={group.emoji}
                           onClick={() => toggleReaction(msg.id, group.emoji)}
                           title={`${group.userNames.join(", ")} reacted`}
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all cursor-pointer border ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all cursor-pointer border ${
                             group.hasReacted
                               ? "bg-violet-100 dark:bg-violet-950/70 border-violet-400 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold scale-100"
                               : "bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
@@ -1686,7 +1769,7 @@ export default function ChatThread({
         )}
 
         {replyingTo && (
-          <div className="mb-2.5 p-2 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
+          <div className="mb-2.5 p-2 rounded-xl bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-1 h-7 rounded-full bg-violet-500 flex-shrink-0" />
               <div className="min-w-0">
@@ -1739,6 +1822,22 @@ export default function ChatThread({
           </div>
         )}
 
+        {/* Emoji Picker Popover */}
+        {showEmojiPicker && (
+          <div className="absolute bottom-16 left-3 p-2 rounded-2xl bg-zinc-900/95 border border-zinc-800 shadow-2xl backdrop-blur-md z-40 grid grid-cols-6 gap-1 max-w-[240px] animate-fade-in">
+            {HACKATHON_EMOJIS.map((em) => (
+              <button
+                key={em}
+                type="button"
+                onClick={() => insertEmoji(em)}
+                className="p-1.5 hover:bg-zinc-800 rounded-xl text-lg hover:scale-125 transition-transform cursor-pointer"
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Input Bar & Controls */}
         {isRecording ? (
           <div className="flex items-center gap-3 py-1.5 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 animate-pulse">
@@ -1767,14 +1866,14 @@ export default function ChatThread({
             </button>
           </div>
         ) : (
-          <div className="relative flex items-end gap-2">
+          <div className="relative flex items-end gap-1.5">
             {/* Attachment Button (Photo / Image) */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isBlocked || uploadingMedia}
               className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50"
-              title="Attach image"
+              title="Attach image (or drag & drop / Ctrl+V)"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -1794,6 +1893,28 @@ export default function ChatThread({
               </svg>
             </button>
 
+            {/* Emoji Picker Trigger */}
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              disabled={isBlocked || uploadingMedia}
+              className="p-2 rounded-xl text-zinc-500 hover:text-amber-500 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50 text-xs leading-none"
+              title="Add emoji"
+            >
+              😀
+            </button>
+
+            {/* Insert Code Block Button */}
+            <button
+              type="button"
+              onClick={insertCodeBlock}
+              disabled={isBlocked || uploadingMedia}
+              className="p-2 rounded-xl text-zinc-500 hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50 text-[11px] font-mono font-bold leading-none"
+              title="Insert code snippet"
+            >
+              {"</>"}
+            </button>
+
             {/* Textarea */}
             <textarea
               value={input}
@@ -1810,9 +1931,10 @@ export default function ChatThread({
                   setShowMentions(false);
                 }
               }}
+              onPaste={handlePaste}
               onKeyDown={handleKeyDown}
               disabled={isBlocked}
-              placeholder={isBlocked ? "You cannot message this user." : "Type a message... (Markdown code ``` supported)"}
+              placeholder={isBlocked ? "You cannot message this user." : "Type message... (Paste image, drag & drop, or code ``` supported)"}
               rows={2}
               className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-950/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[40px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
             />

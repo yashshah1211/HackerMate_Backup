@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
@@ -24,21 +24,45 @@ type DMConversation = {
   unreadCount: number;
 };
 
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return "";
+  const now = new Date();
+  const date = new Date(iso);
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffSec < 60) return "Just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
+  if (diffSec < 604800) return `${Math.floor(diffSec / 86400)}d`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatPreviewSnippet(content: string | null): string {
+  if (!content) return "Start the conversation";
+  if (content.startsWith("__IMAGE__::")) return "🖼️ Photo attachment";
+  if (content.startsWith("__VOICE__::")) return "🎙️ Voice note";
+  if (content.startsWith("__TEAM_INVITE__::")) return "✉️ Team invitation";
+  if (content.startsWith("```")) return "💻 Code snippet";
+  return content;
+}
+
 function MessagesContent() {
   const router = useRouter();
   const { showToast } = useNotification();
   const searchParams = useSearchParams();
-  const targetUserId = searchParams.get("user"); // for "Message" button deep-link
+  const targetUserId = searchParams.get("user");
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<DMConversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(
-    null
-  );
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeUser, setActiveUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
   const [conversationIds, setConversationIds] = useState<string[]>([]);
+  
+  // Sidebar Search & Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTab, setFilterTab] = useState<"all" | "unread">("all");
 
   useEffect(() => {
     init();
@@ -109,145 +133,160 @@ function MessagesContent() {
     setCurrentUserId(user.id);
     await loadConversations(user.id);
 
-    if (targetUserId && targetUserId !== user.id) {
-      await openOrCreateDM(user.id, targetUserId);
+    if (targetUserId) {
+      await startOrOpenDM(user.id, targetUserId);
     }
 
     setLoading(false);
   }
 
-  async function markConversationRead(conversationId: string) {
-    const { error } = await supabase.rpc("mark_conversation_read", {
-      p_conversation_id: conversationId,
-    });
-    if (error) {
-      console.error(error);
-    }
-  }
-
   async function loadConversations(myId: string) {
-    // Fetch user blocklists
-    const blockedUserIds: string[] = [];
-    const { data: myBlocks } = await supabase
-      .from("blocked_users")
-      .select("blocked_id")
-      .eq("blocker_id", myId);
-
-    const { data: theirBlocks } = await supabase
-      .from("blocked_users")
-      .select("blocker_id")
-      .eq("blocked_id", myId);
-
-    if (myBlocks) {
-      blockedUserIds.push(...myBlocks.map((b) => b.blocked_id));
-    }
-    if (theirBlocks) {
-      blockedUserIds.push(...theirBlocks.map((b) => b.blocker_id));
-    }
-
-    // Get all DM conversation_ids I'm part of
-    const { data: myParticipantRows } = await supabase
+    const { data: myParticipations, error: partError } = await supabase
       .from("conversation_participants")
-      .select("conversation_id, conversations!inner(id, type)")
-      .eq("user_id", myId)
-      .eq("conversations.type", "dm");
+      .select("conversation_id, last_read_at, cleared_at")
+      .eq("user_id", myId);
 
-    const conversationIds = (myParticipantRows || []).map(
-      (r: { conversation_id: string }) => r.conversation_id
-    );
+    if (partError || !myParticipations) {
+      console.error(partError);
+      return;
+    }
 
-    const { data: unreadMessages } = await supabase
-      .from("messages")
-      .select("conversation_id")
-      .in("conversation_id", conversationIds)
-      .neq("sender_id", myId)
-      .eq("is_read", false);
+    const convIds = myParticipations.map((p) => p.conversation_id);
+    setConversationIds(convIds);
 
-    const unreadByConversation: Record<string, number> = {};
-
-    (unreadMessages || []).forEach((msg) => {
-      unreadByConversation[msg.conversation_id] =
-        (unreadByConversation[msg.conversation_id] || 0) + 1;
-    });
-
-    setConversationIds(conversationIds);
-    if (conversationIds.length === 0) {
+    if (convIds.length === 0) {
       setConversations([]);
       return;
     }
 
-    // For each conversation, find the other participant
+    const { data: dmConvs } = await supabase
+      .from("conversations")
+      .select("id")
+      .in("id", convIds)
+      .eq("type", "dm");
+
+    const dmIds = (dmConvs || []).map((c) => c.id);
+    if (dmIds.length === 0) {
+      setConversations([]);
+      return;
+    }
+
     const { data: allParticipants } = await supabase
       .from("conversation_participants")
       .select("conversation_id, user_id")
-      .in("conversation_id", conversationIds);
+      .in("conversation_id", dmIds)
+      .neq("user_id", myId);
 
-    const otherUserIdByConv: Record<string, string> = {};
-    (allParticipants || []).forEach((p) => {
-      if (p.user_id !== myId) {
-        otherUserIdByConv[p.conversation_id] = p.user_id;
-      }
-    });
-
-    const otherUserIds = Array.from(new Set(Object.values(otherUserIdByConv))).filter(
-      (uid) => !blockedUserIds.includes(uid)
+    const otherUserIds = Array.from(
+      new Set((allParticipants || []).map((p) => p.user_id))
     );
 
-    const { data: profiles } = await supabase
+    const { data: profileList } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url, college")
       .in("id", otherUserIds);
 
-    const profileById: Record<string, Profile> = {};
-    (profiles || []).forEach((p) => {
-      profileById[p.id] = p;
+    const profileMap = new Map<string, Profile>();
+    (profileList || []).forEach((p) => profileMap.set(p.id, p));
+
+    const { data: blocks } = await supabase
+      .from("blocked_users")
+      .select("blocked_id, blocker_id")
+      .or(`blocker_id.eq.${myId},blocked_id.eq.${myId}`);
+
+    const blockedSet = new Set<string>();
+    (blocks || []).forEach((b) => {
+      if (b.blocker_id === myId) blockedSet.add(b.blocked_id);
+      if (b.blocked_id === myId) blockedSet.add(b.blocker_id);
     });
 
-    // Last message per conversation
-    const { data: lastMessages } = await supabase
-      .from("messages")
-      .select("conversation_id, content, created_at")
-      .in("conversation_id", conversationIds)
-      .order("created_at", { ascending: false });
+    const results: DMConversation[] = [];
 
-    const lastMsgByConv: Record<string, { content: string; created_at: string }> = {};
-    (lastMessages || []).forEach((m) => {
-      if (!lastMsgByConv[m.conversation_id]) {
-        lastMsgByConv[m.conversation_id] = m;
-      }
-    });
-
-    const enriched: DMConversation[] = conversationIds
-      .map((id) => {
-        const otherId = otherUserIdByConv[id];
-        const profile = profileById[otherId];
-        if (!profile) return null;
-        return {
-          conversationId: id,
-          otherUser: profile,
-          lastMessage: lastMsgByConv[id]?.content || null,
-          lastMessageAt: lastMsgByConv[id]?.created_at || null,
-          unreadCount: unreadByConversation[id] || 0,
-        };
-      })
-      .filter(Boolean) as DMConversation[];
-
-    // Sort: most recent message first
-    enriched.sort((a, b) => {
-      if (!a.lastMessageAt) return 1;
-      if (!b.lastMessageAt) return -1;
-      return (
-        new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    for (const convId of dmIds) {
+      const otherPart = (allParticipants || []).find(
+        (p) => p.conversation_id === convId
       );
+      if (!otherPart) continue;
+
+      if (blockedSet.has(otherPart.user_id)) continue;
+
+      const otherProfile = profileMap.get(otherPart.user_id);
+      if (!otherProfile) continue;
+
+      const myPart = myParticipations.find(
+        (p) => p.conversation_id === convId
+      );
+      const myClearedAt = myPart?.cleared_at || null;
+
+      let msgQuery = supabase
+        .from("messages")
+        .select("content, created_at")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: false });
+
+      if (myClearedAt) {
+        msgQuery = msgQuery.gt("created_at", myClearedAt);
+      }
+
+      const { data: lastMsgData } = await msgQuery.limit(1);
+
+      const lastMsg = lastMsgData && lastMsgData.length > 0 ? lastMsgData[0] : null;
+
+      let unreadQuery = supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", convId)
+        .neq("sender_id", myId);
+
+      if (myPart?.last_read_at) {
+        unreadQuery = unreadQuery.gt("created_at", myPart.last_read_at);
+      }
+      if (myClearedAt) {
+        unreadQuery = unreadQuery.gt("created_at", myClearedAt);
+      }
+
+      const { count: unreadCount } = await unreadQuery;
+
+      results.push({
+        conversationId: convId,
+        otherUser: otherProfile,
+        lastMessage: lastMsg?.content || null,
+        lastMessageAt: lastMsg?.created_at || null,
+        unreadCount: unreadCount || 0,
+      });
+    }
+
+    results.sort((a, b) => {
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
     });
 
-    setConversations(enriched);
+    setConversations(results);
+
+    if (results.length > 0 && !activeConversationId && !targetUserId) {
+      setActiveConversationId(results[0].conversationId);
+      setActiveUser(results[0].otherUser);
+      markConversationRead(results[0].conversationId);
+    }
   }
 
-  async function openOrCreateDM(myId: string, otherUserId: string) {
+  async function markConversationRead(convId: string) {
+    await supabase.rpc("mark_conversation_read", {
+      p_conversation_id: convId,
+    });
+
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.conversationId === convId ? { ...c, unreadCount: 0 } : c
+      )
+    );
+  }
+
+  async function startOrOpenDM(myId: string, otherUserId: string) {
+    if (myId === otherUserId) return;
     setStartingChat(true);
 
-    // Check block list first
     const { data: blockCheck } = await supabase
       .from("blocked_users")
       .select("id")
@@ -300,6 +339,22 @@ function MessagesContent() {
     setActiveUser(conv.otherUser);
   }
 
+  // Filter conversations based on search and tab
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conv) => {
+      const matchesSearch =
+        conv.otherUser.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (conv.otherUser.college && conv.otherUser.college.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (conv.lastMessage && conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      if (!matchesSearch) return false;
+      if (filterTab === "unread") return conv.unreadCount > 0;
+      return true;
+    });
+  }, [conversations, searchQuery, filterTab]);
+
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount > 0 ? 1 : 0), 0);
+
   if (loading || startingChat) {
     return (
       <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
@@ -317,71 +372,155 @@ function MessagesContent() {
 
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
-      <div className="mb-8 animate-fade-in-up">
-        <p className="section-label">DIRECT MESSAGES</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-white mb-1">
-          Direct Messages
-        </h1>
-        <p className="text-xs text-zinc-400">
-          Chat with builders you&apos;re connected with.
-        </p>
+      <div className="mb-6 animate-fade-in-up flex items-center justify-between">
+        <div>
+          <p className="section-label">COMMUNICATION</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-white mb-1">
+            Direct Messages
+          </h1>
+          <p className="text-xs text-zinc-400">
+            Realtime messaging with builder connections & hackathon teammates.
+          </p>
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-[280px_1fr] gap-6 animate-fade-in-up stagger-1">
-        {/* Conversation list */}
-        <div className={`card card-static p-2 h-fit max-h-[600px] overflow-y-auto ${activeConversationId ? "hidden lg:block" : "block"}`}>
-          {conversations.length === 0 ? (
-            <div className="p-4 text-center">
-              <p className="text-zinc-500 text-xs leading-relaxed">
-                No conversations yet. Connect with someone and message them
-                from their profile.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {conversations.map((conv) => (
-                <button
-                  key={conv.conversationId}
-                  onClick={() => selectConversation(conv)}
-                  className={`w-full flex items-center gap-2.5 p-2 rounded text-left transition-colors ${
-                    activeConversationId === conv.conversationId
-                      ? "bg-zinc-900 border border-zinc-800"
-                      : "hover:bg-zinc-900/40 border border-transparent"
-                  }`}
-                >
-                  {conv.otherUser.avatar_url ? (
-                    <img
-                      src={conv.otherUser.avatar_url}
-                      alt={conv.otherUser.full_name}
-                      className="w-8 h-8 rounded object-cover flex-shrink-0 border border-zinc-800"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs flex-shrink-0">
-                      {conv.otherUser.full_name?.charAt(0)}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-white text-xs truncate">
-                        {conv.otherUser.full_name}
-                      </p>
+      <div className="grid lg:grid-cols-[320px_1fr] gap-6 animate-fade-in-up stagger-1 items-start">
+        {/* Conversation list sidebar */}
+        <div className={`card card-static p-3 h-fit max-h-[660px] flex flex-col ${activeConversationId ? "hidden lg:flex" : "flex"}`}>
+          {/* Search Input */}
+          <div className="relative mb-3">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search conversations..."
+              className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-zinc-900/90 border border-zinc-800 text-white placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/40 shadow-xs"
+            />
+            <svg
+              className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-1.5 mb-3 pb-2 border-b border-zinc-800/80">
+            <button
+              onClick={() => setFilterTab("all")}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterTab === "all"
+                  ? "bg-zinc-800 text-white shadow-xs"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+              }`}
+            >
+              All ({conversations.length})
+            </button>
+            <button
+              onClick={() => setFilterTab("unread")}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterTab === "unread"
+                  ? "bg-zinc-800 text-white shadow-xs"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+              }`}
+            >
+              <span>Unread</span>
+              {totalUnread > 0 && (
+                <span className="w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center font-bold">
+                  {totalUnread}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Conversation Cards List */}
+          <div className="overflow-y-auto flex-1 space-y-1 pr-0.5 max-h-[500px]">
+            {filteredConversations.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-zinc-500 text-xs leading-relaxed">
+                  {searchQuery ? "No conversations match your search." : "No conversations yet. Connect with builders to chat."}
+                </p>
+              </div>
+            ) : (
+              filteredConversations.map((conv) => {
+                const isActive = activeConversationId === conv.conversationId;
+                return (
+                  <button
+                    key={conv.conversationId}
+                    onClick={() => selectConversation(conv)}
+                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all relative cursor-pointer group ${
+                      isActive
+                        ? "bg-violet-950/20 border border-violet-500/40 shadow-xs"
+                        : "hover:bg-zinc-900/60 border border-transparent"
+                    }`}
+                  >
+                    {/* Active left indicator bar */}
+                    {isActive && (
+                      <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-violet-500 shadow-sm" />
+                    )}
+
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      {conv.otherUser.avatar_url ? (
+                        <img
+                          src={conv.otherUser.avatar_url}
+                          alt={conv.otherUser.full_name}
+                          className="w-10 h-10 rounded-xl object-cover border border-zinc-800 group-hover:border-zinc-700 transition-colors"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-violet-400 text-sm">
+                          {conv.otherUser.full_name?.charAt(0)}
+                        </div>
+                      )}
                       {conv.unreadCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-violet-500 ring-2 ring-zinc-950 animate-pulse" />
                       )}
                     </div>
-                    <p className="text-zinc-500 text-[10px] truncate">
-                      {conv.lastMessage || "Start the conversation"}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+
+                    {/* Meta info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <p className={`font-semibold text-xs truncate ${isActive ? "text-violet-200" : "text-white"}`}>
+                          {conv.otherUser.full_name}
+                        </p>
+                        {conv.lastMessageAt && (
+                          <span className="text-[10px] font-mono text-zinc-500 shrink-0">
+                            {formatRelativeTime(conv.lastMessageAt)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-1">
+                        <p className={`text-[11px] truncate ${conv.unreadCount > 0 ? "text-zinc-200 font-semibold" : "text-zinc-500"}`}>
+                          {formatPreviewSnippet(conv.lastMessage)}
+                        </p>
+                        {conv.unreadCount > 0 && (
+                          <span className="shrink-0 px-1.5 py-0.2 rounded-full bg-violet-600 text-white font-mono text-[9px] font-bold">
+                            {conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Active thread */}
-        <div className={`${activeConversationId ? "block" : "hidden lg:block"}`}>
+        <div className={`${activeConversationId ? "block" : "hidden lg:block"} w-full`}>
           {activeConversationId && activeUser ? (
             <>
               {/* Back to list button on mobile */}
@@ -398,52 +537,61 @@ function MessagesContent() {
                 Back to Messages
               </button>
 
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  {activeUser.avatar_url ? (
-                    <img
-                      src={activeUser.avatar_url}
-                      alt={activeUser.full_name}
-                      className="w-9 h-9 rounded object-cover border border-zinc-200 dark:border-zinc-800"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center font-bold text-zinc-600 dark:text-zinc-400 text-xs">
-                      {activeUser.full_name?.charAt(0)}
-                    </div>
-                  )}
+              {/* Chat Top Banner */}
+              <div className="flex items-center justify-between mb-3.5 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-sm shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    {activeUser.avatar_url ? (
+                      <img
+                        src={activeUser.avatar_url}
+                        alt={activeUser.full_name}
+                        className="w-10 h-10 rounded-xl object-cover border border-zinc-700"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-zinc-300 text-sm">
+                        {activeUser.full_name?.charAt(0)}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-zinc-900" title="Active connection" />
+                  </div>
+
                   <div>
-                    <p className="font-semibold text-xs text-zinc-900 dark:text-white">
+                    <p className="font-semibold text-xs text-white">
                       {activeUser.full_name}
                     </p>
-                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    <p className="text-[10px] text-zinc-400 truncate max-w-xs">
                       {activeUser.college || "Independent Builder"}
                     </p>
                   </div>
                 </div>
-                <Link
-                  href={`/profile/${activeUser.id}`}
-                  className="btn btn-secondary btn-xs text-[10px] py-1.5 px-3 font-mono uppercase tracking-wider"
-                >
-                  View Profile
-                </Link>
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/profile/${activeUser.id}`}
+                    className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 text-[11px] font-semibold transition-all shadow-xs"
+                  >
+                    View Profile ↗
+                  </Link>
+                </div>
               </div>
 
               <ChatThread
                 conversationId={activeConversationId}
                 currentUserId={currentUserId}
-                height="480px"
+                height="500px"
               />
             </>
           ) : (
-            <div className="card card-static flex items-center justify-center h-[480px]">
+            <div className="card card-static flex items-center justify-center h-[520px]">
               <div className="text-center">
-                <div className="w-10 h-10 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 dark:text-zinc-400">
-                  <svg className="w-5 h-5 text-zinc-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 shadow-md">
+                  <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                   </svg>
                 </div>
+                <h3 className="text-sm font-semibold text-white mb-1">Your Conversations</h3>
                 <p className="text-zinc-500 text-xs">
-                  Select a conversation to start chatting
+                  Select a conversation from the sidebar to chat
                 </p>
               </div>
             </div>
