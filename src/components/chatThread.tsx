@@ -331,6 +331,9 @@ export default function ChatThread({
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSuccessToast, setReportSuccessToast] = useState(false);
 
+  // Staged Attachment Preview State
+  const [stagedImage, setStagedImage] = useState<{ file: File; previewUrl: string } | null>(null);
+
   // Drag-and-drop & Emoji picker state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -597,6 +600,21 @@ export default function ChatThread({
       .on(
         "postgres_changes",
         {
+          event: "DELETE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const oldMsg = payload.old as { id?: string };
+          if (oldMsg?.id) {
+            setMessages((prev) => prev.filter((m) => m.id !== oldMsg.id));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "INSERT",
           schema: "public",
           table: "message_reactions",
@@ -843,6 +861,18 @@ export default function ChatThread({
     }
   }
 
+  const handleDeleteMessage = async (messageId: string) => {
+    // Optimistic UI delete
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    const { error } = await supabase.rpc("delete_message", {
+      p_message_id: messageId,
+    });
+    if (error) {
+      console.error("Failed to delete message:", error);
+      loadMessages();
+    }
+  };
+
   const handleReportMessage = async () => {
     if (!reportingMsg) return;
     setSubmittingReport(true);
@@ -904,8 +934,8 @@ export default function ChatThread({
     setSending(false);
   }
 
-  // Unified image upload handler (for picker, paste, and drag & drop)
-  const uploadAndSendImageFile = async (file: File) => {
+  // Pre-Send Staging: Stage image file in the typing box
+  const stageImageFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
       setSafetyError("Please select a valid image file.");
       setTimeout(() => setSafetyError(null), 4000);
@@ -918,60 +948,22 @@ export default function ChatThread({
       return;
     }
 
-    try {
-      setUploadingMedia(true);
-      setSafetyError(null);
-
-      // Compress to WebP in browser (strips EXIF GPS metadata)
-      const compressedBlob = await compressImageToWebP(file);
-
-      // Upload via server endpoint
-      const formData = new FormData();
-      formData.append("file", compressedBlob, "image.webp");
-      formData.append("folder", "chat_images");
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadRes.ok) {
-        const errJson = await uploadRes.json().catch(() => ({}));
-        throw new Error(errJson.error || "Failed to upload image");
-      }
-
-      const { publicUrl } = await uploadRes.json();
-
-      // Post image message in chat
-      const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: file.name })}`;
-      soundManager.playSent();
-
-      const { error: msgErr } = await supabase.rpc("send_message_with_mentions", {
-        p_conversation_id: conversationId,
-        p_content: imagePayload,
-        p_mentions: [],
-      });
-
-      if (msgErr) {
-        throw new Error(msgErr.message);
-      }
-    } catch (err: unknown) {
-      console.error("Image upload error:", err);
-      setSafetyError(err instanceof Error ? err.message : "Image upload failed");
-      setTimeout(() => setSafetyError(null), 5000);
-    } finally {
-      setUploadingMedia(false);
+    setSafetyError(null);
+    if (stagedImage) {
+      URL.revokeObjectURL(stagedImage.previewUrl);
     }
+    const previewUrl = URL.createObjectURL(file);
+    setStagedImage({ file, previewUrl });
   };
 
   const handleImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
-    uploadAndSendImageFile(file);
+    stageImageFile(file);
   };
 
-  // Clipboard Paste handler (Ctrl + V images)
+  // Clipboard Paste handler (Ctrl + V images staged in typing box)
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -981,7 +973,7 @@ export default function ChatThread({
         const file = items[i].getAsFile();
         if (file) {
           e.preventDefault();
-          uploadAndSendImageFile(file);
+          stageImageFile(file);
           return;
         }
       }
@@ -1007,7 +999,7 @@ export default function ChatThread({
     setIsDraggingOver(false);
     const files = e.dataTransfer?.files;
     if (files && files.length > 0 && files[0].type.startsWith("image/")) {
-      uploadAndSendImageFile(files[0]);
+      stageImageFile(files[0]);
     }
   };
 
@@ -1133,7 +1125,9 @@ export default function ChatThread({
   async function sendMessage() {
     if (isBlocked) return;
     const content = input.trim();
-    if (!content) return;
+    const hasStaged = !!stagedImage;
+
+    if (!content && !hasStaged) return;
 
     if (content.length > 2000) {
       setSafetyError("Message is too long (max 2000 characters).");
@@ -1141,46 +1135,89 @@ export default function ChatThread({
       return;
     }
 
-    const safetyResult = moderateMessage(content);
-    if (!safetyResult.isValid) {
-      setSafetyError(safetyResult.error || "Message blocked by safety filters.");
-      setTimeout(() => {
-        setSafetyError(null);
-      }, 5000);
-      return;
-    }
-
-    const resolvedMentionIds = Array.from(new Set(
-      mentionIds.filter((id) => {
-        const user = participants.find((p) => p.id === id);
-        return user ? safetyResult.sanitized.includes(`@${user.full_name}`) : false;
-      })
-    ));
-
-    const currentReplyToId = replyingTo?.id || undefined;
     setSending(true);
-    setInput("");
-    setReplyingTo(null);
-    setMentionIds([]);
-    setShowMentions(false);
     setSafetyError(null);
 
-    soundManager.playSent();
+    try {
+      // 1. If an image is staged, compress and upload first
+      if (stagedImage) {
+        setUploadingMedia(true);
+        const compressedBlob = await compressImageToWebP(stagedImage.file);
 
-    const { error } = await supabase.rpc("send_message_with_mentions", {
-      p_conversation_id: conversationId,
-      p_content: safetyResult.sanitized,
-      p_mentions: resolvedMentionIds,
-      p_reply_to_id: currentReplyToId,
-    });
+        const formData = new FormData();
+        formData.append("file", compressedBlob, "image.webp");
+        formData.append("folder", "chat_images");
 
-    if (error) {
-      console.error(error);
-      setSafetyError(error.message);
-      setInput(content);
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errJson = await uploadRes.json().catch(() => ({}));
+          throw new Error(errJson.error || "Image upload failed");
+        }
+
+        const { publicUrl } = await uploadRes.json();
+        const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: stagedImage.file.name })}`;
+        
+        soundManager.playSent();
+
+        await supabase.rpc("send_message_with_mentions", {
+          p_conversation_id: conversationId,
+          p_content: imagePayload,
+          p_mentions: [],
+          p_reply_to_id: replyingTo?.id || undefined,
+        });
+
+        URL.revokeObjectURL(stagedImage.previewUrl);
+        setStagedImage(null);
+        setUploadingMedia(false);
+      }
+
+      // 2. If text content was also entered alongside image or standalone
+      if (content) {
+        const safetyResult = moderateMessage(content);
+        if (!safetyResult.isValid) {
+          setSafetyError(safetyResult.error || "Message blocked by safety filters.");
+          setTimeout(() => setSafetyError(null), 5000);
+          setSending(false);
+          return;
+        }
+
+        const resolvedMentionIds = Array.from(new Set(
+          mentionIds.filter((id) => {
+            const user = participants.find((p) => p.id === id);
+            return user ? safetyResult.sanitized.includes(`@${user.full_name}`) : false;
+          })
+        ));
+
+        soundManager.playSent();
+
+        const { error } = await supabase.rpc("send_message_with_mentions", {
+          p_conversation_id: conversationId,
+          p_content: safetyResult.sanitized,
+          p_mentions: resolvedMentionIds,
+          p_reply_to_id: !stagedImage ? (replyingTo?.id || undefined) : undefined,
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      setInput("");
+      setReplyingTo(null);
+      setMentionIds([]);
+      setShowMentions(false);
+    } catch (err: unknown) {
+      console.error("Send error:", err);
+      setSafetyError(err instanceof Error ? err.message : "Failed to send message");
+      setTimeout(() => setSafetyError(null), 5000);
+    } finally {
+      setSending(false);
+      setUploadingMedia(false);
     }
-
-    setSending(false);
   }
 
   async function pinMessage(messageId: string) {
@@ -1376,8 +1413,8 @@ export default function ChatThread({
           <div className="w-12 h-12 rounded-2xl bg-violet-600/30 flex items-center justify-center text-2xl mb-2 animate-bounce">
             📸
           </div>
-          <p className="text-sm font-bold text-white">Drop image to send in chat</p>
-          <p className="text-xs text-violet-300">Images are optimized and safety-verified</p>
+          <p className="text-sm font-bold text-white">Drop image to stage in chat</p>
+          <p className="text-xs text-violet-300">Preview and add caption before sending</p>
         </div>
       )}
 
@@ -1476,7 +1513,7 @@ export default function ChatThread({
           {uploadingMedia && (
             <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
-              Uploading media...
+              Processing media...
             </span>
           )}
         </div>
@@ -1666,6 +1703,7 @@ export default function ChatThread({
                         >
                           ↩️
                         </button>
+
                         <button
                           onClick={() =>
                             msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
@@ -1675,6 +1713,19 @@ export default function ChatThread({
                         >
                           {msg.is_pinned ? "📍" : "📌"}
                         </button>
+
+                        {/* Delete message button (Sender only) */}
+                        {isMine && (
+                          <button
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
+                            title="Delete message"
+                          >
+                            🗑️
+                          </button>
+                        )}
+
+                        {/* Report message button (Recipient only) */}
                         {!isMine && (
                           <button
                             onClick={() => setReportingMsg(msg)}
@@ -1768,6 +1819,7 @@ export default function ChatThread({
           </div>
         )}
 
+        {/* Replying banner */}
         {replyingTo && (
           <div className="mb-2.5 p-2 rounded-xl bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
@@ -1794,6 +1846,43 @@ export default function ChatThread({
               onClick={() => setReplyingTo(null)}
               className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
               title="Cancel reply"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Staged Image Preview in Typing Box */}
+        {stagedImage && (
+          <div className="mb-2.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shadow-md animate-fade-in">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative shrink-0">
+                <img
+                  src={stagedImage.previewUrl}
+                  alt="Staged attachment preview"
+                  className="w-12 h-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-750 shadow-xs"
+                />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-500 ring-2 ring-zinc-900 flex items-center justify-center text-[7px] text-white font-bold">
+                  ✓
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate max-w-[220px]">
+                  {stagedImage.file.name}
+                </p>
+                <p className="text-[10px] text-zinc-500 font-mono">
+                  {(stagedImage.file.size / 1024).toFixed(0)} KB • Ready to send (add caption below)
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                URL.revokeObjectURL(stagedImage.previewUrl);
+                setStagedImage(null);
+              }}
+              className="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white flex items-center justify-center text-xs transition-colors cursor-pointer"
+              title="Remove attachment"
             >
               ✕
             </button>
@@ -1934,7 +2023,7 @@ export default function ChatThread({
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
               disabled={isBlocked}
-              placeholder={isBlocked ? "You cannot message this user." : "Type message... (Paste image, drag & drop, or code ``` supported)"}
+              placeholder={isBlocked ? "You cannot message this user." : stagedImage ? "Add an optional caption..." : "Type message... (Paste image, drag & drop, or code ```)"}
               rows={2}
               className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-950/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[40px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -1942,7 +2031,7 @@ export default function ChatThread({
             {/* Send Button */}
             <button
               onClick={sendMessage}
-              disabled={!input.trim() || sending || isBlocked || uploadingMedia}
+              disabled={(!input.trim() && !stagedImage) || sending || isBlocked || uploadingMedia}
               className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
               style={{ height: "38px", width: "38px", padding: 0 }}
             >
