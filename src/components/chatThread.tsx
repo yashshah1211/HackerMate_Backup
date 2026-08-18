@@ -1,11 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/safety";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
+import ImageLightbox from "@/components/ImageLightbox";
+import VoiceNotePlayer from "@/components/VoiceNotePlayer";
+import { soundManager } from "@/lib/audioSounds";
 
 type Message = {
   id: string;
@@ -36,9 +39,7 @@ type SenderProfile = {
 type Props = {
   conversationId: string;
   currentUserId: string;
-  /** Optional: pass known participant profiles to avoid extra fetches (e.g. team members) */
   knownProfiles?: Record<string, SenderProfile>;
-  /** Visual height of the scrollable message area */
   height?: string;
 };
 
@@ -185,6 +186,87 @@ function TeamInviteCard({
   );
 }
 
+function CodeBlockCard({ code, lang }: { code: string; lang?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-2 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 font-mono text-xs max-w-lg shadow-md">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 text-[10px] text-zinc-400">
+        <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+        >
+          {copied ? (
+            <>
+              <span className="text-emerald-400">✓</span>
+              <span className="text-emerald-400">Copied!</span>
+            </>
+          ) : (
+            <>
+              <span>📋</span>
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="p-3 overflow-x-auto text-zinc-200 text-[11px] leading-relaxed">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+// Client-side image compression to WebP using Canvas
+async function compressImageToWebP(file: File, maxDimension = 1600, quality = 0.85): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      let { width, height } = img;
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            resolve(file);
+          }
+        },
+        "image/webp",
+        quality
+      );
+    };
+    img.onerror = () => reject(new Error("Failed to load image for compression"));
+  });
+}
+
 export default function ChatThread({
   conversationId,
   currentUserId,
@@ -197,9 +279,11 @@ export default function ChatThread({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -217,12 +301,34 @@ export default function ChatThread({
   const [conversationType, setConversationType] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
+  // Audio chimes sound state
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Lightbox full-screen state
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  // Voice note recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Typing indicators state
   const [typingUsers, setTypingUsers] = useState<Record<string, { fullName: string; timerId: NodeJS.Timeout }>>({});
   const lastTypingSentRef = useRef<number>(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const myProfile = profiles[currentUserId] || null;
+
+  useEffect(() => {
+    setIsMuted(soundManager.getMuted());
+  }, []);
+
+  const toggleSoundMute = () => {
+    const nextMute = soundManager.toggleMute();
+    setIsMuted(nextMute);
+  };
 
   function scrollToMessage(msgId: string) {
     const el = document.getElementById(`msg-${msgId}`);
@@ -268,7 +374,6 @@ export default function ChatThread({
   }, []);
 
   async function loadMessages() {
-    // Fetch conversation type
     const { data: conversation } = await supabase
       .from("conversations")
       .select("type")
@@ -277,7 +382,6 @@ export default function ChatThread({
 
     setConversationType(conversation?.type || null);
 
-    // Check if direct message conversation has blocked participant relationships
     const { data: participantsData } = await supabase
       .from("conversation_participants")
       .select("user_id")
@@ -298,7 +402,6 @@ export default function ChatThread({
       setRecipientId(null);
     }
 
-    // Fetch user's own cleared_at timestamp for this conversation
     const { data: participantData } = await supabase
       .from("conversation_participants")
       .select("cleared_at")
@@ -332,11 +435,9 @@ export default function ChatThread({
     setMessages(fetchedMessages);
     setHasMore(data ? data.length === 30 : false);
 
-    // Fetch reactions for these messages
     const messageIds = fetchedMessages.map((m) => m.id);
     fetchReactionsForMessages(messageIds);
 
-    // Mark messages as read since we are actively viewing this conversation
     supabase.rpc("mark_conversation_read", {
       p_conversation_id: conversationId,
     }).then(({ error: readErr }) => {
@@ -405,7 +506,6 @@ export default function ChatThread({
     }
   }
 
-  // Realtime Broadcast Typing Trigger
   const sendTypingBroadcast = () => {
     const now = Date.now();
     if (now - lastTypingSentRef.current < 1500) return;
@@ -450,6 +550,7 @@ export default function ChatThread({
           if (activeClearedAt && new Date(newMsg.created_at) <= new Date(activeClearedAt)) return;
           const isMine = newMsg.sender_id === currentUserId;
           if (!isMine) {
+            soundManager.playReceived();
             supabase.rpc("mark_conversation_read", {
               p_conversation_id: conversationId,
             }).then(({ error: readErr }) => {
@@ -488,7 +589,6 @@ export default function ChatThread({
           const newReaction = payload.new as Reaction;
           setReactions((prev) => {
             const list = prev[newReaction.message_id] || [];
-            // Remove any existing reaction by the same user_id (enforcing 1 per user)
             const filtered = list.filter(
               (r) => !(r.id === newReaction.id || r.user_id === newReaction.user_id)
             );
@@ -616,7 +716,6 @@ export default function ChatThread({
         const olderMessages = [...moreData].reverse();
         setMessages((prev) => [...olderMessages, ...prev]);
 
-        // Fetch reactions for older messages
         const moreIds = olderMessages.map((m) => m.id);
         fetchReactionsForMessages(moreIds);
 
@@ -682,16 +781,13 @@ export default function ChatThread({
     const existingReactions = reactions[messageId] || [];
     const myExisting = existingReactions.find((r) => r.user_id === currentUserId);
 
-    // Optimistic UI update
     if (myExisting) {
       if (myExisting.emoji === emoji) {
-        // Same emoji: untoggle / remove
         setReactions((prev) => ({
           ...prev,
           [messageId]: (prev[messageId] || []).filter((r) => r.user_id !== currentUserId),
         }));
       } else {
-        // Different emoji: swap to new emoji
         const updatedReaction: Reaction = {
           ...myExisting,
           emoji,
@@ -705,7 +801,6 @@ export default function ChatThread({
         }));
       }
     } else {
-      // Add new reaction
       const tempReaction: Reaction = {
         id: `temp-${Date.now()}`,
         message_id: messageId,
@@ -728,7 +823,6 @@ export default function ChatThread({
 
     if (error) {
       console.error("Failed to toggle reaction:", error);
-      // Revert on error
       fetchReactionsForMessages([messageId]);
     }
   }
@@ -773,19 +867,202 @@ export default function ChatThread({
     setSending(false);
   }
 
+  // Image Upload handler with WebP compression
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ""; // reset input
+
+    if (!file.type.startsWith("image/")) {
+      setSafetyError("Please select a valid image file.");
+      setTimeout(() => setSafetyError(null), 4000);
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setSafetyError("Image must be smaller than 10 MB.");
+      setTimeout(() => setSafetyError(null), 4000);
+      return;
+    }
+
+    try {
+      setUploadingMedia(true);
+      setSafetyError(null);
+
+      // Compress to WebP in browser
+      const compressedBlob = await compressImageToWebP(file);
+      const contentType = "image/webp";
+
+      // 1. Get presigned upload URL
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType, folder: "chat_images" }),
+      });
+
+      if (!presignRes.ok) {
+        const errJson = await presignRes.json();
+        throw new Error(errJson.error || "Failed to prepare upload");
+      }
+
+      const { uploadUrl, publicUrl } = await presignRes.json();
+
+      // 2. Direct upload to Cloudflare R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: compressedBlob,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Failed to upload image to Cloudflare R2");
+      }
+
+      // 3. Post image message in chat
+      const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: file.name })}`;
+      soundManager.playSent();
+
+      const { error: msgErr } = await supabase.rpc("send_message_with_mentions", {
+        p_conversation_id: conversationId,
+        p_content: imagePayload,
+        p_mentions: [],
+      });
+
+      if (msgErr) {
+        throw new Error(msgErr.message);
+      }
+    } catch (err: unknown) {
+      console.error("Image upload error:", err);
+      setSafetyError(err instanceof Error ? err.message : "Image upload failed");
+      setTimeout(() => setSafetyError(null), 5000);
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  // Voice Note Recorder handlers
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= 120) {
+            // max 2 minutes
+            stopAndSendVoiceNote();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error("Microphone permission error:", err);
+      setSafetyError("Microphone access denied or unavailable.");
+      setTimeout(() => setSafetyError(null), 4000);
+    }
+  };
+
+  const cancelVoiceRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setRecordingSeconds(0);
+  };
+
+  const stopAndSendVoiceNote = async () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+    const finalSeconds = recordingSeconds;
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+    }
+
+    mediaRecorderRef.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
+      setIsRecording(false);
+      setRecordingSeconds(0);
+
+      if (audioBlob.size < 500 || finalSeconds < 1) {
+        return; // too short
+      }
+
+      try {
+        setUploadingMedia(true);
+        setSafetyError(null);
+
+        const presignRes = await fetch("/api/upload/presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentType: "audio/webm", folder: "chat_voice" }),
+        });
+
+        if (!presignRes.ok) {
+          throw new Error("Failed to prepare voice upload");
+        }
+
+        const { uploadUrl, publicUrl } = await presignRes.json();
+
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "audio/webm" },
+          body: audioBlob,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error("Failed to upload audio to Cloudflare R2");
+        }
+
+        const voicePayload = `__VOICE__::${JSON.stringify({ url: publicUrl, duration: finalSeconds })}`;
+        soundManager.playSent();
+
+        await supabase.rpc("send_message_with_mentions", {
+          p_conversation_id: conversationId,
+          p_content: voicePayload,
+          p_mentions: [],
+        });
+      } catch (err: unknown) {
+        console.error("Voice upload error:", err);
+        setSafetyError(err instanceof Error ? err.message : "Voice upload failed");
+        setTimeout(() => setSafetyError(null), 5000);
+      } finally {
+        setUploadingMedia(false);
+      }
+    };
+
+    mediaRecorderRef.current.stop();
+  };
+
   async function sendMessage() {
     if (isBlocked) return;
     const content = input.trim();
     if (!content) return;
 
-    // Enforce message length limit
     if (content.length > 2000) {
       setSafetyError("Message is too long (max 2000 characters).");
       setTimeout(() => setSafetyError(null), 5000);
       return;
     }
 
-    // Run safety moderation filters
     const safetyResult = moderateMessage(content);
     if (!safetyResult.isValid) {
       setSafetyError(safetyResult.error || "Message blocked by safety filters.");
@@ -809,6 +1086,8 @@ export default function ChatThread({
     setMentionIds([]);
     setShowMentions(false);
     setSafetyError(null);
+
+    soundManager.playSent();
 
     const { error } = await supabase.rpc("send_message_with_mentions", {
       p_conversation_id: conversationId,
@@ -877,6 +1156,7 @@ export default function ChatThread({
   }
 
   function renderMessageContent(content: string, isMine: boolean) {
+    // 1. Team Invite Card
     if (content.startsWith("__TEAM_INVITE__::")) {
       try {
         const payloadStr = content.substring("__TEAM_INVITE__::".length);
@@ -894,6 +1174,71 @@ export default function ChatThread({
       }
     }
 
+    // 2. Image Attachment
+    if (content.startsWith("__IMAGE__::")) {
+      try {
+        const payloadStr = content.substring("__IMAGE__::".length);
+        const payload = JSON.parse(payloadStr);
+        return (
+          <div className="my-1.5 overflow-hidden rounded-xl max-w-xs border border-zinc-200 dark:border-zinc-800 shadow-sm group/img cursor-pointer" onClick={() => setLightboxImg(payload.url)}>
+            <img
+              src={payload.url}
+              alt={payload.name || "Photo attachment"}
+              className="w-full max-h-72 object-cover transition-transform duration-200 group-hover/img:scale-105"
+              loading="lazy"
+            />
+          </div>
+        );
+      } catch (err) {
+        console.error("Failed to parse image payload", err);
+      }
+    }
+
+    // 3. Voice Note
+    if (content.startsWith("__VOICE__::")) {
+      try {
+        const payloadStr = content.substring("__VOICE__::".length);
+        const payload = JSON.parse(payloadStr);
+        return (
+          <VoiceNotePlayer
+            src={payload.url}
+            duration={payload.duration}
+            isMine={isMine}
+          />
+        );
+      } catch (err) {
+        console.error("Failed to parse voice payload", err);
+      }
+    }
+
+    // 4. Code Block Detection (```lang ... ```)
+    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g;
+    if (codeBlockRegex.test(content)) {
+      const elements: React.ReactNode[] = [];
+      let lastIdx = 0;
+      let match: RegExpExecArray | null;
+
+      const regex = new RegExp(codeBlockRegex);
+      while ((match = regex.exec(content)) !== null) {
+        if (match.index > lastIdx) {
+          elements.push(
+            <span key={`text-${lastIdx}`}>{content.slice(lastIdx, match.index)}</span>
+          );
+        }
+        const lang = match[1] || "";
+        const code = match[2] || "";
+        elements.push(
+          <CodeBlockCard key={`code-${match.index}`} code={code.trim()} lang={lang} />
+        );
+        lastIdx = match.index + match[0].length;
+      }
+      if (lastIdx < content.length) {
+        elements.push(<span key={`text-${lastIdx}`}>{content.slice(lastIdx)}</span>);
+      }
+      return <div>{elements}</div>;
+    }
+
+    // 5. Normal Text with URLs and Link Previews
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.(?:com|org|net|in|co|io|edu|gov|us|xyz|info|biz|me|cc|tv)\b[^\s]*)/gi;
     const parts = content.split(urlRegex);
     const firstUrlMatch = content.match(urlRegex);
@@ -939,20 +1284,47 @@ export default function ChatThread({
   const activeTyperNames = Object.values(typingUsers).map((u) => u.fullName);
 
   return (
-    <div className="card card-static flex flex-col overflow-hidden">
+    <div className="card card-static flex flex-col overflow-hidden relative">
+      {/* Lightbox Modal */}
+      {lightboxImg && (
+        <ImageLightbox src={lightboxImg} onClose={() => setLightboxImg(null)} />
+      )}
+
+      {/* Header */}
       <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
-          {conversationType === "dm" ? "Direct Message" : "Team Chat"}
-        </span>
-        <button
-          onClick={clearChat}
-          className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5 cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-          </svg>
-          Clear Chat
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
+            {conversationType === "dm" ? "Direct Message" : "Team Chat"}
+          </span>
+          {uploadingMedia && (
+            <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
+              Uploading to R2...
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Sound Mute Toggle */}
+          <button
+            onClick={toggleSoundMute}
+            className="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+            title={isMuted ? "Unmute chat sound effects" : "Mute chat sound effects"}
+          >
+            {isMuted ? "🔇" : "🔊"}
+          </button>
+
+          {/* Clear Chat */}
+          <button
+            onClick={clearChat}
+            className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5 cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+            Clear Chat
+          </button>
+        </div>
       </div>
 
       {/* Messages Scroll Area */}
@@ -972,7 +1344,11 @@ export default function ChatThread({
                     Pinned Message
                   </p>
                   <p className="text-xs text-zinc-200 truncate">
-                    {pinnedMessage.content}
+                    {pinnedMessage.content.startsWith("__IMAGE__::")
+                      ? "🖼️ Photo Attachment"
+                      : pinnedMessage.content.startsWith("__VOICE__::")
+                        ? "🎙️ Voice Note"
+                        : pinnedMessage.content}
                   </p>
                 </div>
               </div>
@@ -1012,7 +1388,6 @@ export default function ChatThread({
             const parentSender = parentMsg ? profiles[parentMsg.sender_id] : null;
 
             const msgReactions = reactions[msg.id] || [];
-            // Group reactions by emoji
             const reactionGroups: { emoji: string; count: number; hasReacted: boolean; userNames: string[] }[] = [];
             msgReactions.forEach((r) => {
               let group = reactionGroups.find((g) => g.emoji === r.emoji);
@@ -1080,7 +1455,11 @@ export default function ChatThread({
                               {parentMsg
                                 ? parentMsg.content.startsWith("__TEAM_INVITE__::")
                                   ? "✉️ Team Invitation"
-                                  : parentMsg.content
+                                  : parentMsg.content.startsWith("__IMAGE__::")
+                                    ? "🖼️ Photo Attachment"
+                                    : parentMsg.content.startsWith("__VOICE__::")
+                                      ? "🎙️ Voice Note"
+                                      : parentMsg.content
                                 : "Click to jump to original message"}
                             </p>
                           </div>
@@ -1090,7 +1469,6 @@ export default function ChatThread({
 
                       {/* Floating Action & Quick Reaction Bar */}
                       <div className={`absolute -top-3 ${isMine ? "-left-2" : "-right-2"} opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-lg z-20`}>
-                        {/* Quick Reaction Emojis */}
                         {STANDARD_EMOJIS.slice(0, 4).map((emoji) => (
                           <button
                             key={emoji}
@@ -1104,7 +1482,6 @@ export default function ChatThread({
                         
                         <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
 
-                        {/* Reply Button */}
                         <button
                           onClick={() => setReplyingTo(msg)}
                           className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-white text-[10px] transition-colors cursor-pointer"
@@ -1112,7 +1489,6 @@ export default function ChatThread({
                         >
                           ↩️
                         </button>
-                        {/* Pin Button */}
                         <button
                           onClick={() =>
                             msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
@@ -1180,6 +1556,15 @@ export default function ChatThread({
 
       {/* Input & Footer Area */}
       <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/40 p-3.5 relative">
+        {/* Hidden File Input for Image attachments */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImageSelected}
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+        />
+
         {/* Live Typing Indicator */}
         {activeTyperNames.length > 0 && (
           <div className="absolute -top-6 left-4 flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 font-medium bg-white/90 dark:bg-zinc-900/90 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-900/60 shadow-xs animate-fade-in">
@@ -1211,7 +1596,11 @@ export default function ChatThread({
                 <p className="text-[11px] text-zinc-600 dark:text-zinc-400 truncate">
                   {replyingTo.content.startsWith("__TEAM_INVITE__::")
                     ? "✉️ Team Invitation"
-                    : replyingTo.content}
+                    : replyingTo.content.startsWith("__IMAGE__::")
+                      ? "🖼️ Photo Attachment"
+                      : replyingTo.content.startsWith("__VOICE__::")
+                        ? "🎙️ Voice Note"
+                        : replyingTo.content}
                 </p>
               </div>
             </div>
@@ -1232,7 +1621,7 @@ export default function ChatThread({
               <button
                 key={team.id}
                 onClick={() => handleSendQuickInvite(team.id, team.name)}
-                disabled={sending}
+                disabled={sending || uploadingMedia}
                 className="px-2.5 py-1 text-[10px] rounded-full border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition-all font-medium disabled:opacity-50 flex items-center gap-1 cursor-pointer"
               >
                 <span>➕ Invite to {team.name}</span>
@@ -1247,69 +1636,128 @@ export default function ChatThread({
           </div>
         )}
 
-        <div className="relative flex items-end gap-2.5">
-          <textarea
-            value={input}
-            onChange={(e) => {
-              const value = e.target.value;
-              setInput(value);
-              sendTypingBroadcast();
-
-              const match = value.match(/@([a-zA-Z\s]*)$/);
-              if (match) {
-                setMentionQuery(match[1]);
-                setShowMentions(true);
-              } else {
-                setShowMentions(false);
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            disabled={isBlocked}
-            placeholder={isBlocked ? "You cannot message this user." : "Type a message..."}
-            rows={2}
-            className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-950/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[42px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || sending || isBlocked}
-            className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
-            style={{ height: "38px", width: "38px", padding: 0 }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-            </svg>
-          </button>
-
-          {showMentions && filteredParticipants.length > 0 && (
-            <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl max-h-48 overflow-y-auto z-50">
-              {filteredParticipants.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => {
-                    const updated = input.replace(
-                      /@[a-zA-Z\s]*$/,
-                      `@${user.full_name} `
-                    );
-                    setInput(updated);
-                    setShowMentions(false);
-                    setMentionIds((prev) =>
-                      prev.includes(user.id) ? prev : [...prev, user.id]
-                    );
-                  }}
-                  className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 flex items-center gap-2 cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
-                    {user.full_name.charAt(0)}
-                  </div>
-                  <span className="text-sm text-zinc-800 dark:text-zinc-200">
-                    {user.full_name}
-                  </span>
-                </button>
-              ))}
+        {/* Input Bar & Controls */}
+        {isRecording ? (
+          <div className="flex items-center gap-3 py-1.5 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 animate-pulse">
+            <div className="flex items-center gap-2 flex-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
+              <span className="text-xs font-mono font-semibold text-rose-600 dark:text-rose-400">
+                Recording Voice Note... {Math.floor(recordingSeconds / 60)}:{recordingSeconds % 60 < 10 ? "0" : ""}{recordingSeconds % 60}
+              </span>
             </div>
-          )}
-        </div>
+
+            <button
+              onClick={cancelVoiceRecording}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer"
+              title="Cancel recording"
+            >
+              Cancel ✕
+            </button>
+
+            <button
+              onClick={stopAndSendVoiceNote}
+              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
+              title="Send voice note"
+            >
+              <span>Send</span>
+              <span>✓</span>
+            </button>
+          </div>
+        ) : (
+          <div className="relative flex items-end gap-2">
+            {/* Attachment Button (Photo / Image) */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isBlocked || uploadingMedia}
+              className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50"
+              title="Attach image (stored in Cloudflare R2)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+              </svg>
+            </button>
+
+            {/* Voice Note Mic Button */}
+            <button
+              type="button"
+              onClick={startVoiceRecording}
+              disabled={isBlocked || uploadingMedia}
+              className="p-2 rounded-xl text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50"
+              title="Record voice note"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 01-3-3V4.5a3 3 0 116 0v7.5a3 3 0 01-3 3z" />
+              </svg>
+            </button>
+
+            {/* Textarea */}
+            <textarea
+              value={input}
+              onChange={(e) => {
+                const value = e.target.value;
+                setInput(value);
+                sendTypingBroadcast();
+
+                const match = value.match(/@([a-zA-Z\s]*)$/);
+                if (match) {
+                  setMentionQuery(match[1]);
+                  setShowMentions(true);
+                } else {
+                  setShowMentions(false);
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              disabled={isBlocked}
+              placeholder={isBlocked ? "You cannot message this user." : "Type a message... (Markdown code ``` supported)"}
+              rows={2}
+              className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-950/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[40px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+
+            {/* Send Button */}
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || sending || isBlocked || uploadingMedia}
+              className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+              style={{ height: "38px", width: "38px", padding: 0 }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            </button>
+
+            {/* Mentions dropdown */}
+            {showMentions && filteredParticipants.length > 0 && (
+              <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl max-h-48 overflow-y-auto z-50">
+                {filteredParticipants.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => {
+                      const updated = input.replace(
+                        /@[a-zA-Z\s]*$/,
+                        `@${user.full_name} `
+                      );
+                      setInput(updated);
+                      setShowMentions(false);
+                      setMentionIds((prev) =>
+                        prev.includes(user.id) ? prev : [...prev, user.id]
+                      );
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 flex items-center gap-2 cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
+                      {user.full_name.charAt(0)}
+                    </div>
+                    <span className="text-sm text-zinc-800 dark:text-zinc-200">
+                      {user.full_name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
