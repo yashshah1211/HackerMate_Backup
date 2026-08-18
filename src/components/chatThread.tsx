@@ -116,7 +116,7 @@ function TeamInviteCard({
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-1">
-        <div className="w-3.5 h-3.5 border border-zinc-800 border-t-white rounded-full animate-spin" />
+        <div className="w-3.5 h-3.5 border border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
         <span className="text-[10px] text-zinc-500 font-mono">Loading invitation...</span>
       </div>
     );
@@ -131,12 +131,12 @@ function TeamInviteCard({
   }
 
   return (
-    <div className={`p-3.5 rounded-xl border my-1 max-w-[280px] shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all ${
+    <div className={`p-3.5 rounded-xl border my-1 max-w-[280px] shadow-sm transition-all ${
       isMine 
-        ? "bg-zinc-950/80 border-zinc-850 text-zinc-200" 
-        : "bg-violet-950/20 border-violet-500/25 text-violet-100"
+        ? "bg-zinc-100 dark:bg-zinc-950/80 border-zinc-300 dark:border-zinc-850 text-zinc-900 dark:text-zinc-200" 
+        : "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-500/25 text-violet-950 dark:text-violet-100"
     }`}>
-      <div className="text-[9px] font-mono uppercase tracking-wider text-violet-400 mb-1 flex items-center gap-1">
+      <div className="text-[9px] font-mono uppercase tracking-wider text-violet-600 dark:text-violet-400 mb-1 flex items-center gap-1">
         <span>✉</span>
         <span>Team Invitation</span>
       </div>
@@ -158,28 +158,28 @@ function TeamInviteCard({
               <button
                 onClick={handleAccept}
                 disabled={actionLoading}
-                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-white text-black hover:bg-zinc-200 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-violet-600 dark:bg-white text-white dark:text-black hover:bg-violet-500 dark:hover:bg-zinc-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 {actionLoading ? "Joining..." : "Accept"}
               </button>
               <button
                 onClick={handleDecline}
                 disabled={actionLoading}
-                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-850 text-rose-600 dark:text-rose-400 border border-zinc-300 dark:border-zinc-800 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {actionLoading ? "Declining..." : "Decline"}
               </button>
             </div>
             <Link
               href={`/teams/${teamId}`}
-              className="w-full text-center px-3 py-1.5 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded transition-colors block"
+              className="w-full text-center px-3 py-1.5 text-[10px] font-bold bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 rounded-lg transition-colors block"
             >
               View Team
             </Link>
           </div>
         )
       ) : status === "accepted" ? (
-        <span className="text-[10px] font-mono text-emerald-400 uppercase font-semibold flex items-center gap-1">
+        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase font-semibold flex items-center gap-1">
           ✓ Joined
         </span>
       ) : (
@@ -201,7 +201,7 @@ function CodeBlockCard({ code, lang }: { code: string; lang?: string }) {
   };
 
   return (
-    <div className="my-2 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 font-mono text-xs max-w-lg shadow-md">
+    <div className="my-2 rounded-xl overflow-hidden border border-zinc-300 dark:border-zinc-800 bg-zinc-950 font-mono text-xs max-w-lg shadow-md">
       <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 text-[10px] text-zinc-400">
         <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>
         <button
@@ -862,7 +862,6 @@ export default function ChatThread({
   }
 
   const handleDeleteMessage = async (messageId: string) => {
-    // Optimistic UI delete
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     const { error } = await supabase.rpc("delete_message", {
       p_message_id: messageId,
@@ -1295,7 +1294,7 @@ export default function ChatThread({
         const payloadStr = content.substring("__IMAGE__::".length);
         const payload = JSON.parse(payloadStr);
         return (
-          <div className="my-1.5 overflow-hidden rounded-2xl max-w-xs border border-zinc-700/60 shadow-md group/img cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setLightboxImg(payload.url)}>
+          <div className="my-1.5 overflow-hidden rounded-2xl max-w-xs border border-zinc-200 dark:border-zinc-700/60 shadow-md group/img cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setLightboxImg(payload.url)}>
             <img
               src={payload.url}
               alt={payload.name || "Photo attachment"}
@@ -1377,7 +1376,7 @@ export default function ChatThread({
                     className={`underline underline-offset-2 break-all ${
                       isMine 
                         ? "text-blue-100 hover:text-white font-semibold" 
-                        : "text-blue-400 hover:text-blue-300 font-semibold"
+                        : "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold"
                     }`}
                   >
                     {part}
@@ -1403,18 +1402,18 @@ export default function ChatThread({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`card card-static flex flex-col overflow-hidden relative transition-all ${
-        isDraggingOver ? "ring-2 ring-violet-500 bg-violet-950/20" : ""
+      className={`card card-static flex flex-col overflow-hidden relative bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 transition-all ${
+        isDraggingOver ? "ring-2 ring-violet-500 bg-violet-50 dark:bg-violet-950/20" : ""
       }`}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDraggingOver && (
-        <div className="absolute inset-0 z-50 bg-violet-950/80 backdrop-blur-xs border-2 border-dashed border-violet-400 rounded-2xl flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-none">
+        <div className="absolute inset-0 z-50 bg-violet-900/80 dark:bg-violet-950/80 backdrop-blur-xs border-2 border-dashed border-violet-400 rounded-2xl flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-none">
           <div className="w-12 h-12 rounded-2xl bg-violet-600/30 flex items-center justify-center text-2xl mb-2 animate-bounce">
             📸
           </div>
           <p className="text-sm font-bold text-white">Drop image to stage in chat</p>
-          <p className="text-xs text-violet-300">Preview and add caption before sending</p>
+          <p className="text-xs text-violet-200">Preview and add caption before sending</p>
         </div>
       )}
 
@@ -1426,30 +1425,30 @@ export default function ChatThread({
       {/* Report Modal */}
       {reportingMsg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setReportingMsg(null)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-rose-400 text-base">🚩</span>
-                <h3 className="text-sm font-bold text-white">Report Content</h3>
+                <span className="text-rose-500 dark:text-rose-400 text-base">🚩</span>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Report Content</h3>
               </div>
               <button
                 onClick={() => setReportingMsg(null)}
-                className="text-zinc-400 hover:text-white text-xs cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-xs cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-zinc-300">Why are you reporting this?</label>
-              <div className="space-y-1.5 text-xs text-zinc-300">
+              <label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">Why are you reporting this?</label>
+              <div className="space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
                 {[
                   "Inappropriate or Adult Content",
                   "Spam, Scam, or Malicious Link",
                   "Harassment or Hate Speech",
                   "Other Community Guideline Violation"
                 ].map((reason) => (
-                  <label key={reason} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 hover:border-zinc-700 cursor-pointer">
+                  <label key={reason} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 cursor-pointer">
                     <input
                       type="radio"
                       name="reportReason"
@@ -1465,13 +1464,13 @@ export default function ChatThread({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-zinc-300">Additional Details (Optional)</label>
+              <label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">Additional Details (Optional)</label>
               <textarea
                 value={reportDetails}
                 onChange={(e) => setReportDetails(e.target.value)}
                 placeholder="Explain what is wrong with this content..."
                 rows={2}
-                className="w-full text-xs p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white placeholder:text-zinc-600 focus:border-rose-500 focus:outline-none resize-none"
+                className="w-full text-xs p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-rose-500 focus:outline-none resize-none"
               />
             </div>
 
@@ -1479,7 +1478,7 @@ export default function ChatThread({
               <button
                 type="button"
                 onClick={() => setReportingMsg(null)}
-                className="flex-1 px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl transition-colors cursor-pointer"
+                className="flex-1 px-3 py-2 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1505,7 +1504,7 @@ export default function ChatThread({
       )}
 
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
+      <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/90 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
             {conversationType === "dm" ? "Direct Message" : "Team Chat"}
@@ -1545,19 +1544,19 @@ export default function ChatThread({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="overflow-y-auto px-4 py-4 space-y-3.5"
+        className="overflow-y-auto px-4 py-4 space-y-3.5 bg-white dark:bg-zinc-950"
         style={{ height }}
       >
         {pinnedMessage && (
           <div className="mb-4 sticky top-0 z-10">
-            <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <div className="rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2">
               <div className="flex items-center gap-2">
-                <span className="text-amber-400">📌</span>
+                <span className="text-amber-500 dark:text-amber-400">📌</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold">
+                  <p className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-semibold">
                     Pinned Message
                   </p>
-                  <p className="text-xs text-zinc-200 truncate">
+                  <p className="text-xs text-zinc-800 dark:text-zinc-200 truncate">
                     {pinnedMessage.content.startsWith("__IMAGE__::")
                       ? "🖼️ Photo Attachment"
                       : pinnedMessage.content.startsWith("__VOICE__::")
@@ -1572,18 +1571,18 @@ export default function ChatThread({
 
         {loadingMore && (
           <div className="flex justify-center py-2">
-            <div className="w-4 h-4 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
           </div>
         )}
 
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
-              <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3">
+              <svg className="w-5 h-5 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
             </div>
@@ -1646,7 +1645,7 @@ export default function ChatThread({
                           isMine
                             ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/10"
                             : isMentioned
-                              ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-300 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 shadow-xs"
+                              ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 shadow-xs"
                               : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
@@ -1749,7 +1748,7 @@ export default function ChatThread({
                           title={`${group.userNames.join(", ")} reacted`}
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all cursor-pointer border ${
                             group.hasReacted
-                              ? "bg-violet-100 dark:bg-violet-950/70 border-violet-400 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold scale-100"
+                              ? "bg-violet-100 dark:bg-violet-950/70 border-violet-300 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold scale-100"
                               : "bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                           }`}
                         >
@@ -1762,7 +1761,7 @@ export default function ChatThread({
 
                   {/* Timestamp & Read Receipt */}
                   <div className="flex items-center gap-1 mt-0.5 px-0.5">
-                    <span className="text-[9px] text-zinc-600 dark:text-zinc-400">
+                    <span className="text-[9px] text-zinc-500 dark:text-zinc-400">
                       {formatTime(msg.created_at)}
                     </span>
                     {isMine && (
@@ -1777,7 +1776,7 @@ export default function ChatThread({
                             </svg>
                           </div>
                         ) : (
-                          <svg className="w-3.5 h-3.5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                           </svg>
                         )}
@@ -1792,7 +1791,7 @@ export default function ChatThread({
       </div>
 
       {/* Input & Footer Area */}
-      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/40 p-3.5 relative">
+      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-950/40 p-3.5 relative">
         {/* Hidden File Input for Image attachments */}
         <input
           type="file"
@@ -1862,7 +1861,7 @@ export default function ChatThread({
                   alt="Staged attachment preview"
                   className="w-12 h-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-750 shadow-xs"
                 />
-                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-500 ring-2 ring-zinc-900 flex items-center justify-center text-[7px] text-white font-bold">
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-500 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center text-[7px] text-white font-bold">
                   ✓
                 </span>
               </div>
@@ -1870,7 +1869,7 @@ export default function ChatThread({
                 <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate max-w-[220px]">
                   {stagedImage.file.name}
                 </p>
-                <p className="text-[10px] text-zinc-500 font-mono">
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
                   {(stagedImage.file.size / 1024).toFixed(0)} KB • Ready to send (add caption below)
                 </p>
               </div>
@@ -1913,13 +1912,13 @@ export default function ChatThread({
 
         {/* Emoji Picker Popover */}
         {showEmojiPicker && (
-          <div className="absolute bottom-16 left-3 p-2 rounded-2xl bg-zinc-900/95 border border-zinc-800 shadow-2xl backdrop-blur-md z-40 grid grid-cols-6 gap-1 max-w-[240px] animate-fade-in">
+          <div className="absolute bottom-16 left-3 p-2 rounded-2xl bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 shadow-2xl backdrop-blur-md z-40 grid grid-cols-6 gap-1 max-w-[240px] animate-fade-in">
             {HACKATHON_EMOJIS.map((em) => (
               <button
                 key={em}
                 type="button"
                 onClick={() => insertEmoji(em)}
-                className="p-1.5 hover:bg-zinc-800 rounded-xl text-lg hover:scale-125 transition-transform cursor-pointer"
+                className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-lg hover:scale-125 transition-transform cursor-pointer"
               >
                 {em}
               </button>
@@ -1998,7 +1997,7 @@ export default function ChatThread({
               type="button"
               onClick={insertCodeBlock}
               disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50 text-[11px] font-mono font-bold leading-none"
+              className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50 text-[11px] font-mono font-bold leading-none"
               title="Insert code snippet"
             >
               {"</>"}
