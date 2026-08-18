@@ -1,10 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { moderateMessage } from "@/lib/safety";
+import LinkPreviewCard from "@/components/LinkPreviewCard";
 
 type Message = {
   id: string;
@@ -16,6 +17,14 @@ type Message = {
   mentions?: string[] | null;
   reply_to_id?: string | null;
   created_at: string;
+};
+
+type Reaction = {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at?: string;
 };
 
 type SenderProfile = {
@@ -32,6 +41,8 @@ type Props = {
   /** Visual height of the scrollable message area */
   height?: string;
 };
+
+const STANDARD_EMOJIS = ["👍", "❤️", "🔥", "🚀", "🎉", "😂", "👀"];
 
 function TeamInviteCard({ 
   inviteId, 
@@ -141,14 +152,14 @@ function TeamInviteCard({
               <button
                 onClick={handleAccept}
                 disabled={actionLoading}
-                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-white text-black hover:bg-zinc-200 rounded transition-colors disabled:opacity-50"
+                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-white text-black hover:bg-zinc-200 rounded transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {actionLoading ? "Joining..." : "Accept"}
               </button>
               <button
                 onClick={handleDecline}
                 disabled={actionLoading}
-                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded transition-colors disabled:opacity-50"
+                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-rose-400 border border-zinc-800 rounded transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {actionLoading ? "Declining..." : "Decline"}
               </button>
@@ -181,9 +192,8 @@ export default function ChatThread({
   height = "420px",
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, SenderProfile>>(
-    knownProfiles
-  );
+  const [profiles, setProfiles] = useState<Record<string, SenderProfile>>(knownProfiles);
+  const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -207,6 +217,13 @@ export default function ChatThread({
   const [conversationType, setConversationType] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
+  // Typing indicators state
+  const [typingUsers, setTypingUsers] = useState<Record<string, { fullName: string; timerId: NodeJS.Timeout }>>({});
+  const lastTypingSentRef = useRef<number>(0);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const myProfile = profiles[currentUserId] || null;
+
   function scrollToMessage(msgId: string) {
     const el = document.getElementById(`msg-${msgId}`);
     if (el) {
@@ -221,6 +238,34 @@ export default function ChatThread({
   const filteredParticipants = participants.filter((p) =>
     p.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
   );
+
+  const fetchReactionsForMessages = useCallback(async (msgIds: string[]) => {
+    if (msgIds.length === 0) return;
+    const { data: reactionData, error } = await supabase
+      .from("message_reactions")
+      .select("id, message_id, user_id, emoji")
+      .in("message_id", msgIds);
+
+    if (error) {
+      console.error("Error fetching message reactions:", error);
+      return;
+    }
+
+    if (reactionData) {
+      setReactions((prev) => {
+        const next = { ...prev };
+        reactionData.forEach((r) => {
+          const list = next[r.message_id] || [];
+          const filtered = list.filter(
+            (existing) =>
+              !(existing.id === r.id || (existing.user_id === r.user_id && existing.emoji === r.emoji))
+          );
+          next[r.message_id] = [...filtered, r as Reaction];
+        });
+        return next;
+      });
+    }
+  }, []);
 
   async function loadMessages() {
     // Fetch conversation type
@@ -287,6 +332,10 @@ export default function ChatThread({
     setMessages(fetchedMessages);
     setHasMore(data ? data.length === 30 : false);
 
+    // Fetch reactions for these messages
+    const messageIds = fetchedMessages.map((m) => m.id);
+    fetchReactionsForMessages(messageIds);
+
     // Mark messages as read since we are actively viewing this conversation
     supabase.rpc("mark_conversation_read", {
       p_conversation_id: conversationId,
@@ -297,6 +346,10 @@ export default function ChatThread({
     const senderIds = Array.from(
       new Set((data || []).map((m) => m.sender_id))
     ).filter((id) => !profiles[id]);
+
+    if (!profiles[currentUserId]) {
+      senderIds.push(currentUserId);
+    }
 
     if (senderIds.length > 0) {
       const { data: profileData } = await supabase
@@ -331,36 +384,58 @@ export default function ChatThread({
   }
 
   async function loadParticipants() {
-  const { data: members } = await supabase
-    .from("conversation_participants")
-    .select("user_id")
-    .eq("conversation_id", conversationId);
+    const { data: members } = await supabase
+      .from("conversation_participants")
+      .select("user_id")
+      .eq("conversation_id", conversationId);
 
-  if (!members?.length) return;
+    if (!members?.length) return;
 
-  const ids = members.map((m) => m.user_id);
+    const ids = members.map((m) => m.user_id);
 
-  const { data: users } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url")
-    .in("id", ids);
+    const { data: users } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", ids);
 
-  if (users) {
-  setParticipants(
-    users.filter((user) => user.id !== currentUserId)
-  );
-}
+    if (users) {
+      setParticipants(
+        users.filter((user) => user.id !== currentUserId)
+      );
+    }
   }
+
+  // Realtime Broadcast Typing Trigger
+  const sendTypingBroadcast = () => {
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 1500) return;
+    lastTypingSentRef.current = now;
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          userId: currentUserId,
+          fullName: myProfile?.full_name || "Someone",
+        },
+      });
+    }
+  };
 
   useEffect(() => {
     if (!conversationId) return;
     Promise.resolve().then(() => {
-  loadMessages();
-  loadParticipants();
-});
+      loadMessages();
+      loadParticipants();
+    });
 
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
+    const channel = supabase.channel(`messages:${conversationId}`, {
+      config: { broadcast: { self: false } },
+    });
+    channelRef.current = channel;
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -401,12 +476,102 @@ export default function ChatThread({
             prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
           );
         }
-      );
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "message_reactions",
+        },
+        (payload) => {
+          const newReaction = payload.new as Reaction;
+          setReactions((prev) => {
+            const list = prev[newReaction.message_id] || [];
+            // Remove any existing reaction by the same user_id (enforcing 1 per user)
+            const filtered = list.filter(
+              (r) => !(r.id === newReaction.id || r.user_id === newReaction.user_id)
+            );
+            return {
+              ...prev,
+              [newReaction.message_id]: [...filtered, newReaction],
+            };
+          });
+          ensureProfile(newReaction.user_id);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "message_reactions",
+        },
+        (payload) => {
+          const updatedReaction = payload.new as Reaction;
+          setReactions((prev) => {
+            const list = prev[updatedReaction.message_id] || [];
+            const filtered = list.filter(
+              (r) => !(r.id === updatedReaction.id || r.user_id === updatedReaction.user_id)
+            );
+            return {
+              ...prev,
+              [updatedReaction.message_id]: [...filtered, updatedReaction],
+            };
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "message_reactions",
+        },
+        (payload) => {
+          const oldReaction = payload.old as { id?: string; message_id?: string; user_id?: string; emoji?: string };
+          setReactions((prev) => {
+            const next = { ...prev };
+            for (const msgId in next) {
+              next[msgId] = next[msgId].filter((r) => {
+                if (oldReaction.id && r.id === oldReaction.id) return false;
+                if (oldReaction.user_id && r.user_id === oldReaction.user_id) return false;
+                return true;
+              });
+            }
+            return next;
+          });
+        }
+      )
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        if (!payload || payload.userId === currentUserId) return;
+        const typerId = payload.userId;
+        const typerName = payload.fullName || "Someone";
+
+        setTypingUsers((prev) => {
+          if (prev[typerId]) {
+            clearTimeout(prev[typerId].timerId);
+          }
+          const timerId = setTimeout(() => {
+            setTypingUsers((current) => {
+              const updated = { ...current };
+              delete updated[typerId];
+              return updated;
+            });
+          }, 2500);
+
+          return {
+            ...prev,
+            [typerId]: { fullName: typerName, timerId },
+          };
+        });
+      });
 
     const unsubscribe = subscribeWithRetry(channel);
 
     return () => {
       unsubscribe();
+      channelRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
@@ -449,21 +614,26 @@ export default function ChatThread({
           setHasMore(false);
         }
         const olderMessages = [...moreData].reverse();
+        setMessages((prev) => [...olderMessages, ...prev]);
 
-        const missingSenders = Array.from(
+        // Fetch reactions for older messages
+        const moreIds = olderMessages.map((m) => m.id);
+        fetchReactionsForMessages(moreIds);
+
+        const newSenderIds = Array.from(
           new Set(olderMessages.map((m) => m.sender_id))
         ).filter((id) => !profiles[id]);
 
-        if (missingSenders.length > 0) {
-          const { data: profileData } = await supabase
+        if (newSenderIds.length > 0) {
+          const { data: newProfileData } = await supabase
             .from("profiles")
             .select("id, full_name, avatar_url")
-            .in("id", missingSenders);
+            .in("id", newSenderIds);
 
-          if (profileData) {
+          if (newProfileData) {
             setProfiles((prev) => {
               const next = { ...prev };
-              profileData.forEach((p) => {
+              newProfileData.forEach((p) => {
                 next[p.id] = p;
               });
               return next;
@@ -471,11 +641,12 @@ export default function ChatThread({
           }
         }
 
-        setMessages((prev) => [...olderMessages, ...prev]);
-
-        setTimeout(() => {
-          target.scrollTop = target.scrollHeight - prevScrollHeight;
-        }, 0);
+        requestAnimationFrame(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop =
+              scrollRef.current.scrollHeight - prevScrollHeight;
+          }
+        });
       }
       isLoadingMoreRef.current = false;
       setLoadingMore(false);
@@ -483,18 +654,18 @@ export default function ChatThread({
   };
 
   useEffect(() => {
-    if (loading) {
-      isInitialLoad.current = true;
+    if (loading) return;
+    if (messages.length === 0) {
+      prevLastMessageId.current = null;
+      return;
     }
-  }, [loading]);
 
-  useEffect(() => {
-    if (messages.length === 0) return;
     const lastMsg = messages[messages.length - 1];
 
     if (isInitialLoad.current) {
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
+        behavior: "auto",
       });
       isInitialLoad.current = false;
     } else if (lastMsg.id !== prevLastMessageId.current) {
@@ -506,6 +677,61 @@ export default function ChatThread({
 
     prevLastMessageId.current = lastMsg.id;
   }, [messages, loading]);
+
+  async function toggleReaction(messageId: string, emoji: string) {
+    const existingReactions = reactions[messageId] || [];
+    const myExisting = existingReactions.find((r) => r.user_id === currentUserId);
+
+    // Optimistic UI update
+    if (myExisting) {
+      if (myExisting.emoji === emoji) {
+        // Same emoji: untoggle / remove
+        setReactions((prev) => ({
+          ...prev,
+          [messageId]: (prev[messageId] || []).filter((r) => r.user_id !== currentUserId),
+        }));
+      } else {
+        // Different emoji: swap to new emoji
+        const updatedReaction: Reaction = {
+          ...myExisting,
+          emoji,
+        };
+        setReactions((prev) => ({
+          ...prev,
+          [messageId]: [
+            ...(prev[messageId] || []).filter((r) => r.user_id !== currentUserId),
+            updatedReaction,
+          ],
+        }));
+      }
+    } else {
+      // Add new reaction
+      const tempReaction: Reaction = {
+        id: `temp-${Date.now()}`,
+        message_id: messageId,
+        user_id: currentUserId,
+        emoji,
+      };
+      setReactions((prev) => ({
+        ...prev,
+        [messageId]: [
+          ...(prev[messageId] || []).filter((r) => r.user_id !== currentUserId),
+          tempReaction,
+        ],
+      }));
+    }
+
+    const { error } = await supabase.rpc("toggle_message_reaction", {
+      p_message_id: messageId,
+      p_emoji: emoji,
+    });
+
+    if (error) {
+      console.error("Failed to toggle reaction:", error);
+      // Revert on error
+      fetchReactionsForMessages([messageId]);
+    }
+  }
 
   async function handleSendQuickInvite(teamId: string, teamName: string) {
     if (!recipientId || isBlocked || sending) return;
@@ -565,13 +791,10 @@ export default function ChatThread({
       setSafetyError(safetyResult.error || "Message blocked by safety filters.");
       setTimeout(() => {
         setSafetyError(null);
-      }, 5000); // auto-hide warning after 5s
+      }, 5000);
       return;
     }
 
-    // Use the IDs collected via the dropdown. Deduplicate and remove any
-    // mention IDs whose @name no longer appears in the final message text
-    // (e.g. user selected then deleted the @name before sending).
     const resolvedMentionIds = Array.from(new Set(
       mentionIds.filter((id) => {
         const user = participants.find((p) => p.id === id);
@@ -597,31 +820,29 @@ export default function ChatThread({
     if (error) {
       console.error(error);
       setSafetyError(error.message);
-      setInput(content); // restore input on failure
+      setInput(content);
     }
 
     setSending(false);
   }
 
   async function pinMessage(messageId: string) {
-  const { error } = await supabase.rpc("pin_message", {
-    p_message_id: messageId,
-  });
-
-  if (error) {
-    console.error(error);
+    const { error } = await supabase.rpc("pin_message", {
+      p_message_id: messageId,
+    });
+    if (error) {
+      console.error(error);
+    }
   }
-}
 
-async function unpinMessage(messageId: string) {
-  const { error } = await supabase.rpc("unpin_message", {
-    p_message_id: messageId,
-  });
-
-  if (error) {
-    console.error(error);
+  async function unpinMessage(messageId: string) {
+    const { error } = await supabase.rpc("unpin_message", {
+      p_message_id: messageId,
+    });
+    if (error) {
+      console.error(error);
+    }
   }
-}
 
   async function clearChat() {
     const nowStr = new Date().toISOString();
@@ -675,37 +896,54 @@ async function unpinMessage(messageId: string) {
 
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.(?:com|org|net|in|co|io|edu|gov|us|xyz|info|biz|me|cc|tv)\b[^\s]*)/gi;
     const parts = content.split(urlRegex);
-    if (parts.length === 1) return content;
+    const firstUrlMatch = content.match(urlRegex);
+    const previewUrl = firstUrlMatch ? (firstUrlMatch[0].toLowerCase().startsWith("http") ? firstUrlMatch[0] : "http://" + firstUrlMatch[0]) : null;
 
-    return parts.map((part, index) => {
-      if (part.match(urlRegex)) {
-        const href = part.toLowerCase().startsWith("http") ? part : "http://" + part;
-        return (
-          <a
-            key={index}
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className={`underline underline-offset-2 break-all ${
-              isMine 
-                ? "text-blue-700 hover:text-blue-900 font-semibold" 
-                : "text-blue-400 hover:text-blue-300 font-semibold"
-            }`}
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
+    return (
+      <div>
+        <div className="leading-relaxed">
+          {parts.length === 1 ? (
+            content
+          ) : (
+            parts.map((part, index) => {
+              if (part.match(urlRegex)) {
+                const href = part.toLowerCase().startsWith("http") ? part : "http://" + part;
+                return (
+                  <a
+                    key={index}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`underline underline-offset-2 break-all ${
+                      isMine 
+                        ? "text-blue-200 hover:text-white font-semibold" 
+                        : "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold"
+                    }`}
+                  >
+                    {part}
+                  </a>
+                );
+              }
+              return part;
+            })
+          )}
+        </div>
+        {previewUrl && (
+          <LinkPreviewCard url={previewUrl} isMine={isMine} />
+        )}
+      </div>
+    );
   }
 
   const pinnedMessage = [...messages].reverse().find((m) => m.is_pinned) ?? null;
+  const activeTyperNames = Object.values(typingUsers).map((u) => u.fullName);
 
   return (
     <div className="card card-static flex flex-col overflow-hidden">
       <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">Team Chat</span>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
+          {conversationType === "dm" ? "Direct Message" : "Team Chat"}
+        </span>
         <button
           onClick={clearChat}
           className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5 cursor-pointer"
@@ -717,7 +955,7 @@ async function unpinMessage(messageId: string) {
         </button>
       </div>
 
-      {/* Messages */}
+      {/* Messages Scroll Area */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -725,29 +963,29 @@ async function unpinMessage(messageId: string) {
         style={{ height }}
       >
         {pinnedMessage && (
-  <div className="mb-4 sticky top-0 z-10">
-    <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-      <div className="flex items-center gap-2">
-        <span className="text-amber-400">📌</span>
+          <div className="mb-4 sticky top-0 z-10">
+            <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400">📌</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold">
+                    Pinned Message
+                  </p>
+                  <p className="text-xs text-zinc-200 truncate">
+                    {pinnedMessage.content}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-amber-400">
-            Pinned Message
-          </p>
-
-          <p className="text-xs text-zinc-200 truncate">
-            {pinnedMessage.content}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
         {loadingMore && (
           <div className="flex justify-center py-2">
             <div className="w-4 h-4 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
           </div>
         )}
+
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
@@ -773,8 +1011,25 @@ async function unpinMessage(messageId: string) {
               : null;
             const parentSender = parentMsg ? profiles[parentMsg.sender_id] : null;
 
+            const msgReactions = reactions[msg.id] || [];
+            // Group reactions by emoji
+            const reactionGroups: { emoji: string; count: number; hasReacted: boolean; userNames: string[] }[] = [];
+            msgReactions.forEach((r) => {
+              let group = reactionGroups.find((g) => g.emoji === r.emoji);
+              if (!group) {
+                group = { emoji: r.emoji, count: 0, hasReacted: false, userNames: [] };
+                reactionGroups.push(group);
+              }
+              group.count += 1;
+              if (r.user_id === currentUserId) {
+                group.hasReacted = true;
+              }
+              const uName = r.user_id === currentUserId ? "You" : (profiles[r.user_id]?.full_name || "User");
+              group.userNames.push(uName);
+            });
+
             return (
-              <div id={`msg-${msg.id}`} key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : ""}`}>
+              <div id={`msg-${msg.id}`} key={msg.id} className={`flex gap-2.5 group/msg ${isMine ? "flex-row-reverse" : ""}`}>
                 {sender?.avatar_url ? (
                   <img
                     src={sender.avatar_url}
@@ -833,7 +1088,23 @@ async function unpinMessage(messageId: string) {
                         {renderMessageContent(msg.content, isMine)}
                       </div>
 
-                      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-1 py-0.5 shadow-md z-10">
+                      {/* Floating Action & Quick Reaction Bar */}
+                      <div className={`absolute -top-3 ${isMine ? "-left-2" : "-right-2"} opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-lg z-20`}>
+                        {/* Quick Reaction Emojis */}
+                        {STANDARD_EMOJIS.slice(0, 4).map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(msg.id, emoji)}
+                            className="hover:scale-125 transition-transform text-[12px] p-0.5 cursor-pointer leading-none"
+                            title={`React with ${emoji}`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                        
+                        <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+
+                        {/* Reply Button */}
                         <button
                           onClick={() => setReplyingTo(msg)}
                           className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-white text-[10px] transition-colors cursor-pointer"
@@ -841,6 +1112,7 @@ async function unpinMessage(messageId: string) {
                         >
                           ↩️
                         </button>
+                        {/* Pin Button */}
                         <button
                           onClick={() =>
                             msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
@@ -854,8 +1126,30 @@ async function unpinMessage(messageId: string) {
                     </div>
                   )}
 
+                  {/* Reaction Pills below message */}
+                  {reactionGroups.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 mt-1 px-0.5">
+                      {reactionGroups.map((group) => (
+                        <button
+                          key={group.emoji}
+                          onClick={() => toggleReaction(msg.id, group.emoji)}
+                          title={`${group.userNames.join(", ")} reacted`}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all cursor-pointer border ${
+                            group.hasReacted
+                              ? "bg-violet-100 dark:bg-violet-950/70 border-violet-400 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold scale-100"
+                              : "bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                          }`}
+                        >
+                          <span>{group.emoji}</span>
+                          <span className="text-[9px] font-mono">{group.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Timestamp & Read Receipt */}
                   <div className="flex items-center gap-1 mt-0.5 px-0.5">
-                    <span className="text-[9px] text-zinc-600">
+                    <span className="text-[9px] text-zinc-600 dark:text-zinc-400">
                       {formatTime(msg.created_at)}
                     </span>
                     {isMine && (
@@ -884,9 +1178,25 @@ async function unpinMessage(messageId: string) {
         )}
       </div>
 
-      {/* Input */}
-      {/* Input */}
-      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/40 p-3.5">
+      {/* Input & Footer Area */}
+      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/40 p-3.5 relative">
+        {/* Live Typing Indicator */}
+        {activeTyperNames.length > 0 && (
+          <div className="absolute -top-6 left-4 flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 font-medium bg-white/90 dark:bg-zinc-900/90 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-900/60 shadow-xs animate-fade-in">
+            <span>💬</span>
+            <span>
+              {activeTyperNames.length === 1
+                ? `${activeTyperNames[0]} is typing...`
+                : `${activeTyperNames.slice(0, 2).join(", ")}${activeTyperNames.length > 2 ? ` +${activeTyperNames.length - 2}` : ""} are typing...`}
+            </span>
+            <span className="flex items-center gap-0.5 ml-0.5">
+              <span className="w-1 h-1 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1 h-1 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1 h-1 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            </span>
+          </div>
+        )}
+
         {replyingTo && (
           <div className="mb-2.5 p-2 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
@@ -936,16 +1246,16 @@ async function unpinMessage(messageId: string) {
             ⚠️ {safetyError}
           </div>
         )}
+
         <div className="relative flex items-end gap-2.5">
           <textarea
             value={input}
             onChange={(e) => {
               const value = e.target.value;
-
               setInput(value);
+              sendTypingBroadcast();
 
               const match = value.match(/@([a-zA-Z\s]*)$/);
-
               if (match) {
                 setMentionQuery(match[1]);
                 setShowMentions(true);
@@ -969,40 +1279,36 @@ async function unpinMessage(messageId: string) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
+
           {showMentions && filteredParticipants.length > 0 && (
             <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl max-h-48 overflow-y-auto z-50">
-    {filteredParticipants.map((user) => (
-      <button
-        key={user.id}
-        type="button"
-        onClick={() => {
-          const updated = input.replace(
-            /@[a-zA-Z\s]*$/,
-            `@${user.full_name} `
-          );
-
-          setInput(updated);
-          setShowMentions(false);
-
-          setMentionIds((prev) =>
-            prev.includes(user.id)
-              ? prev
-              : [...prev, user.id]
-          );
-        }}
-        className="w-full px-3 py-2 text-left hover:bg-zinc-900 flex items-center gap-2"
-      >
-        <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center text-xs">
-          {user.full_name.charAt(0)}
-        </div>
-
-        <span className="text-sm text-zinc-200">
-          {user.full_name}
-        </span>
-      </button>
-    ))}
-  </div>
-)}
+              {filteredParticipants.map((user) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => {
+                    const updated = input.replace(
+                      /@[a-zA-Z\s]*$/,
+                      `@${user.full_name} `
+                    );
+                    setInput(updated);
+                    setShowMentions(false);
+                    setMentionIds((prev) =>
+                      prev.includes(user.id) ? prev : [...prev, user.id]
+                    );
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 flex items-center gap-2 cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
+                    {user.full_name.charAt(0)}
+                  </div>
+                  <span className="text-sm text-zinc-800 dark:text-zinc-200">
+                    {user.full_name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
