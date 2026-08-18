@@ -13,6 +13,7 @@ import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 import PartnerBannerCarousel from "@/components/PartnerBannerCarousel";
 import TeamWorkspaceSpotlightBanner from "@/components/TeamWorkspaceSpotlightBanner";
+import StreakWidget from "@/components/StreakWidget";
 
 type Profile = {
   id: string;
@@ -28,6 +29,8 @@ type Profile = {
   onboarding_completed?: boolean;
   created_at?: string;
   compatibility?: number;
+  current_streak?: number;
+  longest_streak?: number;
 };
 
 type Hackathon = {
@@ -213,8 +216,7 @@ function DashboardContent() {
       // 1. Fetch current profile
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
-
+        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak")
         .eq("id", user.id)
         .single();
 
@@ -874,6 +876,9 @@ function DashboardContent() {
           <div className="stat-sub text-zinc-400 group-hover:text-zinc-200 transition-colors"><b className="text-zinc-300 font-semibold">{stats.closingSoon} closing</b> in the next 7 days — View hackathons →</div>
         </div>
       </div>
+
+      {/* Daily Visit Flame Streak Widget */}
+      <StreakWidget initialStreak={profile?.current_streak} initialLongest={profile?.longest_streak} />
 
       {/* Featured Partner Portals Carousel (Prime Video Style - Auto Shuffling) */}
       <PartnerBannerCarousel />

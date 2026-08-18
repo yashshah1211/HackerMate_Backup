@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import DailyStreakTracker from "@/components/DailyStreakTracker";
 import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
 
@@ -15,6 +16,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [user, setUser] = useState<import("@supabase/supabase-js").User | null>(null);
   const [profile, setProfile] = useState<{ full_name: string | null; role?: string | null } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -28,9 +30,12 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
     if (activeUser) {
-      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record").eq("id", activeUser.id).single();
+      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak").eq("id", activeUser.id).single();
 
       setProfile(data);
+      if (data?.current_streak) {
+        setCurrentStreak(data.current_streak);
+      }
       // Immediately set user active status
       await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", activeUser.id);
     }
@@ -72,6 +77,15 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     const initialTheme = savedTheme || "dark";
     Promise.resolve().then(() => { setTheme(initialTheme); });
     document.documentElement.className = initialTheme;
+
+    const handleStreakEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ current_streak: number }>;
+      if (customEvent.detail?.current_streak) {
+        setCurrentStreak(customEvent.detail.current_streak);
+      }
+    };
+    window.addEventListener("streak-updated", handleStreakEvent);
+    return () => window.removeEventListener("streak-updated", handleStreakEvent);
   }, []);
 
   const toggleTheme = () => {
@@ -283,6 +297,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="layout-root flex h-screen overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200 dashboard-redesign">
+      <DailyStreakTracker />
 
       {/* Sidebar */}
       <aside
@@ -405,7 +420,19 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {/* Daily Flame Streak Indicator in Navbar */}
+            {currentStreak > 0 && (
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold transition-all shadow-xs"
+                title={`${currentStreak} Day Visit Streak! Keep visiting daily.`}
+              >
+                <span className="text-sm leading-none">🔥</span>
+                <span className="font-mono text-xs">{currentStreak}</span>
+              </Link>
+            )}
+
             <button onClick={toggleTheme} className="w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--card-border)] hover:bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
               {theme === "dark" ? (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
