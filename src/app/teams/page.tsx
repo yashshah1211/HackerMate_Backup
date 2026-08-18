@@ -277,159 +277,116 @@ function TeamsContent() {
           </p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filteredTeams.map((team, i) => {
             const matchScore = calculateMatchScore(team.skills || []);
+            const currentCount = team.team_members?.length || 0;
+            const maxCount = team.max_members || 5;
+            const isFull = maxCount > 0 && currentCount >= maxCount;
+            const isClosed = team.is_recruiting === false;
             
             return (
               <Link
                 key={team.id}
                 href={`/teams/${team.id}`}
-                className={`card p-5 group animate-fade-in-up stagger-${
-                  Math.min(i % 6, 6) + 1
-                }`}
+                className="card group p-5 flex flex-col justify-between min-h-[250px] hover:border-sky-500/40 dark:hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-zinc-950/40 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-800"
               >
-                {/* Top - Name & Status */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <h2 className="text-sm font-semibold text-white group-hover:text-white truncate">
-                    {team.name}
-                  </h2>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none group-hover:bg-sky-500/10 transition-colors" />
+                <div>
+                  {/* Top - Name & Status */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <h2 className="text-base font-bold text-zinc-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">
+                      {team.name}
+                    </h2>
 
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    {(() => {
-                      const currentCount = team.team_members?.length || 0;
-                      const isFull = team.max_members && currentCount >= team.max_members;
-                      const isClosed = team.is_recruiting === false;
-                      
-                      return (
-                        <span className={`badge text-[10px] py-0.5 px-1.5 ${
-                          isFull 
-                            ? "badge-error" 
-                            : isClosed 
-                              ? "bg-zinc-800 text-zinc-500 border border-zinc-800/80" 
-                              : "badge-success"
-                        }`}>
-                          {isFull ? "FULL" : isClosed ? "CLOSED" : "RECRUITING"}
-                        </span>
-                      );
-                    })()}
-
-                    <span
-                      className={`badge text-[10px] py-0.5 px-1.5 ${
-                        matchScore >= 80
-                          ? "badge-success"
-                          : matchScore >= 50
-                          ? "badge-primary"
-                          : ""
-                      }`}
-                    >
-                      {matchScore}% Match
-                    </span>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2 min-h-[32px]">
-                  {team.description || "No description provided."}
-                </p>
-
-                {/* Skills */}
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {team.skills?.length ? (
-                    team.skills.slice(0, 3).map((skill) => (
-                      <span key={skill} className="badge text-[10px] py-0.5 px-1.5">
-                        {skill}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className={`text-[9px] font-bold font-mono py-0.5 px-2 rounded-full border ${
+                        isFull 
+                          ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" 
+                          : isClosed 
+                            ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-zinc-300 dark:border-zinc-700" 
+                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      }`}>
+                        {isFull ? "● FULL" : isClosed ? "○ CLOSED" : "● RECRUITING"}
                       </span>
-                    ))
-                  ) : (
-                    <span className="badge text-[10px] text-zinc-600">
-                      No Skills Listed
-                    </span>
-                  )}
-                  {team.skills && team.skills.length > 3 && (
-                    <span className="badge text-[10px] py-0.5 px-1.5">
-                      +{team.skills.length - 3}
-                    </span>
-                  )}
-                </div>
 
-                {/* Meta Info */}
-                <div className="space-y-2 mb-5 text-xs border-t border-zinc-900 pt-3">
-                  <div className="flex items-center gap-2 text-zinc-500">
-                    <svg
-                      className="w-3.5 h-3.5 text-zinc-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.485a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"
-                      />
-                    </svg>
-                    <span className="truncate">{team.college || "Unknown College"}</span>
+                      {matchScore > 0 && (
+                        <span className="text-[10px] text-sky-600 dark:text-sky-400 font-extrabold font-mono bg-sky-500/10 border border-sky-500/20 rounded-md px-1.5 py-0.5">
+                          {matchScore}% Match
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-zinc-500">
-                    <svg
-                      className="w-3.5 h-3.5 text-zinc-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-                      />
-                    </svg>
-                    <span className="truncate">
-                      {team.team_hackathons && team.team_hackathons.length > 0
-                        ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
-                        : (team.hackathon_name || "No Hackathon Listed")}
-                    </span>
-                  </div>
-                </div>
+                  {/* Description */}
+                  <p className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed mb-3.5 line-clamp-2 min-h-[32px]">
+                    {team.description || "No description provided."}
+                  </p>
 
-                {/* SIH Pitch Score Badge */}
-                {(() => {
-                  const pptEval = team.team_ppt_evaluations?.find((e: any) => e.status === "completed");
-                  if (!pptEval) return null;
-                  return (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/80 border border-zinc-800/80 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-mono font-bold text-violet-400">🎯 Pitch Deck:</span>
-                        <span className="text-[11px] font-bold text-emerald-400">{pptEval.total_score}/100</span>
-                      </div>
-                      <span className="badge bg-violet-500/10 text-violet-300 border-violet-500/20 text-[9px] py-0.5 px-1.5">
-                        {pptEval.grade}
+                  {/* Skills */}
+                  <div className="flex flex-wrap gap-1.5 mb-3.5">
+                    {team.skills?.length ? (
+                      <>
+                        {team.skills.slice(0, 3).map((skill) => (
+                          <span key={skill} className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60">
+                            {skill}
+                          </span>
+                        ))}
+                        {team.skills.length > 3 && (
+                          <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">
+                            +{team.skills.length - 3}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600 italic">No skills listed</span>
+                    )}
+                  </div>
+
+                  {/* Meta Info */}
+                  <div className="space-y-1.5 mb-3 text-xs border-t border-zinc-200 dark:border-zinc-800/80 pt-2.5">
+                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-[11px]">
+                      <svg className="w-3.5 h-3.5 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.485a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
+                      <span className="truncate">{team.college || "Independent / Multi-College"}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-[11px]">
+                      <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
+                      <span className="truncate">
+                        {team.team_hackathons && team.team_hackathons.length > 0
+                          ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
+                          : (team.hackathon_name || "General Project")}
                       </span>
                     </div>
-                  );
-                })()}
+                  </div>
 
-                {/* CTA */}
-                <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
-                  <span className="text-[11px] text-zinc-500">Team Profile</span>
+                  {/* SIH Pitch Score Badge */}
+                  {(() => {
+                    const pptEval = team.team_ppt_evaluations?.find((e: any) => e.status === "completed");
+                    if (!pptEval) return null;
+                    return (
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-violet-500/10 border border-violet-500/20 mb-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-mono font-bold text-violet-600 dark:text-violet-400">🎯 Pitch Deck:</span>
+                          <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">{pptEval.total_score}/100</span>
+                        </div>
+                        <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-700 dark:text-violet-300">
+                          {pptEval.grade}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
 
-                  <div className="flex items-center gap-1 text-[11px] font-medium text-zinc-300 group-hover:text-white transition-colors">
-                    <span>View Profile</span>
-                    <svg
-                      className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                      />
-                    </svg>
+                {/* Footer Capacity & Action */}
+                <div className="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800/80 mt-1">
+                  <span className="text-[11px] font-mono font-semibold text-zinc-500 dark:text-zinc-400">
+                    {currentCount}/{maxCount} members
+                  </span>
+
+                  <div className="flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 group-hover:translate-x-0.5 transition-transform">
+                    <span>View & Apply</span>
+                    <span className="font-mono">→</span>
                   </div>
                 </div>
               </Link>

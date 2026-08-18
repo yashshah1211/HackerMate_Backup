@@ -826,54 +826,72 @@ function DashboardContent() {
       {/* Purposeful & Clickable Stat Cards */}
       <div className="stats-row">
         <div 
-          className="stat-card c1 cursor-pointer hover:border-zinc-700 transition-all group"
+          className="stat-card cursor-pointer hover:border-emerald-500/40 dark:hover:border-emerald-500/30 transition-all group relative overflow-hidden"
           onClick={() => router.push("/developers")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && router.push("/developers")}
         >
+          <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
           <div className="stat-top">
-            <div className="stat-label text-zinc-400">Builders in network</div>
-            <div className="stat-icon group-hover:text-emerald-400 transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <div className="stat-label text-zinc-500 dark:text-zinc-400">Builders in network</div>
+            <div className="stat-icon bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
           </div>
-          <div className="stat-value">{stats.builders} <span className="stat-trend text-zinc-400">active</span></div>
-          <div className="stat-sub text-zinc-400 group-hover:text-zinc-200 transition-colors">Explore all verified builders on HackerMate →</div>
+          <div className="stat-value text-zinc-900 dark:text-white">
+            {stats.builders} 
+            <span className="stat-trend inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              active
+            </span>
+          </div>
+          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
+            <span>Explore all verified builders</span>
+            <span className="font-mono text-emerald-600 dark:text-emerald-400">→</span>
+          </div>
         </div>
 
         <div 
-          className="stat-card c2 cursor-pointer hover:border-zinc-700 transition-all group"
+          className="stat-card cursor-pointer hover:border-sky-500/40 dark:hover:border-sky-500/30 transition-all group relative overflow-hidden"
           onClick={() => router.push("/teams")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && router.push("/teams")}
         >
+          <div className="absolute top-0 right-0 w-28 h-28 bg-sky-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-sky-500/10 transition-colors" />
           <div className="stat-top">
-            <div className="stat-label text-zinc-400">Teams active</div>
-            <div className="stat-icon group-hover:text-sky-400 transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
+            <div className="stat-label text-zinc-500 dark:text-zinc-400">Teams active</div>
+            <div className="stat-icon bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shadow-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
             </div>
           </div>
-          <div className="stat-value">{stats.teams}</div>
-          <div className="stat-sub text-zinc-400 group-hover:text-zinc-200 transition-colors">{stats.teams} ongoing projects — Find teams recruiting →</div>
+          <div className="stat-value text-zinc-900 dark:text-white">{stats.teams}</div>
+          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
+            <span>{stats.teams} ongoing projects — Find teams recruiting</span>
+            <span className="font-mono text-sky-600 dark:text-sky-400">→</span>
+          </div>
         </div>
 
         <div 
-          className="stat-card c3 cursor-pointer hover:border-zinc-700 transition-all group"
+          className="stat-card cursor-pointer hover:border-amber-500/40 dark:hover:border-amber-500/30 transition-all group relative overflow-hidden"
           onClick={() => router.push("/hackathons")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && router.push("/hackathons")}
         >
+          <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/10 transition-colors" />
           <div className="stat-top">
-            <div className="stat-label text-zinc-400">Hackathons live</div>
-            <div className="stat-icon group-hover:text-amber-400 transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
+            <div className="stat-label text-zinc-500 dark:text-zinc-400">Hackathons live</div>
+            <div className="stat-icon bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
             </div>
           </div>
-          <div className="stat-value">{stats.hackathons}</div>
-          <div className="stat-sub text-zinc-400 group-hover:text-zinc-200 transition-colors"><b className="text-zinc-300 font-semibold">{stats.closingSoon} closing</b> in the next 7 days — View hackathons →</div>
+          <div className="stat-value text-zinc-900 dark:text-white">{stats.hackathons}</div>
+          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
+            <span><b className="text-zinc-700 dark:text-zinc-200 font-semibold">{stats.closingSoon} closing</b> in 7 days</span>
+            <span className="font-mono text-amber-600 dark:text-amber-400">→</span>
+          </div>
         </div>
       </div>
 
@@ -915,85 +933,108 @@ function DashboardContent() {
       <div className="grid-2">
         <div className="panel">
           <div className="panel-head">
-            <div className="panel-title">Compatibility Spotlight</div>
+            <div className="panel-title">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+              <span>Compatibility Spotlight</span>
+              <span className="tag">AI Match</span>
+            </div>
             <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
           </div>
 
           {spotlights.length > 0 ? (
-            spotlights.map((dev, idx) => {
-              const connectionState = connectionStates[dev.id] || "not_connected";
-              const initials = dev.full_name
-                ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                : "U";
+            <div className="space-y-1">
+              {spotlights.map((dev, idx) => {
+                const connectionState = connectionStates[dev.id] || "not_connected";
+                const initials = dev.full_name
+                  ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                  : "U";
 
-              return (
-                <div
-                  key={dev.id}
-                  className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
-                  onClick={() => router.push(`/profile/${dev.id}`)}
-                >
-                  <div className="match-avatar" style={{ background: avatarColors[idx % avatarColors.length] }}>
-                    {initials}
-                    <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
-                  </div>
-                  <div className="match-info">
-                    <div className="name">{dev.full_name}</div>
-                    <div className="role">
-                      {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+                return (
+                  <div
+                    key={dev.id}
+                    className="match-row cursor-pointer hover:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-700/50"
+                    onClick={() => router.push(`/profile/${dev.id}`)}
+                  >
+                    <div className="match-avatar shadow-md" style={{ background: avatarColors[idx % avatarColors.length] }}>
+                      {initials}
+                      <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
                     </div>
-                    <div className="match-skills">
-                      {dev.skills?.slice(0, 3).map((skill) => (
-                        <span key={skill} className="skill-chip">{skill}</span>
-                      ))}
+                    <div className="match-info flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="name text-zinc-900 dark:text-zinc-100 font-bold text-xs truncate">{dev.full_name}</span>
+                        {dev.college && (
+                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[120px]">· {dev.college}</span>
+                        )}
+                      </div>
+                      <div className="role text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+                      </div>
+                      <div className="match-skills flex items-center gap-1 mt-1.5 flex-wrap">
+                        {dev.skills?.slice(0, 3).map((skill) => (
+                          <span key={skill} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 font-medium">{skill}</span>
+                        ))}
+                      </div>
+                      <MatchReasoningBadge userA={profile} userB={dev} isSelfViewer={true} matchScore={dev.compatibility} />
                     </div>
-                    <MatchReasoningBadge userA={profile} userB={dev} isSelfViewer={true} matchScore={dev.compatibility} />
+                    <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
+                      <div className="text-right">
+                        <span className="text-sm font-extrabold font-mono text-indigo-600 dark:text-indigo-400">{dev.compatibility}%</span>
+                        <span className="text-[9px] text-zinc-400 block font-mono">match</span>
+                      </div>
+                      {connectionState === "connected" ? (
+                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">✓ Connected</div>
+                      ) : connectionState === "request_sent" ? (
+                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20">Sent</div>
+                      ) : connectionState === "request_received" ? (
+                        <button
+                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/profile/${dev.id}`);
+                          }}
+                        >
+                          Respond
+                        </button>
+                      ) : (
+                        <button
+                          className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/profile/${dev.id}`);
+                          }}
+                        >
+                          Connect
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="match-right">
-                    <div className="match-pct">{dev.compatibility}%<span>match</span></div>
-                    {connectionState === "connected" ? (
-                      <div className="btn-connected">✓ Connected</div>
-                    ) : connectionState === "request_sent" ? (
-                      <div className="btn-connected" style={{ color: "var(--accent-amber)", borderColor: "rgba(255,182,39,0.3)", background: "rgba(255,182,39,0.1)" }}>Sent</div>
-                    ) : connectionState === "request_received" ? (
-                      <button
-                        className="btn-connect"
-                        style={{ background: "var(--accent-indigo)" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/profile/${dev.id}`);
-                        }}
-                      >
-                        Respond
-                      </button>
-                    ) : (
-                      <button
-                        className="btn-connect"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/profile/${dev.id}`);
-                        }}
-                      >
-                        Connect
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" /></svg>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400 shadow-inner">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" /></svg>
               </div>
-              <p className="text-zinc-500 text-xs">No compatible builders found</p>
-              <p className="text-[10px] text-zinc-600 mt-1 max-w-[200px] mx-auto">Update your skills on your profile to find matching teammates.</p>
+              <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No compatible builders found</p>
+              <p className="text-[11px] text-zinc-500 mt-1 max-w-[220px] mx-auto">Update your skills on your profile to find matching teammates.</p>
+              <button
+                onClick={() => router.push("/developers")}
+                className="mt-3 px-3 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Browse All Builders →
+              </button>
             </div>
           )}
         </div>
 
         <div className="panel">
           <div className="panel-head">
-            <div className="panel-title">Builders from {profile?.college || "your college"}</div>
+            <div className="panel-title">
+              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+              <span>Builders from {profile?.college || "your college"}</span>
+              <span className="tag">Campus</span>
+            </div>
             <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
           </div>
 
@@ -1005,88 +1046,106 @@ function DashboardContent() {
 
             if (displayedCollegeMates.length === 0) {
               return (
-                <div className="flex flex-col items-center justify-center py-14 text-center">
-                  <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.22 4 2.22V20" /></svg>
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400 shadow-inner">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.22 4 2.22V20" /></svg>
                   </div>
-                  <p className="text-zinc-500 text-xs">No builders from your college found</p>
-                  <p className="text-[10px] text-zinc-600 mt-1 max-w-[200px] mx-auto">Make sure your college is set in your profile.</p>
+                  <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No builders from your college found</p>
+                  <p className="text-[11px] text-zinc-500 mt-1 max-w-[220px] mx-auto">Make sure your college name is set accurately in your profile.</p>
+                  <button
+                    onClick={() => router.push("/profile/edit")}
+                    className="mt-3 px-3 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Set College in Profile →
+                  </button>
                 </div>
               );
             }
 
-            return displayedCollegeMates.map((dev, idx) => {
-              const connectionState = connectionStates[dev.id] || "not_connected";
-              const initials = dev.full_name
-                ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                : "U";
+            return (
+              <div className="space-y-1">
+                {displayedCollegeMates.map((dev, idx) => {
+                  const connectionState = connectionStates[dev.id] || "not_connected";
+                  const initials = dev.full_name
+                    ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                    : "U";
 
-              return (
-                <div
-                  key={dev.id}
-                  className="match-row cursor-pointer hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2"
-                  onClick={() => router.push(`/profile/${dev.id}`)}
-                >
-                  <div className="match-avatar" style={{ background: avatarColors[(idx + 2) % avatarColors.length] }}>
-                    {initials}
-                    <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
-                  </div>
-                  <div className="match-info">
-                    <div className="name">{dev.full_name}</div>
-                    <div className="role">
-                      {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+                  return (
+                    <div
+                      key={dev.id}
+                      className="match-row cursor-pointer hover:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-700/50"
+                      onClick={() => router.push(`/profile/${dev.id}`)}
+                    >
+                      <div className="match-avatar shadow-md" style={{ background: avatarColors[(idx + 2) % avatarColors.length] }}>
+                        {initials}
+                        <span className="status-dot" style={connectionState === "not_connected" ? { background: "var(--text-faint)" } : {}}></span>
+                      </div>
+                      <div className="match-info flex-1 min-w-0">
+                        <div className="name text-zinc-900 dark:text-zinc-100 font-bold text-xs truncate">{dev.full_name}</div>
+                        <div className="role text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          {dev.skills && dev.skills.includes("Figma") ? "Product Designer" : dev.skills && dev.skills.includes("TensorFlow") ? "ML Engineer" : "Full Stack Developer"}
+                        </div>
+                        <div className="match-skills flex items-center gap-1 mt-1.5 flex-wrap">
+                          {dev.skills?.slice(0, 3).map((skill) => (
+                            <span key={skill} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 font-medium">{skill}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
+                        {dev.compatibility ? (
+                          <div className="text-right">
+                            <span className="text-sm font-extrabold font-mono text-cyan-600 dark:text-cyan-400">{dev.compatibility}%</span>
+                            <span className="text-[9px] text-zinc-400 block font-mono">match</span>
+                          </div>
+                        ) : null}
+                        {connectionState === "connected" ? (
+                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">✓ Connected</div>
+                        ) : connectionState === "request_sent" ? (
+                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20">Sent</div>
+                        ) : connectionState === "request_received" ? (
+                          <button
+                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/profile/${dev.id}`);
+                            }}
+                          >
+                            Respond
+                          </button>
+                        ) : (
+                          <button
+                            className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/profile/${dev.id}`);
+                            }}
+                          >
+                            Connect
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="match-skills">
-                      {dev.skills?.slice(0, 3).map((skill) => (
-                        <span key={skill} className="skill-chip">{skill}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="match-right">
-                    {dev.compatibility ? <div className="match-pct">{dev.compatibility}%<span>match</span></div> : null}
-                    {connectionState === "connected" ? (
-                      <div className="btn-connected">✓ Connected</div>
-                    ) : connectionState === "request_sent" ? (
-                      <div className="btn-connected" style={{ color: "var(--accent-amber)", borderColor: "rgba(255,182,39,0.3)", background: "rgba(255,182,39,0.1)" }}>Sent</div>
-                    ) : connectionState === "request_received" ? (
-                      <button
-                        className="btn-connect"
-                        style={{ background: "var(--accent-indigo)" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/profile/${dev.id}`);
-                        }}
-                      >
-                        Respond
-                      </button>
-                    ) : (
-                      <button
-                        className="btn-connect"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/profile/${dev.id}`);
-                        }}
-                      >
-                        Connect
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            });
+                  );
+                })}
+              </div>
+            );
           })()}
         </div>
       </div>
 
-      <div className="grid-3">
-          <div className="panel">
-            <div className="panel-head">
-              <div className="panel-title">My Teams</div>
-              <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
+      <div className="grid-3 mt-4">
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>My Teams</span>
             </div>
+            <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
+          </div>
 
-            {activeTeams.length > 0 ? (
-              activeTeams.map((team) => {
+          {activeTeams.length > 0 ? (
+            <div className="space-y-2">
+              {activeTeams.map((team) => {
                 const count = team.memberCount || 0;
                 const max = team.max_members || 5;
                 const percent = Math.min(Math.round((count / max) * 100), 100);
@@ -1094,73 +1153,68 @@ function DashboardContent() {
                 return (
                   <div
                     key={team.id}
-                    className="team-card cursor-pointer hover:bg-white/[0.01] transition-colors rounded-xl px-2 -mx-2"
+                    className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer group"
                     onClick={() => {
                       const firstHackathonId = team.team_hackathons?.[0]?.hackathon_id || team.hackathon_id;
                       router.push(`/teams/${team.id}/workspace${firstHackathonId ? `?hackathon_id=${firstHackathonId}` : ''}`);
                     }}
                   >
-                    <div style={{ flex: 1 }}>
-                      <div className="team-name">{team.name}</div>
-                      <div className="team-progress-track">
-                        <div
-                          className="team-progress-fill"
-                          style={{
-                            width: `${percent}%`,
-                            background: percent <= 35 ? "var(--warning)" : "var(--accent)"
-                          }}
-                        ></div>
-                      </div>
-                      <div className="team-meta">
-                        {percent}% tasks done · {
-                          team.team_hackathons && team.team_hackathons.length > 0
-                            ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
-                            : team.hackathons?.name || "Active Project"
-                        }
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition-colors truncate">{team.name}</span>
+                      <span className="text-[10px] font-mono font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">{count}/{max} members</span>
                     </div>
 
-                    <div className="stack-avatars">
-                      {team.members?.slice(0, 3).map((m, mIdx) => {
-                        const initials = m.profiles?.full_name
-                          ? m.profiles.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                          : "?";
-                        const stackColors = ["#3b82f6", "#8b5cf6", "#10b981"];
-                        return (
-                          <div
-                            key={m.user_id}
-                            style={{
-                              background: stackColors[mIdx % stackColors.length],
-                              color: "#fff"
-                            }}
-                          >
-                            {initials}
-                          </div>
-                        );
-                      })}
+                    <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full mt-2.5 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${percent}%`,
+                          background: percent >= 80 ? "linear-gradient(90deg, #10b981, #34d399)" : "linear-gradient(90deg, #3b82f6, #60a5fa)"
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span className="truncate max-w-[180px]">
+                        {team.team_hackathons && team.team_hackathons.length > 0
+                          ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
+                          : team.hackathons?.name || "Active Project"}
+                      </span>
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold group-hover:translate-x-0.5 transition-transform">Workspace →</span>
                     </div>
                   </div>
                 );
-              })
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
-                </div>
-                <p className="text-zinc-500 text-xs">No active teams</p>
-                <p className="text-[10px] text-zinc-600 mt-1">Create a team or request to join one to get started.</p>
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
               </div>
-            )}
+              <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No active teams</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Create a team or request to join one to get started.</p>
+              <button
+                onClick={() => router.push("/teams/create")}
+                className="mt-3 px-3 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 text-xs font-bold transition-all cursor-pointer"
+              >
+                + Create a Team
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Recent Activity</span>
+            </div>
           </div>
 
-          <div className="panel">
-            <div className="panel-head">
-              <div className="panel-title">Recent Activity</div>
-            </div>
-
-            {recentActivities.length > 0 ? (
-              recentActivities.map((act) => {
-                const colors = ["var(--accent)", "var(--success)", "var(--warning)", "var(--danger)"];
+          {recentActivities.length > 0 ? (
+            <div className="space-y-1">
+              {recentActivities.map((act) => {
+                const colors = ["#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6"];
                 const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
 
                 return (
@@ -1169,27 +1223,30 @@ function DashboardContent() {
                     onClick={() => {
                       if (act.link) router.push(act.link);
                     }}
-                    className={`activity-item ${act.link ? "cursor-pointer hover:bg-[var(--surface-2)] transition-colors rounded-lg p-1.5 -mx-1.5" : ""}`}
+                    className={`flex items-start gap-2.5 p-2 rounded-xl transition-colors border border-transparent ${
+                      act.link ? "cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:border-zinc-200 dark:hover:border-zinc-700/50" : ""
+                    }`}
                   >
-                    <div className="activity-dot" style={{ background: randColor }}></div>
-                    <div>
-                      <div className="activity-text" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
-                      <div className="activity-time">{act.timeLabel}</div>
+                    <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: randColor, boxShadow: `0 0 6px ${randColor}80` }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-zinc-700 dark:text-zinc-300 leading-snug" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
+                      <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{act.timeLabel}</div>
                     </div>
                   </div>
                 );
-              })
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-600">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
-                </div>
-                <p className="text-zinc-500 text-xs">No recent activity</p>
-                <p className="text-[10px] text-zinc-600 mt-1">Notifications and network matches will appear here.</p>
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
               </div>
-            )}
-          </div>
+              <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No recent activity</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Notifications and network matches will appear here.</p>
+            </div>
+          )}
         </div>
+      </div>
 
         <Footer />
 

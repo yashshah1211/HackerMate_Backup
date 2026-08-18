@@ -1338,7 +1338,7 @@ html.light .content-area {
 }
 
 .dashboard-redesign .stats-row {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px;
 }
 
 @media (max-width: 640px) {
@@ -1348,13 +1348,29 @@ html.light .content-area {
 }
 
 .dashboard-redesign .stat-card {
-  background: var(--bg-card) !important; border: 1px solid var(--border-soft) !important; border-radius: 10px !important;
-  padding: 18px; position: relative; overflow: hidden;
-  transition: border-color 0.2s ease;
+  background: var(--bg-card) !important; 
+  border: 1px solid var(--border) !important; 
+  border-radius: 16px !important;
+  padding: 20px; 
+  position: relative; 
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dashboard-redesign .stat-card:hover {
-  border-color: var(--border) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.25);
+}
+
+.light .dashboard-redesign .stat-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.light .dashboard-redesign .stat-card:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.08);
 }
 
 .dashboard-redesign .stat-top {
@@ -1362,36 +1378,41 @@ html.light .content-area {
 }
 
 .dashboard-redesign .stat-label {
-  font-size: 11px; color: var(--text-faint); font-weight: 500;
+  font-size: 11.5px; color: var(--text-faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-geist-mono), monospace;
 }
 
 .dashboard-redesign .stat-icon {
-  width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
-  background: var(--bg-raised); color: var(--text-dim);
+  width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-raised); color: var(--text-dim); border: 1px solid var(--border-soft);
+  transition: transform 0.2s ease;
+}
+
+.dashboard-redesign .stat-card:hover .stat-icon {
+  transform: scale(1.08);
 }
 
 .dashboard-redesign .stat-icon svg {
-  width: 15px; height: 15px;
+  width: 16px; height: 16px;
 }
 
 .dashboard-redesign .stat-value {
-  font-size: 26px; font-weight: 600; letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 8px; color: var(--text) !important;
+  font-size: 28px; font-weight: 700; letter-spacing: -0.03em; display: flex; align-items: baseline; gap: 8px; color: var(--text) !important;
 }
 
 .dashboard-redesign .stat-trend {
-  font-size: 11px; color: var(--text-faint); font-weight: 400;
+  font-size: 11px; color: var(--text-faint); font-weight: 500;
 }
 
 .dashboard-redesign .stat-sub {
-  font-size: 11px; color: var(--text-faint); margin-top: 5px;
+  font-size: 11.5px; color: var(--text-faint); margin-top: 6px; display: flex; align-items: center; justify-content: space-between;
 }
 
 .dashboard-redesign .stat-sub b {
-  color: var(--text-dim) !important; font-weight: 500;
+  color: var(--text-dim) !important; font-weight: 600;
 }
 
 .dashboard-redesign .grid-2 {
-  display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-top: 14px;
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-top: 16px;
 }
 
 @media (max-width: 1024px) {
@@ -1401,49 +1422,60 @@ html.light .content-area {
 }
 
 .dashboard-redesign .panel {
-  background: var(--bg-card) !important; border: 1px solid var(--border-soft) !important; border-radius: 10px !important;
-  padding: 18px;
+  background: var(--bg-card) !important; 
+  border: 1px solid var(--border) !important; 
+  border-radius: 16px !important;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.2s ease;
 }
 
 .dashboard-redesign .panel-head {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border-soft);
 }
 
 .dashboard-redesign .panel-title {
-  font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--text) !important;
+  font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--text) !important; letter-spacing: -0.01em;
 }
 
 .dashboard-redesign .panel-title .tag {
   font-size: 10px; background: var(--accent-soft); color: var(--accent) !important;
-  padding: 2px 6px; border-radius: 5px; font-weight: 600;
+  padding: 2px 7px; border-radius: 6px; font-weight: 700; border: 1px solid var(--accent-border);
 }
 
 .dashboard-redesign .view-all {
-  font-size: 12px; color: var(--text-dim) !important; cursor: pointer;
-  transition: color 0.15s ease;
+  font-size: 11.5px; color: var(--text-dim) !important; cursor: pointer; font-weight: 600;
+  transition: all 0.15s ease; font-family: var(--font-geist-mono), monospace;
 }
 
 .dashboard-redesign .view-all:hover {
-  color: var(--text) !important;
+  color: var(--text) !important; transform: translateX(2px);
 }
 
 .dashboard-redesign .match-row {
-  display: flex; align-items: center; gap: 12px; padding: 12px 0;
-  border-bottom: 1px solid var(--border-soft);
+  display: flex; align-items: center; gap: 12px; padding: 12px 10px;
+  border-radius: 12px;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.dashboard-redesign .match-row:last-child {
-  border-bottom: none; padding-bottom: 2px;
+.dashboard-redesign .match-row:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.light .dashboard-redesign .match-row:hover {
+  background: #f8fafc !important;
 }
 
 .dashboard-redesign .match-avatar {
-  width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 600; font-size: 13px; color: #fff; position: relative;
+  font-weight: 700; font-size: 13px; color: #fff; position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .dashboard-redesign .status-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--success) !important;
+  width: 9px; height: 9px; border-radius: 50%; background: var(--success) !important;
   position: absolute; bottom: -1px; right: -1px; border: 2px solid var(--bg-card);
 }
 
