@@ -7,6 +7,9 @@ ADD COLUMN IF NOT EXISTS current_streak INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS last_active_date DATE DEFAULT NULL;
 
+-- Grant SELECT on streak columns to anon and authenticated
+GRANT SELECT (current_streak, longest_streak, last_active_date) ON public.profiles TO anon, authenticated;
+
 -- 2. Create streak history table for tracking check-in history
 CREATE TABLE IF NOT EXISTS public.builder_streak_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
