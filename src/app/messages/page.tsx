@@ -143,11 +143,11 @@ function MessagesContent() {
   async function loadConversations(myId: string) {
     const { data: myParticipations, error: partError } = await supabase
       .from("conversation_participants")
-      .select("conversation_id, last_read_at, cleared_at")
+      .select("conversation_id, cleared_at")
       .eq("user_id", myId);
 
     if (partError || !myParticipations) {
-      console.error(partError);
+      console.error("Error loading conversation participants:", partError);
       return;
     }
 
@@ -236,11 +236,9 @@ function MessagesContent() {
         .from("messages")
         .select("*", { count: "exact", head: true })
         .eq("conversation_id", convId)
-        .neq("sender_id", myId);
+        .neq("sender_id", myId)
+        .eq("is_read", false);
 
-      if (myPart?.last_read_at) {
-        unreadQuery = unreadQuery.gt("created_at", myPart.last_read_at);
-      }
       if (myClearedAt) {
         unreadQuery = unreadQuery.gt("created_at", myClearedAt);
       }
@@ -342,10 +340,13 @@ function MessagesContent() {
   // Filter conversations based on search and tab
   const filteredConversations = useMemo(() => {
     return conversations.filter((conv) => {
-      const matchesSearch =
-        conv.otherUser.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (conv.otherUser.college && conv.otherUser.college.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (conv.lastMessage && conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase()));
+      if (!conv || !conv.otherUser) return false;
+      const q = searchQuery.toLowerCase().trim();
+      const name = conv.otherUser.full_name?.toLowerCase() || "";
+      const college = conv.otherUser.college?.toLowerCase() || "";
+      const lastMsg = conv.lastMessage?.toLowerCase() || "";
+
+      const matchesSearch = !q || name.includes(q) || college.includes(q) || lastMsg.includes(q);
 
       if (!matchesSearch) return false;
       if (filterTab === "unread") return conv.unreadCount > 0;
