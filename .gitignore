@@ -24,11 +24,12 @@
 .DS_Store
 *.pem
 
-# debug
+# debug & logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # scratch and temporary diagnostic directories
 /scratch
@@ -38,7 +39,7 @@ tmp/
 /debug
 debug/
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
 .env.local
 
@@ -48,4 +49,24 @@ debug/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-.vercel
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Supabase CLI local runtime state
+supabase/.temp/
+
+# PostHog CLI wizard cache
+.posthog/
+
+# Local IDE configuration
+.vscode/
+.idea/
+
+# Generated PDF reports & binary document exports
+*.pdf
+!public/sih1330_sample_pitch.pdf
