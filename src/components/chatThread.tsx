@@ -891,32 +891,23 @@ export default function ChatThread({
 
       // Compress to WebP in browser
       const compressedBlob = await compressImageToWebP(file);
-      const contentType = "image/webp";
 
-      // 1. Get presigned upload URL
-      const presignRes = await fetch("/api/upload/presign", {
+      // Upload via server endpoint (prevents browser CORS issues)
+      const formData = new FormData();
+      formData.append("file", compressedBlob, "image.webp");
+      formData.append("folder", "chat_images");
+
+      const uploadRes = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentType, folder: "chat_images" }),
-      });
-
-      if (!presignRes.ok) {
-        const errJson = await presignRes.json();
-        throw new Error(errJson.error || "Failed to prepare upload");
-      }
-
-      const { uploadUrl, publicUrl } = await presignRes.json();
-
-      // 2. Direct upload to Cloudflare R2
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: compressedBlob,
+        body: formData,
       });
 
       if (!uploadRes.ok) {
-        throw new Error("Failed to upload image to Cloudflare R2");
+        const errJson = await uploadRes.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to upload image");
       }
+
+      const { publicUrl } = await uploadRes.json();
 
       // 3. Post image message in chat
       const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: file.name })}`;
@@ -1010,27 +1001,21 @@ export default function ChatThread({
         setUploadingMedia(true);
         setSafetyError(null);
 
-        const presignRes = await fetch("/api/upload/presign", {
+        const formData = new FormData();
+        formData.append("file", audioBlob, "voice.webm");
+        formData.append("folder", "chat_voice");
+
+        const uploadRes = await fetch("/api/upload", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contentType: "audio/webm", folder: "chat_voice" }),
-        });
-
-        if (!presignRes.ok) {
-          throw new Error("Failed to prepare voice upload");
-        }
-
-        const { uploadUrl, publicUrl } = await presignRes.json();
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "audio/webm" },
-          body: audioBlob,
+          body: formData,
         });
 
         if (!uploadRes.ok) {
-          throw new Error("Failed to upload audio to Cloudflare R2");
+          const errJson = await uploadRes.json().catch(() => ({}));
+          throw new Error(errJson.error || "Failed to upload audio");
         }
+
+        const { publicUrl } = await uploadRes.json();
 
         const voicePayload = `__VOICE__::${JSON.stringify({ url: publicUrl, duration: finalSeconds })}`;
         soundManager.playSent();
@@ -1671,7 +1656,7 @@ export default function ChatThread({
               onClick={() => fileInputRef.current?.click()}
               disabled={isBlocked || uploadingMedia}
               className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50"
-              title="Attach image (stored in Cloudflare R2)"
+              title="Attach image"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
