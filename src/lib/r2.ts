@@ -17,6 +17,8 @@ export function getR2Client(): S3Client {
       accessKeyId,
       secretAccessKey,
     },
+    // Required for Cloudflare R2 to prevent TLS subdomain handshake errors
+    forcePathStyle: true,
   });
 }
 
