@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getR2Client } from "@/lib/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { validateMagicBytes } from "@/lib/mediaValidation";
+import { moderateImageWithGemini } from "@/lib/geminiModeration";
 
 export const runtime = "nodejs";
 
@@ -60,6 +62,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File exceeds 10 MB limit" }, { status: 400 });
     }
 
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // 1. Binary Magic-Byte Malware & Disguised Extension Verification
+    const magicCheck = validateMagicBytes(buffer, contentType);
+    if (!magicCheck.isValid) {
+      return NextResponse.json(
+        { error: "Security check failed: Corrupt or invalid file signature detected." },
+        { status: 400 }
+      );
+    }
+
+    // 2. AI Vision Safety & Content Moderation (NSFW / Adult / Violence / Hate filter)
+    if (contentType.startsWith("image/")) {
+      const moderation = await moderateImageWithGemini(buffer, contentType);
+      if (!moderation.isSafe) {
+        return NextResponse.json(
+          { error: `Upload blocked: ${moderation.reason || "Image violates HackerMate community guidelines (adult or inappropriate content)."}` },
+          { status: 400 }
+        );
+      }
+    }
+
     let ext = "bin";
     if (contentType.includes("webp")) ext = "webp";
     else if (contentType.includes("png")) ext = "png";
@@ -74,9 +99,6 @@ export async function POST(req: NextRequest) {
     const sanitizedFolder = folder.replace(/[^a-zA-Z0-9_-]/g, "");
     const randomId = crypto.randomUUID().slice(0, 10);
     const key = `${sanitizedFolder}/${Date.now()}-${randomId}.${ext}`;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     const client = getR2Client();
     const bucketName = process.env.R2_BUCKET_NAME || "hackermate-media";

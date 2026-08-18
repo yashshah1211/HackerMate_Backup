@@ -319,6 +319,34 @@ export default function ChatThread({
   const lastTypingSentRef = useRef<number>(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+  // Reporting state
+  const [reportingMsg, setReportingMsg] = useState<Message | null>(null);
+  const [reportReason, setReportReason] = useState("Inappropriate or Adult Content");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccessToast, setReportSuccessToast] = useState(false);
+
+  const handleReportMessage = async () => {
+    if (!reportingMsg) return;
+    setSubmittingReport(true);
+    const { error } = await supabase.from("user_reports").insert({
+      reported_id: reportingMsg.sender_id,
+      reporter_id: currentUserId,
+      reason: reportReason,
+      details: reportDetails ? `${reportDetails} (Message preview: ${reportingMsg.content.slice(0, 200)})` : `Reported in chat. Preview: ${reportingMsg.content.slice(0, 200)}`,
+    });
+
+    setSubmittingReport(false);
+    if (!error) {
+      setReportingMsg(null);
+      setReportDetails("");
+      setReportSuccessToast(true);
+      setTimeout(() => setReportSuccessToast(false), 4000);
+    } else {
+      console.error("Report error:", error);
+    }
+  };
+
   const myProfile = profiles[currentUserId] || null;
 
   useEffect(() => {
@@ -1275,6 +1303,87 @@ export default function ChatThread({
         <ImageLightbox src={lightboxImg} onClose={() => setLightboxImg(null)} />
       )}
 
+      {/* Report Modal */}
+      {reportingMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setReportingMsg(null)}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-rose-400 text-base">🚩</span>
+                <h3 className="text-sm font-bold text-white">Report Content</h3>
+              </div>
+              <button
+                onClick={() => setReportingMsg(null)}
+                className="text-zinc-400 hover:text-white text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-zinc-300">Why are you reporting this?</label>
+              <div className="space-y-1.5 text-xs text-zinc-300">
+                {[
+                  "Inappropriate or Adult Content",
+                  "Spam, Scam, or Malicious Link",
+                  "Harassment or Hate Speech",
+                  "Other Community Guideline Violation"
+                ].map((reason) => (
+                  <label key={reason} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 hover:border-zinc-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="reportReason"
+                      value={reason}
+                      checked={reportReason === reason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                      className="accent-rose-500"
+                    />
+                    <span>{reason}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-zinc-300">Additional Details (Optional)</label>
+              <textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                placeholder="Explain what is wrong with this content..."
+                rows={2}
+                className="w-full text-xs p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-white placeholder:text-zinc-600 focus:border-rose-500 focus:outline-none resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setReportingMsg(null)}
+                className="flex-1 px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleReportMessage}
+                disabled={submittingReport}
+                className="flex-1 px-3 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {submittingReport ? "Submitting..." : "Submit Report"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Success Toast */}
+      {reportSuccessToast && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 px-3.5 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-xs font-semibold shadow-xl flex items-center gap-1.5 animate-fade-in">
+          <span>✓</span>
+          <span>Report submitted. Our moderation team will review this.</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
@@ -1483,6 +1592,15 @@ export default function ChatThread({
                         >
                           {msg.is_pinned ? "📍" : "📌"}
                         </button>
+                        {!isMine && (
+                          <button
+                            onClick={() => setReportingMsg(msg)}
+                            className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
+                            title="Report message or attachment"
+                          >
+                            🚩
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
