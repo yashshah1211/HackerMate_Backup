@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import MatchReasoningBadge from "@/components/MatchReasoningBadge";
+import { getInitials } from "@/lib/utils";
 
 type Profile = {
   id: string;
@@ -422,7 +423,7 @@ function DevelopersContent() {
                         />
                       ) : (
                         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-sm shadow-sm">
-                          {dev.full_name?.charAt(0) || "B"}
+                          {getInitials(dev.full_name, 1)}
                         </div>
                       )}
                       <div className="min-w-0">

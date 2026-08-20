@@ -9,6 +9,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import PostAcceptanceTeamPrompt, { type TeamWithSlots, type ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
 import { trackEvent } from "@/lib/posthog";
+import { getInitials } from "@/lib/utils";
 
 type RequestRow = {
   id: string;
@@ -293,7 +294,7 @@ function ConnectionsContent() {
                       />
                     ) : (
                       <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {req.profile.full_name?.charAt(0)}
+                        {getInitials(req.profile.full_name, 1)}
                       </div>
                     )}
                     <div className="min-w-0">
@@ -356,7 +357,7 @@ function ConnectionsContent() {
                       />
                     ) : (
                       <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {req.profile.full_name?.charAt(0)}
+                        {getInitials(req.profile.full_name, 1)}
                       </div>
                     )}
                     <div className="min-w-0">
@@ -436,7 +437,7 @@ function ConnectionsContent() {
                     />
                   ) : (
                     <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                      {conn.profile.full_name?.charAt(0)}
+                      {getInitials(conn.profile.full_name, 1)}
                     </div>
                   )}
                   <div className="min-w-0">

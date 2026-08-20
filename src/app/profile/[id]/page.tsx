@@ -19,6 +19,7 @@ import BuilderPassportModal from "@/components/BuilderPassportModal";
 
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
+import { getInitials } from "@/lib/utils";
 
 type Profile = {
   id: string;
@@ -704,7 +705,7 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="w-full h-full rounded-xl bg-gradient-to-br from-indigo-900/30 to-purple-900/30 flex items-center justify-center font-bold text-white text-3xl font-sans">
-                      {profile.full_name?.charAt(0)}
+                      {getInitials(profile.full_name, 1)}
                     </div>
                   )}
                 </div>

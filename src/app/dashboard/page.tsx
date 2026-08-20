@@ -14,6 +14,9 @@ import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 import PartnerBannerCarousel from "@/components/PartnerBannerCarousel";
 import TeamWorkspaceSpotlightBanner from "@/components/TeamWorkspaceSpotlightBanner";
 import StreakWidget from "@/components/StreakWidget";
+import { getInitials } from "@/lib/utils";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
+import { LANDING_TOKENS } from "@/lib/design-tokens";
 
 type Profile = {
   id: string;
@@ -64,10 +67,77 @@ type Team = {
   max_members?: number | null;
   memberCount?: number;
   members?: TeamMember[];
-  hackathons: { name: string } | null;
-  team_hackathons?: { hackathon_id: string; hackathons: { id: string; name: string } | null }[];
+  hackathons: { id?: string; name: string; type?: string | null; tags?: string[] | null } | null;
+  team_hackathons?: { hackathon_id: string; hackathons: { id: string; name: string; type?: string | null; tags?: string[] | null } | null }[];
   owner_id?: string;
 };
+
+export type TeamCategory = "sih" | "project" | "hackathon";
+
+export function getTeamCategoryInfo(team: {
+  hackathon_id?: string | null;
+  hackathons?: { id?: string; name?: string; type?: string | null; tags?: string[] | null } | null;
+  team_hackathons?: { hackathon_id: string; hackathons: { id?: string; name?: string; type?: string | null; tags?: string[] | null } | null }[];
+}): {
+  category: TeamCategory;
+  tag: "SIH" | "PROJECT" | "HACKATHON";
+  eventName: string;
+} {
+  const hackathon = team.team_hackathons?.[0]?.hackathons || team.hackathons;
+  const targetHackathonId = team.team_hackathons?.[0]?.hackathon_id || team.hackathon_id;
+
+  // 1. Primary: Exact relational UUID check for SIH
+  if (targetHackathonId === SIH_HACKATHON_ID || hackathon?.id === SIH_HACKATHON_ID) {
+    return {
+      category: "sih",
+      tag: "SIH",
+      eventName: hackathon?.name || "Smart India Hackathon 2026 (SIH internal round)",
+    };
+  }
+
+  // 2. Primary: Relational hackathon.type check
+  if (hackathon?.type) {
+    if (hackathon.type === "external" || hackathon.type === "partner") {
+      return {
+        category: "hackathon",
+        tag: "HACKATHON",
+        eventName: hackathon.name || "External Hackathon",
+      };
+    }
+    if (hackathon.type === "native") {
+      return {
+        category: "project",
+        tag: "PROJECT",
+        eventName: hackathon.name || "Active project",
+      };
+    }
+  }
+
+  // 3. Primary: No hackathon linked = Native / Independent project
+  if (!targetHackathonId && !hackathon) {
+    return {
+      category: "project",
+      tag: "PROJECT",
+      eventName: "Active project",
+    };
+  }
+
+  // 4. Last-resort fallback if custom record lacks both ID and type
+  const hackName = hackathon?.name || "";
+  if (/smart india hackathon|sih/i.test(hackName) || hackathon?.tags?.some((t) => /sih/i.test(t))) {
+    return {
+      category: "sih",
+      tag: "SIH",
+      eventName: hackName || "Smart India Hackathon 2026",
+    };
+  }
+
+  return {
+    category: "hackathon",
+    tag: "HACKATHON",
+    eventName: hackName || "Hackathon",
+  };
+}
 
 
 type RecentActivity = {
@@ -377,10 +447,10 @@ function DashboardContent() {
         id: string;
         name: string;
         hackathon_id: string | null;
-        max_members: number;
+        max_members: number | null;
         owner_id: string;
-        hackathons: { name: string } | null;
-        team_hackathons?: { hackathon_id: string; hackathons: { id: string; name: string } | null }[];
+        hackathons: { id?: string; name: string; type?: string | null; tags?: string[] | null } | null;
+        team_hackathons?: { hackathon_id: string; hackathons: { id: string; name: string; type?: string | null; tags?: string[] | null } | null }[];
         memberCount: number;
         members: TeamMember[];
       }
@@ -388,7 +458,7 @@ function DashboardContent() {
       if (teamIds.length > 0) {
         const { data: batchTeams, error: batchErr } = await supabase
           .from("teams")
-          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathon_id, hackathons(id, name))")
+          .select("id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathon_id, hackathons(id, name, type, tags))")
           .in("id", teamIds);
 
         if (batchErr) {
@@ -398,9 +468,9 @@ function DashboardContent() {
             id: string;
             name: string;
             hackathon_id: string | null;
-            max_members: number;
+            max_members: number | null;
             owner_id: string;
-            team_hackathons: { hackathon_id: string; hackathons: { id: string; name: string } | null }[];
+            team_hackathons: { hackathon_id: string; hackathons: { id: string; name: string; type?: string | null; tags?: string[] | null } | null }[];
             team_members: TeamMember[];
           }[]).map((d) => {
             const members = d.team_members || [];
@@ -412,7 +482,7 @@ function DashboardContent() {
               id: d.id,
               name: d.name,
               hackathon_id: d.hackathon_id,
-              max_members: d.max_members || 5,
+              max_members: typeof d.max_members === "number" ? d.max_members : null,
               owner_id: d.owner_id,
               hackathons: hackathonsData,
               team_hackathons: d.team_hackathons,
@@ -934,9 +1004,8 @@ function DashboardContent() {
         <div className="panel">
           <div className="panel-head">
             <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              <span>Compatibility Spotlight</span>
-              <span className="tag">AI Match</span>
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+              <span className="truncate">Compatibility Spotlight</span>
             </div>
             <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
           </div>
@@ -945,9 +1014,7 @@ function DashboardContent() {
             <div className="space-y-1">
               {spotlights.map((dev, idx) => {
                 const connectionState = connectionStates[dev.id] || "not_connected";
-                const initials = dev.full_name
-                  ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                  : "U";
+                const initials = getInitials(dev.full_name);
 
                 return (
                   <div
@@ -1031,8 +1098,13 @@ function DashboardContent() {
         <div className="panel">
           <div className="panel-head">
             <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-              <span>Builders from {profile?.college || "your college"}</span>
+              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
+              <span
+                className="truncate"
+                title={profile?.college ? `Builders from ${profile.college}` : "Builders from your college"}
+              >
+                Builders from {profile?.college ? (profile.college.includes("(") ? profile.college.split("(")[0].trim() : profile.college) : "your college"}
+              </span>
               <span className="tag">Campus</span>
             </div>
             <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
@@ -1066,9 +1138,7 @@ function DashboardContent() {
               <div className="space-y-1">
                 {displayedCollegeMates.map((dev, idx) => {
                   const connectionState = connectionStates[dev.id] || "not_connected";
-                  const initials = dev.full_name
-                    ? dev.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-                    : "U";
+                  const initials = getInitials(dev.full_name);
 
                   return (
                     <div
@@ -1136,51 +1206,85 @@ function DashboardContent() {
       <div className="grid-3 mt-4">
         <div className="panel">
           <div className="panel-head">
-            <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>My Teams</span>
+            <div className="panel-title flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#B4F461] animate-pulse shrink-0" />
+              <span>My teams</span>
+              <span className="text-[11px] font-mono font-normal text-zinc-500">{activeTeams.length} active</span>
             </div>
-            <div className="view-all" onClick={() => router.push("/my-teams")}>manage →</div>
+            <Link href="/my-teams" className="view-all text-lime-600 dark:text-[#B4F461] hover:text-lime-700 dark:hover:text-[#a3e64f] font-mono transition-colors">
+              Manage &gt;
+            </Link>
           </div>
 
           {activeTeams.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {activeTeams.map((team) => {
-                const count = team.memberCount || 0;
-                const max = team.max_members || 5;
-                const percent = Math.min(Math.round((count / max) * 100), 100);
+                const info = getTeamCategoryInfo(team);
+                const theme = LANDING_TOKENS.categories[info.category];
+                const initials = getInitials(team.name, 2);
+                const filledCount = Math.max(0, team.memberCount || team.members?.length || 0);
+                const hasMax = typeof team.max_members === "number" && team.max_members > 0;
+                const totalSeats = hasMax && team.max_members! >= filledCount ? team.max_members! : filledCount;
+                const seatLabel = hasMax && team.max_members! >= filledCount
+                  ? `${filledCount}/${team.max_members} seats`
+                  : `${filledCount} seats`;
 
                 return (
                   <div
                     key={team.id}
-                    className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer group"
                     onClick={() => {
                       const firstHackathonId = team.team_hackathons?.[0]?.hackathon_id || team.hackathon_id;
                       router.push(`/teams/${team.id}/workspace${firstHackathonId ? `?hackathon_id=${firstHackathonId}` : ''}`);
                     }}
+                    className="group relative flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-zinc-900/40 hover:bg-white dark:hover:bg-zinc-900/80 hover:border-lime-500/60 dark:hover:border-[#B4F461]/35 hover:-translate-y-px transition-all duration-[160ms] cursor-pointer shadow-xs dark:shadow-none"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition-colors truncate">{team.name}</span>
-                      <span className="text-[10px] font-mono font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">{count}/{max} members</span>
+                    {/* Left Section: Monogram Avatar + Team Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
+                      {/* Monogram Avatar (42px, rounded-lg) */}
+                      <div className={`w-[42px] h-[42px] shrink-0 rounded-lg flex items-center justify-center font-mono font-bold text-sm ${theme.bg} ${theme.text} border ${theme.border}`}>
+                        {initials}
+                      </div>
+
+                      {/* Team Name + Category Pill + Subtitle */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors truncate">
+                            {team.name}
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase shrink-0 ${theme.bg} ${theme.text} border ${theme.border}`}>
+                            {info.tag}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate max-w-[200px] sm:max-w-[260px]">
+                          {info.eventName}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full mt-2.5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${percent}%`,
-                          background: percent >= 80 ? "linear-gradient(90deg, #10b981, #34d399)" : "linear-gradient(90deg, #3b82f6, #60a5fa)"
-                        }}
-                      />
-                    </div>
+                    {/* Right Section: Seat Roster Ticks + Workspace Action */}
+                    <div className="flex items-center gap-4 shrink-0">
+                      {/* Seat Roster */}
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalSeats }).map((_, i) => (
+                            <span
+                              key={i}
+                              className={`w-2 h-2 rounded-[2px] ${
+                                i < filledCount ? theme.tickFilled : theme.tickEmpty
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-1">
+                          {seatLabel}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between mt-2.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      <span className="truncate max-w-[180px]">
-                        {team.team_hackathons && team.team_hackathons.length > 0
-                          ? team.team_hackathons.map((th) => th.hackathons?.name).filter(Boolean).join(", ")
-                          : team.hackathons?.name || "Active Project"}
-                      </span>
-                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold group-hover:translate-x-0.5 transition-transform">Workspace →</span>
+                      {/* Workspace Link */}
+                      <div className="flex items-center gap-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 group-hover:text-lime-600 dark:group-hover:text-[#B4F461] group-hover:translate-x-0.5 transition-all duration-[160ms] font-medium">
+                        <span>Workspace</span>
+                        <span className="text-[11px]">↗</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1206,7 +1310,7 @@ function DashboardContent() {
         <div className="panel">
           <div className="panel-head">
             <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
               <span>Recent Activity</span>
             </div>
           </div>

@@ -9,6 +9,7 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 import DailyStreakTracker from "@/components/DailyStreakTracker";
 import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
+import { getInitials } from "@/lib/utils";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -272,9 +273,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     }
   ];
 
-  const userInitials = profile?.full_name
-    ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "YS";
+  const userInitials = getInitials(profile?.full_name);
 
   const avatarGradients = [
     "from-violet-500 to-indigo-600",

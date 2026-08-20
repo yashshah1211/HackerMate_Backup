@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import Image from "next/image";
 
 interface Avatar {
@@ -26,14 +26,7 @@ export function AvatarCircles({
   return (
     <div className={cn("z-10 flex -space-x-3 rtl:space-x-reverse items-center", className)}>
       {displayAvatars.map((url, index) => {
-        const initials = url.name
-          ? url.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2)
-          : `B${index + 1}`;
+        const initials = getInitials(url.name);
 
         return (
           <div

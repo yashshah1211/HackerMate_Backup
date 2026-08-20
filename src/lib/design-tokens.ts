@@ -39,4 +39,32 @@ export const LANDING_TOKENS = {
   motion: {
     transition: "transition-all duration-200 ease-out",
   },
+
+  // Category Monogram & Tag Themes (Dashboard Teams & Projects)
+  categories: {
+    sih: {
+      color: "#7DD3FC",
+      text: "text-sky-700 dark:text-[#7DD3FC]",
+      bg: "bg-sky-100/80 dark:bg-[#7DD3FC]/10",
+      border: "border-sky-300/80 dark:border-[#7DD3FC]/20",
+      tickFilled: "bg-sky-500 dark:bg-[#7DD3FC]",
+      tickEmpty: "border border-zinc-300 dark:border-zinc-700/60 bg-transparent",
+    },
+    project: {
+      color: "#C4B5FD",
+      text: "text-violet-700 dark:text-[#C4B5FD]",
+      bg: "bg-violet-100/80 dark:bg-[#C4B5FD]/10",
+      border: "border-violet-300/80 dark:border-[#C4B5FD]/20",
+      tickFilled: "bg-violet-500 dark:bg-[#C4B5FD]",
+      tickEmpty: "border border-zinc-300 dark:border-zinc-700/60 bg-transparent",
+    },
+    hackathon: {
+      color: "#FDBA74",
+      text: "text-amber-800 dark:text-[#FDBA74]",
+      bg: "bg-amber-100/80 dark:bg-[#FDBA74]/10",
+      border: "border-amber-300/80 dark:border-[#FDBA74]/20",
+      tickFilled: "bg-amber-500 dark:bg-[#FDBA74]",
+      tickEmpty: "border border-zinc-300 dark:border-zinc-700/60 bg-transparent",
+    },
+  },
 } as const;
