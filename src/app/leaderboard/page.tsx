@@ -200,6 +200,11 @@ function LeaderboardContent() {
           return b.builderCount - a.builderCount;
         });
 
+        const totalVerifiedDevs = rankedList.reduce((sum, c) => sum + c.builderCount, 0);
+        const totalActiveSquads = rankedList.reduce((sum, c) => sum + c.activeSquadCount, 0);
+        setTotalBuilders(totalVerifiedDevs);
+        setTotalSquads(totalActiveSquads);
+
         setColleges(rankedList);
 
         // Auto-expand highlighted college param if present
@@ -295,19 +300,31 @@ function LeaderboardContent() {
           <div className="grid grid-cols-3 gap-3 pt-2 max-w-md mx-auto">
             <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center shadow-sm">
               <span className="block text-lg sm:text-xl font-mono font-bold text-zinc-900 dark:text-white">
-                {colleges.length || "80+"}
+                {loading ? (
+                  <span className="inline-block w-8 h-5 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded my-0.5" />
+                ) : (
+                  colleges.length
+                )}
               </span>
               <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Colleges</span>
             </div>
             <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center shadow-sm">
               <span className="block text-lg sm:text-xl font-mono font-bold text-emerald-600 dark:text-[#B4F461]">
-                {totalBuilders || "385+"}
+                {loading ? (
+                  <span className="inline-block w-8 h-5 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded my-0.5" />
+                ) : (
+                  totalBuilders
+                )}
               </span>
               <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Verified Devs</span>
             </div>
             <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center shadow-sm">
               <span className="block text-lg sm:text-xl font-mono font-bold text-cyan-600 dark:text-[#22D3EE]">
-                {totalSquads || "9+"}
+                {loading ? (
+                  <span className="inline-block w-8 h-5 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded my-0.5" />
+                ) : (
+                  totalSquads
+                )}
               </span>
               <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Active Squads</span>
             </div>
@@ -315,7 +332,15 @@ function LeaderboardContent() {
         </div>
 
         {/* User's College Pinned Status HUD or Logged-Out CTA */}
-        {userCollegeRank ? (
+        {loading ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/60 animate-pulse flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="w-28 h-4 bg-zinc-200 dark:bg-zinc-800 rounded" />
+              <div className="w-64 h-5 bg-zinc-200 dark:bg-zinc-800 rounded" />
+            </div>
+            <div className="w-36 h-9 bg-zinc-200 dark:bg-zinc-800 rounded-xl hidden sm:block" />
+          </div>
+        ) : userCollegeRank ? (
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-white dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-950 border border-amber-500/30 shadow-md dark:shadow-xl relative overflow-hidden">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="space-y-1">
