@@ -207,15 +207,24 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
-          <div className="bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80">
+          <div className="bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800/80">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
               <Link href={user ? "/dashboard" : "/"} className="flex items-center">
                 <Logo className="h-8 w-auto" />
               </Link>
-              {user && (
+              {user ? (
                 <div className="flex items-center gap-4">
-                  <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors">Dashboard</Link>
-                  <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-white transition-colors">Sign Out</button>
+                  <Link href="/dashboard" className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors font-medium">Dashboard</Link>
+                  <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/login"
+                    className="px-4 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 font-semibold text-xs transition-all shadow-sm cursor-pointer"
+                  >
+                    Sign In
+                  </Link>
                 </div>
               )}
             </div>
@@ -263,6 +272,13 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       activeBg: "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/10 dark:border-rose-500/20",
       activeBar: "bg-rose-600 dark:bg-rose-500",
       icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
+    },
+    {
+      href: "/leaderboard", label: "Leaderboard",
+      color: "text-amber-500 dark:text-amber-400",
+      activeBg: "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/10 dark:border-amber-500/20",
+      activeBar: "bg-amber-500 dark:bg-amber-400",
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.496m5.008 0A3.75 3.75 0 0018 10.5V6a2.25 2.25 0 00-2.25-2.25H8.25A2.25 2.25 0 006 6v4.5a3.75 3.75 0 003.496 3.75m0 0a3.75 3.75 0 01-3.496-3.75V6" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 7.5H4.5A2.25 2.25 0 002.25 9.75v.75A3.75 3.75 0 006 14.25M18 7.5h1.5a2.25 2.25 0 012.25 2.25v.75a3.75 3.75 0 01-3.75 3.75" /></svg>)
     },
     {
       href: "/messages", label: "Messages",

@@ -73,6 +73,29 @@ export default function OnboardingPage() {
               setCollege("Other");
               setCustomCollege(data.college);
             }
+          } else {
+            // Check URL search parameters or next param for a shared invite college prefill
+            if (typeof window !== "undefined") {
+              const urlParams = new URLSearchParams(window.location.search);
+              let prefill = urlParams.get("college");
+              if (!prefill && urlParams.get("next")) {
+                try {
+                  const nextParsed = new URL(urlParams.get("next")!, window.location.origin);
+                  prefill = nextParsed.searchParams.get("college");
+                } catch (_) {}
+              }
+              if (prefill) {
+                const normalized = normalizeCollege(prefill);
+                if (normalized && normalized.toLowerCase() !== "other") {
+                  if (COLLEGES.includes(normalized)) {
+                    setCollege(normalized);
+                  } else {
+                    setCollege("Other");
+                    setCustomCollege(normalized);
+                  }
+                }
+              }
+            }
           }
           if (data.bio) setBio(data.bio);
           if (data.github_url) setGithub(data.github_url);

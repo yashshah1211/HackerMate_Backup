@@ -1107,7 +1107,10 @@ function DashboardContent() {
               </span>
               <span className="tag">Campus</span>
             </div>
-            <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
+            <div className="view-all flex items-center gap-2.5">
+              <span onClick={() => router.push("/leaderboard")} className="hover:text-amber-400 text-amber-500 font-mono text-[10px] cursor-pointer">🏆 Campus Rank</span>
+              <span onClick={() => router.push("/developers")} className="cursor-pointer">view all →</span>
+            </div>
           </div>
 
           {(() => {

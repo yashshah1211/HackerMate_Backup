@@ -12,7 +12,8 @@ import { Suspense } from "react";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next") ?? "/dashboard";
+  const nextUrl = searchParams.get("next") ?? searchParams.get("redirect") ?? "/dashboard";
+  const collegeParam = searchParams.get("college");
 
   // If already logged in, redirect directly to onboarding or dashboard
   useEffect(() => {
@@ -36,13 +37,16 @@ function LoginContent() {
         if (profile?.onboarding_completed) {
           router.push(safePath);
         } else {
-          router.push(`/onboarding?next=${encodeURIComponent(safePath)}`);
+          const onboardingUrl = `/onboarding?next=${encodeURIComponent(safePath)}${
+            collegeParam ? `&college=${encodeURIComponent(collegeParam)}` : ""
+          }`;
+          router.push(onboardingUrl);
         }
       }
     }
 
     checkExistingSession();
-  }, [router, nextUrl]);
+  }, [router, nextUrl, collegeParam]);
 
   return (
     <main className="min-h-screen w-full flex flex-col justify-between bg-[#09090b] text-white p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-[#B4F461] selection:text-black">
