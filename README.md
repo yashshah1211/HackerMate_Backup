@@ -1,228 +1,205 @@
-<div align="center">
+# HackerMate
 
-# ⚡ HackerMate
-### The Operating System for Hackathon Teams & Builders
+**The team-operating system for college hackathons.**
 
-[![Next.js](https://img.shields.io/badge/Next.js-16_App_Router-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_|_Auth_|_Realtime-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38BDF8?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+HackerMate helps solo builders find teammates by skill and college, and gives
+formed teams a shared workspace — chat, invites, and hackathon-specific
+tooling — instead of coordinating across five different apps.
 
-*Discover open hackathons, match with compatible builders, assemble high-performing teams, and collaborate in real-time.*
+Live at [hackermate.in](https://hackermate.in)
 
-[Explore Platform](#-key-features) • [Quickstart](#-quickstart) • [Architecture](#-architecture) • [Database & Security](#-database--security-architecture) • [Routes Matrix](#-canonical-route-precision)
-
----
-
-</div>
-
-## 🌟 Overview
-
-**HackerMate** is an all-in-one team-building and hackathon workspace platform. Designed for developers, designers, product managers, and organizers, HackerMate solves the fragmented hackathon experience by offering automated builder matching, partner portals, multi-track registration management, real-time team workspaces, and verified SPOC team export tools.
-
-> [!IMPORTANT]
-> **Production-Grade Security**: HackerMate enforces strict Default-Deny UI controls, database Row-Level Security (RLS), advisory locks, rate-limiting, and automated community safety content filters across all messaging and team management RPCs.
+<!--
+  Add 2–3 real screenshots here before publishing — landing page, dashboard,
+  and a team workspace are the highest-value ones. A README with no visuals
+  undersells a live product with this much built.
+  ![Dashboard](docs/screenshots/dashboard.png)
+-->
 
 ---
 
-## ⚡ Key Features
+## What it does
 
-### 🔍 1. Builder Discovery & Matching Engine
-- **Algorithmic Matchmaking**: Matches builders based on tech stack, skills, college/university, and hackathon goals.
-- **Builder Spotlight**: Filter and connect with top platform builders or peers from your institution.
-- **Connection Requests**: In-app networking system with optional custom introductory notes.
+**Builder discovery & matching**
+Matches builders by tech stack, skills, role, and college. Browse or search
+builders directly, send connection requests with an optional note.
 
-### 💬 2. Real-Time Team Workspaces & DMs
-- **Shared Team Chat & Direct Messaging**: Unified chat interface powered by Supabase Realtime subscriptions.
-- **Message Replies & Quoted Cards**: Instant message reply context (`reply_to_id`) with smooth jump-scrolling (`#msg-<id>`).
-- **`@Mentions` & Pinned Messages**: Pin critical resources (Figma, GitHub repos) and notify teammates directly in chat.
-- **Quick Team Invites**: Send 1-click team invitation cards directly inside DM conversations.
+**Team workspaces**
+Once a team forms, it gets a shared workspace: real-time team chat and DMs
+(via Supabase Realtime), threaded message replies, @mentions, pinned
+messages for shared resources, and one-click team invites sent directly in
+DMs.
 
-### 🎪 3. Partner Portals & Multi-Track Hackathons
-- **Dedicated Partner Pages**: Custom branded hubs for premier partner hackathons (e.g. Morrow 1.0, Axcentra, Gamnexis).
-- **Multi-Event Track Selector**: Register and filter teams by specific hackathon tracks (e.g. AI/ML, Web3, FinTech).
-- **Partner Banner Carousel**: Dynamic homepage and portal carousel highlighting active national hackathons.
+**Partner hackathon portals**
+Dedicated branded pages for partner hackathons, with multi-track
+registration support for events with separate tracks (AI/ML, Web3, FinTech,
+etc.).
 
-### 📄 4. SIH Export & Team Management
-- **Smart India Hackathon (SIH) Workflow**: Export team data to formatted Excel / PDF rosters for SPOC validation.
-- **Strict Role-Based Access**: SPOC exports and member modifications are locked strictly behind `(isMember || isOwner)` security checks.
+**Smart India Hackathon tooling**
+College-scoped team formation for SIH, plus SPOC-facing export tools for
+validating team rosters.
 
-### 🔔 5. Touch-Optimized Notifications & Digest Engine
-- **In-App Notification Center**: Mobile touch-optimized notifications for friend requests, team invites, and join requests.
-- **Automated Email Reports**: Cron-driven daily summaries, reminder webhooks, and organizer outreach tools.
+**Notifications**
+In-app notifications for connection requests, team invites, and join
+requests, plus scheduled email digests for organizers.
 
 ---
 
-## 🏗️ Architecture
+## Stack
 
-HackerMate is built using a modern serverless full-stack architecture:
+| Layer | Technology |
+|---|---|
+| Framework | Next.js (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Backend | Supabase (Postgres, Auth, Storage, Realtime) |
+| Analytics | PostHog |
 
-```mermaid
-graph TD
-    User([User Browser / Mobile]) -->|HTTP / React 19| NextJS[Next.js 16 App Router]
-    NextJS -->|Client RPCs & Auth| SupabaseAuth[Supabase Auth / OAuth]
-    NextJS -->|PostgREST & SQL RPCs| SupabaseDB[(PostgreSQL Database)]
-    NextJS -->|Realtime Subscriptions| SupabaseRT[Supabase Realtime Engine]
-    SupabaseDB -->|RLS Policies & Triggers| SecurityLayer[Default-Deny RLS & Security Triggers]
-    NextJS -->|Automated Cron / Webhooks| EmailEngine[Nodemailer / Resend Email Engine]
+*(Check `package.json` for exact pinned versions before quoting them
+elsewhere — leaving them out here rather than risk listing stale numbers.)*
+
+---
+
+## Project structure
+
 ```
-
-### Tech Stack Breakdown
-
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend Framework** | [Next.js 16](https://nextjs.org/) (App Router, React 19, Server & Client Components) |
-| **Styling & UI** | [Tailwind CSS v4](https://tailwindcss.com/), Vanilla CSS Variables, Lucide & Heroicons |
-| **Backend & DB** | [Supabase](https://supabase.com/) (PostgreSQL 15+, Supabase Auth, Storage, Realtime) |
-| **State & Hooks** | React State, Context API (`NotificationContext`), Custom Supabase Realtime Channels |
-| **Tooling & Build** | TypeScript 5, ESLint, PostHog Analytics, Node.js 20+ |
-
----
-
-## 📁 Project Structure Map
-
-```text
-HackerMate_Backup/
-├── frontend/
-│   ├── src/
-│   │   ├── app/                      # Next.js App Router Pages & APIs
-│   │   │   ├── admin/                # Platform Admin Dashboard
-│   │   │   ├── connections/          # Builder Network & Friend Requests
-│   │   │   ├── dashboard/            # Core User Operating Dashboard
-│   │   │   ├── developers/           # Builder Search & Spotlight Directory
-│   │   │   ├── hackathons/           # Hackathons Index, SIH Hub, & Details
-│   │   │   ├── invites/              # Pending Team Invites Hub
-│   │   │   ├── messages/             # Personal DMs & Inbox
-│   │   │   ├── notifications/        # Touch-Optimized In-App Notifications
-│   │   │   ├── onboarding/           # Builder Profile Creation Flow
-│   │   │   ├── partners/[slug]/      # Dynamic Partner Hackathon Hubs
-│   │   │   ├── profile/[id]/         # Builder Public Profiles & Portfolios
-│   │   │   ├── teams/[id]/           # Team Overview & Live Workspace
-│   │   │   └── api/                  # Serverless Webhooks & Cron Routes
-│   │   ├── components/               # Reusable UI Components
-│   │   │   ├── chatThread.tsx        # Shared DM & Team Workspace Chat Thread
-│   │   │   ├── Navbar.tsx            # Global Navigation Bar & Unread Badges
-│   │   │   ├── PartnerBannerCarousel.tsx # Homepage Hackathon Carousel
-│   │   │   └── TeamOverviewView.tsx  # Team Overview & RLS Guarded Actions
-│   │   ├── context/                  # Notification & UI Context Providers
-│   │   ├── lib/                      # Supabase Client, Safety Filters, & Export Helpers
-│   │   └── types/                    # TypeScript Database Schemas & Interfaces
-│   └── supabase/
-│       └── migrations/               # Transactional Database Migrations (SQL)
+frontend/
+├── src/
+│   ├── app/                 # Next.js App Router pages and API routes
+│   │   ├── admin/           # Admin dashboard
+│   │   ├── connections/     # Builder network / connection requests
+│   │   ├── dashboard/       # Main user dashboard
+│   │   ├── developers/      # Builder search & directory
+│   │   ├── hackathons/      # Hackathons index, SIH hub, event details
+│   │   ├── invites/         # Pending team invites
+│   │   ├── leaderboard/     # Inter-college leaderboard
+│   │   ├── messages/        # DMs and inbox
+│   │   ├── notifications/   # In-app notifications
+│   │   ├── onboarding/      # Profile creation flow
+│   │   ├── partners/[slug]/ # Partner hackathon portals
+│   │   ├── profile/[id]/    # Public builder profiles
+│   │   ├── teams/[id]/      # Team overview and live workspace
+│   │   └── api/             # Serverless routes, webhooks, cron jobs
+│   ├── components/          # Shared UI components
+│   ├── context/             # React context providers
+│   ├── lib/                 # Supabase client, helpers, safety filters
+│   └── types/                # Database and interface types
+└── supabase/
+    └── migrations/           # SQL migrations
 ```
 
 ---
 
-## 🚀 Quickstart
+## Getting started
 
 ### Prerequisites
 
-- **Node.js**: `v20.0.0` or higher
-- **Package Manager**: `npm` v10+
-- **Supabase Account**: A live Supabase project with PostgreSQL database and Auth enabled.
+- Node.js 20+
+- npm 10+
+- A Supabase project (Postgres + Auth enabled)
 
-### 1. Repository Setup
+### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/HackerMate.git
+git clone https://github.com/yashshah1211/HackerMate_Backup
 cd HackerMate/frontend
+npm install
 ```
 
-### 2. Environment Configuration
+Create `frontend/.env.local`:
 
-Create a `.env.local` file inside the `frontend/` directory with your public Supabase credentials:
-
-```env
-# Required Supabase Credentials
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# Optional Analytics & Outreach Keys
+# Optional
 NEXT_PUBLIC_POSTHOG_KEY=your-posthog-key
 NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 ```
 
-### 3. Install Dependencies & Start Server
+Never commit real keys — `.env.local` should stay out of version control.
+The anon key is safe to expose client-side by design (that's what Postgres
+row-level security is for), but it still shouldn't live in the repo or in
+this README.
 
 ```bash
-# Install NPM dependencies
-npm install
-
-# Launch Next.js local development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+Then open `http://localhost:3000`.
 
----
+### Database setup
 
-## 🗄️ Database & Security Architecture
-
-HackerMate uses transactional PostgreSQL migrations located in `frontend/supabase/migrations/`.
-
-> [!WARNING]
-> **Database Security Prerequisites**: Before serving production traffic, apply all database security migrations using the Supabase CLI:
+Apply migrations before serving real traffic:
 
 ```bash
-# Link project to your Supabase instance
 supabase link --project-ref <your-project-ref>
-
-# Push database schema & RLS policies
 supabase db push
 ```
 
-### Core Migration Files
+Notable migrations in `frontend/supabase/migrations/`:
 
-- `202607020001_core_security.sql`: Core security policies, default-deny UI functions, and team RPCs.
-- `202607260001_axcentra_and_partner_engine.sql`: Partner portal configuration tables and multi-track hackathon support.
-- `202608040001_morrow_partner_page.sql`: Morrow 1.0 partner page metadata and hackathon integration.
-- `202608040002_add_metadata_to_hackathon_registrations.sql`: Track selection metadata support for multi-track events.
-- `202608040003_add_reply_to_id_to_messages.sql`: Database support for threaded message replies.
-- `202608040004_fix_send_message_overloads.sql`: Canonical single-signature RPC optimization for PostgREST.
+- `202607020001_core_security.sql` — core RLS policies and team RPCs
+- `202607260001_axcentra_and_partner_engine.sql` — partner portal + multi-track support
+- `202608040001_morrow_partner_page.sql` — Morrow 1.0 partner page
+- `202608040003_add_reply_to_id_to_messages.sql` — threaded message replies
 
 ---
 
-## 📍 Canonical Route Precision
+## Security notes
 
-Always follow canonical route conventions when building features or adding navigation links:
-
-| Entity | Canonical Route Format | Example |
-| :--- | :--- | :--- |
-| **User Profile** | `/profile/[id]` | `/profile/44067b2e-3c82-4502-8398-4ba8d1b91022` |
-| **Team Overview** | `/teams/[id]` | `/teams/a1b2c3d4-e5f6-7890-abcd-1234567890ab` |
-| **Team Workspace** | `/teams/[id]/workspace` | `/teams/a1b2c3d4-e5f6-7890-abcd-1234567890ab/workspace` |
-| **Hackathon Details** | `/hackathons/[id]` | `/hackathons/sih` or `/hackathons/[uuid]` |
-| **Partner Portal** | `/partners/[slug]` | `/partners/morrow` or `/partners/axcentra` |
-| **Invites Hub** | `/invites` | `/invites` |
-| **Network & Connections** | `/connections` | `/connections` |
+The platform uses Postgres row-level security, default-deny access checks in
+the UI layer, and rate-limiting on messaging and team-management endpoints.
+Like any actively developed project, that's a continuous process rather than
+a finished state — if you find an issue, please report it privately rather
+than opening a public issue (see below).
 
 ---
 
-## 🧪 Validation & Typechecking
+## Routes
 
-Run automated TypeScript typechecks and production build validations:
+| Entity | Route | Example |
+|---|---|---|
+| Profile | `/profile/[id]` | `/profile/44067b2e-...` |
+| Team overview | `/teams/[id]` | `/teams/a1b2c3d4-...` |
+| Team workspace | `/teams/[id]/workspace` | `/teams/a1b2c3d4-.../workspace` |
+| Hackathon | `/hackathons/[id]` | `/hackathons/sih` |
+| Partner portal | `/partners/[slug]` | `/partners/morrow` |
+| Leaderboard | `/leaderboard` | `/leaderboard?college=vjti` |
+| Connections | `/connections` | |
+| Invites | `/invites` | |
+
+---
+
+## Validation
 
 ```bash
-# TypeScript compilation check (0 errors standard)
-npx tsc --noEmit
-
-# ESLint check
-npm run lint
-
-# Production Next.js build check
-npm run build
+npx tsc --noEmit    # type check
+npm run lint         # lint
+npm run build        # production build
 ```
 
 ---
 
-## 📄 License
+## Contributing
 
-Distributed under the MIT License. See `LICENSE` for more information.
+<!--
+  Fill this in with actual guidance if you want outside contributors —
+  right now there's nothing here telling someone how to propose a change,
+  what the review process looks like, or what's off-limits (e.g. anything
+  touching auth/RLS/schema, per your own internal AGENTS.md workflow).
+-->
 
-<div align="center">
+Contribution guidelines are still being written. If you're interested in
+contributing, reach out first rather than opening a PR directly.
 
-**Built with ❤️ for hackathon builders worldwide.**
+---
 
-</div>
+## License
+
+<!-- Confirm this is accurate — add a LICENSE file if one doesn't exist yet. -->
+
+MIT
+
+---
+
+Built by Yash Shah and the HackerMate team.
