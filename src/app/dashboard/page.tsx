@@ -32,6 +32,8 @@ type Profile = {
   onboarding_completed?: boolean;
   created_at?: string;
   compatibility?: number;
+  shared_skills?: string[];
+  same_college?: boolean;
   current_streak?: number;
   longest_streak?: number;
 };
@@ -309,94 +311,30 @@ function DashboardContent() {
         const pending: string[] = comp.missingFields.map((f) => `Add / set ${f.label}`);
         setProfileCompleteness({ percent: comp.score, pendingTasks: pending });
 
-        // Fetch user blocklists
-        const blockedUserIds: string[] = [];
-        const { data: myBlocks } = await supabase
-          .from("blocked_users")
-          .select("blocked_id")
-          .eq("blocker_id", user.id);
 
-        const { data: theirBlocks } = await supabase
-          .from("blocked_users")
-          .select("blocker_id")
-          .eq("blocked_id", user.id);
-
-        if (myBlocks) {
-          blockedUserIds.push(...myBlocks.map((b) => b.blocked_id));
-        }
-        if (theirBlocks) {
-          blockedUserIds.push(...theirBlocks.map((b) => b.blocker_id));
+        // 2. Fetch compatible builders via server-side matchmaking RPC.
+        // Replaces the previous full-table profiles download; blocked users,
+        // banned accounts and non-onboarded builders are excluded in SQL.
+        // Same Jaccard skill score + same-college matcher as before,
+        // computed in Postgres (get_recommended_teammates).
+        const { data: recommended, error: matchErr } = await supabase.rpc(
+          "get_recommended_teammates",
+          { p_user_id: user.id, p_limit: 50 }
+        );
+        if (matchErr) {
+          console.error("Matchmaking RPC failed:", matchErr);
         }
 
-        // 2. Fetch all other profiles for compatibility calculation
-        const { data: otherProfiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+        const devsWithScore = (recommended ?? []) as Profile[];
 
-          .neq("id", user.id);
+        setSpotlights(devsWithScore.slice(0, 4)); // Get top 4 compatible builders
 
-        if (otherProfiles) {
-          // Filter out blocked users
-          const filteredProfiles = otherProfiles.filter(
-            (other) => !blockedUserIds.includes(other.id)
-          );
-
-          // Calculate score and sort
-          const devsWithScore = filteredProfiles.map((other) => {
-            const mySkills = (profileData.skills as string[]) || [];
-            const otherSkills = (other.skills as string[]) || [];
-
-            // Jaccard similarity for skills (100% of score)
-            let skillScore = 0;
-            if (mySkills.length > 0 || otherSkills.length > 0) {
-              const mySkillsLower = mySkills.map((s: string) => s.toLowerCase().trim());
-              const otherSkillsLower = otherSkills.map((s: string) => s.toLowerCase().trim());
-              const shared = otherSkillsLower.filter((s: string) => mySkillsLower.includes(s));
-              const union = new Set([...mySkillsLower, ...otherSkillsLower]);
-
-              if (union.size > 0) {
-                skillScore = (shared.length / union.size) * 100;
-              }
-            }
-
-            const compatibility = Math.max(5, Math.min(Math.round(skillScore), 99));
-            return { ...other, compatibility };
-          });
-
-          // Sort by compatibility descending
-          devsWithScore.sort((a, b) => b.compatibility - a.compatibility);
-          setSpotlights(devsWithScore.slice(0, 4)); // Get top 4 compatible builders
-
-          // Filter builders from the same college (fill up to 7 builders)
-          const myCollege = profileData.college ? profileData.college.toLowerCase().trim() : "";
-          if (myCollege) {
-            const mates = devsWithScore.filter(other => {
-              if (!other.college) return false;
-              const otherCollege = other.college.toLowerCase().trim();
-              if (otherCollege === myCollege) return true;
-              
-              const getFirstWord = (s: string) => s.split(/[\s,()]+/)[0];
-              const w1 = getFirstWord(myCollege);
-              const w2 = getFirstWord(otherCollege);
-              
-              const acronyms = ["djsce", "spit", "vjti", "tsec", "vesit", "coep", "pict", "vit", "mit", "vnit"];
-              if (acronyms.includes(w1) && w1 === w2) {
-                return true;
-              }
-              
-              return myCollege.includes(otherCollege) || otherCollege.includes(myCollege);
-            });
-
-            // Fill remaining slots up to 7 with top compatible platform builders if college has < 7
-            const mateIds = new Set(mates.map(m => m.id));
-            const fallbackDevs = devsWithScore.filter(dev => !mateIds.has(dev.id));
-            const combined = [...mates, ...fallbackDevs];
-
-            setCollegeMates(combined.slice(0, 7));
-          } else {
-            setCollegeMates(devsWithScore.slice(0, 7));
-          }
-        }
+        // Same-college builders first (flag computed server-side), backfilled
+        // up to 7 with the most-compatible remaining builders.
+        const mates = devsWithScore.filter((d) => d.same_college);
+        const mateIds = new Set(mates.map((m) => m.id));
+        const fallbackDevs = devsWithScore.filter((d) => !mateIds.has(d.id));
+        setCollegeMates([...mates, ...fallbackDevs].slice(0, 7));
       }
 
       // 3. Fetch 4 nearest upcoming hackathons closing soon (Relocated profile completion)

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { jsPDF } from "jspdf";
 
 export type UserBadge = {
   id: string;
@@ -51,9 +50,13 @@ export default function CertificateModal({
   const rank = badge.rank_title || "Verified Winner";
   const teamName = badge.metadata?.team_name || "";
 
-  function generatePDF() {
+  async function generatePDF() {
     setDownloading(true);
     try {
+      // Loaded on first click only — keeps ~350KB of PDF-generation code out
+      // of the initial bundles for sih/, partners/[slug]/ and profile/[id]/.
+      const { jsPDF } = await import("jspdf");
+
       // Create landscape A4 PDF (842 x 595 pt)
       const doc = new jsPDF({
         orientation: "landscape",
@@ -202,6 +205,7 @@ export default function CertificateModal({
       doc.save(filename);
     } catch (err) {
       console.error(err);
+      alert("Could not generate the PDF. Please check your connection and try again.");
     } finally {
       setDownloading(false);
     }
