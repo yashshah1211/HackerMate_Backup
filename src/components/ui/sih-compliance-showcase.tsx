@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export const SihComplianceShowcase = memo(function SihComplianceShowcase() {
   return (
-    <section className="w-full py-16 sm:py-24 border-t border-zinc-900 bg-zinc-950/20">
+    <section className="w-full py-16 sm:py-24 bg-transparent relative z-10">
       <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
 

@@ -14,6 +14,9 @@ import {
 } from "motion/react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import Logo from "@/components/Logo";
+import { LANDING_TOKENS } from "@/lib/design-tokens";
 
 // ==================== BoxReveal Component ====================
 
@@ -219,70 +222,74 @@ export type OrbitIconConfig = {
   component: () => React.ReactNode;
 };
 
-export const defaultTechIcons: OrbitIconConfig[] = [
-  // Inner orbit: HTML, CSS
+// ==================== 100% Official Authentic Tech Icons ====================
+
+const JavaScriptIcon = () => (
+  <svg className="size-6 drop-shadow-md rounded shrink-0 overflow-hidden" viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="3" fill="#F7DF1E" />
+    <path
+      d="M12.44 17.5c0 2.22-1.31 3.38-3.32 3.38-1.78 0-2.88-1.02-3.34-2.22l1.69-1.03c.25.68.83 1.25 1.67 1.25.9 0 1.34-.45 1.34-1.39V9.5h1.96v8zM15.58 20.88c-1.34 0-2.38-.56-2.88-1.66l1.66-1.01c.3.6.72.95 1.3.95.7 0 1.16-.36 1.16-.86 0-.6-.45-.85-1.51-1.3-1.46-.6-2.42-1.26-2.42-2.76 0-1.55 1.17-2.62 2.87-2.62 1.22 0 2.07.45 2.62 1.46l-1.57 1.02c-.25-.46-.6-.71-1.05-.71-.5 0-.86.3-.86.7 0 .5.35.75 1.3 1.15 1.66.66 2.63 1.36 2.63 2.91 0 1.74-1.31 2.73-2.85 2.73z"
+      fill="#000000"
+    />
+  </svg>
+);
+
+const TypeScriptIcon = () => (
+  <svg className="size-6 drop-shadow-md rounded shrink-0 overflow-hidden" viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="3" fill="#3178C6" />
+    <path
+      d="M12.4 8.5H5.8V6.8h8.2v1.7h-1.8v8.7h-2.3V8.5zm4.8 8.7c-1.4 0-2.55-.65-3.15-1.8l1.8-1.05c.35.65.8 1.05 1.45 1.05.7 0 1.15-.35 1.15-.85 0-.55-.4-.8-1.55-1.25-1.55-.6-2.55-1.3-2.55-2.85 0-1.55 1.2-2.7 2.95-2.7 1.3 0 2.2.5 2.8 1.55l-1.7 1.05c-.3-.5-.65-.8-1.1-.8-.5 0-.85.3-.85.7 0 .45.35.7 1.35 1.1 1.75.65 2.75 1.4 2.75 3 0 1.75-1.35 2.85-3.05 2.85z"
+      fill="#FFFFFF"
+    />
+  </svg>
+);
+
+const NextJsIcon = () => (
+  <svg className="size-6 drop-shadow-md shrink-0" viewBox="0 0 180 180" fill="none">
+    <mask height="180" id="mask0_next" maskUnits="userSpaceOnUse" width="180" x="0" y="0" style={{ maskType: "alpha" }}>
+      <circle cx="90" cy="90" fill="black" r="90" />
+    </mask>
+    <g mask="url(#mask0_next)">
+      <circle cx="90" cy="90" fill="black" r="90" stroke="#27272a" strokeWidth="4" />
+      <path d="M149.508 157.52L69.142 54H54V125.97H66.1136V69.3836L139.999 164.845C143.333 162.614 146.509 160.16 149.508 157.52Z" fill="url(#paint0_linear_next)" />
+      <rect fill="url(#paint1_linear_next)" height="72" width="12" x="115" y="54" />
+    </g>
+    <defs>
+      <linearGradient gradientUnits="userSpaceOnUse" id="paint0_linear_next" x1="109" x2="144.5" y1="116.5" y2="160.5">
+        <stop stopColor="white" />
+        <stop offset="1" stopColor="white" stopOpacity="0" />
+      </linearGradient>
+      <linearGradient gradientUnits="userSpaceOnUse" id="paint1_linear_next" x1="121" x2="120.799" y1="54" y2="106.875">
+        <stop stopColor="white" />
+        <stop offset="1" stopColor="white" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+const SupabaseIcon = () => (
+  <svg className="size-6 drop-shadow-md shrink-0" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M21.362 9.354H12V.304a.3.3 0 0 0-.52-.204L.203 12.87a.3.3 0 0 0 .222.497H12v9.05a.3.3 0 0 0 .52.205L23.797 9.85a.3.3 0 0 0-.222-.496z"
+      fill="#3ECF8E"
+    />
+  </svg>
+);
+
+export const fourTechIcons: OrbitIconConfig[] = [
+  // Circle 1: JavaScript (radius 90)
   {
-    component: () => (
-      <img
-        width={22}
-        height={22}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg"
-        alt="HTML5"
-        className="size-5 drop-shadow-md"
-      />
-    ),
+    component: () => <JavaScriptIcon />,
     className: "size-6 border-none bg-transparent",
     duration: 18,
-    delay: 12,
+    delay: 0,
     radius: 90,
     path: true,
     reverse: false,
   },
+  // Circle 2: TypeScript (radius 140)
   {
-    component: () => (
-      <img
-        width={22}
-        height={22}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg"
-        alt="CSS3"
-        className="size-5 drop-shadow-md"
-      />
-    ),
-    className: "size-6 border-none bg-transparent",
-    duration: 18,
-    delay: 4,
-    radius: 90,
-    path: true,
-    reverse: false,
-  },
-  // Middle orbit: Tailwind, Next.js, TypeScript, JS
-  {
-    component: () => (
-      <img
-        width={26}
-        height={26}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tailwindcss/tailwindcss-original.svg"
-        alt="TailwindCSS"
-        className="size-6 drop-shadow-md"
-      />
-    ),
-    className: "size-7 border-none bg-transparent",
-    duration: 24,
-    delay: 16,
-    radius: 140,
-    path: true,
-    reverse: true,
-  },
-  {
-    component: () => (
-      <img
-        width={26}
-        height={26}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nextjs/nextjs-original.svg"
-        alt="Next.js"
-        className="size-6 drop-shadow-md invert"
-      />
-    ),
+    component: () => <TypeScriptIcon />,
     className: "size-7 border-none bg-transparent",
     duration: 24,
     delay: 6,
@@ -290,92 +297,29 @@ export const defaultTechIcons: OrbitIconConfig[] = [
     path: true,
     reverse: true,
   },
+  // Circle 3: Next.js (radius 190)
   {
-    component: () => (
-      <img
-        width={30}
-        height={30}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg"
-        alt="TypeScript"
-        className="size-7 drop-shadow-md"
-      />
-    ),
-    className: "size-8 border-none bg-transparent",
-    radius: 140,
-    duration: 24,
+    component: () => <NextJsIcon />,
+    className: "size-7 border-none bg-transparent",
+    duration: 30,
     delay: 12,
+    radius: 190,
+    path: true,
+    reverse: false,
+  },
+  // Circle 4: Supabase (radius 240)
+  {
+    component: () => <SupabaseIcon />,
+    className: "size-7 border-none bg-transparent",
+    duration: 36,
+    delay: 18,
+    radius: 240,
     path: true,
     reverse: true,
-  },
-  {
-    component: () => (
-      <img
-        width={30}
-        height={30}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg"
-        alt="JavaScript"
-        className="size-7 drop-shadow-md"
-      />
-    ),
-    className: "size-8 border-none bg-transparent",
-    radius: 140,
-    duration: 24,
-    delay: 20,
-    path: true,
-    reverse: true,
-  },
-  // Outer orbit: React, Python, GitHub
-  {
-    component: () => (
-      <img
-        width={34}
-        height={34}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg"
-        alt="React"
-        className="size-8 drop-shadow-md"
-      />
-    ),
-    className: "size-9 border-none bg-transparent",
-    radius: 195,
-    duration: 32,
-    path: true,
-    reverse: false,
-  },
-  {
-    component: () => (
-      <img
-        width={32}
-        height={32}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg"
-        alt="Python"
-        className="size-7 drop-shadow-md"
-      />
-    ),
-    className: "size-8 border-none bg-transparent",
-    radius: 195,
-    duration: 32,
-    delay: 16,
-    path: true,
-    reverse: false,
-  },
-  {
-    component: () => (
-      <img
-        width={32}
-        height={32}
-        src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/github/github-original.svg"
-        alt="GitHub"
-        className="size-7 drop-shadow-md invert"
-      />
-    ),
-    className: "size-8 border-none bg-transparent",
-    radius: 195,
-    duration: 32,
-    delay: 8,
-    path: true,
-    reverse: false,
   },
 ];
+
+export const defaultTechIcons = fourTechIcons;
 
 type TechnologyOrbitDisplayProps = {
   iconsArray?: OrbitIconConfig[];
@@ -384,18 +328,19 @@ type TechnologyOrbitDisplayProps = {
 };
 
 export const TechOrbitDisplay = memo(function TechOrbitDisplay({
-  iconsArray = defaultTechIcons,
+  iconsArray = fourTechIcons,
   text = "HackerMate",
   subtext = "FIND YOUR CO-BUILDERS",
 }: TechnologyOrbitDisplayProps) {
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden">
-      <div className="z-10 text-center pointer-events-none px-4 select-none flex flex-col items-center">
-        <span className="block whitespace-pre-wrap bg-gradient-to-r from-white via-zinc-100 to-[#B4F461] bg-clip-text text-center text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent drop-shadow-sm">
+      {/* Central Brand Shield with Guaranteed Clearance from Inner Orbit */}
+      <div className="z-10 text-center pointer-events-none px-4 py-2.5 select-none flex flex-col items-center justify-center rounded-2xl bg-zinc-950/80 border border-zinc-800/50 shadow-2xl backdrop-blur-md max-w-[190px]">
+        <span className="block whitespace-nowrap bg-gradient-to-r from-white via-zinc-100 to-[#B4F461] bg-clip-text text-center text-2xl sm:text-[26px] font-extrabold tracking-tight text-transparent drop-shadow-sm leading-none">
           {text}
         </span>
         {subtext && (
-          <p className="text-[10px] font-mono text-zinc-400 mt-2 tracking-widest uppercase font-semibold">
+          <p className="text-[9px] font-mono text-zinc-400 mt-1.5 tracking-wider uppercase font-semibold whitespace-nowrap">
             {subtext}
           </p>
         )}
@@ -445,7 +390,7 @@ export function ModernOAuthSignIn({
   className,
 }: ModernOAuthSignInProps) {
   const [loadingProvider, setLoadingProvider] = useState<"google" | "github" | null>(null);
-  const [consentChecked, setConsentChecked] = useState(true);
+  const [consentChecked, setConsentChecked] = useState(false);
 
   const handleOAuthSignIn = async (provider: "google" | "github") => {
     if (!consentChecked) return;
@@ -476,13 +421,30 @@ export function ModernOAuthSignIn({
       <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-[#B4F461]/10 blur-[100px]" />
       <div className="pointer-events-none absolute -right-20 -bottom-20 h-72 w-72 rounded-full bg-[#22D3EE]/10 blur-[100px]" />
 
-      {/* Left Side: Orbiting Tech Display */}
-      <div className="relative hidden w-1/2 flex-col items-center justify-center border-r border-zinc-800/80 bg-zinc-950/70 p-6 lg:flex overflow-hidden">
-        <Ripple mainCircleSize={110} className="opacity-40" />
-        <TechOrbitDisplay
-          text="HackerMate"
-          subtext="FIND YOUR CO-BUILDERS"
-        />
+      {/* Left Side: 4 Orbiting Tech Icons with Central HackerMate Logo (Zero text in circle area) */}
+      <div className="relative hidden w-1/2 flex-col items-center justify-center border-r border-zinc-800/80 bg-zinc-950 p-6 lg:flex overflow-hidden select-none">
+        {/* Subtle Ambient Radial Glow */}
+        <div className="pointer-events-none absolute w-72 h-72 rounded-full bg-[#B4F461]/5 blur-[80px]" />
+
+        {/* Central HackerMate Logo */}
+        <div className="z-10 text-center pointer-events-none select-none flex items-center justify-center p-3.5 rounded-2xl bg-zinc-950/90 border border-zinc-800/70 shadow-2xl backdrop-blur-md">
+          <Logo className="h-9 w-auto" />
+        </div>
+
+        {/* 4 Orbiting Circles: JS, TS, Next.js, Supabase */}
+        {fourTechIcons.map((icon, index) => (
+          <OrbitingCircles
+            key={index}
+            className={icon.className}
+            duration={icon.duration}
+            delay={icon.delay}
+            radius={icon.radius}
+            path={icon.path}
+            reverse={icon.reverse}
+          >
+            {icon.component()}
+          </OrbitingCircles>
+        ))}
       </div>
 
       {/* Right Side: Clean OAuth Login Panel */}
@@ -492,13 +454,13 @@ export function ModernOAuthSignIn({
           {/* Header */}
           <div className="space-y-2">
             <BoxReveal boxColor="#B4F461" duration={0.3}>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
                 {title}
               </h2>
             </BoxReveal>
 
             <BoxReveal boxColor="#22D3EE" duration={0.35}>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
                 {subtitle}
               </p>
             </BoxReveal>

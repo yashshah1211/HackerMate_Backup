@@ -183,13 +183,14 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
   };
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 selection:bg-[#B4F461] selection:text-black overflow-x-hidden">
+    <main className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 selection:bg-[#B4F461] selection:text-black overflow-x-hidden relative">
       <h1 className="sr-only">HackerMate - Hackathon Team Operating System</h1>
 
+      {/* Full-bleed background treatment across the entire landing page */}
+      <HeroBackground />
+
       {/* ─── Hero Section (Full-bleed container with live updating flank activity cards) ─── */}
-      <section className="relative w-full pt-10 sm:pt-14 pb-14 sm:pb-18 overflow-hidden">
-        {/* Full-bleed background treatment */}
-        <HeroBackground />
+      <section className="relative w-full pt-10 sm:pt-14 pb-14 sm:pb-18 overflow-hidden z-10">
 
         {/* Left Flank Real Live Activity Cards (Wide Screens Only) */}
         <div className="hidden xl:flex absolute left-6 2xl:left-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[260px] z-10 select-none">
@@ -372,7 +373,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       <SkillMatchShowcase />
 
       {/* ─── Section 3: 9-Tab Workspace Centerpiece Showcase ─── */}
-      <section id="demo" className="w-full border-t border-zinc-900 bg-zinc-950/40 py-16 sm:py-24">
+      <section id="demo" className="w-full bg-transparent py-16 sm:py-24 relative z-10">
         <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8 space-y-2">
             <p className={LANDING_TOKENS.text.eyebrow}>
@@ -611,7 +612,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       <SihComplianceShowcase />
 
       {/* ─── Section 5: Verified College Network ─── */}
-      <section id="colleges" className="w-full border-t border-zinc-900 bg-zinc-950 py-14 sm:py-18">
+      <section id="colleges" className="w-full bg-transparent py-14 sm:py-18 relative z-10">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <p className={LANDING_TOKENS.text.eyebrow}>
             College Network
@@ -643,7 +644,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       </section>
 
       {/* ─── Section 6: Workflow (3 Steps) ─── */}
-      <section id="how-it-works" className="w-full border-t border-zinc-900 bg-zinc-950/40 py-14 sm:py-18">
+      <section id="how-it-works" className="w-full bg-transparent py-14 sm:py-18 relative z-10">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8 space-y-1">
             <p className={LANDING_TOKENS.text.eyebrow}>
@@ -670,7 +671,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       </section>
 
       {/* ─── Section 7: Founder Note ─── */}
-      <section className="w-full border-t border-zinc-900 bg-zinc-950 py-12 sm:py-14">
+      <section className="w-full bg-transparent py-12 sm:py-14 relative z-10">
         <div className="w-full max-w-2xl mx-auto px-4 sm:px-6">
           <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/20">
             <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed italic">
@@ -693,7 +694,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       </section>
 
       {/* ─── Section 8: FAQ ─── */}
-      <section id="faq" className="w-full border-t border-zinc-900 bg-zinc-950/40 py-14 sm:py-18">
+      <section id="faq" className="w-full bg-transparent py-14 sm:py-18 relative z-10">
         <div className="w-full max-w-2xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8 space-y-1">
             <p className={LANDING_TOKENS.text.eyebrow}>
@@ -753,27 +754,61 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       </section>
 
       {/* ─── Section 9: Final Call to Action ─── */}
-      <section className="w-full border-t border-zinc-900 bg-zinc-950 py-16 sm:py-20 px-4 sm:px-6 text-center">
-        <div className="max-w-md mx-auto space-y-4">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-100">
-            Ready to find your hackathon team?
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-            Join {userCount}+ verified builders and assemble your squad for SIH 2026.
-          </p>
+      <section className="w-full bg-transparent py-16 sm:py-24 px-4 sm:px-6 relative z-10">
+        <div className="max-w-4xl mx-auto rounded-3xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 via-zinc-900/30 to-zinc-950/70 p-8 sm:p-14 relative overflow-hidden backdrop-blur-md shadow-2xl text-center space-y-6">
+          {/* Subtle inner radial top glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[260px] bg-[radial-gradient(ellipse_at_top,rgba(180,244,97,0.12)_0%,transparent_70%)] blur-[50px] pointer-events-none" />
 
-          <div className="pt-2 flex justify-center">
+          {/* Top highlight horizon line */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#B4F461]/30 to-transparent" />
+
+          {/* Eyebrow Badge */}
+          <div className="flex justify-center relative z-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-950/80 border border-zinc-800 text-[11px] font-mono text-zinc-300 shadow-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B4F461] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B4F461]" />
+              </span>
+              <span>SIH 2026 SQUAD FORMATION LIVE</span>
+            </div>
+          </div>
+
+          {/* Main Headline & Subtitle */}
+          <div className="space-y-3 relative z-10 max-w-xl mx-auto">
+            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-zinc-100 leading-tight">
+              Ready to assemble your winning hackathon squad?
+            </h2>
+            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+              Join {userCount}+ verified builders across top engineering institutes. Match complementary tech stacks and start collaborating immediately.
+            </p>
+          </div>
+
+          {/* CTA Button */}
+          <div className="pt-2 flex justify-center relative z-10">
             <ShimmerButton
               onClick={() => router.push("/login")}
-              className="px-8 py-3 text-sm shadow-xl"
+              className="px-8 py-3.5 text-sm shadow-xl"
               background="#B4F461"
               shimmerColor="#ffffff"
             >
               <span className={`${LANDING_TOKENS.text.onAccent} flex items-center justify-center gap-2`}>
-                <span>Join HackerMate</span>
+                <span>Get Started — It&apos;s Free</span>
                 <ArrowRight className="w-4 h-4 text-zinc-950" />
               </span>
             </ShimmerButton>
+          </div>
+
+          {/* Value Props & Trust Badges */}
+          <div className="pt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-mono text-zinc-400 border-t border-zinc-800/60 relative z-10">
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#B4F461]">✓</span> 100% Free for Students
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#B4F461]">✓</span> Complementary Skill Radar
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#B4F461]">✓</span> Built-in Team Workspace
+            </span>
           </div>
         </div>
       </section>

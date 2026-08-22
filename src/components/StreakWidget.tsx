@@ -3,15 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-function getStreakTier(days: number): { label: string; color: string } {
-  if (days >= 30) return { label: "🏆 Legendary Builder", color: "text-amber-400" };
-  if (days >= 14) return { label: "⚡ 14-Day Beast", color: "text-orange-400" };
-  if (days >= 7) return { label: "🔥 7-Day Hustler", color: "text-amber-400" };
-  if (days >= 3) return { label: "✨ 3-Day Spark", color: "text-amber-300" };
-  if (days >= 1) return { label: "🔥 Active Streak", color: "text-amber-400" };
-  return { label: "🌱 Day 1 Explorer", color: "text-zinc-400" };
-}
-
 export default function StreakWidget({ initialStreak = 0, initialLongest = 0 }: { initialStreak?: number; initialLongest?: number }) {
   const [streak, setStreak] = useState<number>(initialStreak);
   const [longest, setLongest] = useState<number>(initialLongest);
@@ -88,7 +79,6 @@ export default function StreakWidget({ initialStreak = 0, initialLongest = 0 }: 
   });
 
   const effectiveStreak = streak > 0 ? streak : (historyDates.has(todayStr) ? 1 : 0);
-  const tier = getStreakTier(effectiveStreak);
 
   return (
     <div className="card card-static p-4 bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-transparent border border-amber-500/20 dark:border-amber-500/30 rounded-2xl relative overflow-hidden shadow-sm mb-6">
@@ -107,9 +97,6 @@ export default function StreakWidget({ initialStreak = 0, initialLongest = 0 }: 
               <h3 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
                 {effectiveStreak} Day Streak
               </h3>
-              <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${tier.color} px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20`}>
-                {tier.label}
-              </span>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
               {effectiveStreak > 0

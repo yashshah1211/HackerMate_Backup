@@ -5,7 +5,7 @@ import Logo from "@/components/Logo";
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-zinc-200/10 dark:border-zinc-800/40 mt-12 md:mt-20 py-12 md:py-16 bg-transparent text-zinc-400">
+    <footer className="w-full border-t border-zinc-200/10 dark:border-zinc-800/40 mt-12 md:mt-20 py-12 md:py-16 bg-[#09090b] relative z-20 text-zinc-400">
       <div className="max-w-6xl mx-auto px-6">
         {/* 2-Column Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 pb-12">

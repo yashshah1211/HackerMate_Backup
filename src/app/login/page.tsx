@@ -45,7 +45,7 @@ function LoginContent() {
   }, [router, nextUrl]);
 
   return (
-    <main className="min-h-screen w-full flex flex-col justify-between bg-[#09090b] text-white p-4 sm:p-6 relative overflow-hidden selection:bg-[#B4F461] selection:text-black">
+    <main className="min-h-screen w-full flex flex-col justify-between bg-[#09090b] text-white p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-[#B4F461] selection:text-black">
       {/* Background Ambience */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] opacity-30" />
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[400px]">
