@@ -125,7 +125,7 @@ export async function handleFindTeamCommand(options?: { role?: string; skill?: s
         ],
       },
     };
-  } catch (err: any) {
+  } catch (_err: any) {
     return {
       type: 4,
       data: {

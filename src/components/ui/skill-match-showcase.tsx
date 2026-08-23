@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { LANDING_TOKENS } from "@/lib/design-tokens";
-import { Zap, Check, ArrowRight } from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export const SkillMatchShowcase = memo(function SkillMatchShowcase() {

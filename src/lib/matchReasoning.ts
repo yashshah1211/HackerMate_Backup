@@ -103,7 +103,6 @@ export function generateMatchReasoning(
   const skillsA = (userA?.skills || []).map(s => s.trim());
   const skillsB = (userB?.skills || []).map(s => s.trim());
 
-  const skillsALower = skillsA.map(s => s.toLowerCase());
   const skillsBLower = skillsB.map(s => s.toLowerCase());
 
   // Find shared skills (case-preserving from B or A)

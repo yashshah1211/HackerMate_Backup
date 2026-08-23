@@ -228,6 +228,8 @@ function DecryptTextBase({
 
   const total = React.useMemo(() => words.reduce((n, w) => n + w.length, 0), [words]);
 
+  const playRef = React.useRef<(() => void) | null>(null);
+
   const stop = React.useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
@@ -288,7 +290,7 @@ function DecryptTextBase({
         if (loop !== false && loop > 0) {
           timerRef.current = setTimeout(() => {
             timerRef.current = null;
-            play();
+            playRef.current?.();
           }, loop);
         }
         return;
@@ -297,6 +299,8 @@ function DecryptTextBase({
     };
     rafRef.current = requestAnimationFrame(frame);
   }, [jitter, loop, pool, seed, speed, stagger, startDelay, stop]);
+
+  playRef.current = play;
 
   // Orchestration: reduced motion resolves and parks; otherwise the first run is
   // gated on the trigger and every run is parked while offscreen. Layout effect

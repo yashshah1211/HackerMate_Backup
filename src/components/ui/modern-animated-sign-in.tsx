@@ -14,9 +14,7 @@ import {
 } from "motion/react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 import Logo from "@/components/Logo";
-import { LANDING_TOKENS } from "@/lib/design-tokens";
 
 // ==================== BoxReveal Component ====================
 
