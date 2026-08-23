@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 
 export interface Toast {
   id: string;
@@ -68,8 +68,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const contextValue = useMemo(() => ({ showToast, confirm }), [showToast, confirm]);
+
   return (
-    <NotificationContext.Provider value={{ showToast, confirm }}>
+    <NotificationContext.Provider value={contextValue}>
       {children}
 
       {/* Toasts list container */}
