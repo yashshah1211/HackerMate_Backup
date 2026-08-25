@@ -5,7 +5,7 @@ import Logo from "@/components/Logo";
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-zinc-200/10 dark:border-zinc-800/40 mt-12 md:mt-20 py-12 md:py-16 bg-[#09090b] relative z-20 text-zinc-400">
+    <footer className="w-full border-t border-zinc-200 dark:border-zinc-800/40 mt-12 md:mt-20 py-12 md:py-16 bg-white dark:bg-[#09090b] relative z-20 text-zinc-600 dark:text-zinc-400">
       <div className="max-w-6xl mx-auto px-6">
         {/* 2-Column Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 pb-12">
@@ -15,7 +15,7 @@ export default function Footer() {
             <Link href="/" className="inline-block cursor-pointer">
               <Logo className="h-8" />
             </Link>
-            <p className="text-sm text-zinc-550 dark:text-zinc-400 leading-relaxed max-w-md">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-md">
               The ultimate operating system for hackathon builders. Discover compatible teammates, coordinate your projects, track upcoming hackathons, and ship your next idea with confidence.
             </p>
             {/* Social Icons Row */}
@@ -47,26 +47,26 @@ export default function Footer() {
 
           {/* Column 2: Company */}
           <nav aria-label="Company Links" className="space-y-4">
-            <h4 className="text-xs uppercase tracking-wide text-zinc-500 font-semibold font-mono">Company</h4>
+            <h4 className="text-xs uppercase tracking-wide text-zinc-900 dark:text-zinc-400 font-semibold font-mono">Company</h4>
             <ul className="space-y-2 text-sm">
 
               <li>
-                <Link href="/contact" className="text-zinc-400 hover:text-white dark:hover:text-[#B4F461] transition-colors">
+                <Link href="/contact" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-[#B4F461] transition-colors">
                   Contact Us
                 </Link>
               </li>
               <li>
-                <Link href="/faq" className="text-zinc-400 hover:text-white dark:hover:text-[#B4F461] transition-colors">
+                <Link href="/faq" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-[#B4F461] transition-colors">
                   FAQ
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="text-zinc-400 hover:text-white dark:hover:text-[#B4F461] transition-colors">
+                <Link href="/terms" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-[#B4F461] transition-colors">
                   Terms of Service
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="text-zinc-400 hover:text-white dark:hover:text-[#B4F461] transition-colors">
+                <Link href="/privacy" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-[#B4F461] transition-colors">
                   Privacy Policy
                 </Link>
               </li>
@@ -76,8 +76,8 @@ export default function Footer() {
         </div>
 
         {/* Divider Line & Bottom Bar */}
-        <div className="border-t border-zinc-200/10 dark:border-zinc-800/40 pt-8 mt-4 flex items-center justify-between text-xs">
-          <p className="font-mono text-zinc-500">
+        <div className="border-t border-zinc-200 dark:border-zinc-800/40 pt-8 mt-4 flex items-center justify-between text-xs">
+          <p className="font-mono text-zinc-500 dark:text-zinc-500">
             © {new Date().getFullYear()} HackerMate. Built for hackathon builders.
           </p>
         </div>
