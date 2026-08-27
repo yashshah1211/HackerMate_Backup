@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
     else if (contentType.includes("mpeg") || contentType.includes("mp3")) ext = "mp3";
     else if (contentType.includes("wav")) ext = "wav";
 
-    const sanitizedFolder = folder.replace(/[^a-zA-Z0-9_-]/g, "");
+    const rawFolder = typeof folder === "string" ? folder : "chat";
+    const sanitizedFolder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32) || "chat";
     const randomId = crypto.randomUUID().slice(0, 10);
     const key = `${sanitizedFolder}/${Date.now()}-${randomId}.${ext}`;
 

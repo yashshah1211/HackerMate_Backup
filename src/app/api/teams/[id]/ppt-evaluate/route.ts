@@ -93,13 +93,13 @@ export async function POST(
     if (contentType.includes("application/json")) {
       const body = await req.json().catch(() => ({}));
       externalLinkUrl = body.external_link_url?.trim() || null;
-      psTitle = body.ps_title?.trim() || "SIH 2026 Problem Statement";
-      psCategory = body.ps_category?.trim() || "software";
+      psTitle = (body.ps_title?.trim() || "SIH 2026 Problem Statement").slice(0, 200);
+      psCategory = (body.ps_category?.trim() || "software").slice(0, 50);
     } else {
       const formData = await req.formData().catch(() => new FormData());
       externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
-      psTitle = (formData.get("ps_title") as string)?.trim() || "SIH 2026 Problem Statement";
-      psCategory = (formData.get("ps_category") as string)?.trim() || "software";
+      psTitle = ((formData.get("ps_title") as string)?.trim() || "SIH 2026 Problem Statement").slice(0, 200);
+      psCategory = ((formData.get("ps_category") as string)?.trim() || "software").slice(0, 50);
     }
 
     if (!externalLinkUrl) {

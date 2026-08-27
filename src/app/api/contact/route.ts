@@ -83,15 +83,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const trimmedName = String(name).trim();
+    if (trimmedName.length > 100) {
+      return NextResponse.json(
+        { error: "Name cannot exceed 100 characters." },
+        { status: 400 }
+      );
+    }
+
+    const trimmedSubject = String(subject).trim();
+    if (trimmedSubject.length > 200) {
+      return NextResponse.json(
+        { error: "Subject cannot exceed 200 characters." },
+        { status: 400 }
+      );
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(String(email).trim())) {
       return NextResponse.json(
         { error: "Please enter a valid email address." },
         { status: 400 }
       );
     }
 
-    const trimmedMsg = message.trim();
+    const trimmedMsg = String(message).trim();
     if (trimmedMsg.length < 10) {
       return NextResponse.json(
         { error: "Message must be at least 10 characters long." },
