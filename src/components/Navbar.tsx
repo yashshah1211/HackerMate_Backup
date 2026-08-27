@@ -10,6 +10,7 @@ import DailyStreakTracker from "@/components/DailyStreakTracker";
 import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
 import { getInitials } from "@/lib/utils";
+import NotificationDrawer from "@/components/NotificationDrawer";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
 
   const [conversationIds, setConversationIds] = useState<string[]>([]);
 
@@ -455,12 +457,21 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
               )}
             </button>
-            <Link href="/notifications" className="relative w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--card-border)] hover:bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+            <button
+              onClick={() => setShowNotificationDrawer(true)}
+              className="relative w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--card-border)] hover:bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              aria-label="Open notifications drawer"
+              title="Notifications"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-violet-500 text-white text-[8px] font-bold flex items-center justify-center border border-[var(--background)]">{unreadCount}</span>
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#B4F461] text-zinc-950 text-[8px] font-extrabold flex items-center justify-center border border-[var(--background)] shadow-xs">
+                  {unreadCount}
+                </span>
               )}
-            </Link>
+            </button>
             <Link href={user ? `/profile/${user.id}` : "/dashboard"} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
               {userInitials}
             </Link>
@@ -472,6 +483,12 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       {showMobileSidebar && (
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setShowMobileSidebar(false)} />
       )}
+
+      <NotificationDrawer
+        isOpen={showNotificationDrawer}
+        onClose={() => setShowNotificationDrawer(false)}
+        onCountChange={setUnreadCount}
+      />
 
       {pathname !== "/hackathons/create" && !pathname?.startsWith("/messages") && <FeedbackWidget />}
       {showSignOutConfirm && <SignOutConfirmModal />}
