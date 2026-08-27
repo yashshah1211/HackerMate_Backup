@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
+import { renderHackerMateEmail } from "@/lib/emailTemplate";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -133,141 +134,25 @@ export async function POST(req: NextRequest) {
                          "admin@hackermate.dev";
 
     // Escape values for safe HTML rendering
-    function escapeHtml(text: string): string {
-      if (!text) return "";
-      return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-
-    const escapedName = escapeHtml(name);
-    const escapedEmail = escapeHtml(email);
-    const escapedSubject = escapeHtml(subject);
-    const escapedMessage = escapeHtml(trimmedMsg).replace(/\n/g, "<br />");
-
     const emailSubject = `[HackerMate Inquiry] ${subject}`;
 
     // 4. Construct Premium responsive HTML Email Template
-    const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${emailSubject}</title>
-  <style>
-    body {
-      background-color: #0A0D12;
-      color: #EDEFF3;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      -webkit-font-smoothing: antialiased;
-    }
-    .wrapper {
-      width: 100%;
-      background-color: #0A0D12;
-      padding: 40px 20px;
-      box-sizing: border-box;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background-color: #10141B;
-      border: 1px solid #1E242E;
-      border-radius: 12px;
-      padding: 32px;
-      box-sizing: border-box;
-    }
-    .logo {
-      font-size: 16px;
-      font-weight: 800;
-      color: #B4F461;
-      font-family: monospace;
-      letter-spacing: 0.5px;
-      margin-bottom: 24px;
-    }
-    .title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #FFFFFF;
-      margin-top: 0;
-      margin-bottom: 16px;
-      border-bottom: 1px solid #1E242E;
-      padding-bottom: 12px;
-    }
-    .info-grid {
-      margin-bottom: 24px;
-      background-color: #0A0D12;
-      border: 1px solid #1E242E;
-      border-radius: 8px;
-      padding: 16px;
-    }
-    .info-row {
-      margin-bottom: 8px;
-      font-size: 13px;
-    }
-    .info-row:last-child {
-      margin-bottom: 0;
-    }
-    .label {
-      font-weight: 600;
-      color: #8B93A3;
-      display: inline-block;
-      width: 80px;
-    }
-    .val {
-      color: #EDEFF3;
-    }
-    .val a {
-      color: #B4F461;
-      text-decoration: none;
-    }
-    .message-box {
-      font-size: 14px;
-      color: #EDEFF3;
-      line-height: 1.6;
-      background-color: #0A0D12;
-      border: 1px solid #1E242E;
-      border-radius: 8px;
-      padding: 20px;
-      white-space: pre-wrap;
-    }
-    .footer {
-      border-top: 1px solid #1E242E;
-      padding-top: 20px;
-      margin-top: 28px;
-      font-size: 11px;
-      color: #565E6D;
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="container">
-      <div class="logo">HackerMate.</div>
-      <h1 class="title">New Inquiry Received</h1>
-      
-      <div class="info-grid">
-        <div class="info-row"><span class="label">From:</span><span class="val">${escapedName}</span></div>
-        <div class="info-row"><span class="label">Email:</span><span class="val"><a href="mailto:${escapedEmail}">${escapedEmail}</a></span></div>
-        <div class="info-row"><span class="label">Subject:</span><span class="val">${escapedSubject}</span></div>
-      </div>
-
-      <div class="message-box">${escapedMessage}</div>
-      
-      <div class="footer">
-        This is an automated notification from the HackerMate Contact form.
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-`;
+    const html = renderHackerMateEmail({
+      title: "New Contact Inquiry",
+      recipientName: "HackerMate Team",
+      introText: "You have received a new inquiry submitted through the HackerMate contact form:",
+      details: [
+        { label: "From", value: name },
+        { label: "Email", value: email },
+        { label: "Subject", value: subject },
+      ],
+      calloutQuote: trimmedMsg,
+      calloutLabel: "Inquiry Message",
+      actionLabel: `Reply to ${name}`,
+      actionUrl: `mailto:${email}?subject=Re: ${encodeURIComponent(subject)}`,
+      badgeText: "Inquiry",
+      footerNote: "This is an automated notification from the HackerMate Contact form.",
+    });
 
     // 5. Send Email or mock it
     if (!resendApiKey) {
