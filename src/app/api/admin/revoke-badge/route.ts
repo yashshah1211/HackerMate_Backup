@@ -57,11 +57,13 @@ export async function DELETE(req: NextRequest) {
       .eq("id", badgeId);
 
     if (error) {
+      console.error("[Revoke Badge] Supabase delete error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, deletedId: badgeId });
   } catch (err: any) {
+    console.error("[Revoke Badge] Unexpected error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
