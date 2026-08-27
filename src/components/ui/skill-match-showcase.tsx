@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
   return (
-    <section id="features" className="w-full py-16 sm:py-24 bg-transparent relative z-10">
+    <section id="features" className={`w-full ${LANDING_TOKENS.spacing.section} bg-transparent relative z-10`}>
       <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
 
@@ -17,15 +17,15 @@ export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
               Skill Match Radar
             </p>
 
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-zinc-100 tracking-tight leading-tight">
+            <h2 className={LANDING_TOKENS.text.sectionH2}>
               Complementary technical pairings, zero duplicate roles.
             </h2>
 
-            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+            <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
               Our matching algorithm balances technical stacks so you never end up in a team of four frontend developers with no backend or AI engineer.
             </p>
 
-            <div className="pt-2 space-y-2.5 text-xs text-zinc-300">
+            <div className="pt-2 space-y-2.5 text-sm text-zinc-300">
               <div className="flex items-center gap-2.5">
                 <div className="w-4 h-4 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 shrink-0">
                   <Check className="w-2.5 h-2.5" />
@@ -49,10 +49,10 @@ export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
             <div className="pt-3">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 text-xs font-mono text-zinc-300 hover:text-white transition-colors"
+                className={LANDING_TOKENS.button.secondaryLink}
               >
                 <span>Browse matching builders</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
           </div>
@@ -85,7 +85,7 @@ export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
 
                 <div className="space-y-2">
                   {/* Match Card 1: Frontend */}
-                  <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-center justify-between gap-3">
+                  <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-center justify-between gap-3 group/row hover:border-white/[0.18] hover:bg-zinc-900/70 transition-all duration-200 cursor-default">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-zinc-800 text-zinc-200 font-bold text-xs flex items-center justify-center shrink-0">
                         AS
@@ -98,11 +98,11 @@ export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
                         <p className="text-[10px] text-zinc-400 font-mono truncate">IIT Bombay • Next.js, Tailwind, React</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-400 shrink-0">Matched</span>
+                    <span className="text-[10px] font-mono text-zinc-400 group-hover/row:text-[#B4F461] transition-colors shrink-0">Matched</span>
                   </div>
 
                   {/* Match Card 2: Backend */}
-                  <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-center justify-between gap-3">
+                  <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-center justify-between gap-3 group/row hover:border-white/[0.18] hover:bg-zinc-900/70 transition-all duration-200 cursor-default">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-zinc-800 text-zinc-200 font-bold text-xs flex items-center justify-center shrink-0">
                         RP
@@ -115,11 +115,11 @@ export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
                         <p className="text-[10px] text-zinc-400 font-mono truncate">BITS Pilani • FastAPI, Supabase, PostgreSQL</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-400 shrink-0">Matched</span>
+                    <span className="text-[10px] font-mono text-zinc-400 group-hover/row:text-[#B4F461] transition-colors shrink-0">Matched</span>
                   </div>
 
                   {/* Match Card 3: AI / ML */}
-                  <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-center justify-between gap-3">
+                  <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-center justify-between gap-3 group/row hover:border-white/[0.18] hover:bg-zinc-900/70 transition-all duration-200 cursor-default">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-zinc-800 text-zinc-200 font-bold text-xs flex items-center justify-center shrink-0">
                         PN
@@ -132,7 +132,7 @@ export const SkillMatchShowcase = memo(function SkillMatchShowcase() {
                         <p className="text-[10px] text-zinc-400 font-mono truncate">DTU Delhi • PyTorch, Gemini API, Python</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-400 shrink-0">Matched</span>
+                    <span className="text-[10px] font-mono text-zinc-400 group-hover/row:text-[#B4F461] transition-colors shrink-0">Matched</span>
                   </div>
                 </div>
               </div>

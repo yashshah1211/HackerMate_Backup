@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import Link from "next/link";
-import Logo from "@/components/Logo";
 import Footer from "@/components/Footer";
 import { formatPrizeDisplay } from "@/app/hackathons/page";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import { HeroBackground } from "@/components/ui/hero-background";
 import { AnimatedShinyBadge } from "@/components/ui/animated-shiny-badge";
 import { AvatarCircles } from "@/components/ui/avatar-circles";
-import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { SkillMatchShowcase } from "@/components/ui/skill-match-showcase";
 import { SihComplianceShowcase } from "@/components/ui/sih-compliance-showcase";
 import { LANDING_TOKENS } from "@/lib/design-tokens";
@@ -51,7 +49,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
   const [activeHackathonIdx, setActiveHackathonIdx] = useState(0);
   const [fadeOpacity, setFadeOpacity] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<"match" | "hackathons" | "workspace" | "product">("product");
+  const [activeTab, setActiveTab] = useState<"product" | "match" | "hackathons" | "workspace">("product");
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showOrganizerModal, setShowOrganizerModal] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -167,224 +165,262 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
     description: "Looking for full-stack engineer",
   };
 
-  const currentHackathon = realHackathons[activeHackathonIdx] || {
-    name: "Smart India Hackathon 2026",
-    mode: "National",
-    location: "India",
-    prize_pool: "₹1,00,000",
-    currency: "INR",
-    tags: ["SIH", "AI"],
-  };
-
-  const currentBuilder2 = realBuilders[(activeBuilderIdx + 1) % (realBuilders.length || 1)] || {
-    full_name: "Priya Nair",
-    college: "DTU Delhi",
-    skills: ["PyTorch", "FastAPI", "Python"],
-  };
-
   return (
-    <main className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 selection:bg-[#B4F461] selection:text-black overflow-x-hidden relative">
+    <main className="min-h-screen flex flex-col bg-[#080808] text-zinc-100 selection:bg-[#B4F461] selection:text-black overflow-x-hidden relative">
       <h1 className="sr-only">HackerMate - Hackathon Team Operating System</h1>
 
       {/* Full-bleed background treatment across the entire landing page */}
       <HeroBackground />
 
-      {/* ─── Hero Section (Full-bleed container with live updating flank activity cards) ─── */}
-      <section className="relative w-full pt-10 sm:pt-14 pb-14 sm:pb-18 overflow-hidden z-10">
+      {/* ─── 1. Hero Section (Direction 1: Symmetrical Grounded Grid Layout) ─── */}
+      <section className="relative w-full pt-12 sm:pt-16 pb-10 lg:pb-14 z-10 overflow-hidden">
+        {/* Soft atmospheric radial gradient glow behind hero for depth */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[1000px] lg:w-[1200px] h-[400px] sm:h-[500px] bg-[radial-gradient(ellipse_at_center,rgba(180,244,97,0.06)_0%,rgba(255,255,255,0.025)_30%,transparent_70%)] blur-[90px] pointer-events-none -z-10" />
 
-        {/* Left Flank Real Live Activity Cards (Wide Screens Only) */}
-        <div className="hidden xl:flex absolute left-6 2xl:left-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[260px] z-10 select-none">
-          {/* Card 1: Real Builder */}
-          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform -rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
-            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461]" />
-                <span className="text-zinc-300">Verified Builder</span>
-              </span>
-              <span className="text-zinc-500">Live</span>
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
+
+            {/* Left Flank: Grounded Live Verified Builder Card (Desktop) */}
+            <div className="hidden lg:block lg:col-span-3">
+              <div
+                className={`p-4 ${LANDING_TOKENS.surface.flagship} ${LANDING_TOKENS.surface.flagshipHover} space-y-3 text-left group ${
+                  fadeOpacity ? "opacity-100" : "opacity-40"
+                }`}
+              >
+                <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#B4F461] animate-pulse group-hover:shadow-[0_0_8px_rgba(180,244,97,0.8)] transition-shadow" />
+                    <span className="text-zinc-200 font-medium">Verified Builder</span>
+                  </span>
+                  <span className="text-zinc-500 group-hover:text-[#B4F461] transition-colors">Live</span>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-white truncate">
+                    {currentBuilder1.full_name || "Active Builder"}
+                  </p>
+                  <p className="text-xs font-mono text-zinc-400 truncate mt-0.5">
+                    {currentBuilder1.college || "Engineering College"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {(currentBuilder1.skills && currentBuilder1.skills.length > 0
+                    ? currentBuilder1.skills
+                    : ["Full Stack", "TypeScript"]
+                  ).slice(0, 3).map((s) => (
+                    <span
+                      key={s}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/[0.06]"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                  <span>Available for Squad</span>
+                  <span className="text-[#B4F461] font-medium group-hover:text-[#c4f87a] transition-colors">Ready to match</span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs font-semibold text-zinc-200 truncate">
-              {currentBuilder1.full_name || "Active Builder"}
-            </p>
-            <p className="text-[10px] font-mono text-zinc-400 truncate">
-              {currentBuilder1.college || "Engineering College"}
-            </p>
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {(currentBuilder1.skills && currentBuilder1.skills.length > 0 ? currentBuilder1.skills : ["Full Stack"]).slice(0, 2).map((s) => (
-                <span key={s} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-300 border border-zinc-800">
-                  {s}
-                </span>
-              ))}
+
+            {/* Center Column: Hero Display Headline, CTAs, Proof */}
+            <div className="lg:col-span-6 text-center space-y-6">
+              {/* Shimmering Brand Badge */}
+              <div className="flex justify-center">
+                <AnimatedShinyBadge className="cursor-default">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B4F461] opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B4F461]" />
+                  </span>
+                  <span className="font-semibold text-zinc-200 tracking-wide text-xs">HackerMate</span>
+                  <span className="text-zinc-600 hidden sm:inline">•</span>
+                  <span className="text-zinc-400 font-mono text-[11px] hidden sm:inline">
+                    {userCount}+ Verified Builders Live
+                  </span>
+                </AnimatedShinyBadge>
+              </div>
+
+              {/* Display Headline */}
+              <h2 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-[-0.035em] text-white leading-[1.08] max-w-2xl mx-auto">
+                Find your frontend, backend &amp; AI co-builders.
+              </h2>
+
+              {/* Subtitle */}
+              <p className="text-sm sm:text-base text-zinc-300 max-w-lg mx-auto leading-relaxed">
+                The team operating system for college hackathons. Form high-compatibility squads for{" "}
+                <strong className="text-white font-medium">SIH 2026</strong> and collaborate in one unified workspace.
+              </p>
+
+              {/* Hero CTAs: Dominant Lime Pill with Luminous Underglow + Understated Text Link */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2 w-full max-w-xs sm:max-w-md mx-auto">
+                <div className="relative inline-flex group">
+                  {/* Subtle ambient lime underglow aura */}
+                  <div className="absolute -inset-1 bg-[#B4F461]/25 rounded-full blur-xl opacity-60 group-hover:opacity-100 group-hover:blur-2xl transition-all duration-300 pointer-events-none -z-10" />
+                  <button
+                    onClick={() => router.push("/login")}
+                    className={LANDING_TOKENS.button.primary}
+                  >
+                    <span>Find Teammates</span>
+                    <ArrowRight className="w-4 h-4 text-zinc-950" />
+                  </button>
+                </div>
+
+                <a
+                  href="#demo"
+                  className={LANDING_TOKENS.button.secondaryLink}
+                >
+                  <span>Explore Platform</span>
+                  <ChevronDown className="w-4 h-4 text-zinc-400 group-hover:translate-y-0.5 transition-transform" />
+                </a>
+              </div>
+
+              {/* Active Builders Pill */}
+              <div className="pt-2 flex justify-center">
+                <div className="flex items-center gap-2.5 bg-zinc-950/90 border border-white/[0.08] px-3.5 py-1.5 rounded-full backdrop-blur-md text-xs text-zinc-400">
+                  <AvatarCircles
+                    numPeople={userCount > 4 ? userCount - 4 : userCount}
+                    avatarUrls={realBuilders.map((b) => ({
+                      imageUrl: b.avatar_url,
+                      name: b.full_name,
+                      skills: b.skills,
+                    }))}
+                  />
+                  <span className="text-zinc-200 font-medium pl-1 text-[11px]">
+                    Active builders matching today
+                  </span>
+                </div>
+              </div>
+
+              {/* Single Quiet Stats Row */}
+              <div className="grid grid-cols-3 gap-3 pt-6 max-w-sm mx-auto border-t border-white/[0.06]">
+                <div className="p-2.5 rounded-xl bg-zinc-950/40 border border-white/[0.05] flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-0.5">Builders</span>
+                  <div className="text-lg font-bold font-mono text-zinc-100">{userCount}+</div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-zinc-950/40 border border-white/[0.05] flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-0.5">Hackathons</span>
+                  <div className="text-lg font-bold font-mono text-zinc-100">{hackathonCount}+</div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-zinc-950/40 border border-white/[0.05] flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-0.5">Teams</span>
+                  <div className="text-lg font-bold font-mono text-zinc-100">{teamCount}</div>
+                </div>
+              </div>
+
+              {/* Grounded Live Telemetry Dock for Mobile/Tablet (< lg) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto pt-4 lg:hidden text-left">
+                {/* Mobile Card 1: Verified Builder */}
+                <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-white/[0.08] space-y-1.5 transition-all duration-300 hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461]" />
+                      <span className="text-zinc-200">Verified Builder</span>
+                    </span>
+                    <span className="text-zinc-500">Live</span>
+                  </div>
+                  <p className="text-xs font-semibold text-white truncate">
+                    {currentBuilder1.full_name || "Active Builder"}
+                  </p>
+                  <p className="text-[10px] font-mono text-zinc-400 truncate">
+                    {currentBuilder1.college || "Engineering College"}
+                  </p>
+                </div>
+
+                {/* Mobile Card 2: Active Squad */}
+                <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-white/[0.08] space-y-1.5 transition-all duration-300 hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                    <span className="text-zinc-200">Active Squad</span>
+                    <span className="text-[#B4F461]">{currentTeam.hackathon_name || "SIH 2026"}</span>
+                  </div>
+                  <p className="text-xs font-semibold text-white truncate">
+                    {currentTeam.name}
+                  </p>
+                  <p className="text-[10px] font-mono text-zinc-400 truncate">
+                    {currentTeam.description || "Recruiting complementary roles"}
+                  </p>
+                </div>
+              </div>
             </div>
+
+            {/* Right Flank: Grounded Live Active Squad Card (Desktop) */}
+            <div className="hidden lg:block lg:col-span-3">
+              <div
+                className={`p-4 ${LANDING_TOKENS.surface.flagship} ${LANDING_TOKENS.surface.flagshipHover} space-y-3 text-left group ${
+                  fadeOpacity ? "opacity-100" : "opacity-40"
+                }`}
+              >
+                <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#B4F461] animate-pulse group-hover:shadow-[0_0_8px_rgba(180,244,97,0.8)] transition-shadow" />
+                    <span className="text-zinc-200 font-medium">Active Squad</span>
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-white/[0.06]">
+                    {currentTeam.hackathon_name || "SIH 2026"}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-white truncate">
+                    {currentTeam.name}
+                  </p>
+                  <p className="text-xs font-mono text-zinc-400 truncate mt-0.5">
+                    {currentTeam.description || "Recruiting teammates"}
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-white/[0.06] space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-zinc-400">Target Track</span>
+                    <span className="text-zinc-200">Smart Automation</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-zinc-400">Open Role</span>
+                    <span className="text-[#B4F461]">Full Stack / AI Lead</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                  <span>Squad Formation</span>
+                  <span className="text-zinc-300 group-hover:text-[#B4F461] transition-colors">Recruiting Now</span>
+                </div>
+              </div>
+            </div>
+
           </div>
-
-          {/* Card 2: Real Team */}
-          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
-            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="text-zinc-300">Active Squad</span>
-              <span className="text-zinc-500 truncate max-w-[90px]">{currentTeam.hackathon_name || "Hackathon"}</span>
-            </div>
-            <p className="text-xs font-semibold text-zinc-200 truncate">
-              {currentTeam.name}
-            </p>
-            <p className="text-[10px] font-mono text-zinc-400 truncate">
-              {currentTeam.description || "Recruiting teammates"}
-            </p>
-          </div>
-        </div>
-
-        {/* Right Flank Real Live Activity Cards (Wide Screens Only) */}
-        <div className="hidden xl:flex absolute right-6 2xl:right-14 top-1/2 -translate-y-1/2 flex-col gap-3.5 max-w-[260px] z-10 select-none">
-          {/* Card 3: Real Hackathon */}
-          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
-            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="text-zinc-300">Featured Hackathon</span>
-              <span className="text-zinc-300 font-bold truncate">
-                {formatPrizeDisplay(currentHackathon.prize_pool, currentHackathon.currency) || "Open"}
-              </span>
-            </div>
-            <p className="text-xs font-semibold text-zinc-200 truncate">
-              {currentHackathon.name}
-            </p>
-            <p className="text-[10px] font-mono text-zinc-400 truncate">
-              {currentHackathon.mode || "Online"}{currentHackathon.location ? ` • ${currentHackathon.location}` : ""}
-            </p>
-          </div>
-
-          {/* Card 4: Real Builder 2 */}
-          <div className={`p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md shadow-xl text-left space-y-1.5 transform -rotate-1 transition-opacity duration-300 ${fadeOpacity ? "opacity-100" : "opacity-40"}`}>
-            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-              <span className="text-zinc-300">Co-Builder Profile</span>
-              <span className="text-zinc-500">Live</span>
-            </div>
-            <p className="text-xs font-semibold text-zinc-200 truncate">
-              {currentBuilder2.full_name || "Active Builder"}
-            </p>
-            <p className="text-[10px] font-mono text-zinc-400 truncate">
-              {currentBuilder2.college || "Engineering College"}
-            </p>
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {(currentBuilder2.skills && currentBuilder2.skills.length > 0 ? currentBuilder2.skills : ["Full Stack"]).slice(0, 2).map((s) => (
-                <span key={s} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-300 border border-zinc-800">
-                  {s}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Content measure container */}
-        <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6">
-
-          {/* Logo */}
-          <div className="flex justify-center">
-            <Link href="/" className="inline-flex items-center">
-              <Logo className="h-8 w-auto" />
-            </Link>
-          </div>
-
-          {/* Shimmering Badge with Exactly 1 Live Status Dot */}
-          <div className="flex justify-center">
-            <AnimatedShinyBadge className="cursor-default">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B4F461] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B4F461]" />
-              </span>
-              <span className="font-medium text-zinc-200 tracking-wide text-xs">HackerMate</span>
-              <span className="text-zinc-600 hidden sm:inline">•</span>
-              <span className="text-zinc-400 font-mono text-[11px] hidden sm:inline">
-                {userCount}+ Verified Builders Live
-              </span>
-            </AnimatedShinyBadge>
-          </div>
-
-          {/* Hero Headline */}
-          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-100 leading-[1.15] max-w-2xl mx-auto">
-            Find your frontend, backend &amp; AI co-builders.
-          </h2>
-
-          {/* Subtitle */}
-          <p className="text-sm sm:text-base text-zinc-400 max-w-lg mx-auto leading-relaxed">
-            The team operating system for college hackathons. Form high-compatibility squads for <strong className="text-zinc-200 font-semibold">SIH 2026</strong> and collaborate in one unified workspace.
-          </p>
-
-          {/* Hero CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 w-full max-w-xs sm:max-w-md mx-auto">
-            <ShimmerButton
-              onClick={() => router.push("/login")}
-              className="w-full sm:w-auto px-7 py-3 text-sm shadow-xl"
-              background="#B4F461"
-              shimmerColor="#ffffff"
-            >
-              <span className={`${LANDING_TOKENS.text.onAccent} flex items-center justify-center gap-2`}>
-                <span>Find Teammates</span>
-                <ArrowRight className="w-4 h-4 text-zinc-950" />
-              </span>
-            </ShimmerButton>
-
-            <a
-              href="#demo"
-              className={LANDING_TOKENS.button.secondary}
-            >
-              <span>Explore Platform</span>
-              <ChevronDown className="w-4 h-4 text-zinc-500" />
-            </a>
-          </div>
-
-          {/* Active Builders Pill */}
-          <div className="pt-2 flex justify-center">
-            <div className="flex items-center gap-2.5 bg-zinc-950/80 border border-zinc-800/80 px-3.5 py-1.5 rounded-full backdrop-blur-md text-xs text-zinc-400">
-              <AvatarCircles
-                numPeople={userCount > 4 ? userCount - 4 : userCount}
-                avatarUrls={realBuilders.map((b) => ({
-                  imageUrl: b.avatar_url,
-                  name: b.full_name,
-                  skills: b.skills,
-                }))}
-              />
-              <span className="text-zinc-300 font-medium pl-1 text-[11px]">
-                Active builders matching today
-              </span>
-            </div>
-          </div>
-
-          {/* Single Quiet Stats Row */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-4 max-w-md mx-auto border-t border-zinc-900">
-            <div className="p-3 rounded-xl bg-zinc-950/40 border border-zinc-900 flex flex-col items-center">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-0.5">Builders</span>
-              <div className="text-lg font-bold font-mono text-zinc-200">{userCount}+</div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-zinc-950/40 border border-zinc-900 flex flex-col items-center">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-0.5">Hackathons</span>
-              <div className="text-lg font-bold font-mono text-zinc-200">{hackathonCount}+</div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-zinc-950/40 border border-zinc-900 flex flex-col items-center">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-0.5">Teams</span>
-              <div className="text-lg font-bold font-mono text-zinc-200">{teamCount}</div>
-            </div>
-          </div>
-
         </div>
       </section>
 
-      {/* ─── Section 2: Skill Match Radar Showcase (Dual Pane Browser Frame) ─── */}
+      {/* ─── 2. Differentiator 1: Skill Match Radar Showcase ─── */}
       <SkillMatchShowcase />
 
-      {/* ─── Section 3: 9-Tab Workspace Centerpiece Showcase ─── */}
-      <section id="demo" className="w-full bg-transparent py-16 sm:py-24 relative z-10">
+      {/* ─── 3. Differentiator 2: SIH 2026 Engine Showcase ─── */}
+      <SihComplianceShowcase />
+
+      {/* ─── 4. Product Centerpiece: 9-Tab Workspace OS HUD ─── */}
+      <section id="demo" className={`w-full ${LANDING_TOKENS.spacing.section} bg-transparent relative z-10`}>
         <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8 space-y-2">
-            <p className={LANDING_TOKENS.text.eyebrow}>
-              Team Operating System
-            </p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-zinc-100 tracking-tight">
-              One unified workspace from ideation to submission
-            </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto">
-              Real-time sprint planning, collaborative chat, AI deck evaluations, and live project feeds.
-            </p>
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8 text-left">
+            <div className="space-y-2 max-w-2xl">
+              <p className={LANDING_TOKENS.text.eyebrow}>
+                Team Operating System
+              </p>
+              <h2 className={LANDING_TOKENS.text.sectionH2}>
+                One unified workspace from ideation to submission
+              </h2>
+              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
+                Real-time sprint planning, collaborative chat, AI deck evaluations, and live project feeds.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0 pb-1">
+              <div className="px-3.5 py-1.5 rounded-full border border-white/[0.08] bg-zinc-950/80 text-xs font-mono text-zinc-300 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#B4F461] animate-pulse" />
+                <span>9 Integrated Modules</span>
+              </div>
+            </div>
           </div>
 
           <div className={LANDING_TOKENS.surface.chrome}>
@@ -402,7 +438,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
             </div>
 
             {/* Tab bar */}
-            <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-zinc-900 bg-zinc-950">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-zinc-900 bg-zinc-950">
               {(
                 [
                   {
@@ -430,7 +466,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
                     activeTab === tab.key
                       ? "bg-zinc-800 text-zinc-100 border border-zinc-700 font-semibold"
                       : "text-zinc-400 hover:text-zinc-200 border border-transparent"
@@ -446,48 +482,51 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
 
               {/* Workspace HUD Centerpiece Tab */}
               {activeTab === "product" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-zinc-900 pb-2.5">
-                    <div className="flex items-center gap-2">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
+                    <div className="flex items-center gap-2.5">
                       <span className="px-2 py-0.5 rounded bg-zinc-900 text-zinc-200 font-mono text-[10px] border border-zinc-800">
                         AI Agents 2026 Squad
                       </span>
                       <span className="text-xs font-semibold text-zinc-200">Active Workspace</span>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-400">3 Online</span>
+                    <span className="text-[10px] font-mono text-[#B4F461] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461]" />
+                      3 Online
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-left text-xs">
                     {/* Chat Column */}
-                    <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
-                      <span className="text-[10px] font-mono text-zinc-400 block border-b border-zinc-800/80 pb-1">Team Chat</span>
-                      <p className="text-[11px] text-zinc-300"><span className="text-zinc-100 font-mono font-medium">Aarav:</span> API endpoints verified. Wiring up UI components now.</p>
-                      <p className="text-[11px] text-zinc-300"><span className="text-zinc-400 font-mono font-medium">Priya:</span> Presentation deck updated for mentor review.</p>
+                    <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2.5">
+                      <span className="text-[10px] font-mono text-zinc-400 block border-b border-zinc-800/80 pb-1.5">Team Chat</span>
+                      <p className="text-xs text-zinc-300 leading-relaxed"><span className="text-white font-mono font-medium">Aarav:</span> API endpoints verified. Wiring up UI components now.</p>
+                      <p className="text-xs text-zinc-300 leading-relaxed"><span className="text-zinc-400 font-mono font-medium">Priya:</span> Presentation deck updated for mentor review.</p>
                     </div>
 
                     {/* Kanban Column */}
-                    <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
-                      <span className="text-[10px] font-mono text-zinc-400 block border-b border-zinc-800/80 pb-1">Kanban Board</span>
-                      <div className="flex items-center justify-between text-[11px] text-zinc-300">
+                    <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2.5">
+                      <span className="text-[10px] font-mono text-zinc-400 block border-b border-zinc-800/80 pb-1.5">Kanban Board</span>
+                      <div className="flex items-center justify-between text-xs text-zinc-300">
                         <span>Pitch Deck</span>
-                        <span className="text-[9px] font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">Done</span>
+                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">Done</span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-zinc-300">
+                      <div className="flex items-center justify-between text-xs text-zinc-300">
                         <span>Video Demo</span>
-                        <span className="text-[9px] font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">In Progress</span>
+                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">In Progress</span>
                       </div>
                     </div>
 
-                    {/* AI Evaluator & Deploy Column */}
-                    <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
-                      <span className="text-[10px] font-mono text-zinc-400 block border-b border-zinc-800/80 pb-1">AI Deck Review</span>
-                      <div className="flex items-center justify-between text-[11px] text-zinc-300">
+                    {/* AI Evaluator Column */}
+                    <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2.5">
+                      <span className="text-[10px] font-mono text-zinc-400 block border-b border-zinc-800/80 pb-1.5">AI Deck Review</span>
+                      <div className="flex items-center justify-between text-xs text-zinc-300">
                         <span>Format Scoring</span>
-                        <span className="text-[9px] font-mono text-zinc-300">92 / 100</span>
+                        <span className="text-[10px] font-mono text-[#B4F461] font-bold">92 / 100</span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-zinc-300">
+                      <div className="flex items-center justify-between text-xs text-zinc-300">
                         <span>Vercel Build</span>
-                        <span className="text-[9px] font-mono text-zinc-400">Passing</span>
+                        <span className="text-[10px] font-mono text-zinc-400">Passing</span>
                       </div>
                     </div>
                   </div>
@@ -522,7 +561,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
                             </p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-zinc-400 mb-2 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-zinc-300 mb-2 line-clamp-2 leading-relaxed">
                           {b.bio || "Building projects for upcoming hackathons."}
                         </p>
                         <div className="flex flex-wrap gap-1">
@@ -589,7 +628,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
                             {t.hackathon_name || "Active Team"}
                           </span>
                           <p className="text-xs text-zinc-200 font-medium mt-1 truncate">{t.name}</p>
-                          <p className="text-[10px] text-zinc-500 mt-1 line-clamp-2">
+                          <p className="text-[10px] text-zinc-400 mt-1 line-clamp-2">
                             {t.description || "Looking for teammates"}
                           </p>
                         </div>
@@ -608,23 +647,20 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
         </div>
       </section>
 
-      {/* ─── Section 4: SIH 2026 Engine Showcase ─── */}
-      <SihComplianceShowcase />
-
-      {/* ─── Section 5: Verified College Network ─── */}
-      <section id="colleges" className="w-full bg-transparent py-14 sm:py-18 relative z-10">
-        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 text-center">
+      {/* ─── 5. Verified College Network ─── */}
+      <section id="colleges" className={`w-full ${LANDING_TOKENS.spacing.section} bg-transparent relative z-10`}>
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-4">
           <p className={LANDING_TOKENS.text.eyebrow}>
             College Network
           </p>
-          <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight mb-2">
+          <h2 className={LANDING_TOKENS.text.sectionH2}>
             Engineers from premier institutes
           </h2>
-          <p className="text-xs text-zinc-400 max-w-sm mx-auto mb-6">
-            Verified builder communities across top engineering colleges in India.
+          <p className="text-sm sm:text-base text-zinc-300 max-w-lg mx-auto leading-relaxed">
+            Verified builder communities across top engineering institutes in India.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-3xl mx-auto">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-3xl mx-auto pt-6">
             {(qualifiedColleges.length >= 4
               ? qualifiedColleges.map(([c]) => c)
               : [
@@ -634,7 +670,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
             ).map((col) => (
               <span
                 key={col}
-                className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-300"
+                className="px-4 py-2 rounded-xl border border-white/[0.08] bg-zinc-950/60 text-xs font-mono text-zinc-200 backdrop-blur-sm transition-all duration-200 hover:border-white/[0.25] hover:text-white hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.5)] cursor-default"
               >
                 {col}
               </span>
@@ -643,183 +679,240 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
         </div>
       </section>
 
-      {/* ─── Section 6: Workflow (3 Steps) ─── */}
-      <section id="how-it-works" className="w-full bg-transparent py-14 sm:py-18 relative z-10">
-        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8 space-y-1">
-            <p className={LANDING_TOKENS.text.eyebrow}>
-              How It Works
-            </p>
-            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight">
-              Three steps to a winning team
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { step: "01", title: "Build Your Identity", description: "List your verified tech stack, past projects, and college domain." },
-              { step: "02", title: "Match by Role", description: "Filter teammates by complementary skills (Frontend, Backend, AI/ML)." },
-              { step: "03", title: "Collaborate & Win", description: "Use the built-in Kanban board, team chat, and AI pitch deck evaluator." },
-            ].map((item) => (
-              <div key={item.step} className={LANDING_TOKENS.surface.card + " p-5"}>
-                <span className="text-xs font-mono font-bold text-zinc-400 mb-2 block">{item.step}</span>
-                <h3 className="text-sm font-semibold text-zinc-100 mb-1">{item.title}</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">{item.description}</p>
+      {/* ─── 6. How It Works (Workflow Pipeline) ─── */}
+      <section id="how-it-works" className={`w-full ${LANDING_TOKENS.spacing.section} bg-transparent relative z-10`}>
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            {/* Left Column: Narrative Anchor (4 cols) */}
+            <div className="lg:col-span-4 space-y-4 text-left lg:sticky lg:top-24">
+              <p className={LANDING_TOKENS.text.eyebrow}>
+                Workflow Pipeline
+              </p>
+              <h2 className={LANDING_TOKENS.text.sectionH2}>
+                Three steps to a winning team.
+              </h2>
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                Form verified squads with complementary stacks, collaborate in unified workspaces, and ship winning projects.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/login"
+                  className={LANDING_TOKENS.button.secondaryLink}
+                >
+                  <span>Start building your team</span>
+                  <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </div>
-            ))}
+            </div>
+
+            {/* Right Column: 3 Sequential Step Cards (8 cols) */}
+            <div className="lg:col-span-8 space-y-4">
+              {[
+                {
+                  step: "01",
+                  title: "Build Your Identity",
+                  description: "List your verified tech stack, past projects, and college domain to demonstrate your technical depth.",
+                  badge: "Profile Setup",
+                },
+                {
+                  step: "02",
+                  title: "Match by Role",
+                  description: "Filter teammates by complementary skills (Frontend, Backend, AI/ML) and send direct 1-click connect requests.",
+                  badge: "Skill Radar",
+                },
+                {
+                  step: "03",
+                  title: "Collaborate & Win",
+                  description: "Coordinate tasks on the built-in Kanban board, brainstorm in team chat, and test your deck with AI evaluator.",
+                  badge: "Workspace OS",
+                },
+              ].map((item) => (
+                <div
+                  key={item.step}
+                  className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-white/[0.035] via-zinc-950/80 to-[#080808]/90 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all duration-300 hover:border-white/[0.2] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_12px_36px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 group text-left"
+                >
+                  <div className="flex items-center justify-between gap-4 mb-2">
+                    <span className="text-xs font-mono font-bold text-[#B4F461] bg-[#B4F461]/10 px-2.5 py-0.5 rounded-md border border-[#B4F461]/20">
+                      STEP {item.step}
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-500">{item.badge}</span>
+                  </div>
+                  <h3 className="text-base font-semibold text-white group-hover:text-zinc-100 transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm text-zinc-300 leading-relaxed mt-1">
+                    {item.description}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Section 7: Founder Note ─── */}
-      <section className="w-full bg-transparent py-12 sm:py-14 relative z-10">
+      {/* ─── 7. Founder Note ─── */}
+      <section className={`w-full ${LANDING_TOKENS.spacing.section} bg-transparent relative z-10`}>
         <div className="w-full max-w-2xl mx-auto px-4 sm:px-6">
-          <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/20">
-            <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed italic">
+          <div className="p-8 rounded-2xl border border-white/[0.08] bg-zinc-950/80 backdrop-blur-md space-y-4 text-left shadow-2xl transition-all duration-300 hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
+            <p className="text-base sm:text-lg text-zinc-200 leading-relaxed italic font-normal">
               &ldquo;As a second-year engineering student, I lost count of how many hackathons I almost skipped simply because I couldn&apos;t find a reliable frontend developer or AI builder in time. HackerMate was built to solve team formation for good.&rdquo;
             </p>
-            <div className="mt-4 pt-3 border-t border-zinc-800/60 flex items-center justify-between">
+            <div className="pt-4 border-t border-white/[0.08] flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-zinc-200">Yash Shah</p>
-                <p className="text-[10px] text-zinc-500 font-mono">Founder • 2nd-Year CS Engineering Student</p>
+                <p className="text-sm font-semibold text-white">Yash Shah</p>
+                <p className="text-xs text-zinc-400 font-mono">Founder • 2nd-Year CS Engineering Student</p>
               </div>
               <button
                 onClick={() => setShowOrganizerModal(true)}
-                className="text-[11px] font-mono text-zinc-300 hover:text-white hover:underline cursor-pointer"
+                className={LANDING_TOKENS.button.secondaryLink}
               >
-                Organizer Inquiries →
+                <span>Organizer Inquiries</span>
+                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Section 8: FAQ ─── */}
-      <section id="faq" className="w-full bg-transparent py-14 sm:py-18 relative z-10">
-        <div className="w-full max-w-2xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8 space-y-1">
-            <p className={LANDING_TOKENS.text.eyebrow}>
-              Frequently Asked Questions
-            </p>
-            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight">
-              Got questions?
-            </h2>
-          </div>
-
-          <div className="space-y-2.5">
-            {[
-              {
-                id: 1,
-                q: "Is HackerMate free for engineering students?",
-                a: "Yes, 100% free for all students to create profiles, search builders, join teams, and collaborate in team workspaces.",
-              },
-              {
-                id: 2,
-                q: "How does skill-based matching work?",
-                a: "Our algorithm pairs builders with complementary technical skills (e.g. Next.js + FastAPI + PyTorch) rather than duplicate roles.",
-              },
-              {
-                id: 3,
-                q: "Is SIH 2026 team rule validation supported?",
-                a: "Yes, HackerMate automatically enforces SIH 6-member team limits and the mandatory 1+ female member quota.",
-              },
-              {
-                id: 4,
-                q: "Do hackathon organizers pay to list events?",
-                a: "No, event listing is completely free for college and community hackathons.",
-              },
-            ].map((faq) => (
-              <div
-                key={faq.id}
-                className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 overflow-hidden"
-              >
-                <button
-                  type="button"
-                  onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                  className="w-full p-3.5 text-left flex items-center justify-between gap-4 text-xs font-medium text-zinc-200 hover:text-white transition-colors cursor-pointer select-none"
+      {/* ─── 8. FAQ ─── */}
+      <section id="faq" className={`w-full ${LANDING_TOKENS.spacing.section} bg-transparent relative z-10`}>
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            {/* Left Column: FAQ Anchor (4 cols) */}
+            <div className="lg:col-span-4 space-y-4 text-left lg:sticky lg:top-24">
+              <p className={LANDING_TOKENS.text.eyebrow}>
+                Frequently Asked Questions
+              </p>
+              <h2 className={LANDING_TOKENS.text.sectionH2}>
+                Everything you need to know.
+              </h2>
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                Clear answers about builder matching, squad formation, SIH rule compliance, and college hackathon listings.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/contact"
+                  className={LANDING_TOKENS.button.secondaryLink}
                 >
-                  <span>{faq.q}</span>
-                  <span className="text-zinc-500 font-mono">
-                    {expandedFaq === faq.id ? "−" : "+"}
-                  </span>
-                </button>
-                {expandedFaq === faq.id && (
-                  <div className="px-3.5 pb-3.5 text-xs text-zinc-400 leading-relaxed border-t border-zinc-800/60 pt-2.5">
-                    {faq.a}
-                  </div>
-                )}
+                  <span>Have questions? Contact us</span>
+                  <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </div>
-            ))}
+            </div>
+
+            {/* Right Column: Accordions (8 cols) */}
+            <div className="lg:col-span-8 space-y-3">
+              {[
+                {
+                  id: 1,
+                  q: "Is HackerMate free for engineering students?",
+                  a: "Yes, 100% free for all students to create profiles, search builders, join teams, and collaborate in team workspaces.",
+                },
+                {
+                  id: 2,
+                  q: "How does skill-based matching work?",
+                  a: "Our algorithm pairs builders with complementary technical skills (e.g. Next.js + FastAPI + PyTorch) rather than duplicate roles.",
+                },
+                {
+                  id: 3,
+                  q: "Is SIH 2026 team rule validation supported?",
+                  a: "Yes, HackerMate automatically enforces SIH 6-member team limits and the mandatory 1+ female member quota.",
+                },
+                {
+                  id: 4,
+                  q: "Do hackathon organizers pay to list events?",
+                  a: "No, event listing is completely free for college and community hackathons.",
+                },
+              ].map((faq) => (
+                <div
+                  key={faq.id}
+                  className="rounded-xl border border-white/[0.08] bg-zinc-950/60 overflow-hidden backdrop-blur-md transition-colors duration-200 hover:border-white/[0.2]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                    className="w-full p-4 text-left flex items-center justify-between gap-4 text-sm font-medium text-zinc-100 hover:text-white transition-colors cursor-pointer select-none"
+                  >
+                    <span>{faq.q}</span>
+                    <span className="text-zinc-500 font-mono text-base">
+                      {expandedFaq === faq.id ? "−" : "+"}
+                    </span>
+                  </button>
+                  {expandedFaq === faq.id && (
+                    <div className="px-4 pb-4 text-sm text-zinc-300 leading-relaxed border-t border-white/[0.06] pt-3">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Section 9: Final Call to Action ─── */}
-      <section className="w-full bg-transparent py-16 sm:py-24 px-4 sm:px-6 relative z-10">
-        <div className="max-w-4xl mx-auto rounded-3xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 via-zinc-900/30 to-zinc-950/70 p-8 sm:p-14 relative overflow-hidden backdrop-blur-md shadow-2xl text-center space-y-6">
+      {/* ─── 9. Final Call to Action (High-Momentum Angle) ─── */}
+      <section className={`w-full ${LANDING_TOKENS.spacing.section} px-4 sm:px-6 relative z-10`}>
+        <div className="max-w-4xl mx-auto rounded-3xl border border-white/[0.08] bg-gradient-to-b from-zinc-900/80 via-zinc-950/80 to-[#080808] p-8 sm:p-16 relative overflow-hidden backdrop-blur-md shadow-2xl text-center space-y-6">
           {/* Subtle inner radial top glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[260px] bg-[radial-gradient(ellipse_at_top,rgba(180,244,97,0.12)_0%,transparent_70%)] blur-[50px] pointer-events-none" />
 
           {/* Top highlight horizon line */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#B4F461]/30 to-transparent" />
 
-          {/* Eyebrow Badge */}
+          {/* Momentum Eyebrow Badge */}
           <div className="flex justify-center relative z-10">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-950/80 border border-zinc-800 text-[11px] font-mono text-zinc-300 shadow-sm">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-950/90 border border-white/[0.08] text-[11px] font-mono text-zinc-300 shadow-sm">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#B4F461] opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#B4F461]" />
               </span>
-              <span>SIH 2026 SQUAD FORMATION LIVE</span>
+              <span>UPCOMING HACKATHON DEADLINES ACTIVE</span>
             </div>
           </div>
 
-          {/* Main Headline & Subtitle */}
+          {/* Differentiated Momentum Headline & Subtitle */}
           <div className="space-y-3 relative z-10 max-w-xl mx-auto">
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-zinc-100 leading-tight">
-              Ready to assemble your winning hackathon squad?
+            <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.03em] text-white leading-tight">
+              Your next hackathon win starts with the right squad.
             </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              Join {userCount}+ verified builders across top engineering institutes. Match complementary tech stacks and start collaborating immediately.
+            <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
+              Team formations for Smart India Hackathon and national college competitions are filling up now. Don&apos;t build alone.
             </p>
           </div>
 
-          {/* CTA Button */}
+          {/* Standardized Primary CTA Button */}
           <div className="pt-2 flex justify-center relative z-10">
-            <ShimmerButton
+            <button
               onClick={() => router.push("/login")}
-              className="px-8 py-3.5 text-sm shadow-xl"
-              background="#B4F461"
-              shimmerColor="#ffffff"
+              className={LANDING_TOKENS.button.primary}
             >
-              <span className={`${LANDING_TOKENS.text.onAccent} flex items-center justify-center gap-2`}>
-                <span>Get Started — It&apos;s Free</span>
-                <ArrowRight className="w-4 h-4 text-zinc-950" />
-              </span>
-            </ShimmerButton>
+              <span>Find Teammates</span>
+              <ArrowRight className="w-4 h-4 text-zinc-950" />
+            </button>
           </div>
 
           {/* Value Props & Trust Badges */}
-          <div className="pt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-mono text-zinc-400 border-t border-zinc-800/60 relative z-10">
-            <span className="flex items-center gap-1.5">
-              <span className="text-[#B4F461]">✓</span> 100% Free for Students
+          <div className="pt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs font-mono text-zinc-300 border-t border-white/[0.08] relative z-10">
+            <span className="flex items-center gap-2">
+              <span className="text-[#B4F461] font-bold">✓</span> Complementary Skill Radar
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="text-[#B4F461]">✓</span> Complementary Skill Radar
+            <span className="flex items-center gap-2">
+              <span className="text-[#B4F461] font-bold">✓</span> SIH 2026 Rule Compliance
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="text-[#B4F461]">✓</span> Built-in Team Workspace
+            <span className="flex items-center gap-2">
+              <span className="text-[#B4F461] font-bold">✓</span> 100% Free for Students
             </span>
           </div>
         </div>
       </section>
 
-      {/* ─── Footer ─── */}
+      {/* ─── 10. Footer ─── */}
       <Footer />
 
       {/* ─── Organizer Contact Modal ─── */}
       {showOrganizerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 relative shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-zinc-950 p-6 relative shadow-2xl space-y-5">
             <button
               onClick={() => setShowOrganizerModal(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer text-sm font-mono"
@@ -832,7 +925,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
                 ORGANIZER INQUIRIES
               </span>
               <h3 className="text-lg font-bold text-white">Partner Your Hackathon</h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
+              <p className="text-xs text-zinc-300 leading-relaxed">
                 Connect participants across 50+ engineering colleges to form winning teams.
               </p>
             </div>
@@ -849,7 +942,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
                 href="https://mail.google.com/mail/?view=cm&fs=1&to=contacthackermate@gmail.com&su=Partner+Hackathon+with+HackerMate"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-bold text-xs transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs transition-all cursor-pointer"
               >
                 <span>Open in Gmail</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -858,7 +951,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
               <button
                 type="button"
                 onClick={handleCopyEmail}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-medium text-xs transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-medium text-xs transition-all cursor-pointer"
               >
                 <span>{copiedEmail ? "Copied to Clipboard" : "Copy Email Address"}</span>
               </button>

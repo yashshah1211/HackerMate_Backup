@@ -73,12 +73,27 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     setUnreadMessages(uniqueSenders.size);
   }
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
-    const initialTheme = savedTheme || "dark";
-    Promise.resolve().then(() => { setTheme(initialTheme); });
-    document.documentElement.className = initialTheme;
+const PUBLIC_DARK_ROUTES = [
+  "/",
+  "/login",
+  "/faq",
+  "/terms",
+  "/privacy",
+  "/contact",
+  "/partners",
+  "/onboarding",
+];
 
+function isPublicDarkRoute(path: string | null): boolean {
+  if (!path) return true;
+  if (PUBLIC_DARK_ROUTES.includes(path)) return true;
+  if (path.startsWith("/partners/")) return true;
+  if (path.startsWith("/hackathons/sih")) return true;
+  return false;
+}
+
+  // Listen for streak updates
+  useEffect(() => {
     const handleStreakEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ current_streak: number }>;
       if (customEvent.detail?.current_streak) {
@@ -88,6 +103,28 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     window.addEventListener("streak-updated", handleStreakEvent);
     return () => window.removeEventListener("streak-updated", handleStreakEvent);
   }, []);
+
+  // Theme synchronization:
+  // Public and unauthenticated marketing routes always force dark mode (preventing illegible black-on-black styling).
+  // Only authenticated workspace/dashboard routes respect stored theme preferences.
+  useEffect(() => {
+    const isPublic = isPublicDarkRoute(pathname);
+
+    if (isPublic) {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+      return;
+    }
+
+    if (user) {
+      const savedTheme = (localStorage.getItem("theme") as "dark" | "light") || "dark";
+      setTheme(savedTheme);
+      document.documentElement.className = savedTheme;
+    } else {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+    }
+  }, [pathname, user]);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -188,11 +225,14 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   async function executeLogout() {
     setShowSignOutConfirm(false);
+    localStorage.removeItem("theme");
+    document.documentElement.className = "dark";
+    setTheme("dark");
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  if (pathname === "/" || pathname === "/login") {
+  if (pathname === "/login") {
     return (
       <>
         {children}
@@ -207,23 +247,29 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
-          <div className="bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800/80">
+          <div className="bg-[#080808]/80 backdrop-blur-md border-b border-white/[0.08]">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
               <Link href={user ? "/dashboard" : "/"} className="flex items-center">
-                <Logo className="h-8 w-auto" />
+                <Logo className="h-7 w-auto" />
               </Link>
               {user ? (
                 <div className="flex items-center gap-4">
-                  <Link href="/dashboard" className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors font-medium">Dashboard</Link>
-                  <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                  <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors font-medium">Dashboard</Link>
+                  <button onClick={handleLogout} className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">Sign Out</button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <Link
                     href="/login"
-                    className="px-4 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 font-semibold text-xs transition-all shadow-sm cursor-pointer"
+                    className="text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
                   >
                     Sign In
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="px-4 py-1.5 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-xs transition-all duration-200 shadow-[0_0_16px_rgba(180,244,97,0.22)] hover:shadow-[0_0_24px_rgba(180,244,97,0.48)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    Find Teammates
                   </Link>
                 </div>
               )}
