@@ -25,11 +25,29 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
+  // Synchronously detect active session from localStorage / cookies on client mount to prevent layout flash
+  const [hasSession, setHasSession] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+          const val = localStorage.getItem(key);
+          if (val && val !== "null") return true;
+        }
+      }
+      return document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"));
+    } catch {
+      return false;
+    }
+  });
+
   const [conversationIds, setConversationIds] = useState<string[]>([]);
 
   async function loadUser(userObj?: import("@supabase/supabase-js").User) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
+    setHasSession(Boolean(activeUser));
     if (activeUser) {
       const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak").eq("id", activeUser.id).single();
 
@@ -228,11 +246,13 @@ function isPublicDarkRoute(path: string | null): boolean {
     localStorage.removeItem("theme");
     document.documentElement.className = "dark";
     setTheme("dark");
+    setUser(null);
+    setHasSession(false);
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/onboarding") {
     return (
       <>
         {children}
@@ -241,18 +261,39 @@ function isPublicDarkRoute(path: string | null): boolean {
     );
   }
 
-  const isWorkspaceLayout = Boolean(user && pathname !== "/" && pathname !== "/onboarding");
+  // Routes that are strictly workspace pages — should NEVER flash the public marketing header
+  const isAlwaysWorkspaceRoute = Boolean(
+    pathname && (
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname.startsWith("/connections") ||
+      pathname.startsWith("/messages") ||
+      pathname.startsWith("/my-teams") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/notifications") ||
+      pathname.startsWith("/invites") ||
+      pathname.startsWith("/profile") ||
+      pathname === "/teams/create"
+    )
+  );
+
+  const isWorkspaceLayout = Boolean(
+    pathname !== "/" &&
+    (isAlwaysWorkspaceRoute || user || hasSession)
+  );
 
   if (!isWorkspaceLayout) {
+    const isLoggedIn = Boolean(user || hasSession);
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
           <div className="bg-[#080808]/80 backdrop-blur-md border-b border-white/[0.08]">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-              <Link href={user ? "/dashboard" : "/"} className="flex items-center">
+              <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center">
                 <Logo className="h-7 w-auto" />
               </Link>
-              {user ? (
+              {isLoggedIn ? (
                 <div className="flex items-center gap-4">
                   <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors font-medium">Dashboard</Link>
                   <button onClick={handleLogout} className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">Sign Out</button>
