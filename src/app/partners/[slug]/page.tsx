@@ -492,26 +492,26 @@ function PartnerPageContent() {
 
             {/* Event Concluded Banner */}
             {isEventConcluded && (
-              <div className="mt-4 p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-zinc-950 to-orange-950/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+              <div className="mt-4 p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-orange-500/10 dark:from-amber-950/40 dark:via-zinc-950 dark:to-orange-950/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-sm">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 font-bold text-lg shrink-0">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-lg shrink-0 border border-amber-500/20 dark:border-amber-500/30">
                     🏁
                   </span>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-xs font-bold text-white">Event Concluded</h3>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase font-semibold">
+                      <h3 className="text-xs font-bold text-zinc-900 dark:text-white">Event Concluded</h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 uppercase font-semibold">
                         Archived Partner Portal
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
                       This partner hackathon concluded on {new Date(hackathon!.end_date!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Team formation and registrations are closed, but team records remain archived.
                     </p>
                   </div>
                 </div>
                 <Link
                   href="/hackathons"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 transition-all shadow-md shrink-0"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 transition-all shadow-md shadow-amber-600/20 shrink-0"
                 >
                   <span>Explore Active Hackathons →</span>
                 </Link>
@@ -555,7 +555,7 @@ function PartnerPageContent() {
           {/* Hero CTAs - Full Width Wrapping Toolbar */}
           <div className="flex flex-wrap items-center gap-3 pt-5 border-t border-zinc-200/80 dark:border-zinc-800/80 w-full">
             {isEventConcluded ? (
-              <div className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700 cursor-not-allowed">
+              <div className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed select-none shadow-sm">
                 <span>🔒 Team Formation Closed</span>
               </div>
             ) : (

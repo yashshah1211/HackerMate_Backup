@@ -141,10 +141,150 @@ const SECTION_CONFIGS: Array<{
 ];
 
 /**
+ * Pre-processes and normalizes unformatted/single-line descriptions into structured multi-line text
+ */
+function normalizeRawDescription(raw: string): string {
+  let text = cleanHtmlEntities(raw);
+  if (!text) return "";
+
+  // 1. Top-Level Main Section Headers
+  const allKeywords: string[] = [];
+  for (const cfg of SECTION_CONFIGS) {
+    allKeywords.push(...cfg.keywords);
+  }
+  allKeywords.push(
+    "prize pool", "additional perks", "submission criteria", "submission details",
+    "submission policy", "allowed resources", "resources", "intellectual property",
+    "originality requirement", "important notes", "terms & conditions", "terms and conditions",
+    "code of conduct", "team participation"
+  );
+  const uniqueKws = Array.from(new Set(allKeywords)).sort((a, b) => b.length - a.length);
+
+  // Match "About [Event Name]:" or "Why [Event Name]:"
+  text = text.replace(/([.!?\s]|^)(About\s+[A-Z0-9][A-Za-z0-9\s&—–'-]{2,35}):\s*/gi, "\n\n$2:\n");
+  text = text.replace(/([.!?\s]|^)(Why\s+[A-Z0-9][A-Za-z0-9\s&—–'-]{2,35}):\s*/gi, "\n\n$2:\n");
+
+  for (const kw of uniqueKws) {
+    const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`([.!?\\s]|^)(${escapedKw}):\\s*`, "gi");
+    text = text.replace(regex, "\n\n$2:\n");
+  }
+
+  // 2. Metadata markers (e.g. Date:, No. of Days:, Members Count:, Registration Fees:, Mode:)
+  const metaLabels = ["Date", "Dates", "No\\. of Days", "Members Count", "Team Size", "Registration Fees?", "Registration Fee", "Mode", "Venue"];
+  for (const kw of metaLabels) {
+    const regex = new RegExp(`([.!?\\s]|^)(${kw}:)\\s*`, "gi");
+    text = text.replace(regex, "\n• $2 ");
+  }
+
+  // 3. Sub-headings like "Smart Travel & Personalization: Reimagine..."
+  text = text.replace(/([.!?]\s+)([A-Z][A-Za-z0-9\s&/'–-]{2,45}):\s+(?=[A-Z])/g, "\n\n• $2: ");
+
+  // 4. Bullet lists after colons (e.g., "stand a chance to: Win from...", "benefits include: ...")
+  text = text.replace(/(stand a chance to:|benefits include:|perks include:|problem statements:)\s*([A-Z])/gi, "$1\n• $2");
+
+  // 5. Break bullet lists formatted with semicolons
+  text = text.replace(/;\s+([A-Z])/g, ";\n• $1");
+
+  // 6. Break huge unbroken paragraphs (> 220 chars) into individual readable sentences
+  const lines = text.split("\n");
+  const processedLines: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length > 220 && !trimmed.startsWith("•") && !trimmed.startsWith("http")) {
+      const sents = trimmed.split(/(?<=[.!?])\s+(?=[A-Z])/);
+      if (sents.length > 1) {
+        processedLines.push(sents.join("\n\n"));
+        continue;
+      }
+    }
+    processedLines.push(line);
+  }
+
+  return processedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * Splits section lines into paragraphs, bullet items, and key-value sub-items
+ */
+function parseSectionLines(lines: string[]): {
+  contentParagraphs: string[];
+  bulletPoints: string[];
+  subItems: SubItem[];
+} {
+  const contentParagraphs: string[] = [];
+  const bulletPoints: string[] = [];
+  const subItems: SubItem[] = [];
+
+  let currentPara = "";
+
+  for (const rawLine of lines) {
+    const cleanLine = cleanLineNoise(rawLine);
+    if (!cleanLine) continue;
+
+    // Bullet point
+    if (/^[•\-*✦●▪◦▸\d+\.]\s*/.test(cleanLine)) {
+      const bpText = cleanLineNoise(cleanLine.replace(/^[•\-*✦●▪◦▸\d+\.]+\s*/, ""));
+      if (bpText.length > 0) {
+        // Check if bullet point is a sub-item e.g. "Smart Travel & Personalization: Reimagine..."
+        const subItemMatch = bpText.match(/^([A-Z0-9\s\-_&]{3,45}):\s*(.+)/i);
+        if (subItemMatch && !subItemMatch[1].toLowerCase().includes("http") && subItemMatch[2].length > 5) {
+          if (currentPara) {
+            contentParagraphs.push(cleanLineNoise(currentPara));
+            currentPara = "";
+          }
+          subItems.push({
+            title: cleanLineNoise(subItemMatch[1]),
+            text: cleanLineNoise(subItemMatch[2]),
+          });
+          continue;
+        }
+
+        if (currentPara) {
+          contentParagraphs.push(cleanLineNoise(currentPara));
+          currentPara = "";
+        }
+        bulletPoints.push(bpText);
+      }
+      continue;
+    }
+
+    // Sub item without leading bullet e.g. "Relay Sprint: 3 hours of speed coding..."
+    const subItemMatch = cleanLine.match(/^([A-Z0-9\s\-_&]{3,45}):\s*(.+)/i);
+    if (subItemMatch && !subItemMatch[1].toLowerCase().includes("http") && subItemMatch[2].length > 5) {
+      if (currentPara) {
+        contentParagraphs.push(cleanLineNoise(currentPara));
+        currentPara = "";
+      }
+      subItems.push({
+        title: cleanLineNoise(subItemMatch[1]),
+        text: cleanLineNoise(subItemMatch[2]),
+      });
+      continue;
+    }
+
+    if (currentPara) {
+      currentPara += " " + cleanLine;
+    } else {
+      currentPara = cleanLine;
+    }
+  }
+
+  if (currentPara) {
+    const finalPara = cleanLineNoise(currentPara);
+    if (finalPara) {
+      contentParagraphs.push(finalPara);
+    }
+  }
+
+  return { contentParagraphs, bulletPoints, subItems };
+}
+
+/**
  * Parses a raw string into structured sections with headings, sub-events, and bullet lists
  */
 function parseDescription(raw: string): DescriptionSection[] {
-  const text = cleanHtmlEntities(raw);
+  const text = normalizeRawDescription(raw);
   if (!text) return [];
 
   // Split into raw non-empty lines
@@ -173,20 +313,17 @@ function parseDescription(raw: string): DescriptionSection[] {
 
   for (const line of rawLines) {
     const cleanL = cleanLineNoise(line);
-    const lowerLine = cleanL.toLowerCase().replace(/[:\s•\-*]+$/, "");
-
-    // Do NOT treat bullet lines or long body lines (> 60 chars) as Section Headers
-    const isBulletLine = /^[•\-*✦●▪◦▸\d+\.]\s*/.test(cleanL);
-    const isHeaderCandidate = !isBulletLine && cleanL.length <= 60;
+    // Strip leading bullet symbol to check if this is a section header (e.g. "• Problem Statements:")
+    const strippedHeaderCheck = cleanL.replace(/^[•\-*✦●▪◦▸\d+\.]+\s*/, "").toLowerCase().replace(/[:\s•\-*]+$/, "");
 
     let matchedConfig: typeof SECTION_CONFIGS[0] | undefined = undefined;
 
-    if (isHeaderCandidate) {
+    if (strippedHeaderCheck.length <= 50) {
       matchedConfig = SECTION_CONFIGS.find((cfg) =>
         cfg.keywords.some((kw) => {
-          if (lowerLine === kw) return true;
-          if (lowerLine.startsWith(kw + ":") || lowerLine.startsWith(kw + " ")) return true;
-          if (kw.length >= 6 && lowerLine.startsWith(kw)) return true;
+          if (strippedHeaderCheck === kw) return true;
+          if (strippedHeaderCheck.startsWith(kw + ":") || strippedHeaderCheck.startsWith(kw + " ")) return true;
+          if (kw.length >= 4 && strippedHeaderCheck.startsWith(kw)) return true;
           return false;
         })
       );
@@ -202,13 +339,6 @@ function parseDescription(raw: string): DescriptionSection[] {
         accentColor: matchedConfig.accentColor,
         lines: [],
       };
-
-      // If the line had text beyond the matched keyword, check if there's trailing body content
-      const inlineBody = cleanL.replace(/^(About the Event|About the Opportunity|About the Hackathon|Overview|Eligibility Criteria|Eligibility & Team Guidelines|Eligibility & Team Rules|Eligibility|Selection Criteria|Evaluation Criteria|Competition Format|Process & Rounds|Event Format|Prizes & Perks|Prizes & Rewards|Why Participate\??|Prizes|Rewards|Rules of the Hackathon|Rules & Guidelines|Team Formation Rules|Rules|Code of Conduct|Tracks|Themes|Problem Statements|Contact Us|Contact Info|Organizers|Important Notes|General Guidelines)[\s:]*/gi, "").trim();
-      const cleanedInline = cleanLineNoise(inlineBody);
-      if (cleanedInline && cleanedInline.length > 5) {
-        currentSec.lines.push(cleanedInline);
-      }
       continue;
     }
 
@@ -257,83 +387,6 @@ function parseDescription(raw: string): DescriptionSection[] {
   }
 
   return sections;
-}
-
-/**
- * Splits section lines into paragraphs, bullet items, and key-value sub-items
- */
-function parseSectionLines(lines: string[]): {
-  contentParagraphs: string[];
-  bulletPoints: string[];
-  subItems: SubItem[];
-} {
-  const contentParagraphs: string[] = [];
-  const bulletPoints: string[] = [];
-  const subItems: SubItem[] = [];
-
-  let currentPara = "";
-
-  for (const rawLine of lines) {
-    const cleanLine = cleanLineNoise(rawLine);
-    if (!cleanLine) continue;
-
-    // Check if line is a bullet point (starts with •, -, *, ✦, ●, ▪, ◦, ▸, 1., 2., etc.)
-    if (/^[•\-*✦●▪◦▸\d+\.]\s*/.test(cleanLine)) {
-      const bpText = cleanLineNoise(cleanLine.replace(/^[•\-*✦●▪◦▸\d+\.]+\s*/, ""));
-      // Crucial: ONLY push if bullet point text is non-empty after stripping bullet symbols!
-      if (bpText.length > 0) {
-        if (currentPara) {
-          contentParagraphs.push(cleanLineNoise(currentPara));
-          currentPara = "";
-        }
-        bulletPoints.push(bpText);
-      }
-      continue;
-    }
-
-    // Check if line contains a sub-item like "Relay Sprint: Team-based sequential..."
-    const subItemMatch = cleanLine.match(/^([A-Z0-9\s\-_]{3,35}):\s*(.+)/i);
-    if (subItemMatch && !subItemMatch[1].toLowerCase().includes("http")) {
-      if (currentPara) {
-        contentParagraphs.push(cleanLineNoise(currentPara));
-        currentPara = "";
-      }
-      subItems.push({
-        title: cleanLineNoise(subItemMatch[1]),
-        text: cleanLineNoise(subItemMatch[2]),
-      });
-      continue;
-    }
-
-    // Check for inline bullet separators or long sentence blocks
-    if (cleanLine.includes(". ") && cleanLine.length > 120) {
-      const sentences = cleanLine.split(/(?<=\.)\s+/).filter(Boolean);
-      for (const sent of sentences) {
-        const cleanedSent = cleanLineNoise(sent);
-        if (!cleanedSent) continue;
-        if (currentPara) {
-          contentParagraphs.push(cleanLineNoise(currentPara));
-          currentPara = "";
-        }
-        contentParagraphs.push(cleanedSent);
-      }
-    } else {
-      if (currentPara) {
-        currentPara += " " + cleanLine;
-      } else {
-        currentPara = cleanLine;
-      }
-    }
-  }
-
-  if (currentPara) {
-    const finalPara = cleanLineNoise(currentPara);
-    if (finalPara) {
-      contentParagraphs.push(finalPara);
-    }
-  }
-
-  return { contentParagraphs, bulletPoints, subItems };
 }
 
 function getBadgeStyles(color: DescriptionSection["accentColor"]) {
