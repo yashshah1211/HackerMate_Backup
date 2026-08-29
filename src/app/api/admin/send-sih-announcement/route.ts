@@ -1,59 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-
-const SUPER_ADMINS = ["yashshah7117@gmail.com"];
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // Verify Admin Authorization
-    const userEmailClean = user.email?.toLowerCase().trim() || "";
-    const isSuperAdmin = SUPER_ADMINS.includes(userEmailClean);
-
-    let isAuthorized = isSuperAdmin;
-    if (!isAuthorized) {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      isAuthorized = profile?.role === "admin";
-    }
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });
-    }
+    const { supabaseAdmin } = authResult;
 
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "60", 10);
@@ -98,53 +53,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // Verify Admin Authorization
-    const userEmailClean = user.email?.toLowerCase().trim() || "";
-    const isSuperAdmin = SUPER_ADMINS.includes(userEmailClean);
-
-    let isAuthorized = isSuperAdmin;
-    if (!isAuthorized) {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      isAuthorized = profile?.role === "admin";
-    }
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });
-    }
+    const { user, supabaseAdmin } = authResult;
 
     const body = await req.json();
     const { sendLive, limit = 60, testEmailOnly } = body;

@@ -1,44 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseServer = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseServer.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    // Verify caller is admin in profiles
-    const { data: profile } = await supabaseServer
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden: Admin privileges required" }, { status: 403 });
-    }
+    const { user, supabaseAdmin } = authResult;
 
     const body = await req.json();
     const {
@@ -46,19 +16,13 @@ export async function POST(req: NextRequest) {
       emails,
       badgeType = "verified_winner",
       badgeName = "Verified Winner — All India Hackathon",
-      issuerName = "HackerMate x Axcentra",
+      issuerName = "HackerMate",
       rankTitle = "Verified Winner",
     } = body;
 
     if (!hackathonId || !Array.isArray(emails) || emails.length === 0) {
       return NextResponse.json({ error: "hackathonId and emails array are required" }, { status: 400 });
     }
-
-    // Service role client to perform admin lookup and assignment
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     // Resolve emails to profile IDs
     const cleanEmails = emails.map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -95,7 +59,7 @@ export async function POST(req: NextRequest) {
       issuer_name: issuerName,
       rank_title: rankTitle,
       metadata: {
-        certificate_id: `HM-CERT-AX-${uId.slice(0, 6).toUpperCase()}`,
+        certificate_id: `HM-CERT-${uId.slice(0, 6).toUpperCase()}`,
         issued_by_admin: user.id,
       },
     }));
@@ -123,44 +87,12 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseServer = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseServer.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const { data: profile } = await supabaseServer
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden: Admin privileges required" }, { status: 403 });
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { supabaseAdmin } = authResult;
 
     const { data: badges, error } = await supabaseAdmin
       .from("user_badges")

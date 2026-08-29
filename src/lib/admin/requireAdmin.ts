@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
 
 export interface AdminAuthResult {
@@ -8,14 +9,15 @@ export interface AdminAuthResult {
 }
 
 export async function requireAdmin(
-  req: NextRequest
+  req?: NextRequest
 ): Promise<AdminAuthResult | NextResponse> {
+  const cookieStore = await cookies();
   const supabaseUserClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => req.cookies.getAll(),
+        getAll: () => cookieStore.getAll(),
         setAll: () => {},
       },
     }

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 function escapeHtml(text: string): string {
@@ -20,47 +18,12 @@ function delay(ms: number) {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (callerProfile?.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden: Only admins can send onboarding nudges." },
-        { status: 403 }
-      );
-    }
+    const { supabaseAdmin } = authResult;
 
     const body = await req.json();
     const { targetUserId, batchAll, customNote } = body;
