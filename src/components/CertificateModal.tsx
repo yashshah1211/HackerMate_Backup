@@ -46,7 +46,8 @@ export default function CertificateModal({
   });
   const rawTitle = badge.badge_name || "All India Hackathon 2026";
   const eventTitle = rawTitle.replace(/^(Verified Winner|Winner|Finalist|Participant)\s*[\u2014\u2013-]\s*/i, "");
-  const issuer = badge.issuer_name || "HackerMate x Axcentra";
+  const issuer = badge.issuer_name || "HackerMate Partner Network";
+  const partnerOrg = (badge.issuer_name || "").replace(/^HackerMate\s*[×x]\s*/i, "").trim() || "PARTNER NETWORK";
   const rank = badge.rank_title || "Verified Winner";
   const teamName = badge.metadata?.team_name || "";
 
@@ -84,7 +85,7 @@ export default function CertificateModal({
       doc.setFillColor(59, 130, 246);
       doc.rect(30, 30, width - 60, 6, "F");
 
-      // Brand Logo Header: HackerMate x Axcentra
+      // Brand Logo Header: HackerMate x Partner Org
       doc.setTextColor(180, 244, 97); // Lime accent #B4F461
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
@@ -95,10 +96,10 @@ export default function CertificateModal({
       doc.setFontSize(14);
       doc.text("×", 175, 75);
 
-      doc.setTextColor(59, 130, 246); // Axcentra Blue
+      doc.setTextColor(59, 130, 246); // Partner Accent Blue
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("AXCENTRA", 195, 75);
+      doc.text(partnerOrg.toUpperCase(), 195, 75);
 
       doc.setTextColor(148, 163, 184);
       doc.setFontSize(10);
@@ -121,62 +122,55 @@ export default function CertificateModal({
       // Recipient Name
       doc.setTextColor(180, 244, 97); // #B4F461 Lime
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(32);
-      doc.text(recipientName.toUpperCase(), width / 2, 230, {
-        align: "center",
-      });
+      doc.setFontSize(28);
+      doc.text(recipientName, width / 2, 230, { align: "center" });
 
-      // Gold/Blue Divider Line under Name
-      doc.setLineWidth(2);
-      doc.setDrawColor(59, 130, 246);
-      doc.line(width / 2 - 150, 245, width / 2 + 150, 245);
+      // Divider underline under recipient name
+      doc.setDrawColor(180, 244, 97);
+      doc.setLineWidth(1.5);
+      doc.line(width / 2 - 120, 245, width / 2 + 120, 245);
 
-      // Achievement Text
-      doc.setTextColor(226, 232, 240);
-      doc.setFontSize(14);
+      // Body text
+      doc.setTextColor(226, 232, 240); // Slate 200
       doc.setFont("helvetica", "normal");
-      doc.text(
-        "For outstanding achievement in",
-        width / 2,
-        285,
-        { align: "center" }
-      );
+      doc.setFontSize(14);
+      const achievementLine = `has successfully demonstrated outstanding engineering and problem-solving excellence,`;
+      const rankLine = `awarded the prestigious title of ${rank.toUpperCase()}${teamName ? ` (Team: ${teamName})` : ""}.`;
+      doc.text(achievementLine, width / 2, 280, { align: "center" });
+      doc.text(rankLine, width / 2, 305, { align: "center" });
 
-      // Event Name
+      // Event Details Box
+      doc.setFillColor(15, 23, 42); // Slate 900
+      doc.roundedRect(width / 2 - 250, 345, 500, 75, 8, 8, "F");
+      doc.setDrawColor(51, 65, 85);
+      doc.roundedRect(width / 2 - 250, 345, 500, 75, 8, 8, "S");
+
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(10);
+      doc.text("EVENT", width / 2 - 230, 370);
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.text(eventTitle, width / 2, 325, { align: "center" });
+      doc.setFontSize(13);
+      doc.text(eventTitle || "National Innovation Sprint", width / 2 - 230, 395);
 
-      if (teamName) {
-        doc.setTextColor(148, 163, 184);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Team: ${teamName}`, width / 2, 355, { align: "center" });
-      }
-
-      // Badge Chip Box
-      doc.setFillColor(30, 41, 59);
-      doc.setDrawColor(59, 130, 246);
-      doc.roundedRect(width / 2 - 130, 385, 260, 36, 6, 6, "FD");
-
+      doc.setTextColor(148, 163, 184);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text("TRACK / RANK", width / 2 + 50, 370);
       doc.setTextColor(59, 130, 246);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(`★  ${rank.toUpperCase()}  ★`, width / 2, 408, {
-        align: "center",
-      });
+      doc.setFontSize(13);
+      doc.text(rank, width / 2 + 50, 395);
 
-      // Footer Details
+      // Signatures
+      // Left: HackerMate Verification Lead
+      doc.setDrawColor(100, 116, 139);
       doc.setLineWidth(1);
-      doc.setDrawColor(51, 65, 85);
-      doc.line(60, 480, width - 60, 480);
-
-      // Signatures & Issuer Info
+      doc.line(60, 495, 240, 495);
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text("HackerMate Engineering", 120, 510);
+      doc.text("HackerMate Verification Engine", 60, 510);
       doc.setTextColor(148, 163, 184);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -185,11 +179,11 @@ export default function CertificateModal({
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text("Axcentra Organizing Committee", width - 260, 510);
+      doc.text(`${partnerOrg} Organizing Committee`, width - 260, 510);
       doc.setTextColor(148, 163, 184);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text("All India Hackathon 2026", width - 260, 525);
+      doc.text(eventTitle || "Hackathon Championship", width - 260, 525);
 
       doc.setTextColor(100, 116, 139);
       doc.setFontSize(9);
@@ -201,7 +195,7 @@ export default function CertificateModal({
       );
 
       // Save PDF
-      const filename = `${recipientName.toLowerCase().replace(/\s+/g, "_")}_axcentra_certificate.pdf`;
+      const filename = `${recipientName.toLowerCase().replace(/\s+/g, "_")}_achievement_certificate.pdf`;
       doc.save(filename);
     } catch (err) {
       console.error(err);
@@ -246,8 +240,8 @@ export default function CertificateModal({
               HACKERMATE
             </span>
             <span className="text-zinc-500 text-xs">×</span>
-            <span className="font-bold tracking-wider text-blue-400 text-xs">
-              AXCENTRA
+            <span className="font-bold tracking-wider text-blue-400 text-xs uppercase">
+              {partnerOrg}
             </span>
           </div>
 

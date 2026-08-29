@@ -1252,14 +1252,14 @@ export default function ProfilePage() {
                                     {badge.rank_title || "Verified Winner"}
                                   </span>
                                   <span className="text-[9px] text-zinc-500 font-mono">
-                                    {badge.issuer_name || "HackerMate × Axcentra"}
+                                    {badge.issuer_name || "HackerMate Partner Network"}
                                   </span>
                                 </div>
                                 <h4 className="text-sm font-bold text-white group-hover:text-[#B4F461] transition-colors">
                                   {badge.badge_name}
                                 </h4>
                                 <p className="text-[11px] text-zinc-400 mt-1">
-                                  Official partner achievement verified by {badge.issuer_name || "HackerMate × Axcentra"}.
+                                  Official partner achievement verified by {badge.issuer_name || "HackerMate Partner Network"}.
                                 </p>
                               </div>
 
@@ -1430,12 +1430,12 @@ export default function ProfilePage() {
         title={`Flex Achievement — ${selectedBadgeForShare?.badge_name || ""}`}
         subtitle="Showcase your verified achievement on LinkedIn, X, WhatsApp, or Telegram"
         shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/profile/${profile?.id}`}
-        shareText={`🏆 Proud to share my verified achievement '${selectedBadgeForShare?.badge_name}' (${selectedBadgeForShare?.rank_title || "Verified Winner"}) verified by ${selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra"}! Check out my profile & certificate:`}
+        shareText={`🏆 Proud to share my verified achievement '${selectedBadgeForShare?.badge_name}' (${selectedBadgeForShare?.rank_title || "Verified Winner"}) verified by ${selectedBadgeForShare?.issuer_name || "HackerMate Partner Network"}! Check out my profile & certificate:`}
         type="badge"
         metadata={{
           badgeTitle: selectedBadgeForShare?.badge_name,
           rankTitle: selectedBadgeForShare?.rank_title || "Verified Winner",
-          issuerName: selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra",
+          issuerName: selectedBadgeForShare?.issuer_name || "HackerMate Partner Network",
         }}
       />
 

@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
         </div>
         <div className="perk-item">
           <span class="perk-icon">🌐</span>
-          <div><strong>Partner Matching Hubs:</strong> Appear in exclusive matching feeds for partner events like XPLORE'26 and Axcentra.</div>
+          <div><strong>Partner Matching Hubs:</strong> Appear in exclusive matching feeds for active partner events like StartupX and Orvix.</div>
         </div>
       </div>
 

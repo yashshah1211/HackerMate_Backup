@@ -101,6 +101,9 @@ function PartnerPageContent() {
   const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
   const [selectedEventTrack, setSelectedEventTrack] = useState<string>("all");
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isEventConcluded = Boolean(hackathon?.end_date && hackathon.end_date < todayStr);
+
   const [showTrackPickerModal, setShowTrackPickerModal] = useState(false);
   const [selectedTrackForModal, setSelectedTrackForModal] = useState("");
 
@@ -487,6 +490,34 @@ function PartnerPageContent() {
               </h1>
             </div>
 
+            {/* Event Concluded Banner */}
+            {isEventConcluded && (
+              <div className="mt-4 p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-zinc-950 to-orange-950/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 font-bold text-lg shrink-0">
+                    🏁
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-white">Event Concluded</h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase font-semibold">
+                        Archived Partner Portal
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      This partner hackathon concluded on {new Date(hackathon!.end_date!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Team formation and registrations are closed, but team records remain archived.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/hackathons"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 transition-all shadow-md shrink-0"
+                >
+                  <span>Explore Active Hackathons →</span>
+                </Link>
+              </div>
+            )}
+
             <p className="text-sm text-zinc-600 dark:text-zinc-300 max-w-2xl mt-3 leading-relaxed font-sans">
               {partner.tagline || hackathon?.description?.slice(0, 180) + "..."}
             </p>
@@ -523,14 +554,20 @@ function PartnerPageContent() {
 
           {/* Hero CTAs - Full Width Wrapping Toolbar */}
           <div className="flex flex-wrap items-center gap-3 pt-5 border-t border-zinc-200/80 dark:border-zinc-800/80 w-full">
-            <button
-              onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
-              className="btn btn-lime text-xs py-2.5 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105 rounded-xl"
-            >
-              <span className="text-black dark:text-black">+ Create Team</span>
-            </button>
+            {isEventConcluded ? (
+              <div className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700 cursor-not-allowed">
+                <span>🔒 Team Formation Closed</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}`)}
+                className="btn btn-lime text-xs py-2.5 px-4 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105 rounded-xl"
+              >
+                <span className="text-black dark:text-black">+ Create Team</span>
+              </button>
+            )}
 
-            {partner.features?.events && partner.features.events.length > 0 && (
+            {partner.features?.events && partner.features.events.length > 0 && !isEventConcluded && (
               <button
                 onClick={() => {
                   handleProtectedAction(() => {
@@ -553,17 +590,19 @@ function PartnerPageContent() {
               </button>
             )}
 
-            <button
-              onClick={() => handleToggleLookingForTeam()}
-              disabled={togglingStatus}
-              className={`btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer rounded-xl ${
-                isUserLookingForTeam
-                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
-                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
-            </button>
+            {!isEventConcluded && (
+              <button
+                onClick={() => handleToggleLookingForTeam()}
+                disabled={togglingStatus}
+                className={`btn text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer rounded-xl ${
+                  isUserLookingForTeam
+                    ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                    : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
+              </button>
+            )}
 
             <button
               onClick={() => setShowPartnerShareModal(true)}
