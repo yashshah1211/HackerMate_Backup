@@ -240,11 +240,11 @@ export default function OnboardingPage() {
             <Logo className="h-12 w-auto" />
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight text-white mb-1.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white mb-1.5">
             Quick Builder Setup
           </h1>
 
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Set up your college and tech stack in under 30 seconds to start matching with teams.
           </p>
         </div>
@@ -253,14 +253,14 @@ export default function OnboardingPage() {
         <div className="card card-static p-6 animate-fade-in-up stagger-1 min-h-[380px]">
           {fetchingProfile ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-zinc-700 border-t-[#B4F461] rounded-full animate-spin mb-4" />
+              <div className="w-8 h-8 border-2 border-zinc-300 dark:border-zinc-700 border-t-[#B4F461] rounded-full animate-spin mb-4" />
               <p className="text-xs text-zinc-500 font-mono">Loading profile data...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* College / University */}
               <div className="relative">
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
                   College / University <span className="text-[#B4F461]">*</span>
                 </label>
                 <input
@@ -284,7 +284,7 @@ export default function OnboardingPage() {
                       className="fixed inset-0 z-10"
                       onClick={() => setShowCollegeDropdown(false)}
                     />
-                    <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20">
+                    <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-1.5 shadow-xl z-20">
                       {filteredColleges.slice(0, 35).map((collegeName) => (
                         <button
                           type="button"
@@ -294,7 +294,7 @@ export default function OnboardingPage() {
                             setCollegeSearch("");
                             setShowCollegeDropdown(false);
                           }}
-                          className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-[#B4F461] transition-colors cursor-pointer"
+                          className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-[#B4F461] transition-colors cursor-pointer"
                         >
                           {collegeName}
                         </button>
@@ -311,7 +311,7 @@ export default function OnboardingPage() {
                           setCollegeSearch("");
                           setShowCollegeDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 rounded-md text-xs text-[#B4F461] font-semibold hover:bg-zinc-900 transition-colors border-t border-zinc-800/80 cursor-pointer"
+                        className="w-full text-left px-3 py-2 rounded-md text-xs text-emerald-600 dark:text-[#B4F461] font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors border-t border-zinc-200 dark:border-zinc-800/80 cursor-pointer"
                       >
                         + Other (Specify custom college)
                       </button>
@@ -333,13 +333,13 @@ export default function OnboardingPage() {
 
               {/* Academic Year of Study */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
                   Academic Year of Study <span className="text-[#B4F461]">*</span>
                 </label>
                 <select
                   value={yearOfStudy}
                   onChange={(e) => setYearOfStudy(e.target.value)}
-                  className="input text-xs w-full bg-zinc-950 text-zinc-200 cursor-pointer"
+                  className="input text-xs w-full bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 cursor-pointer"
                 >
                   <option value="1st Year">1st Year (Fresher)</option>
                   <option value="2nd Year">2nd Year (Sophomore)</option>
@@ -352,7 +352,7 @@ export default function OnboardingPage() {
               {/* Skills & Tech Stack */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider font-mono">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider font-mono">
                     Tech Stack & Skills <span className="text-[#B4F461]">*</span>
                   </label>
                   <span className="text-[10px] text-zinc-500 font-mono">
@@ -360,7 +360,7 @@ export default function OnboardingPage() {
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-2.5 bg-zinc-950/50 border border-zinc-800 rounded-lg">
+                <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-2.5 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-lg">
                   {SKILLS.map((skill) => {
                     const selected = selectedSkills.includes(skill);
                     return (
@@ -371,7 +371,7 @@ export default function OnboardingPage() {
                         className={`text-[10px] py-1 px-2.5 font-medium border transition-colors cursor-pointer select-none rounded-md ${
                           selected
                             ? "bg-[#B4F461] text-[#09090b] border-[#B4F461] font-bold"
-                            : "bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                            : "bg-white dark:bg-zinc-900/40 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:text-zinc-900 dark:hover:text-white"
                         }`}
                       >
                         {skill}
@@ -383,7 +383,7 @@ export default function OnboardingPage() {
 
               {/* Optional Short Tagline / Bio */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
                   <span>Tagline / Bio</span>
                   <span className="text-[10px] text-zinc-500 lowercase font-normal">(optional)</span>
                 </label>
@@ -397,7 +397,7 @@ export default function OnboardingPage() {
               </div>
 
               {/* Action Button */}
-              <div className="pt-4 border-t border-zinc-900">
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900">
                 <button
                   type="submit"
                   disabled={loading}

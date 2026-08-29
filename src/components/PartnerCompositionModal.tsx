@@ -36,29 +36,29 @@ export default function PartnerCompositionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-6 overflow-y-auto">
-      <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-6 relative my-auto max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-4xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 relative my-auto max-h-[90vh] flex flex-col">
         {/* Modal Header */}
-        <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-800 shrink-0">
+        <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
                 Partner Portal Analytics
               </span>
-              <span className="text-[10px] font-mono text-zinc-500">
+              <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
                 Slug: /partners/{partnerConfig.slug}
               </span>
             </div>
-            <h2 className="text-xl font-extrabold text-white tracking-tight">
+            <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
               📊 {partnerConfig.partner_name}
             </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
               Live Team Composition, Builder Registrations, and Partner Announcement Broadcasts.
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
           >
             ✕
           </button>
@@ -71,7 +71,7 @@ export default function PartnerCompositionModal({
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
               activeSubTab === "analytics"
                 ? "bg-[#B4F461] text-black shadow"
-                : "bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800"
+                : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
             }`}
           >
             📊 Composition & Skills
@@ -112,8 +112,8 @@ export default function PartnerCompositionModal({
         <div className="py-6 overflow-y-auto grow">
           {loading ? (
             <div className="py-16 text-center">
-              <div className="w-8 h-8 border-2 border-zinc-800 border-t-[#B4F461] rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs text-zinc-400 font-mono">Loading Team Composition Analytics...</p>
+              <div className="w-8 h-8 border-2 border-zinc-300 dark:border-zinc-800 border-t-[#B4F461] rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">Loading Team Composition Analytics...</p>
             </div>
           ) : !analyticsData ? (
             <div className="py-12 text-center text-xs text-zinc-500">
@@ -123,9 +123,9 @@ export default function PartnerCompositionModal({
             <>
               {/* STATS OVERVIEW CARDS */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <div className="card card-static p-4 border-zinc-800 bg-zinc-900/50">
-                  <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Total Builders</div>
-                  <div className="text-2xl font-extrabold text-white mt-1">{analyticsData.stats.totalRegistrations}</div>
+                <div className="card card-static p-4 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                  <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Builders</div>
+                  <div className="text-2xl font-extrabold text-zinc-900 dark:text-white mt-1">{analyticsData.stats.totalRegistrations}</div>
                   <div className="text-[10px] text-zinc-500 mt-0.5">Registered for event</div>
                 </div>
 
@@ -153,9 +153,9 @@ export default function PartnerCompositionModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Top Skills Distribution */}
                   <div className="card card-static p-5 border-zinc-800">
-                    <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-3 flex items-center gap-2">
                       <span>🛠️ Top Builder Skills</span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
                         {analyticsData.topSkills.length} skills
                       </span>
                     </h3>
@@ -169,10 +169,10 @@ export default function PartnerCompositionModal({
                           return (
                             <div key={item.skill} className="space-y-1">
                               <div className="flex justify-between text-xs font-mono">
-                                <span className="text-zinc-200">{item.skill}</span>
-                                <span className="text-zinc-400 font-bold">{item.count} builder{item.count === 1 ? "" : "s"}</span>
+                                <span className="text-zinc-700 dark:text-zinc-200">{item.skill}</span>
+                                <span className="text-zinc-500 dark:text-zinc-400 font-bold">{item.count} builder{item.count === 1 ? "" : "s"}</span>
                               </div>
-                              <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+                              <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-900 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-gradient-to-r from-sky-500 to-[#B4F461] rounded-full"
                                   style={{ width: `${percent}%` }}
@@ -198,8 +198,8 @@ export default function PartnerCompositionModal({
                     ) : (
                       <div className="space-y-2">
                         {analyticsData.topColleges.map((item: any) => (
-                          <div key={item.college} className="flex items-center justify-between p-2 rounded bg-zinc-900/60 border border-zinc-800/80 text-xs">
-                            <span className="text-zinc-300 truncate max-w-[240px]" title={item.college}>{item.college}</span>
+                          <div key={item.college} className="flex items-center justify-between p-2 rounded bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-xs">
+                            <span className="text-zinc-700 dark:text-zinc-300 truncate max-w-[240px]" title={item.college}>{item.college}</span>
                             <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
                               {item.count}
                             </span>
@@ -215,8 +215,8 @@ export default function PartnerCompositionModal({
               {activeSubTab === "participants" && (
                 <div className="space-y-4">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-zinc-300">
-                      <thead className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider bg-zinc-950/60 border-b border-zinc-900">
+                    <table className="w-full text-left text-xs text-zinc-600 dark:text-zinc-300">
+                      <thead className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider bg-zinc-50/60 dark:bg-zinc-950/60 border-b border-zinc-200 dark:border-zinc-900">
                         <tr>
                           <th className="p-3">Builder</th>
                           <th className="p-3">College</th>
@@ -225,23 +225,23 @@ export default function PartnerCompositionModal({
                           <th className="p-3 text-right">Joined</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-900">
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
                         {analyticsData.registrations.map((reg: any) => {
                           const p = reg.profiles;
                           if (!p) return null;
                           return (
-                            <tr key={reg.id} className="hover:bg-zinc-900/40 transition">
+                            <tr key={reg.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
                               <td className="p-3">
-                                <div className="font-bold text-white">{p.full_name || "Anonymous Builder"}</div>
+                                <div className="font-bold text-zinc-900 dark:text-white">{p.full_name || "Anonymous Builder"}</div>
                                 <div className="text-[10px] text-zinc-500 font-mono">{p.email}</div>
                               </td>
-                              <td className="p-3 text-zinc-300 max-w-[180px] truncate" title={p.college || "Unspecified"}>
+                              <td className="p-3 text-zinc-600 dark:text-zinc-300 max-w-[180px] truncate" title={p.college || "Unspecified"}>
                                 {p.college || "Unspecified"}
                               </td>
                               <td className="p-3">
                                 <div className="flex flex-wrap gap-1">
                                   {(p.skills || []).slice(0, 3).map((s: string) => (
-                                    <span key={s} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-900 text-zinc-300 border border-zinc-800">
+                                    <span key={s} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
                                       {s}
                                     </span>
                                   ))}
@@ -256,7 +256,7 @@ export default function PartnerCompositionModal({
                                     Looking for Team
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800">
                                     Registered
                                   </span>
                                 )}
@@ -286,7 +286,7 @@ export default function PartnerCompositionModal({
                         <div key={t.id} className="card card-static p-4 border-zinc-800 space-y-3">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <h4 className="text-sm font-bold text-white">{t.name}</h4>
+                              <h4 className="text-sm font-bold text-zinc-900 dark:text-white">{t.name}</h4>
                               <p className="text-xs text-zinc-400 mt-0.5 line-clamp-2">{t.description || "No description"}</p>
                             </div>
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -295,12 +295,12 @@ export default function PartnerCompositionModal({
                           </div>
 
                           {/* Member roster */}
-                          <div className="pt-2 border-t border-zinc-900 space-y-1.5">
+                          <div className="pt-2 border-t border-zinc-200 dark:border-zinc-900 space-y-1.5">
                             <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Team Roster</div>
                             {(t.team_members || []).map((m: any) => {
                               const mp = m.profiles;
                               return (
-                                <div key={m.id} className="flex items-center justify-between text-xs text-zinc-300">
+                                <div key={m.id} className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-300">
                                   <span>{mp?.full_name || mp?.email || "Teammate"}</span>
                                   <span className="text-[10px] font-mono text-zinc-500">{mp?.college || ""}</span>
                                 </div>
@@ -319,7 +319,7 @@ export default function PartnerCompositionModal({
                 <div className="space-y-6">
                   <form onSubmit={handleBroadcastSubmit} className="card card-static p-6 border-sky-950/80 bg-sky-950/10 space-y-4">
                     <div>
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                         <span>📢 Broadcast Partner Announcement</span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">
                           To {analyticsData.stats.totalRegistrations} Builder(s)
@@ -390,7 +390,7 @@ export default function PartnerCompositionModal({
                         {analyticsData.announcements.map((ann: any) => (
                           <div key={ann.id} className="card card-static p-4 border-zinc-800 text-xs space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="font-bold text-white">{ann.title}</span>
+                              <span className="font-bold text-zinc-900 dark:text-white">{ann.title}</span>
                               <span className="text-[10px] font-mono text-zinc-500">
                                 {ann.sent_at ? new Date(ann.sent_at).toLocaleString() : "Pending"}
                               </span>

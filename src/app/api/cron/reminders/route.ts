@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: "No pending reminders to send.", count: 0 });
     }
 
-    console.log(`Processing ${reminders.length} deadline reminders...`);
+    console.info(`[Cron Reminders] Processing ${reminders.length} deadline reminders...`);
 
     const resendApiKey = process.env.RESEND_API_KEY;
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host");

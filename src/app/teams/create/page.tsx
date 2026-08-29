@@ -288,7 +288,7 @@ function CreateTeamForm() {
           <br />
           <span className="text-gradient">team.</span>
         </h1>
-        <p className="text-zinc-400 text-base">
+        <p className="text-zinc-500 dark:text-zinc-400 text-base">
           Build your dream team and start collaborating.
         </p>
       </div>
@@ -371,7 +371,7 @@ function CreateTeamForm() {
                         className="fixed inset-0 z-10" 
                         onClick={() => setShowCollegeDropdown(false)}
                       />
-                      <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
+                      <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
                         {COLLEGES.filter((col) => 
                           col.toLowerCase().includes(collegeSearch.toLowerCase())
                         ).map((collegeName) => (
@@ -383,7 +383,7 @@ function CreateTeamForm() {
                               setCollegeSearch("");
                               setShowCollegeDropdown(false);
                             }}
-                            className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+                            className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-white transition-colors"
                           >
                             {collegeName}
                           </button>
@@ -391,7 +391,7 @@ function CreateTeamForm() {
                         {COLLEGES.filter((col) => 
                           col.toLowerCase().includes(collegeSearch.toLowerCase())
                         ).length === 0 && (
-                          <div className="text-center py-4 text-xs text-zinc-600">
+                          <div className="text-center py-4 text-xs text-zinc-500 dark:text-zinc-600">
                             No colleges match your search.
                           </div>
                         )}
@@ -498,8 +498,8 @@ function CreateTeamForm() {
               onChange={(e) => setMaxMembers(Number(e.target.value))}
               className="flex-1 h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary-500"
             />
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <span className="text-lg font-medium text-white">{maxMembers}</span>
+            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.06]">
+              <span className="text-lg font-medium text-zinc-900 dark:text-white">{maxMembers}</span>
             </div>
           </div>
           <p className="text-xs text-zinc-500 mt-2">Maximum members allowed</p>
@@ -551,7 +551,7 @@ function CreateTeamForm() {
 
 function SectionHeader({ label, required }: { label: string; required?: boolean }) {
   return (
-    <div className="flex items-center gap-1.5 mb-4 pb-3 border-b border-white/[0.06]">
+    <div className="flex items-center gap-1.5 mb-4 pb-3 border-b border-zinc-100 dark:border-white/[0.06]">
       <span className="text-[10px] uppercase tracking-widest font-medium text-zinc-500">
         {label}
       </span>
@@ -571,7 +571,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-zinc-300">
+      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
         {label}
         {required && <span className="text-rose-400 ml-0.5">*</span>}
       </label>
@@ -596,7 +596,7 @@ function TagButton({
       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
         active
           ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
-          : "bg-white/[0.03] text-zinc-400 border-white/[0.06] hover:border-white/[0.15] hover:text-zinc-300"
+          : "bg-zinc-100 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.06] hover:border-zinc-300 dark:hover:border-white/[0.15] hover:text-zinc-900 dark:hover:text-zinc-300"
       }`}
     >
       {label}
@@ -605,5 +605,5 @@ function TagButton({
 }
 
 function Divider() {
-  return <div className="border-t border-white/[0.06] mx-8 my-6" />;
+  return <div className="border-t border-zinc-100 dark:border-white/[0.06] mx-8 my-6" />;
 }
