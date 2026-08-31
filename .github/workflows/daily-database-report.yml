@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Trigger Database Activity Endpoint
         run: |
-          SITE_URL="${{ secrets.SITE_URL || 'https://hackermate.in' }}"
+          SITE_URL="${{ secrets.SITE_URL || 'https://www.hackermate.in' }}"
           CRON_SECRET="${{ secrets.CRON_SECRET }}"
           
           echo "Triggering Database Activity Digest report at 9:00 AM IST on $SITE_URL..."
