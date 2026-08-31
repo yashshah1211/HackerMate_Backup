@@ -69,8 +69,13 @@ async function runSmokeTests() {
   const forbiddenFiles = [];
 
   for (const filePath of allSrcFiles) {
-    // Exclude admin API endpoints that explicitly use service role key with authorization checks
-    if (filePath.includes(path.join("api", "admin")) || filePath.includes(path.join("api", "send-email"))) {
+    // Exclude admin API endpoints and server modules that explicitly use service role key with authorization checks
+    if (
+      filePath.includes(path.join("api", "admin")) ||
+      filePath.includes(path.join("api", "cron")) ||
+      filePath.includes(path.join("lib", "admin")) ||
+      filePath.includes(path.join("api", "send-email"))
+    ) {
       continue;
     }
 
