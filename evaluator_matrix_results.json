@@ -1,0 +1,320 @@
+[
+  {
+    "track": "Web Development & Full-Stack",
+    "hackathon": "STAMPERS National Hackathon 2026",
+    "category": "GREAT",
+    "title": "NexusFlow: Distributed Real-Time Micro-Frontend Collaboration Hub",
+    "totalScore": 87,
+    "grade": "Top Tier / Nomination Ready 🏆",
+    "subScores": {
+      "novelty": 20,
+      "tech": 32,
+      "uiUxOrFeasibility": 22,
+      "impactOrTeam": 13
+    },
+    "usedAi": true,
+    "strengths": [
+      "Excellent integration of Yjs CRDTs with Redis presence caching for sub-30ms real-time synchronization.",
+      "Robust security model utilizing Supabase Row-Level Security (RLS) combined with HMAC-signed webhooks and sliding-window rate limiting.",
+      "Well-thought-out database indexing strategy on (team_id, updated_at) to optimize workspace queries.",
+      "Modern tech stack utilizing Next.js 15 App Router, Tailwind CSS v4, and BullMQ for asynchronous background processing."
+    ],
+    "redFlags": [
+      "Prisma ORM can introduce connection pooling overhead in serverless/edge environments (like Vercel Edge Middleware) without a dedicated proxy like Prisma Accelerate.",
+      "Running BullMQ requires a persistent Redis instance; Upstash Redis has specific limitations with long-polling/blocking commands that BullMQ relies on, which could lead to high command counts and unexpected costs."
+    ],
+    "architectureSuggestions": [
+      "Consider using PgBouncer or Supabase Connection Pooler to handle connection spikes from Next.js serverless functions.",
+      "Verify Upstash compatibility with BullMQ, or migrate background jobs to a dedicated server/worker instance running standard Redis if blocking commands cause latency or cost spikes.",
+      "Implement a fallback mechanism (such as HTTP long-polling) for environments where WebSockets are blocked by corporate firewalls."
+    ],
+    "recommendedRoles": [
+      {
+        "role": "Lead Real-Time Systems Engineer",
+        "reason": "To manage and optimize the Yjs CRDT synchronization and WebSocket gateway scaling.",
+        "suggestedSkills": [
+          "Yjs",
+          "WebSockets",
+          "Node.js",
+          "Redis"
+        ]
+      },
+      {
+        "role": "Database Administrator / Backend Architect",
+        "reason": "To oversee Prisma schema migrations, optimize Supabase RLS policies, and manage connection pooling.",
+        "suggestedSkills": [
+          "PostgreSQL",
+          "Prisma",
+          "Supabase RLS",
+          "Database Indexing"
+        ]
+      }
+    ]
+  },
+  {
+    "track": "Web Development & Full-Stack",
+    "hackathon": "STAMPERS National Hackathon 2026",
+    "category": "BAD_OFF_TOPIC",
+    "title": "Cat Video Browser",
+    "totalScore": 15,
+    "grade": "High Risk / Incomplete 🚨",
+    "subScores": {
+      "novelty": 5,
+      "tech": 3,
+      "uiUxOrFeasibility": 5,
+      "impactOrTeam": 2
+    },
+    "usedAi": true,
+    "strengths": [
+      "Simple and straightforward concept that is easy to understand.",
+      "Includes interactive elements like sound effects on button clicks to engage users."
+    ],
+    "redFlags": [
+      "Extremely sparse submission with no database schema, backend APIs, or modern framework architecture.",
+      "No repository or live demo links provided to verify the working prototype.",
+      "Tech stack is outdated (jQuery, static HTML/CSS) and lacks scalability, state management, or security."
+    ],
+    "architectureSuggestions": [
+      "Migrate to a modern frontend framework like Next.js or React to handle component state (e.g., tracking likes, active video) cleanly.",
+      "Introduce a backend API (e.g., Node.js/Express or Next.js Serverless Functions) to fetch video metadata dynamically instead of hardcoding video tags.",
+      "Implement a database (e.g., PostgreSQL with Prisma or MongoDB) to store video metadata, user likes, and view counts.",
+      "Integrate an external media storage/CDN solution (like Cloudinary or AWS S3) to host and stream videos efficiently instead of loading raw local files."
+    ],
+    "recommendedRoles": [
+      {
+        "role": "Full-Stack Developer",
+        "reason": "To transition the static frontend into a dynamic application with a proper backend and database.",
+        "suggestedSkills": [
+          "React",
+          "Node.js",
+          "Express",
+          "MongoDB"
+        ]
+      },
+      {
+        "role": "DevOps / Cloud Engineer",
+        "reason": "To set up media hosting, CDN distribution for video streaming, and deployment pipelines.",
+        "suggestedSkills": [
+          "AWS S3",
+          "Cloudinary",
+          "Vercel"
+        ]
+      }
+    ]
+  },
+  {
+    "track": "AI, GenAI & Agentic Systems",
+    "hackathon": "Axcentra x All India Hackathon",
+    "category": "GREAT",
+    "title": "BioMedSense: Multi-Agent Clinical Trial Protocol & Drug Target Verification System",
+    "totalScore": 89,
+    "grade": "Top Tier / Nomination Ready 🏆",
+    "subScores": {
+      "novelty": 22,
+      "tech": 32,
+      "uiUxOrFeasibility": 22,
+      "impactOrTeam": 13
+    },
+    "usedAi": true,
+    "strengths": [
+      "Sophisticated hybrid retrieval pipeline combining BGE-M3 sparse-dense embeddings, BM25, and Cohere ReRank v3 to handle complex biomedical ontologies.",
+      "Deterministic hallucination control using SHA-256 source document hashing and a strict 0.92 confidence threshold for citation verification.",
+      "Well-designed multi-agent orchestration (Researcher -> Drafter -> Auditor) using LangGraph to enforce clinical-grade verification loops."
+    ],
+    "redFlags": [
+      "Sub-second latency claims are highly ambitious for a 3-stage LangGraph loop processing 500+ page PDFs, even with vLLM, without aggressive caching.",
+      "A hard 0.92 confidence threshold may cause high false-rejection rates or silent failures if the embedding space is not perfectly calibrated to clinical jargon."
+    ],
+    "architectureSuggestions": [
+      "Implement a semantic caching layer (e.g., Redis) to store and quickly serve recurring clinical queries and protocol patterns.",
+      "Integrate a specialized PDF parser (like Nougat or Marker) to extract complex tables, chemical structures, and clinical flowcharts that standard hierarchical chunking misses.",
+      "Incorporate LLM-as-a-Judge evaluation frameworks (e.g., Ragas or TruLens) to continuously monitor and calibrate the 0.92 confidence threshold."
+    ],
+    "recommendedRoles": [
+      {
+        "role": "Lead AI Platform Engineer",
+        "reason": "To optimize vLLM throughput, manage pgvector indexing (HNSW), and implement distributed caching to meet sub-second latency requirements.",
+        "suggestedSkills": [
+          "vLLM",
+          "pgvector",
+          "Redis",
+          "CUDA optimization",
+          "FastAPI"
+        ]
+      },
+      {
+        "role": "Clinical NLP Scientist",
+        "reason": "To fine-tune embedding models and domain-specific LLMs on biomedical ontologies (UMLS, MeSH) for improved retrieval accuracy.",
+        "suggestedSkills": [
+          "PyTorch",
+          "Hugging Face",
+          "Biomedical NER",
+          "Sentence-Transformers"
+        ]
+      }
+    ]
+  },
+  {
+    "track": "AI, GenAI & Agentic Systems",
+    "hackathon": "Axcentra x All India Hackathon",
+    "category": "BAD_OFF_TOPIC",
+    "title": "Super AI Fortune Teller",
+    "totalScore": 15,
+    "grade": "High Risk / Incomplete 🚨",
+    "subScores": {
+      "novelty": 3,
+      "tech": 4,
+      "uiUxOrFeasibility": 5,
+      "impactOrTeam": 3
+    },
+    "usedAi": true,
+    "strengths": [
+      "Extremely simple and straightforward user flow",
+      "Streamlit allows for rapid prototyping of the basic UI"
+    ],
+    "redFlags": [
+      "Classic superficial wrapper around OpenAI API with zero custom logic, pipeline moat, or proprietary data",
+      "No repository or demo URL provided to verify functionality",
+      "No vector database, RAG architecture, or agentic orchestration",
+      "High risk of hallucination and lack of domain-specific grounding (e.g., actual astrological ephemeris calculations)"
+    ],
+    "architectureSuggestions": [
+      "Integrate an external astronomical/astrological API (like Swiss Ephemeris) to calculate precise planetary positions based on birth date, time, and location instead of relying on LLM hallucinations",
+      "Implement a RAG pipeline using a vector database (e.g., pgvector or Pinecone) containing historical astrological texts and interpretations to ground the LLM's responses",
+      "Add guardrails and prompt safety layers (e.g., NeMo Guardrails) to handle sensitive user queries about health, wealth, or relationships",
+      "Introduce an agentic workflow (e.g., using LangChain or CrewAI) to separate calculation, interpretation, and personalization steps"
+    ],
+    "recommendedRoles": [
+      {
+        "role": "AI Engineer / Architect",
+        "reason": "To transition the project from a basic API wrapper to a robust agentic RAG system.",
+        "suggestedSkills": [
+          "LangChain",
+          "Vector Databases",
+          "Prompt Engineering",
+          "LlamaIndex"
+        ]
+      },
+      {
+        "role": "Backend Developer",
+        "reason": "To integrate real-time astronomical APIs and handle secure user data ingestion.",
+        "suggestedSkills": [
+          "Python",
+          "FastAPI",
+          "API Integration",
+          "Data Validation"
+        ]
+      }
+    ]
+  },
+  {
+    "track": "Smart India Hackathon (SIH)",
+    "hackathon": "Smart India Hackathon 2026 (SIH Internal Round)",
+    "category": "GREAT",
+    "title": "JalDrishti: IoT Acoustic Telemetry & Satellite GIS Water Pipeline Anomaly Detection",
+    "totalScore": 90,
+    "grade": "Top Tier / Nomination Ready 🏆",
+    "subScores": {
+      "novelty": 23,
+      "tech": 32,
+      "uiUxOrFeasibility": 22,
+      "impactOrTeam": 13
+    },
+    "usedAi": true,
+    "strengths": [
+      "Strong alignment with Ministry of Jal Shakti (PS 1729) addressing a critical 38% water loss issue.",
+      "Highly feasible and detailed 36-hour execution roadmap utilizing a synthetic leak test rig.",
+      "Excellent integration of academic research (IEEE citations) and open government datasets (Jal Jeevan Mission)."
+    ],
+    "redFlags": [
+      "LoRaWAN gateway setup and physical acoustic calibration can be highly environment-dependent and challenging to demonstrate fully in a 36-hour hackathon venue.",
+      "XGBoost model training on acoustic transients requires high-quality labeled dataset which might be scarce or require extensive pre-processing during the hackathon."
+    ],
+    "architectureSuggestions": [
+      "Implement an edge-computing filter on the ESP32 to reduce LoRaWAN payload size by sending FFT features instead of raw audio/vibration streams.",
+      "Introduce a fallback cellular (NB-IoT/GSM) or Wi-Fi telemetry path in case LoRaWAN coverage is weak at the evaluation venue."
+    ],
+    "recommendedRoles": [
+      {
+        "role": "IoT & Hardware Engineer",
+        "reason": "To calibrate ESP32 I2S MEMS sensors and manage LoRaWAN/MQTT telemetry.",
+        "suggestedSkills": [
+          "ESP32",
+          "I2S Protocol",
+          "LoRaWAN",
+          "C++"
+        ]
+      },
+      {
+        "role": "Data Scientist / ML Engineer",
+        "reason": "To preprocess acoustic signals and train/deploy the XGBoost anomaly classifier.",
+        "suggestedSkills": [
+          "Python",
+          "XGBoost",
+          "Signal Processing (FFT)",
+          "FastAPI"
+        ]
+      },
+      {
+        "role": "Full-Stack GIS Developer",
+        "reason": "To build the Next.js dashboard and integrate Mapbox GL JS for real-time spatial visualization.",
+        "suggestedSkills": [
+          "Next.js 15",
+          "Mapbox GL JS",
+          "TimescaleDB",
+          "Tailwind CSS"
+        ]
+      }
+    ]
+  },
+  {
+    "track": "Smart India Hackathon (SIH)",
+    "hackathon": "Smart India Hackathon 2026 (SIH Internal Round)",
+    "category": "BAD_OFF_TOPIC",
+    "title": "Meme Sharing App",
+    "totalScore": 12,
+    "grade": "High Risk / Incomplete 🚨",
+    "subScores": {
+      "novelty": 3,
+      "tech": 5,
+      "uiUxOrFeasibility": 2,
+      "impactOrTeam": 2
+    },
+    "usedAi": true,
+    "strengths": [
+      "The chosen tech stack (React and Firebase) allows for rapid prototyping within a 36-hour hackathon window.",
+      "The target audience (college students) is highly accessible for immediate user testing and feedback."
+    ],
+    "redFlags": [
+      "The project does not align with any SIH themes, government initiatives, or critical social/economic problem statements.",
+      "No repository or demo URLs were provided, making it impossible to verify working code.",
+      "The submission is extremely sparse, lacking any detailed technical architecture, data flow diagrams, or security considerations.",
+      "Meme sharing apps do not present any technical novelty or research-backed baseline metrics."
+    ],
+    "architectureSuggestions": [
+      "Integrate an automated content moderation system using APIs like AWS Rekognition or Google Cloud Vision to prevent inappropriate uploads.",
+      "Implement a CDN (like Cloudflare) in front of Firebase Storage to optimize image delivery speeds and minimize bandwidth costs.",
+      "Incorporate a structured database schema (Firestore) to handle user profiles, likes, comments, and tags, rather than just listing raw files from storage."
+    ],
+    "recommendedRoles": [
+      {
+        "role": "Full Stack Developer",
+        "reason": "Required to set up the React frontend and integrate Firebase Authentication, Firestore, and Storage securely.",
+        "suggestedSkills": [
+          "React.js",
+          "Firebase SDK",
+          "JavaScript (ES6+)"
+        ]
+      },
+      {
+        "role": "UI/UX Designer",
+        "reason": "Needed to design an engaging, mobile-responsive feed layout that mimics modern social media interactions.",
+        "suggestedSkills": [
+          "Figma",
+          "Tailwind CSS",
+          "Responsive Web Design"
+        ]
+      }
+    ]
+  }
+]
