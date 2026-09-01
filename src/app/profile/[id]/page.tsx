@@ -53,6 +53,7 @@ type Profile = {
   hackathon_wins?: number;
   current_streak?: number;
   longest_streak?: number;
+  last_active_date?: string | null;
   show_track_record?: boolean;
 };
 
@@ -181,14 +182,14 @@ export default function ProfilePage() {
   async function loadProfile() {
     let { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak")
+      .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak, last_active_date")
       .eq("id", id)
       .single();
 
     if (error) {
       const { data: fbData } = await supabase
         .from("profiles")
-        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak")
+        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak, last_active_date")
         .eq("id", id)
         .single();
       data = fbData as any;
@@ -733,15 +734,27 @@ export default function ProfilePage() {
                 {/* Status Badges */}
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-3.5">
                   {/* Daily Visit Flame Streak Badge */}
-                  {(profile.current_streak || 0) > 0 && (
-                    <span
-                      className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1 font-bold shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none"
-                      title={`Longest streak: ${profile.longest_streak || profile.current_streak} days`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                      🔥 {profile.current_streak} Day Streak
-                    </span>
-                  )}
+                  {(() => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().split("T")[0];
+                    const isStreakActive =
+                      (profile.last_active_date === todayStr || profile.last_active_date === yesterdayStr) &&
+                      (profile.current_streak || 0) > 0;
+
+                    if (!isStreakActive) return null;
+
+                    return (
+                      <span
+                        className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1 font-bold shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none"
+                        title={`Longest streak: ${profile.longest_streak || profile.current_streak} days`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        🔥 {profile.current_streak} Day Streak
+                      </span>
+                    );
+                  })()}
 
                   {/* Academic Year Badge */}
                   <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-cyan-500/10 text-cyan-300 border-cyan-500/30 flex items-center gap-1 font-semibold">

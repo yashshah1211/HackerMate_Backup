@@ -33,11 +33,18 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
     if (activeUser) {
-      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak").eq("id", activeUser.id).single();
+      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, last_active_date").eq("id", activeUser.id).single();
 
       setProfile(data);
       if (data?.current_streak) {
-        setCurrentStreak(data.current_streak);
+        const todayStr = new Date().toISOString().split("T")[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        const isActive = data.last_active_date === todayStr || data.last_active_date === yesterdayStr;
+        setCurrentStreak(isActive ? data.current_streak : 0);
+      } else {
+        setCurrentStreak(0);
       }
       // Immediately set user active status
       await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", activeUser.id);
@@ -108,7 +115,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       const { data: { user: sessionUser } } = await supabase.auth.getUser();
       if (!sessionUser) return;
       if (!active) return;
-      
+
       await loadUser(sessionUser);
       await loadUnreadCount(sessionUser.id);
       await loadUnreadMessages(sessionUser.id);
@@ -274,6 +281,13 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       activeBg: "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/10 dark:border-rose-500/20",
       activeBar: "bg-rose-600 dark:bg-rose-500",
       icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
+    },
+    {
+      href: "/evaluator", label: "AI Evaluator",
+      color: "text-lime-500 dark:text-lime-400",
+      activeBg: "bg-lime-500/5 dark:bg-lime-500/10 border-lime-500/10 dark:border-lime-500/20",
+      activeBar: "bg-lime-500 dark:bg-lime-400",
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" /></svg>)
     },
     {
       href: "/leaderboard", label: "Leaderboard",

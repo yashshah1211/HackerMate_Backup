@@ -22,9 +22,13 @@ export default function StreakWidget({ initialStreak = 0, initialLongest = 0 }: 
         .maybeSingle();
 
       const todayStr = new Date().toISOString().split("T")[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
 
       if (profile) {
-        const val = profile.current_streak || (profile.last_active_date === todayStr ? 1 : 0);
+        const isActive = profile.last_active_date === todayStr || profile.last_active_date === yesterdayStr;
+        const val = isActive ? (profile.current_streak || 0) : (profile.last_active_date === todayStr ? 1 : 0);
         setStreak(val);
         setLongest(profile.longest_streak || val);
       }

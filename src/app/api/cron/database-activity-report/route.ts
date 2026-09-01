@@ -138,6 +138,18 @@ async function handleDatabaseActivityReport(req: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
+    // 0. Maintain daily streaks: Decay/reset lapsed streaks for inactive builders
+    try {
+      const { data: streakMaintenance, error: streakErr } = await supabaseAdmin.rpc("cleanup_lapsed_streaks");
+      if (streakErr) {
+        console.warn("[Database Activity Report Cron] Streak maintenance warning:", streakErr);
+      } else {
+        console.info("[Database Activity Report Cron] Streak maintenance completed:", streakMaintenance);
+      }
+    } catch (err) {
+      console.warn("[Database Activity Report Cron] Streak maintenance non-fatal error:", err);
+    }
+
     // 1. Fetch incremental activity data
     const activityData = await fetchDatabaseActivity(
       supabaseAdmin,
