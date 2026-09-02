@@ -394,7 +394,7 @@ function DevelopersContent() {
               setCollegeFilter("");
               setYearFilter("");
             }}
-            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-400 hover:text-white cursor-pointer"
+            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white cursor-pointer"
           >
             <span>Clear Filters</span>
           </button>
@@ -409,7 +409,7 @@ function DevelopersContent() {
             return (
               <div 
                 key={dev.id} 
-                className="card group p-5 flex flex-col justify-between min-h-[240px] hover:border-indigo-500/40 dark:hover:border-indigo-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-zinc-950/40 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-800"
+                className="card group p-5 flex flex-col justify-between min-h-[240px] hover:border-indigo-500/40 dark:hover:border-indigo-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-white dark:bg-zinc-950/40 border border-zinc-200/90 dark:border-zinc-800 shadow-sm dark:shadow-none"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none group-hover:bg-indigo-500/10 transition-colors" />
                 <div>
@@ -434,7 +434,7 @@ function DevelopersContent() {
                           <span className="truncate">{dev.college || "Independent Builder"}</span>
                           {dev.year_of_study && (
                             <>
-                              <span className="text-zinc-600 dark:text-zinc-600">•</span>
+                              <span className="text-zinc-400 dark:text-zinc-600">•</span>
                               <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-mono text-[9px] font-semibold shrink-0">
                                 🎓 {dev.year_of_study}
                               </span>
@@ -469,7 +469,7 @@ function DevelopersContent() {
                         {dev.is_available !== false ? "● Available" : "○ Busy"}
                       </span>
                       {matchScore > 0 && (
-                        <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold font-mono bg-indigo-500/10 border border-indigo-500/20 rounded-md px-1.5 py-0.5">
+                        <span className="text-[10px] text-indigo-700 dark:text-indigo-400 font-extrabold font-mono bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-md px-1.5 py-0.5">
                           {matchScore}% Match
                         </span>
                       )}

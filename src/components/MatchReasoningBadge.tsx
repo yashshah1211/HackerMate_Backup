@@ -26,10 +26,9 @@ export default function MatchReasoningBadge({
 
   return (
     <div
-      className={`mt-2.5 p-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/40 text-[11px] leading-relaxed flex items-start gap-1.5 ${className}`}
+      className={`mt-2.5 p-2.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-900/60 border border-zinc-200/90 dark:border-zinc-800/80 text-[11px] leading-relaxed shadow-2xs ${className}`}
     >
-      <span className="text-zinc-400 shrink-0 text-xs mt-0.5 select-none">✨</span>
-      <span className="font-medium text-zinc-300">{reasoningText}</span>
+      <span className="font-medium text-zinc-700 dark:text-zinc-300">{reasoningText}</span>
     </div>
   );
 }

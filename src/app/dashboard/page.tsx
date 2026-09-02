@@ -911,13 +911,13 @@ function DashboardContent() {
 
       {/* Smart India Hackathon 2026 Teammate Matcher Banner */}
       <div className="mb-8">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.09] bg-gradient-to-br from-white/[0.04] via-zinc-950 to-[#080808] p-6 md:p-8 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_16px_40px_-8px_rgba(0,0,0,0.55)] hover:border-white/[0.14] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_20px_48px_-8px_rgba(0,0,0,0.65)] transition-all duration-300">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#B4F461]/40 via-[#B4F461] to-[#B4F461]/40" />
+        <div className="relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-white/[0.09] bg-gradient-to-br from-white via-zinc-50 to-zinc-100/90 dark:from-white/[0.04] dark:via-zinc-950 dark:to-[#080808] p-6 md:p-8 shadow-sm dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_16px_40px_-8px_rgba(0,0,0,0.55)] hover:border-zinc-300 dark:hover:border-white/[0.14] transition-all duration-300">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/30 via-[#B4F461] to-emerald-500/30 dark:from-[#B4F461]/40 dark:via-[#B4F461] dark:to-[#B4F461]/40" />
 
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-zinc-700/60 bg-zinc-800/60 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 mb-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 dark:border-zinc-700/60 bg-emerald-500/10 dark:bg-zinc-800/60 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 dark:text-zinc-400 mb-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#B4F461] animate-pulse" />
                 <span>🇮🇳 SIH 2026 COLLEGE TEAM BUILDER</span>
               </div>
               <h2 className="text-xl md:text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
@@ -985,8 +985,8 @@ function DashboardContent() {
                     </div>
                     <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
                       <div className="text-right">
-                        <span className="text-sm font-extrabold font-mono text-zinc-100">{dev.compatibility}%</span>
-                        <span className="text-[9px] text-zinc-400 block font-mono">match</span>
+                        <span className="text-sm font-extrabold font-mono text-zinc-900 dark:text-zinc-100">{dev.compatibility}%</span>
+                        <span className="text-[9px] text-zinc-500 dark:text-zinc-400 block font-mono">match</span>
                       </div>
                       {connectionState === "connected" ? (
                         <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
@@ -1105,8 +1105,8 @@ function DashboardContent() {
                       <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
                         {dev.compatibility ? (
                           <div className="text-right">
-                            <span className="text-sm font-extrabold font-mono text-zinc-100">{dev.compatibility}%</span>
-                            <span className="text-[9px] text-zinc-400 block font-mono">match</span>
+                            <span className="text-sm font-extrabold font-mono text-zinc-900 dark:text-zinc-100">{dev.compatibility}%</span>
+                            <span className="text-[9px] text-zinc-500 dark:text-zinc-400 block font-mono">match</span>
                           </div>
                         ) : null}
                         {connectionState === "connected" ? (

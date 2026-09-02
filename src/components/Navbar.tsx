@@ -30,22 +30,27 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
 
-  // Synchronously detect active session from localStorage / cookies on client mount to prevent layout flash
-  const [hasSession, setHasSession] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
+  const [mounted, setMounted] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
           const val = localStorage.getItem(key);
-          if (val && val !== "null") return true;
+          if (val && val !== "null") {
+            setHasSession(true);
+            break;
+          }
         }
       }
-      return document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"));
-    } catch {
-      return false;
-    }
-  });
+      if (document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"))) {
+        setHasSession(true);
+      }
+    } catch {}
+  }, []);
 
   const [conversationIds, setConversationIds] = useState<string[]>([]);
 
@@ -323,7 +328,7 @@ function isPublicDarkRoute(path: string | null): boolean {
   );
 
   if (!isWorkspaceLayout) {
-    const isLoggedIn = Boolean(user || hasSession);
+    const isLoggedIn = Boolean(mounted && (user || hasSession));
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
