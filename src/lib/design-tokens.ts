@@ -31,25 +31,25 @@ export const LANDING_TOKENS = {
   // Surfaces & Containers
   surface: {
     bg: "bg-[#080808]",
-    card: "bg-zinc-950/60 border border-white/[0.08] rounded-2xl backdrop-blur-md transition-all duration-300 hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.5)]",
-    cardHover: "hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.5)] transition-all duration-300 ease-out",
+    card: "bg-zinc-950/60 border border-white/[0.08] rounded-2xl backdrop-blur-md transition-colors duration-200 hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.5)]",
+    cardHover: "hover:border-white/[0.2] hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.5)] transition-colors duration-200 ease-out",
     flagship: "bg-gradient-to-br from-white/[0.045] via-zinc-950/85 to-[#080808]/95 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_16px_40px_-8px_rgba(0,0,0,0.6)] backdrop-blur-md rounded-2xl",
-    flagshipHover: "hover:border-white/[0.2] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_20px_48px_-8px_rgba(0,0,0,0.7)] hover:-translate-y-0.5 transition-all duration-300 ease-out",
-    chrome: "bg-gradient-to-br from-white/[0.04] via-zinc-950/90 to-[#080808]/95 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_20px_50px_-10px_rgba(0,0,0,0.7)] rounded-2xl overflow-hidden transition-all duration-300 hover:border-white/[0.2] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_24px_60px_-10px_rgba(0,0,0,0.8)] hover:-translate-y-0.5",
+    flagshipHover: "hover:border-white/[0.2] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_20px_48px_-8px_rgba(0,0,0,0.7)] hover:-translate-y-0.5 transition-colors duration-200 ease-out",
+    chrome: "bg-gradient-to-br from-white/[0.04] via-zinc-950/90 to-[#080808]/95 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_20px_50px_-10px_rgba(0,0,0,0.7)] rounded-2xl overflow-hidden transition-colors duration-200 hover:border-white/[0.2] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_24px_60px_-10px_rgba(0,0,0,0.8)] hover:-translate-y-0.5",
     tag: "bg-zinc-900 text-zinc-300 border border-zinc-800 rounded-md text-[10px] font-mono px-2 py-0.5",
-    subtleCard: "bg-zinc-950/60 border border-white/[0.08] rounded-xl transition-all duration-300 hover:border-white/[0.2] hover:-translate-y-0.5",
+    subtleCard: "bg-zinc-950/60 border border-white/[0.08] rounded-xl transition-colors duration-200 hover:border-white/[0.2] hover:-translate-y-0.5",
   },
 
   // Interactive Controls & Buttons
   button: {
-    primary: "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-sm transition-all duration-200 cursor-pointer shadow-[0_0_20px_rgba(180,244,97,0.22)] hover:shadow-[0_0_32px_rgba(180,244,97,0.5)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]",
+    primary: "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-sm transition-colors duration-150 cursor-pointer shadow-[0_0_20px_rgba(180,244,97,0.22)] hover:shadow-[0_0_32px_rgba(180,244,97,0.5)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]",
     secondaryLink: "inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer group",
     secondary: "inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer group",
   },
 
   // Motion Discipline (Explicitly restrained, no scroll-trigger lag)
   motion: {
-    transition: "transition-all duration-200 ease-out",
+    transition: "transition-colors duration-150 ease-out",
   },
 
   // Category Monogram & Tag Themes (Dashboard Teams & Projects)

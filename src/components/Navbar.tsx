@@ -157,10 +157,37 @@ function isPublicDarkRoute(path: string | null): boolean {
   }, [pathname, user]);
 
   const toggleTheme = () => {
+    // 1. Inject transient style tag to disable all transitions across the DOM during theme swap
+    const css = document.createElement("style");
+    css.id = "disable-theme-transitions";
+    css.appendChild(
+      document.createTextNode(
+        `*, *::before, *::after {
+          -webkit-transition: none !important;
+          -moz-transition: none !important;
+          -o-transition: none !important;
+          -ms-transition: none !important;
+          transition: none !important;
+        }`
+      )
+    );
+    document.head.appendChild(css);
+
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
     localStorage.setItem("theme", nextTheme);
     document.documentElement.className = nextTheme;
+
+    // Force synchronous style calculation to apply theme classes instantly without transition lag
+    window.getComputedStyle(document.documentElement).opacity;
+
+    // Re-enable transitions on the next animation frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById("disable-theme-transitions");
+        if (el) el.remove();
+      });
+    });
   };
 
   useEffect(() => {
