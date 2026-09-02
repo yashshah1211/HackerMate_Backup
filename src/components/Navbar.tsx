@@ -27,11 +27,29 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
 
+  // Synchronously detect active session from localStorage / cookies on client mount to prevent layout flash
+  const [hasSession, setHasSession] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+          const val = localStorage.getItem(key);
+          if (val && val !== "null") return true;
+        }
+      }
+      return document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"));
+    } catch {
+      return false;
+    }
+  });
+
   const [conversationIds, setConversationIds] = useState<string[]>([]);
 
   async function loadUser(userObj?: import("@supabase/supabase-js").User) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
+    setHasSession(Boolean(activeUser));
     if (activeUser) {
       const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, last_active_date").eq("id", activeUser.id).single();
 
@@ -82,12 +100,27 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     setUnreadMessages(uniqueSenders.size);
   }
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
-    const initialTheme = savedTheme || "dark";
-    Promise.resolve().then(() => { setTheme(initialTheme); });
-    document.documentElement.className = initialTheme;
+const PUBLIC_DARK_ROUTES = [
+  "/",
+  "/login",
+  "/faq",
+  "/terms",
+  "/privacy",
+  "/contact",
+  "/partners",
+  "/onboarding",
+];
 
+function isPublicDarkRoute(path: string | null): boolean {
+  if (!path) return true;
+  if (PUBLIC_DARK_ROUTES.includes(path)) return true;
+  if (path.startsWith("/partners/")) return true;
+  if (path.startsWith("/hackathons/sih")) return true;
+  return false;
+}
+
+  // Listen for streak updates
+  useEffect(() => {
     const handleStreakEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ current_streak: number }>;
       if (customEvent.detail?.current_streak) {
@@ -97,6 +130,28 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     window.addEventListener("streak-updated", handleStreakEvent);
     return () => window.removeEventListener("streak-updated", handleStreakEvent);
   }, []);
+
+  // Theme synchronization:
+  // Public and unauthenticated marketing routes always force dark mode (preventing illegible black-on-black styling).
+  // Only authenticated workspace/dashboard routes respect stored theme preferences.
+  useEffect(() => {
+    const isPublic = isPublicDarkRoute(pathname);
+
+    if (isPublic) {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+      return;
+    }
+
+    if (user) {
+      const savedTheme = (localStorage.getItem("theme") as "dark" | "light") || "dark";
+      setTheme(savedTheme);
+      document.documentElement.className = savedTheme;
+    } else {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+    }
+  }, [pathname, user]);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -197,11 +252,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   async function executeLogout() {
     setShowSignOutConfirm(false);
+    localStorage.removeItem("theme");
+    document.documentElement.className = "dark";
+    setTheme("dark");
+    setUser(null);
+    setHasSession(false);
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  if (pathname === "/" || pathname === "/login") {
+  if (pathname === "/login" || pathname === "/onboarding") {
     return (
       <>
         {children}
@@ -210,29 +270,56 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isWorkspaceLayout = Boolean(user && pathname !== "/" && pathname !== "/onboarding");
+  // Routes that are strictly workspace pages — should NEVER flash the public marketing header
+  const isAlwaysWorkspaceRoute = Boolean(
+    pathname && (
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname.startsWith("/connections") ||
+      pathname.startsWith("/messages") ||
+      pathname.startsWith("/my-teams") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/notifications") ||
+      pathname.startsWith("/invites") ||
+      pathname.startsWith("/profile") ||
+      pathname === "/teams/create"
+    )
+  );
+
+  const isWorkspaceLayout = Boolean(
+    pathname !== "/" &&
+    (isAlwaysWorkspaceRoute || user || hasSession)
+  );
 
   if (!isWorkspaceLayout) {
+    const isLoggedIn = Boolean(user || hasSession);
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
-          <div className="bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800/80">
+          <div className="bg-[#080808]/80 backdrop-blur-md border-b border-white/[0.08]">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-              <Link href={user ? "/dashboard" : "/"} className="flex items-center">
-                <Logo className="h-8 w-auto" />
+              <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center">
+                <Logo className="h-7 w-auto" />
               </Link>
-              {user ? (
+              {isLoggedIn ? (
                 <div className="flex items-center gap-4">
-                  <Link href="/dashboard" className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors font-medium">Dashboard</Link>
-                  <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                  <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors font-medium">Dashboard</Link>
+                  <button onClick={handleLogout} className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">Sign Out</button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <Link
                     href="/login"
-                    className="px-4 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 font-semibold text-xs transition-all shadow-sm cursor-pointer"
+                    className="text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
                   >
                     Sign In
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="px-4 py-1.5 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-xs transition-all duration-200 shadow-[0_0_16px_rgba(180,244,97,0.22)] hover:shadow-[0_0_24px_rgba(180,244,97,0.48)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    Find Teammates
                   </Link>
                 </div>
               )}

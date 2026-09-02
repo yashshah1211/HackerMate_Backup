@@ -275,43 +275,43 @@ const SupabaseIcon = () => (
 );
 
 export const fourTechIcons: OrbitIconConfig[] = [
-  // Circle 1: JavaScript (radius 90)
+  // Circle 1: JavaScript (radius 80)
   {
     component: () => <JavaScriptIcon />,
     className: "size-6 border-none bg-transparent",
     duration: 18,
     delay: 0,
-    radius: 90,
+    radius: 80,
     path: true,
     reverse: false,
   },
-  // Circle 2: TypeScript (radius 140)
+  // Circle 2: TypeScript (radius 120)
   {
     component: () => <TypeScriptIcon />,
     className: "size-7 border-none bg-transparent",
     duration: 24,
     delay: 6,
-    radius: 140,
+    radius: 120,
     path: true,
     reverse: true,
   },
-  // Circle 3: Next.js (radius 190)
+  // Circle 3: Next.js (radius 160)
   {
     component: () => <NextJsIcon />,
     className: "size-7 border-none bg-transparent",
     duration: 30,
     delay: 12,
-    radius: 190,
+    radius: 160,
     path: true,
     reverse: false,
   },
-  // Circle 4: Supabase (radius 240)
+  // Circle 4: Supabase (radius 200 - comfortably inside card bounds, avoiding edge overlap)
   {
     component: () => <SupabaseIcon />,
     className: "size-7 border-none bg-transparent",
     duration: 36,
     delay: 18,
-    radius: 240,
+    radius: 200,
     path: true,
     reverse: true,
   },
@@ -361,13 +361,13 @@ export const TechOrbitDisplay = memo(function TechOrbitDisplay({
   );
 });
 
-// ==================== BottomGradient Component ====================
+// ==================== BottomGradient Component (Neutral Specular Edge) ====================
 
 export const BottomGradient = () => {
   return (
     <>
-      <span className="group-hover/btn:opacity-100 block transition duration-500 opacity-0 absolute h-px w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-[#B4F461] to-transparent" />
-      <span className="group-hover/btn:opacity-100 blur-sm block transition duration-500 opacity-0 absolute h-px w-1/2 mx-auto -bottom-px inset-x-10 bg-gradient-to-r from-transparent via-[#22D3EE] to-transparent" />
+      <span className="group-hover/btn:opacity-100 block transition duration-300 opacity-0 absolute h-px w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <span className="group-hover/btn:opacity-100 blur-sm block transition duration-300 opacity-0 absolute h-px w-1/2 mx-auto -bottom-px inset-x-10 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
     </>
   );
 };
@@ -465,13 +465,13 @@ export function ModernOAuthSignIn({
           </div>
 
           {/* 1-Tap Google Button */}
-          <BoxReveal boxColor="#B4F461" duration={0.3} width="100%" overflow="visible">
+          <BoxReveal boxColor="#27272a" duration={0.3} width="100%" overflow="visible">
             <button
               onClick={() => handleOAuthSignIn("google")}
               disabled={!consentChecked || !!loadingProvider}
               className={cn(
-                "group/btn relative flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-zinc-700/80 bg-zinc-900/90 px-4 font-semibold text-white shadow-lg transition-all duration-300 hover:border-zinc-500 hover:bg-zinc-850 hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] disabled:opacity-40 disabled:cursor-not-allowed",
-                !consentChecked && "opacity-40 cursor-not-allowed hover:border-zinc-700 hover:bg-zinc-900/90"
+                "group/btn relative flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-zinc-900/80 px-4 font-semibold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-200 ease-out hover:border-white/[0.22] hover:bg-zinc-850 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_8px_24px_rgba(0,0,0,0.6)] active:translate-y-0 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/[0.08] disabled:hover:bg-zinc-900/80 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                !consentChecked && "opacity-40 cursor-not-allowed hover:border-white/[0.08] hover:bg-zinc-900/80 hover:translate-y-0 hover:shadow-none"
               )}
             >
               {/* Google 4-Color SVG Icon */}
@@ -512,13 +512,13 @@ export function ModernOAuthSignIn({
           </BoxReveal>
 
           {/* 1-Tap GitHub Button */}
-          <BoxReveal boxColor="#22D3EE" duration={0.3} width="100%" overflow="visible">
+          <BoxReveal boxColor="#27272a" duration={0.3} width="100%" overflow="visible">
             <button
               onClick={() => handleOAuthSignIn("github")}
               disabled={!consentChecked || !!loadingProvider}
               className={cn(
-                "group/btn relative flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 font-semibold text-white shadow-lg transition-all duration-300 hover:border-zinc-600 hover:bg-zinc-800 hover:shadow-[0_0_20px_rgba(34,211,238,0.12)] disabled:opacity-40 disabled:cursor-not-allowed",
-                !consentChecked && "opacity-40 cursor-not-allowed hover:border-zinc-800 hover:bg-zinc-900/60"
+                "group/btn relative flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-zinc-900/80 px-4 font-semibold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-200 ease-out hover:border-white/[0.22] hover:bg-zinc-850 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_8px_24px_rgba(0,0,0,0.6)] active:translate-y-0 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/[0.08] disabled:hover:bg-zinc-900/80 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                !consentChecked && "opacity-40 cursor-not-allowed hover:border-white/[0.08] hover:bg-zinc-900/80 hover:translate-y-0 hover:shadow-none"
               )}
             >
               {/* GitHub SVG Icon */}

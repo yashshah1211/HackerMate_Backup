@@ -351,6 +351,8 @@ function SettingsContent() {
 
   async function handleSignOut() {
     setShowSignOutModal(false);
+    localStorage.removeItem("theme");
+    document.documentElement.className = "dark";
     await supabase.auth.signOut();
     window.location.href = "/";
   }
