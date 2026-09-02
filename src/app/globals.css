@@ -22,6 +22,22 @@
   --surface-3: #18181b; /* Zinc 900 */
   --surface-4: #27272a; /* Zinc 800 */
 
+  /* Workspace aliases */
+  --bg: #09090b;
+  --bg-raised: #0e0e11;
+  --bg-card: #111113;
+  --border: #1f1f23;
+  --border-soft: #18181b;
+  --text: #fafafa;
+  --text-dim: #cbd5e1;
+  --text-faint: #a1a1aa;
+  --accent: #3b82f6;
+  --accent-soft: rgba(59, 130, 246, 0.12);
+  --accent-border: rgba(59, 130, 246, 0.25);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #f43f5e;
+
   /* Card */
   --card-bg: #09090b;
   --card-border: #1f1f23; /* Muted border */
@@ -642,6 +658,22 @@ a:focus-visible {
   --surface-2: #f4f4f5; /* Zinc 100 */
   --surface-3: #e4e4e7; /* Zinc 200 */
   --surface-4: #d4d4d8; /* Zinc 300 */
+
+  /* Workspace aliases */
+  --bg: #ffffff;
+  --bg-raised: #f4f4f5;
+  --bg-card: #ffffff;
+  --border: #e4e4e7;
+  --border-soft: #e4e4e7;
+  --text: #09090b;
+  --text-dim: #27272a;
+  --text-faint: #52525b;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --accent-border: rgba(37, 99, 235, 0.2);
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #e11d48;
 
   /* Card */
   --card-bg: #ffffff;
@@ -1685,25 +1717,6 @@ html.light .content-area {
 
 .dashboard-redesign .activity-time {
   font-size: 11px; color: var(--text-faint); margin-top: 2px;
-}
-
-/* ---------- WORKSPACE LIGHT THEME ---------- */
-.light.dashboard-redesign,
-.light .dashboard-redesign {
-  --bg: #ffffff;
-  --bg-raised: #f7f7f8;
-  --bg-card: #ffffff;
-  --border: #e7e7ea;
-  --border-soft: #f0f0f2;
-  --text: #18181b;
-  --text-dim: #52525b;
-  --text-faint: #a1a1aa;
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --accent-border: rgba(37, 99, 235, 0.2);
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #e11d48;
 }
 
 .light .dashboard-redesign .btn-connected {

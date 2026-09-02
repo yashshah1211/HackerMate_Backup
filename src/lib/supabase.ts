@@ -138,6 +138,7 @@ export function subscribeWithRetry(
     isUnsubscribed = true;
     if (retryTimeout) clearTimeout(retryTimeout);
     channel.unsubscribe();
+    rawSupabase.removeChannel(channel);
   };
 }
 
