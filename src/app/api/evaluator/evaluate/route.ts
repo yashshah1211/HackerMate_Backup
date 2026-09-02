@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       trackId = "web_dev",
       hackathonId,
       userId,
+      forceFallback = false,
     } = body;
 
     if (!psTitle || !solutionDescription) {
@@ -88,8 +89,8 @@ export async function POST(req: NextRequest) {
       hackathonId,
     };
 
-    // 2. Execute Evaluation Engine (Gemini AI or Heuristic Fallback based on budget)
-    const allowAiCall = budgetDecision.allowAiCall;
+    // 2. Execute Evaluation Engine (Gemini AI or Heuristic Fallback based on budget / forceFallback)
+    const allowAiCall = forceFallback ? false : budgetDecision.allowAiCall;
     const result = await runTrackAwareEvaluation(input, allowAiCall);
 
     // 3. Record Successful Evaluation & Increment Budget

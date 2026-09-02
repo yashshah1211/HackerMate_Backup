@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   JudgingTrackId,
@@ -24,6 +25,7 @@ import {
   Zap,
   Trophy,
   Check,
+  Sparkles,
 } from "lucide-react";
 
 interface PitchEvaluatorClientProps {
@@ -33,6 +35,8 @@ interface PitchEvaluatorClientProps {
 export default function PitchEvaluatorClient({
   initialTrack = "web_dev",
 }: PitchEvaluatorClientProps) {
+  const searchParams = useSearchParams();
+  const forceHeuristic = searchParams?.get("engine") === "heuristic";
   const [selectedTrack, setSelectedTrack] = useState<JudgingTrackId>(initialTrack);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -200,6 +204,7 @@ export default function PitchEvaluatorClient({
           trackId: selectedTrack,
           hackathonId: selectedHackathonId || undefined,
           userId: user?.id,
+          forceFallback: forceHeuristic,
         }),
       });
 
@@ -486,8 +491,29 @@ export default function PitchEvaluatorClient({
                   {currentProfile.name} Result
                 </span>
                 <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white mt-0.5">{title}</h2>
-                <div className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-lime-400">
-                  {result.grade}
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <div className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-lime-400">
+                    {result.grade}
+                  </div>
+
+                  {/* Engine Transparency Badge */}
+                  {result.usedAiEngine ? (
+                    <div
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-tight bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 shadow-xs select-none"
+                      title="Evaluated using live Gemini AI model with deep semantic reasoning and domain jury rubric checks."
+                    >
+                      <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                      <span>Gemini AI Engine</span>
+                    </div>
+                  ) : (
+                    <div
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-tight bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 shadow-xs select-none"
+                      title="Evaluated using static pattern heuristic rules (offline / fast check mode)."
+                    >
+                      <Zap className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                      <span>Quick Heuristic Check</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -510,6 +536,16 @@ export default function PitchEvaluatorClient({
               </button>
             </div>
           </div>
+
+          {/* Fallback Notice Banner if heuristic engine was used */}
+          {!result.usedAiEngine && (
+            <div className="mb-6 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <span className="font-bold">Heuristic Evaluation Mode:</span> This scorecard was generated using static rule heuristics because the live AI model was temporarily rate-limited or offline. Scores from the heuristic engine are conservative baseline approximations.
+              </div>
+            </div>
+          )}
 
           {/* 4 Category Score Bars */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">

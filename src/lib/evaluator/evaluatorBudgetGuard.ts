@@ -31,8 +31,8 @@ export async function checkEvaluatorBudgetAndRateLimit(
   const todayStr = new Date().toISOString().split("T")[0];
   const appSettingKey = `daily_evaluator_usage_${todayStr}`;
 
-  // 1. IP-level soft friction check for unauthenticated users
-  if (!userId) {
+  // 1. IP-level soft friction check for unauthenticated users (in production)
+  if (!userId && process.env.NODE_ENV === "production") {
     const ipRecord = ipUsageMap.get(clientIp);
     if (ipRecord) {
       // 30-second rapid spam cooldown

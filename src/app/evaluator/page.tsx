@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import PitchEvaluatorClient from "@/components/PitchEvaluatorClient";
 import { Metadata } from "next";
 
@@ -9,7 +10,9 @@ export const metadata: Metadata = {
 export default function EvaluatorPage() {
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pt-20 pb-16">
-      <PitchEvaluatorClient initialTrack="web_dev" />
+      <Suspense fallback={<div className="text-center py-20 text-xs text-zinc-500">Loading Evaluator...</div>}>
+        <PitchEvaluatorClient initialTrack="web_dev" />
+      </Suspense>
     </main>
   );
 }
