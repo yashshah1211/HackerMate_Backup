@@ -96,12 +96,6 @@ export default function PrivacyPage() {
           </section>
 
         </article>
-
-        {/* Footer Accent */}
-        <div className="mt-16 pt-8 border-t border-zinc-900 text-center text-xs text-zinc-500 font-mono">
-          <p>© {new Date().getFullYear()} HackerMate. All rights reserved.</p>
-        </div>
-
       </div>
     </main>
   );

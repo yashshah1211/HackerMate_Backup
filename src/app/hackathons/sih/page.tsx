@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-import Footer from "@/components/Footer";
 import { COLLEGES } from "@/lib/colleges";
 import SIHExportModal from "@/components/SIHExportModal";
 import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
@@ -1106,7 +1105,6 @@ function SIHTeamBuilderContent() {
         />
       )}
 
-      <Footer />
     </div>
   );
 }

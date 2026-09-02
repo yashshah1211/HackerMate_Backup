@@ -11,9 +11,12 @@ import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
 import { getInitials } from "@/lib/utils";
 import NotificationDrawer from "@/components/NotificationDrawer";
+import Footer from "@/components/Footer";
+import { shouldRenderFooter } from "@/lib/layoutConfig";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const showFooter = shouldRenderFooter(pathname);
   const { showToast } = useNotification();
 
   const [unreadCount, setUnreadCount] = useState(0);
@@ -326,7 +329,10 @@ function isPublicDarkRoute(path: string | null): boolean {
             </div>
           </div>
         </header>
-        <div className="pt-14 min-h-screen bg-[var(--background)]">{children}</div>
+        <div className="pt-14 min-h-screen bg-[var(--background)] flex flex-col">
+          <div className="flex-1">{children}</div>
+          {showFooter && <Footer />}
+        </div>
         {showSignOutConfirm && <SignOutConfirmModal />}
       </>
     );
@@ -571,7 +577,10 @@ function isPublicDarkRoute(path: string | null): boolean {
             </Link>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset">{children}</div>
+        <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset flex flex-col min-h-0">
+          <div className="flex-1">{children}</div>
+          {showFooter && <Footer />}
+        </div>
       </div>
 
       {showMobileSidebar && (

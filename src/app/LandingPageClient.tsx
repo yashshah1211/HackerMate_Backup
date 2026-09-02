@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import Link from "next/link";
-import Footer from "@/components/Footer";
 import { formatPrizeDisplay } from "@/app/hackathons/page";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import { HeroBackground } from "@/components/ui/hero-background";
@@ -906,8 +905,6 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
         </div>
       </section>
 
-      {/* ─── 10. Footer ─── */}
-      <Footer />
 
       {/* ─── Organizer Contact Modal ─── */}
       {showOrganizerModal && (

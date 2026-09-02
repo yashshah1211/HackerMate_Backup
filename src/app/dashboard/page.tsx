@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
-import Footer from "@/components/Footer";
 import Logo from "@/components/Logo";
 
 import QuickOnboardingModal from "@/components/QuickOnboardingModal";
@@ -1294,7 +1293,6 @@ function DashboardContent() {
         </div>
       </div>
 
-        <Footer />
 
         <QuickOnboardingModal
           isOpen={showQuickOnboardingModal}
