@@ -72,12 +72,20 @@ function MessagesContent() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    let debounceTimer: NodeJS.Timeout | null = null;
-    const debouncedRefresh = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+    let lastRan = 0;
+    let timer: NodeJS.Timeout | null = null;
+    const throttledRefresh = () => {
+      const now = Date.now();
+      if (now - lastRan >= 600) {
+        lastRan = now;
         loadConversations(currentUserId);
-      }, 300);
+      } else {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          lastRan = Date.now();
+          loadConversations(currentUserId);
+        }, 600 - (now - lastRan));
+      }
     };
 
     const participantChannel = supabase
@@ -91,14 +99,14 @@ function MessagesContent() {
           filter: `user_id=eq.${currentUserId}`,
         },
         () => {
-          debouncedRefresh();
+          throttledRefresh();
         }
       );
 
     const unsubscribe = subscribeWithRetry(participantChannel);
 
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (timer) clearTimeout(timer);
       unsubscribe();
     };
   }, [currentUserId]);
@@ -106,12 +114,20 @@ function MessagesContent() {
   useEffect(() => {
     if (!currentUserId || !conversationIds.length) return;
 
-    let debounceTimer: NodeJS.Timeout | null = null;
-    const debouncedRefresh = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+    let lastRan = 0;
+    let timer: NodeJS.Timeout | null = null;
+    const throttledRefresh = () => {
+      const now = Date.now();
+      if (now - lastRan >= 600) {
+        lastRan = now;
         loadConversations(currentUserId);
-      }, 300);
+      } else {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          lastRan = Date.now();
+          loadConversations(currentUserId);
+        }, 600 - (now - lastRan));
+      }
     };
 
     const unsubs = conversationIds.map((id) => {
@@ -126,14 +142,14 @@ function MessagesContent() {
             filter: `conversation_id=eq.${id}`,
           },
           () => {
-            debouncedRefresh();
+            throttledRefresh();
           }
         );
       return subscribeWithRetry(channel);
     });
 
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (timer) clearTimeout(timer);
       unsubs.forEach((unsub) => unsub());
     };
   }, [conversationIds, currentUserId]);

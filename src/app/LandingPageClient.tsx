@@ -60,9 +60,10 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
     setTimeout(() => setCopiedEmail(false), 3000);
   };
 
-  // Auto-rotation timer for live cards (every 4.5s)
+  // Auto-rotation timer for live cards (every 4.5s) - pauses when tab is backgrounded
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       setFadeOpacity(false);
       setTimeout(() => {
         setActiveBuilderIdx((prev) => (realBuilders.length > 0 ? (prev + 1) % realBuilders.length : 0));
