@@ -412,7 +412,7 @@ function isPublicDarkRoute(path: string | null): boolean {
       color: "text-lime-600 dark:text-lime-400",
       activeBg: "bg-lime-500/5 dark:bg-lime-500/10 border-lime-500/10 dark:border-lime-500/20",
       activeBar: "bg-lime-600 dark:bg-lime-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" fill="currentColor" /></svg>)
     },
     {
       href: "/leaderboard", label: "Leaderboard",
