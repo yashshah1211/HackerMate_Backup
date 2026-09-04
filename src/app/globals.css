@@ -22,6 +22,22 @@
   --surface-3: #18181b; /* Zinc 900 */
   --surface-4: #27272a; /* Zinc 800 */
 
+  /* Workspace aliases */
+  --bg: #09090b;
+  --bg-raised: #0e0e11;
+  --bg-card: #111113;
+  --border: #1f1f23;
+  --border-soft: #18181b;
+  --text: #fafafa;
+  --text-dim: #cbd5e1;
+  --text-faint: #a1a1aa;
+  --accent: #3b82f6;
+  --accent-soft: rgba(59, 130, 246, 0.12);
+  --accent-border: rgba(59, 130, 246, 0.25);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #f43f5e;
+
   /* Card */
   --card-bg: #09090b;
   --card-border: #1f1f23; /* Muted border */
@@ -88,7 +104,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   position: relative;
   overflow-x: hidden;
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* Removed decorative atmospheric glows for a calmer, more natural surface */
@@ -174,7 +190,7 @@ body {
   border-radius: 8px; /* Strict 8px rounding */
   position: relative;
   overflow: hidden;
-  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card::before {
@@ -201,7 +217,7 @@ body {
 
 /* Static card - no hover border highlight or transform */
 .card-static {
-  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card-static:hover {
@@ -642,6 +658,22 @@ a:focus-visible {
   --surface-2: #f4f4f5; /* Zinc 100 */
   --surface-3: #e4e4e7; /* Zinc 200 */
   --surface-4: #d4d4d8; /* Zinc 300 */
+
+  /* Workspace aliases */
+  --bg: #ffffff;
+  --bg-raised: #f4f4f5;
+  --bg-card: #ffffff;
+  --border: #e4e4e7;
+  --border-soft: #e4e4e7;
+  --text: #09090b;
+  --text-dim: #27272a;
+  --text-faint: #52525b;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --accent-border: rgba(37, 99, 235, 0.2);
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #e11d48;
 
   /* Card */
   --card-bg: #ffffff;
@@ -1329,7 +1361,7 @@ html.light .content-area {
   font-weight: 600; font-size: 13px;
   padding: 9px 16px; border-radius: 7px; cursor: pointer;
   display: flex; align-items: center; gap: 7px;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .dashboard-redesign .cta-secondary:hover {
@@ -1348,14 +1380,14 @@ html.light .content-area {
 }
 
 .dashboard-redesign .stat-card {
-  background: var(--bg-card) !important; 
+  background: linear-gradient(145deg, rgba(255,255,255,0.035) 0%, var(--bg-card) 45%) !important; 
   border: 1px solid var(--border) !important; 
   border-radius: 16px !important;
   padding: 20px; 
   position: relative; 
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.09), 0 4px 12px rgba(0, 0, 0, 0.18);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .dashboard-redesign .stat-card:hover {
@@ -1426,7 +1458,7 @@ html.light .content-area {
   border: 1px solid var(--border) !important; 
   border-radius: 16px !important;
   padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0, 0, 0, 0.12);
   transition: border-color 0.2s ease;
 }
 
@@ -1448,7 +1480,7 @@ html.light .content-area {
 
 .dashboard-redesign .view-all {
   font-size: 11.5px; color: var(--text-dim) !important; cursor: pointer; font-weight: 600;
-  transition: all 0.15s ease; font-family: var(--font-geist-mono), monospace;
+  transition: color 0.15s ease, transform 0.15s ease; font-family: var(--font-geist-mono), monospace;
   flex-shrink: 0; white-space: nowrap;
 }
 
@@ -1687,25 +1719,6 @@ html.light .content-area {
   font-size: 11px; color: var(--text-faint); margin-top: 2px;
 }
 
-/* ---------- WORKSPACE LIGHT THEME ---------- */
-.light.dashboard-redesign,
-.light .dashboard-redesign {
-  --bg: #ffffff;
-  --bg-raised: #f7f7f8;
-  --bg-card: #ffffff;
-  --border: #e7e7ea;
-  --border-soft: #f0f0f2;
-  --text: #18181b;
-  --text-dim: #52525b;
-  --text-faint: #a1a1aa;
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --accent-border: rgba(37, 99, 235, 0.2);
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #e11d48;
-}
-
 .light .dashboard-redesign .btn-connected {
   background: rgba(5, 150, 105, 0.06);
   color: var(--success) !important;
@@ -1827,7 +1840,7 @@ html.light .content-area {
   flex: 1;
   max-width: 520px;
   margin: 0 16px;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dashboard-redesign .profile-strength-card:hover {
@@ -1851,9 +1864,9 @@ html.light .content-area {
 .dashboard-redesign .hacker-status-card {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.03) 0%, var(--bg-card) 50%, rgba(20, 184, 166, 0.03) 100%) !important;
-  border: 1px solid rgba(16, 185, 129, 0.18) !important;
-  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.05);
+  background: var(--bg-card) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
   border-radius: 12px;
   padding: 12px 16px;
   display: flex;
@@ -1863,19 +1876,19 @@ html.light .content-area {
   max-width: 520px;
   margin: 0 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dashboard-redesign .hacker-status-card:hover {
-  border-color: rgba(16, 185, 129, 0.35) !important;
-  box-shadow: 0 4px 24px -2px rgba(16, 185, 129, 0.08);
+  border-color: rgba(180, 244, 97, 0.25) !important;
+  box-shadow: 0 4px 24px -2px rgba(180, 244, 97, 0.06);
 }
 
 /* Light theme adjustments for Hacker Status */
 .light .dashboard-redesign .hacker-status-card {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(20, 184, 166, 0.06) 100%) !important;
-  border-color: rgba(16, 185, 129, 0.3) !important;
-  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.05);
+  background: var(--bg-card) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
 }
 
 /* Grid overlay background inside hacker status card */
@@ -1883,16 +1896,16 @@ html.light .content-area {
   position: absolute;
   inset: 0;
   background-image: 
-    linear-gradient(to right, rgba(16, 185, 129, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(16, 185, 129, 0.02) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 14px 24px;
   pointer-events: none;
 }
 
 .light .dashboard-redesign .hacker-status-grid {
   background-image: 
-    linear-gradient(to right, rgba(16, 185, 129, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
 }
 
 /* Typography styles inside cards */
@@ -1940,17 +1953,17 @@ html.light .content-area {
   text-transform: uppercase;
   font-family: var(--font-mono);
   line-height: 1;
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399 !important; /* emerald-400 */
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(82, 82, 91, 0.15);
+  color: #a1a1aa !important; /* zinc-400 */
+  border: 1px solid rgba(82, 82, 91, 0.3);
   display: inline-block;
   letter-spacing: 0.05em;
 }
 
 .light .dashboard-redesign .status-badge-max {
-  background: rgba(4, 120, 87, 0.08);
-  color: #047857 !important; /* emerald-700 */
-  border-color: rgba(4, 120, 87, 0.2);
+  background: rgba(0, 0, 0, 0.04);
+  color: #52525b !important; /* zinc-600 */
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 /* Find Teammates button in status card */
@@ -1959,34 +1972,34 @@ html.light .content-area {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-family: var(--font-mono);
-  color: #10b981 !important; /* emerald-500 */
-  background: rgba(16, 185, 129, 0.05);
-  border: 1px solid rgba(16, 185, 129, 0.18);
+  font-family: var(--font-geist-mono), monospace;
+  color: #18181b !important; /* zinc-900 on lime */
+  background: rgba(180, 244, 97, 0.9);
+  border: 1px solid rgba(180, 244, 97, 0.5);
   padding: 6.5px 14px;
   border-radius: 8px;
   white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   user-select: none;
 }
 
 .dashboard-redesign .find-teammates-btn:hover {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(168, 235, 82, 0.95);
+  border-color: rgba(180, 244, 97, 0.8);
 }
 
 .light .dashboard-redesign .find-teammates-btn {
-  color: #047857 !important; /* emerald-700 */
-  background: rgba(4, 120, 87, 0.06);
-  border-color: rgba(4, 120, 87, 0.18);
+  color: #18181b !important;
+  background: rgba(180, 244, 97, 0.9);
+  border-color: rgba(180, 244, 97, 0.5);
 }
 
 .light .dashboard-redesign .find-teammates-btn:hover {
-  background: rgba(4, 120, 87, 0.1);
-  border-color: rgba(4, 120, 87, 0.3);
+  background: rgba(168, 235, 82, 0.95);
+  border-color: rgba(180, 244, 97, 0.8);
 }
 
 /* Circular progress texts */

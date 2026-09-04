@@ -279,6 +279,11 @@ export default function ChatThread({
   height = "420px",
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const [profiles, setProfiles] = useState<Record<string, SenderProfile>>(knownProfiles);
   const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
   const [input, setInput] = useState("");
@@ -621,6 +626,10 @@ export default function ChatThread({
         },
         (payload) => {
           const newReaction = payload.new as Reaction;
+          // Discard reactions belonging to other conversations without triggering re-renders or profile lookups
+          if (!newReaction?.message_id || !messagesRef.current.some((m) => m.id === newReaction.message_id)) {
+            return;
+          }
           setReactions((prev) => {
             const list = prev[newReaction.message_id] || [];
             const filtered = list.filter(
@@ -643,6 +652,9 @@ export default function ChatThread({
         },
         (payload) => {
           const updatedReaction = payload.new as Reaction;
+          if (!updatedReaction?.message_id || !messagesRef.current.some((m) => m.id === updatedReaction.message_id)) {
+            return;
+          }
           setReactions((prev) => {
             const list = prev[updatedReaction.message_id] || [];
             const filtered = list.filter(
@@ -664,9 +676,13 @@ export default function ChatThread({
         },
         (payload) => {
           const oldReaction = payload.old as { id?: string; message_id?: string; user_id?: string; emoji?: string };
+          if (oldReaction?.message_id && !messagesRef.current.some((m) => m.id === oldReaction.message_id)) {
+            return;
+          }
           setReactions((prev) => {
             const next = { ...prev };
             for (const msgId in next) {
+              if (oldReaction?.message_id && msgId !== oldReaction.message_id) continue;
               next[msgId] = next[msgId].filter((r) => {
                 if (oldReaction.id && r.id === oldReaction.id) return false;
                 if (oldReaction.user_id && r.user_id === oldReaction.user_id) return false;

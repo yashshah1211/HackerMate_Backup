@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
-import Footer from "@/components/Footer";
 import Logo from "@/components/Logo";
 
 import QuickOnboardingModal from "@/components/QuickOnboardingModal";
@@ -328,14 +327,14 @@ function DashboardContent() {
 
         const devsWithScore = (recommended ?? []) as Profile[];
 
-        setSpotlights(devsWithScore.slice(0, 4)); // Get top 4 compatible builders
+        setSpotlights(devsWithScore.slice(0, 6)); // Get top 6 compatible builders
 
         // Same-college builders first (flag computed server-side), backfilled
-        // up to 7 with the most-compatible remaining builders.
+        // up to 6 with the most-compatible remaining builders.
         const mates = devsWithScore.filter((d) => d.same_college);
         const mateIds = new Set(mates.map((m) => m.id));
         const fallbackDevs = devsWithScore.filter((d) => !mateIds.has(d.id));
-        setCollegeMates([...mates, ...fallbackDevs].slice(0, 7));
+        setCollegeMates([...mates, ...fallbackDevs].slice(0, 6));
       }
 
       // 3. Fetch 4 nearest upcoming hackathons closing soon (Relocated profile completion)
@@ -571,17 +570,17 @@ function DashboardContent() {
   };
 
   const avatarColors = [
-    "linear-gradient(135deg,#3b82f6,#1d4ed8)",
-    "linear-gradient(135deg,#8b5cf6,#6d28d9)",
-    "linear-gradient(135deg,#10b981,#047857)",
-    "linear-gradient(135deg,#f59e0b,#b45309)"
+    "linear-gradient(135deg,#2c4a6e,#1a2d45)", // muted slate-blue
+    "linear-gradient(135deg,#4a2c6e,#2d1a45)", // muted plum/mauve
+    "linear-gradient(135deg,#6e4a2c,#452d1a)", // muted tawny/amber-brown
+    "linear-gradient(135deg,#2c6e4a,#1a4530)", // muted forest/sage
   ];
 
   if (loading) {
     return (
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-8 h-8 border-2 border-zinc-800 border-t-violet-500 rounded-full animate-spin mb-4" />
+          <div className="w-8 h-8 border-2 border-zinc-800 border-t-[#B4F461] rounded-full animate-spin mb-4" />
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest">Loading workspace...</p>
         </div>
       </main>
@@ -600,12 +599,12 @@ function DashboardContent() {
         <div className="greet">
           <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
           {!yearDismissed ? (
-            <div className="flex items-center gap-2 mt-1.5 p-1.5 px-2.5 rounded-lg bg-cyan-500/10 dark:bg-cyan-950/40 border border-cyan-500/30 text-xs text-zinc-800 dark:text-zinc-300 w-fit animate-fade-in-up">
-              <span className="text-cyan-700 dark:text-cyan-400 font-mono font-semibold text-[11px]">🎓 Confirm Year:</span>
+            <div className="flex items-center gap-2 mt-1.5 p-1.5 px-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-xs text-zinc-300 w-fit animate-fade-in-up">
+              <span className="text-zinc-400 font-mono font-semibold text-[11px]">🎓 Confirm Year:</span>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-[11px] px-2 py-0.5 rounded cursor-pointer focus:border-cyan-500 font-mono"
+                className="bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-[11px] px-2 py-0.5 rounded cursor-pointer focus:border-zinc-600 font-mono"
               >
                 <option value="1st Year">1st Year (Fresher)</option>
                 <option value="2nd Year">2nd Year (Sophomore)</option>
@@ -616,7 +615,7 @@ function DashboardContent() {
               <button
                 onClick={handleConfirmYear}
                 disabled={savingYear}
-                className="px-2.5 py-0.5 bg-cyan-500 dark:bg-cyan-400 hover:bg-cyan-600 dark:hover:bg-cyan-300 text-white dark:text-black text-[11px] font-bold rounded cursor-pointer transition-all shadow-sm"
+                className="px-2.5 py-0.5 bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 text-[11px] font-bold rounded cursor-pointer transition-all shadow-sm"
               >
                 {savingYear ? "Saving..." : "Save ✓"}
               </button>
@@ -770,20 +769,20 @@ function DashboardContent() {
             return (
               <div 
                 onClick={() => router.push("/developers")}
-                className="hacker-status-card group cursor-pointer hover:border-indigo-500/40 transition-colors"
+                className="hacker-status-card group cursor-pointer transition-colors"
               >
                 <div className="hacker-status-grid" />
-                <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shadow-inner shadow-indigo-500/10">
-                  <div className="absolute inset-0 rounded-full bg-indigo-400/5 animate-ping opacity-75" />
+                <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-[#B4F461]/[0.08] border border-[#B4F461]/[0.18] text-[#B4F461]/70 shadow-inner shadow-black/20">
+                  <div className="absolute inset-0 rounded-full bg-[#B4F461]/[0.03] animate-ping opacity-75" />
                   <span className="text-xl">⚡</span>
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="status-title tracking-wider text-xs text-zinc-200 dark:text-zinc-200 font-bold">Teammate Match Radar</p>
                   <p className="status-desc text-xs text-zinc-400 mt-0.5">
-                    You have <strong className="text-indigo-400 font-bold">{strongMatchesCount} strong teammate match{strongMatchesCount > 1 ? "es" : ""}</strong> ready to connect!
+                    You have <strong className="text-zinc-200 font-bold">{strongMatchesCount} strong teammate match{strongMatchesCount > 1 ? "es" : ""}</strong> ready to connect!
                   </p>
                 </div>
-                <div className="find-teammates-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5">
+                <div className="px-3 py-1.5 bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer">
                   <span>View Matches</span>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
@@ -796,12 +795,12 @@ function DashboardContent() {
           return (
             <div 
               onClick={() => router.push("/developers")}
-              className="hacker-status-card group cursor-pointer hover:border-emerald-500/40 transition-colors"
+              className="hacker-status-card group cursor-pointer transition-colors"
             >
               <div className="hacker-status-grid" />
-              <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner shadow-emerald-500/10">
-                <div className="absolute inset-0 rounded-full bg-emerald-400/5 animate-ping opacity-75" />
-                <svg className="w-6 h-6 filter drop-shadow-[0_2px_8px_rgba(16,185,129,0.4)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-inner shadow-black/20">
+                <div className="absolute inset-0 rounded-full bg-white/[0.02] animate-ping opacity-75" />
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                 </svg>
               </div>
@@ -835,71 +834,71 @@ function DashboardContent() {
       {/* Purposeful & Clickable Stat Cards */}
       <div className="stats-row">
         <div 
-          className="stat-card cursor-pointer hover:border-emerald-500/40 dark:hover:border-emerald-500/30 transition-all group relative overflow-hidden"
+          className="stat-card cursor-pointer hover:border-white/[0.15] transition-all group relative overflow-hidden"
           onClick={() => router.push("/developers")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && router.push("/developers")}
         >
-          <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
+          <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
             <div className="stat-label text-zinc-500 dark:text-zinc-400">Builders in network</div>
-            <div className="stat-icon bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm">
+            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">
             {stats.builders} 
-            <span className="stat-trend inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="stat-trend inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#B4F461]/10 border border-[#B4F461]/20 text-[#B4F461] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
               active
             </span>
           </div>
           <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
             <span>Explore all verified builders</span>
-            <span className="font-mono text-emerald-600 dark:text-emerald-400">→</span>
+            <span className="font-mono text-zinc-400">→</span>
           </div>
         </div>
 
         <div 
-          className="stat-card cursor-pointer hover:border-sky-500/40 dark:hover:border-sky-500/30 transition-all group relative overflow-hidden"
+          className="stat-card cursor-pointer hover:border-white/[0.15] transition-all group relative overflow-hidden"
           onClick={() => router.push("/teams")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && router.push("/teams")}
         >
-          <div className="absolute top-0 right-0 w-28 h-28 bg-sky-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-sky-500/10 transition-colors" />
+          <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
             <div className="stat-label text-zinc-500 dark:text-zinc-400">Teams active</div>
-            <div className="stat-icon bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shadow-sm">
+            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">{stats.teams}</div>
           <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
             <span>{stats.teams} ongoing projects — Find teams recruiting</span>
-            <span className="font-mono text-sky-600 dark:text-sky-400">→</span>
+            <span className="font-mono text-zinc-400">→</span>
           </div>
         </div>
 
         <div 
-          className="stat-card cursor-pointer hover:border-amber-500/40 dark:hover:border-amber-500/30 transition-all group relative overflow-hidden"
+          className="stat-card cursor-pointer hover:border-white/[0.15] transition-all group relative overflow-hidden"
           onClick={() => router.push("/hackathons")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && router.push("/hackathons")}
         >
-          <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/10 transition-colors" />
+          <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
             <div className="stat-label text-zinc-500 dark:text-zinc-400">Hackathons live</div>
-            <div className="stat-icon bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-sm">
+            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">{stats.hackathons}</div>
           <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
             <span><b className="text-zinc-700 dark:text-zinc-200 font-semibold">{stats.closingSoon} closing</b> in 7 days</span>
-            <span className="font-mono text-amber-600 dark:text-amber-400">→</span>
+            <span className="font-mono text-zinc-400">→</span>
           </div>
         </div>
       </div>
@@ -912,13 +911,13 @@ function DashboardContent() {
 
       {/* Smart India Hackathon 2026 Teammate Matcher Banner */}
       <div className="mb-8">
-        <div className="relative overflow-hidden rounded-3xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/60 dark:bg-gradient-to-r dark:from-zinc-950 dark:via-zinc-900 dark:to-orange-950/30 p-6 md:p-8 shadow-sm dark:shadow-xl transition-colors">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-[#B4F461]" />
+        <div className="relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-white/[0.09] bg-gradient-to-br from-white via-zinc-50 to-zinc-100/90 dark:from-white/[0.04] dark:via-zinc-950 dark:to-[#080808] p-6 md:p-8 shadow-sm dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_16px_40px_-8px_rgba(0,0,0,0.55)] hover:border-zinc-300 dark:hover:border-white/[0.14] transition-all duration-300">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/30 via-[#B4F461] to-emerald-500/30 dark:from-[#B4F461]/40 dark:via-[#B4F461] dark:to-[#B4F461]/40" />
 
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 mb-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 animate-pulse" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 dark:border-zinc-700/60 bg-emerald-500/10 dark:bg-zinc-800/60 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 dark:text-zinc-400 mb-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#B4F461] animate-pulse" />
                 <span>🇮🇳 SIH 2026 COLLEGE TEAM BUILDER</span>
               </div>
               <h2 className="text-xl md:text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
@@ -943,7 +942,7 @@ function DashboardContent() {
         <div className="panel">
           <div className="panel-head">
             <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-zinc-500 animate-pulse shrink-0" />
               <span className="truncate">Compatibility Spotlight</span>
             </div>
             <div className="view-all" onClick={() => router.push("/developers")}>view all →</div>
@@ -958,7 +957,7 @@ function DashboardContent() {
                 return (
                   <div
                     key={dev.id}
-                    className="match-row cursor-pointer hover:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-700/50"
+                    className="group match-row cursor-pointer hover:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-700/50"
                     onClick={() => router.push(`/profile/${dev.id}`)}
                   >
                     <div className="match-avatar shadow-md" style={{ background: avatarColors[idx % avatarColors.length] }}>
@@ -980,20 +979,22 @@ function DashboardContent() {
                           <span key={skill} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 font-medium">{skill}</span>
                         ))}
                       </div>
-                      <MatchReasoningBadge userA={profile} userB={dev} isSelfViewer={true} matchScore={dev.compatibility} />
+                      <div className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-48 group-hover:opacity-100 transition-all duration-300 ease-out">
+                        <MatchReasoningBadge userA={profile} userB={dev} isSelfViewer={true} matchScore={dev.compatibility} />
+                      </div>
                     </div>
                     <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
                       <div className="text-right">
-                        <span className="text-sm font-extrabold font-mono text-indigo-600 dark:text-indigo-400">{dev.compatibility}%</span>
-                        <span className="text-[9px] text-zinc-400 block font-mono">match</span>
+                        <span className="text-sm font-extrabold font-mono text-zinc-900 dark:text-zinc-100">{dev.compatibility}%</span>
+                        <span className="text-[9px] text-zinc-500 dark:text-zinc-400 block font-mono">match</span>
                       </div>
                       {connectionState === "connected" ? (
-                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">✓ Connected</div>
+                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
                       ) : connectionState === "request_sent" ? (
-                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20">Sent</div>
+                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-500 bg-zinc-700/20 border border-zinc-700/40">Sent</div>
                       ) : connectionState === "request_received" ? (
                         <button
-                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
+                          className="px-3 py-1 bg-[#B4F461] hover:bg-[#a8eb52] active:scale-95 text-zinc-950 font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/profile/${dev.id}`);
@@ -1037,7 +1038,7 @@ function DashboardContent() {
         <div className="panel">
           <div className="panel-head">
             <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-sky-600/70 animate-pulse shrink-0" />
               <span
                 className="truncate"
                 title={profile?.college ? `Builders from ${profile.college}` : "Builders from your college"}
@@ -1047,15 +1048,13 @@ function DashboardContent() {
               <span className="tag">Campus</span>
             </div>
             <div className="view-all flex items-center gap-2.5">
-              <span onClick={() => router.push("/leaderboard")} className="hover:text-amber-400 text-amber-500 font-mono text-[10px] cursor-pointer">🏆 Campus Rank</span>
+              <span onClick={() => router.push("/leaderboard")} className="hover:text-zinc-300 text-zinc-400 font-mono text-[10px] cursor-pointer">🏆 Campus Rank</span>
               <span onClick={() => router.push("/developers")} className="cursor-pointer">view all →</span>
             </div>
           </div>
 
           {(() => {
-            const aiBlurbCount = spotlights.filter((dev) => (dev.compatibility ?? 0) >= 50).length;
-            const baseCount = spotlights.length > 0 ? Math.min(spotlights.length, 4) : 4;
-            const collegeLimit = Math.min(baseCount + aiBlurbCount, 7);
+            const collegeLimit = spotlights.length > 0 ? spotlights.length : 6;
             const displayedCollegeMates = collegeMates.slice(0, collegeLimit);
 
             if (displayedCollegeMates.length === 0) {
@@ -1106,17 +1105,17 @@ function DashboardContent() {
                       <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
                         {dev.compatibility ? (
                           <div className="text-right">
-                            <span className="text-sm font-extrabold font-mono text-cyan-600 dark:text-cyan-400">{dev.compatibility}%</span>
-                            <span className="text-[9px] text-zinc-400 block font-mono">match</span>
+                            <span className="text-sm font-extrabold font-mono text-zinc-900 dark:text-zinc-100">{dev.compatibility}%</span>
+                            <span className="text-[9px] text-zinc-500 dark:text-zinc-400 block font-mono">match</span>
                           </div>
                         ) : null}
                         {connectionState === "connected" ? (
-                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">✓ Connected</div>
+                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
                         ) : connectionState === "request_sent" ? (
-                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20">Sent</div>
+                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-500 bg-zinc-700/20 border border-zinc-700/40">Sent</div>
                         ) : connectionState === "request_received" ? (
                           <button
-                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
+                            className="px-3 py-1 bg-[#B4F461] hover:bg-[#a8eb52] active:scale-95 text-zinc-950 font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/profile/${dev.id}`);
@@ -1252,7 +1251,7 @@ function DashboardContent() {
         <div className="panel">
           <div className="panel-head">
             <div className="panel-title">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-amber-500/80 animate-pulse shrink-0" />
               <span>Recent Activity</span>
             </div>
           </div>
@@ -1260,7 +1259,7 @@ function DashboardContent() {
           {recentActivities.length > 0 ? (
             <div className="space-y-1">
               {recentActivities.map((act) => {
-                const colors = ["#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6"];
+                const colors = ["#a1a1aa"];
                 const randColor = colors[Math.abs(act.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % colors.length];
 
                 return (
@@ -1294,7 +1293,6 @@ function DashboardContent() {
         </div>
       </div>
 
-        <Footer />
 
         <QuickOnboardingModal
           isOpen={showQuickOnboardingModal}

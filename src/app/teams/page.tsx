@@ -112,17 +112,6 @@ function TeamsContent() {
       );
   }, [teams, search, skillFilter, collegeFilter, hackathonFilter, calculateMatchScore]);
 
-  if (loading) {
-    return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--primary-500)] to-[var(--accent-500)] animate-pulse mb-4" />
-          <p className="text-zinc-500">Loading teams...</p>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
       {/* Hero */}
@@ -176,7 +165,7 @@ function TeamsContent() {
         </Link>
       </div>
 
-      {/* Filter Panel */}
+      {/* Filter Bar */}
       <div className="card card-static p-5 mb-8 animate-fade-in-up stagger-2">
         <div className="flex items-center gap-2 mb-3">
           <svg
@@ -228,57 +217,84 @@ function TeamsContent() {
             className="input"
           />
         </div>
-      </div>
 
-      {/* Results Count */}
-      <div className="flex items-center justify-between mb-5 animate-fade-in-up stagger-3">
-        <p className="text-zinc-500 text-xs font-mono uppercase tracking-wider">
-          {filteredTeams.length} team{filteredTeams.length !== 1 ? "s" : ""} found
-        </p>
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/60">
+          <p className="text-zinc-500 text-xs font-mono uppercase tracking-wider">
+            {filteredTeams.length} team{filteredTeams.length !== 1 ? "s" : ""} found
+          </p>
 
-        {(search || skillFilter || collegeFilter || hackathonFilter) && (
-          <button
-            onClick={() => {
-              setSearch("");
-              setSkillFilter("");
-              setCollegeFilter("");
-              setHackathonFilter("");
-            }}
-            className="text-xs text-zinc-500 hover:text-white transition-colors underline underline-offset-2"
-          >
-            Clear filters
-          </button>
-        )}
+          {(search || skillFilter || collegeFilter || hackathonFilter) && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setSkillFilter("");
+                setCollegeFilter("");
+                setHackathonFilter("");
+              }}
+              className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors underline underline-offset-2 cursor-pointer"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Grid */}
-      {filteredTeams.length === 0 ? (
-        <div className="card card-static p-12 text-center animate-fade-in-up">
-          <div className="w-12 h-12 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-5 h-5 text-zinc-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="card p-5 flex flex-col justify-between min-h-[220px] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 animate-pulse shadow-sm"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 027.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435"
-              />
-            </svg>
+              <div>
+                <div className="flex items-start justify-between mb-3.5 gap-3">
+                  <div className="space-y-2 min-w-0">
+                    <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                    <div className="h-3 w-24 bg-zinc-100 dark:bg-zinc-900 rounded" />
+                  </div>
+                  <div className="h-5 w-14 bg-zinc-100 dark:bg-zinc-900 rounded-full" />
+                </div>
+                <div className="space-y-1.5 mb-3.5">
+                  <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900 rounded" />
+                  <div className="h-3 w-2/3 bg-zinc-100 dark:bg-zinc-900 rounded" />
+                </div>
+                <div className="flex gap-1.5 mb-4">
+                  <div className="h-4 w-12 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                  <div className="h-4 w-14 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                </div>
+              </div>
+              <div className="pt-3.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between">
+                <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+              </div>
+            </div>
+          ))
+        ) : filteredTeams.length === 0 ? (
+          <div className="col-span-full card card-static p-12 text-center animate-fade-in-up">
+            <div className="w-12 h-12 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-5 h-5 text-zinc-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 027.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435"
+                />
+              </svg>
+            </div>
+            <h3 className="text-sm font-semibold text-white mb-1.5">
+              No teams found
+            </h3>
+            <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+              Try adjusting your filters or create a new team.
+            </p>
           </div>
-          <h3 className="text-sm font-semibold text-white mb-1.5">
-            No teams found
-          </h3>
-          <p className="text-xs text-zinc-500 max-w-xs mx-auto">
-            Try adjusting your filters or create a new team.
-          </p>
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filteredTeams.map((team, i) => {
+        ) : (
+          filteredTeams.map((team, i) => {
             const matchScore = calculateMatchScore(team.skills || []);
             const currentCount = team.team_members?.length || 0;
             const maxCount = team.max_members || 5;
@@ -391,9 +407,9 @@ function TeamsContent() {
                 </div>
               </Link>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
     </main>
   );
 }

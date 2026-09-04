@@ -11,9 +11,12 @@ import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
 import { getInitials } from "@/lib/utils";
 import NotificationDrawer from "@/components/NotificationDrawer";
+import Footer from "@/components/Footer";
+import { shouldRenderFooter } from "@/lib/layoutConfig";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const showFooter = shouldRenderFooter(pathname);
   const { showToast } = useNotification();
 
   const [unreadCount, setUnreadCount] = useState(0);
@@ -27,11 +30,34 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+          const val = localStorage.getItem(key);
+          if (val && val !== "null") {
+            setHasSession(true);
+            break;
+          }
+        }
+      }
+      if (document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"))) {
+        setHasSession(true);
+      }
+    } catch {}
+  }, []);
+
   const [conversationIds, setConversationIds] = useState<string[]>([]);
 
   async function loadUser(userObj?: import("@supabase/supabase-js").User) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
+    setHasSession(Boolean(activeUser));
     if (activeUser) {
       const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, last_active_date").eq("id", activeUser.id).single();
 
@@ -82,12 +108,27 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     setUnreadMessages(uniqueSenders.size);
   }
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
-    const initialTheme = savedTheme || "dark";
-    Promise.resolve().then(() => { setTheme(initialTheme); });
-    document.documentElement.className = initialTheme;
+const PUBLIC_DARK_ROUTES = [
+  "/",
+  "/login",
+  "/faq",
+  "/terms",
+  "/privacy",
+  "/contact",
+  "/partners",
+  "/onboarding",
+];
 
+function isPublicDarkRoute(path: string | null): boolean {
+  if (!path) return true;
+  if (PUBLIC_DARK_ROUTES.includes(path)) return true;
+  if (path.startsWith("/partners/")) return true;
+  if (path.startsWith("/hackathons/sih")) return true;
+  return false;
+}
+
+  // Listen for streak updates
+  useEffect(() => {
     const handleStreakEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ current_streak: number }>;
       if (customEvent.detail?.current_streak) {
@@ -98,11 +139,60 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("streak-updated", handleStreakEvent);
   }, []);
 
+  // Theme synchronization:
+  // Public and unauthenticated marketing routes always force dark mode (preventing illegible black-on-black styling).
+  // Only authenticated workspace/dashboard routes respect stored theme preferences.
+  useEffect(() => {
+    const isPublic = isPublicDarkRoute(pathname);
+
+    if (isPublic) {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+      return;
+    }
+
+    if (user) {
+      const savedTheme = (localStorage.getItem("theme") as "dark" | "light") || "dark";
+      setTheme(savedTheme);
+      document.documentElement.className = savedTheme;
+    } else {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+    }
+  }, [pathname, user]);
+
   const toggleTheme = () => {
+    // 1. Inject transient style tag to disable all transitions across the DOM during theme swap
+    const css = document.createElement("style");
+    css.id = "disable-theme-transitions";
+    css.appendChild(
+      document.createTextNode(
+        `*, *::before, *::after {
+          -webkit-transition: none !important;
+          -moz-transition: none !important;
+          -o-transition: none !important;
+          -ms-transition: none !important;
+          transition: none !important;
+        }`
+      )
+    );
+    document.head.appendChild(css);
+
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
     localStorage.setItem("theme", nextTheme);
     document.documentElement.className = nextTheme;
+
+    // Force synchronous style calculation to apply theme classes instantly without transition lag
+    window.getComputedStyle(document.documentElement).opacity;
+
+    // Re-enable transitions on the next animation frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById("disable-theme-transitions");
+        if (el) el.remove();
+      });
+    });
   };
 
   useEffect(() => {
@@ -197,11 +287,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   async function executeLogout() {
     setShowSignOutConfirm(false);
+    localStorage.removeItem("theme");
+    document.documentElement.className = "dark";
+    setTheme("dark");
+    setUser(null);
+    setHasSession(false);
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  if (pathname === "/" || pathname === "/login") {
+  if (pathname === "/login" || pathname === "/onboarding") {
     return (
       <>
         {children}
@@ -210,36 +305,66 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isWorkspaceLayout = Boolean(user && pathname !== "/" && pathname !== "/onboarding");
+  // Routes that are strictly workspace pages — should NEVER flash the public marketing header
+  const isAlwaysWorkspaceRoute = Boolean(
+    pathname && (
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname.startsWith("/connections") ||
+      pathname.startsWith("/messages") ||
+      pathname.startsWith("/my-teams") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/notifications") ||
+      pathname.startsWith("/invites") ||
+      pathname.startsWith("/profile") ||
+      pathname === "/teams/create"
+    )
+  );
+
+  const isWorkspaceLayout = Boolean(
+    pathname !== "/" &&
+    (isAlwaysWorkspaceRoute || user || hasSession)
+  );
 
   if (!isWorkspaceLayout) {
+    const isLoggedIn = Boolean(mounted && (user || hasSession));
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
-          <div className="bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800/80">
+          <div className="bg-[#080808]/80 backdrop-blur-md border-b border-white/[0.08]">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-              <Link href={user ? "/dashboard" : "/"} className="flex items-center">
-                <Logo className="h-8 w-auto" />
+              <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center">
+                <Logo className="h-7 w-auto" />
               </Link>
-              {user ? (
+              {isLoggedIn ? (
                 <div className="flex items-center gap-4">
-                  <Link href="/dashboard" className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors font-medium">Dashboard</Link>
-                  <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                  <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors font-medium">Dashboard</Link>
+                  <button onClick={handleLogout} className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">Sign Out</button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <Link
                     href="/login"
-                    className="px-4 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 font-semibold text-xs transition-all shadow-sm cursor-pointer"
+                    className="text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
                   >
                     Sign In
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="px-4 py-1.5 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-xs transition-all duration-200 shadow-[0_0_16px_rgba(180,244,97,0.22)] hover:shadow-[0_0_24px_rgba(180,244,97,0.48)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    Find Teammates
                   </Link>
                 </div>
               )}
             </div>
           </div>
         </header>
-        <div className="pt-14 min-h-screen bg-[var(--background)]">{children}</div>
+        <div className="pt-14 min-h-screen bg-[var(--background)] flex flex-col">
+          <div className="flex-1">{children}</div>
+          {showFooter && <Footer />}
+        </div>
         {showSignOutConfirm && <SignOutConfirmModal />}
       </>
     );
@@ -281,13 +406,6 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       activeBg: "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/10 dark:border-rose-500/20",
       activeBar: "bg-rose-600 dark:bg-rose-500",
       icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
-    },
-    {
-      href: "/evaluator", label: "AI Evaluator",
-      color: "text-lime-500 dark:text-lime-400",
-      activeBg: "bg-lime-500/5 dark:bg-lime-500/10 border-lime-500/10 dark:border-lime-500/20",
-      activeBar: "bg-lime-500 dark:bg-lime-400",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" /></svg>)
     },
     {
       href: "/leaderboard", label: "Leaderboard",
@@ -491,7 +609,10 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset">{children}</div>
+        <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset flex flex-col min-h-0">
+          <div className="flex-1">{children}</div>
+          {showFooter && <Footer />}
+        </div>
       </div>
 
       {showMobileSidebar && (

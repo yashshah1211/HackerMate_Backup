@@ -72,6 +72,22 @@ function MessagesContent() {
   useEffect(() => {
     if (!currentUserId) return;
 
+    let lastRan = 0;
+    let timer: NodeJS.Timeout | null = null;
+    const throttledRefresh = () => {
+      const now = Date.now();
+      if (now - lastRan >= 600) {
+        lastRan = now;
+        loadConversations(currentUserId);
+      } else {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          lastRan = Date.now();
+          loadConversations(currentUserId);
+        }, 600 - (now - lastRan));
+      }
+    };
+
     const participantChannel = supabase
       .channel(`participants-list:${currentUserId}`)
       .on(
@@ -83,19 +99,36 @@ function MessagesContent() {
           filter: `user_id=eq.${currentUserId}`,
         },
         () => {
-          loadConversations(currentUserId);
+          throttledRefresh();
         }
       );
 
     const unsubscribe = subscribeWithRetry(participantChannel);
 
     return () => {
+      if (timer) clearTimeout(timer);
       unsubscribe();
     };
   }, [currentUserId]);
 
   useEffect(() => {
     if (!currentUserId || !conversationIds.length) return;
+
+    let lastRan = 0;
+    let timer: NodeJS.Timeout | null = null;
+    const throttledRefresh = () => {
+      const now = Date.now();
+      if (now - lastRan >= 600) {
+        lastRan = now;
+        loadConversations(currentUserId);
+      } else {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          lastRan = Date.now();
+          loadConversations(currentUserId);
+        }, 600 - (now - lastRan));
+      }
+    };
 
     const unsubs = conversationIds.map((id) => {
       const channel = supabase
@@ -109,13 +142,14 @@ function MessagesContent() {
             filter: `conversation_id=eq.${id}`,
           },
           () => {
-            loadConversations(currentUserId);
+            throttledRefresh();
           }
         );
       return subscribeWithRetry(channel);
     });
 
     return () => {
+      if (timer) clearTimeout(timer);
       unsubs.forEach((unsub) => unsub());
     };
   }, [conversationIds, currentUserId]);
@@ -141,6 +175,74 @@ function MessagesContent() {
   }
 
   async function loadConversations(myId: string) {
+    // 1. Try optimized single-query RPC (replaces 30+ sequential queries)
+    const { data: rpcData, error: rpcError } = await supabase.rpc("get_my_dm_conversations");
+
+    if (!rpcError && rpcData) {
+      const dmRows = rpcData as Array<{
+        conversation_id: string;
+        other_user_id: string;
+        last_message: string | null;
+        last_message_at: string | null;
+        unread_count: number;
+      }>;
+
+      const convIds = dmRows.map((r) => r.conversation_id);
+      setConversationIds(convIds);
+
+      if (dmRows.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      const otherUserIds = Array.from(new Set(dmRows.map((r) => r.other_user_id)));
+      const { data: profileList, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, college")
+        .in("id", otherUserIds);
+
+      if (profileError) {
+        console.error("Error fetching DM profiles:", profileError);
+      }
+
+      const profileMap = new Map<string, Profile>();
+      (profileList || []).forEach((p) => profileMap.set(p.id, p));
+
+      const results: DMConversation[] = [];
+      for (const row of dmRows) {
+        const otherProfile = profileMap.get(row.other_user_id);
+        if (!otherProfile) continue;
+
+        results.push({
+          conversationId: row.conversation_id,
+          otherUser: otherProfile,
+          lastMessage: row.last_message,
+          lastMessageAt: row.last_message_at,
+          unreadCount: Number(row.unread_count) || 0,
+        });
+      }
+
+      results.sort((a, b) => {
+        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+        return bTime - aTime;
+      });
+
+      setConversations(results);
+
+      if (results.length > 0 && !activeConversationId && !targetUserId) {
+        setActiveConversationId(results[0].conversationId);
+        setActiveUser(results[0].otherUser);
+        markConversationRead(results[0].conversationId);
+      }
+      return;
+    }
+
+    if (rpcError) {
+      console.warn("get_my_dm_conversations RPC fallback:", rpcError);
+    }
+
+    // 2. Fallback: sequential query path
     const { data: myParticipations, error: partError } = await supabase
       .from("conversation_participants")
       .select("conversation_id, cleared_at")
