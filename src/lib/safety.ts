@@ -38,7 +38,7 @@ const allowedDomains = [
   "discord.gg", "discord.com", "whatsapp.com", "slack.com",
   "zoom.us", "meet.google.com", "google.com",
   "linkedin.com", "x.com", "twitter.com", "unstop.com", "devpost.com",
-  "hackermate.in", "localhost"
+  "hackermate.in", "localhost", "r2.dev", "cloudflare.com", "cloudflarestorage.com", "supabase.co"
 ];
 
 // Matches standard URL formats
@@ -59,6 +59,15 @@ export function moderateMessage(text: string): { isValid: boolean; sanitized: st
   }
 
   const rawText = text.trim();
+
+  // Structured system attachments (images, voice notes, team invites) are pre-validated
+  if (
+    rawText.startsWith("__IMAGE__::") ||
+    rawText.startsWith("__VOICE__::") ||
+    rawText.startsWith("__TEAM_INVITE__::")
+  ) {
+    return { isValid: true, sanitized: rawText };
+  }
 
   // 1. Character Limit & Flood Control
   if (rawText.length > 5000) {

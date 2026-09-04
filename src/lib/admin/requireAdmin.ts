@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
 
 export interface AdminAuthResult {
@@ -8,7 +9,7 @@ export interface AdminAuthResult {
 }
 
 export async function requireAdmin(
-  req: NextRequest
+  req?: NextRequest
 ): Promise<AdminAuthResult | NextResponse> {
   const authHeader = req.headers.get("Authorization");
   let token: string | undefined;

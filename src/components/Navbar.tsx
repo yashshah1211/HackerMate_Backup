@@ -6,31 +6,72 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import DailyStreakTracker from "@/components/DailyStreakTracker";
 import { useNotification } from "@/context/NotificationContext";
 import Logo from "@/components/Logo";
+import { getInitials } from "@/lib/utils";
+import NotificationDrawer from "@/components/NotificationDrawer";
+import Footer from "@/components/Footer";
+import { shouldRenderFooter } from "@/lib/layoutConfig";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const showFooter = shouldRenderFooter(pathname);
   const { showToast } = useNotification();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [user, setUser] = useState<import("@supabase/supabase-js").User | null>(null);
   const [profile, setProfile] = useState<{ full_name: string | null; role?: string | null } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+
+  const [mounted, setMounted] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+          const val = localStorage.getItem(key);
+          if (val && val !== "null") {
+            setHasSession(true);
+            break;
+          }
+        }
+      }
+      if (document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"))) {
+        setHasSession(true);
+      }
+    } catch {}
+  }, []);
 
   const [conversationIds, setConversationIds] = useState<string[]>([]);
 
   async function loadUser(userObj?: import("@supabase/supabase-js").User) {
     const activeUser = userObj || (await supabase.auth.getUser()).data.user;
     setUser(activeUser);
+    setHasSession(Boolean(activeUser));
     if (activeUser) {
-      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record").eq("id", activeUser.id).single();
+      const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, last_active_date").eq("id", activeUser.id).single();
 
       setProfile(data);
+      if (data?.current_streak) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        const isActive = data.last_active_date === todayStr || data.last_active_date === yesterdayStr;
+        setCurrentStreak(isActive ? data.current_streak : 0);
+      } else {
+        setCurrentStreak(0);
+      }
       // Immediately set user active status
       await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", activeUser.id);
     }
@@ -67,18 +108,91 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     setUnreadMessages(uniqueSenders.size);
   }
 
+const PUBLIC_DARK_ROUTES = [
+  "/",
+  "/login",
+  "/faq",
+  "/terms",
+  "/privacy",
+  "/contact",
+  "/partners",
+  "/onboarding",
+];
+
+function isPublicDarkRoute(path: string | null): boolean {
+  if (!path) return true;
+  if (PUBLIC_DARK_ROUTES.includes(path)) return true;
+  if (path.startsWith("/partners/")) return true;
+  if (path.startsWith("/hackathons/sih")) return true;
+  return false;
+}
+
+  // Listen for streak updates
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
-    const initialTheme = savedTheme || "dark";
-    Promise.resolve().then(() => { setTheme(initialTheme); });
-    document.documentElement.className = initialTheme;
+    const handleStreakEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ current_streak: number }>;
+      if (customEvent.detail?.current_streak) {
+        setCurrentStreak(customEvent.detail.current_streak);
+      }
+    };
+    window.addEventListener("streak-updated", handleStreakEvent);
+    return () => window.removeEventListener("streak-updated", handleStreakEvent);
   }, []);
 
+  // Theme synchronization:
+  // Public and unauthenticated marketing routes always force dark mode (preventing illegible black-on-black styling).
+  // Only authenticated workspace/dashboard routes respect stored theme preferences.
+  useEffect(() => {
+    const isPublic = isPublicDarkRoute(pathname);
+
+    if (isPublic) {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+      return;
+    }
+
+    if (user) {
+      const savedTheme = (localStorage.getItem("theme") as "dark" | "light") || "dark";
+      setTheme(savedTheme);
+      document.documentElement.className = savedTheme;
+    } else {
+      setTheme("dark");
+      document.documentElement.className = "dark";
+    }
+  }, [pathname, user]);
+
   const toggleTheme = () => {
+    // 1. Inject transient style tag to disable all transitions across the DOM during theme swap
+    const css = document.createElement("style");
+    css.id = "disable-theme-transitions";
+    css.appendChild(
+      document.createTextNode(
+        `*, *::before, *::after {
+          -webkit-transition: none !important;
+          -moz-transition: none !important;
+          -o-transition: none !important;
+          -ms-transition: none !important;
+          transition: none !important;
+        }`
+      )
+    );
+    document.head.appendChild(css);
+
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
     localStorage.setItem("theme", nextTheme);
     document.documentElement.className = nextTheme;
+
+    // Force synchronous style calculation to apply theme classes instantly without transition lag
+    window.getComputedStyle(document.documentElement).opacity;
+
+    // Re-enable transitions on the next animation frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById("disable-theme-transitions");
+        if (el) el.remove();
+      });
+    });
   };
 
   useEffect(() => {
@@ -91,7 +205,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       const { data: { user: sessionUser } } = await supabase.auth.getUser();
       if (!sessionUser) return;
       if (!active) return;
-      
+
       await loadUser(sessionUser);
       await loadUnreadCount(sessionUser.id);
       await loadUnreadMessages(sessionUser.id);
@@ -173,31 +287,84 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   async function executeLogout() {
     setShowSignOutConfirm(false);
+    localStorage.removeItem("theme");
+    document.documentElement.className = "dark";
+    setTheme("dark");
+    setUser(null);
+    setHasSession(false);
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  const isWorkspaceLayout = user && pathname !== "/" && pathname !== "/onboarding";
+  if (pathname === "/login" || pathname === "/onboarding") {
+    return (
+      <>
+        {children}
+        {showSignOutConfirm && <SignOutConfirmModal />}
+      </>
+    );
+  }
+
+  // Routes that are strictly workspace pages — should NEVER flash the public marketing header
+  const isAlwaysWorkspaceRoute = Boolean(
+    pathname && (
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname.startsWith("/connections") ||
+      pathname.startsWith("/messages") ||
+      pathname.startsWith("/my-teams") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/notifications") ||
+      pathname.startsWith("/invites") ||
+      pathname.startsWith("/profile") ||
+      pathname === "/teams/create"
+    )
+  );
+
+  const isWorkspaceLayout = Boolean(
+    pathname !== "/" &&
+    (isAlwaysWorkspaceRoute || user || hasSession)
+  );
 
   if (!isWorkspaceLayout) {
+    const isLoggedIn = Boolean(mounted && (user || hasSession));
     return (
       <>
         <header className="fixed top-0 left-0 right-0 z-50">
-          <div className="bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80">
+          <div className="bg-[#080808]/80 backdrop-blur-md border-b border-white/[0.08]">
             <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-              <Link href={user ? "/dashboard" : "/"} className="flex items-center">
-                <Logo className="h-8 w-auto" />
+              <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center">
+                <Logo className="h-7 w-auto" />
               </Link>
-              {user && (
+              {isLoggedIn ? (
                 <div className="flex items-center gap-4">
-                  <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors">Dashboard</Link>
-                  <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-white transition-colors">Sign Out</button>
+                  <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-white transition-colors font-medium">Dashboard</Link>
+                  <button onClick={handleLogout} className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/login"
+                    className="text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="px-4 py-1.5 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-xs transition-all duration-200 shadow-[0_0_16px_rgba(180,244,97,0.22)] hover:shadow-[0_0_24px_rgba(180,244,97,0.48)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    Find Teammates
+                  </Link>
                 </div>
               )}
             </div>
           </div>
         </header>
-        <div className="pt-14 min-h-screen bg-[var(--background)]">{children}</div>
+        <div className="pt-14 min-h-screen bg-[var(--background)] flex flex-col">
+          <div className="flex-1">{children}</div>
+          {showFooter && <Footer />}
+        </div>
         {showSignOutConfirm && <SignOutConfirmModal />}
       </>
     );
@@ -256,9 +423,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     }
   ];
 
-  const userInitials = profile?.full_name
-    ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "YS";
+  const userInitials = getInitials(profile?.full_name);
 
   const avatarGradients = [
     "from-violet-500 to-indigo-600",
@@ -281,6 +446,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="layout-root flex h-screen overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200 dashboard-redesign">
+      <DailyStreakTracker />
 
       {/* Sidebar */}
       <aside
@@ -374,9 +540,9 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           {profileDropdownOpen && (
             <div className="absolute bottom-16 left-0 right-0 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] shadow-2xl overflow-hidden z-50">
               <div className="p-1">
-                <Link href="/profile/edit" onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.219-.044-7.499-.12a.75.75 0 01-.5-.18z" /></svg>
-                  Edit Profile
+                <Link href="/settings" onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Settings
                 </Link>
                 <Link href={`/profile/${user?.id}`} onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -403,7 +569,19 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {/* Daily Flame Streak Indicator in Navbar */}
+            {currentStreak > 0 && (
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold transition-all shadow-xs"
+                title={`${currentStreak} Day Visit Streak! Keep visiting daily.`}
+              >
+                <span className="text-sm leading-none">🔥</span>
+                <span className="font-mono text-xs">{currentStreak}</span>
+              </Link>
+            )}
+
             <button onClick={toggleTheme} className="w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--card-border)] hover:bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
               {theme === "dark" ? (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
@@ -411,25 +589,43 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
               )}
             </button>
-            <Link href="/notifications" className="relative w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--card-border)] hover:bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+            <button
+              onClick={() => setShowNotificationDrawer(true)}
+              className="relative w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--card-border)] hover:bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              aria-label="Open notifications drawer"
+              title="Notifications"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-violet-500 text-white text-[8px] font-bold flex items-center justify-center border border-[var(--background)]">{unreadCount}</span>
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#B4F461] text-zinc-950 text-[8px] font-extrabold flex items-center justify-center border border-[var(--background)] shadow-xs">
+                  {unreadCount}
+                </span>
               )}
-            </Link>
-            <Link href={`/profile/${user.id}`} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
+            </button>
+            <Link href={user ? `/profile/${user.id}` : "/dashboard"} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
               {userInitials}
             </Link>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset">{children}</div>
+        <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset flex flex-col min-h-0">
+          <div className="flex-1">{children}</div>
+          {showFooter && <Footer />}
+        </div>
       </div>
 
       {showMobileSidebar && (
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setShowMobileSidebar(false)} />
       )}
 
-      {pathname !== "/hackathons/create" && <FeedbackWidget />}
+      <NotificationDrawer
+        isOpen={showNotificationDrawer}
+        onClose={() => setShowNotificationDrawer(false)}
+        onCountChange={setUnreadCount}
+      />
+
+      {pathname !== "/hackathons/create" && !pathname?.startsWith("/messages") && <FeedbackWidget />}
       {showSignOutConfirm && <SignOutConfirmModal />}
     </div>
   );

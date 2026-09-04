@@ -19,6 +19,7 @@ import BuilderPassportModal from "@/components/BuilderPassportModal";
 
 
 import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
+import { getInitials } from "@/lib/utils";
 
 type Profile = {
   id: string;
@@ -50,6 +51,10 @@ type Profile = {
   hackathon_participations?: number;
   has_won_hackathon?: boolean;
   hackathon_wins?: number;
+  current_streak?: number;
+  longest_streak?: number;
+  last_active_date?: string | null;
+  show_track_record?: boolean;
 };
 
 type ConnectionState =
@@ -186,7 +191,7 @@ export default function ProfilePage() {
     if (error) {
       const { data: fbData } = await supabase
         .from("profiles")
-        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak, last_active_date")
         .eq("id", id)
         .single();
       data = fbData as any;
@@ -214,20 +219,17 @@ export default function ProfilePage() {
       })
       .catch((err) => console.warn("Track record data not available:", err));
 
-      // Load statistics (connections count and teams count for this user id)
+      // Load statistics (connections count and teams count for this user id) via secure RPC
+      const { data: statsData, error: statsErr } = await supabase.rpc("get_builder_public_stats", {
+        p_user_id: data.id,
+      });
 
-      const { count: connCount } = await supabase
-        .from("friend_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "accepted")
-        .or(`sender_id.eq.${data.id},receiver_id.eq.${data.id}`);
-      setConnectionsCount(connCount || 0);
-
-      const { count: tCount } = await supabase
-        .from("team_members")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", data.id);
-      setTeamsCount(tCount || 0);
+      if (statsErr) {
+        console.error("Failed to load builder public stats:", statsErr);
+      } else if (statsData) {
+        setConnectionsCount(statsData.connections_count || 0);
+        setTeamsCount(statsData.teams_count || 0);
+      }
 
       const { data: badgesData } = await supabase
         .from("user_badges")
@@ -322,12 +324,13 @@ export default function ProfilePage() {
         topPitchScore: 88,
       });
 
-      if (typeof window !== "undefined") {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("passport") === "true") {
-          setShowPassportModal(true);
-        }
-      }
+      // Disabled pending feature review
+      // if (typeof window !== "undefined") {
+      //   const urlParams = new URLSearchParams(window.location.search);
+      //   if (urlParams.get("passport") === "true") {
+      //     setShowPassportModal(true);
+      //   }
+      // }
     } catch (statErr) {
       console.warn("[Profile Passport Stats] Load warning:", statErr);
     }
@@ -708,7 +711,7 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="w-full h-full rounded-xl bg-gradient-to-br from-indigo-900/30 to-purple-900/30 flex items-center justify-center font-bold text-white text-3xl font-sans">
-                      {profile.full_name?.charAt(0)}
+                      {getInitials(profile.full_name, 1)}
                     </div>
                   )}
                 </div>
@@ -737,6 +740,29 @@ export default function ProfilePage() {
 
                 {/* Status Badges */}
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-3.5">
+                  {/* Daily Visit Flame Streak Badge */}
+                  {(() => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().split("T")[0];
+                    const isStreakActive =
+                      (profile.last_active_date === todayStr || profile.last_active_date === yesterdayStr) &&
+                      (profile.current_streak || 0) > 0;
+
+                    if (!isStreakActive) return null;
+
+                    return (
+                      <span
+                        className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1 font-bold shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none"
+                        title={`Longest streak: ${profile.longest_streak || profile.current_streak} days`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        🔥 {profile.current_streak} Day Streak
+                      </span>
+                    );
+                  })()}
+
                   {/* Academic Year Badge */}
                   <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-cyan-500/10 text-cyan-300 border-cyan-500/30 flex items-center gap-1 font-semibold">
                     🎓 {profile.year_of_study || "2nd Year"}
@@ -807,13 +833,13 @@ export default function ProfilePage() {
               {/* Action Buttons Menu */}
               {!isBlockedByMe && (
                 <div className="space-y-2 mt-6">
-                  {/* Builder Passport Trigger Button */}
-                  <button
+                  {/* Builder Passport Trigger Button (Disabled pending review) */}
+                  {/* <button
                     onClick={() => setShowPassportModal(true)}
                     className="btn btn-secondary w-full py-2.5 text-xs flex items-center justify-center gap-2 border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-all font-semibold cursor-pointer shadow-xs mb-2"
                   >
                     <span>📇 View Builder Passport</span>
-                  </button>
+                  </button> */}
 
                   {isOwnProfile ? (
                     <>
@@ -1193,83 +1219,117 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Builder Track Record Section */}
-                {trackRecordData && (
-                  <div className="animate-fade-in-up stagger-3">
-                    <BuilderTrackRecord data={trackRecordData} isOwner={isOwnProfile} />
+                {/* Private Track Record Notice for Owner or Visitors */}
+                {profile.show_track_record === false && isOwnProfile && (
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in-up stagger-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base leading-none">🔒</span>
+                      <div>
+                        <h5 className="font-bold text-amber-700 dark:text-amber-300">Public Track Record is Disabled</h5>
+                        <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                          Your hackathon history, submissions, and badges are private. External visitors only see your basic info and skills.
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/settings?tab=privacy"
+                      className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 font-semibold text-xs transition-colors shrink-0 whitespace-nowrap"
+                    >
+                      Settings →
+                    </Link>
                   </div>
                 )}
 
-                {/* Verified Badges & Achievements Section */}
-
-                <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold">🏆</span>
-                      <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Verified Badges & Achievements</p>
+                {profile.show_track_record === false && !isOwnProfile ? (
+                  <div className="p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 text-center space-y-3 shadow-xs animate-fade-in-up stagger-3">
+                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-xl">
+                      🔒
                     </div>
-                    {userBadges.length > 0 && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                        {userBadges.length} Verified
-                      </span>
-                    )}
+                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white">Private Track Record</h4>
+                    <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
+                      This builder has chosen to keep their hackathon track record and verified achievements private.
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    {/* Builder Track Record Section */}
+                    {trackRecordData && (
+                      <div className="animate-fade-in-up stagger-3">
+                        <BuilderTrackRecord data={trackRecordData} isOwner={isOwnProfile} />
+                      </div>
+                    )}
 
-                  {userBadges.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {userBadges.map((badge) => (
-                        <div
-                          key={badge.id}
-                          className="p-4 rounded-xl bg-gradient-to-br from-blue-950/20 via-zinc-950 to-indigo-950/20 border border-blue-500/30 hover:border-blue-400 transition-all flex flex-col justify-between group shadow-lg"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <span className="text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">
-                                {badge.rank_title || "Verified Winner"}
-                              </span>
-                              <span className="text-[9px] text-zinc-500 font-mono">
-                                {badge.issuer_name || "HackerMate × Axcentra"}
-                              </span>
-                            </div>
-                            <h4 className="text-sm font-bold text-white group-hover:text-[#B4F461] transition-colors">
-                              {badge.badge_name}
-                            </h4>
-                            <p className="text-[11px] text-zinc-400 mt-1">
-                              Official partner achievement verified by {badge.issuer_name || "HackerMate × Axcentra"}.
-                            </p>
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                            <span className="text-[9px] text-zinc-500 font-mono">
-                              Issued {new Date(badge.issued_at).toLocaleDateString()}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setSelectedBadgeForShare(badge)}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-[#B4F461]/10 text-[#B4F461] hover:bg-[#B4F461]/20 border border-[#B4F461]/30 transition cursor-pointer"
-                              >
-                                <span>🏆 Flex</span>
-                              </button>
-                              <button
-                                onClick={() => setSelectedBadgeForCert(badge)}
-                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
-                              >
-                                <span>View Certificate</span>
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
+                    {/* Verified Badges & Achievements Section */}
+                    <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-400 font-bold">🏆</span>
+                          <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Verified Badges & Achievements</p>
                         </div>
-                      ))}
+                        {userBadges.length > 0 && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            {userBadges.length} Verified
+                          </span>
+                        )}
+                      </div>
+
+                      {userBadges.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {userBadges.map((badge) => (
+                            <div
+                              key={badge.id}
+                              className="p-4 rounded-xl bg-gradient-to-br from-blue-950/20 via-zinc-950 to-indigo-950/20 border border-blue-500/30 hover:border-blue-400 transition-all flex flex-col justify-between group shadow-lg"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <span className="text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">
+                                    {badge.rank_title || "Verified Winner"}
+                                  </span>
+                                  <span className="text-[9px] text-zinc-500 font-mono">
+                                    {badge.issuer_name || "HackerMate Partner Network"}
+                                  </span>
+                                </div>
+                                <h4 className="text-sm font-bold text-white group-hover:text-[#B4F461] transition-colors">
+                                  {badge.badge_name}
+                                </h4>
+                                <p className="text-[11px] text-zinc-400 mt-1">
+                                  Official partner achievement verified by {badge.issuer_name || "HackerMate Partner Network"}.
+                                </p>
+                              </div>
+
+                              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                                <span className="text-[9px] text-zinc-500 font-mono">
+                                  Issued {new Date(badge.issued_at).toLocaleDateString()}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setSelectedBadgeForShare(badge)}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-[#B4F461]/10 text-[#B4F461] hover:bg-[#B4F461]/20 border border-[#B4F461]/30 transition cursor-pointer"
+                                  >
+                                    <span>🏆 Flex</span>
+                                  </button>
+                                  <button
+                                    onClick={() => setSelectedBadgeForCert(badge)}
+                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                                  >
+                                    <span>View Certificate</span>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center w-full py-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20 text-zinc-500 text-xs">
+                          No verified partner badges earned yet. Participating in partner hackathons awards official badges & certificates!
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-center w-full py-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20 text-zinc-500 text-xs">
-                      No verified partner badges earned yet. Participating in partner hackathons awards official badges & certificates!
-                    </div>
-                  )}
-                </div>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1404,12 +1464,12 @@ export default function ProfilePage() {
         title={`Flex Achievement — ${selectedBadgeForShare?.badge_name || ""}`}
         subtitle="Showcase your verified achievement on LinkedIn, X, WhatsApp, or Telegram"
         shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/profile/${profile?.id}`}
-        shareText={`🏆 Proud to share my verified achievement '${selectedBadgeForShare?.badge_name}' (${selectedBadgeForShare?.rank_title || "Verified Winner"}) verified by ${selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra"}! Check out my profile & certificate:`}
+        shareText={`🏆 Proud to share my verified achievement '${selectedBadgeForShare?.badge_name}' (${selectedBadgeForShare?.rank_title || "Verified Winner"}) verified by ${selectedBadgeForShare?.issuer_name || "HackerMate Partner Network"}! Check out my profile & certificate:`}
         type="badge"
         metadata={{
           badgeTitle: selectedBadgeForShare?.badge_name,
           rankTitle: selectedBadgeForShare?.rank_title || "Verified Winner",
-          issuerName: selectedBadgeForShare?.issuer_name || "HackerMate × Axcentra",
+          issuerName: selectedBadgeForShare?.issuer_name || "HackerMate Partner Network",
         }}
       />
 
@@ -1465,15 +1525,15 @@ export default function ProfilePage() {
           }}
         />
       )}
-      {/* Builder Passport Modal */}
-      {profile && (
+      {/* Builder Passport Modal (Disabled pending review) */}
+      {/* {profile && (
         <BuilderPassportModal
           isOpen={showPassportModal}
           onClose={() => setShowPassportModal(false)}
           profile={profile}
           stats={passportStats}
         />
-      )}
+      )} */}
     </main>
   );
 }

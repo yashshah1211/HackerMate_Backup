@@ -69,8 +69,13 @@ async function runSmokeTests() {
   const forbiddenFiles = [];
 
   for (const filePath of allSrcFiles) {
-    // Exclude admin API endpoints that explicitly use service role key with authorization checks
-    if (filePath.includes(path.join("api", "admin")) || filePath.includes(path.join("api", "send-email"))) {
+    // Exclude admin API endpoints and server modules that explicitly use service role key with authorization checks
+    if (
+      filePath.includes(path.join("api", "admin")) ||
+      filePath.includes(path.join("api", "cron")) ||
+      filePath.includes(path.join("lib", "admin")) ||
+      filePath.includes(path.join("api", "send-email"))
+    ) {
       continue;
     }
 
@@ -211,6 +216,38 @@ async function runSmokeTests() {
     }
   } catch (err) {
     results.push({ page: "/hackathons/sih", status: "FAIL ❌", details: err.message });
+  }
+
+  // Certificate Verification Query (/api/certificates/verify/[id])
+  try {
+    const { data: badgeData, error: badgeErr } = await client
+      .from("user_badges")
+      .select("id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name, college), hackathons:hackathon_id(name)")
+      .limit(3);
+
+    if (badgeErr) {
+      results.push({ page: "Certificates Query", status: "FAIL ❌", details: badgeErr.message });
+    } else {
+      results.push({ page: "Certificates Query", status: "PASS ✅", details: `Verified query schema on ${badgeData?.length || 0} badges` });
+    }
+  } catch (err) {
+    results.push({ page: "Certificates Query", status: "FAIL ❌", details: err.message });
+  }
+
+  // Team PPT Evaluations Rate Query (/api/teams/[id]/ppt-evaluate)
+  try {
+    const { data: evalData, error: evalErr } = await client
+      .from("team_ppt_evaluations")
+      .select("id, status, created_at")
+      .limit(1);
+
+    if (evalErr) {
+      results.push({ page: "PPT Evaluations", status: "FAIL ❌", details: evalErr.message });
+    } else {
+      results.push({ page: "PPT Evaluations", status: "PASS ✅", details: `Evaluations query schema verified` });
+    }
+  } catch (err) {
+    results.push({ page: "PPT Evaluations", status: "FAIL ❌", details: err.message });
   }
 
   // ── PRINT SUMMARY ──

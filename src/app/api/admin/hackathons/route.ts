@@ -1,68 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-
-async function checkIsUserAdmin(user: any, supabaseAdmin: any): Promise<boolean> {
-  if (!user) return false;
-  const email = user.email?.toLowerCase() || "";
-  if (
-    email === "yashshah7117@gmail.com" ||
-    email.includes("admin")
-  ) {
-    return true;
-  }
-  try {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("is_admin, role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile && (profile.is_admin || profile.role === "admin")) {
-      return true;
-    }
-  } catch (err) {
-    console.error("[Admin Check Error]:", err);
-  }
-  return false;
-}
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const isAdmin = await checkIsUserAdmin(user, supabaseAdmin);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });
-    }
+    const { supabaseAdmin } = authResult;
 
     // Fetch only native & partner hackathons explicitly hosted on HackerMate
     const { data: hackathons, error } = await supabaseAdmin
@@ -100,39 +46,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const isAdmin = await checkIsUserAdmin(user, supabaseAdmin);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden: Admin access required." }, { status: 403 });
-    }
+    const { user, supabaseAdmin } = authResult;
 
     const body = await req.json();
     const { hackathonId, action } = body; // action: 'approve' | 'reject' | 'delete'

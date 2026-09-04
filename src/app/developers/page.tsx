@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import MatchReasoningBadge from "@/components/MatchReasoningBadge";
+import { getInitials } from "@/lib/utils";
 
 type Profile = {
   id: string;
@@ -291,61 +292,45 @@ function DevelopersContent() {
     })
     .sort((a, b) => calculateCompatibility(b) - calculateCompatibility(a));
 
-  if (loading) {
-    return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading builders...</p>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
       {/* Hero */}
       <section className="mb-10 animate-fade-in-up">
         <p className="section-label">BUILDER NETWORK</p>
+
         <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">
-          Discover developers
+          Discover Builders
         </h1>
+
         <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
-          Find teammates, collaborators, and future co-founders for your next hackathon project.
+          Connect with developers, designers, and hackathon contenders. Find teammates matching your skill stack and campus.
         </p>
       </section>
 
-
-      {/* Search & College Filter bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-2xl mb-8 animate-fade-in-up stagger-1">
-        {/* Text search */}
+      {/* Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8 animate-fade-in-up stagger-1">
+        {/* Search Input */}
         <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Search by name or skill..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input !pl-10 text-xs w-full"
-          />
           <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+            className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={1.5}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.65 5.65a7.5 7.5 0 0011 11z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
           </svg>
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
+          <input
+            type="text"
+            placeholder="Search by name, skill, or college..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input text-xs pl-10 w-full"
+          />
         </div>
 
         {/* College Filter Select */}
@@ -355,7 +340,7 @@ function DevelopersContent() {
             onChange={(e) => setCollegeFilter(e.target.value)}
             className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
           >
-            <option value="">🏫 All Colleges ({developers.length})</option>
+            <option value="">🏛️ All Colleges</option>
             {uniqueColleges.map(({ displayName, count }) => (
               <option key={displayName} value={displayName}>
                 {displayName.length > 32 ? displayName.substring(0, 30) + "..." : displayName} ({count})
@@ -393,7 +378,7 @@ function DevelopersContent() {
               setCollegeFilter("");
               setYearFilter("");
             }}
-            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-400 hover:text-white cursor-pointer"
+            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white cursor-pointer"
           >
             <span>Clear Filters</span>
           </button>
@@ -401,53 +386,89 @@ function DevelopersContent() {
       </div>
 
       {/* Developers Grid */}
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredDevelopers.length > 0 ? (
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="card p-5 flex flex-col justify-between min-h-[240px] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 animate-pulse shadow-sm"
+            >
+              <div>
+                <div className="flex items-start justify-between mb-3.5 gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-zinc-200 dark:bg-zinc-800/80 shrink-0" />
+                    <div className="space-y-2 min-w-0">
+                      <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                      <div className="h-3 w-20 bg-zinc-100 dark:bg-zinc-900 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-5 w-16 bg-zinc-100 dark:bg-zinc-900 rounded-full" />
+                </div>
+                <div className="space-y-1.5 mb-3.5">
+                  <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900 rounded" />
+                  <div className="h-3 w-3/4 bg-zinc-100 dark:bg-zinc-900 rounded" />
+                </div>
+                <div className="flex gap-1.5 mb-4">
+                  <div className="h-4 w-12 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                  <div className="h-4 w-14 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                  <div className="h-4 w-10 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                </div>
+              </div>
+              <div className="pt-3.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between">
+                <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+              </div>
+            </div>
+          ))
+        ) : filteredDevelopers.length > 0 ? (
           filteredDevelopers.map((dev) => {
             const matchScore = calculateCompatibility(dev);
             return (
-              <div key={dev.id} className="card card-static group p-5 flex flex-col justify-between min-h-[220px]">
+              <div 
+                key={dev.id} 
+                className="card group p-5 flex flex-col justify-between min-h-[240px] hover:border-indigo-500/40 dark:hover:border-indigo-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-white dark:bg-zinc-950/40 border border-zinc-200/90 dark:border-zinc-800 shadow-sm dark:shadow-none"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none group-hover:bg-indigo-500/10 transition-colors" />
                 <div>
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-3.5 gap-3">
                     <Link href={`/profile/${dev.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-90">
                       {dev.avatar_url ? (
                         <img
                           src={dev.avatar_url}
                           alt={dev.full_name}
-                          className="w-10 h-10 rounded object-cover border border-zinc-800"
+                          className="w-11 h-11 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700/60 shadow-sm"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs">
-                          {dev.full_name?.charAt(0)}
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-sm shadow-sm">
+                          {getInitials(dev.full_name, 1)}
                         </div>
                       )}
                       <div className="min-w-0">
-                        <h2 className="font-semibold text-sm text-white truncate group-hover:text-white">
+                        <h2 className="font-bold text-sm text-zinc-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {dev.full_name}
                         </h2>
-                        <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] truncate mt-0.5">
+                        <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 text-[11px] truncate mt-0.5">
                           <span className="truncate">{dev.college || "Independent Builder"}</span>
                           {dev.year_of_study && (
                             <>
-                              <span className="text-zinc-600">•</span>
-                              <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono text-[9px] font-semibold shrink-0">
+                              <span className="text-zinc-400 dark:text-zinc-600">•</span>
+                              <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-mono text-[9px] font-semibold shrink-0">
                                 🎓 {dev.year_of_study}
                               </span>
                             </>
                           )}
                         </div>
-                        {/* Tiny Hackathon Badge */}
+                        {/* Hackathon Badges */}
                         <div className="mt-1 flex items-center gap-1.5">
                           {dev.hackathon_wins && dev.hackathon_wins > 0 ? (
-                            <span className="text-[8px] font-mono font-bold text-amber-400 bg-amber-500/5 border border-amber-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                            <span className="text-[9px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                               🏆 {dev.hackathon_wins} Win{dev.hackathon_wins === 1 ? '' : 's'}
                             </span>
                           ) : dev.has_participated_hackathon ? (
-                            <span className="text-[8px] font-mono font-semibold text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                            <span className="text-[9px] font-mono font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                               ⚡ Contender
                             </span>
                           ) : (
-                            <span className="text-[8px] font-mono font-semibold text-indigo-400 bg-indigo-500/5 border border-indigo-500/20 px-1 py-0.5 rounded flex items-center gap-0.5">
+                            <span className="text-[9px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                               🚀 Rookie
                             </span>
                           )}
@@ -455,42 +476,42 @@ function DevelopersContent() {
                       </div>
                     </Link>
 
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className={`badge text-[9px] py-0.5 px-1.5 ${
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <span className={`text-[9px] font-bold font-mono py-0.5 px-2 rounded-full border ${
                         dev.is_available !== false
-                          ? "badge-success"
-                          : "bg-zinc-800 text-zinc-500 border-zinc-700"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-zinc-300 dark:border-zinc-700"
                       }`}>
-                        {dev.is_available !== false ? "Available" : "Busy"}
+                        {dev.is_available !== false ? "● Available" : "○ Busy"}
                       </span>
                       {matchScore > 0 && (
-                        <span className="text-[9px] text-emerald-400 font-semibold font-mono bg-emerald-500/5 border border-emerald-500/10 rounded px-1 py-0.5">
-                          ✨ {matchScore}% Match
+                        <span className="text-[10px] text-indigo-700 dark:text-indigo-400 font-extrabold font-mono bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-md px-1.5 py-0.5">
+                          {matchScore}% Match
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <p className="text-zinc-400 text-xs mb-4 line-clamp-2 min-h-[32px] leading-relaxed">
+                  <p className="text-zinc-600 dark:text-zinc-400 text-xs mb-3.5 line-clamp-2 min-h-[32px] leading-relaxed">
                     {dev.bio || "No bio added yet."}
                   </p>
 
-                  <div className="flex flex-wrap gap-1.5 mb-5">
+                  <div className="flex flex-wrap gap-1.5 mb-4">
                     {dev.skills?.length ? (
                       <>
                         {dev.skills.slice(0, 3).map((skill) => (
-                          <span key={skill} className="badge text-[9px] py-0.5 px-1.5">
+                          <span key={skill} className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60">
                             {skill}
                           </span>
                         ))}
                         {dev.skills.length > 3 && (
-                          <span className="badge text-[9px] py-0.5 px-1.5">
+                          <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">
                             +{dev.skills.length - 3}
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="badge text-[9px] text-zinc-600">No skills added</span>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600 italic">No skills listed</span>
                     )}
                   </div>
 
@@ -502,9 +523,10 @@ function DevelopersContent() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
-                  <Link href={`/profile/${dev.id}`} className="text-[10px] font-medium text-zinc-500 hover:text-white transition-colors">
-                    View Profile →
+                <div className="flex items-center justify-between pt-3.5 mt-2 border-t border-zinc-200 dark:border-zinc-800/80">
+                  <Link href={`/profile/${dev.id}`} className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1 group/btn">
+                    <span>View Profile</span>
+                    <span className="group-hover/btn:translate-x-0.5 transition-transform font-mono">→</span>
                   </Link>
 
                   {userOwnedTeams.length > 0 && (
@@ -513,7 +535,7 @@ function DevelopersContent() {
                         setSelectedDevId(dev.id);
                         setShowInviteModal(true);
                       }}
-                      className="btn btn-primary text-[10px] py-1.5 px-3 rounded"
+                      className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-xs transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
                       Invite to Team
                     </button>

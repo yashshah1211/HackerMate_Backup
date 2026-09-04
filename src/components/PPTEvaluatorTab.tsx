@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-  FileText,
-  Upload,
   CheckCircle,
   AlertTriangle,
   RefreshCw,
@@ -18,6 +16,12 @@ import {
   Trash2,
   Eye,
   History,
+  GitCompare,
+  TrendingUp,
+  TrendingDown,
+  CheckCheck,
+  Minus,
+  Sparkles,
 } from "lucide-react";
 
 interface PPTEvaluation {
@@ -62,20 +66,17 @@ const ORDERED_SLIDES = [
 export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [evaluations, setEvaluations] = useState<PPTEvaluation[]>([]);
   const [selectedEval, setSelectedEval] = useState<PPTEvaluation | null>(null);
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Form State
-  const [inputMode, setInputMode] = useState<"upload" | "link">("upload");
-  const [file, setFile] = useState<File | null>(null);
   const [externalLink, setExternalLink] = useState("");
   const [psTitle, setPsTitle] = useState("");
   const [psCategory, setPsCategory] = useState("software");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadEvaluations();
@@ -99,7 +100,8 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         },
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
         const list = data.evaluations || [];
         setEvaluations(list);
@@ -120,13 +122,8 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (inputMode === "upload" && !file) {
-      setErrorMsg("Please select a presentation PDF file to upload.");
-      return;
-    }
-
-    if (inputMode === "link" && !externalLink.trim()) {
-      setErrorMsg("Please paste your Google Slides or Drive presentation link.");
+    if (!externalLink.trim()) {
+      setErrorMsg("Please paste your Google Slides or Google Drive presentation link.");
       return;
     }
 
@@ -143,36 +140,43 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         return;
       }
 
-      const formData = new FormData();
-      if (inputMode === "upload" && file) {
-        formData.append("file", file);
-      }
-      if (inputMode === "link" && externalLink) {
-        formData.append("external_link_url", externalLink.trim());
-      }
-      formData.append("ps_title", psTitle.trim() || "SIH 2026 Problem Statement");
-      formData.append("ps_category", psCategory);
-
       const res = await fetch(`/api/teams/${teamId}/ppt-evaluate`, {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: formData,
+        body: JSON.stringify({
+          external_link_url: externalLink.trim(),
+          ps_title: psTitle.trim() || "SIH 2026 Problem Statement",
+          ps_category: psCategory,
+        }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
 
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error || "Evaluation failed. Please try again.");
-      } else if (data.evaluation) {
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const rawText = await res.text();
+        console.error("[PPTEvaluatorTab] Server error response:", res.status, rawText.slice(0, 300));
+        setErrorMsg(
+          `Server returned status ${res.status} (${res.statusText || "Error"}). Please verify your presentation link sharing permissions and try again.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!res.ok || data?.error) {
+        setErrorMsg(data?.error || "Evaluation failed. Please try again.");
+      } else if (data?.evaluation) {
         setEvaluations((prev) => [data.evaluation, ...prev]);
         setSelectedEval(data.evaluation);
-        setFile(null);
         setExternalLink("");
-        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch (err: any) {
+      console.error("[PPTEvaluatorTab] Network/Evaluation exception:", err);
       setErrorMsg(err.message || "Network exception occurred during evaluation.");
     } finally {
       setIsSubmitting(false);
@@ -200,10 +204,14 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         },
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      }
 
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error || "Failed to delete evaluation record.");
+      if (!res.ok || data?.error) {
+        setErrorMsg(data?.error || "Failed to delete evaluation record.");
       } else {
         const remaining = evaluations.filter((e) => e.id !== evalId);
         setEvaluations(remaining);
@@ -239,6 +247,60 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     return "text-rose-500 dark:text-rose-400";
   };
 
+  // Version-over-Version Diff Calculations
+  const otherCompletedEvals = evaluations.filter(
+    (e) => e.id !== selectedEval?.id && e.status === "completed"
+  );
+
+  const compareEval = compareVersionId
+    ? otherCompletedEvals.find((e) => e.id === compareVersionId) || null
+    : otherCompletedEvals.find((e) => e.version < (selectedEval?.version || 0)) ||
+      (otherCompletedEvals.length > 0 ? otherCompletedEvals[0] : null);
+
+  const scoreDiff =
+    selectedEval && compareEval ? selectedEval.total_score - compareEval.total_score : null;
+  const noveltyDiff =
+    selectedEval && compareEval ? selectedEval.score_novelty - compareEval.score_novelty : null;
+  const techDiff =
+    selectedEval && compareEval ? selectedEval.score_tech - compareEval.score_tech : null;
+  const uiUxDiff =
+    selectedEval && compareEval ? selectedEval.score_ui_ux - compareEval.score_ui_ux : null;
+  const teamDiff =
+    selectedEval && compareEval ? selectedEval.score_team - compareEval.score_team : null;
+
+  const prevFlags = compareEval?.ai_feedback?.spocRedFlags || [];
+  const currFlags = selectedEval?.ai_feedback?.spocRedFlags || [];
+  const resolvedRedFlags = prevFlags.filter((rf) => !currFlags.includes(rf));
+
+  const renderDiffBadge = (diff: number | null, prefix: string = "") => {
+    if (diff === null) return null;
+    if (diff > 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+          <TrendingUp className="w-3 h-3" />
+          <span>+{diff}</span>
+          {prefix && <span className="text-[10px] font-normal opacity-80">{prefix}</span>}
+        </span>
+      );
+    }
+    if (diff < 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+          <TrendingDown className="w-3 h-3" />
+          <span>{diff}</span>
+          {prefix && <span className="text-[10px] font-normal opacity-80">{prefix}</span>}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-500/10 px-1.5 py-0.5 rounded border border-zinc-500/20">
+        <Minus className="w-3 h-3" />
+        <span>0</span>
+        {prefix && <span className="text-[10px] font-normal opacity-80">{prefix}</span>}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -268,18 +330,19 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               AI Pitch Presentation Diagnostic
             </h2>
             <p className="text-zinc-600 dark:text-zinc-400 text-sm mt-1 max-w-2xl leading-relaxed">
-              Upload your 6-slide SIH PDF deck or paste your Google Slides link. Receive instant 0–100 rubric scores across Novelty, Technical Architecture, UI/UX, and Squad Compliance with slide-by-slide actionable jury feedback.
+              Paste your Google Slides or Drive presentation link (ensure sharing is set to &ldquo;Anyone with the link can view&rdquo;). Receive instant 0–100 rubric scores across Novelty, Technical Architecture, UI/UX, and Squad Compliance with slide-by-slide actionable jury feedback.
             </p>
           </div>
 
           {evaluations.length > 0 && selectedEval && (
             <div className="flex flex-col items-end flex-shrink-0 bg-white/90 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl shadow-xs">
               <div className="text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-1">Active Scorecard Total</div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-2">
                 <span className={`text-4xl font-extrabold ${getScoreColor(selectedEval.total_score)}`}>
                   {selectedEval.total_score}
                 </span>
                 <span className="text-zinc-400 font-mono text-lg">/100</span>
+                {compareEval && renderDiffBadge(scoreDiff, `vs v${compareEval.version}`)}
               </div>
               <span className={`badge mt-2 text-xs px-2.5 py-0.5 font-bold ${getGradeBadge(selectedEval.grade)}`}>
                 {selectedEval.grade}
@@ -327,70 +390,27 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             </div>
           </div>
 
-          {/* Tab Selector: Upload vs Link */}
-          <div className="pt-2">
-            <div className="flex gap-2 p-1 bg-zinc-100 dark:bg-zinc-900/80 rounded-lg w-fit border border-zinc-200 dark:border-zinc-800 mb-3">
-              <button
-                type="button"
-                onClick={() => setInputMode("upload")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  inputMode === "upload"
-                    ? "bg-violet-600 text-white shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                }`}
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Upload PDF Deck (.pdf)
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputMode("link")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  inputMode === "link"
-                    ? "bg-violet-600 text-white shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                }`}
-              >
-                <LinkIcon className="w-3.5 h-3.5" />
-                Google Slides / Drive Link
-              </button>
+          {/* Google Slides Presentation Link Input */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase font-mono tracking-wider">
+              Google Slides / Drive Presentation Link
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                <LinkIcon className="w-4 h-4" />
+              </div>
+              <input
+                type="url"
+                value={externalLink}
+                onChange={(e) => setExternalLink(e.target.value)}
+                placeholder="https://docs.google.com/presentation/d/.../edit?usp=sharing"
+                className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition-colors"
+                required
+              />
             </div>
-
-            {inputMode === "upload" ? (
-              <div>
-                <label
-                  htmlFor="deck-file-input"
-                  className="border-2 border-dashed border-zinc-300 dark:border-zinc-800 hover:border-violet-500/50 bg-zinc-50 dark:bg-zinc-900/30 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200"
-                >
-                  <FileText className="w-8 h-8 text-violet-500 dark:text-violet-400 mb-2" />
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white">
-                    {file ? file.name : "Click to select or drag & drop your 6-slide SIH PDF deck"}
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-1">PDF format up to 15 MB (Processed in-memory)</p>
-                </label>
-                <input
-                  id="deck-file-input"
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="url"
-                  value={externalLink}
-                  onChange={(e) => setExternalLink(e.target.value)}
-                  placeholder="https://docs.google.com/presentation/d/.../edit?usp=sharing"
-                  className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition-colors"
-                />
-                <p className="text-xs text-zinc-500 mt-1.5">
-                  Make sure your Google Slides presentation is set to &ldquo;Anyone with the link can view&rdquo;.
-                </p>
-              </div>
-            )}
+            <p className="text-xs text-zinc-500">
+              Ensure your Google Slides presentation sharing permission is set to &ldquo;Anyone with the link can view&rdquo;.
+            </p>
           </div>
 
           {errorMsg && (
@@ -409,7 +429,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               {isSubmitting ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Evaluating Pitch Deck...</span>
+                  <span>Evaluating Presentation...</span>
                 </>
               ) : (
                 <span>Run AI Evaluation</span>
@@ -438,18 +458,132 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             </div>
           </div>
 
+          {/* Iteration Progress Diff Card (When multiple versions exist) */}
+          {compareEval && (
+            <div className="rounded-2xl p-5 border border-violet-200 dark:border-violet-500/30 bg-gradient-to-br from-violet-50/90 via-white to-indigo-50/60 dark:from-violet-950/20 dark:via-zinc-950/70 dark:to-indigo-950/20 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200/80 dark:border-zinc-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-violet-600/10 border border-violet-500/20 text-violet-600 dark:text-violet-400">
+                    <GitCompare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
+                        Iteration Progress Diff
+                      </h4>
+                      <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-[10px] px-2 py-0.5 font-bold font-mono">
+                        v{selectedEval.version} vs v{compareEval.version}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                      Comparing Active Version ({selectedEval.file_name}) against Baseline Version ({compareEval.file_name})
+                    </p>
+                  </div>
+                </div>
+
+                {otherCompletedEvals.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">Compare with:</label>
+                    <select
+                      value={compareEval.id}
+                      onChange={(e) => setCompareVersionId(e.target.value)}
+                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs rounded-lg px-2.5 py-1.5 text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 shadow-xs"
+                    >
+                      {otherCompletedEvals.map((ev) => (
+                        <option key={ev.id} value={ev.id}>
+                          v{ev.version} ({ev.total_score}/100 - {new Date(ev.created_at).toLocaleDateString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Metric Progression Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Overall Total</span>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="text-base sm:text-lg font-extrabold font-mono text-zinc-900 dark:text-white">
+                      {compareEval.total_score} → {selectedEval.total_score}
+                    </span>
+                    {renderDiffBadge(scoreDiff)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Problem & Novelty</span>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
+                      {compareEval.score_novelty} → {selectedEval.score_novelty}
+                    </span>
+                    {renderDiffBadge(noveltyDiff)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Tech Architecture</span>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
+                      {compareEval.score_tech} → {selectedEval.score_tech}
+                    </span>
+                    {renderDiffBadge(techDiff)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">UI/UX & Impact</span>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
+                      {compareEval.score_ui_ux} → {selectedEval.score_ui_ux}
+                    </span>
+                    {renderDiffBadge(uiUxDiff)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 col-span-2 sm:col-span-1 shadow-xs">
+                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Team & Rules</span>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
+                      {compareEval.score_team} → {selectedEval.score_team}
+                    </span>
+                    {renderDiffBadge(teamDiff)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Resolved Red Flags celebration banner */}
+              {resolvedRedFlags.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-900 dark:text-emerald-300 shadow-xs">
+                  <CheckCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-1">Resolved Jury Concerns from v{compareEval.version}:</span>
+                    <ul className="space-y-1 list-disc list-inside text-[11px]">
+                      {resolvedRedFlags.map((rf, i) => (
+                        <li key={i}>{rf}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 4 Core Rubric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Novelty */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">Problem & Novelty</span>
                 </div>
-                <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">
-                  {selectedEval.score_novelty}/25
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">
+                    {selectedEval.score_novelty}/25
+                  </span>
+                  {compareEval && renderDiffBadge(noveltyDiff)}
+                </div>
               </div>
               <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
                 <div
@@ -457,21 +591,24 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_novelty / 25) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.novelty || "Originality and problem alignment analysis complete."}
               </p>
             </div>
 
             {/* Technical Architecture */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                   <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">Technical Architecture</span>
                 </div>
-                <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                  {selectedEval.score_tech}/35
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                    {selectedEval.score_tech}/35
+                  </span>
+                  {compareEval && renderDiffBadge(techDiff)}
+                </div>
               </div>
               <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
                 <div
@@ -479,21 +616,24 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_tech / 35) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.tech || "Tech stack feasibility and pipeline architecture analysis."}
               </p>
             </div>
 
             {/* UI/UX & Polish */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">UI/UX & Impact</span>
                 </div>
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {selectedEval.score_ui_ux}/25
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {selectedEval.score_ui_ux}/25
+                  </span>
+                  {compareEval && renderDiffBadge(uiUxDiff)}
+                </div>
               </div>
               <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
                 <div
@@ -501,21 +641,24 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_ui_ux / 25) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Interface presentation, prototype demo, and quantified metrics."}
               </p>
             </div>
 
             {/* Team Squad & Rules */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs">
+            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">Team & Rules</span>
                 </div>
-                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                  {selectedEval.score_team}/15
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                    {selectedEval.score_team}/15
+                  </span>
+                  {compareEval && renderDiffBadge(teamDiff)}
+                </div>
               </div>
               <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
                 <div
@@ -523,7 +666,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   style={{ width: `${(selectedEval.score_team / 15) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 {selectedEval.ai_feedback?.scoreDeductions?.team || "6-member squad size, female builder rule, and 6-slide max compliance."}
               </p>
             </div>

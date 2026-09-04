@@ -32,16 +32,16 @@ export default function FAQPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-zinc-300 font-sans selection:bg-[#B4F461]/20 selection:text-[#B4F461] py-16 md:py-24 relative overflow-hidden">
+    <main className="min-h-screen bg-[var(--background)] text-zinc-700 dark:text-zinc-300 font-sans selection:bg-[#B4F461]/20 selection:text-[#B4F461] py-16 md:py-24 relative overflow-hidden">
       {/* Decorative Glows */}
-      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-[#B4F461]/2 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[450px] h-[450px] bg-emerald-500/2 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-[#B4F461]/5 dark:bg-[#B4F461]/2 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[450px] h-[450px] bg-emerald-500/5 dark:bg-emerald-500/2 rounded-full blur-[160px] pointer-events-none" />
 
       <div className="max-w-3xl mx-auto px-6 relative z-10">
         
         {/* Back navigation */}
         <div className="mb-10 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm group">
+          <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm group">
             <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -51,8 +51,8 @@ export default function FAQPage() {
         </div>
 
         {/* Header */}
-        <header className="mb-12 border-b border-zinc-800 pb-8">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-3">
+        <header className="mb-12 border-b border-zinc-200 dark:border-zinc-800 pb-8">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight mb-3">
             Frequently Asked Questions
           </h1>
           <p className="text-zinc-500">
@@ -65,17 +65,17 @@ export default function FAQPage() {
           {faqItems.map((item, idx) => (
             <details 
               key={idx} 
-              className="group border border-zinc-800/80 bg-zinc-950/20 rounded-lg p-5 transition-all duration-300 open:bg-zinc-950/60 open:border-zinc-700/80 cursor-pointer"
+              className="group border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/20 rounded-lg p-5 transition-all duration-300 open:bg-zinc-100/60 dark:open:bg-zinc-950/60 open:border-zinc-300 dark:open:border-zinc-700/80 cursor-pointer"
             >
-              <summary className="list-none flex items-center justify-between font-bold text-white text-base md:text-lg select-none outline-none">
+              <summary className="list-none flex items-center justify-between font-bold text-zinc-900 dark:text-white text-base md:text-lg select-none outline-none">
                 <span>{item.q}</span>
-                <span className="ml-4 transition-transform duration-300 group-open:rotate-180 flex items-center justify-center w-6 h-6 text-zinc-500 group-hover:text-white">
+                <span className="ml-4 transition-transform duration-300 group-open:rotate-180 flex items-center justify-center w-6 h-6 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-white">
                   <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </span>
               </summary>
-              <div className="mt-4 text-sm md:text-base text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800/60 transition-all duration-300">
+              <div className="mt-4 text-sm md:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed pt-2 border-t border-zinc-200 dark:border-zinc-800/60 transition-all duration-300">
                 <p>{item.a}</p>
               </div>
             </details>
@@ -83,8 +83,8 @@ export default function FAQPage() {
         </div>
 
         {/* Footer Info Box */}
-        <div className="mt-16 bg-zinc-950/40 border border-zinc-850 rounded-xl p-8 text-center space-y-4">
-          <h3 className="text-lg font-bold text-white">Still have questions?</h3>
+        <div className="mt-16 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center space-y-4">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Still have questions?</h3>
           <p className="text-sm text-zinc-500 max-w-md mx-auto">
             Our support desk is always online. Contact us via our official channel or reach out to our team directly.
           </p>

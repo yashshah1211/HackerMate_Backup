@@ -170,7 +170,6 @@ export default function OrganizerPortalPage() {
           profiles (
             id,
             full_name,
-            email,
             college,
             avatar_url,
             skills,

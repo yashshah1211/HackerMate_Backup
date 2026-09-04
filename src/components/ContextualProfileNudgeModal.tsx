@@ -101,7 +101,7 @@ export default function ContextualProfileNudgeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl">
         {/* Top Header Badge */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export default function ContextualProfileNudgeModal({
               💡
             </span>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight">
                 Boost Your Team Visibility
               </h3>
               <p className="text-xs text-zinc-400">
@@ -126,9 +126,9 @@ export default function ContextualProfileNudgeModal({
         </div>
 
         {/* Banner Alert */}
-        <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3.5 flex items-center justify-between gap-3">
+        <div className="mb-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/80 p-3.5 flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold text-zinc-200">
+            <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
               Your profile is {completeness.score}% complete
             </div>
             <div className="text-[11px] text-zinc-400 mt-0.5">
@@ -155,7 +155,7 @@ export default function ContextualProfileNudgeModal({
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="e.g. Full-stack developer passionate about Next.js and AI hackathons..."
                 rows={2}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:border-orange-500 focus:outline-none transition"
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:border-orange-500 focus:outline-none transition"
               />
             </div>
           )}
@@ -177,7 +177,7 @@ export default function ContextualProfileNudgeModal({
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                         isSelected
                           ? "bg-orange-500 text-white shadow-xs"
-                          : "bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
+                          : "bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-zinc-700"
                       }`}
                     >
                       {isSelected ? `✓ ${skill}` : `+ ${skill}`}
@@ -190,7 +190,7 @@ export default function ContextualProfileNudgeModal({
         </div>
 
         {/* Actions Bar */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800/80">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-800/80">
           <button
             type="button"
             onClick={handleSkipAndProceed}

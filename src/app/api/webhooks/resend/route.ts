@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Webhook } from "svix";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,7 +14,38 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("[Resend Webhook] RESEND_WEBHOOK_SECRET is not configured on the server.");
+      return NextResponse.json(
+        { error: "Server misconfiguration: RESEND_WEBHOOK_SECRET is required." },
+        { status: 500 }
+      );
+    }
+
+    const svixId = req.headers.get("svix-id");
+    const svixTimestamp = req.headers.get("svix-timestamp");
+    const svixSignature = req.headers.get("svix-signature");
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      console.warn("[Resend Webhook] Missing Svix webhook headers.");
+      return NextResponse.json({ error: "Missing webhook signature headers" }, { status: 401 });
+    }
+
+    const rawBody = await req.text();
+    const wh = new Webhook(webhookSecret);
+    let body: any;
+
+    try {
+      body = wh.verify(rawBody, {
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
+      });
+    } catch (verifyErr: any) {
+      console.warn("[Resend Webhook] Svix signature verification failed:", verifyErr.message);
+      return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+    }
 
     if (!body || !body.type || !body.data) {
       return NextResponse.json({ error: "Invalid webhook payload format" }, { status: 400 });

@@ -17,6 +17,8 @@ import {
   Code2,
   ExternalLink,
   Plus,
+  Target,
+  Zap,
 } from "lucide-react";
 
 interface TeamWorkspaceSpotlightProps {
@@ -56,25 +58,29 @@ export default function TeamWorkspaceSpotlightBanner({
 
   const features = [
     {
-      icon: "🎯",
+      icon: Target,
+      iconColor: "text-rose-500 dark:text-rose-400",
       title: "AI Pitch Deck Evaluator",
       tag: "SIH Grand Jury Engine",
       desc: "Instant slide-by-slide scoring, novelty audits, and presentation feedback before submission.",
     },
     {
-      icon: "⚡",
+      icon: Zap,
+      iconColor: "text-amber-500 dark:text-amber-400",
       title: "Smart Squad Matcher",
       tag: "Deficit Auto-Fill",
       desc: "Scans for missing roles (UI/UX, AI/ML) & SIH female teammate rules with 1-click invites.",
     },
     {
-      icon: "📋",
+      icon: Layers,
+      iconColor: "text-emerald-500 dark:text-emerald-400",
       title: "Live Tasks & Milestones",
       tag: "Kanban Roadmaps",
       desc: "Prioritized sprint board, submission countdown clocks, and milestone progress trackers.",
     },
     {
-      icon: "🐙",
+      icon: GitBranch,
+      iconColor: "text-cyan-500 dark:text-cyan-400",
       title: "GitHub Sync & Deployments",
       tag: "Continuous Build",
       desc: "Live repository commit feeds, branch tracking, and production deployment checklists.",
@@ -85,7 +91,7 @@ export default function TeamWorkspaceSpotlightBanner({
     return (
       <div className="mb-6 flex items-center justify-between p-3 px-4 rounded-2xl bg-violet-50/80 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/40 text-xs animate-fade-in text-left shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="text-sm">🚀</span>
+          <Rocket className="w-3.5 h-3.5 text-violet-500 shrink-0" />
           <span className="text-zinc-800 dark:text-zinc-300 font-medium">
             Team Workspace features: AI Deck Evaluator, Squad Matcher, Live Kanban & GitHub Sync.
           </span>
@@ -183,6 +189,7 @@ export default function TeamWorkspaceSpotlightBanner({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full lg:max-w-md shrink-0">
             {features.map((feat, idx) => {
               const isActive = activeFeatureIdx === idx;
+              const IconComponent = feat.icon;
               return (
                 <div
                   key={idx}
@@ -194,7 +201,9 @@ export default function TeamWorkspaceSpotlightBanner({
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-base">{feat.icon}</span>
+                    <div className="w-6 h-6 rounded-lg bg-violet-100/80 dark:bg-zinc-800 border border-violet-200/60 dark:border-zinc-700/60 flex items-center justify-center">
+                      <IconComponent className={`w-3.5 h-3.5 ${feat.iconColor}`} />
+                    </div>
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 px-1.5 py-0.5 rounded border border-violet-200 dark:border-violet-500/20">
                       {feat.tag}
                     </span>
@@ -218,7 +227,8 @@ export default function TeamWorkspaceSpotlightBanner({
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200 dark:border-zinc-800">
               <div>
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                  <span>🚀</span> Select Team Workspace
+                  <Rocket className="w-4 h-4 text-violet-500 shrink-0" />
+                  <span>Select Team Workspace</span>
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Choose which team workspace you want to manage.

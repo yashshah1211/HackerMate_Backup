@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import Logo from "@/components/Logo";
+import { supabase } from "@/lib/supabase";
 
 export type PartnerSlide = {
   id: string;
@@ -12,10 +12,12 @@ export type PartnerSlide = {
   ctaText: string;
   href: string;
   gradient: string;
-  logoType: "aethos" | "gamnexis" | "startupx" | "axcentra" | "morrow" | "orvix";
+  logoType?: "aethos" | "gamnexis" | "startupx" | "axcentra" | "morrow" | "orvix";
+  logoUrl?: string;
+  endDate?: string;
 };
 
-const PARTNER_SLIDES: PartnerSlide[] = [
+const SEED_PARTNER_SLIDES: PartnerSlide[] = [
   {
     id: "startupx",
     tag: "FEATURED STARTUP HACKATHON",
@@ -25,16 +27,8 @@ const PARTNER_SLIDES: PartnerSlide[] = [
     href: "/partners/startupx",
     gradient: "from-[#0284C7] via-blue-500 to-[#38BDF8]",
     logoType: "startupx",
-  },
-  {
-    id: "aethos",
-    tag: "FEATURED PARTNER HACKATHON",
-    title: "HackerMate × ÆTHOS — Day Zero",
-    description: "Build next-gen AI, Web3, & Open Innovation solutions! Official national hackathon by Alpha Forge. Connect with compatible builders, form squads, & build.",
-    ctaText: "Explore ÆTHOS Portal",
-    href: "/partners/aethos",
-    gradient: "from-[#F59E0B] via-red-500 to-[#EF4444]",
-    logoType: "aethos",
+    logoUrl: "/partners/startupx-logo.jpg",
+    endDate: "2026-09-25",
   },
   {
     id: "orvix",
@@ -45,16 +39,8 @@ const PARTNER_SLIDES: PartnerSlide[] = [
     href: "/partners/orvix",
     gradient: "from-[#8B5CF6] via-purple-500 to-[#06B6D4]",
     logoType: "orvix",
-  },
-  {
-    id: "gamnexis",
-    tag: "FEATURED GAMEDEV & AI HACKATHON",
-    title: "HackerMate × Gamnexis — Puzzle Masters 2026",
-    description: "Build an addictive puzzle game in this national-level GameDev & AI innovation challenge. Connect with teammates, join recruiting teams, and compete.",
-    ctaText: "Explore Gamnexis Portal",
-    href: "/partners/gamnexis",
-    gradient: "from-[#0284C7] via-sky-500 to-[#B4F461]",
-    logoType: "gamnexis",
+    logoUrl: "/partners/orvix-logo-cropped.png",
+    endDate: "2026-09-05",
   },
   {
     id: "axcentra",
@@ -65,22 +51,88 @@ const PARTNER_SLIDES: PartnerSlide[] = [
     href: "/partners/axcentra",
     gradient: "from-[#B4F461] via-blue-500 to-indigo-600",
     logoType: "axcentra",
+    logoUrl: "/partners/axcentra-icon-only-transparent.png",
+    endDate: "2026-08-31",
+  },
+  {
+    id: "gamnexis",
+    tag: "FEATURED GAMEDEV & AI HACKATHON",
+    title: "HackerMate × Gamnexis — Puzzle Masters 2026",
+    description: "Build an addictive puzzle game in this national-level GameDev & AI innovation challenge. Connect with teammates, join recruiting teams, and compete.",
+    ctaText: "Explore Gamnexis Portal",
+    href: "/partners/gamnexis",
+    gradient: "from-[#0284C7] via-sky-500 to-[#B4F461]",
+    logoType: "gamnexis",
+    logoUrl: "/partners/gamnexis-logo.jpg",
+    endDate: "2026-08-23",
+  },
+  {
+    id: "aethos",
+    tag: "FEATURED PARTNER HACKATHON",
+    title: "HackerMate × ÆTHOS — Day Zero",
+    description: "Build next-gen AI, Web3, & Open Innovation solutions! Official national hackathon by Alpha Forge. Connect with compatible builders, form squads, & build.",
+    ctaText: "Explore ÆTHOS Portal",
+    href: "/partners/aethos",
+    gradient: "from-[#F59E0B] via-red-500 to-[#EF4444]",
+    logoType: "aethos",
+    logoUrl: "/partners/aethos-logo.jpg",
+    endDate: "2026-08-15",
   },
 ];
 
 export default function PartnerBannerCarousel() {
+  const [slides, setSlides] = useState<PartnerSlide[]>(SEED_PARTNER_SLIDES);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
+  // Date-filtered active slides (matching hackathons/page.tsx logic)
+  const activeSlides = useMemo(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    return slides.filter((slide) => !slide.endDate || slide.endDate >= todayStr);
+  }, [slides]);
+
+  // Dynamically sync partner_configs with hackathon end dates from Supabase
   useEffect(() => {
-    if (isPaused) return;
+    async function syncPartnerConfigs() {
+      try {
+        const { data: configs } = await supabase
+          .from("partner_configs")
+          .select("slug, partner_name, tagline, brand_color, accent_color, logo_url, features, hackathons(id, name, start_date, end_date, description)");
+
+        if (configs && configs.length > 0) {
+          const dbSlides: PartnerSlide[] = configs.map((c: any) => {
+            const h = c.hackathons;
+            const slug = c.slug;
+            const seed = SEED_PARTNER_SLIDES.find((s) => s.id === slug);
+            return {
+              id: slug,
+              tag: seed?.tag || "FEATURED PARTNER HACKATHON",
+              title: seed?.title || (c.partner_name?.includes("HackerMate") ? c.partner_name : `HackerMate × ${c.partner_name}`),
+              description: seed?.description || c.tagline || h?.description?.slice(0, 160) || "Connect with compatible builders, form squads, and build.",
+              ctaText: seed?.ctaText || `Explore ${c.partner_name?.split("—")[0].split("-")[0].trim() || "Partner"} Portal`,
+              href: `/partners/${slug}`,
+              gradient: seed?.gradient || "from-[#0284C7] via-blue-500 to-[#38BDF8]",
+              logoType: seed?.logoType,
+              logoUrl: c.logo_url || seed?.logoUrl,
+              endDate: h?.end_date || seed?.endDate,
+            };
+          });
+          setSlides(dbSlides);
+        }
+      } catch (err) {
+        console.error("Error fetching partner configs for carousel:", err);
+      }
+    }
+    syncPartnerConfigs();
+  }, []);
+
+  useEffect(() => {
+    if (isPaused || activeSlides.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % PARTNER_SLIDES.length);
+      setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [isPaused]);
-
-  const currentSlide = PARTNER_SLIDES[currentIndex];
+  }, [isPaused, activeSlides.length]);
 
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
@@ -95,21 +147,26 @@ export default function PartnerBannerCarousel() {
   };
 
   const handleTouchEnd = () => {
-    if (!touchStartX.current || !touchEndX.current) return;
+    if (!touchStartX.current || !touchEndX.current || activeSlides.length <= 1) return;
     const distance = touchStartX.current - touchEndX.current;
     const isLeftSwipe = distance > 50;
     const isRightSwipe = distance < -50;
 
     if (isLeftSwipe) {
-      setCurrentIndex((prev) => (prev + 1) % PARTNER_SLIDES.length);
+      setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
     } else if (isRightSwipe) {
-      setCurrentIndex((prev) => (prev - 1 + PARTNER_SLIDES.length) % PARTNER_SLIDES.length);
+      setCurrentIndex((prev) => (prev - 1 + activeSlides.length) % activeSlides.length);
     }
 
     touchStartX.current = null;
     touchEndX.current = null;
     setIsPaused(false);
   };
+
+  if (activeSlides.length === 0) return null;
+
+  const safeIndex = currentIndex >= activeSlides.length ? 0 : currentIndex;
+  const currentSlide = activeSlides[safeIndex];
 
   return (
     <div
@@ -195,7 +252,7 @@ export default function PartnerBannerCarousel() {
                     GAMNEXIS
                   </span>
                 </div>
-              ) : (
+              ) : currentSlide.logoType === "axcentra" ? (
                 <div className="flex items-center gap-2">
                   <img
                     src="/partners/axcentra-icon-only-transparent.png"
@@ -206,6 +263,18 @@ export default function PartnerBannerCarousel() {
                     AXCENTRA
                   </span>
                 </div>
+              ) : currentSlide.logoUrl ? (
+                <div className="flex items-center gap-2">
+                  <img
+                    src={currentSlide.logoUrl}
+                    alt={`${currentSlide.title} Logo`}
+                    className="h-8 md:h-9 w-auto object-contain rounded-lg shadow-sm"
+                  />
+                </div>
+              ) : (
+                <span className="font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-indigo-400 text-lg md:text-xl font-mono">
+                  PARTNER
+                </span>
               )}
             </div>
           </div>
@@ -233,21 +302,24 @@ export default function PartnerBannerCarousel() {
         </div>
 
         {/* Carousel Navigation Indicators */}
-        <div className="flex md:flex-col items-center gap-2 self-center md:self-auto shrink-0 bg-zinc-100 dark:bg-zinc-900/80 p-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800/80">
-          {PARTNER_SLIDES.map((slide, idx) => (
-            <button
-              key={slide.id}
-              onClick={() => setCurrentIndex(idx)}
-              className={`h-2.5 rounded-full transition-all cursor-pointer ${
-                currentIndex === idx
-                  ? "w-8 bg-emerald-500"
-                  : "w-2.5 bg-zinc-300 dark:bg-zinc-700 hover:bg-zinc-400 dark:hover:bg-zinc-600"
-              }`}
-              title={`Go to ${slide.title}`}
-            />
-          ))}
-        </div>
+        {activeSlides.length > 1 && (
+          <div className="flex md:flex-col items-center gap-2 self-center md:self-auto shrink-0 bg-zinc-100 dark:bg-zinc-900/80 p-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800/80">
+            {activeSlides.map((slide, idx) => (
+              <button
+                key={slide.id}
+                onClick={() => setCurrentIndex(idx)}
+                className={`h-2.5 rounded-full transition-all cursor-pointer ${
+                  safeIndex === idx
+                    ? "w-8 bg-emerald-500"
+                    : "w-2.5 bg-zinc-300 dark:bg-zinc-700 hover:bg-zinc-400 dark:hover:bg-zinc-600"
+                }`}
+                title={`Go to ${slide.title}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

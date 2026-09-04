@@ -79,10 +79,10 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
   if (!profile.show_track_record && !isOwner) {
     return (
       <div className="card p-8 text-center space-y-3 bg-[var(--surface-1)] border-[var(--card-border)] text-zinc-400">
-        <div className="w-12 h-12 rounded-full bg-zinc-800/60 border border-zinc-700 flex items-center justify-center mx-auto text-xl">
+        <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mx-auto text-xl">
           🔒
         </div>
-        <h4 className="text-sm font-bold text-white">Private Track Record</h4>
+        <h4 className="text-sm font-bold text-zinc-900 dark:text-white">Private Track Record</h4>
         <p className="text-xs text-zinc-500 max-w-sm mx-auto">
           This builder has set their hackathon track record to private.
         </p>
@@ -117,11 +117,11 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1 bg-zinc-900/60 p-1 rounded-xl border border-zinc-800 text-[11px] font-medium">
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[11px] font-medium">
             <button
               onClick={() => setFilter("all")}
               className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                filter === "all" ? "bg-indigo-600 text-white font-bold" : "text-zinc-400 hover:text-white"
+                filter === "all" ? "bg-indigo-600 text-white font-bold" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               All Events ({totalHackathons})
@@ -129,7 +129,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
             <button
               onClick={() => setFilter("submitted")}
               className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                filter === "submitted" ? "bg-indigo-600 text-white font-bold" : "text-zinc-400 hover:text-white"
+                filter === "submitted" ? "bg-indigo-600 text-white font-bold" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               Projects ({totalSubmissions})
@@ -139,7 +139,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
 
         {/* Quick KPI Strip */}
         <div className="grid grid-cols-3 gap-3 font-mono text-center">
-          <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
+          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/80">
             <span className="text-[10px] text-zinc-500 uppercase block">Hackathons</span>
             <span className="text-lg font-black text-indigo-400">{totalHackathons}</span>
           </div>
@@ -176,7 +176,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
             return (
               <div key={reg.registration_id} className="relative group">
                 {/* Timeline node icon */}
-                <div className="absolute -left-[23px] sm:-left-[31px] top-1.5 w-4 h-4 rounded-full bg-indigo-600 border-4 border-zinc-950 shadow-md group-hover:scale-125 transition-transform" />
+                <div className="absolute -left-[23px] sm:-left-[31px] top-1.5 w-4 h-4 rounded-full bg-indigo-600 border-4 border-white dark:border-zinc-950 shadow-md group-hover:scale-125 transition-transform" />
 
                 {/* Event Card */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-1)] border border-[var(--card-border)] space-y-3 hover:border-indigo-500/40 transition-colors shadow-xs">
@@ -191,7 +191,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                           {reg.hackathon_name}
                         </Link>
                         {reg.mode && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 uppercase">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 uppercase">
                             {reg.mode}
                           </span>
                         )}
@@ -216,9 +216,9 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
 
                   {/* Team & Teammates Roster */}
                   {matchingTeams.length > 0 && (
-                    <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
+                    <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/80 space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                        <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
                           <span>👥 Team:</span>
                           <Link
                             href={`/teams/${matchingTeams[0].team_id}`}
@@ -243,10 +243,10 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                                   <img
                                     src={m.avatar_url}
                                     alt={m.full_name || "Teammate"}
-                                    className="w-6 h-6 rounded-full object-cover border-2 border-zinc-900"
+                                    className="w-6 h-6 rounded-full object-cover border-2 border-white dark:border-zinc-900"
                                   />
                                 ) : (
-                                  <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-[9px] flex items-center justify-center border-2 border-zinc-900">
+                                  <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-[9px] flex items-center justify-center border-2 border-white dark:border-zinc-900">
                                     {m.full_name?.charAt(0) || "U"}
                                   </div>
                                 )}
@@ -270,7 +270,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                         </span>
                       </div>
 
-                      <h4 className="text-sm font-bold text-white">{submission.project_title}</h4>
+                      <h4 className="text-sm font-bold text-zinc-900 dark:text-white">{submission.project_title}</h4>
 
                       {/* Project Links */}
                       <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -289,7 +289,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                             href={submission.github_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <span>Code Repo ↗</span>
                           </a>
@@ -299,7 +299,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                             href={submission.slides_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <span>Pitch Deck ↗</span>
                           </a>

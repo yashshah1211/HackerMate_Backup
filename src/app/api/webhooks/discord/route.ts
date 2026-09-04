@@ -33,14 +33,18 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get("x-signature-ed25519");
     const timestamp = req.headers.get("x-signature-timestamp");
     const publicKey = (process.env.DISCORD_PUBLIC_KEY || "").trim();
+    if (!publicKey) {
+      console.error("[Discord Webhook] DISCORD_PUBLIC_KEY is not configured on the server.");
+      return NextResponse.json(
+        { error: "Server misconfiguration: DISCORD_PUBLIC_KEY is required." },
+        { status: 500 }
+      );
+    }
 
-    // Verify signature if DISCORD_PUBLIC_KEY is configured
-    if (publicKey) {
-      const isValid = verifyDiscordSignature(rawBody, signature, timestamp, publicKey);
-      if (!isValid) {
-        console.warn("[Discord Webhook] Invalid request signature.");
-        return new NextResponse("Invalid request signature", { status: 401 });
-      }
+    const isValid = verifyDiscordSignature(rawBody, signature, timestamp, publicKey);
+    if (!isValid) {
+      console.warn("[Discord Webhook] Invalid request signature.");
+      return new NextResponse("Invalid request signature", { status: 401 });
     }
 
     const interaction = JSON.parse(rawBody);

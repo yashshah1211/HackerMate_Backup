@@ -125,7 +125,7 @@ export default function ShareModal({
                 {metadata?.badgeTitle || "Verified Achievement"}
               </h4>
               <p className="text-xs text-zinc-400">
-                Verified by {metadata?.issuerName || "HackerMate x Axcentra"}
+                Verified by {metadata?.issuerName || "HackerMate Partner Network"}
               </p>
             </div>
           )}

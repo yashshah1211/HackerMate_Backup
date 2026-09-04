@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SIH_HACKATHON_ID } from "@/lib/constants";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { generateSIHPdfReport, SIHReportData } from "@/lib/admin/sihPdfReport";
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 function isSameCollege(collegeA: string | null | undefined, collegeB: string | null | undefined): boolean {
   if (!collegeA || !collegeB) return false;
@@ -34,22 +35,28 @@ export async function POST(req: NextRequest) {
 
 async function handleSihDailyPdfReport(req: NextRequest) {
   try {
-    // 1. Verify Secret Authorization (allows Vercel Cron or manual query key)
-    const authHeader = req.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+
+    // 1. Verify Authorization: Either valid CRON_SECRET (Vercel Cron) OR logged-in Admin Session (Admin Dashboard UI)
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     const { searchParams } = new URL(req.url);
     const secret = searchParams.get("secret");
 
-    const expectedSecret = process.env.CRON_SECRET || process.env.NOTIFICATION_WEBHOOK_SECRET || "sih_daily_report_secret";
-    const isAuthorizedHeader = authHeader === `Bearer ${expectedSecret}`;
-    const isAuthorizedQuery = secret === expectedSecret;
+    const isAuthorizedCron =
+      (Boolean(cronSecret) && authHeader === `Bearer ${cronSecret}`) ||
+      (Boolean(cronSecret) && secret === cronSecret);
 
-    // Allow internal admin triggers if authenticated session, or secret match
-    if (!isAuthorizedHeader && !isAuthorizedQuery) {
-      // Check if manual trigger from admin session
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader && process.env.NODE_ENV === "production") {
-        console.warn("[SIH Daily PDF Cron] Unauthorized trigger attempt.");
+    let isAuthorizedAdmin = false;
+    if (!isAuthorizedCron) {
+      const adminCheck = await requireAdmin(req);
+      if (!(adminCheck instanceof NextResponse)) {
+        isAuthorizedAdmin = true;
       }
+    }
+
+    if (!isAuthorizedCron && !isAuthorizedAdmin) {
+      console.warn("[SIH Daily PDF Cron] Unauthorized trigger attempt.");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const targetRecipient = "yashshah7117@gmail.com";

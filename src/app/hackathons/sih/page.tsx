@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-import Footer from "@/components/Footer";
 import { COLLEGES } from "@/lib/colleges";
 import SIHExportModal from "@/components/SIHExportModal";
 import { SIHTeamExport, SIHTeamMemberExport } from "@/lib/sihExport";
@@ -184,12 +183,15 @@ function SIHTeamBuilderContent() {
         setCurrentUserId(user.id);
         const { data: prof } = await supabase
           .from("profiles")
-          .select("id, email, full_name, avatar_url, college, skills, gender, role, bio, github_url, linkedin_url, website_url, badges, onboarding_completed")
+          .select("id, full_name, avatar_url, college, skills, gender, role, bio, github_url, linkedin_url, onboarding_completed")
           .eq("id", user.id)
           .single();
 
         if (prof) {
-          setCurrentUserProfile(prof as Profile);
+          setCurrentUserProfile({
+            ...prof,
+            email: user.email || "",
+          } as Profile);
           if (prof.college && prof.college.trim().length > 0) {
             currentCollege = prof.college.trim();
           }
@@ -555,8 +557,8 @@ function SIHTeamBuilderContent() {
                 onClick={handleToggleLookingForTeam}
                 disabled={togglingStatus}
                 className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${isUserLookingForTeam
-                    ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
-                    : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                  ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                  : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
                   }`}
               >
                 {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
@@ -691,8 +693,8 @@ function SIHTeamBuilderContent() {
               <button
                 onClick={() => setActiveTab("teams")}
                 className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${activeTab === "teams"
-                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                   }`}
               >
                 Teams Recruiting ({filteredTeams.length})
@@ -700,8 +702,8 @@ function SIHTeamBuilderContent() {
               <button
                 onClick={() => setActiveTab("builders")}
                 className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${activeTab === "builders"
-                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                   }`}
               >
                 Builders Looking ({filteredBuilders.length})
@@ -751,8 +753,8 @@ function SIHTeamBuilderContent() {
 
                 const isUserTeamMember = Boolean(
                   currentUserId &&
-                    (team.owner_id === currentUserId ||
-                      members.some((m) => m.user_id === currentUserId || m.profiles?.id === currentUserId))
+                  (team.owner_id === currentUserId ||
+                    members.some((m) => m.user_id === currentUserId || m.profiles?.id === currentUserId))
                 );
 
                 return (
@@ -912,7 +914,7 @@ function SIHTeamBuilderContent() {
                           </button>
                         )}
 
-                        
+
 
                         <Link
                           href={`/teams/${team.id}`}
@@ -1103,7 +1105,6 @@ function SIHTeamBuilderContent() {
         />
       )}
 
-      <Footer />
     </div>
   );
 }

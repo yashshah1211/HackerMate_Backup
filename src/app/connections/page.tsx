@@ -9,6 +9,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import PostAcceptanceTeamPrompt, { type TeamWithSlots, type ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
 import { trackEvent } from "@/lib/posthog";
+import { getInitials } from "@/lib/utils";
 
 type RequestRow = {
   id: string;
@@ -293,7 +294,7 @@ function ConnectionsContent() {
                       />
                     ) : (
                       <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {req.profile.full_name?.charAt(0)}
+                        {getInitials(req.profile.full_name, 1)}
                       </div>
                     )}
                     <div className="min-w-0">
@@ -356,7 +357,7 @@ function ConnectionsContent() {
                       />
                     ) : (
                       <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {req.profile.full_name?.charAt(0)}
+                        {getInitials(req.profile.full_name, 1)}
                       </div>
                     )}
                     <div className="min-w-0">
@@ -416,9 +417,17 @@ function ConnectionsContent() {
                 />
               </svg>
             </div>
-            <p className="text-zinc-500 text-xs">
-              No connections yet. Visit a profile and hit Connect.
+            <h3 className="text-sm font-semibold text-white mb-1">No connections yet</h3>
+            <p className="text-zinc-500 text-xs mb-4 max-w-xs mx-auto">
+              Connect with fellow builders to form hackathon squads and collaborate.
             </p>
+            <Link
+              href="/developers"
+              className="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+            >
+              <span>Explore Builders</span>
+              <span className="font-mono">→</span>
+            </Link>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
@@ -436,7 +445,7 @@ function ConnectionsContent() {
                     />
                   ) : (
                     <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                      {conn.profile.full_name?.charAt(0)}
+                      {getInitials(conn.profile.full_name, 1)}
                     </div>
                   )}
                   <div className="min-w-0">

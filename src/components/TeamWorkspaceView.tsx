@@ -47,7 +47,7 @@ type InviteProfile = {
   skills: string[] | null;
 };
 
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "submission" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
+type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 type Props = {
   team: Team;
@@ -57,44 +57,6 @@ type Props = {
   listedHackathons?: { id: string; name: string; description?: string | null; start_date?: string; end_date?: string }[];
   refreshTeam?: () => void;
 };
-
-function parseHackathonRequirements(description: string | null | undefined): { id: string; label: string; checked: boolean }[] {
-  const defaults = [
-    { id: "1", label: "Push source code to GitHub repository", checked: false },
-    { id: "2", label: "Deploy project to production (Live Demo URL)", checked: false },
-    { id: "3", label: "Finalize presentation deck / slides", checked: false },
-    { id: "4", label: "Record and upload project video pitch", checked: false },
-    { id: "5", label: "Submission created on Devpost/Portal", checked: false },
-  ];
-
-  if (!description) return defaults;
-
-  const descLower = description.toLowerCase();
-  const requirements = [];
-  let currentId = 1;
-
-  if (descLower.includes("github") || descLower.includes("repository") || descLower.includes("source code") || descLower.includes("repo")) {
-    requirements.push({ id: String(currentId++), label: "Push source code to GitHub repository", checked: false });
-  }
-
-  if (descLower.includes("deploy") || descLower.includes("live link") || descLower.includes("live demo") || descLower.includes("vercel") || descLower.includes("netlify") || descLower.includes("prototype link") || descLower.includes("working prototype")) {
-    requirements.push({ id: String(currentId++), label: "Deploy project to production (Live Demo URL)", checked: false });
-  }
-
-  if (descLower.includes("ppt") || descLower.includes("pitch deck") || descLower.includes("slides") || descLower.includes("presentation") || descLower.includes("powerpoint") || descLower.includes("proposal document")) {
-    requirements.push({ id: String(currentId++), label: "Finalize presentation deck / slides", checked: false });
-  }
-
-  if (descLower.includes("video") || descLower.includes("pitch video") || descLower.includes("loom") || descLower.includes("demonstration video") || descLower.includes("youtube")) {
-    requirements.push({ id: String(currentId++), label: "Record and upload project video pitch", checked: false });
-  }
-
-  if (descLower.includes("figma") || descLower.includes("ui/ux") || descLower.includes("design prototype") || descLower.includes("wireframe") || descLower.includes("poster")) {
-    requirements.push({ id: String(currentId++), label: "Complete UI/UX design prototype in Figma", checked: false });
-  }
-
-  return requirements.length > 0 ? requirements : defaults;
-}
 
 export default function TeamWorkspaceView({
   team,
@@ -308,32 +270,6 @@ export default function TeamWorkspaceView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceTab, activeGithubRepoUrl]);
 
-
-  // Project Submission Tab State
-  type ChecklistItem = {
-    id: string;
-    label: string;
-    checked: boolean;
-  };
-  type SubmissionData = {
-    projectTitle: string;
-    demoUrl: string;
-    githubUrl: string;
-    pitchVideoUrl: string;
-    slidesUrl: string;
-    checklist: ChecklistItem[];
-  };
-
-  const [submission, setSubmission] = useState<SubmissionData>({
-    projectTitle: "",
-    demoUrl: "",
-    githubUrl: "",
-    pitchVideoUrl: "",
-    slidesUrl: "",
-    checklist: [],
-  });
-
-  const [newChecklistItem, setNewChecklistItem] = useState("");
 
   // Tasks Tab State
   type Task = {
@@ -851,139 +787,6 @@ export default function TeamWorkspaceView({
           });
       }
     }
-  };
-
-  const [savingSubmission, setSavingSubmission] = useState(false);
-
-  // Load and save submission checklist
-  useEffect(() => {
-    if (!team.id) return;
-    
-    const primaryHackathon = listedHackathons && listedHackathons[0];
-    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
-
-    const loadSubmission = async () => {
-      try {
-        let query = supabase
-          .from("team_submissions")
-          .select("*")
-          .eq("team_id", team.id);
-
-        if (currentHackathonId) {
-          query = query.eq("hackathon_id", currentHackathonId);
-        }
-
-        const { data, error } = await query.maybeSingle();
-
-        if (error) {
-          console.error("Error loading team submissions:", error);
-          return;
-        }
-
-        const parsedChecklist = parseHackathonRequirements(primaryHackathon?.description);
-
-        if (data) {
-          setSubmission({
-            projectTitle: data.project_title || "",
-            demoUrl: data.demo_url || "",
-            githubUrl: data.github_url || "",
-            pitchVideoUrl: data.pitch_video_url || "",
-            slidesUrl: data.slides_url || "",
-            checklist: data.checklist && data.checklist.length > 0 ? data.checklist : parsedChecklist,
-          });
-        } else {
-          setSubmission({
-            projectTitle: "",
-            demoUrl: "",
-            githubUrl: "",
-            pitchVideoUrl: "",
-            slidesUrl: "",
-            checklist: parsedChecklist,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load submission:", err);
-      }
-    };
-
-    loadSubmission();
-  }, [team.id, team.hackathon_id, listedHackathons]);
-
-  const handleSaveSubmission = async () => {
-    const primaryHackathon = listedHackathons && listedHackathons[0];
-    const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
-
-    if (!currentHackathonId) {
-      showToast("Cannot save submission: No active hackathon linked to team.", "error");
-      return;
-    }
-
-    setSavingSubmission(true);
-    const hasContent = (submission.projectTitle || "").trim() || (submission.demoUrl || "").trim() || (submission.githubUrl || "").trim();
-    const completionStatus = hasContent ? "submitted" : "draft";
-
-    try {
-      const { error } = await supabase
-        .from("team_submissions")
-        .upsert(
-          {
-            team_id: team.id,
-            hackathon_id: currentHackathonId,
-            project_title: submission.projectTitle,
-            demo_url: submission.demoUrl,
-            github_url: submission.githubUrl,
-            pitch_video_url: submission.pitchVideoUrl,
-            slides_url: submission.slidesUrl,
-            checklist: submission.checklist,
-            completion_status: completionStatus,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "team_id,hackathon_id" }
-        );
-
-
-      if (error) {
-        showToast(error.message, "error");
-      } else {
-        showToast("Submission deck saved successfully!", "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to save submission.", "error");
-    } finally {
-      setSavingSubmission(false);
-    }
-  };
-
-
-  const handleToggleChecklist = (itemId: string) => {
-    setSubmission((prev) => ({
-      ...prev,
-      checklist: prev.checklist.map((item) =>
-        item.id === itemId ? { ...item, checked: !item.checked } : item
-      ),
-    }));
-  };
-
-  const handleAddChecklistItem = () => {
-    if (!newChecklistItem.trim()) return;
-    const newItem: ChecklistItem = {
-      id: Date.now().toString(),
-      label: newChecklistItem.trim(),
-      checked: false,
-    };
-    setSubmission((prev) => ({
-      ...prev,
-      checklist: [...prev.checklist, newItem],
-    }));
-    setNewChecklistItem("");
-  };
-
-  const handleDeleteChecklistItem = (itemId: string) => {
-    setSubmission((prev) => ({
-      ...prev,
-      checklist: prev.checklist.filter((item) => item.id !== itemId),
-    }));
   };
 
   // Update Task Status
@@ -1540,10 +1343,10 @@ export default function TeamWorkspaceView({
         className="p-3 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg space-y-3 relative group/card hover:border-[var(--card-hover-border)] transition-all cursor-pointer shadow-md hover:shadow-lg"
       >
         <div className="flex justify-between items-start gap-2">
-          <h4 className="text-xs font-semibold text-white break-words pr-4">{task.title}</h4>
+          <h4 className="text-xs font-semibold text-zinc-900 dark:text-white break-words pr-4">{task.title}</h4>
           <button
             onClick={() => handleDeleteTask(task.id)}
-            className="opacity-0 group-hover/card:opacity-100 absolute top-2 right-2 text-zinc-600 hover:text-rose-400 transition-opacity cursor-pointer"
+            className="opacity-0 group-hover/card:opacity-100 absolute top-2 right-2 text-zinc-400 hover:text-rose-500 transition-opacity cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1552,7 +1355,7 @@ export default function TeamWorkspaceView({
         </div>
 
         {task.description && (
-          <p className="text-[10px] text-zinc-400 leading-relaxed break-words">{task.description}</p>
+          <p className="text-[10px] text-zinc-600 dark:text-zinc-400 leading-relaxed break-words">{task.description}</p>
         )}
         <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
           <div className="flex items-center gap-1">
@@ -1611,7 +1414,7 @@ export default function TeamWorkspaceView({
         </div>
 
         {/* Due Date Indicator & Date Input */}
-        <div className="flex items-center justify-between border-t border-zinc-900/60 pt-2 mt-1">
+        <div className="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-900/60 pt-2 mt-1">
           {(() => {
             if (!task.due_date) return <span className="text-[9px] text-zinc-600 font-mono italic">No due date</span>;
             const dueDate = new Date(task.due_date);
@@ -1644,25 +1447,25 @@ export default function TeamWorkspaceView({
   const renderCategoryPanel = (cat: "design" | "repo" | "document" | "other", title: string, iconPath: string) => {
     const catLinks = links.filter((l) => l.category === cat);
     return (
-      <div className="card card-static p-4 flex flex-col justify-between min-h-[220px]">
+      <div className="card card-static p-4 flex flex-col justify-between min-h-[220px] bg-[var(--surface-1)] border border-[var(--card-border)]">
         <div>
-          <div className="flex items-center gap-2 mb-4 border-b border-zinc-900 pb-2">
-            <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="flex items-center gap-2 mb-4 border-b border-zinc-200 dark:border-zinc-900 pb-2">
+            <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
             </svg>
-            <h4 className="text-xs font-semibold text-white truncate">{title}</h4>
+            <h4 className="text-xs font-semibold text-zinc-900 dark:text-white truncate">{title}</h4>
           </div>
 
           <div className="space-y-2 overflow-y-auto max-h-[140px] pr-0.5">
             {catLinks.map((link) => (
-              <div key={link.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-900 hover:border-zinc-850 transition-colors group/link">
+              <div key={link.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-100/80 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-800 transition-colors group/link">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                   {link.hackathon_id ? (
-                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20 shrink-0">
+                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20 shrink-0">
                       Track
                     </span>
                   ) : (
-                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-zinc-800 text-zinc-400 shrink-0">
+                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 shrink-0">
                       Global
                     </span>
                   )}
@@ -1670,7 +1473,7 @@ export default function TeamWorkspaceView({
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] text-zinc-300 hover:text-white truncate font-medium underline underline-offset-2"
+                    className="text-[10px] text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white truncate font-medium underline underline-offset-2"
                   >
                     {link.title}
                   </a>
@@ -1798,17 +1601,13 @@ export default function TeamWorkspaceView({
   const completedTasksCount = tasks.filter((t) => t.status === "completed").length;
   const taskProgressPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  const totalChecklistCount = submission?.checklist?.length || 0;
-  const completedChecklistCount = submission?.checklist?.filter((c) => c.checked).length || 0;
-  const checklistProgressPct = totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0;
-
   return (
     <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
       {/* Header Back Link to Team Overview */}
       <div className="mb-6 flex items-center justify-between animate-fade-in-up">
         <Link
           href={`/teams/${team.id}`}
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors font-mono uppercase tracking-wider bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors font-mono uppercase tracking-wider bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 rounded-lg"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -1819,7 +1618,7 @@ export default function TeamWorkspaceView({
         {(isOwner || Boolean(currentUserId && members?.some((m: any) => m.user_id === currentUserId || m.id === currentUserId))) && (
           <button
             onClick={() => setShowShareModal(true)}
-            className="btn btn-lime px-3.5 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+            className="btn btn-lime px-3.5 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm"
           >
             <span className="text-black">🔗 Share Workspace</span>
           </button>
@@ -1829,7 +1628,7 @@ export default function TeamWorkspaceView({
       <section className="animate-fade-in-up space-y-6">
         {/* Top Countdown & Milestone Dashboard banner */}
         {activeHackathon && (
-          <div className="card p-6 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-2xl relative overflow-hidden group">
+          <div className="card p-6 bg-gradient-to-r from-white via-zinc-50 to-white dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-xl dark:shadow-2xl relative overflow-hidden group">
             <div className="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-violet-600/10 blur-3xl pointer-events-none group-hover:bg-violet-600/15 transition-all duration-700" />
             <div className="absolute -left-24 -bottom-24 w-48 h-48 rounded-full bg-emerald-600/5 blur-3xl pointer-events-none group-hover:bg-emerald-600/10 transition-all duration-700" />
 
@@ -1933,19 +1732,6 @@ export default function TeamWorkspaceView({
                   />
                 </div>
               </div>
-
-              <div className="flex flex-col gap-1.5 min-w-[125px]">
-                <div className="flex items-center justify-between text-[9px] font-mono">
-                  <span className="text-zinc-500 uppercase tracking-wider">Milestones</span>
-                  <span className="text-zinc-350 font-bold">{completedChecklistCount}/{totalChecklistCount} ({checklistProgressPct}%)</span>
-                </div>
-                <div className="w-full h-1.5 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
-                    style={{ width: `${checklistProgressPct}%` }}
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -1965,10 +1751,10 @@ export default function TeamWorkspaceView({
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[9px] font-mono font-semibold tracking-widest text-amber-400 uppercase flex items-center gap-1.5">
+                  <span className="text-[9px] font-mono font-semibold tracking-widest text-amber-500 dark:text-amber-400 uppercase flex items-center gap-1.5">
                     📊 Stack Fit Matrix
                   </span>
-                  <h4 className="text-xs font-bold text-zinc-200">Team Skills Coverage Radar</h4>
+                  <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-200">Team Skills Coverage Radar</h4>
                   <p className="text-[10px] text-zinc-500 max-w-md leading-relaxed">
                     Matches requested team skills against current builders. Recruiting developers with missing competencies boosts event readiness.
                   </p>
@@ -2051,7 +1837,6 @@ export default function TeamWorkspaceView({
               { id: "tasks", label: "Tasks" },
               { id: "brainstorm", label: "Brainstorm" },
               { id: "resources", label: "Resources" },
-              { id: "submission", label: "Submission" },
               { id: "github", label: "GitHub Sync" },
               { id: "deployments", label: "🚀 Deployments" },
               { id: "activity", label: "Activity Feed" },
@@ -2127,15 +1912,15 @@ export default function TeamWorkspaceView({
 
               {loadingTasks ? (
                 <div className="card card-static p-12 text-center">
-                  <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
+                  <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-800 border-t-zinc-900 dark:border-t-white rounded-full animate-spin mx-auto mb-2" />
                   <p className="text-zinc-500 text-xs font-mono uppercase">Loading tasks...</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {tasks.length > 0 && (
-                    <div className="grid lg:grid-cols-3 gap-4 bg-zinc-950/20 border border-zinc-800/80 rounded-xl p-4 text-left">
-                      <div className="space-y-2 border-r border-zinc-900/60 pr-4">
-                        <span className="text-[9px] font-mono font-semibold tracking-wider text-violet-400 uppercase">Teammate Workload Balance</span>
+                    <div className="grid lg:grid-cols-3 gap-4 bg-zinc-50/80 dark:bg-zinc-950/20 border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl p-4 text-left shadow-xs">
+                      <div className="space-y-2 border-r border-zinc-200 dark:border-zinc-900/60 pr-4">
+                        <span className="text-[9px] font-mono font-semibold tracking-wider text-violet-600 dark:text-violet-400 uppercase">Teammate Workload Balance</span>
                         <div className="space-y-1.5 max-h-[100px] overflow-y-auto pr-1">
                           {members.map((m) => {
                             const assignedTasks = tasks.filter((t) => t.assignee_id === m.profiles.id);
@@ -2225,8 +2010,8 @@ export default function TeamWorkspaceView({
                     {/* TO DO COLUMN */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-300">To Do</span>
-                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-300">To Do</span>
+                        <span className="badge text-[10px] bg-zinc-200/80 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 font-mono">
                           {tasks.filter((t) => t.status === "todo").length}
                         </span>
                       </div>
@@ -2240,13 +2025,13 @@ export default function TeamWorkspaceView({
                         }}
                         className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
                           draggedOverColumn === "todo"
-                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
-                            : "bg-zinc-950/40 border border-zinc-900/60"
+                            ? "bg-indigo-50/60 dark:bg-zinc-900/80 border border-dashed border-indigo-400 dark:border-zinc-600"
+                            : "bg-zinc-100/70 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-900/60"
                         }`}
                       >
                         {tasks.filter((t) => t.status === "todo").map((task) => renderTaskCard(task))}
                         {tasks.filter((t) => t.status === "todo").length === 0 && (
-                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                          <p className="text-zinc-500 dark:text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
                         )}
                       </div>
                     </div>
@@ -2254,8 +2039,8 @@ export default function TeamWorkspaceView({
                     {/* IN PROGRESS COLUMN */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-300">In Progress</span>
-                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-300">In Progress</span>
+                        <span className="badge text-[10px] bg-zinc-200/80 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 font-mono">
                           {tasks.filter((t) => t.status === "in_progress").length}
                         </span>
                       </div>
@@ -2269,13 +2054,13 @@ export default function TeamWorkspaceView({
                         }}
                         className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
                           draggedOverColumn === "in_progress"
-                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
-                            : "bg-zinc-950/40 border border-zinc-900/60"
+                            ? "bg-indigo-50/60 dark:bg-zinc-900/80 border border-dashed border-indigo-400 dark:border-zinc-600"
+                            : "bg-zinc-100/70 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-900/60"
                         }`}
                       >
                         {tasks.filter((t) => t.status === "in_progress").map((task) => renderTaskCard(task))}
                         {tasks.filter((t) => t.status === "in_progress").length === 0 && (
-                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                          <p className="text-zinc-500 dark:text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
                         )}
                       </div>
                     </div>
@@ -2283,8 +2068,8 @@ export default function TeamWorkspaceView({
                     {/* COMPLETED COLUMN */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-300">Completed</span>
-                        <span className="badge text-[10px] bg-zinc-900 border-zinc-850 text-zinc-400 font-mono">
+                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-300">Completed</span>
+                        <span className="badge text-[10px] bg-zinc-200/80 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 font-mono">
                           {tasks.filter((t) => t.status === "completed").length}
                         </span>
                       </div>
@@ -2298,13 +2083,13 @@ export default function TeamWorkspaceView({
                         }}
                         className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
                           draggedOverColumn === "completed"
-                            ? "bg-zinc-900/80 border border-dashed border-zinc-600"
-                            : "bg-zinc-950/40 border border-zinc-900/60"
+                            ? "bg-indigo-50/60 dark:bg-zinc-900/80 border border-dashed border-indigo-400 dark:border-zinc-600"
+                            : "bg-zinc-100/70 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-900/60"
                         }`}
                       >
                         {tasks.filter((t) => t.status === "completed").map((task) => renderTaskCard(task))}
                         {tasks.filter((t) => t.status === "completed").length === 0 && (
-                          <p className="text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
+                          <p className="text-zinc-500 dark:text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
                         )}
                       </div>
                     </div>
@@ -2567,174 +2352,7 @@ export default function TeamWorkspaceView({
             </div>
           )}
 
-          {/* 5. SUBMISSION TAB */}
-          {workspaceTab === "submission" && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Submission Deck</h3>
-                <button
-                  onClick={handleSaveSubmission}
-                  disabled={savingSubmission}
-                  className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {savingSubmission ? (
-                    <div className="w-3.5 h-3.5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
-                  <span>{savingSubmission ? "Saving..." : "Save Submission"}</span>
-                </button>
-              </div>
 
-              {listedHackathons && listedHackathons.length > 0 && (
-                <div className="card card-static p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between gap-4">
-                  <div className="text-left">
-                    <h4 className="text-xs font-bold text-emerald-400 font-mono uppercase tracking-wider">Active Hackathon: {listedHackathons[0].name}</h4>
-                    <p className="text-[10px] text-zinc-400 mt-0.5">Your submission checklist is dynamically tailored to this event&apos;s description requirements.</p>
-                  </div>
-                  <span className="px-2 py-0.5 text-[8px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded uppercase font-mono tracking-widest leading-none shrink-0">
-                    Tailored
-                  </span>
-                </div>
-              )}
-
-              {/* Progress bar */}
-              {(() => {
-                const completedCount = submission.checklist.filter((item) => item.checked).length;
-                const totalCount = submission.checklist.length;
-                const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-                return (
-                  <div className="card card-static p-6 bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="text-left">
-                        <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider mb-1">Submission Readiness</h4>
-                        <p className="text-xs text-zinc-400">Track your project completion checklist before the final hackathon deadline.</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-48 bg-zinc-955 rounded-full h-2.5 overflow-hidden border border-zinc-800">
-                          <div className="bg-gradient-to-r from-violet-500 to-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
-                        </div>
-                        <span className="text-sm font-bold text-white font-mono">{percent}%</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Inputs */}
-                <div className="card card-static p-6 space-y-4">
-                  <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 text-left">Project Metadata</h4>
-                  
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Project Title</label>
-                    <input
-                      type="text"
-                      value={submission.projectTitle}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, projectTitle: e.target.value }))}
-                      placeholder="e.g. HackerMate OS"
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">GitHub Repository Link</label>
-                    <input
-                      type="text"
-                      value={submission.githubUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, githubUrl: e.target.value }))}
-                      placeholder="https://github.com/..."
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Live Demo URL</label>
-                    <input
-                      type="text"
-                      value={submission.demoUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, demoUrl: e.target.value }))}
-                      placeholder="https://..."
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Video Pitch Link</label>
-                    <input
-                      type="text"
-                      value={submission.pitchVideoUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, pitchVideoUrl: e.target.value }))}
-                      placeholder="https://youtube.com/watch?v=... or Loom"
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-xs font-medium text-zinc-300">Presentation Slides / PDF Link</label>
-                    <input
-                      type="text"
-                      value={submission.slidesUrl}
-                      onChange={(e) => setSubmission(prev => ({ ...prev, slidesUrl: e.target.value }))}
-                      placeholder="https://docs.google.com/presentation/... or Canva"
-                      className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800"
-                    />
-                  </div>
-                </div>
-
-                {/* Checklist */}
-                <div className="card card-static p-6 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2 mb-4 text-left">Milestones Checklist</h4>
-                    
-                    <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
-                      {submission.checklist.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between group/check p-2 rounded-lg bg-zinc-950/60 border border-zinc-900/60 hover:border-zinc-800/80 transition-colors">
-                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300 hover:text-white select-none min-w-0 flex-1">
-                            <input
-                              type="checkbox"
-                              checked={item.checked}
-                              onChange={() => handleToggleChecklist(item.id)}
-                              className="w-3.5 h-3.5 rounded border-zinc-800 bg-zinc-900 text-primary-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                            />
-                            <span className={`truncate ${item.checked ? "line-through text-zinc-500" : ""}`}>{item.label}</span>
-                          </label>
-                          <button
-                            onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover/check:opacity-100 text-zinc-600 hover:text-rose-400 transition-opacity ml-2 shrink-0 cursor-pointer"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-zinc-800/60 flex gap-2">
-                    <input
-                      type="text"
-                      value={newChecklistItem}
-                      onChange={(e) => setNewChecklistItem(e.target.value)}
-                      placeholder="Add custom task..."
-                      className="input text-xs flex-1 py-1 px-3 bg-zinc-950 border-zinc-900 focus:border-zinc-800"
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
-                    />
-                    <button
-                      onClick={handleAddChecklistItem}
-                      disabled={!newChecklistItem.trim()}
-                      className="btn btn-secondary text-xs px-3 py-1 flex items-center justify-center disabled:opacity-50 cursor-pointer"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* 6. GITHUB TAB */}
           {workspaceTab === "github" && (
@@ -3250,7 +2868,7 @@ export default function TeamWorkspaceView({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4 text-xs bg-zinc-950/40 border border-zinc-900 rounded-lg p-3">
+            <div className="grid grid-cols-2 gap-4 mb-4 text-xs bg-zinc-100/80 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-900 rounded-lg p-3">
               <div>
                 <span className="text-zinc-500 block mb-1">Assignee</span>
                 {(() => {
@@ -3260,14 +2878,14 @@ export default function TeamWorkspaceView({
                       {assignee ? (
                         <>
                           {assignee.profiles.avatar_url ? (
-                            <img src={assignee.profiles.avatar_url} alt={assignee.profiles.full_name} className="w-4 h-4 rounded-full object-cover border border-zinc-800" />
+                            <img src={assignee.profiles.avatar_url} alt={assignee.profiles.full_name} className="w-4 h-4 rounded-full object-cover border border-zinc-200 dark:border-zinc-800" />
                           ) : (
-                            <div className="w-4 h-4 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center font-bold text-zinc-400 text-[8px]">{assignee.profiles.full_name.charAt(0)}</div>
+                            <div className="w-4 h-4 rounded-full bg-zinc-200 dark:bg-zinc-850 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-400 text-[8px]">{assignee.profiles.full_name.charAt(0)}</div>
                           )}
-                          <span className="text-zinc-300 font-semibold">{assignee.profiles.full_name}</span>
+                          <span className="text-zinc-800 dark:text-zinc-300 font-semibold">{assignee.profiles.full_name}</span>
                         </>
                       ) : (
-                        <span className="text-zinc-600 italic">Unassigned</span>
+                        <span className="text-zinc-500 italic">Unassigned</span>
                       )}
                     </div>
                   );
@@ -3277,9 +2895,9 @@ export default function TeamWorkspaceView({
               <div>
                 <span className="text-zinc-500 block mb-1">Due Date</span>
                 {selectedTask.due_date ? (
-                  <span className="text-zinc-300 font-semibold font-mono">{new Date(selectedTask.due_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+                  <span className="text-zinc-800 dark:text-zinc-300 font-semibold font-mono">{new Date(selectedTask.due_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
                 ) : (
-                  <span className="text-zinc-600 italic">No deadline set</span>
+                  <span className="text-zinc-500 italic">No deadline set</span>
                 )}
               </div>
             </div>
@@ -3287,7 +2905,7 @@ export default function TeamWorkspaceView({
             {selectedTask.description && (
               <div className="mb-4">
                 <span className="text-zinc-500 text-[10px] font-mono uppercase block mb-1">Description</span>
-                <p className="text-xs text-zinc-300 bg-zinc-950/20 border border-zinc-900/60 p-3 rounded-lg leading-relaxed break-words">{selectedTask.description}</p>
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 bg-zinc-100/70 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-900/60 p-3 rounded-lg leading-relaxed break-words">{selectedTask.description}</p>
               </div>
             )}
 
@@ -3312,12 +2930,12 @@ export default function TeamWorkspaceView({
                         ) : (
                           <div className="w-5.5 h-5.5 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-500 text-[9px] mt-0.5">{commenter?.full_name?.charAt(0) || "U"}</div>
                         )}
-                        <div className="flex-1 bg-zinc-900/30 border border-zinc-900/80 rounded-lg p-2.5">
+                        <div className="flex-1 bg-zinc-100/80 dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-900/80 rounded-lg p-2.5">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-white">{commenter?.full_name || "Teammate"}</span>
+                            <span className="text-[10px] font-bold text-zinc-900 dark:text-white">{commenter?.full_name || "Teammate"}</span>
                             <span className="text-[8px] text-zinc-500 font-mono">{date}</span>
                           </div>
-                          <p className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed">{comment.content}</p>
+                          <p className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">{comment.content}</p>
                         </div>
                       </div>
                     );
@@ -3325,14 +2943,14 @@ export default function TeamWorkspaceView({
                 )}
               </div>
 
-              <form onSubmit={handleAddComment} className="flex gap-2 pt-3 border-t border-zinc-900 mt-auto">
+              <form onSubmit={handleAddComment} className="flex gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-900 mt-auto">
                 <input
                   type="text"
                   value={newTaskComment}
                   onChange={(e) => setNewTaskComment(e.target.value)}
                   placeholder="Post comment..."
                   disabled={submittingComment}
-                  className="input text-xs flex-1 bg-zinc-955 border-zinc-900 focus:border-zinc-800 py-1.5 px-3"
+                  className="input text-xs flex-1 bg-[var(--surface-1)] border-[var(--card-border)] text-[var(--text-primary)] py-1.5 px-3"
                 />
                 <button
                   type="submit"
@@ -3351,14 +2969,14 @@ export default function TeamWorkspaceView({
       {showAddTaskModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="card card-static p-5 w-full max-w-md flex flex-col bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
-            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-zinc-200 dark:border-white/[0.06]">
               <div>
-                <h2 className="text-sm font-semibold text-white mb-0.5">Create New Task</h2>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-0.5">Create New Task</h2>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Assign tasks to builders on your team.</p>
               </div>
               <button 
                 onClick={() => setShowAddTaskModal(false)}
-                className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -3368,7 +2986,7 @@ export default function TeamWorkspaceView({
 
             <form onSubmit={handleAddTask} className="space-y-4">
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-300">Task Title <span className="text-rose-400">*</span></label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Task Title <span className="text-rose-400">*</span></label>
                 <input
                   type="text"
                   required
@@ -3380,7 +2998,7 @@ export default function TeamWorkspaceView({
               </div>
 
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-300">Description</label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Description</label>
                 <textarea
                   value={taskDesc}
                   onChange={(e) => setTaskDesc(e.target.value)}
@@ -3392,7 +3010,7 @@ export default function TeamWorkspaceView({
 
               <div className="grid grid-cols-2 gap-4 text-left">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-zinc-300">Priority</label>
+                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Priority</label>
                   <select
                     value={taskPriority}
                     onChange={(e) => setTaskPriority(e.target.value as "low" | "medium" | "high")}
@@ -3405,7 +3023,7 @@ export default function TeamWorkspaceView({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-zinc-300">Assign To</label>
+                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Assign To</label>
                   <select
                     value={taskAssignee}
                     onChange={(e) => setTaskAssignee(e.target.value)}
@@ -3422,16 +3040,16 @@ export default function TeamWorkspaceView({
               </div>
 
               <div className="flex flex-col gap-1.5 mt-3 text-left">
-                <label className="text-xs font-medium text-zinc-300">Due Date (Optional)</label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Due Date (Optional)</label>
                 <input
                   type="date"
                   value={taskDueDate}
                   onChange={(e) => setTaskDueDate(e.target.value)}
-                  className="input text-xs bg-zinc-955 border-zinc-900 focus:border-zinc-800 cursor-pointer"
+                  className="input text-xs bg-[var(--surface-2)] border-[var(--card-border)] text-[var(--text-primary)] cursor-pointer"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">
+              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-900 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddTaskModal(false)}
@@ -3461,14 +3079,14 @@ export default function TeamWorkspaceView({
       {showAddLinkModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="card card-static p-5 w-full max-w-md flex flex-col bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
-            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
+            <div className="flex justify-between items-start mb-4 pb-3 border-b border-zinc-200 dark:border-white/[0.06]">
               <div>
-                <h2 className="text-sm font-semibold text-white mb-0.5">Add Resource Link</h2>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-0.5">Add Resource Link</h2>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Save important workspace links for your team.</p>
               </div>
               <button 
                 onClick={() => setShowAddLinkModal(false)}
-                className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -3478,7 +3096,7 @@ export default function TeamWorkspaceView({
 
             <form onSubmit={handleAddLink} className="space-y-4">
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-300">Link Title <span className="text-rose-400">*</span></label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Link Title <span className="text-rose-400">*</span></label>
                 <input
                   type="text"
                   required
@@ -3490,7 +3108,7 @@ export default function TeamWorkspaceView({
               </div>
 
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-300">URL <span className="text-rose-400">*</span></label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">URL <span className="text-rose-400">*</span></label>
                 <input
                   type="text"
                   required
@@ -3502,7 +3120,7 @@ export default function TeamWorkspaceView({
               </div>
 
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-300">Category</label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Category</label>
                 <select
                   value={linkCategory}
                   onChange={(e) => setLinkCategory(e.target.value as "design" | "repo" | "document" | "other")}
@@ -3516,7 +3134,7 @@ export default function TeamWorkspaceView({
               </div>
 
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-300">Link Visibility / Scope</label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Link Visibility / Scope</label>
                 <select
                   value={linkScope}
                   onChange={(e) => setLinkScope(e.target.value as "event" | "global")}
@@ -3528,7 +3146,7 @@ export default function TeamWorkspaceView({
               </div>
 
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-900 mt-4">
+              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-900 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddLinkModal(false)}

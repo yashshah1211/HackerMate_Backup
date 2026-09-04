@@ -457,7 +457,6 @@ function HackathonDetailContent() {
           profiles (
             id,
             full_name,
-            email,
             college,
             avatar_url,
             skills,
@@ -1357,44 +1356,6 @@ function HackathonDetailContent() {
         {/* Right - Stats & Actions */}
         <div className="card card-static p-6 md:p-8 animate-fade-in-up stagger-1 flex flex-col justify-between">
           <div>
-            {/* Project Showcase Banner */}
-            {(() => {
-              const now = new Date();
-              const deadlineStage = stages.find((s) => s.stage_type === "deadline");
-              let isPassed = false;
-              if (deadlineStage) {
-                const deadlineTime = deadlineStage.end_time
-                  ? new Date(deadlineStage.end_time)
-                  : new Date(deadlineStage.start_time);
-                isPassed = now > deadlineTime;
-              } else if (hackathon.end_date) {
-                isPassed = now > new Date(hackathon.end_date);
-              }
-
-              return (
-                <div className="mb-6 p-4 rounded-xl showcase-banner-box flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <h4 className="text-xs font-bold showcase-banner-title uppercase tracking-wider font-mono">
-                        {isPassed ? "Hackathon Completed" : "Project Showcase"}
-                      </h4>
-                    </div>
-                    <p className="text-[11px] showcase-banner-desc">
-                      View submitted projects, live demos & video pitches.
-                    </p>
-                  </div>
-
-                  <Link
-                    href={`/hackathons/${hackathonId}/showcase`}
-                    className="btn btn-primary btn-sm text-xs shrink-0 cursor-pointer text-center"
-                  >
-                    View Showcase →
-                  </Link>
-                </div>
-              );
-            })()}
-
             <div className="flex justify-between items-center mb-6">
               {hackathon.mode && (
                 <span className="badge badge-primary text-[10px] py-0.5 px-1.5 capitalize">
