@@ -48,10 +48,9 @@ async function callGeminiForTrack(
   profile: any
 ): Promise<Omit<ProjectEvaluationResult, "usedAiEngine" | "evaluationTimestamp">> {
   const models = [
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.5-flash-lite",
+    "gemini-3-flash-preview",
     "gemini-3.5-flash",
+    "gemini-flash-latest",
   ];
   const promptText = buildGeminiPromptForTrack(input, profile);
 
@@ -63,12 +62,12 @@ async function callGeminiForTrack(
       const aiRes = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(25000),
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptText }] }],
           generationConfig: {
             temperature: 0.15,
-            maxOutputTokens: 3500,
+            maxOutputTokens: 2000,
             responseMimeType: "application/json",
           },
         }),

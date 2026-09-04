@@ -723,7 +723,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
                 {
                   step: "03",
                   title: "Collaborate & Win",
-                  description: "Coordinate tasks on the built-in Kanban board, brainstorm in team chat, and test your deck with AI evaluator.",
+                  description: "Coordinate tasks on the built-in Kanban board, brainstorm in team chat, and test your pitch with Idea Evaluator.",
                   badge: "Workspace OS",
                 },
               ].map((item) => (

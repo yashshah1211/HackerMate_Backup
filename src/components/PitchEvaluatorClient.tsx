@@ -26,6 +26,10 @@ import {
   Trophy,
   Check,
   Sparkles,
+  History,
+  Trash2,
+  X,
+  Clock,
 } from "lucide-react";
 
 interface PitchEvaluatorClientProps {
@@ -57,6 +61,73 @@ export default function PitchEvaluatorClient({
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"feedback" | "architecture" | "team">("feedback");
 
+  // History Drawer State
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+
+  const loadHistory = async () => {
+    try {
+      setLoadingHistory(true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/evaluator/history", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setHistory(data.history || []);
+      }
+    } catch (err) {
+      console.error("[PitchEvaluatorClient] loadHistory error:", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const deleteHistoryItem = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setDeletingHistoryId(id);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(`/api/evaluator/history?id=${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (res.ok) {
+        setHistory((prev) => prev.filter((item) => item.id !== id));
+      }
+    } catch (err) {
+      console.error("[PitchEvaluatorClient] deleteHistoryItem error:", err);
+    } finally {
+      setDeletingHistoryId(null);
+    }
+  };
+
+  const handleSelectHistoryItem = (item: any) => {
+    if (item.evaluation_result) {
+      setResult(item.evaluation_result);
+      if (item.ps_title) setTitle(item.ps_title);
+      if (item.track_id) setSelectedTrack(item.track_id as JudgingTrackId);
+      setShowHistoryDrawer(false);
+      setTimeout(() => {
+        document.getElementById("evaluation-results")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  };
+
   // Load user session, user teams, and platform hackathons
   useEffect(() => {
     async function loadUserAndHackathons() {
@@ -66,6 +137,7 @@ export default function PitchEvaluatorClient({
 
       if (sessionUser) {
         setUser(sessionUser);
+        loadHistory();
 
         // 1. Fetch user's teams & joined hackathons
         try {
@@ -215,6 +287,9 @@ export default function PitchEvaluatorClient({
         setErrorMsg(data.error || "Evaluation failed. Please try again.");
       } else {
         setResult(data.result);
+        if (user) {
+          loadHistory();
+        }
         setTimeout(() => {
           document.getElementById("evaluation-results")?.scrollIntoView({ behavior: "smooth" });
         }, 100);
@@ -230,13 +305,13 @@ export default function PitchEvaluatorClient({
 
   const shareOnWhatsApp = () => {
     if (!result) return;
-    const text = `🚀 My project "${title}" scored ${result.totalScore}/100 on the HackerMate AI Hackathon Evaluator (${result.grade})! Test your pitch & find teammates: https://www.hackermate.in/evaluator`;
+    const text = `🚀 My project "${title}" scored ${result.totalScore}/100 on the HackerMate Idea Evaluator (${result.grade})! Test your pitch & find teammates: https://www.hackermate.in/evaluator`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const copySummary = () => {
     if (!result) return;
-    const summary = `📊 HackerMate AI Evaluation: ${title}\nScore: ${result.totalScore}/100 (${result.grade})\nTrack: ${currentProfile.name}\n\nTop Strengths:\n${result.strengths.map((s) => `• ${s}`).join("\n")}\n\nKey Recommendations:\n${result.architectureSuggestions.map((a) => `• ${a}`).join("\n")}\n\nEvaluated at: https://www.hackermate.in/evaluator`;
+    const summary = `📊 HackerMate Idea Evaluation: ${title}\nScore: ${result.totalScore}/100 (${result.grade})\nTrack: ${currentProfile.name}\n\nTop Strengths:\n${result.strengths.map((s) => `• ${s}`).join("\n")}\n\nKey Recommendations:\n${result.architectureSuggestions.map((a) => `• ${a}`).join("\n")}\n\nEvaluated at: https://www.hackermate.in/evaluator`;
     navigator.clipboard.writeText(summary);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -246,17 +321,34 @@ export default function PitchEvaluatorClient({
     <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
       {/* Header Banner */}
       <div className="text-center max-w-3xl mx-auto mb-8">
-        {!user && (
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-600 dark:text-lime-400 text-xs font-mono mb-3">
-            <Cpu className="w-3.5 h-3.5" />
-            <span>ZERO-LOGIN HACKATHON & PROJECT GRADER</span>
-          </div>
-        )}
+        <div className="flex items-center justify-center gap-2 mb-3">
+          {!user ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-600 dark:text-lime-400 text-xs font-mono">
+              <Cpu className="w-3.5 h-3.5" />
+              <span>ZERO-LOGIN HACKATHON & IDEA GRADER</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-600 dark:text-lime-400 text-xs font-mono">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>IDEA EVALUATOR ACTIVE</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryDrawer(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer shadow-xs"
+              >
+                <Clock className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400" />
+                <span>History ({history.length})</span>
+              </button>
+            </div>
+          )}
+        </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-          Track-Aware AI Pitch Deck & Idea Evaluator
+          Track-Aware Idea Evaluator & Pitch Grader
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base mt-3 leading-relaxed">
-          Select your hackathon domain. The AI dynamically adapts its judging rubric, scrutinizes your architecture, highlights domain red flags, and identifies missing teammate skill gaps.
+          Select your hackathon domain. The Idea Evaluator dynamically adapts its judging rubric, scrutinizes your architecture, highlights domain red flags, and identifies missing teammate skill gaps.
         </p>
       </div>
 
@@ -313,6 +405,16 @@ export default function PitchEvaluatorClient({
                 </optgroup>
               )}
             </select>
+            {userTeams.length > 0 && (
+              <div className="mt-2 text-right">
+                <Link
+                  href={`/teams/${selectedHackathonId ? (userTeams.find(t => t.team_hackathons?.some((th: any) => th.hackathons?.id === selectedHackathonId))?.id || userTeams[0].id) : userTeams[0].id}/workspace?tab=ppt`}
+                  className="text-[11px] font-mono text-lime-600 dark:text-lime-400 hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Open Team Workspace PPT Evaluator →</span>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -713,13 +815,24 @@ export default function PitchEvaluatorClient({
                       </span>
                     </div>
                     <div className="text-xs text-zinc-600 dark:text-zinc-400 mb-3">{role.reason}</div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 mb-3">
                       {role.suggestedSkills.map((sk, sIdx) => (
-                        <span key={sIdx} className="text-[10px] font-mono bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 px-2 py-0.5 rounded font-medium">
+                        <Link
+                          key={sIdx}
+                          href={`/developers?skills=${encodeURIComponent(sk)}`}
+                          className="text-[10px] font-mono bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-300 px-2 py-0.5 rounded font-medium transition-colors"
+                          title={`Find builders with ${sk}`}
+                        >
                           {sk}
-                        </span>
+                        </Link>
                       ))}
                     </div>
+                    <Link
+                      href={`/developers?skills=${encodeURIComponent(role.suggestedSkills.join(","))}`}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-lime-600 dark:text-lime-400 hover:underline"
+                    >
+                      <span>Find {role.role} builders on HackerMate →</span>
+                    </Link>
                   </div>
                 ))}
               </div>
@@ -743,6 +856,120 @@ export default function PitchEvaluatorClient({
             >
               <span>Find Teammates on HackerMate →</span>
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Evaluation History Slide-Over Drawer */}
+      {showHistoryDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowHistoryDrawer(false)}
+          />
+
+          {/* Drawer Content */}
+          <div className="relative w-full max-w-md bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 h-full flex flex-col shadow-2xl z-10 animate-fade-in">
+            {/* Drawer Header */}
+            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-lime-500/10 text-lime-600 dark:text-lime-400">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
+                    Evaluation History
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {history.length} saved {history.length === 1 ? "pitch scorecard" : "pitch scorecards"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryDrawer(false)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {loadingHistory ? (
+                <div className="text-center py-16 text-xs text-zinc-400 flex flex-col items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-lime-500" />
+                  <span>Loading your evaluation history...</span>
+                </div>
+              ) : history.length === 0 ? (
+                <div className="text-center py-16 px-4">
+                  <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-900 mx-auto flex items-center justify-center text-zinc-400 mb-3">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white mb-1">
+                    No Saved Evaluations Yet
+                  </h4>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                    Evaluate your project ideas or hackathon decks while signed in. All your scorecards and jury feedback will automatically save here.
+                  </p>
+                </div>
+              ) : (
+                history.map((item) => {
+                  const trackInfo = TRACK_PROFILES[item.track_id as JudgingTrackId] || TRACK_PROFILES.web_dev;
+                  const dateStr = new Date(item.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSelectHistoryItem(item)}
+                      className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all cursor-pointer group space-y-2 relative"
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-zinc-500 dark:text-zinc-400">{dateStr}</span>
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                          {trackInfo.badge}
+                        </span>
+                      </div>
+
+                      <h4 className="text-xs font-bold text-zinc-900 dark:text-white group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors line-clamp-2">
+                        {item.ps_title}
+                      </h4>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-mono font-extrabold text-lime-600 dark:text-lime-400">
+                            {item.total_score}/100
+                          </span>
+                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate max-w-[150px]">
+                            • {item.grade}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 font-medium">
+                            View →
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => deleteHistoryItem(item.id, e)}
+                            disabled={deletingHistoryId === item.id}
+                            className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Delete this evaluation"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}

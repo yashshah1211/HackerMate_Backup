@@ -3,8 +3,8 @@ import PitchEvaluatorClient from "@/components/PitchEvaluatorClient";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "AI Hackathon Pitch & Project Evaluator | HackerMate",
-  description: "Evaluate your hackathon pitch, tech stack, and architecture with AI. Get instant rubric scores, domain red flags, and find teammates on HackerMate.",
+  title: "Idea Evaluator & Hackathon Pitch Grader | HackerMate",
+  description: "Evaluate your hackathon ideas, pitch, tech stack, and architecture with our Idea Evaluator. Get instant rubric scores, domain red flags, and find teammates on HackerMate.",
 };
 
 export default function EvaluatorPage() {

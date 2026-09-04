@@ -101,9 +101,39 @@ export async function POST(req: NextRequest) {
       userId
     );
 
+    // 4. Persist to User Pitch Evaluations History if signed in
+    let savedEvaluationId: string | null = null;
+    if (userId) {
+      try {
+        const { data: inserted, error: insertErr } = await supabaseAdmin
+          .from("user_pitch_evaluations")
+          .insert({
+            user_id: userId,
+            ps_title: input.psTitle,
+            track_id: input.trackId || "web_dev",
+            total_score: result.totalScore,
+            grade: result.grade,
+            used_ai_engine: result.usedAiEngine,
+            sub_scores: result.subScores,
+            evaluation_result: result,
+          })
+          .select("id")
+          .single();
+
+        if (insertErr) {
+          console.error("[API Evaluator] Error saving evaluation history:", insertErr);
+        } else if (inserted) {
+          savedEvaluationId = inserted.id;
+        }
+      } catch (saveErr) {
+        console.error("[API Evaluator] Exception saving evaluation history:", saveErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       result,
+      savedEvaluationId,
       mode: result.usedAiEngine ? "gemini_ai" : "heuristic_fallback",
     });
   } catch (err: any) {
