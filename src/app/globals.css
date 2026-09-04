@@ -2052,3 +2052,50 @@ html.light .content-area {
     margin-top: 4px;
   }
 }
+
+/* ============================================
+   MICROSOFT TEAMS STYLE EMOJI POP & FLOAT
+   ============================================ */
+
+@keyframes teams-pop {
+  0% {
+    transform: scale(0.6) translateY(20px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08) translateY(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-teams-pop {
+  animation: teams-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes teamsFloatUp {
+  0% {
+    transform: translateY(20px) scale(0.4) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    transform: translateY(-40px) scale(1.25) rotate(-8deg);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(-180px) scale(1.1) rotate(12deg);
+    opacity: 0.95;
+  }
+  75% {
+    transform: translateY(-380px) scale(0.95) rotate(-6deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-600px) scale(0.6) rotate(15deg);
+    opacity: 0;
+  }
+}
+

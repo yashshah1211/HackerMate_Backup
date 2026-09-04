@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HackerMate — AI & Subscription Masterplan 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #06080C;
+      --bg-slide: #0A0D14;
+      --bg-card: #11141B;
+      --bg-card-hover: #161A24;
+      --border: #1A1F2B;
+      --border-light: #252B3A;
+      --primary: #B4F461;
+      --primary-dim: rgba(180, 244, 97, 0.12);
+      --primary-glow: rgba(180, 244, 97, 0.25);
+      --accent-blue: #60A5FA;
+      --accent-purple: #A78BFA;
+      --accent-pink: #F472B6;
+      --accent-orange: #FB923C;
+      --accent-cyan: #22D3EE;
+      --accent-red: #EF4444;
+      --text-white: #F1F5F9;
+      --text-gray: #94A3B8;
+      --text-muted: #64748B;
+      --text-dim: #475569;
+      --success: #10B981;
+      --warning: #F59E0B;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-white);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ── Slide Container ── */
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      padding: 48px 72px;
+      background: var(--bg-slide);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-light) transparent;
+    }
+
+    .slide.active { display: flex; }
+
+    .slide::before {
+      content: '';
+      position: fixed;
+      top: -200px;
+      right: -200px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(180,244,97,0.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .slide > * { position: relative; z-index: 1; }
+
+    /* ── Typography ── */
+    .slide-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 16px;
+    }
+
+    h1 .hl { color: var(--primary); }
+
+    h2 {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    h2 .hl { color: var(--primary); }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-white);
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--text-gray);
+      line-height: 1.6;
+      max-width: 780px;
+      margin-bottom: 32px;
+    }
+
+    p, li {
+      font-size: 14.5px;
+      color: var(--text-gray);
+      line-height: 1.65;
+    }
+
+    /* ── Title Slide ── */
+    .title-slide {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px;
+    }
+
+    .title-slide::before {
+      width: 900px;
+      height: 900px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(180,244,97,0.06) 0%, transparent 60%);
+    }
+
+    .logo-mark {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      padding: 10px 20px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-bottom: 36px;
+      background: var(--primary-dim);
+      box-shadow: 0 0 40px rgba(180,244,97,0.1);
+    }
+
+    .title-slide h1 {
+      font-size: 52px;
+      letter-spacing: -2px;
+      margin-bottom: 20px;
+    }
+
+    .title-meta {
+      display: flex;
+      gap: 32px;
+      margin-top: 40px;
+      justify-content: center;
+    }
+
+    .title-meta-item {
+      text-align: center;
+    }
+
+    .title-meta-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .title-meta-value {
+      font-size: 13px;
+      color: var(--text-gray);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ── Cards Grid ── */
+    .cards { display: grid; gap: 16px; }
+    .cards-2 { grid-template-columns: 1fr 1fr; }
+    .cards-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .cards-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: var(--border-light); }
+
+    .card-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .card p { font-size: 13px; color: var(--text-muted); }
+
+    .card-accent-green { border-left: 3px solid var(--primary); }
+    .card-accent-blue { border-left: 3px solid var(--accent-blue); }
+    .card-accent-purple { border-left: 3px solid var(--accent-purple); }
+    .card-accent-pink { border-left: 3px solid var(--accent-pink); }
+    .card-accent-orange { border-left: 3px solid var(--accent-orange); }
+    .card-accent-cyan { border-left: 3px solid var(--accent-cyan); }
+    .card-accent-red { border-left: 3px solid var(--accent-red); }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+
+    th {
+      background: var(--bg-card);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-white);
+      border-bottom: 2px solid var(--border);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-gray);
+      vertical-align: top;
+    }
+
+    tr:hover td { background: rgba(180,244,97,0.02); }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-green { background: var(--primary-dim); color: var(--primary); }
+    .badge-blue { background: rgba(96,165,250,0.12); color: var(--accent-blue); }
+    .badge-purple { background: rgba(167,139,250,0.12); color: var(--accent-purple); }
+    .badge-orange { background: rgba(251,146,60,0.12); color: var(--accent-orange); }
+    .badge-red { background: rgba(239,68,68,0.12); color: var(--accent-red); }
+    .badge-cyan { background: rgba(34,211,238,0.12); color: var(--accent-cyan); }
+
+    /* ── Callout / Alert ── */
+    .callout {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 16px 0;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .callout-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+
+    .callout-warn { border-left: 3px solid var(--warning); }
+    .callout-danger { border-left: 3px solid var(--accent-red); }
+    .callout-info { border-left: 3px solid var(--accent-blue); }
+    .callout-success { border-left: 3px solid var(--success); }
+
+    .callout h4 { font-size: 14px; font-weight: 600; color: var(--text-white); margin-bottom: 4px; }
+    .callout p { font-size: 13px; margin: 0; }
+
+    /* ── Stat Boxes ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .stat-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -1px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ── Flow / Timeline ── */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin: 16px 0;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 16px;
+      padding: 14px 0;
+      position: relative;
+    }
+
+    .timeline-marker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--primary-dim);
+      border: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      flex-shrink: 0;
+      z-index: 1;
+    }
+
+    .timeline-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 46px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .timeline-content h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-white);
+      margin-bottom: 2px;
+    }
+
+    .timeline-content p {
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    /* ── Pricing Cards ── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .pricing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 22px;
+      text-align: center;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .pricing-card:hover { transform: translateY(-3px); }
+
+    .pricing-card.featured {
+      border-color: var(--primary);
+      box-shadow: 0 0 40px rgba(180,244,97,0.08);
+    }
+
+    .pricing-card.featured::before {
+      content: 'MOST POPULAR';
+      position: absolute;
+      top: -11px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: #000;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 3px 14px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+
+    .pricing-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-white);
+      margin-bottom: 8px;
+    }
+
+    .pricing-price {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -2px;
+    }
+
+    .pricing-price .currency { font-size: 18px; vertical-align: super; }
+    .pricing-price .period { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+
+    .pricing-features {
+      list-style: none;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .pricing-features li {
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pricing-features li::before {
+      content: '✓ ';
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* ── Two Column Layout ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 16px;
+    }
+
+    .col-section h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Lists ── */
+    .checklist {
+      list-style: none;
+      padding: 0;
+    }
+
+    .checklist li {
+      font-size: 13.5px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .checklist li::before {
+      content: '✓';
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .warn-list li::before { content: '⚠'; color: var(--warning); }
+    .x-list li::before { content: '✗'; color: var(--accent-red); }
+
+    /* ── Navigation ── */
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: rgba(6,8,12,0.92);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      z-index: 100;
+    }
+
+    .nav-info {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-brand {
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .nav-progress {
+      width: 120px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .nav-progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .nav-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-gray);
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .nav-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-light);
+      color: var(--text-white);
+    }
+
+    .nav-btn-primary {
+      background: var(--primary);
+      color: #000;
+      border-color: var(--primary);
+    }
+
+    .nav-btn-primary:hover {
+      background: #c6ff7a;
+      color: #000;
+    }
+
+    /* ── Section Divider ── */
+    .section-divider {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .section-divider .section-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 64px;
+      font-weight: 800;
+      color: var(--primary);
+      opacity: 0.15;
+      line-height: 1;
+    }
+
+    .section-divider h2 { font-size: 40px; margin-top: -10px; }
+
+    /* ── Architecture Diagram (Text) ── */
+    .arch-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 28px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-gray);
+      line-height: 1.8;
+      white-space: pre;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    /* ── Revenue chart bars ── */
+    .rev-chart { margin: 20px 0; }
+    .rev-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .rev-label {
+      width: 80px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .rev-bar-bg {
+      flex: 1;
+      height: 28px;
+      background: var(--bg-card);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .rev-bar {
+      height: 100%;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      padding-left: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000;
+      transition: width 0.6s ease;
+    }
+
+    /* ── Responsive shrink for overflow ── */
+    @media (max-width: 1200px) {
+      .slide { padding: 36px 48px; }
+      h1 { font-size: 36px; }
+      h2 { font-size: 26px; }
+      .pricing-grid { grid-template-columns: 1fr 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .cards-4 { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* print styles */
+    @media print {
+      .nav-bar { display: none; }
+      .slide { display: flex !important; page-break-after: always; position: relative; height: auto; min-height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ═══════════════════ SLIDE 1: TITLE ═══════════════════ -->
+  <div class="slide title-slide active" data-slide="1">
+    <div class="logo-mark">HackerMate.</div>
+    <h1>AI Integration &<br><span class="hl">Subscription Model</span> Masterplan</h1>
+    <p class="subtitle">Complete Strategy Document — From Legality & Compliance to Technical Architecture, Financial Projections & Go-to-Market Execution</p>
+    <div class="title-meta">
+      <div class="title-meta-item">
+        <div class="title-meta-label">Document Version</div>
+        <div class="title-meta-value">v1.0 — August 2026</div>
+      </div>
+      <div class="title-meta-item">
+        <div class="title-meta-label">Classification</div>
+        <div class="title-meta-value">Internal & Investor Ready</div>
+      </div>
+      <div class="title-meta-item">
+        <div class="title-meta-label">Total Slides</div>
+        <div class="title-meta-value">22 Slides</div>
+      </div>
+      <div class="title-meta-item">
+        <div class="title-meta-label">Prepared By</div>
+        <div class="title-meta-value">HackerMate Founding Team</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 2: TABLE OF CONTENTS ═══════════════════ -->
+  <div class="slide" data-slide="2">
+    <div class="slide-number">Slide 02 / 22</div>
+    <h2>Agenda & <span class="hl">Document Map</span></h2>
+    <p class="subtitle">This masterplan is structured into 7 comprehensive sections covering every dimension of the rollout.</p>
+    <div class="cards cards-2" style="margin-top: 8px;">
+      <div class="card card-accent-green">
+        <span class="card-icon">📊</span>
+        <h3>Section 1 — Market & Business Case</h3>
+        <p>Market opportunity, competitive landscape, revenue model rationale, and unit economics analysis.</p>
+      </div>
+      <div class="card card-accent-blue">
+        <span class="card-icon">🤖</span>
+        <h3>Section 2 — AI Features & Product Strategy</h3>
+        <p>Detailed breakdown of 5 AI-powered modules including Semantic Matchmaker, Workspace Copilot, and Pitch Simulator.</p>
+      </div>
+      <div class="card card-accent-purple">
+        <span class="card-icon">💳</span>
+        <h3>Section 3 — Subscription Tiers & Pricing</h3>
+        <p>Tier architecture, pricing research, feature gating strategy, and credit economy design.</p>
+      </div>
+      <div class="card card-accent-orange">
+        <span class="card-icon">⚖️</span>
+        <h3>Section 4 — Legal, Compliance & Regulatory</h3>
+        <p>Indian IT Act, DPDP Act 2023, GST/Tax obligations, entity structure, IP licensing, and AI ethics policy.</p>
+      </div>
+      <div class="card card-accent-cyan">
+        <span class="card-icon">🔧</span>
+        <h3>Section 5 — Technical Architecture</h3>
+        <p>System architecture, database migrations, payment gateway integration, LLM pipelines, and security hardening.</p>
+      </div>
+      <div class="card card-accent-pink">
+        <span class="card-icon">📈</span>
+        <h3>Section 6 — Financial Projections & GTM</h3>
+        <p>12-month revenue model, cost analysis, conversion funnels, and go-to-market execution calendar.</p>
+      </div>
+      <div class="card card-accent-red">
+        <span class="card-icon">🛡️</span>
+        <h3>Section 7 — Risks, Mitigation & Roadmap</h3>
+        <p>Risk assessment matrix, contingency plans, phased timeline, and success KPIs.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 3: SECTION DIVIDER — MARKET ═══════════════════ -->
+  <div class="slide section-divider" data-slide="3">
+    <div class="section-num">01</div>
+    <h2>Market Opportunity &<br><span class="hl">Business Case</span></h2>
+    <p class="subtitle">Why now, why AI, and why HackerMate is positioned to capture this market.</p>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 4: MARKET OPPORTUNITY ═══════════════════ -->
+  <div class="slide" data-slide="4">
+    <div class="slide-number">Slide 04 / 22 — Market & Business Case</div>
+    <h2>The <span class="hl">₹2,000 Cr+</span> Indian Hackathon Ecosystem</h2>
+    <p class="subtitle">India runs the world's largest government hackathon (SIH) and has 30L+ student developers actively participating in 5,000+ hackathons annually.</p>
+    
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-value">30L+</div>
+        <div class="stat-label">Active Student Builders</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">5,000+</div>
+        <div class="stat-label">Hackathons / Year (India)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">₹0</div>
+        <div class="stat-label">Current AI Hackathon Tools</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">67%</div>
+        <div class="stat-label">Teams Formed via WhatsApp/Discord</div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top: 24px;">
+      <div class="col-section">
+        <h3>🔴 Problems We Solve</h3>
+        <ul class="checklist x-list">
+          <li>No structured matchmaking — teams formed by luck on Discord/WhatsApp</li>
+          <li>50%+ team attrition rate in online hackathons (no engagement tools)</li>
+          <li>Students struggle to write submissions, PPTs, and pitches under time pressure</li>
+          <li>SPOC coordinators manually screen & optimize 500+ student teams</li>
+          <li>Zero dedicated AI-first hackathon workspace products exist</li>
+        </ul>
+      </div>
+      <div class="col-section">
+        <h3 style="color: var(--primary);">🟢 Our Competitive Moat</h3>
+        <ul class="checklist">
+          <li>Only platform with integrated matchmaking + real-time workspace + AI</li>
+          <li>7 active partner hackathons with branded portals already live</li>
+          <li>SIH-specific workflow (SPOC exports, team builder) — no competitor offers this</li>
+          <li>Network effects: More builders → better matches → more teams → more data</li>
+          <li>First-mover advantage in AI-powered hackathon tool category</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 5: SECTION DIVIDER — AI FEATURES ═══════════════════ -->
+  <div class="slide section-divider" data-slide="5">
+    <div class="section-num">02</div>
+    <h2>AI Features &<br><span class="hl">Product Strategy</span></h2>
+    <p class="subtitle">Five high-impact AI modules integrated across the builder lifecycle.</p>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 6: AI FEATURES OVERVIEW ═══════════════════ -->
+  <div class="slide" data-slide="6">
+    <div class="slide-number">Slide 06 / 22 — AI Features</div>
+    <h2>AI Modules <span class="hl">Across the Builder Lifecycle</span></h2>
+    <p class="subtitle">Each module maps to a critical hackathon pain point — from team discovery to winning the pitch.</p>
+
+    <div class="cards cards-3" style="margin-top: 8px;">
+      <div class="card card-accent-green">
+        <span class="card-icon">🧠</span>
+        <h3>1. Semantic AI Matchmaker</h3>
+        <p><strong>Upgrade from:</strong> Hardcoded skill arrays →  Vector embeddings (pgvector).<br><br>
+          Converts bios, GitHub repos, and project history into embeddings. Provides a "Why this match" deep synergy analysis instead of simple % overlap.</p>
+        <div style="margin-top: 10px;"><span class="badge badge-green">PRO</span></div>
+      </div>
+      <div class="card card-accent-blue">
+        <span class="card-icon">🤖</span>
+        <h3>2. Workspace AI Copilot</h3>
+        <p><strong>Location:</strong> Team Workspace → new AI Copilot tab.<br><br>
+          Idea generator (3 MVPs per track), 1-click task breakdown into Kanban cards, architecture & schema recommender, code scaffolding snippets.</p>
+        <div style="margin-top: 10px;"><span class="badge badge-blue">PRO + TEAM</span></div>
+      </div>
+      <div class="card card-accent-purple">
+        <span class="card-icon">📝</span>
+        <h3>3. AI Submission & PPT Generator</h3>
+        <p><strong>Location:</strong> Submission tab + SIH export.<br><br>
+          Ingests brainstorm notes, GitHub commits, and hackathon rules. Auto-drafts Problem Statement, Solution, Tech Architecture, and 5-slide deck content.</p>
+        <div style="margin-top: 10px;"><span class="badge badge-purple">PRO + TEAM</span></div>
+      </div>
+      <div class="card card-accent-orange">
+        <span class="card-icon">🎤</span>
+        <h3>4. AI Pitch Simulator</h3>
+        <p><strong>Location:</strong> Team Workspace → Pitch Prep.<br><br>
+          Simulates 3 judge personas (Technical, Business/VC, Design). Teams submit their pitch; AI scores it, flags weaknesses, and suggests Q&A prep answers.</p>
+        <div style="margin-top: 10px;"><span class="badge badge-orange">PRO + TEAM</span></div>
+      </div>
+      <div class="card card-accent-cyan">
+        <span class="card-icon">🔍</span>
+        <h3>5. Organizer AI Pre-screener</h3>
+        <p><strong>Location:</strong> Admin / Partner Portal.<br><br>
+          Compares submissions against templates, screens for plagiarism/originality, auto-generates rubric-based scoring summaries for organizers.</p>
+        <div style="margin-top: 10px;"><span class="badge badge-cyan">CAMPUS / B2B</span></div>
+      </div>
+      <div class="card card-accent-pink">
+        <span class="card-icon">⚡</span>
+        <h3>6. Smart Team Balancer (SIH)</h3>
+        <p><strong>Location:</strong> SPOC Dashboard.<br><br>
+          Optimizes skill distribution across 500+ students into balanced teams of 6 for internal college hackathon rounds. Respects gender and year constraints.</p>
+        <div style="margin-top: 10px;"><span class="badge badge-red">CAMPUS / B2B</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 7: SECTION DIVIDER — PRICING ═══════════════════ -->
+  <div class="slide section-divider" data-slide="7">
+    <div class="section-num">03</div>
+    <h2>Subscription Tiers &<br><span class="hl">Pricing Strategy</span></h2>
+    <p class="subtitle">Multi-tier freemium model designed for India's student price sensitivity.</p>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 8: PRICING TIERS ═══════════════════ -->
+  <div class="slide" data-slide="8">
+    <div class="slide-number">Slide 08 / 22 — Subscription Tiers</div>
+    <h2>Subscription <span class="hl">Architecture</span></h2>
+
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-name">Community</div>
+        <div class="pricing-price"><span class="currency">₹</span>0 <span class="period">/ forever</span></div>
+        <ul class="pricing-features">
+          <li>Basic heuristic matchmaking</li>
+          <li>Create / join up to 2 teams</li>
+          <li>Standard chat & task board</li>
+          <li>5 AI trial credits / month</li>
+          <li>Community profile badge</li>
+        </ul>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-name">HackerMate PRO</div>
+        <div class="pricing-price"><span class="currency">₹</span>299 <span class="period">/ month</span></div>
+        <ul class="pricing-features">
+          <li>Semantic AI Deep Matchmaking</li>
+          <li>AI Idea Generator (unlimited)</li>
+          <li>AI PPT & Submission Drafter</li>
+          <li>AI Pitch Simulator</li>
+          <li>Verified PRO Builder badge</li>
+          <li>Priority Spotlight listing</li>
+          <li>250 AI credits / month</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-name">Team Sprint Pass</div>
+        <div class="pricing-price"><span class="currency">₹</span>699 <span class="period">/ hackathon</span></div>
+        <ul class="pricing-features">
+          <li>All members get PRO AI tools</li>
+          <li>Shared Workspace AI Copilot</li>
+          <li>GitHub & README AI Auditor</li>
+          <li>Auto Submission Packager</li>
+          <li>Team analytics dashboard</li>
+          <li>One-time per hackathon event</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-name">Campus / Organizer</div>
+        <div class="pricing-price"><span class="currency">₹</span>9,999<span class="period">+</span></div>
+        <ul class="pricing-features">
+          <li>AI Team Balancer (500+ students)</li>
+          <li>Submission Pre-screener</li>
+          <li>AI Rubric Scoring Assistant</li>
+          <li>Custom Branded Portal</li>
+          <li>Export Analytics & Reports</li>
+          <li>Dedicated onboarding support</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top: 20px;">
+      <span class="callout-icon">💡</span>
+      <div>
+        <h4>Alternate Pro Micro-Pricing (Student-Friendly)</h4>
+        <p><strong>₹99 / 48-hour Event Pass</strong> — Unlocks full PRO for a single hackathon sprint weekend. Ideal for casual builders who hack 2-3x/year. Also: <strong>₹2,499/year</strong> annual plan (~₹208/mo).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 9: CREDIT ECONOMY ═══════════════════ -->
+  <div class="slide" data-slide="9">
+    <div class="slide-number">Slide 09 / 22 — Credit Economy</div>
+    <h2>AI Credit <span class="hl">Economy Design</span></h2>
+    <p class="subtitle">Every AI action consumes credits. This prevents abuse, controls LLM costs, and creates upgrade pressure.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>AI Feature / Action</th>
+          <th>Credits per Use</th>
+          <th>Free Tier Limit</th>
+          <th>Pro Tier Limit</th>
+          <th>Est. Cost to HackerMate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Brainstorm Idea Generation (3 ideas)</td>
+          <td>2 credits</td>
+          <td>2 uses / month</td>
+          <td>125 uses / month</td>
+          <td>~₹0.30 / call (Flash)</td>
+        </tr>
+        <tr>
+          <td>1-Click Task Breakdown</td>
+          <td>3 credits</td>
+          <td>1 use / month</td>
+          <td>83 uses / month</td>
+          <td>~₹0.50 / call</td>
+        </tr>
+        <tr>
+          <td>PPT / Submission Auto-Draft</td>
+          <td>5 credits</td>
+          <td>— (Pro only)</td>
+          <td>50 uses / month</td>
+          <td>~₹1.20 / call (Pro model)</td>
+        </tr>
+        <tr>
+          <td>AI Pitch Simulator Session</td>
+          <td>8 credits</td>
+          <td>— (Pro only)</td>
+          <td>31 uses / month</td>
+          <td>~₹2.00 / call</td>
+        </tr>
+        <tr>
+          <td>Semantic Match Deep Analysis</td>
+          <td>1 credit</td>
+          <td>— (Pro only)</td>
+          <td>250 uses / month</td>
+          <td>~₹0.05 / call</td>
+        </tr>
+        <tr>
+          <td>Embedding Sync (Profile Update)</td>
+          <td>0 (system)</td>
+          <td>Auto on save</td>
+          <td>Auto on save</td>
+          <td>~₹0.01 / profile</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warn" style="margin-top: 16px;">
+      <span class="callout-icon">📊</span>
+      <div>
+        <h4>Unit Economics Target</h4>
+        <p>Average Pro user consumes ~80 credits/month (~₹15-25 in LLM costs). At ₹299/month revenue, <strong>gross margin is ~90%+</strong>. Heavy users hitting 250 credits still cap at ~₹50 cost.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 10: SECTION DIVIDER — LEGAL ═══════════════════ -->
+  <div class="slide section-divider" data-slide="10">
+    <div class="section-num">04</div>
+    <h2>Legal, Compliance &<br><span class="hl">Regulatory Framework</span></h2>
+    <p class="subtitle">Indian law compliance, data protection, tax obligations, and platform policies.</p>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 11: BUSINESS ENTITY & STRUCTURE ═══════════════════ -->
+  <div class="slide" data-slide="11">
+    <div class="slide-number">Slide 11 / 22 — Legal: Entity & Incorporation</div>
+    <h2>Business Entity & <span class="hl">Incorporation</span></h2>
+    <p class="subtitle">Required legal structure to collect payments, issue invoices, and operate as a SaaS business in India.</p>
+
+    <div class="two-col">
+      <div class="col-section">
+        <h3>🏛️ Recommended: Private Limited Company</h3>
+        <ul class="checklist">
+          <li><strong>Structure:</strong> Indian Private Limited Company (Pvt. Ltd.) under Companies Act, 2013</li>
+          <li><strong>Why:</strong> Limited liability, ease of fundraising (equity issuance), credibility with B2B organizers and partner hackathons</li>
+          <li><strong>Registration:</strong> MCA (Ministry of Corporate Affairs) via SPICe+ form</li>
+          <li><strong>Min Directors:</strong> 2 (at least 1 Indian resident)</li>
+          <li><strong>DIN & DSC:</strong> Director Identification Number + Digital Signature Certificate required</li>
+          <li><strong>Timeline:</strong> 10-15 business days for incorporation</li>
+          <li><strong>Cost:</strong> ₹8,000 – ₹15,000 (including govt fees + professional charges)</li>
+        </ul>
+      </div>
+      <div class="col-section">
+        <h3>📋 Post-Incorporation Checklist</h3>
+        <ul class="checklist">
+          <li><strong>PAN & TAN:</strong> Apply immediately post-incorporation (auto-generated via SPICe+)</li>
+          <li><strong>GST Registration:</strong> Mandatory once turnover exceeds ₹20L (or immediately if selling SaaS nationally online)</li>
+          <li><strong>Current Account:</strong> Open a business bank account (required for Razorpay/Stripe KYC)</li>
+          <li><strong>Startup India Registration:</strong> Optional but recommended — tax benefits under Section 80-IAC (3-year tax holiday)</li>
+          <li><strong>MSME/Udyam Registration:</strong> Free, provides access to government tenders and SIH organizer credibility</li>
+          <li><strong>Trademark Filing:</strong> File "HackerMate" trademark (Class 42 — SaaS, Class 9 — Software) via IP India</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top: 16px;">
+      <span class="callout-icon">💡</span>
+      <div>
+        <h4>Alternative: LLP (Lower Compliance Burden)</h4>
+        <p>A <strong>Limited Liability Partnership</strong> is viable for early stage (lower compliance costs, no board meeting requirements). However, it's harder to raise VC funding and issue ESOPs. Recommended only if bootstrapping indefinitely.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 12: DATA PROTECTION & DPDP ═══════════════════ -->
+  <div class="slide" data-slide="12">
+    <div class="slide-number">Slide 12 / 22 — Legal: Data Privacy</div>
+    <h2>Data Protection & <span class="hl">DPDP Act 2023</span></h2>
+    <p class="subtitle">India's Digital Personal Data Protection Act, 2023 governs how HackerMate collects, processes, and stores user data.</p>
+
+    <div class="cards cards-2" style="margin-top: 8px;">
+      <div class="card card-accent-orange">
+        <span class="card-icon">📜</span>
+        <h3>DPDP Act 2023 — Key Obligations</h3>
+        <ul class="checklist" style="margin-top: 8px;">
+          <li><strong>Lawful Purpose & Consent:</strong> Obtain explicit, informed consent before collecting personal data (name, email, skills, GitHub). Display clear consent notice at onboarding.</li>
+          <li><strong>Purpose Limitation:</strong> Data collected for matchmaking & collaboration must not be repurposed for unrelated advertising without fresh consent.</li>
+          <li><strong>Data Minimization:</strong> Collect only what is necessary. Avoid collecting Aadhaar, financial data, or sensitive biometrics.</li>
+          <li><strong>Right to Erasure:</strong> Users can request complete account deletion. Current RPC <code>delete_user_procedure</code> already supports this — extend to AI embeddings and logs.</li>
+          <li><strong>Data Fiduciary Obligations:</strong> HackerMate is a "Data Fiduciary" — must appoint a Grievance Officer with contact details on the platform.</li>
+          <li><strong>Children's Data:</strong> If users are under 18, parental consent is required. Add age verification during onboarding.</li>
+        </ul>
+      </div>
+      <div class="card card-accent-blue">
+        <span class="card-icon">🌍</span>
+        <h3>Cross-Border & International Compliance</h3>
+        <ul class="checklist" style="margin-top: 8px;">
+          <li><strong>Data Localization:</strong> DPDP Act does not mandate data localization (unlike RBI data). Supabase hosting on AWS Mumbai (ap-south-1) is recommended but not legally required.</li>
+          <li><strong>GDPR Awareness:</strong> If EU users sign up, minimal GDPR provisions apply — add cookie consent banner and data processing addendum.</li>
+          <li><strong>Third-Party LLM Data:</strong> When sending user data to Gemini/OpenAI APIs, ensure a Data Processing Agreement (DPA) is signed. Use "no-training" opt-out flags.</li>
+          <li><strong>Payment Data:</strong> HackerMate never handles raw card data — Razorpay/Stripe handle PCI-DSS compliance. Store only gateway customer IDs and subscription references.</li>
+          <li><strong>Breach Notification:</strong> DPDP requires notifying the Data Protection Board and affected users in case of a breach. Build an incident response playbook.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-danger" style="margin-top: 12px;">
+      <span class="callout-icon">🚨</span>
+      <div>
+        <h4>Action Required: Privacy Policy & Terms of Service</h4>
+        <p>Draft and publish <strong>Privacy Policy</strong>, <strong>Terms of Service</strong>, <strong>Refund & Cancellation Policy</strong>, and <strong>AI Usage Disclaimer</strong> before accepting any payments. These must be linked from the pricing page and checkout flow. Consult a tech lawyer for final review.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 13: TAX, GST & PAYMENTS ═══════════════════ -->
+  <div class="slide" data-slide="13">
+    <div class="slide-number">Slide 13 / 22 — Legal: Tax & Payments</div>
+    <h2>GST, Tax Obligations & <span class="hl">Payment Compliance</span></h2>
+    <p class="subtitle">Mandatory taxation and payment gateway compliance for SaaS subscription businesses in India.</p>
+
+    <div class="two-col">
+      <div class="col-section">
+        <h3>🧾 GST & Taxation</h3>
+        <table>
+          <tr><th style="width: 45%;">Obligation</th><th>Details</th></tr>
+          <tr><td><strong>GST Registration</strong></td><td>Mandatory for online SaaS (OIDAR — Online Information and Database Access or Retrieval). Register in home state.</td></tr>
+          <tr><td><strong>GST Rate</strong></td><td><strong>18% IGST</strong> on SaaS/software subscriptions (SAC Code: 998314)</td></tr>
+          <tr><td><strong>Invoice Requirements</strong></td><td>Issue GST-compliant tax invoices for every paid subscription (auto-generate via Razorpay/Stripe receipts).</td></tr>
+          <tr><td><strong>GST Returns</strong></td><td>Monthly GSTR-1 (outward supplies) and GSTR-3B. Quarterly if under ₹5Cr turnover (QRMP scheme).</td></tr>
+          <tr><td><strong>TDS on Payments</strong></td><td>If paying vendors (LLM APIs, contractors) > ₹30,000/year, deduct TDS under Section 194J (10%).</td></tr>
+          <tr><td><strong>Income Tax</strong></td><td>Corporate tax at 25% (if turnover < ₹400 Cr). Startup India 80-IAC exemption available for 3 years.</td></tr>
+          <tr><td><strong>Equalization Levy</strong></td><td>If receiving payments from foreign users — 2% Equalization Levy may apply (consult CA).</td></tr>
+        </table>
+      </div>
+      <div class="col-section">
+        <h3>💳 Payment Gateway Compliance</h3>
+        <table>
+          <tr><th style="width: 45%;">Requirement</th><th>Details</th></tr>
+          <tr><td><strong>Razorpay KYC</strong></td><td>Business PAN, GST certificate, bank account verification, Director KYC (Aadhaar + PAN).</td></tr>
+          <tr><td><strong>Stripe Atlas (Int'l)</strong></td><td>For international payments. Requires US entity or Stripe India account with FIRA documentation.</td></tr>
+          <tr><td><strong>RBI Recurring Mandates</strong></td><td>For auto-renewing subscriptions > ₹15,000 — RBI e-mandate with AFA (Additional Factor Authentication) required.</td></tr>
+          <tr><td><strong>Refund Policy</strong></td><td>Consumer Protection Act, 2019 requires clear refund terms. Offer 7-day money-back for Pro subscriptions and pro-rata refunds for annual plans.</td></tr>
+          <tr><td><strong>PCI-DSS</strong></td><td>Not applicable — Razorpay/Stripe handle all card data. HackerMate never touches raw card numbers.</td></tr>
+          <tr><td><strong>FEMA Compliance</strong></td><td>If receiving foreign currency — ensure AD bank processes via proper channels. Stripe handles this.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 14: IP, OPEN SOURCE & AI ETHICS ═══════════════════ -->
+  <div class="slide" data-slide="14">
+    <div class="slide-number">Slide 14 / 22 — Legal: IP & AI Ethics</div>
+    <h2>Intellectual Property, Licensing & <span class="hl">AI Ethics</span></h2>
+
+    <div class="two-col">
+      <div class="col-section">
+        <h3>🔐 Intellectual Property</h3>
+        <ul class="checklist">
+          <li><strong>Trademark:</strong> File "HackerMate" word mark + logo under Class 9 (Software) and Class 42 (SaaS) with IP India. Cost: ~₹4,500/class. Timeline: 18-24 months for registration, but TM™ protection starts from filing date.</li>
+          <li><strong>Copyright:</strong> Source code is automatically copyrighted under Indian Copyright Act, 1957. No registration needed, but registration strengthens enforcement.</li>
+          <li><strong>Open Source Licenses:</strong> Current dependencies (Next.js — MIT, Supabase — Apache 2.0, React — MIT) are permissive. No copyleft risk. When adding LLM SDK (Google AI SDK — Apache 2.0), verify license compatibility.</li>
+          <li><strong>User-Generated Content:</strong> Terms of Service must clarify that user-uploaded content (project ideas, pitches, code) remains user IP. HackerMate gets a limited license to process and display — not to resell or train models on.</li>
+          <li><strong>AI-Generated Output Ownership:</strong> Explicitly state in ToS that AI-generated content (PPT drafts, task breakdowns) is provided as-is with no IP warranties. Users own their final submissions but HackerMate disclaims AI output accuracy.</li>
+        </ul>
+      </div>
+      <div class="col-section">
+        <h3>🤖 Responsible AI & Ethics Policy</h3>
+        <ul class="checklist">
+          <li><strong>Transparency:</strong> Clearly label all AI-generated content with "Generated by HackerMate AI" badges. Never present AI output as human-verified.</li>
+          <li><strong>No Autonomous Submissions:</strong> AI drafts are always presented as suggestions requiring human review. Never auto-submit to hackathon portals without user confirmation.</li>
+          <li><strong>Bias Mitigation:</strong> Regularly audit matchmaking algorithms for bias (gender, college tier, region). Publish diversity metrics quarterly.</li>
+          <li><strong>Prompt Injection Defense:</strong> Existing safety.ts content filters extended to AI prompts. Block attempts to extract system prompts, generate harmful content, or manipulate scoring.</li>
+          <li><strong>Data Not Used for Training:</strong> Explicitly commit that user workspace data is NEVER used to train or fine-tune any LLM. Use API providers' no-training agreements (Gemini API ToS, OpenAI API ToS both support this).</li>
+          <li><strong>IT Act 2000 (Section 43A):</strong> Mandates "reasonable security practices" for handling sensitive personal data. Our existing RLS, encryption at rest (Supabase), and HTTPS satisfy this.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-warn" style="margin-top: 12px;">
+      <span class="callout-icon">⚖️</span>
+      <div>
+        <h4>Legal Documents to Draft Before Launch</h4>
+        <p>1. <strong>Terms of Service</strong> (ToS)  2. <strong>Privacy Policy</strong> (DPDP compliant)  3. <strong>Refund & Cancellation Policy</strong>  4. <strong>AI Usage Disclaimer & Acceptable Use Policy</strong>  5. <strong>Data Processing Addendum</strong> (for B2B/Campus tier)  6. <strong>Cookie Policy</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 15: LEGAL SUMMARY TABLE ═══════════════════ -->
+  <div class="slide" data-slide="15">
+    <div class="slide-number">Slide 15 / 22 — Legal: Compliance Checklist</div>
+    <h2>Complete Legal & Compliance <span class="hl">Checklist</span></h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 5%;">#</th>
+          <th style="width: 30%;">Compliance Area</th>
+          <th style="width: 30%;">Specific Requirement</th>
+          <th style="width: 15%;">Status</th>
+          <th style="width: 20%;">Priority / Deadline</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Business Incorporation</td><td>Register Pvt. Ltd. (MCA SPICe+)</td><td><span class="badge badge-red">PENDING</span></td><td>Before first payment</td></tr>
+        <tr><td>2</td><td>GST Registration</td><td>Apply for GSTIN (state GST office)</td><td><span class="badge badge-red">PENDING</span></td><td>Before first payment</td></tr>
+        <tr><td>3</td><td>Business Bank Account</td><td>Open current account (Razorpay KYC)</td><td><span class="badge badge-red">PENDING</span></td><td>Before Razorpay activation</td></tr>
+        <tr><td>4</td><td>Trademark Filing</td><td>"HackerMate" — Class 9 + 42</td><td><span class="badge badge-orange">PLANNED</span></td><td>Within 30 days of launch</td></tr>
+        <tr><td>5</td><td>Privacy Policy</td><td>DPDP Act 2023 compliant draft</td><td><span class="badge badge-red">PENDING</span></td><td>Before subscription launch</td></tr>
+        <tr><td>6</td><td>Terms of Service</td><td>SaaS ToS with AI disclaimer</td><td><span class="badge badge-red">PENDING</span></td><td>Before subscription launch</td></tr>
+        <tr><td>7</td><td>Refund Policy</td><td>Consumer Protection Act 2019</td><td><span class="badge badge-red">PENDING</span></td><td>Before first payment</td></tr>
+        <tr><td>8</td><td>AI Ethics / Disclaimer</td><td>AI usage policy + acceptable use</td><td><span class="badge badge-red">PENDING</span></td><td>Before AI features go live</td></tr>
+        <tr><td>9</td><td>LLM Data Processing Agreement</td><td>Google AI / OpenAI DPA review</td><td><span class="badge badge-orange">PLANNED</span></td><td>Before AI features go live</td></tr>
+        <tr><td>10</td><td>Razorpay / Stripe KYC</td><td>Business verification & activation</td><td><span class="badge badge-red">PENDING</span></td><td>After bank account</td></tr>
+        <tr><td>11</td><td>Startup India Registration</td><td>DPIIT recognition (tax benefits)</td><td><span class="badge badge-orange">PLANNED</span></td><td>Within 60 days</td></tr>
+        <tr><td>12</td><td>MSME / Udyam Registration</td><td>Free registration for govt benefits</td><td><span class="badge badge-orange">PLANNED</span></td><td>Within 60 days</td></tr>
+        <tr><td>13</td><td>Grievance Officer Appointment</td><td>DPDP Act requirement</td><td><span class="badge badge-red">PENDING</span></td><td>Before subscription launch</td></tr>
+        <tr><td>14</td><td>Age Verification / Consent</td><td>Parental consent for minors (<18)</td><td><span class="badge badge-orange">PLANNED</span></td><td>Before subscription launch</td></tr>
+        <tr><td>15</td><td>Cookie Consent Banner</td><td>ePrivacy / GDPR if EU users</td><td><span class="badge badge-blue">OPTIONAL</span></td><td>Phase 2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 16: SECTION DIVIDER — TECH ═══════════════════ -->
+  <div class="slide section-divider" data-slide="16">
+    <div class="section-num">05</div>
+    <h2>Technical <span class="hl">Architecture</span></h2>
+    <p class="subtitle">System design, database schema, LLM integration, and payment pipeline.</p>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 17: SYSTEM ARCHITECTURE ═══════════════════ -->
+  <div class="slide" data-slide="17">
+    <div class="slide-number">Slide 17 / 22 — Technical Architecture</div>
+    <h2>End-to-End <span class="hl">System Architecture</span></h2>
+
+    <div class="arch-box">
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                              HACKERMATE PLATFORM ARCHITECTURE                        │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│   ┌─────────────┐    ┌──────────────────────────────────────────────────────────┐    │
+│   │   FRONTEND   │    │                    NEXT.JS 16 APP ROUTER                 │    │
+│   │              │    │  ┌──────────┐ ┌──────────────┐ ┌────────────────────┐   │    │
+│   │  React 19    │───▶│  │ /pricing │ │ /teams/[id]  │ │ /api/ai/copilot   │   │    │
+│   │  Tailwind v4 │    │  │ /page    │ │ /workspace   │ │ /api/billing/*    │   │    │
+│   │  TypeScript  │    │  └──────────┘ └──────────────┘ └─────────┬──────────┘   │    │
+│   └─────────────┘    └───────────────────────────────────────────┼──────────────┘    │
+│                                                                   │                   │
+│   ┌────────────────────────────────┐    ┌────────────────────────┼─────────────────┐ │
+│   │         SUPABASE STACK         │    │       EXTERNAL SERVICES │                 │ │
+│   │  ┌────────────────────────┐    │    │  ┌─────────────────┐   │                 │ │
+│   │  │ PostgreSQL + pgvector  │    │    │  │  Google Gemini   │◀──┘                 │ │
+│   │  │ ─────────────────────  │    │    │  │  (Flash + Pro)   │                     │ │
+│   │  │ • profiles (embedding) │    │    │  └─────────────────┘                     │ │
+│   │  │ • user_subscriptions   │    │    │  ┌─────────────────┐                     │ │
+│   │  │ • ai_credit_accounts   │    │    │  │   Razorpay      │                     │ │
+│   │  │ • ai_usage_logs        │    │    │  │   (INR Payments) │                     │ │
+│   │  │ • subscription_plans   │    │    │  └─────────────────┘                     │ │
+│   │  │ • team_subscriptions   │    │    │  ┌─────────────────┐                     │ │
+│   │  └────────────────────────┘    │    │  │   Stripe         │                     │ │
+│   │  ┌──────────┐ ┌────────────┐   │    │  │   (Int'l / USD)  │                     │ │
+│   │  │ Auth/RLS │ │  Realtime  │   │    │  └─────────────────┘                     │ │
+│   │  └──────────┘ └────────────┘   │    │  ┌─────────────────┐                     │ │
+│   └────────────────────────────────┘    │  │   Resend (Email) │                     │ │
+│                                          │  └─────────────────┘                     │ │
+│                                          └─────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────────┘</div>
+
+    <div class="cards cards-3" style="margin-top: 12px;">
+      <div class="card card-accent-green">
+        <h3>New Database Tables</h3>
+        <p><code>subscription_plans</code><br><code>user_subscriptions</code><br><code>team_subscriptions</code><br><code>ai_credit_accounts</code><br><code>ai_usage_logs</code><br>+ <code>pgvector</code> extension</p>
+      </div>
+      <div class="card card-accent-blue">
+        <h3>New API Routes</h3>
+        <p><code>/api/billing/checkout</code><br><code>/api/billing/webhooks/razorpay</code><br><code>/api/billing/webhooks/stripe</code><br><code>/api/ai/copilot</code><br><code>/api/ai/embeddings/sync</code></p>
+      </div>
+      <div class="card card-accent-purple">
+        <h3>New Libraries</h3>
+        <p><code>src/lib/ai/gemini.ts</code><br><code>src/lib/billing/razorpay.ts</code><br><code>src/lib/billing/entitlements.ts</code><br><code>@google/generative-ai</code><br><code>razorpay</code> npm package</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 18: SECURITY & QUOTA ═══════════════════ -->
+  <div class="slide" data-slide="18">
+    <div class="slide-number">Slide 18 / 22 — Security & Quota Management</div>
+    <h2>Security Hardening & <span class="hl">Quota Enforcement</span></h2>
+
+    <div class="cards cards-2">
+      <div class="card card-accent-red">
+        <span class="card-icon">🛡️</span>
+        <h3>Payment Security</h3>
+        <ul class="checklist" style="margin-top: 8px;">
+          <li><strong>HMAC Webhook Verification:</strong> All Razorpay/Stripe webhooks verify cryptographic signatures before database writes</li>
+          <li><strong>Idempotency Keys:</strong> Prevent duplicate subscription activations from webhook retries</li>
+          <li><strong>No Raw Card Data:</strong> PCI-DSS handled entirely by payment gateways — HackerMate stores only gateway reference IDs</li>
+          <li><strong>Subscription State Machine:</strong> PostgreSQL enum enforces valid state transitions (trialing → active → past_due → cancelled)</li>
+        </ul>
+      </div>
+      <div class="card card-accent-green">
+        <span class="card-icon">⚡</span>
+        <h3>AI Quota & Abuse Prevention</h3>
+        <ul class="checklist" style="margin-top: 8px;">
+          <li><strong>Atomic Credit RPC:</strong> <code>check_and_deduct_ai_credit()</code> — transactional PostgreSQL function prevents race conditions and double-spending</li>
+          <li><strong>Token Clamping:</strong> System prompts set strict <code>max_output_tokens</code> per feature (1024 for tasks, 2048 for PPTs)</li>
+          <li><strong>Rate Limiting:</strong> Extends existing <code>rate_limits</code> table — max 10 AI calls/minute per user, 30/minute per team</li>
+          <li><strong>Prompt Injection:</strong> Input sanitized via <code>safety.ts</code> content filters + Gemini's built-in safety settings</li>
+          <li><strong>Default-Deny UX:</strong> Exhausted credits show clean upgrade modal — no raw API errors leak to users</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-success" style="margin-top: 16px;">
+      <span class="callout-icon">✅</span>
+      <div>
+        <h4>Existing Security Foundation</h4>
+        <p>HackerMate already has <strong>111 database migrations</strong> with comprehensive RLS policies, advisory locks, HMAC-signed invite tokens, content safety filters, and rate limiting. The AI/billing layer builds on this battle-tested foundation.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 19: SECTION DIVIDER — FINANCIALS ═══════════════════ -->
+  <div class="slide section-divider" data-slide="19">
+    <div class="section-num">06</div>
+    <h2>Financial Projections &<br><span class="hl">Go-to-Market</span></h2>
+    <p class="subtitle">12-month revenue model, cost structure, and launch strategy.</p>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 20: REVENUE PROJECTIONS ═══════════════════ -->
+  <div class="slide" data-slide="20">
+    <div class="slide-number">Slide 20 / 22 — Financial Projections</div>
+    <h2>12-Month <span class="hl">Revenue Projections</span></h2>
+    <p class="subtitle">Conservative estimates based on 2-5% free-to-paid conversion (industry SaaS benchmark: 3-7%).</p>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-value">10K+</div>
+        <div class="stat-label">Target Users (Month 12)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">3.5%</div>
+        <div class="stat-label">Free → Pro Conversion</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">₹8.2L</div>
+        <div class="stat-label">Projected MRR (Month 12)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">~85%</div>
+        <div class="stat-label">Gross Margin</div>
+      </div>
+    </div>
+
+    <div class="rev-chart">
+      <div class="rev-row">
+        <div class="rev-label">Month 1-2</div>
+        <div class="rev-bar-bg"><div class="rev-bar" style="width: 8%; background: var(--primary);">₹15K</div></div>
+      </div>
+      <div class="rev-row">
+        <div class="rev-label">Month 3-4</div>
+        <div class="rev-bar-bg"><div class="rev-bar" style="width: 18%; background: var(--primary);">₹65K</div></div>
+      </div>
+      <div class="rev-row">
+        <div class="rev-label">Month 5-6</div>
+        <div class="rev-bar-bg"><div class="rev-bar" style="width: 32%; background: var(--accent-blue);">₹1.8L</div></div>
+      </div>
+      <div class="rev-row">
+        <div class="rev-label">Month 7-9</div>
+        <div class="rev-bar-bg"><div class="rev-bar" style="width: 55%; background: var(--accent-purple);">₹4.2L</div></div>
+      </div>
+      <div class="rev-row">
+        <div class="rev-label">Month 10-12</div>
+        <div class="rev-bar-bg"><div class="rev-bar" style="width: 85%; background: linear-gradient(90deg, var(--primary), var(--accent-cyan));">₹8.2L MRR</div></div>
+      </div>
+    </div>
+
+    <table style="margin-top: 8px;">
+      <thead><tr><th>Revenue Stream</th><th>Avg Price</th><th>Month 6 Units</th><th>Month 6 Revenue</th><th>Month 12 Units</th><th>Month 12 Revenue</th></tr></thead>
+      <tbody>
+        <tr><td>PRO Monthly</td><td>₹299</td><td>120</td><td>₹35,880</td><td>450</td><td>₹1,34,550</td></tr>
+        <tr><td>PRO Annual</td><td>₹2,499</td><td>25</td><td>₹62,475</td><td>100</td><td>₹2,49,900</td></tr>
+        <tr><td>48h Event Pass</td><td>₹99</td><td>300</td><td>₹29,700</td><td>800</td><td>₹79,200</td></tr>
+        <tr><td>Team Sprint Pass</td><td>₹699</td><td>40</td><td>₹27,960</td><td>150</td><td>₹1,04,850</td></tr>
+        <tr><td>Campus / B2B Org</td><td>₹15,000</td><td>2</td><td>₹30,000</td><td>10</td><td>₹1,50,000</td></tr>
+        <tr style="font-weight: 700; color: var(--primary);"><td>TOTAL</td><td></td><td></td><td>₹1,86,015</td><td></td><td>₹7,18,500</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 21: GTM STRATEGY ═══════════════════ -->
+  <div class="slide" data-slide="21">
+    <div class="slide-number">Slide 21 / 22 — Go-to-Market Strategy</div>
+    <h2>Go-to-Market <span class="hl">Execution Plan</span></h2>
+
+    <div class="two-col">
+      <div class="col-section">
+        <h3>🚀 Launch Strategy</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-marker">1</div>
+            <div class="timeline-content">
+              <h4>Soft Launch: AI Copilot Beta (Week 1-2)</h4>
+              <p>Release AI Brainstorm & Task Breakdown to existing active teams. Free during beta. Collect feedback and iterate on prompts.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">2</div>
+            <div class="timeline-content">
+              <h4>Pricing Page & Pro Launch (Week 3-4)</h4>
+              <p>Ship /pricing page, Razorpay integration, and activate paid plans. 7-day free trial for new Pro subscribers. Launch 48h Event Pass for upcoming hackathon season.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">3</div>
+            <div class="timeline-content">
+              <h4>Partner Hackathon Blitz (Month 2-3)</h4>
+              <p>Activate AI Copilot on existing partner portals (Morrow, Axcentra, StartupX). Offer Team Sprint Pass as bundled add-on during registration.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">4</div>
+            <div class="timeline-content">
+              <h4>SIH Season Push (Month 3-5)</h4>
+              <p>Target SIH 2026 season. Campus/SPOC tier outreach to 100+ colleges. AI Team Balancer as killer feature for college coordinators.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">5</div>
+            <div class="timeline-content">
+              <h4>Viral Loops & Referral Program (Month 4+)</h4>
+              <p>Pro referral: Give 1 month free Pro for each referred conversion. Team Sprint Pass: Owner buys → all members experience Pro → individual upgrade funnel.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-section">
+        <h3>📣 Distribution Channels</h3>
+        <div class="cards" style="gap: 12px;">
+          <div class="card card-accent-green" style="padding: 16px;">
+            <h3 style="font-size: 14px;">🤝 Partner Hackathon Portals (Owned)</h3>
+            <p>Every partner hackathon portal becomes a distribution channel. Team Sprint Pass promoted at registration. 7 active portals = 7 funnels.</p>
+          </div>
+          <div class="card card-accent-blue" style="padding: 16px;">
+            <h3 style="font-size: 14px;">🎓 College Ambassador Program</h3>
+            <p>Recruit 50+ campus ambassadors. Free Pro accounts + commission on Campus tier sales. Target tech fests and hackathon clubs.</p>
+          </div>
+          <div class="card card-accent-purple" style="padding: 16px;">
+            <h3 style="font-size: 14px;">📱 Social Proof Content</h3>
+            <p>Post "Built with HackerMate AI" case studies, winning team stories, and AI-generated pitch deck demos on LinkedIn, X, and Instagram.</p>
+          </div>
+          <div class="card card-accent-orange" style="padding: 16px;">
+            <h3 style="font-size: 14px;">🔗 Unstop / Devfolio Partnerships</h3>
+            <p>Explore co-marketing with major hackathon listing platforms. "Find your team on HackerMate" widget integration.</p>
+          </div>
+          <div class="card card-accent-cyan" style="padding: 16px;">
+            <h3 style="font-size: 14px;">📧 Automated Email Funnel</h3>
+            <p>Existing cron email engine repurposed: Free user → AI trial → upgrade nudge sequence. Triggered by hackathon registration events.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 22: RISKS & ROADMAP ═══════════════════ -->
+  <div class="slide" data-slide="22">
+    <div class="slide-number">Slide 22 / 22 — Risks & Implementation Roadmap</div>
+    <h2>Risk Matrix & <span class="hl">Implementation Roadmap</span></h2>
+
+    <div class="two-col">
+      <div class="col-section">
+        <h3>⚠️ Risk Assessment & Mitigation</h3>
+        <table>
+          <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td>LLM API costs spike</td><td><span class="badge badge-orange">MEDIUM</span></td><td>Credit cap system, token clamping, Gemini Flash (cheapest), monitor ₹/user/month closely</td></tr>
+            <tr><td>Low conversion rate (&lt;2%)</td><td><span class="badge badge-orange">MEDIUM</span></td><td>48h Event Pass lowers barrier, team sprint creates social proof, free trial for Pro</td></tr>
+            <tr><td>Payment gateway rejection</td><td><span class="badge badge-red">HIGH</span></td><td>Complete KYC early, maintain clean bank account, have Stripe as fallback to Razorpay</td></tr>
+            <tr><td>AI hallucination in submissions</td><td><span class="badge badge-orange">MEDIUM</span></td><td>All AI outputs marked as "draft", require human review before submission, disclaimer</td></tr>
+            <tr><td>DPDP Act enforcement action</td><td><span class="badge badge-red">HIGH</span></td><td>Hire tech lawyer to review Privacy Policy pre-launch, appoint Grievance Officer, audit data flows</td></tr>
+            <tr><td>Competitor (Devfolio adds AI)</td><td><span class="badge badge-orange">MEDIUM</span></td><td>First-mover + deep SIH integration + partner network = defensible. Ship fast.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-section">
+        <h3>🗓️ 8-Week Implementation Roadmap</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-marker">1</div>
+            <div class="timeline-content">
+              <h4>Week 1-2: Legal & DB Foundation</h4>
+              <p>Incorporation, GST, bank account, Razorpay KYC, Privacy Policy draft, Supabase migration for subscription tables + pgvector.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">2</div>
+            <div class="timeline-content">
+              <h4>Week 3-4: Payment & AI Engine</h4>
+              <p>Razorpay/Stripe checkout + webhook routes, Gemini LLM gateway, streaming API endpoints, credit quota RPCs.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">3</div>
+            <div class="timeline-content">
+              <h4>Week 5-6: Workspace AI Integration</h4>
+              <p>AI Copilot tab in workspace, brainstorm → tasks → PPT pipeline, pitch simulator, semantic matchmaker upgrade.</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-marker">4</div>
+            <div class="timeline-content">
+              <h4>Week 7-8: Pricing UI & Launch</h4>
+              <p>Pricing page, Pro badges, upgrade modals, E2E testing, legal review of ToS, soft launch to beta users, GTM activation.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-success" style="margin-top: 16px;">
+      <span class="callout-icon">🎯</span>
+      <div>
+        <h4>Success KPIs (First 90 Days)</h4>
+        <p><strong>Free→Pro Conversion:</strong> ≥ 3%  •  <strong>Team Sprint Pass Adoption:</strong> ≥ 15% of active teams  •  <strong>AI Copilot Sessions/User:</strong> ≥ 4/month  •  <strong>MRR:</strong> ≥ ₹50,000  •  <strong>NPS Score:</strong> ≥ 45  •  <strong>Zero Legal Compliance Blockers</strong></p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ NAVIGATION BAR ═══════════════════ -->
+<div class="nav-bar">
+  <div class="nav-info">
+    <span class="nav-brand">HackerMate.</span>
+    <span id="slideCounter">1 / 22</span>
+    <div class="nav-progress">
+      <div class="nav-progress-fill" id="progressFill" style="width: 4.5%"></div>
+    </div>
+  </div>
+  <div class="nav-controls">
+    <button class="nav-btn" onclick="goToSlide(1)">⟨⟨ Start</button>
+    <button class="nav-btn" onclick="prevSlide()">← Prev</button>
+    <button class="nav-btn nav-btn-primary" onclick="nextSlide()">Next →</button>
+  </div>
+</div>
+
+<script>
+  let currentSlide = 1;
+  const totalSlides = 22;
+
+  function goToSlide(n) {
+    if (n < 1 || n > totalSlides) return;
+    document.querySelector('.slide.active')?.classList.remove('active');
+    document.querySelector(`[data-slide="${n}"]`)?.classList.add('active');
+    currentSlide = n;
+    document.getElementById('slideCounter').textContent = `${n} / ${totalSlides}`;
+    document.getElementById('progressFill').style.width = `${(n / totalSlides) * 100}%`;
+  }
+
+  function nextSlide() { goToSlide(currentSlide + 1); }
+  function prevSlide() { goToSlide(currentSlide - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+    if (e.key === 'Home') { e.preventDefault(); goToSlide(1); }
+    if (e.key === 'End') { e.preventDefault(); goToSlide(totalSlides); }
+  });
+</script>
+
+</body>
+</html>

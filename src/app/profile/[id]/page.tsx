@@ -87,10 +87,12 @@ export default function ProfilePage() {
 
   // ── Builder Passport ──
   const [showPassportModal, setShowPassportModal] = useState(false);
+  const [practiceSolvedCount, setPracticeSolvedCount] = useState(0);
   const [passportStats, setPassportStats] = useState<{
     teamsCount?: number;
     hackathonsCount?: number;
     connectionsCount?: number;
+    practiceCount?: number;
     topPitchScore?: number | null;
   }>({});
 
@@ -177,7 +179,7 @@ export default function ProfilePage() {
   async function loadProfile() {
     let { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, college, year_of_study, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+      .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
       .eq("id", id)
       .single();
 
@@ -197,18 +199,20 @@ export default function ProfilePage() {
 
     setProfile(data);
 
-      fetch(`/api/builder-track-record/${data.id}`)
-        .then((res) => res.json())
-        .then((resData) => {
-          if (resData.success && resData.data) {
-            setTrackRecordData(resData.data);
-            if (resData.data.profile?.email) {
-              setProfile((prev) => (prev ? { ...prev, email: resData.data.profile.email } : prev));
-            }
+    fetch(`/api/builder-track-record/${data.id}`)
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((resData) => {
+        if (resData && resData.success && resData.data) {
+          setTrackRecordData(resData.data);
+          if (resData.data.profile?.email) {
+            setProfile((prev) => (prev ? { ...prev, email: resData.data.profile.email } : prev));
           }
-
-        })
-        .catch((err) => console.error("Failed to load track record data:", err));
+        }
+      })
+      .catch((err) => console.warn("Track record data not available:", err));
 
       // Load statistics (connections count and teams count for this user id)
 
@@ -302,16 +306,19 @@ export default function ProfilePage() {
       }
     }
 
-    // Load Passport Stats
+    // Load Passport Stats & Practice Challenges Solved Count
     try {
-      const [{ count: userTeamsCount }, { count: userHackathonsCount }] = await Promise.all([
+      const [{ count: userTeamsCount }, { count: userHackathonsCount }, { count: userPracticeCount }] = await Promise.all([
         supabase.from("team_members").select("id", { count: "exact", head: true }).eq("user_id", data.id),
         supabase.from("hackathon_registrations").select("id", { count: "exact", head: true }).eq("user_id", data.id),
+        supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("user_id", data.id),
       ]);
 
+      setPracticeSolvedCount(userPracticeCount || 0);
       setPassportStats({
         teamsCount: userTeamsCount || 1,
         hackathonsCount: userHackathonsCount || (data.hackathon_participations || 1),
+        practiceCount: userPracticeCount || 0,
         topPitchScore: 88,
       });
 
@@ -784,6 +791,14 @@ export default function ProfilePage() {
                           🚀 Rising Builder
                         </span>
                       )}
+
+                      {/* Practice Challenges Solved Badge */}
+                      {practiceSolvedCount > 0 && (
+                        <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-lime-500/10 text-lime-400 border-lime-500/30 flex items-center gap-1.5 shadow-[0_0_12px_rgba(132,204,22,0.15)] select-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse" />
+                          🎯 {practiceSolvedCount} Practice {practiceSolvedCount === 1 ? "Solved" : "Solved"}
+                        </span>
+                      )}
                     </>
                   )}
                 </div>
@@ -977,7 +992,7 @@ export default function ProfilePage() {
             ) : (
               <>
                 {/* Premium Activity Statistics Panel */}
-                <div className="grid grid-cols-3 gap-3 animate-fade-in-up stagger-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up stagger-1">
                   <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Connections</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{connectionsCount}</span>
@@ -985,6 +1000,12 @@ export default function ProfilePage() {
                   <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Teams Joined</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{teamsCount}</span>
+                  </div>
+                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Practice Solved</span>
+                    <span className="text-2xl font-bold text-lime-400 mt-1.5 font-mono flex items-center gap-1.5">
+                      <span>{practiceSolvedCount}</span>
+                    </span>
                   </div>
                   <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Skills Mastered</span>

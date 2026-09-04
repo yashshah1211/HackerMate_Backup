@@ -241,6 +241,13 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
     },
     {
+      href: "/challenges", label: "Practice",
+      color: "text-lime-600 dark:text-lime-400",
+      activeBg: "bg-lime-500/5 dark:bg-lime-500/10 border-lime-500/10 dark:border-lime-500/20",
+      activeBar: "bg-lime-600 dark:bg-lime-500",
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.004-6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM12 3v3.75" /></svg>)
+    },
+    {
       href: "/messages", label: "Messages",
       color: "text-cyan-600 dark:text-cyan-400",
       activeBg: "bg-cyan-500/5 dark:bg-cyan-500/10 border-cyan-500/10 dark:border-cyan-500/20",

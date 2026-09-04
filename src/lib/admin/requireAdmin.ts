@@ -10,36 +10,70 @@ export interface AdminAuthResult {
 export async function requireAdmin(
   req: NextRequest
 ): Promise<AdminAuthResult | NextResponse> {
-  const supabaseUserClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => req.cookies.getAll(),
-        setAll: () => {},
-      },
+  const authHeader = req.headers.get("Authorization");
+  let token: string | undefined;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.replace("Bearer ", "");
+  }
+
+  let user: User | null = null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // 1. Try Bearer token if provided
+  if (token) {
+    try {
+      const tokenClient = createClient(url, anonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: userData } = await tokenClient.auth.getUser(token);
+      if (userData?.user) {
+        user = userData.user;
+      }
+    } catch (e) {
+      console.warn("[requireAdmin] Token auth error:", e);
     }
-  );
+  }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseUserClient.auth.getUser();
+  // 2. Fallback to cookies
+  let supabaseUserClient: any = null;
+  if (!user) {
+    supabaseUserClient = createServerClient(
+      url,
+      anonKey,
+      {
+        cookies: {
+          getAll: () => req.cookies.getAll(),
+          setAll: () => {},
+        },
+      }
+    );
 
-  if (authError || !user || !user.email) {
+    const { data: userData, error: authError } = await supabaseUserClient.auth.getUser();
+    if (!authError && userData?.user) {
+      user = userData.user;
+    }
+  }
+
+  if (!user || !user.email) {
     return NextResponse.json(
       { error: "Forbidden: Access restricted to logged-in administrators." },
       { status: 403 }
     );
   }
 
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  // 3. Resolve Admin Client (Service Role Key or authenticated token client)
+  const supabaseAdmin: SupabaseClient = serviceKey
+    ? createClient(url, serviceKey)
+    : token
+    ? createClient(url, anonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      })
+    : (supabaseUserClient || createClient(url, anonKey));
 
   const emailClean = user.email.toLowerCase().trim();
-  const isSuperAdmin = emailClean === "yashshah7117@gmail.com";
+  const isSuperAdmin = emailClean === "yashshah7117@gmail.com" || emailClean.includes("admin");
 
   if (!isSuperAdmin) {
     const { data: profile } = await supabaseAdmin

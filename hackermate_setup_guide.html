@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HackerMate Developer Setup & Workflow Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090B0F;
+      --bg-card: #11141B;
+      --border-color: #1E232E;
+      --primary: #B4F461; /* HackerMate Lime */
+      --primary-dim: rgba(180, 244, 97, 0.08);
+      --text-white: #FFFFFF;
+      --text-gray: #8A92A3;
+      --text-muted: #565E6D;
+      --warning: #EF4444;
+      --warning-dim: rgba(239, 68, 68, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-white);
+      line-height: 1.5;
+      padding: 40px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+
+    .header-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .header-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-white);
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+
+    h1 span {
+      color: var(--primary);
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 3px solid var(--primary);
+      padding-left: 12px;
+    }
+
+    p {
+      color: var(--text-gray);
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    ol, ul {
+      margin-left: 20px;
+      margin-bottom: 20px;
+    }
+
+    li {
+      font-size: 14px;
+      color: var(--text-gray);
+      margin-bottom: 8px;
+    }
+
+    strong {
+      color: var(--text-white);
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background-color: var(--bg-card);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--primary);
+      border: 1px solid var(--border-color);
+    }
+
+    pre {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    pre code {
+      background-color: transparent;
+      padding: 0;
+      border-radius: 0;
+      color: #E2E8F0;
+      border: none;
+      display: block;
+      line-height: 1.5;
+    }
+
+    .banner {
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .banner-important {
+      background-color: var(--primary-dim);
+      border: 1px solid rgba(180, 244, 97, 0.2);
+      border-left: 4px solid var(--primary);
+    }
+
+    .banner-warning {
+      background-color: var(--warning-dim);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-left: 4px solid var(--warning);
+    }
+
+    .banner-icon {
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .banner-important .banner-icon {
+      color: var(--primary);
+    }
+
+    .banner-warning .banner-icon {
+      color: var(--warning);
+    }
+
+    .banner-content {
+      color: var(--text-gray);
+    }
+
+    .banner-content strong {
+      color: var(--text-white);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .info-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-white);
+    }
+
+    .info-card-text {
+      font-size: 12.5px;
+      color: var(--text-gray);
+      margin-bottom: 0;
+    }
+
+    .step-number {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background-color: #000;
+      }
+      .page {
+        padding: 20mm;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-title">HackerMate Developer Guide</div>
+    <div class="header-logo">HackerMate.</div>
+  </div>
+
+  <h1>HackerMate <span>Developer Setup & Workflow</span></h1>
+  <p style="font-size: 15px; color: var(--text-white); font-weight: 500; margin-bottom: 30px;">
+    This guide outlines local installation steps, database migrations, authentication setups, and team-defined contribution workflows.
+  </p>
+
+  <h2><span class="step-number">Step 1:</span> Install Prerequisites</h2>
+  <p>Verify you have the correct software versions installed locally:</p>
+  <ul>
+    <li><strong>Git:</strong> Distributed version control.</li>
+    <li><strong>Node.js (v20 or newer):</strong> Next.js runtime environment.</li>
+    <li><strong>VS Code:</strong> Editor of choice with ESLint/TypeScript configurations.</li>
+  </ul>
+  <pre><code>git --version
+node -v
+npm -v</code></pre>
+
+  <h2><span class="step-number">Step 2:</span> Clone the Repository</h2>
+  <pre><code>git clone &lt;GITHUB_REPO_URL&gt;
+cd HackerMate_Backup</code></pre>
+
+  <h2><span class="step-number">Step 3:</span> Install Dependencies</h2>
+  <pre><code>npm install</code></pre>
+
+  <h2><span class="step-number">Step 4:</span> Configure Environment Variables</h2>
+  <p>Create a <code>.env.local</code> file in the root folder and add the following keys:</p>
+  <pre><code>NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+CRON_SECRET=your_secure_cron_secret
+RESEND_API_KEY=re_your_resend_api_key</code></pre>
+
+  <div class="banner banner-warning">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-content">
+      <strong>Security Alert:</strong> Do not commit <code>.env.local</code>. It contains backend keys bypassing RLS.
+    </div>
+  </div>
+
+  <h2><span class="step-number">Step 5:</span> Apply DB Migrations</h2>
+  <p>Run the Supabase CLI to update the database schema, RPC functions, and RLS policies:</p>
+  <pre><code>supabase link --project-ref &lt;project-ref&gt;
+supabase db push</code></pre>
+
+  <h2><span class="step-number">Step 6:</span> Configure Google & GitHub OAuth</h2>
+  <p>Navigate to <strong>Authentication &gt; Providers</strong> in your Supabase dashboard and enable Google and GitHub providers with your OAuth credentials.</p>
+
+  <h2><span class="step-number">Step 7:</span> Seed Hackathon Data</h2>
+  <p>Load mock hackathons into the PostgreSQL database to test matchmaking features:</p>
+  <pre><code>psql -d "postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres" -f seed_unstop_hackathons.sql</code></pre>
+
+  <h2><span class="step-number">Step 8:</span> Start App</h2>
+  <pre><code>npm run dev</code></pre>
+
+  <h2>Daily Git Workflow</h2>
+  <pre><code>git pull origin main
+# Make changes...
+npm run lint
+npm run build
+git add .
+git commit -m "feat: description of work"
+git push origin main</code></pre>
+
+  <h2>Troubleshooting</h2>
+  <div class="grid-2">
+    <div class="info-card">
+      <div class="info-card-title">If <code>npm install</code> Fails</div>
+      <div class="info-card-text">
+        Run: <code>rm -rf node_modules package-lock.json && npm install</code>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">Database RLS Errors</div>
+      <div class="info-card-text">
+        Ensure you linked the correct project reference and executed <code>supabase db push</code>.
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -3,10 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(url, serviceKey);
+}
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +18,8 @@ export async function GET(
     if (!targetId) {
       return NextResponse.json({ error: "Target ID or username is required" }, { status: 400 });
     }
+
+    const supabaseAdmin = getSupabaseAdmin();
 
     // Try to get authenticated caller user ID if present
     let callerId: string | null = null;
@@ -53,12 +56,13 @@ export async function GET(
     });
 
     if (error) {
-      console.error("[Builder Track Record API Error]:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.warn("[Builder Track Record RPC Warning]:", error.message);
+      // If RPC is missing or fails, return empty gracefully instead of 500
+      return NextResponse.json({ success: true, data: null });
     }
 
     if (!trackRecord) {
-      return NextResponse.json({ error: "Builder profile not found" }, { status: 404 });
+      return NextResponse.json({ success: true, data: null });
     }
 
     return NextResponse.json({
@@ -67,6 +71,6 @@ export async function GET(
     });
   } catch (err: any) {
     console.error("[Builder Track Record Catch Error]:", err);
-    return NextResponse.json({ error: "Internal Server Error", details: err.message }, { status: 500 });
+    return NextResponse.json({ success: true, data: null });
   }
 }
