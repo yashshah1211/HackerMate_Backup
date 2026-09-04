@@ -11,7 +11,7 @@ export interface AdminAuthResult {
 export async function requireAdmin(
   req?: NextRequest
 ): Promise<AdminAuthResult | NextResponse> {
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = req?.headers?.get("Authorization");
   let token: string | undefined;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     token = authHeader.replace("Bearer ", "");
@@ -45,7 +45,7 @@ export async function requireAdmin(
       anonKey,
       {
         cookies: {
-          getAll: () => req.cookies.getAll(),
+          getAll: () => req?.cookies?.getAll() || [],
           setAll: () => {},
         },
       }
