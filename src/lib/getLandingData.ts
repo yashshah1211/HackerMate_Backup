@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Service role client for server-side SSR data fetching (bypasses RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rhryjrbebfrrfhtyyzbs.supabase.co";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "dummy-key";
+  return createClient(url, key);
+}
 
 export type RealProfile = {
   id: string;
@@ -48,6 +48,7 @@ export type LandingData = {
 };
 
 export async function getLandingData(): Promise<LandingData> {
+  const supabaseAdmin = getSupabaseAdmin();
   try {
     const [{ count: userCount }, { count: hackathonCount }, { count: teamCount }] =
       await Promise.all([

@@ -1,4 +1,4 @@
-import { PDFParse } from "pdf-parse";
+import { extractText } from "unpdf";
 
 export interface ExtractedChallengeSlide {
   slideNumber: number;
@@ -27,21 +27,22 @@ export const DEFAULT_CHALLENGE_SLIDE_CATEGORIES = [
 ];
 
 /**
- * Extracts plain text from an uploaded PDF binary buffer using pdf-parse v2 in-memory.
+ * Extracts plain text from an uploaded PDF binary buffer using unpdf in-memory.
  */
 export async function extractChallengeTextFromPDF(pdfBuffer: Buffer): Promise<ChallengeExtractionResult> {
   try {
     const uint8Data = new Uint8Array(pdfBuffer);
-    const parser = new PDFParse(uint8Data);
-    const textResult = await parser.getText();
+    const textResult = await extractText(uint8Data);
 
-    const fullText = textResult?.text || "";
-    const pages = textResult?.pages || [];
+    const fullText = Array.isArray(textResult.text)
+      ? textResult.text.join("\n\n")
+      : (textResult.text as string) || "";
+    const pages = Array.isArray(textResult.text) ? textResult.text : [];
 
     let slideChunks: string[] = [];
 
     if (pages.length >= 2) {
-      slideChunks = pages.map((p) => sanitizeExtractedText(p.text || "")).filter((s) => s.length > 5);
+      slideChunks = pages.map((p: string) => sanitizeExtractedText(p || "")).filter((s) => s.length > 5);
     }
 
     if (slideChunks.length === 0 && fullText.trim().length > 20) {

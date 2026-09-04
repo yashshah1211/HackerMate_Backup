@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase admin/server client for API route queries
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rhryjrbebfrrfhtyyzbs.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-
-const supabaseServer = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseServer() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rhryjrbebfrrfhtyyzbs.supabase.co";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "dummy-key";
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
 
 export interface DiscordEmbed {
   title?: string;
@@ -46,7 +46,7 @@ export async function handleFindTeamCommand(options?: { role?: string; skill?: s
   const skillFilter = options?.skill?.toLowerCase() || "";
 
   try {
-    // Query public open teams
+    const supabaseServer = getSupabaseServer();
     const query = supabaseServer
       .from("teams")
       .select("id, name, description, required_skills, max_members, hackathon_id, created_at, team_members(count)")
@@ -192,6 +192,7 @@ export async function handleHackathonsCommand(): Promise<DiscordInteractionRespo
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hackermate.vercel.app";
 
   try {
+    const supabaseServer = getSupabaseServer();
     const { data: hackathons } = await supabaseServer
       .from("hackathons")
       .select("id, title, organizer, mode, start_date, prize_pool")

@@ -1,13 +1,45 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import type { EmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
+import type {
+  Report,
+  UserProfile,
+  Team,
+  OrganizerLead,
+  NativeHackathon,
+  DeletedUserLog,
+  EmailAnalyticsStats,
+  WebhookEvent,
+  PartnerConfigRecord,
+} from "./_types";
 import PartnerCompositionModal from "@/components/PartnerCompositionModal";
+import { StatusBadge } from "./_components/StatusBadge";
 import { DEFAULT_HACKATHON_ID } from "@/lib/constants";
-import { RefreshCw } from "lucide-react";
+import {
+  RefreshCw,
+  ShieldAlert,
+  Mail,
+  SlidersHorizontal,
+  Radio,
+  Send,
+  FlaskConical,
+  Bell,
+  Megaphone,
+  FileText,
+  Sparkles,
+  Inbox,
+  Activity,
+  CheckCircle2,
+  Eye,
+  MousePointerClick,
+  AlertTriangle,
+  X,
+} from "lucide-react";
 
 // Modular Tab Components
 import ReportsTab from "./_tabs/ReportsTab";
@@ -89,7 +121,7 @@ function AdminContent() {
   const [warningTargetUserId, setWarningTargetUserId] = useState<string | null>(null);
   const [warningTargetName, setWarningTargetName] = useState("");
   const [warningMessageText, setWarningMessageText] = useState("");
-  const [sendingWarning, setSendingWarning] = useState(false);
+  const [sendingUserWarning, setSendingUserWarning] = useState(false);
 
   // Onboarding nudge states
   const [onboardingFilter, setOnboardingFilter] = useState<"all" | "incomplete">("all");
@@ -103,7 +135,6 @@ function AdminContent() {
   const [expandedCollege, setExpandedCollege] = useState<string | null>(null);
 
   // Partner Composition & Broadcast Modal States
-  const [partnerConfigsList, setPartnerConfigsList] = useState<any[]>([]);
   const [selectedPartnerModal, setSelectedPartnerModal] = useState<any | null>(null);
   const [partnerAnalyticsData, setPartnerAnalyticsData] = useState<any | null>(null);
   const [loadingPartnerAnalytics, setLoadingPartnerAnalytics] = useState(false);
@@ -145,25 +176,6 @@ function AdminContent() {
       showToast(err.message || "Failed to send SIH PDF report", "error");
     } finally {
       setSendingSihPdf(false);
-    }
-  }
-
-  const [deletedUserLogs, setDeletedUserLogs] = useState<{ id: string; user_id: string; email: string | null; full_name: string | null; college: string | null; deleted_at: string }[]>([]);
-
-  const [loadingDeletedLogs, setLoadingDeletedLogs] = useState(false);
-
-  async function loadDeletedUserLogs() {
-    setLoadingDeletedLogs(true);
-    try {
-      const res = await fetch("/api/admin/deleted-users-log");
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setDeletedUserLogs(data.logs || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingDeletedLogs(false);
     }
   }
 
@@ -491,7 +503,7 @@ function AdminContent() {
           .order("created_at", { ascending: false });
         profilesData = fallbackProfiles;
       } else {
-        setLeads((data || []) as OrganizerLead[]);
+        profilesData = pData;
       }
 
       const { data: hData } = await supabase
@@ -1655,58 +1667,8 @@ function AdminContent() {
         </div>
       )}
 
-      {/* Warning Modal */}
-      {warningModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md card card-static p-6 animate-scale-in">
-            <h3 className="text-sm font-semibold text-white mb-1.5">
-              Send Warning Email to {warningTargetName}
-            </h3>
-            <p className="text-[10px] text-zinc-500 mb-4">
-              This will send an official behavioral warning notification to their registered email address.
-            </p>
-
-            <textarea
-              value={warningMessageText}
-              onChange={(e) => setWarningMessageText(e.target.value)}
-              rows={5}
-              placeholder="Type warning details here..."
-              className="input text-xs resize-none mb-4"
-            />
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900/60">
-              <button
-                type="button"
-                onClick={() => setWarningModalOpen(false)}
-                className="btn btn-secondary text-xs py-1.5 px-4"
-                disabled={sendingWarning}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={submitWarningEmail}
-                disabled={sendingWarning || !warningMessageText.trim()}
-                className="btn btn-primary text-xs py-1.5 px-5 flex items-center gap-1.5"
-              >
-                {sendingWarning ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <span>Sending...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Send Warning</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pitch Modal */}
-      {pitchModalOpen && selectedLead && (
+      {/* User Warning Modal */}
+      {userWarningModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="w-full max-w-xl card card-static p-6 animate-scale-in border-emerald-950/80 bg-zinc-950">
             <div className="flex items-start justify-between gap-4 mb-4">
