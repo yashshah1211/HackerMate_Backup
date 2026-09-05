@@ -953,8 +953,10 @@ function AdminContent() {
           </div>
         </div>
 
-        {/* Daily Resend Email Limit Tracker Widget */}
-        {emailUsage && (
+        {/* Daily Resend Email Limit & Telemetry Widgets (Users & Outreach tabs only) */}
+        {(activeTab === "users" || activeTab === "outreach") && (
+          <>
+            {emailUsage && (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1220,6 +1222,8 @@ function AdminContent() {
               </div>
             )}
           </div>
+        )}
+          </>
         )}
 
         {/* Modular Active Tab Renderers */}

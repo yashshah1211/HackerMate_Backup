@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Tab = "suggestion" | "bug";
 type Status = "idle" | "submitting" | "success" | "error";
 
 export default function FeedbackWidget() {
+  const pathname = usePathname();
+  if (pathname?.startsWith("/admin")) return null;
+
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("suggestion");
   const [message, setMessage] = useState("");

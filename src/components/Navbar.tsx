@@ -639,7 +639,7 @@ function isPublicDarkRoute(path: string | null): boolean {
         onCountChange={setUnreadCount}
       />
 
-      {pathname !== "/hackathons/create" && !pathname?.startsWith("/messages") && <FeedbackWidget />}
+      {pathname !== "/hackathons/create" && !pathname?.startsWith("/messages") && !pathname?.startsWith("/admin") && <FeedbackWidget />}
       {showSignOutConfirm && <SignOutConfirmModal />}
     </div>
   );
