@@ -63,7 +63,11 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           from: fromEmail,
           to: targetEmail,
-          reply_to: process.env.OUTREACH_REPLY_TO_EMAIL || "yashshah7117@gmail.com",
+          reply_to: process.env.OUTREACH_REPLY_TO_EMAIL
+            ? (process.env.OUTREACH_REPLY_TO_EMAIL.includes(",")
+                ? process.env.OUTREACH_REPLY_TO_EMAIL.split(",").map((e) => e.trim()).filter(Boolean)
+                : process.env.OUTREACH_REPLY_TO_EMAIL.trim())
+            : "contacthackermate@gmail.com",
           subject: finalSubject,
           html: finalHtml,
         }),
