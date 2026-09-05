@@ -643,7 +643,20 @@ export default function PitchEvaluatorClient({
             <div className="mb-6 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="leading-relaxed">
-                <span className="font-bold">Heuristic Evaluation Mode:</span> This scorecard was generated using static rule heuristics because the live AI model was temporarily rate-limited or offline. Scores from the heuristic engine are conservative baseline approximations.
+                <span className="font-bold">Heuristic Evaluation Mode:</span>{" "}
+                {result.fallbackReason === "missing_api_key" ? (
+                  <>
+                    This scorecard was generated using pattern heuristics because the server&apos;s AI environment key is not configured. Scores are conservative baseline approximations.
+                  </>
+                ) : result.fallbackReason === "budget_exhausted" ? (
+                  <>
+                    This scorecard was generated using pattern heuristics because today&apos;s global Gemini AI daily budget cap has been reached. Scores are conservative baseline approximations.
+                  </>
+                ) : (
+                  <>
+                    This scorecard was generated using static rule heuristics because the live AI model was temporarily rate-limited or offline. Scores from the heuristic engine are conservative baseline approximations.
+                  </>
+                )}
               </div>
             </div>
           )}

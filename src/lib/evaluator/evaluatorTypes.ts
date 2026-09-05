@@ -68,6 +68,8 @@ export interface ProjectEvaluationResult {
   recommendedRoles: RecommendedRoleGap[];
   usedAiEngine: boolean; // true if Gemini AI was used, false if Heuristic Fallback
   evaluationTimestamp: string;
+  fallbackReason?: "missing_api_key" | "budget_exhausted" | "gemini_api_error" | "forced_fallback" | null;
+  fallbackDetails?: string | null;
 }
 
 export const TRACK_PROFILES: Record<JudgingTrackId, TrackProfile> = {

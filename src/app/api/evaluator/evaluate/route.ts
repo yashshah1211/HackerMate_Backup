@@ -135,6 +135,8 @@ export async function POST(req: NextRequest) {
       result,
       savedEvaluationId,
       mode: result.usedAiEngine ? "gemini_ai" : "heuristic_fallback",
+      fallbackReason: result.fallbackReason || null,
+      fallbackDetails: result.fallbackDetails || null,
     });
   } catch (err: any) {
     console.error("[API Evaluator Error]:", err);

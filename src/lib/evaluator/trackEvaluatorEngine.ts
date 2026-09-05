@@ -13,20 +13,32 @@ export async function runTrackAwareEvaluation(
   input: EvaluationInput,
   allowGeminiAi = true
 ): Promise<ProjectEvaluationResult> {
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   const trackId = input.trackId || "web_dev";
   const profile = TRACK_PROFILES[trackId] || TRACK_PROFILES.web_dev;
 
-  if (allowGeminiAi && geminiKey) {
+  let fallbackReason: ProjectEvaluationResult["fallbackReason"] = null;
+  let fallbackDetails: string | null = null;
+
+  if (!allowGeminiAi) {
+    fallbackReason = "budget_exhausted";
+  } else if (!geminiKey) {
+    fallbackReason = "missing_api_key";
+    console.warn("[Track Evaluator] Missing GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY in environment. Falling back to Heuristic Engine.");
+  } else {
     try {
       const aiResult = await callGeminiForTrack(geminiKey, input, profile);
       return {
         ...aiResult,
         usedAiEngine: true,
         evaluationTimestamp: new Date().toISOString(),
+        fallbackReason: null,
+        fallbackDetails: null,
       };
     } catch (err: any) {
-      console.warn(`[Track Evaluator] Gemini AI call failed (${err.message}). Using Heuristic Fallback Engine.`);
+      fallbackReason = "gemini_api_error";
+      fallbackDetails = err?.message || String(err);
+      console.warn(`[Track Evaluator] Gemini AI call failed (${fallbackDetails}). Using Heuristic Fallback Engine.`);
     }
   }
 
@@ -36,6 +48,8 @@ export async function runTrackAwareEvaluation(
     ...fallbackResult,
     usedAiEngine: false,
     evaluationTimestamp: new Date().toISOString(),
+    fallbackReason,
+    fallbackDetails,
   };
 }
 

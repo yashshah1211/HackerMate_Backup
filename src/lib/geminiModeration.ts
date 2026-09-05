@@ -4,7 +4,7 @@ export async function moderateImageWithGemini(
   imageBuffer: Buffer,
   mimeType: string
 ): Promise<{ isSafe: boolean; reason?: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) {
     // If no API key configured, pass safely
     return { isSafe: true };

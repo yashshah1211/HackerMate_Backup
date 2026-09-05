@@ -42,7 +42,7 @@ export async function runPitchDeckEvaluation(
     demoUrl?: string | null;
   }
 ): Promise<EvaluationEngineResult> {
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   const memberCount = teamInfo?.memberCount || 6;
   const hasFemaleMember = teamInfo?.hasFemaleMember !== false;
 
