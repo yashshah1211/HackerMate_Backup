@@ -346,15 +346,15 @@ function isPublicDarkRoute(path: string | null): boolean {
                 <div className="flex items-center gap-4">
                   <Link
                     href="/login"
-                    className="text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                    className="text-xs font-medium text-white hover:text-[#B4F461] transition-colors cursor-pointer"
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/login"
-                    className="px-4 py-1.5 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-xs transition-all duration-200 shadow-[0_0_16px_rgba(180,244,97,0.22)] hover:shadow-[0_0_24px_rgba(180,244,97,0.48)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    className="px-4 py-1.5 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] !text-black dark:!text-black font-semibold text-xs transition-all duration-200 shadow-[0_0_16px_rgba(180,244,97,0.22)] hover:shadow-[0_0_24px_rgba(180,244,97,0.48)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                   >
-                    Find Teammates
+                    <span className="!text-black dark:!text-black">Find Teammates</span>
                   </Link>
                 </div>
               )}
