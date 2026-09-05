@@ -76,7 +76,7 @@ export async function handleFindTeamCommand(options?: { role?: string; skill?: s
                 {
                   type: 2,
                   style: 5,
-                  label: "✨ Create Team on HackerMate",
+                  label: "🚀 Create Team on HackerMate",
                   url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://hackermate.vercel.app"}/teams`,
                 },
               ],

@@ -11,7 +11,6 @@ import {
   Layers,
   ExternalLink,
   Award,
-  Sparkles,
   Code2,
 } from "lucide-react";
 import Link from "next/link";

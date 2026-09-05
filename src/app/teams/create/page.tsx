@@ -110,7 +110,7 @@ function CreateTeamForm() {
           }
         }
         if (prefill.name || prefill.description) {
-          showToast("Prefilled team details from your Idea Evaluation ✨", "info");
+          showToast("Prefilled team details from your Idea Evaluation", "info");
         }
       } else if (prefillParam && prefillParam !== "evaluator") {
         // Fetch server-side evaluation details by opaque ID
@@ -137,7 +137,7 @@ function CreateTeamForm() {
                   setSelectedRoles((prev) => Array.from(new Set([...prev, ...validRoles])));
                 }
               }
-              showToast("Prefilled team details from your Idea Evaluation ✨", "info");
+              showToast("Prefilled team details from your Idea Evaluation", "info");
             }
           } catch (err) {
             console.warn("Could not fetch evaluation prefill:", err);

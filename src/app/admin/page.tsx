@@ -31,7 +31,7 @@ import {
   Bell,
   Megaphone,
   FileText,
-  Sparkles,
+  Zap,
   Inbox,
   Activity,
   CheckCircle2,
@@ -1080,7 +1080,7 @@ function AdminContent() {
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.admin_reports}</strong>
               </div>
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
-                <Sparkles className="w-3 h-3 text-zinc-400" />
+                <Zap className="w-3 h-3 text-zinc-400" />
                 <span>Onboarding Nudges:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.onboarding_nudges}</strong>
               </div>

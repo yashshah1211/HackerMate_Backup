@@ -8,7 +8,6 @@ import {
   Cpu,
   Clock,
   ArrowRight,
-  Sparkles,
   CheckCircle2,
   Filter,
   FileText,
@@ -98,7 +97,7 @@ export default function ChallengesPage() {
               <span>Standard 6-Slide Template</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
-              <Sparkles className="w-4 h-4 text-lime-600 dark:text-lime-400" />
+              <Cpu className="w-4 h-4 text-lime-600 dark:text-lime-400" />
               <span>Multi-Model AI Jury Feedback</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Sparkles, Users, Award, ShieldCheck, ArrowRight, MessageSquareCode } from "lucide-react";
+import { Bot, Building2, Users, Award, ShieldCheck, ArrowRight, MessageSquareCode } from "lucide-react";
 
 export const metadata = {
   title: "Partner & Organizer Solutions | HackerMate",
@@ -19,7 +19,7 @@ export default function PartnersPage() {
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-semibold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" /> For Hackathon Organizers & Tech Fests
+            <Building2 className="w-3.5 h-3.5" /> For Hackathon Organizers & Tech Fests
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
             Supercharge Your Hackathon Team Formation

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { UserProfile, DeletedUserLog } from "../_types";
 import { useNotification } from "@/context/NotificationContext";
 import { StatusBadge } from "../_components/StatusBadge";
-import { Search, ShieldAlert, Sparkles, Mail, RefreshCw } from "lucide-react";
+import { Search, ShieldAlert, Zap, Mail, RefreshCw } from "lucide-react";
 
 interface UsersTabProps {
   users: UserProfile[];
@@ -165,7 +165,7 @@ export default function UsersTab({
             className="px-4 py-2 rounded-xl text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
             title="Send manual onboarding email nudge to all users who haven't completed their profile"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Zap className="w-3.5 h-3.5" />
             <span>{nudgingAll ? "Sending Nudges..." : "Nudge Incomplete"}</span>
           </button>
         </div>

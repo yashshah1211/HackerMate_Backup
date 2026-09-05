@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Sparkles,
+  Zap,
   Users,
   User,
   History,
@@ -399,7 +399,7 @@ export default function ChallengeDetailPage() {
           <div className="card p-6 border-lime-500/40 dark:border-lime-500/30 bg-white dark:bg-zinc-950/90 shadow-lg shadow-lime-500/5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-lime-600 dark:text-lime-400" />
+                <FileText className="w-4 h-4 text-lime-600 dark:text-lime-400" />
                 <span>Submit Presentation</span>
               </h2>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-lime-500/10 text-lime-700 dark:text-lime-400 border border-lime-500/30 font-semibold">
@@ -603,7 +603,7 @@ export default function ChallengeDetailPage() {
                   disabled={isSubmitting}
                   className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl bg-lime-500 hover:bg-lime-400 text-black font-bold text-xs shadow-lg shadow-lime-500/20 transition-all cursor-pointer hover:scale-[1.01]"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <Zap className="w-4 h-4" />
                   <span>Submit Solution & Run AI Evaluation</span>
                 </button>
               </form>

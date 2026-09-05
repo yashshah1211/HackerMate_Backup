@@ -27,7 +27,7 @@ import {
   TrendingDown,
   CheckCheck,
   Minus,
-  Sparkles,
+  Lightbulb,
 } from "lucide-react";
 
 interface PPTEvaluation {
@@ -903,7 +903,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           {/* Slide-by-Slide Actionable Recommendations */}
           <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs space-y-4">
             <h4 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-500" />
+              <Lightbulb className="w-4 h-4 text-violet-500" />
               <span>Slide-by-Slide Actionable Recommendations</span>
             </h4>
 

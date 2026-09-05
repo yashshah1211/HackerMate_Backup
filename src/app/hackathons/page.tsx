@@ -413,7 +413,7 @@ function HackathonsContent() {
               : "border-transparent text-zinc-500 hover:text-white"
           }`}
         >
-          ✨ For You
+          🎯 For You
         </button>
         <button
           onClick={() => setActiveTab("upcoming")}

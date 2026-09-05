@@ -9,7 +9,6 @@ import {
   ExternalLink,
   MessageCircle,
   Trophy,
-  Sparkles,
   ShieldCheck,
   Layers,
 } from "lucide-react";
@@ -90,7 +89,7 @@ export function ShareScoreCardModal({
 
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5 font-mono text-[11px] text-lime-400 font-bold">
-                <Sparkles className="w-3.5 h-3.5" />
+                <Trophy className="w-3.5 h-3.5" />
                 <span>HACKERMATE PRACTICE DECK</span>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">

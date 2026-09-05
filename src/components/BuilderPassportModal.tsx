@@ -13,7 +13,6 @@ import {
   Calendar,
   ExternalLink,
   QrCode,
-  Sparkles,
 } from "lucide-react";
 
 interface BuilderPassportProps {

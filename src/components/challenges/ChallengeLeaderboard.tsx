@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Trophy, Medal, Users, User, ArrowUpRight, Sparkles, RefreshCw, Zap } from "lucide-react";
+import { Trophy, Medal, Users, User, ArrowUpRight, RefreshCw, Zap } from "lucide-react";
 
 interface LeaderboardEntry {
   id: string;
@@ -126,7 +126,7 @@ export function ChallengeLeaderboard({
           </div>
         ) : entries.length === 0 ? (
           <div className="py-10 text-center rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/80 p-6">
-            <Sparkles className="w-8 h-8 text-lime-500 mx-auto mb-2 opacity-60" />
+            <Trophy className="w-8 h-8 text-lime-500 mx-auto mb-2 opacity-60" />
             <h4 className="text-xs font-bold text-zinc-900 dark:text-white">Be the First on the Leaderboard!</h4>
             <p className="text-[11px] text-zinc-500 max-w-sm mx-auto mt-1">
               Submit your 6-slide architecture presentation deck and score 80+ to claim the #1 rank of the week.

@@ -31,7 +31,6 @@ import {
   X,
   Clock,
   FolderPlus,
-  Sparkles,
 } from "lucide-react";
 
 interface PitchEvaluatorClientProps {
@@ -971,7 +970,7 @@ export default function PitchEvaluatorClient({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-4">
               <div>
                 <div className="flex items-center gap-2 font-bold text-sm text-zinc-900 dark:text-white">
-                  <Sparkles className="w-4 h-4 text-lime-600 dark:text-lime-400" />
+                  <Zap className="w-4 h-4 text-lime-600 dark:text-lime-400" />
                   <span>Next Steps: Take Your Idea to Execution</span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">

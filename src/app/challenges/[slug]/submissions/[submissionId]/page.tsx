@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Layers,
-  Sparkles,
+  Target,
   ArrowUpRight,
   RefreshCw,
   AlertCircle,
@@ -215,7 +215,7 @@ export default function SubmissionResultPage() {
         {/* Top Action Item Banner */}
         {submission.ai_raw_feedback?.topActionItem && (
           <div className="mt-6 p-4 rounded-xl bg-lime-500/10 border border-lime-500/30 text-xs text-lime-800 dark:text-lime-200 flex items-start gap-3">
-            <Sparkles className="w-4 h-4 text-lime-600 dark:text-lime-400 shrink-0 mt-0.5" />
+            <Target className="w-4 h-4 text-lime-600 dark:text-lime-400 shrink-0 mt-0.5" />
             <div>
               <span className="font-bold text-lime-700 dark:text-lime-400 uppercase tracking-wide text-[10px] block mb-0.5">Top Priority Action Item:</span>
               <span>{submission.ai_raw_feedback.topActionItem}</span>

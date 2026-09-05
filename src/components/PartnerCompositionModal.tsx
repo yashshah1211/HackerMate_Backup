@@ -9,7 +9,6 @@ import {
   Send,
   X,
   Building2,
-  Sparkles,
   Radio,
   Clock,
   Layers,

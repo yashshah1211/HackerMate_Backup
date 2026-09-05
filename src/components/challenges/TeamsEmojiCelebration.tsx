@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Plus, X, Smile, Sparkles } from "lucide-react";
+import { Plus, X, Smile, Zap } from "lucide-react";
 
 interface FloatingEmoji {
   id: number;
@@ -29,7 +29,7 @@ export const CELEBRATION_THEMES: Record<string, { name: string; emoji: string; i
 const EXTENDED_EMOJIS = [
   "👏", "🚀", "🏆", "💯", "🔥", "❤️", "🎉", "🥳", "🤩", "🙌",
   "💡", "🧠", "💎", "⚡", "🎯", "👑", "🥇", "🤖", "💻", "🦄",
-  "⭐", "✨", "🌈", "🍕", "☕", "🦾", "👾", "🎖️"
+  "🎊", "🛠️", "🌈", "🍕", "☕", "🦾", "👾", "🎖️"
 ];
 
 const DEFAULT_QUICK_REACTIONS = [
@@ -210,7 +210,7 @@ export function TeamsLiveReactionBar() {
             <div className="absolute bottom-12 right-0 p-3 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl backdrop-blur-md w-64 animate-teams-pop">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800 text-xs font-semibold text-zinc-300">
                 <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-lime-400" />
+                  <Zap className="w-3.5 h-3.5 text-lime-400" />
                   <span>Choose Reaction</span>
                 </span>
                 <button

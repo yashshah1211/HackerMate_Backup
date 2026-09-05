@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Search,
   Share2,
-  Sparkles,
   ExternalLink,
   ChevronDown,
   ChevronUp,

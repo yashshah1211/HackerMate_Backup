@@ -19,7 +19,6 @@ import {
   X,
   Eye,
   Inbox,
-  Sparkles,
 } from "lucide-react";
 
 interface OutreachTabProps {
@@ -478,7 +477,7 @@ export default function OutreachTab({
               disabled={fetchingUnstop}
               className="px-4 py-2 rounded-xl text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
             >
-              <Sparkles className={`w-3.5 h-3.5 ${fetchingUnstop ? "animate-spin" : ""}`} />
+              <Search className={`w-3.5 h-3.5 ${fetchingUnstop ? "animate-spin" : ""}`} />
               <span>{fetchingUnstop ? "Scanning Platforms..." : "Fetch Multi-Platform Leads"}</span>
             </button>
           </div>

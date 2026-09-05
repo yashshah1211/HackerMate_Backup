@@ -47,14 +47,14 @@ export const ShimmerButton = React.forwardRef<HTMLButtonElement, ShimmerButtonPr
         )}
         {...props}
       >
-        {/* Sparkle container */}
+        {/* Shimmer container */}
         <div
           className={cn(
             "-z-30 blur-[2px]",
             "absolute inset-0 overflow-visible [container-type:size]"
           )}
         >
-          {/* Sparkle */}
+          {/* Shimmer */}
           <div className="absolute inset-0 h-[100cqh] animate-shimmer-slide [aspect-ratio:1] [border-radius:0] [mask:none]">
             {/* Spark */}
             <div className="animate-spin-around absolute -inset-full w-auto rotate-0 [background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,var(--shimmer-color)_var(--spread),transparent_var(--spread))] [translate:0_0]" />

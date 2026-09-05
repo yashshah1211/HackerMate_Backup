@@ -1856,7 +1856,7 @@ function HackathonDetailContent() {
 
                         {builder.matchedSkills.length > 0 && (
                           <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">
-                            ✨ {builder.matchedSkills.length} Match{builder.matchedSkills.length !== 1 ? "es" : ""}
+                            🎯 {builder.matchedSkills.length} Match{builder.matchedSkills.length !== 1 ? "es" : ""}
                           </span>
                         )}
                       </div>
@@ -1989,7 +1989,7 @@ function HackathonDetailContent() {
 
                             {matchScore > 0 && (
                               <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">
-                                ✨ {matchScore}% Match
+                                🎯 {matchScore}% Match
                               </span>
                             )}
                           </div>
@@ -2084,7 +2084,7 @@ function HackathonDetailContent() {
                             </h3>
                             {teamMatchScore > 0 && (
                               <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5">
-                                ✨ {teamMatchScore}% Match
+                                🎯 {teamMatchScore}% Match
                               </span>
                             )}
                           </div>

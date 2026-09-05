@@ -9,7 +9,7 @@ import {
 } from "@/lib/evaluator/evaluatorTypes";
 import {
   Lightbulb,
-  Sparkles,
+  Target,
   AlertTriangle,
   ShieldCheck,
   Cpu,
@@ -199,7 +199,7 @@ export default function LinkedIdeaScorecard({
           href="/evaluator"
           className="py-2.5 px-4 rounded-lg bg-lime-400 hover:bg-lime-500 !text-black dark:!text-black font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm shrink-0 cursor-pointer"
         >
-          <Sparkles className="w-3.5 h-3.5 text-black" />
+          <Lightbulb className="w-3.5 h-3.5 text-black" />
           <span>Evaluate Idea on HackerMate →</span>
         </Link>
       </div>
@@ -229,7 +229,7 @@ export default function LinkedIdeaScorecard({
         <div className="space-y-1">
           <div className="flex items-center flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-700 dark:text-lime-300 text-[10px] font-mono font-bold uppercase tracking-wider">
-              <Sparkles className="w-3 h-3 text-lime-500" />
+              <Target className="w-3 h-3 text-lime-500" />
               Linked Idea Benchmark
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
