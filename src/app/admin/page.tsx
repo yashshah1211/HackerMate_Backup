@@ -494,22 +494,17 @@ function AdminContent() {
   async function loadLeads() {
     setLoadingLeads(true);
     try {
-      const { data: reportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
-      
-      let profilesData = null;
-      const { data: pData, error: pErr } = await supabase
-        .from("profiles")
-        .select("id, full_name, is_banned, role, created_at, onboarding_completed, referrer_source")
+      const { data, error } = await supabase
+        .from("organizer_leads")
+        .select("*")
+        .neq("status", "removed")
+        .neq("status", "archived")
         .order("created_at", { ascending: false });
 
-      if (pErr) {
-        const { data: fallbackProfiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, is_banned, role, created_at, onboarding_completed")
-          .order("created_at", { ascending: false });
-        profilesData = fallbackProfiles;
+      if (error) {
+        console.error("Error loading leads:", error);
       } else {
-        profilesData = pData;
+        setLeads((data || []) as OrganizerLead[]);
       }
 
       const { data: hData } = await supabase
@@ -536,7 +531,7 @@ function AdminContent() {
         setPartnerConfigsList(pConfigs as PartnerConfigRecord[]);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error in loadLeads:", err);
     } finally {
       setLoadingLeads(false);
     }
@@ -606,7 +601,10 @@ function AdminContent() {
         setIsAdmin(true);
         await loadData();
         await fetchNativeHackathons();
-        if (user.email?.toLowerCase() === outreachAdminEmail.toLowerCase()) {
+        if (
+          user.email?.toLowerCase().trim() === outreachAdminEmail.toLowerCase().trim() ||
+          isSuperAdminEmail
+        ) {
           await loadLeads();
         }
       }
