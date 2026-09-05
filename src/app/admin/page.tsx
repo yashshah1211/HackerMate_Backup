@@ -404,6 +404,12 @@ function AdminContent() {
       loadDeletedUserLogs();
     } else if (activeTab === "challenges") {
       fetchAdminChallenges();
+    } else if (activeTab === "native_hackathons") {
+      fetchNativeHackathons();
+    } else if (activeTab === "outreach" || activeTab === "partnering") {
+      if (leads.length === 0) {
+        loadLeads();
+      }
     }
   }, [activeTab]);
 
@@ -1274,6 +1280,38 @@ function AdminContent() {
         {activeTab === "badges" && (
           <BadgesTab partnerConfigsMap={partnerConfigsMap} />
         )}
+
+        {activeTab === "native_hackathons" && (
+          <NativeHackathonsTab
+            nativeHackathons={nativeHackathons}
+            loadingNativeHackathons={loadingNativeHackathons}
+            onRefresh={fetchNativeHackathons}
+          />
+        )}
+
+        {activeTab === "outreach" && (
+          <OutreachTab
+            leads={leads}
+            setLeads={setLeads}
+            loadingLeads={loadingLeads}
+            loadLeads={loadLeads}
+            userEmail={userEmail}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        )}
+
+        {activeTab === "partnering" && (
+          <PartneringTab
+            leads={leads}
+            allHackathons={allHackathons}
+            partnerConfigsMap={partnerConfigsMap}
+            partnerConfigsList={partnerConfigsList}
+            loadLeads={loadLeads}
+          />
+        )}
+
+        {activeTab === "sih_stats" && <SihStatsTab />}
 
         {/* Practice Challenges Tab */}
         {activeTab === "challenges" && (
