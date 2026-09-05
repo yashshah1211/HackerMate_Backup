@@ -38,7 +38,12 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        if (
+          key &&
+          key.startsWith("sb-") &&
+          key.endsWith("-auth-token") &&
+          !key.includes("code-verifier")
+        ) {
           const val = localStorage.getItem(key);
           if (val && val !== "null") {
             setHasSession(true);
@@ -46,7 +51,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
           }
         }
       }
-      if (document.cookie.split(";").some((c) => c.trim().startsWith("sb-") && c.includes("auth-token"))) {
+      if (
+        document.cookie
+          .split(";")
+          .some(
+            (c) =>
+              c.trim().startsWith("sb-") &&
+              c.includes("auth-token") &&
+              !c.includes("code-verifier")
+          )
+      ) {
         setHasSession(true);
       }
     } catch {}
@@ -305,6 +319,22 @@ function isPublicDarkRoute(path: string | null): boolean {
     );
   }
 
+  // Routes that are strictly public, legal, or marketing pages — should NEVER render the workspace sidebar
+  const isAlwaysPublicRoute = Boolean(
+    pathname && (
+      pathname === "/" ||
+      pathname === "/terms" ||
+      pathname.startsWith("/terms/") ||
+      pathname === "/privacy" ||
+      pathname.startsWith("/privacy/") ||
+      pathname === "/contact" ||
+      pathname.startsWith("/contact/") ||
+      pathname === "/faq" ||
+      pathname.startsWith("/faq/") ||
+      pathname.startsWith("/partners")
+    )
+  );
+
   // Routes that are strictly workspace pages — should NEVER flash the public marketing header
   const isAlwaysWorkspaceRoute = Boolean(
     pathname && (
@@ -323,7 +353,7 @@ function isPublicDarkRoute(path: string | null): boolean {
   );
 
   const isWorkspaceLayout = Boolean(
-    pathname !== "/" &&
+    !isAlwaysPublicRoute &&
     (isAlwaysWorkspaceRoute || user || hasSession)
   );
 
@@ -536,19 +566,27 @@ function isPublicDarkRoute(path: string | null): boolean {
         {/* Profile footer with dropdown */}
         <div className="relative mt-auto">
           <div
-            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-            className="sidebar-footer"
+            onClick={() => {
+              if (user) {
+                setProfileDropdownOpen(!profileDropdownOpen);
+              } else {
+                window.location.href = "/login";
+              }
+            }}
+            className="sidebar-footer cursor-pointer"
           >
             <div className="avatar-sm font-bold text-xs" style={{ background: `linear-gradient(135deg, ${sidebarColorsGradient[0]}, ${sidebarColorsGradient[1]})` }}>
-              {userInitials}
+              {user ? userInitials : "G"}
             </div>
             <div className="who text-left flex-1 min-w-0">
-              <b className="truncate block">{profile?.full_name || "Builder"}</b>
-              <small className="truncate block text-zinc-500">{user?.email}</small>
+              <b className="truncate block">{profile?.full_name || (user ? "Builder" : "Guest")}</b>
+              <small className="truncate block text-zinc-500">{user?.email || "Click to sign in"}</small>
             </div>
-            <svg className={`w-3.5 h-3.5 text-[var(--text-faint)] hover:text-white transition-transform duration-200 shrink-0 ${profileDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+            {user && (
+              <svg className={`w-3.5 h-3.5 text-[var(--text-faint)] hover:text-white transition-transform duration-200 shrink-0 ${profileDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
           </div>
 
           {profileDropdownOpen && (
@@ -618,9 +656,15 @@ function isPublicDarkRoute(path: string | null): boolean {
                 </span>
               )}
             </button>
-            <Link href={user ? `/profile/${user.id}` : "/dashboard"} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
-              {userInitials}
-            </Link>
+            {user ? (
+              <Link href={`/profile/${user.id}`} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
+                {userInitials}
+              </Link>
+            ) : (
+              <Link href="/login" className="px-3 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a8eb52] text-black font-semibold text-xs transition-colors">
+                Sign In
+              </Link>
+            )}
           </div>
         </header>
         <div className="flex-1 overflow-y-auto bg-[var(--background)] dashboard-content-reset flex flex-col min-h-0">
