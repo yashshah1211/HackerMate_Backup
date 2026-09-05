@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import type { EmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
-import {
+import type {
   Report,
   UserProfile,
   Team,
@@ -16,14 +17,14 @@ import {
   WebhookEvent,
   PartnerConfigRecord,
 } from "./_types";
+import PartnerCompositionModal from "@/components/PartnerCompositionModal";
 import { StatusBadge } from "./_components/StatusBadge";
+import { DEFAULT_HACKATHON_ID } from "@/lib/constants";
 import {
+  RefreshCw,
+  ShieldAlert,
   Mail,
-  Activity,
-  CheckCircle2,
-  Eye,
-  MousePointerClick,
-  AlertTriangle,
+  SlidersHorizontal,
   Radio,
   Send,
   FlaskConical,
@@ -32,8 +33,11 @@ import {
   FileText,
   Sparkles,
   Inbox,
-  ShieldAlert,
-  SlidersHorizontal,
+  Activity,
+  CheckCircle2,
+  Eye,
+  MousePointerClick,
+  AlertTriangle,
   X,
 } from "lucide-react";
 
@@ -56,18 +60,30 @@ function AdminContent() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<
-    | "reports"
-    | "users"
-    | "teams"
-    | "outreach"
-    | "badges"
-    | "partnering"
-    | "sih_stats"
-    | "deleted_logs"
-    | "native_hackathons"
-  >("reports");
+  // Tabs
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons" | "challenges">("reports");
+
+  // Practice Challenges state
+  const [adminChallenges, setAdminChallenges] = useState<any[]>([]);
+  const [loadingAdminChallenges, setLoadingAdminChallenges] = useState(false);
+  const [showCreateChallengeModal, setShowCreateChallengeModal] = useState(false);
+  const [creatingChallenge, setCreatingChallenge] = useState(false);
+  const [togglingChallengeId, setTogglingChallengeId] = useState<string | null>(null);
+
+  // New Challenge Form fields
+  const [newChNumber, setNewChNumber] = useState("");
+  const [newChTitle, setNewChTitle] = useState("");
+  const [newChTrack, setNewChTrack] = useState("Full-Stack / AI");
+  const [newChDifficulty, setNewChDifficulty] = useState("Intermediate");
+  const [newChSummary, setNewChSummary] = useState("");
+  const [newChProblem, setNewChProblem] = useState("");
+  const [newChAdditionalRules, setNewChAdditionalRules] = useState("");
+  const [newChReactionTheme, setNewChReactionTheme] = useState("default");
+  const [newChPdfUrl, setNewChPdfUrl] = useState("");
+  const [newChPdfFile, setNewChPdfFile] = useState<File | null>(null);
+  const [newChStartsAt, setNewChStartsAt] = useState("");
+  const [newChEndsAt, setNewChEndsAt] = useState("");
+  const [newChStatus, setNewChStatus] = useState("active");
 
   // Single shared search query across tabs
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,12 +123,302 @@ function AdminContent() {
   const [warningMessageText, setWarningMessageText] = useState("");
   const [sendingUserWarning, setSendingUserWarning] = useState(false);
 
+  // Onboarding nudge states
+  const [onboardingFilter, setOnboardingFilter] = useState<"all" | "incomplete">("all");
+  const [nudgingUserIds, setNudgingUserIds] = useState<Set<string>>(new Set());
+  const [bulkNudging, setBulkNudging] = useState(false);
+
+  // SIH 2026 College Stats State
+  const [sihStatsData, setSihStatsData] = useState<any | null>(null);
+  const [loadingSihStats, setLoadingSihStats] = useState(false);
+  const [sihCollegeFilter, setSihCollegeFilter] = useState<"all" | "zero_teams">("all");
+  const [expandedCollege, setExpandedCollege] = useState<string | null>(null);
+
+  // Partner Composition & Broadcast Modal States
+  const [selectedPartnerModal, setSelectedPartnerModal] = useState<any | null>(null);
+  const [partnerAnalyticsData, setPartnerAnalyticsData] = useState<any | null>(null);
+  const [loadingPartnerAnalytics, setLoadingPartnerAnalytics] = useState(false);
+  const [sendingPartnerBroadcast, setSendingPartnerBroadcast] = useState(false);
+
+  async function loadSIHStats() {
+    setLoadingSihStats(true);
+    try {
+      const res = await fetch("/api/admin/sih-college-stats");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSihStatsData(data);
+      } else {
+        showToast(data.error || "Failed to load SIH college stats", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to load SIH college stats", "error");
+    } finally {
+      setLoadingSihStats(false);
+    }
+  }
+
+  const [sendingSihPdf, setSendingSihPdf] = useState(false);
+
+
+  async function sendSIHPdfReport() {
+    setSendingSihPdf(true);
+    try {
+      const res = await fetch("/api/cron/sih-daily-pdf-report", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`SIH Daily PDF Report emailed to ${data.recipient || "yashshah7117@gmail.com"}!`, "success");
+      } else {
+        showToast(data.error || "Failed to dispatch SIH PDF report email.", "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to send SIH PDF report", "error");
+    } finally {
+      setSendingSihPdf(false);
+    }
+  }
+
+
+
+  async function fetchAdminChallenges() {
+    setLoadingAdminChallenges(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch("/api/admin/challenges", { headers });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminChallenges(data.challenges || []);
+      } else {
+        showToast(data.error || "Failed to load challenges.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to load challenges.", "error");
+    } finally {
+      setLoadingAdminChallenges(false);
+    }
+  }
+
+  function generateSummaryFromProblemText(rawText: string): string {
+    if (!rawText) return "";
+    const cleaned = rawText
+      .replace(/###?\s+[^\n]+/g, " ")
+      .replace(/\*\*[^*]+\*\*/g, (m) => m.replace(/\*\*/g, ""))
+      .replace(/^[*-]\s+/gm, "")
+      .replace(/\n+/g, " ")
+      .trim();
+
+    const sentences = cleaned.split(/(?<=[.?!])\s+/);
+    let summary = sentences[0] || "";
+    if (summary.length < 80 && sentences[1]) {
+      summary += " " + sentences[1];
+    }
+    if (summary.length > 200) {
+      summary = summary.slice(0, 197) + "...";
+    }
+    return summary;
+  }
+
+  async function handlePdfUploadForChallenge(f: File) {
+    setNewChPdfFile(f);
+    try {
+      const arrayBuffer = await f.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      const textMatches = text.match(/\(([^()]{3,})\)/g) || [];
+      const extractedText = textMatches
+        .map((m) => m.slice(1, -1))
+        .filter((t) => !t.startsWith("/") && t.length > 3)
+        .join(" ")
+        .replace(/\\r|\\n/g, " ")
+        .trim();
+
+      if (extractedText && extractedText.length > 20) {
+        const autoSummary = generateSummaryFromProblemText(extractedText);
+        if (autoSummary) {
+          setNewChSummary(autoSummary);
+        }
+        if (!newChProblem.trim()) {
+          setNewChProblem(extractedText.slice(0, 3000));
+        }
+        showToast("Extracted problem statement and summary from PDF!", "success");
+      }
+    } catch {
+      // PDF stream parsing is best-effort
+    }
+  }
+
+  async function handleCreateChallenge(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newChTitle.trim() || !newChProblem.trim()) {
+      showToast("Please provide both a title and problem statement.", "error");
+      return;
+    }
+
+    setCreatingChallenge(true);
+    try {
+      let finalPdfUrl = newChPdfUrl.trim() || null;
+      if (newChPdfFile) {
+        try {
+          const fileExt = newChPdfFile.name.split(".").pop() || "pdf";
+          const cleanSlug = newChTitle.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
+          const filePath = `briefings/${cleanSlug}-${Date.now()}.${fileExt}`;
+          const { error: upErr } = await supabase.storage
+            .from("challenge_submissions_bucket")
+            .upload(filePath, newChPdfFile, { upsert: true });
+
+          if (!upErr) {
+            const { data: pubData } = supabase.storage
+              .from("challenge_submissions_bucket")
+              .getPublicUrl(filePath);
+            if (pubData?.publicUrl) {
+              finalPdfUrl = pubData.publicUrl;
+            }
+          }
+        } catch (upEx) {
+          console.warn("Could not upload briefing PDF to storage, using fallback/direct URL:", upEx);
+        }
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch("/api/admin/challenges", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          challenge_number: newChNumber ? parseInt(newChNumber, 10) : undefined,
+          title: newChTitle.trim(),
+          track: newChTrack,
+          difficulty: newChDifficulty,
+          summary: newChSummary.trim(),
+          problem_statement: newChProblem.trim(),
+          problem_pdf_url: finalPdfUrl,
+          additional_rules: newChAdditionalRules.trim() || undefined,
+          constraints: [
+            "Maximum 6 slides total in presentation deck",
+            "Must include an end-to-end data pipeline in Slide 3",
+            "Quantified baseline metrics and milestones required in Slides 5 & 6",
+            `ReactionTheme:${newChReactionTheme}`,
+          ],
+          starts_at: newChStartsAt ? new Date(newChStartsAt).toISOString() : undefined,
+          ends_at: newChEndsAt ? new Date(newChEndsAt).toISOString() : undefined,
+          status: newChStatus,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Challenge "${data.challenge.title}" published!`, "success");
+        setShowCreateChallengeModal(false);
+        setNewChTitle("");
+        setNewChSummary("");
+        setNewChProblem("");
+        setNewChAdditionalRules("");
+        setNewChPdfUrl("");
+        setNewChPdfFile(null);
+        setNewChNumber("");
+        fetchAdminChallenges();
+      } else {
+        showToast(data.error || "Failed to create challenge.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to create challenge.", "error");
+    } finally {
+      setCreatingChallenge(false);
+    }
+  }
+
+  async function handleToggleChallengeStatus(ch: any) {
+    const nextStatus = ch.status === "active" ? "closed" : "active";
+    setTogglingChallengeId(ch.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch(`/api/admin/challenges/${ch.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Challenge #${ch.challenge_number} marked as ${nextStatus}`, "success");
+        fetchAdminChallenges();
+      } else {
+        showToast(data.error || "Failed to toggle status.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to toggle status.", "error");
+    } finally {
+      setTogglingChallengeId(null);
+    }
+  }
+
+  function handleDeleteChallenge(ch: any) {
+    confirm({
+      title: "DELETE PRACTICE CHALLENGE",
+      message: `Are you sure you want to permanently delete Challenge #${ch.challenge_number} (${ch.title})? This will also remove all associated user submissions.`,
+      confirmText: "Delete Challenge",
+      onConfirm: async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const headers: Record<string, string> = {};
+          if (session?.access_token) {
+            headers["Authorization"] = `Bearer ${session.access_token}`;
+          }
+
+          const res = await fetch(`/api/admin/challenges/${ch.id}`, {
+            method: "DELETE",
+            headers,
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast("Challenge deleted successfully.", "success");
+            fetchAdminChallenges();
+          } else {
+            showToast(data.error || "Failed to delete challenge.", "error");
+          }
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete challenge.", "error");
+        }
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (activeTab === "sih_stats") {
+      loadSIHStats();
+    } else if (activeTab === "users" || activeTab === "deleted_logs") {
+      loadDeletedUserLogs();
+    } else if (activeTab === "challenges") {
+      fetchAdminChallenges();
+    }
+  }, [activeTab]);
+
   const outreachAdminEmail =
     process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
 
   async function loadData() {
     try {
-      const res = await fetch("/api/admin/dashboard-data");
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch("/api/admin/dashboard-data", { headers });
       if (res.ok) {
         const data = await res.json();
         const usersList = (data.users || []) as UserProfile[];
@@ -124,7 +430,7 @@ function AdminContent() {
         }
 
         try {
-          const analyticsRes = await fetch("/api/admin/email-analytics");
+          const analyticsRes = await fetch("/api/admin/email-analytics", { headers });
           const analyticsData = await analyticsRes.json();
           if (analyticsRes.ok && analyticsData.success) {
             setEmailAnalytics(analyticsData.stats);
@@ -182,18 +488,22 @@ function AdminContent() {
   async function loadLeads() {
     setLoadingLeads(true);
     try {
-      const { data, error } = await supabase
-        .from("organizer_leads")
-        .select("*")
-        .neq("status", "removed")
-        .neq("status", "archived")
-        .not("organizer_email", "is", null)
+      const { data: reportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
+      
+      let profilesData = null;
+      const { data: pData, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, full_name, is_banned, role, created_at, onboarding_completed, referrer_source")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error loading leads:", error);
+      if (pErr) {
+        const { data: fallbackProfiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, is_banned, role, created_at, onboarding_completed")
+          .order("created_at", { ascending: false });
+        profilesData = fallbackProfiles;
       } else {
-        setLeads((data || []) as OrganizerLead[]);
+        profilesData = pData;
       }
 
       const { data: hData } = await supabase
@@ -625,6 +935,21 @@ function AdminContent() {
             >
               SIH 2026
             </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("challenges");
+                setSearchQuery("");
+                fetchAdminChallenges();
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                activeTab === "challenges"
+                  ? "bg-lime-500 text-black shadow font-bold"
+                  : "text-lime-400 hover:text-lime-300"
+              }`}
+            >
+              ⚡ Practice Challenges ({adminChallenges.length})
+            </button>
           </div>
         </div>
 
@@ -946,46 +1271,407 @@ function AdminContent() {
           <BadgesTab partnerConfigsMap={partnerConfigsMap} />
         )}
 
-        {activeTab === "native_hackathons" && (
-          <NativeHackathonsTab
-            nativeHackathons={nativeHackathons}
-            loadingNativeHackathons={loadingNativeHackathons}
-            onRefresh={fetchNativeHackathons}
-          />
+        {/* Practice Challenges Tab */}
+        {activeTab === "challenges" && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>⚡ Practice & System Design Challenges</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-lime-500/10 text-lime-400 border border-lime-500/20">
+                    AI Evaluated
+                  </span>
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Publish recurring problem statements, set biweekly active windows, and manage submission lifecycles.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={fetchAdminChallenges}
+                  disabled={loadingAdminChallenges}
+                  className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingAdminChallenges ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateChallengeModal(true)}
+                  className="btn btn-primary text-xs py-2 px-4 flex items-center gap-1.5 bg-lime-500 hover:bg-lime-400 text-black font-bold border-none shadow-lg shadow-lime-500/20 cursor-pointer"
+                >
+                  <span>+ Create New Challenge</span>
+                </button>
+              </div>
+            </div>
+
+            {loadingAdminChallenges ? (
+              <div className="p-12 text-center text-xs text-zinc-500 font-mono">
+                Loading challenges list...
+              </div>
+            ) : adminChallenges.length === 0 ? (
+              <div className="card p-12 text-center border-zinc-800 bg-zinc-950/60">
+                <p className="text-xs text-zinc-400 mb-4">No practice challenges created yet.</p>
+                <button
+                  onClick={() => setShowCreateChallengeModal(true)}
+                  className="btn btn-primary text-xs py-2 px-4 bg-lime-500 hover:bg-lime-400 text-black font-bold"
+                >
+                  Create Challenge #01
+                </button>
+              </div>
+            ) : (
+              <div className="card card-static border-zinc-800 bg-zinc-950/60 overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 bg-zinc-900/60 text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                      <th className="p-3">#</th>
+                      <th className="p-3">Title & Track</th>
+                      <th className="p-3">Difficulty</th>
+                      <th className="p-3">Submissions</th>
+                      <th className="p-3">Active Window</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-900">
+                    {adminChallenges.map((ch) => (
+                      <tr key={ch.id} className="hover:bg-zinc-900/40 transition">
+                        <td className="p-3 font-mono font-bold text-lime-400">
+                          #{ch.challenge_number}
+                        </td>
+                        <td className="p-3">
+                          <div className="font-bold text-white line-clamp-1">{ch.title}</div>
+                          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{ch.track}</div>
+                        </td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-900 text-zinc-300 border border-zinc-800">
+                            {ch.difficulty}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-zinc-300">
+                          <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-lime-400 font-bold">
+                            {ch.submissionCount || 0}
+                          </span>
+                        </td>
+                        <td className="p-3 text-[10px] text-zinc-400 font-mono whitespace-nowrap">
+                          {new Date(ch.starts_at).toLocaleDateString()} → {new Date(ch.ends_at).toLocaleDateString()}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold border ${
+                              ch.status === "active"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                : ch.status === "closed"
+                                ? "bg-zinc-800 text-zinc-400 border-zinc-700"
+                                : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                            }`}
+                          >
+                            {ch.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/challenges/${ch.slug}`}
+                              target="_blank"
+                              className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-[11px] transition"
+                            >
+                              View ↗
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleChallengeStatus(ch)}
+                              disabled={togglingChallengeId === ch.id}
+                              className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition cursor-pointer ${
+                                ch.status === "active"
+                                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                              }`}
+                            >
+                              {togglingChallengeId === ch.id
+                                ? "Updating..."
+                                : ch.status === "active"
+                                ? "Close"
+                                : "Activate"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteChallenge(ch)}
+                              className="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 text-[11px] transition cursor-pointer"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
-
-        {activeTab === "outreach" &&
-          userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
-            <OutreachTab
-              leads={leads}
-              setLeads={setLeads}
-              loadingLeads={loadingLeads}
-              loadLeads={loadLeads}
-              userEmail={userEmail}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-            />
-          )}
-
-        {activeTab === "partnering" &&
-          userEmail?.toLowerCase() === outreachAdminEmail.toLowerCase() && (
-            <PartneringTab
-              leads={leads}
-              allHackathons={allHackathons}
-              partnerConfigsMap={partnerConfigsMap}
-              partnerConfigsList={partnerConfigsList}
-              loadLeads={loadLeads}
-            />
-          )}
-
-        {activeTab === "sih_stats" && <SihStatsTab />}
       </div>
 
-      {/* Direct User Moderation Warning Modal */}
+      {/* Create Challenge Modal */}
+      {showCreateChallengeModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-6 flex min-h-screen items-center justify-center animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl my-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl max-h-[88vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-3 shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>⚡ Create Practice Challenge</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Define a recurring problem statement and active dates.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateChallengeModal(false)}
+                className="text-zinc-500 hover:text-white transition p-1 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateChallenge} className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Challenge Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newChTitle}
+                    onChange={(e) => setNewChTitle(e.target.value)}
+                    placeholder="e.g. Real-Time Emergency Patient Triage & Bed Allocation"
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Number (Optional)</label>
+                  <input
+                    type="number"
+                    value={newChNumber}
+                    onChange={(e) => setNewChNumber(e.target.value)}
+                    placeholder="Auto-incremented"
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Track</label>
+                  <select
+                    value={newChTrack}
+                    onChange={(e) => setNewChTrack(e.target.value)}
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                  >
+                    <option value="Full-Stack / AI">Full-Stack / AI</option>
+                    <option value="FinTech">FinTech</option>
+                    <option value="Cloud & Systems">Cloud & Systems</option>
+                    <option value="Open Innovation">Open Innovation</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Difficulty</label>
+                  <select
+                    value={newChDifficulty}
+                    onChange={(e) => setNewChDifficulty(e.target.value)}
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Initial Status</label>
+                  <select
+                    value={newChStatus}
+                    onChange={(e) => setNewChStatus(e.target.value)}
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white font-mono"
+                  >
+                    <option value="active">Active (Live now)</option>
+                    <option value="draft">Draft (Hidden)</option>
+                    <option value="closed">Closed (Archive only)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase">Short Summary (1-2 sentences) *</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const s = generateSummaryFromProblemText(newChProblem);
+                      if (s) {
+                        setNewChSummary(s);
+                        showToast("Summary auto-generated from problem statement!", "success");
+                      } else {
+                        showToast("Please enter a problem statement first to auto-generate summary.", "info");
+                      }
+                    }}
+                    className="text-[10px] font-semibold text-lime-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>🪄 Auto-Generate Summary</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={newChSummary}
+                  onChange={(e) => setNewChSummary(e.target.value)}
+                  placeholder="A concise 1-2 sentence hook displayed on the practice card"
+                  className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Problem Statement (Markdown) *</label>
+                <textarea
+                  required
+                  value={newChProblem}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewChProblem(val);
+                    if (!newChSummary.trim() && val.length > 20) {
+                      setNewChSummary(generateSummaryFromProblemText(val));
+                    }
+                  }}
+                  rows={6}
+                  placeholder="### Background&#10;Describe problem context...&#10;&#10;### Core Problem&#10;1. Intake vitals...&#10;2. Dynamic dispatch...&#10;&#10;### Key Requirements&#10;- Slide 1 to 6 deliverables..."
+                  className="input w-full bg-zinc-900 border-zinc-800 text-white font-mono resize-y min-h-[120px] leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                  Problem Statement PDF (Optional)
+                </label>
+                <div className="space-y-2 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handlePdfUploadForChallenge(f);
+                      }}
+                      className="text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700 cursor-pointer"
+                    />
+                    {newChPdfFile && (
+                      <span className="text-[11px] text-lime-400 font-mono">
+                        ✓ {newChPdfFile.name} ({(newChPdfFile.size / 1024).toFixed(0)} KB)
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={newChPdfUrl}
+                    onChange={(e) => setNewChPdfUrl(e.target.value)}
+                    placeholder="Or paste direct PDF URL (e.g. https://.../problem_briefing.pdf)"
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white text-xs"
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1">Optional: Attach an official PDF problem briefing document. Uploading extracts text and populates summary automatically.</p>
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                  Additional Rules & Criteria (Optional)
+                </label>
+                <textarea
+                  value={newChAdditionalRules}
+                  onChange={(e) => setNewChAdditionalRules(e.target.value)}
+                  rows={3}
+                  placeholder="e.g.&#10;- Must detail cost breakdown for cloud hosting&#10;- Must support offline-first local cache fallback&#10;- Must provide latency benchmarks in Slide 3"
+                  className="input w-full bg-zinc-900 border-zinc-800 text-white font-mono resize-y min-h-[70px] leading-relaxed text-xs"
+                />
+                <p className="text-[10px] text-zinc-500 mt-1">Optional: Custom challenge rules. The AI will automatically test and score submissions against these rules.</p>
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                  Submission Celebration Reaction Theme (Optional)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: "default", name: "🎉 Party Popper", desc: "Pure 🎉 Party Poppers" },
+                    { id: "rocket", name: "🚀 Speed Rocket", desc: "Pure 🚀 Floating Rockets" },
+                    { id: "trophy", name: "🏆 Gold Trophy", desc: "Pure 🏆 Floating Trophies" },
+                    { id: "ai", name: "🤖 AI Bot", desc: "Pure 🤖 Floating AI Bots" },
+                    { id: "fire", name: "🔥 Pure Fire", desc: "Pure 🔥 Floating Flames" },
+                    { id: "hundred", name: "💯 100 Score", desc: "Pure 💯 Floating Emblems" },
+                  ].map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => setNewChReactionTheme(theme.id)}
+                      className={`p-2.5 rounded-xl text-left border transition cursor-pointer ${
+                        newChReactionTheme === theme.id
+                          ? "bg-lime-500/15 border-lime-500 text-white shadow-xs"
+                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-zinc-200">{theme.name}</div>
+                      <div className="text-[11px] mt-0.5 tracking-wider font-mono">{theme.desc}</div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1">Optional: Choose the Microsoft Teams-style animated reaction pack triggered when users submit this challenge.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Start Date (Optional)</label>
+                  <input
+                    type="datetime-local"
+                    value={newChStartsAt}
+                    onChange={(e) => setNewChStartsAt(e.target.value)}
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">End Date (Default: +14 days)</label>
+                  <input
+                    type="datetime-local"
+                    value={newChEndsAt}
+                    onChange={(e) => setNewChEndsAt(e.target.value)}
+                    className="input w-full bg-zinc-900 border-zinc-800 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900 shrink-0 sticky bottom-0 bg-zinc-950 pb-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateChallengeModal(false)}
+                  className="btn btn-secondary text-xs py-2 px-4 cursor-pointer"
+                  disabled={creatingChallenge}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingChallenge}
+                  className="btn btn-primary text-xs py-2 px-5 bg-lime-500 hover:bg-lime-400 text-black font-bold border-none shadow-lg shadow-lime-500/20 cursor-pointer"
+                >
+                  {creatingChallenge ? "Publishing..." : "Publish Practice Challenge"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* User Warning Modal */}
       {userWarningModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] shadow-2xl p-6 space-y-4 overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-xl card card-static p-6 animate-scale-in border-emerald-950/80 bg-zinc-950">
+            <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-500" />

@@ -415,11 +415,18 @@ function isPublicDarkRoute(path: string | null): boolean {
       icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>)
     },
     {
+      href: "/challenges", label: "Practice",
+      color: "text-lime-600 dark:text-lime-400",
+      activeBg: "bg-lime-500/5 dark:bg-lime-500/10 border-lime-500/10 dark:border-lime-500/20",
+      activeBar: "bg-lime-600 dark:bg-lime-500",
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" fill="currentColor" /></svg>)
+    },
+    {
       href: "/leaderboard", label: "Leaderboard",
-      color: "text-amber-500 dark:text-amber-400",
+      color: "text-amber-600 dark:text-amber-400",
       activeBg: "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/10 dark:border-amber-500/20",
-      activeBar: "bg-amber-500 dark:bg-amber-400",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.496m5.008 0A3.75 3.75 0 0018 10.5V6a2.25 2.25 0 00-2.25-2.25H8.25A2.25 2.25 0 006 6v4.5a3.75 3.75 0 003.496 3.75m0 0a3.75 3.75 0 01-3.496-3.75V6" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 7.5H4.5A2.25 2.25 0 002.25 9.75v.75A3.75 3.75 0 006 14.25M18 7.5h1.5a2.25 2.25 0 012.25 2.25v.75a3.75 3.75 0 01-3.75 3.75" /></svg>)
+      activeBar: "bg-amber-600 dark:bg-amber-500",
+      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.004-6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM12 3v3.75" /></svg>)
     },
     {
       href: "/messages", label: "Messages",
