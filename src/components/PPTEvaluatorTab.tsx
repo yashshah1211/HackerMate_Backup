@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import LinkedIdeaScorecard, { LinkedEvaluationRecord } from "@/components/LinkedIdeaScorecard";
+import {
+  JudgingTrackId,
+  TRACK_PROFILES,
+} from "@/lib/evaluator/evaluatorTypes";
+import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 import {
   CheckCircle,
   AlertTriangle,
@@ -27,6 +33,7 @@ import {
 interface PPTEvaluation {
   id: string;
   team_id: string;
+  track_id?: string;
   ps_title: string;
   ps_category: string;
   submission_type: "pdf_upload" | "external_link";
@@ -49,6 +56,9 @@ interface PPTEvaluation {
     scoreDeductions?: Record<string, string>;
     usedAiFallback?: boolean;
     evaluatedAt?: string;
+    track_id?: string;
+    isFallbackTrack?: boolean;
+    trackWarning?: string | null;
   };
   error_message?: string | null;
   created_at: string;
@@ -72,6 +82,12 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  // Track Auto-Detection & Fallback States
+  const [selectedTrack, setSelectedTrack] = useState<JudgingTrackId>("web_dev");
+  const [isAmbiguousFallback, setIsAmbiguousFallback] = useState(false);
+  const [userExplicitlySelected, setUserExplicitlySelected] = useState(false);
+  const [autoDetectedSource, setAutoDetectedSource] = useState<string | null>(null);
+
   // Form State
   const [externalLink, setExternalLink] = useState("");
   const [psTitle, setPsTitle] = useState("");
@@ -80,7 +96,41 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
   useEffect(() => {
     loadEvaluations();
+    loadTeamTrackContext();
   }, [teamId]);
+
+  async function loadTeamTrackContext() {
+    try {
+      const { data: teamData } = await supabase
+        .from("teams")
+        .select("id, name, track, hackathon_name, team_hackathons(hackathons(id, name, tag, description))")
+        .eq("id", teamId)
+        .maybeSingle();
+
+      if (teamData) {
+        const hackathonObj = (teamData.team_hackathons as any)?.[0]?.hackathons;
+        const detection = detectJudgingTrack({
+          name: teamData.hackathon_name || hackathonObj?.name,
+          tag: hackathonObj?.tag,
+          description: hackathonObj?.description,
+          track: teamData.track,
+        });
+
+        if (detection.isConfident) {
+          setSelectedTrack(detection.detectedTrack);
+          setIsAmbiguousFallback(false);
+          setAutoDetectedSource(detection.sourceHint || "Team hackathon context");
+        } else {
+          // Track not confidently detected — fail loud on fallback!
+          setSelectedTrack("web_dev");
+          setIsAmbiguousFallback(true);
+          setAutoDetectedSource(null);
+        }
+      }
+    } catch (err) {
+      console.error("[PPTEvaluatorTab] Load team track context error:", err);
+    }
+  }
 
   async function loadEvaluations() {
     setLoading(true);
@@ -147,6 +197,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          track_id: selectedTrack,
           external_link_url: externalLink.trim(),
           ps_title: psTitle.trim() || "SIH 2026 Problem Statement",
           ps_category: psCategory,
@@ -247,6 +298,28 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     return "text-rose-500 dark:text-rose-400";
   };
 
+  const getTrackBadge = (trackId: string = "web_dev") => {
+    if (trackId === "sih") {
+      return {
+        label: "Smart India Hackathon (SIH 2026)",
+        badgeClass: "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20",
+        icon: "🏛️",
+      };
+    }
+    if (trackId === "ai_genai") {
+      return {
+        label: "AI, GenAI & Agentic Systems",
+        badgeClass: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20",
+        icon: "🤖",
+      };
+    }
+    return {
+      label: "Web Development & Full-Stack",
+      badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+      icon: "🌐",
+    };
+  };
+
   // Version-over-Version Diff Calculations
   const otherCompletedEvals = evaluations.filter(
     (e) => e.id !== selectedEval?.id && e.status === "completed"
@@ -314,23 +387,35 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
   return (
     <div className="space-y-6 animate-fade-in text-left">
-      {/* Top Diagnostic Banner */}
+      {/* Top Diagnostic Banner (Dynamically Configured per Track) */}
       <div className="rounded-2xl p-6 border border-violet-500/20 bg-gradient-to-br from-violet-50 via-white to-zinc-50 dark:from-violet-950/20 dark:via-zinc-950/60 dark:to-black relative overflow-hidden shadow-xs">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-xs px-2.5 py-0.5 font-mono font-bold">
-                SIH 2026 AI JURY EVALUATOR
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={`badge text-xs px-2.5 py-0.5 font-mono font-bold ${getTrackBadge(selectedTrack).badgeClass}`}>
+                {selectedTrack === "sih"
+                  ? "SIH 2026 AI JURY EVALUATOR"
+                  : selectedTrack === "ai_genai"
+                  ? "AI & AGENTIC SYSTEMS JURY EVALUATOR"
+                  : "FULL-STACK HACKATHON JURY EVALUATOR"}
               </span>
-              <span className="badge bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 text-xs px-2 py-0.5">
-                Official 6-Slide Rubric
+              <span className="badge bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 text-xs px-2 py-0.5 font-medium">
+                {selectedTrack === "sih"
+                  ? "Official 6-Slide Rubric (6 Members + Female Teammate)"
+                  : selectedTrack === "ai_genai"
+                  ? "Agentic & RAG Rubric (Skill-based Squad)"
+                  : "Full-Stack Architecture Rubric (Skill-based Squad)"}
               </span>
             </div>
             <h2 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
               AI Pitch Presentation Diagnostic
             </h2>
             <p className="text-zinc-600 dark:text-zinc-400 text-sm mt-1 max-w-2xl leading-relaxed">
-              Paste your Google Slides or Drive presentation link (ensure sharing is set to &ldquo;Anyone with the link can view&rdquo;). Receive instant 0–100 rubric scores across Novelty, Technical Architecture, UI/UX, and Squad Compliance with slide-by-slide actionable jury feedback.
+              {selectedTrack === "sih"
+                ? "Paste your Google Slides or Drive link (view permissions enabled). Evaluates 0–100 against strict SIH criteria: Novelty, Architecture, UI/UX mockups, 6-member squad size, mandatory female builder, and 6-slide max limit."
+                : selectedTrack === "ai_genai"
+                ? "Paste your Google Slides or Drive link. Evaluates 0–100 against AI hackathon standards: Multi-agent coordination, RAG retrieval, latency, hallucination mitigation, and complementary squad roles."
+                : "Paste your Google Slides or Drive link. Evaluates 0–100 against full-stack hackathon standards: API contracts, relational DB schemas, caching, security, responsive UI/UX, and complementary squad roles."}
             </p>
           </div>
 
@@ -344,13 +429,88 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 <span className="text-zinc-400 font-mono text-lg">/100</span>
                 {compareEval && renderDiffBadge(scoreDiff, `vs v${compareEval.version}`)}
               </div>
-              <span className={`badge mt-2 text-xs px-2.5 py-0.5 font-bold ${getGradeBadge(selectedEval.grade)}`}>
-                {selectedEval.grade}
-              </span>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className={`badge text-xs px-2.5 py-0.5 font-bold ${getGradeBadge(selectedEval.grade)}`}>
+                  {selectedEval.grade}
+                </span>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* FAIL-LOUD FALLBACK WARNING BANNER (When track auto-detection was ambiguous) */}
+      {isAmbiguousFallback && !userExplicitlySelected && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200 shadow-xs animate-fade-in">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-2 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-sm">
+                  Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a SIH submission.
+                </span>
+              </div>
+              <p className="text-xs text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
+                Web Dev grading uses flexible team sizing and skips SIH SPOC gender/member rules. If you are preparing for Smart India Hackathon (SIH 2026), you must select the SIH track to evaluate official squad compliance and prevent disqualification risks.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrack("sih");
+                    setUserExplicitlySelected(true);
+                    setIsAmbiguousFallback(false);
+                  }}
+                  className="btn btn-xs bg-amber-600 hover:bg-amber-700 text-white font-bold border-none cursor-pointer"
+                >
+                  Switch to SIH 2026 Rubric →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrack("ai_genai");
+                    setUserExplicitlySelected(true);
+                    setIsAmbiguousFallback(false);
+                  }}
+                  className="btn btn-xs bg-zinc-800 hover:bg-zinc-700 text-white border-none cursor-pointer"
+                >
+                  Switch to AI / GenAI →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserExplicitlySelected(true);
+                    setIsAmbiguousFallback(false);
+                  }}
+                  className="btn btn-xs bg-transparent border border-amber-600/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer"
+                >
+                  Confirm Web Dev
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Linked Idea Pitch Benchmark from Idea Evaluator */}
+      <LinkedIdeaScorecard
+        teamId={teamId}
+        onSelectIdeaTitle={(title) => {
+          if (!psTitle) {
+            setPsTitle(title);
+          }
+        }}
+        onEvaluationLoaded={(evaluation: LinkedEvaluationRecord | null) => {
+          if (evaluation?.track_id && !userExplicitlySelected) {
+            const tr = evaluation.track_id as JudgingTrackId;
+            if (["sih", "ai_genai", "web_dev"].includes(tr)) {
+              setSelectedTrack(tr);
+              setIsAmbiguousFallback(false);
+              setAutoDetectedSource(`Linked Idea Scorecard (${TRACK_PROFILES[tr]?.name || tr})`);
+            }
+          }
+        }}
+      />
 
       {/* Submission Form Card */}
       <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs">
@@ -359,6 +519,55 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         </div>
 
         <form onSubmit={handleEvaluate} className="space-y-4">
+          {/* Track Selector Section */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase font-mono tracking-wider">
+                Evaluation Track & Rubric
+              </label>
+              {isAmbiguousFallback && !userExplicitlySelected ? (
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  ⚠️ Defaulted — Review Required
+                </span>
+              ) : autoDetectedSource ? (
+                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  ✓ {autoDetectedSource}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {[
+                { id: "sih" as JudgingTrackId, label: "Smart India Hackathon (SIH)", sub: "Strict 6-member & female teammate rules", icon: "🏛️" },
+                { id: "ai_genai" as JudgingTrackId, label: "AI & GenAI Systems", sub: "Agents, RAG, Latency & Hallucination", icon: "🤖" },
+                { id: "web_dev" as JudgingTrackId, label: "Web Development & Full-Stack", sub: "APIs, Databases, SSR & Security", icon: "🌐" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrack(t.id);
+                    setUserExplicitlySelected(true);
+                    setIsAmbiguousFallback(false);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    selectedTrack === t.id
+                      ? "border-violet-500 bg-violet-500/10 text-zinc-900 dark:text-white ring-1 ring-violet-500/50"
+                      : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <span>{t.icon}</span>
+                    <span>{t.label}</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-tight">
+                    {t.sub}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase font-mono tracking-wider">
@@ -376,7 +585,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
             <div>
               <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase font-mono tracking-wider">
-                Category / Track
+                Category
               </label>
               <select
                 value={psCategory}
@@ -403,7 +612,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 type="url"
                 value={externalLink}
                 onChange={(e) => setExternalLink(e.target.value)}
-                placeholder="https://docs.google.com/presentation/d/.../edit?usp=sharing"
+                placeholder="Paste your presentation link..."
                 className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition-colors"
                 required
               />
@@ -442,13 +651,17 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       {/* Selected Evaluation Scorecard */}
       {selectedEval && selectedEval.status === "completed" && (
         <div className="space-y-6">
-          {/* Header Bar */}
+          {/* Header Bar with Track Badge */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedEval.ps_title}</h3>
                 <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-xs px-2.5 py-0.5 font-bold font-mono">
                   v{selectedEval.version} (Active)
+                </span>
+                <span className={`badge text-xs px-2.5 py-0.5 font-medium ${getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").badgeClass}`}>
+                  {getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").icon}{" "}
+                  {getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").label}
                 </span>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
@@ -457,6 +670,21 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               </p>
             </div>
           </div>
+
+          {/* PERSISTENT LOUD WARNING ON SCORECARD (If evaluated under fallback) */}
+          {(selectedEval.ai_feedback?.isFallbackTrack || selectedEval.ai_feedback?.trackWarning) && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <span className="font-bold text-sm block">⚠️ Evaluated under Web Dev fallback rubric:</span>
+                  <p className="text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
+                    {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. If this team is competing in Smart India Hackathon (SIH 2026), official squad compliance, 6-member requirements, and female teammate rules were NOT evaluated. Select the SIH 2026 track above and re-evaluate."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Iteration Progress Diff Card (When multiple versions exist) */}
           {compareEval && (
@@ -532,7 +760,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 </div>
 
                 <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
-                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">UI/UX & Impact</span>
+                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">UI/UX & Polish</span>
                   <div className="flex items-baseline justify-between gap-1">
                     <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
                       {compareEval.score_ui_ux} → {selectedEval.score_ui_ux}
@@ -569,233 +797,182 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             </div>
           )}
 
-          {/* 4 Core Rubric Cards */}
+          {/* 4 Core Rubric Score Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Novelty */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">Problem & Novelty</span>
+            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
+                  <span>Novelty & Alignment</span>
+                  <Award className="w-4 h-4 text-violet-500" />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">
-                    {selectedEval.score_novelty}/25
-                  </span>
-                  {compareEval && renderDiffBadge(noveltyDiff)}
+                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
+                  {selectedEval.score_novelty}
+                  <span className="text-xs text-zinc-400 font-normal"> / 25</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
-                <div
-                  className="bg-violet-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(selectedEval.score_novelty / 25) * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.novelty || "Originality and problem alignment analysis complete."}
+              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
+                {selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives."}
               </p>
             </div>
 
-            {/* Technical Architecture */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">Technical Architecture</span>
+            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
+                  <span>Tech Architecture</span>
+                  <Cpu className="w-4 h-4 text-blue-500" />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                    {selectedEval.score_tech}/35
-                  </span>
-                  {compareEval && renderDiffBadge(techDiff)}
+                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
+                  {selectedEval.score_tech}
+                  <span className="text-xs text-zinc-400 font-normal"> / 35</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
-                <div
-                  className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(selectedEval.score_tech / 35) * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.tech || "Tech stack feasibility and pipeline architecture analysis."}
+              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
+                {selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes."}
               </p>
             </div>
 
-            {/* UI/UX & Polish */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">UI/UX & Impact</span>
+            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
+                  <span>UI/UX & Polish</span>
+                  <Palette className="w-4 h-4 text-emerald-500" />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {selectedEval.score_ui_ux}/25
-                  </span>
-                  {compareEval && renderDiffBadge(uiUxDiff)}
+                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
+                  {selectedEval.score_ui_ux}
+                  <span className="text-xs text-zinc-400 font-normal"> / 25</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(selectedEval.score_ui_ux / 25) * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Interface presentation, prototype demo, and quantified metrics."}
+              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
+                {selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates mockups, visual flowcharts, and slide clarity."}
               </p>
             </div>
 
-            {/* Team Squad & Rules */}
-            <div className="rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 shadow-xs flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-300">Team & Rules</span>
+            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
+                  <span>Team & Squad Balance</span>
+                  <Users className="w-4 h-4 text-amber-500" />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                    {selectedEval.score_team}/15
-                  </span>
-                  {compareEval && renderDiffBadge(teamDiff)}
+                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
+                  {selectedEval.score_team}
+                  <span className="text-xs text-zinc-400 font-normal"> / 15</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-full h-1.5 mb-3 overflow-hidden">
-                <div
-                  className="bg-amber-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(selectedEval.score_team / 15) * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.team || "6-member squad size, female builder rule, and 6-slide max compliance."}
+              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
+                {selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates squad completeness and rules."}
               </p>
             </div>
           </div>
 
-          {/* Slide-by-Slide Actionable Recommendations */}
-          {selectedEval.ai_feedback?.slideRecommendations && (
-            <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs">
-              <h4 className="text-sm font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
-                <Award className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                <span>Slide-by-Slide Jury Recommendations (Official 6-Slide Template)</span>
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {ORDERED_SLIDES.map((slide) => {
-                  const rec =
-                    selectedEval.ai_feedback?.slideRecommendations?.[slide.key] ||
-                    "Include complete section data adhering to SIH official presentation rubric.";
-
-                  return (
-                    <div
-                      key={slide.key}
-                      className="p-4 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 rounded-xl hover:border-violet-300 dark:hover:border-violet-500/40 transition-colors"
-                    >
-                      <div className="text-xs font-bold text-violet-700 dark:text-violet-300 mb-1.5 flex items-center justify-between">
-                        <span>{slide.label}</span>
-                        <span className="text-[10px] font-mono text-zinc-400 font-normal">#{slide.slideNum}</span>
-                      </div>
-                      <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-sans">
-                        {rec}
-                      </p>
-                    </div>
-                  );
-                })}
+          {/* SPOC / Jury Red Flags & Format Violations */}
+          {(selectedEval.ai_feedback?.spocRedFlags && selectedEval.ai_feedback.spocRedFlags.length > 0) ||
+          (selectedEval.ai_feedback?.formatViolations && selectedEval.ai_feedback.formatViolations.length > 0) ? (
+            <div className="rounded-2xl p-5 border border-rose-500/30 bg-rose-50/60 dark:bg-rose-950/20 shadow-xs space-y-3">
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                <h4 className="font-bold text-sm">Critical Jury Scrutiny & Red Flags</h4>
               </div>
+              <ul className="space-y-1.5 list-disc list-inside text-xs text-rose-800 dark:text-rose-300">
+                {selectedEval.ai_feedback.spocRedFlags?.map((flag, idx) => (
+                  <li key={`rf-${idx}`} className="font-semibold">
+                    {flag}
+                  </li>
+                ))}
+                {selectedEval.ai_feedback.formatViolations?.map((violation, idx) => (
+                  <li key={`fv-${idx}`}>{violation}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/* Strengths */}
+          {selectedEval.ai_feedback?.strengths && selectedEval.ai_feedback.strengths.length > 0 && (
+            <div className="rounded-2xl p-5 border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs space-y-2">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                <h4 className="font-bold text-sm">Jury-Recognized Highlights & Strengths</h4>
+              </div>
+              <ul className="space-y-1 list-disc list-inside text-xs text-emerald-800 dark:text-emerald-300">
+                {selectedEval.ai_feedback.strengths.map((str, idx) => (
+                  <li key={`str-${idx}`}>{str}</li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* Strengths & Red Flags */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Strengths */}
-            <div className="rounded-2xl p-5 border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/10 shadow-xs">
-              <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase font-mono tracking-wider mb-3 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>Identified Deck Strengths</span>
-              </h4>
-              <ul className="space-y-2">
-                {(selectedEval.ai_feedback?.strengths || ["Problem statement alignment verified."]).map(
-                  (str, i) => (
-                    <li key={i} className="text-xs text-zinc-800 dark:text-zinc-300 flex items-start gap-2">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">•</span>
-                      <span>{str}</span>
-                    </li>
-                  )
-                )}
-              </ul>
-            </div>
+          {/* Slide-by-Slide Actionable Recommendations */}
+          <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs space-y-4">
+            <h4 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-violet-500" />
+              <span>Slide-by-Slide Actionable Recommendations</span>
+            </h4>
 
-            {/* Red Flags / Format Warnings */}
-            <div className="rounded-2xl p-5 border border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/10 shadow-xs">
-              <h4 className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase font-mono tracking-wider mb-3 flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                <span>Jury Warnings & Red Flags</span>
-              </h4>
-              <ul className="space-y-2">
-                {selectedEval.ai_feedback?.spocRedFlags && selectedEval.ai_feedback.spocRedFlags.length > 0 ? (
-                  selectedEval.ai_feedback.spocRedFlags.map((rf, i) => (
-                    <li key={i} className="text-xs text-zinc-800 dark:text-zinc-300 flex items-start gap-2">
-                      <span className="text-rose-600 dark:text-rose-400 font-bold">•</span>
-                      <span>{rf}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-xs text-zinc-600 dark:text-zinc-400">No critical squad or format red flags detected.</li>
-                )}
-                {(selectedEval.ai_feedback?.formatViolations || []).map((fv, i) => (
-                  <li key={`fv-${i}`} className="text-xs text-amber-700 dark:text-yellow-300 flex items-start gap-2">
-                    <span className="text-amber-600 dark:text-yellow-400 font-bold">•</span>
-                    <span>{fv}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {ORDERED_SLIDES.map((slide) => {
+                const rec = selectedEval.ai_feedback?.slideRecommendations?.[slide.key];
+                return (
+                  <div
+                    key={slide.key}
+                    className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 space-y-1.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">
+                        {slide.slideNum}
+                      </span>
+                      <h5 className="text-xs font-bold text-zinc-900 dark:text-white">{slide.label}</h5>
+                    </div>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pl-7">
+                      {rec || "Ensure standard template format is maintained."}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Evaluation Version History Section */}
+      {/* Version History Archive */}
       {evaluations.length > 0 && (
         <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-              <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-                  Evaluation Version History ({evaluations.length})
-                </h3>
-                <p className="text-xs text-zinc-500">
-                  Switch active diagnostic scorecard or delete outdated evaluation runs.
-                </p>
-              </div>
+              <History className="w-4 h-4 text-violet-500" />
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                Pitch Deck Iteration History ({evaluations.length})
+              </h3>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {evaluations.map((ev) => {
               const isCurrentSelected = selectedEval?.id === ev.id;
-              const isDeleting = deletingId === ev.id;
               const isConfirming = confirmDeleteId === ev.id;
+              const isDeleting = deletingId === ev.id;
+              const evTrackInfo = getTrackBadge(ev.track_id || ev.ai_feedback?.track_id || "web_dev");
 
               return (
                 <div
                   key={ev.id}
                   className={`p-4 rounded-xl border transition-all ${
                     isCurrentSelected
-                      ? "bg-violet-50/70 dark:bg-violet-950/30 border-violet-400 dark:border-violet-500/50 shadow-xs ring-1 ring-violet-400/30"
-                      : "bg-zinc-50/70 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700"
+                      ? "border-violet-500 bg-violet-50/30 dark:bg-violet-950/10 ring-1 ring-violet-500/50"
+                      : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="px-2 py-0.5 rounded font-mono text-xs font-bold bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                           v{ev.version}
                         </span>
-                        <h4 className="text-xs font-bold text-zinc-900 dark:text-white truncate max-w-[180px]">
-                          {ev.ps_title}
-                        </h4>
+                        <span className={`badge text-[10px] px-1.5 py-0.2 ${evTrackInfo.badgeClass}`}>
+                          {evTrackInfo.icon} {ev.track_id === "sih" ? "SIH" : ev.track_id === "ai_genai" ? "AI/GenAI" : "Web Dev"}
+                        </span>
                       </div>
+                      <h4 className="text-xs font-bold text-zinc-900 dark:text-white truncate max-w-[180px] mt-1">
+                        {ev.ps_title}
+                      </h4>
                       <p className="text-[11px] text-zinc-500 mt-0.5 truncate max-w-[240px]">
                         {ev.file_name} • {new Date(ev.created_at).toLocaleDateString()}
                       </p>

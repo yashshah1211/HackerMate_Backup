@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { extractTextFromPDF, extractPresentationFromUrl, validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
+import { extractPresentationFromUrl, validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
 import { runPitchDeckEvaluation } from "@/lib/ppt/evaluatorEngine";
+import { JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
+import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,7 +40,7 @@ export async function POST(
     const [{ data: teamData }, { data: memberData }, { data: profileData }] = await Promise.all([
       supabaseAdmin
         .from("teams")
-        .select("id, name, owner_id, team_members(id, role, project_role, profiles(id, full_name, gender, skills))")
+        .select("id, name, owner_id, track, hackathon_name, team_hackathons(hackathons(id, name, tag, description)), team_members(id, role, project_role, profiles(id, full_name, gender, skills))")
         .eq("id", teamId)
         .maybeSingle(),
       supabaseAdmin.from("team_members").select("id").eq("team_id", teamId).eq("user_id", userId).maybeSingle(),
@@ -84,7 +86,8 @@ export async function POST(
       );
     }
 
-    // 4. Parse Presentation Link Payload
+    // 4. Parse Presentation Link Payload & Track
+    let rawTrackId: string | null = null;
     let externalLinkUrl: string | null = null;
     let psTitle = "SIH 2026 Problem Statement";
     let psCategory = "software";
@@ -92,11 +95,13 @@ export async function POST(
     const contentType = req.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const body = await req.json().catch(() => ({}));
+      rawTrackId = body.track_id?.trim() || null;
       externalLinkUrl = body.external_link_url?.trim() || null;
       psTitle = (body.ps_title?.trim() || "SIH 2026 Problem Statement").slice(0, 200);
       psCategory = (body.ps_category?.trim() || "software").slice(0, 50);
     } else {
       const formData = await req.formData().catch(() => new FormData());
+      rawTrackId = (formData.get("track_id") as string)?.trim() || null;
       externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
       psTitle = ((formData.get("ps_title") as string)?.trim() || "SIH 2026 Problem Statement").slice(0, 200);
       psCategory = ((formData.get("ps_category") as string)?.trim() || "software").slice(0, 50);
@@ -112,6 +117,34 @@ export async function POST(
     const urlCheck = validatePresentationUrl(externalLinkUrl);
     if (!urlCheck.valid) {
       return NextResponse.json({ error: urlCheck.error }, { status: 400 });
+    }
+
+    // Resolve Track ID: Fail Loud on Fallback
+    let resolvedTrackId: JudgingTrackId = "web_dev";
+    let isFallbackTrack = false;
+    let trackWarning: string | null = null;
+
+    if (rawTrackId && ["sih", "ai_genai", "web_dev"].includes(rawTrackId)) {
+      resolvedTrackId = rawTrackId as JudgingTrackId;
+    } else {
+      // Auto-detect track using boundary-safe detector
+      const hackathonObj = (teamData?.team_hackathons as any)?.[0]?.hackathons;
+      const detection = detectJudgingTrack({
+        name: teamData?.hackathon_name || hackathonObj?.name,
+        tag: hackathonObj?.tag,
+        description: hackathonObj?.description,
+        track: teamData?.track,
+      });
+
+      if (detection.isConfident) {
+        resolvedTrackId = detection.detectedTrack;
+      } else {
+        // Fail loud on fallback: Never default silently into whichever grading is easiest!
+        resolvedTrackId = "web_dev";
+        isFallbackTrack = true;
+        trackWarning = "Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a SIH submission.";
+        console.warn(`[PPT Evaluate] ${trackWarning} (Team ID: ${teamId})`);
+      }
     }
 
     // 5. Version numbering
@@ -155,12 +188,13 @@ export async function POST(
         m.profiles?.gender?.toLowerCase() === "f"
     );
 
-    // 8. Insert initial record
+    // 8. Insert initial record with real track_id column (No conditional guessing)
     const { data: initialRecord, error: insertErr } = await supabaseAdmin
       .from("team_ppt_evaluations")
       .insert({
         team_id: teamId,
         submitted_by: userId,
+        track_id: resolvedTrackId,
         ps_title: psTitle,
         ps_category: psCategory,
         submission_type: submissionType,
@@ -193,7 +227,8 @@ export async function POST(
           name: m.profiles?.full_name,
           skills: m.profiles?.skills,
         })),
-      }
+      },
+      resolvedTrackId
     );
 
     // 10. Persist Completed Evaluation
@@ -216,6 +251,9 @@ export async function POST(
           scoreDeductions: evalResult.scoreDeductions,
           usedAiFallback: evalResult.usedAiFallback,
           evaluatedAt: new Date().toISOString(),
+          track_id: resolvedTrackId,
+          isFallbackTrack,
+          trackWarning,
         },
         error_message: null,
         updated_at: new Date().toISOString(),
@@ -232,6 +270,8 @@ export async function POST(
     return NextResponse.json({
       success: true,
       evaluation: finalRecord,
+      isFallbackTrack,
+      trackWarning,
     });
   } catch (err: any) {
     console.error("[PPT Evaluate API] Exception:", err);

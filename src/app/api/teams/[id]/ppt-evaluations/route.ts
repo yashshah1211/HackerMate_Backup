@@ -48,7 +48,7 @@ export async function GET(
 
     const { data: evaluations, error } = await supabaseAdmin
       .from("team_ppt_evaluations")
-      .select("id, team_id, ps_title, ps_category, submission_type, external_link_url, file_name, version, status, score_novelty, score_tech, score_ui_ux, score_team, score_impact, score_plan, score_clarity, total_score, grade, slide_breakdown, ai_feedback, error_message, created_at, updated_at")
+      .select("id, team_id, track_id, ps_title, ps_category, submission_type, external_link_url, file_name, version, status, score_novelty, score_tech, score_ui_ux, score_team, score_impact, score_plan, score_clarity, total_score, grade, slide_breakdown, ai_feedback, error_message, created_at, updated_at")
       .eq("team_id", teamId)
       .order("version", { ascending: false });
 

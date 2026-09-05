@@ -9,6 +9,7 @@ import {
   TRACK_PROFILES,
   ProjectEvaluationResult,
 } from "@/lib/evaluator/evaluatorTypes";
+import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 import {
   Layers,
   Cpu,
@@ -29,6 +30,8 @@ import {
   Trash2,
   X,
   Clock,
+  FolderPlus,
+  Sparkles,
 } from "lucide-react";
 
 interface PitchEvaluatorClientProps {
@@ -59,6 +62,13 @@ export default function PitchEvaluatorClient({
   const [result, setResult] = useState<ProjectEvaluationResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"feedback" | "architecture" | "team">("feedback");
+
+  // Post-evaluation Team Funnel State
+  const [savedEvaluationId, setSavedEvaluationId] = useState<string | null>(null);
+  const [selectedAttachTeamId, setSelectedAttachTeamId] = useState<string>("");
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [attachedTeamName, setAttachedTeamName] = useState<string | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   // History Drawer State
   const [history, setHistory] = useState<any[]>([]);
@@ -118,6 +128,9 @@ export default function PitchEvaluatorClient({
   const handleSelectHistoryItem = (item: any) => {
     if (item.evaluation_result) {
       setResult(item.evaluation_result);
+      if (item.id) setSavedEvaluationId(item.id);
+      setAttachedTeamName(null);
+      setAttachError(null);
       if (item.ps_title) setTitle(item.ps_title);
       if (item.track_id) setSelectedTrack(item.track_id as JudgingTrackId);
       setShowHistoryDrawer(false);
@@ -201,26 +214,19 @@ export default function PitchEvaluatorClient({
     }
 
     if (targetHackathon) {
-      const text = `${targetHackathon.name} ${targetHackathon.tag || ""} ${targetHackathon.description || ""}`.toLowerCase();
-      let detected: JudgingTrackId = "web_dev";
+      const detection = detectJudgingTrack({
+        name: targetHackathon.name,
+        tag: targetHackathon.tag,
+        description: targetHackathon.description,
+      });
 
-      if (text.includes("sih") || text.includes("smart india")) {
-        detected = "sih";
-      } else if (
-        text.includes("ai") ||
-        text.includes("ml") ||
-        text.includes("genai") ||
-        text.includes("agent") ||
-        text.includes("machine learning") ||
-        text.includes("data science")
-      ) {
-        detected = "ai_genai";
-      } else {
-        detected = "web_dev";
-      }
-
+      const detected = detection.detectedTrack;
       setSelectedTrack(detected);
-      setAutoDetectedBadge(`Auto-detected ${TRACK_PROFILES[detected].badge} for "${targetHackathon.name}"`);
+      if (detection.isConfident) {
+        setAutoDetectedBadge(`Auto-detected ${TRACK_PROFILES[detected].badge} for "${targetHackathon.name}"`);
+      } else {
+        setAutoDetectedBadge(`Defaulted to ${TRACK_PROFILES[detected].badge} for "${targetHackathon.name}" (Review track)`);
+      }
     }
   };
 
@@ -256,6 +262,9 @@ export default function PitchEvaluatorClient({
     setLoading(true);
     setErrorMsg(null);
     setResult(null);
+    setSavedEvaluationId(null);
+    setAttachedTeamName(null);
+    setAttachError(null);
 
     // Simulated evaluation steps for animated UX
     setEvaluatingStep(1);
@@ -286,6 +295,9 @@ export default function PitchEvaluatorClient({
         setErrorMsg(data.error || "Evaluation failed. Please try again.");
       } else {
         setResult(data.result);
+        if (data.savedEvaluationId) {
+          setSavedEvaluationId(data.savedEvaluationId);
+        }
         if (user) {
           loadHistory();
         }
@@ -299,6 +311,119 @@ export default function PitchEvaluatorClient({
     } finally {
       setLoading(false);
       setEvaluatingStep(0);
+    }
+  };
+
+  const handleBuildWithTeam = () => {
+    if (!result) return;
+
+    // Platform skills configured in CreateTeamForm (src/app/teams/create/page.tsx)
+    const PLATFORM_SKILLS = [
+      "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
+      "Python", "Java", "C++", "Flutter", "React Native", "AI/ML",
+      "TensorFlow", "PyTorch", "Docker", "Kubernetes", "AWS", "Terraform",
+      "Supabase", "PostgreSQL", "MongoDB", "UI/UX", "Figma", "DevOps"
+    ];
+
+    const PLATFORM_ROLES = [
+      "Frontend Developer", "Backend Developer", "Full Stack Developer",
+      "UI/UX Designer", "AI/ML Engineer", "Data Scientist", "Mobile Developer",
+      "DevOps Engineer", "Cloud Engineer", "Product Manager", "Blockchain Developer"
+    ];
+
+    // Collect skills from user techStack input and evaluator recommended roles
+    const allSuggestedSkills = result.recommendedRoles?.flatMap((r) => r.suggestedSkills || []) || [];
+    const enteredSkills = techStack
+      ? techStack.split(/[,+\/\n]/).map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    const combinedRaw = [...allSuggestedSkills, ...enteredSkills];
+
+    const matchedSkills = PLATFORM_SKILLS.filter((ps) =>
+      combinedRaw.some(
+        (raw) =>
+          raw.toLowerCase() === ps.toLowerCase() ||
+          raw.toLowerCase().includes(ps.toLowerCase()) ||
+          ps.toLowerCase().includes(raw.toLowerCase())
+      )
+    );
+
+    const matchedRoles = PLATFORM_ROLES.filter((pr) =>
+      result.recommendedRoles?.some(
+        (rr) =>
+          rr.role.toLowerCase() === pr.toLowerCase() ||
+          rr.role.toLowerCase().includes(pr.toLowerCase()) ||
+          pr.toLowerCase().includes(rr.role.toLowerCase())
+      )
+    );
+
+    const prefillPayload = {
+      name: title.trim(),
+      description: description.trim(),
+      skills: matchedSkills,
+      roles: matchedRoles,
+      hackathonId: selectedHackathonId || undefined,
+    };
+
+    try {
+      sessionStorage.setItem("hackermate_team_prefill", JSON.stringify(prefillPayload));
+    } catch (e) {
+      console.warn("Could not save team prefill to sessionStorage:", e);
+    }
+
+    // Opaque redirect URL: never leak confidential idea title, description, or stack in query params
+    const opaquePrefillId = savedEvaluationId ? encodeURIComponent(savedEvaluationId) : "evaluator";
+    const targetUrl = `/teams/create?prefill=${opaquePrefillId}`;
+
+    if (user) {
+      window.location.href = targetUrl;
+    } else {
+      window.location.href = `/login?next=${encodeURIComponent(targetUrl)}`;
+    }
+  };
+
+  const handleAttachToTeam = async (targetTeamId: string) => {
+    if (!targetTeamId) return;
+    setIsAttaching(true);
+    setAttachError(null);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setAttachError("Please log in to attach this scorecard to a team workspace.");
+        return;
+      }
+
+      if (!savedEvaluationId) {
+        setAttachError("Evaluation record ID is not ready yet. Please re-run evaluation while signed in.");
+        return;
+      }
+
+      const res = await fetch("/api/evaluator/history", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          evaluationId: savedEvaluationId,
+          teamId: targetTeamId,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        setAttachError(resData.error || "Failed to attach evaluation to team.");
+      } else {
+        const teamObj = userTeams.find((t) => t.id === targetTeamId);
+        setAttachedTeamName(resData.teamName || teamObj?.name || "Team");
+      }
+    } catch (err: any) {
+      setAttachError(err.message || "Network error attaching to team.");
+    } finally {
+      setIsAttaching(false);
     }
   };
 
@@ -404,16 +529,6 @@ export default function PitchEvaluatorClient({
                 </optgroup>
               )}
             </select>
-            {userTeams.length > 0 && (
-              <div className="mt-2 text-right">
-                <Link
-                  href={`/teams/${selectedHackathonId ? (userTeams.find(t => t.team_hackathons?.some((th: any) => th.hackathons?.id === selectedHackathonId))?.id || userTeams[0].id) : userTeams[0].id}/workspace?tab=ppt`}
-                  className="text-[11px] font-mono text-lime-600 dark:text-lime-400 hover:underline inline-flex items-center gap-1"
-                >
-                  <span>Open Team Workspace PPT Evaluator →</span>
-                </Link>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -851,23 +966,154 @@ export default function PitchEvaluatorClient({
             </div>
           )}
 
-          {/* Viral CTA Banner */}
-          <div className="mt-8 p-5 rounded-xl bg-gradient-to-r from-lime-500/10 via-emerald-500/10 to-transparent border border-lime-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <div className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-lime-600 dark:text-lime-400" />
-                <span>Ready to build this project with verified developers?</span>
-              </div>
-              <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                Find teammates on HackerMate with the exact skills your project needs.
+          {/* Post-Evaluation Funnel CTAs: Build with a Team & Attach to Team Workspace */}
+          <div className="mt-8 p-6 rounded-2xl bg-gradient-to-b from-zinc-50 to-zinc-100/60 dark:from-zinc-900/80 dark:to-zinc-900/40 border border-zinc-200 dark:border-zinc-800 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2 font-bold text-sm text-zinc-900 dark:text-white">
+                  <Sparkles className="w-4 h-4 text-lime-600 dark:text-lime-400" />
+                  <span>Next Steps: Take Your Idea to Execution</span>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Form a squad with prefilled requirements or link this scorecard to your team workspace.
+                </p>
               </div>
             </div>
-            <Link
-              href="/developers"
-              className="px-5 py-2.5 rounded-lg bg-lime-400 hover:bg-lime-500 !text-black dark:!text-black font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer"
-            >
-              <span className="!text-black dark:!text-black">Find Teammates on HackerMate →</span>
-            </Link>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CTA 1: Build This with a Team (Guest & Logged-In) */}
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex flex-col justify-between hover:border-lime-500/40 transition-colors">
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-lime-500" />
+                      Build This with a Team
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-lime-500/10 text-lime-600 dark:text-lime-400">
+                      Auto-Prefill
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4">
+                    Instantly creates a new team on HackerMate with your idea title, problem description, and required developer skills pre-filled from this scorecard.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBuildWithTeam}
+                  className="w-full py-2.5 px-4 rounded-lg bg-lime-400 hover:bg-lime-500 !text-black dark:!text-black font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+                >
+                  <span>Build This with a Team →</span>
+                </button>
+              </div>
+
+              {/* CTA 2: Attach to Team Workspace (Logged-In or Sign In) */}
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex flex-col justify-between hover:border-cyan-500/40 transition-colors">
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-1.5">
+                      <FolderPlus className="w-4 h-4 text-cyan-500" />
+                      Attach to Team Workspace
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                      Workspace Sync
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed mb-3">
+                    Save this evaluation result directly into an existing team&apos;s workspace so your teammates can review rubrics and track iterations together.
+                  </p>
+                </div>
+
+                {/* Team Selection Dropdown or Auth Prompt */}
+                {user ? (
+                  userTeams.length > 0 ? (
+                    <div className="space-y-2">
+                      {attachedTeamName ? (
+                        <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            <Check className="w-4 h-4 text-emerald-500" />
+                            Attached to {attachedTeamName}
+                          </span>
+                          <Link
+                            href={`/teams/${selectedAttachTeamId || userTeams[0]?.id}`}
+                            className="font-bold underline hover:opacity-80"
+                          >
+                            Open Workspace →
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={selectedAttachTeamId}
+                              onChange={(e) => {
+                                setSelectedAttachTeamId(e.target.value);
+                                setAttachError(null);
+                              }}
+                              className="flex-1 text-xs py-2 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                              disabled={isAttaching}
+                            >
+                              <option value="">Select a team workspace...</option>
+                              {userTeams.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleAttachToTeam(selectedAttachTeamId)}
+                              disabled={!selectedAttachTeamId || isAttaching}
+                              className="py-2 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+                            >
+                              {isAttaching ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <span>Attach</span>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Dynamic Team Sharing Notice */}
+                          {selectedAttachTeamId && (() => {
+                            const chosenTeam = userTeams.find((t) => t.id === selectedAttachTeamId);
+                            const teamName = chosenTeam?.name || "this team";
+                            return (
+                              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2 leading-relaxed">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                <span>
+                                  This will share your full evaluation — including identified weaknesses and red flags — with all current and future members of <strong>{teamName}</strong>.
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {attachError && (
+                        <p className="text-[11px] text-rose-600 dark:text-rose-400">{attachError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
+                      <span>No active teams found.</span>
+                      <button
+                        type="button"
+                        onClick={handleBuildWithTeam}
+                        className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                      >
+                        Create your first team →
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <Link
+                    href={`/login?next=${encodeURIComponent("/evaluator")}`}
+                    className="w-full py-2.5 px-4 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-zinc-200 dark:border-zinc-800"
+                  >
+                    <span>Sign in to attach to a team workspace →</span>
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

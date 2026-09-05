@@ -74,6 +74,80 @@ function CreateTeamForm() {
   const [customCollege, setCustomCollege] = useState("");
   const [collegeSearch, setCollegeSearch] = useState("");
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
+  const [isFromEvaluator, setIsFromEvaluator] = useState(false);
+
+  // Check for prefill from Idea Evaluator or query parameters
+  useEffect(() => {
+    try {
+      const storedSession = sessionStorage.getItem("hackermate_team_prefill");
+      let prefill: any = null;
+      if (storedSession) {
+        prefill = JSON.parse(storedSession);
+        sessionStorage.removeItem("hackermate_team_prefill");
+      }
+
+      const prefillParam = searchParams.get("prefill");
+      const prefillSource = Boolean(prefillParam || prefill);
+
+      if (prefillSource) {
+        setIsFromEvaluator(true);
+      }
+
+      if (prefill) {
+        if (prefill.name) setName(prefill.name);
+        if (prefill.description) setDescription(prefill.description);
+        if (prefill.hackathonId) setHackathonId(prefill.hackathonId);
+        if (Array.isArray(prefill.skills) && prefill.skills.length > 0) {
+          const validSkills = prefill.skills.filter((s: string) => SKILLS.includes(s));
+          if (validSkills.length > 0) {
+            setSelectedSkills((prev) => Array.from(new Set([...prev, ...validSkills])));
+          }
+        }
+        if (Array.isArray(prefill.roles) && prefill.roles.length > 0) {
+          const validRoles = prefill.roles.filter((r: string) => ROLES.includes(r));
+          if (validRoles.length > 0) {
+            setSelectedRoles((prev) => Array.from(new Set([...prev, ...validRoles])));
+          }
+        }
+        if (prefill.name || prefill.description) {
+          showToast("Prefilled team details from your Idea Evaluation ✨", "info");
+        }
+      } else if (prefillParam && prefillParam !== "evaluator") {
+        // Fetch server-side evaluation details by opaque ID
+        (async () => {
+          try {
+            const { data: evalRow } = await supabase
+              .from("user_pitch_evaluations")
+              .select("id, ps_title, evaluation_result")
+              .eq("id", prefillParam)
+              .maybeSingle();
+
+            if (evalRow) {
+              if (evalRow.ps_title) setName(evalRow.ps_title);
+              const res = evalRow.evaluation_result as any;
+              if (res?.recommendedRoles) {
+                const allSuggested = res.recommendedRoles.flatMap((r: any) => r.suggestedSkills || []);
+                const validSkills = allSuggested.filter((s: string) => SKILLS.includes(s));
+                if (validSkills.length > 0) {
+                  setSelectedSkills((prev) => Array.from(new Set([...prev, ...validSkills])));
+                }
+                const rolesNeeded = res.recommendedRoles.map((r: any) => r.role);
+                const validRoles = rolesNeeded.filter((r: string) => ROLES.includes(r));
+                if (validRoles.length > 0) {
+                  setSelectedRoles((prev) => Array.from(new Set([...prev, ...validRoles])));
+                }
+              }
+              showToast("Prefilled team details from your Idea Evaluation ✨", "info");
+            }
+          } catch (err) {
+            console.warn("Could not fetch evaluation prefill:", err);
+          }
+        })();
+      }
+    } catch (err) {
+      console.warn("Could not parse team prefill:", err);
+    }
+  }, [searchParams, showToast]);
 
   useEffect(() => {
     if (hackathonId) {
@@ -309,6 +383,24 @@ function CreateTeamForm() {
             {inviteUserName
               ? `${inviteUserName} will automatically receive an invite once your team is created.`
               : "An invite will be sent automatically once your team is created."}
+          </p>
+        </div>
+      )}
+
+      {/* Contextual Idea Evaluator banner — shown when prefilled from /evaluator */}
+      {isFromEvaluator && (
+        <div className="mb-6 px-4 py-3 rounded-xl bg-lime-500/10 border border-lime-500/30 flex items-center gap-3 animate-fade-in-up">
+          <div className="w-8 h-8 rounded-lg bg-lime-500/20 flex items-center justify-center flex-shrink-0 text-lime-400">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+            </svg>
+          </div>
+          <p className="text-xs text-zinc-300 leading-relaxed">
+            <span className="font-semibold text-lime-400">
+              Prefilled from your Idea Evaluation
+            </span>
+            {" — "}
+            Your team name, description, and required skillsets have been imported from your evaluation report. Review and fine-tune below!
           </p>
         </div>
       )}
