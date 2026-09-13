@@ -194,6 +194,22 @@ contributing, reach out first rather than opening a PR directly.
 
 ---
 
+## Documentation
+
+Detailed architecture, configuration, and developer guides are available in the [`docs/`](docs/) directory:
+
+| Document | Description |
+| :--- | :--- |
+| [**Architecture Overview**](docs/ARCHITECTURE.md) | High-level system design, Mermaid diagrams, data flows, and abstractions |
+| [**Configuration Guide**](docs/CONFIGURATION.md) | Environment variables, Next.js config, and third-party API credentials |
+| [**Getting Started**](docs/GETTING-STARTED.md) | Step-by-step local development setup and first-run instructions |
+| [**Development Guide**](docs/DEVELOPMENT.md) | Build commands, coding standards, branch conventions, and PR workflow |
+| [**Testing Guide**](docs/TESTING.md) | Runtime verification, smoke tests, typechecking, and CI pipelines |
+| [**API Reference**](docs/API.md) | Endpoints table, request/response schemas, error handling, and rate limits |
+| [**Deployment Guide**](docs/DEPLOYMENT.md) | Vercel serverless deployment, edge cron jobs, and database migrations |
+
+---
+
 ## License
 
 <!-- Confirm this is accurate — add a LICENSE file if one doesn't exist yet. -->
