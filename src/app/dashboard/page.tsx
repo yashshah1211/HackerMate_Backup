@@ -16,6 +16,7 @@ import StreakWidget from "@/components/StreakWidget";
 import { getInitials } from "@/lib/utils";
 import { SIH_HACKATHON_ID } from "@/lib/constants";
 import { LANDING_TOKENS } from "@/lib/design-tokens";
+import { GraduationCap, Trophy, Target, Zap } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -600,7 +601,10 @@ function DashboardContent() {
           <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
           {!yearDismissed ? (
             <div className="flex items-center gap-2 mt-1.5 p-1.5 px-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-xs text-zinc-300 w-fit animate-fade-in-up">
-              <span className="text-zinc-400 font-mono font-semibold text-[11px]">🎓 Confirm Year:</span>
+              <span className="text-zinc-400 font-mono font-semibold text-[11px] inline-flex items-center gap-1">
+                <GraduationCap className="w-3.5 h-3.5 text-zinc-400" />
+                Confirm Year:
+              </span>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
@@ -740,7 +744,7 @@ function DashboardContent() {
                 <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-zinc-950/95 dark:bg-zinc-950/95 light:bg-white backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 light:border-zinc-200 rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-800 light:border-zinc-200 pb-2.5 mb-2.5">
                     <p className="text-[11px] text-zinc-300 dark:text-zinc-300 light:text-zinc-800 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="text-amber-400">⚡</span> Profile Checklist ({pct}%)
+                      <Zap className="w-3.5 h-3.5 text-amber-400" /> Profile Checklist ({pct}%)
                     </p>
                     <span className="text-[10px] text-zinc-400 font-mono">{profileCompleteness.pendingTasks.length} items left</span>
                   </div>
@@ -918,7 +922,10 @@ function DashboardContent() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 dark:border-zinc-700/60 bg-emerald-500/10 dark:bg-zinc-800/60 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 dark:text-zinc-400 mb-2.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#B4F461] animate-pulse" />
-                <span>🇮🇳 SIH 2026 COLLEGE TEAM BUILDER</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-[#B4F461]" />
+                  <span>SIH 2026 COLLEGE TEAM BUILDER</span>
+                </span>
               </div>
               <h2 className="text-xl md:text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 Smart India Hackathon 2026 Internal Round
@@ -1048,7 +1055,10 @@ function DashboardContent() {
               <span className="tag">Campus</span>
             </div>
             <div className="view-all flex items-center gap-2.5">
-              <span onClick={() => router.push("/leaderboard")} className="hover:text-zinc-300 text-zinc-400 font-mono text-[10px] cursor-pointer">🏆 Campus Rank</span>
+              <span onClick={() => router.push("/leaderboard")} className="hover:text-zinc-300 text-zinc-400 font-mono text-[10px] cursor-pointer inline-flex items-center gap-1">
+                <Trophy className="w-3 h-3 text-amber-400" />
+                Campus Rank
+              </span>
               <span onClick={() => router.push("/developers")} className="cursor-pointer">view all →</span>
             </div>
           </div>
@@ -1274,7 +1284,7 @@ function DashboardContent() {
                   >
                     <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: randColor, boxShadow: `0 0 6px ${randColor}80` }} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-zinc-700 dark:text-zinc-300 leading-snug" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
+                      <div className="text-sm text-zinc-700 dark:text-zinc-200 leading-snug" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
                       <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{act.timeLabel}</div>
                     </div>
                   </div>

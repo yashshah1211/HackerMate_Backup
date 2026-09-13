@@ -12,11 +12,11 @@ import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModa
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import SIHQuickOnboardingModal from "@/components/SIHQuickOnboardingModal";
+import CertificateModal, { UserBadge } from "@/components/CertificateModal";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
 import ShareModal from "@/components/ShareModal";
 import { trackEvent } from "@/lib/posthog";
-import CertificateModal, { UserBadge } from "@/components/CertificateModal";
-
-import { SIH_HACKATHON_ID } from "@/lib/constants";
+import { Building2, Users, ShieldCheck, Zap, FileSpreadsheet, Target, Trophy, Share2, GraduationCap, AlertCircle, CheckCircle2 } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -515,7 +515,10 @@ function SIHTeamBuilderContent() {
             <div>
               {/* Co-Branded Badge */}
               <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3.5 py-1 text-xs font-mono uppercase tracking-wider mb-4">
-                <span className="text-orange-700 dark:text-orange-400 font-bold">🇮🇳 SMART INDIA HACKATHON 2026</span>
+                <span className="text-orange-700 dark:text-orange-400 font-bold inline-flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-orange-500" />
+                  SMART INDIA HACKATHON 2026
+                </span>
                 <span className="text-zinc-400 dark:text-zinc-500">×</span>
                 <span className="text-[#649a1f] dark:text-[#B4F461] font-bold">HACKERMATE</span>
               </div>
@@ -530,16 +533,20 @@ function SIHTeamBuilderContent() {
               {/* SIH Mandate Badges */}
               <div className="flex flex-wrap items-center gap-2.5 mt-5">
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-orange-800 dark:text-orange-300 font-medium shadow-sm">
-                  <span>🏫 Same College Only</span>
+                  <Building2 className="w-3.5 h-3.5 text-orange-500" />
+                  <span>Same College Only</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-amber-800 dark:text-amber-300 font-medium shadow-sm">
-                  <span>👥 6 Members / Team</span>
+                  <Users className="w-3.5 h-3.5 text-amber-500" />
+                  <span>6 Members / Team</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-emerald-800 dark:text-emerald-300 font-medium shadow-sm">
-                  <span>👩 1+ Female Member Mandate</span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>1+ Female Member Mandate</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-sky-800 dark:text-sky-300 font-medium shadow-sm">
-                  <span>⚡ Diverse Skill Mix</span>
+                  <Zap className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Diverse Skill Mix</span>
                 </div>
               </div>
             </div>
@@ -561,7 +568,14 @@ function SIHTeamBuilderContent() {
                   : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
                   }`}
               >
-                {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
+                {isUserLookingForTeam ? (
+                  "Looking for Team ✓"
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
+                    <span>List Myself for SIH</span>
+                  </>
+                )}
               </button>
 
               <button
@@ -569,7 +583,8 @@ function SIHTeamBuilderContent() {
                 className="btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
                 title="Share SIH 2026 Teammate Matcher to college WhatsApp groups"
               >
-                <span>📲 Share to WhatsApp</span>
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Share to WhatsApp</span>
               </button>
             </div>
           </div>
@@ -580,8 +595,8 @@ function SIHTeamBuilderContent() {
         {/* College Context & Picker Bar */}
         <div className="mb-8 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-lg shrink-0">
-              🎓
+            <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
+              <GraduationCap className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">College / Institution Filter</div>
@@ -589,7 +604,10 @@ function SIHTeamBuilderContent() {
                 {userCollege ? (
                   <span>Showing builders & teams from: <strong className="text-orange-600 dark:text-orange-400">{userCollege}</strong></span>
                 ) : (
-                  <span className="text-amber-600 dark:text-amber-400">⚠️ No college selected in your profile. Select your college to filter teammates.</span>
+                  <span className="text-amber-600 dark:text-amber-400 inline-flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>No college selected in your profile. Select your college to filter teammates.</span>
+                  </span>
                 )}
               </div>
             </div>
@@ -717,7 +735,9 @@ function SIHTeamBuilderContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filteredTeams.length === 0 ? (
               <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                <div className="text-3xl mb-3">🚀</div>
+                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 dark:text-zinc-400">
+                  <Users className="w-5 h-5" />
+                </div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">No SIH Teams Recruiting Yet</h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
                   {userCollege
@@ -769,8 +789,9 @@ function SIHTeamBuilderContent() {
                             {team.name}
                           </h3>
                           {getTeamCollege(team) && (
-                            <span className="inline-block text-[11px] text-orange-600 dark:text-orange-400 font-mono mt-0.5">
-                              🏫 {getTeamCollege(team)}
+                            <span className="inline-flex items-center gap-1 text-[11px] text-orange-600 dark:text-orange-400 font-mono mt-0.5">
+                              <Building2 className="w-3 h-3 shrink-0" />
+                              <span>{getTeamCollege(team)}</span>
                             </span>
                           )}
                         </div>
@@ -791,24 +812,46 @@ function SIHTeamBuilderContent() {
 
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-600 dark:text-zinc-400">Team Headcount:</span>
-                          <span className={memberCount === 6 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400 font-medium"}>
-                            {memberCount === 6 ? "✓ 6/6 Members (Complete)" : `${memberCount}/6 Members (${6 - memberCount} needed)`}
+                          <span className={memberCount === 6 ? "text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1" : "text-amber-600 dark:text-amber-400 font-medium"}>
+                            {memberCount === 6 ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                <span>6/6 Members (Complete)</span>
+                              </>
+                            ) : (
+                              <span>{memberCount}/6 Members ({6 - memberCount} needed)</span>
+                            )}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-600 dark:text-zinc-400">Female Representation:</span>
-                          <span className={hasFemaleMember ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400 font-medium"}>
-                            {hasFemaleMember ? "✅ 1+ Female Member" : "⚠️ Requires Female Member"}
+                          <span className={hasFemaleMember ? "text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1" : "text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"}>
+                            {hasFemaleMember ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                <span>1+ Female Member</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="w-3 h-3 text-amber-500" />
+                                <span>Requires Female Member</span>
+                              </>
+                            )}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-600 dark:text-zinc-400">Skill Coverage:</span>
-                          <span className={missingRoles.length === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-sky-600 dark:text-sky-400 font-medium"}>
-                            {missingRoles.length === 0
-                              ? "✅ Core Roles Covered"
-                              : `Missing: ${missingRoles.slice(0, 2).join(", ")}`}
+                          <span className={missingRoles.length === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1" : "text-sky-600 dark:text-sky-400 font-medium"}>
+                            {missingRoles.length === 0 ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                <span>Core Roles Covered</span>
+                              </>
+                            ) : (
+                              <span>Missing: {missingRoles.slice(0, 2).join(", ")}</span>
+                            )}
                           </span>
                         </div>
 
@@ -819,8 +862,9 @@ function SIHTeamBuilderContent() {
                             <div className="flex items-center justify-between pt-1 border-t border-zinc-200 dark:border-zinc-800">
                               <span className="text-zinc-600 dark:text-zinc-400">Pitch Deck AI:</span>
                               {pptEval ? (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                                  <span>🎯 {pptEval.total_score}/100</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                                  <Target className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>{pptEval.total_score}/100</span>
                                   <span className="text-[10px] font-normal text-zinc-500">({pptEval.grade})</span>
                                 </span>
                               ) : (
@@ -908,9 +952,10 @@ function SIHTeamBuilderContent() {
                                 })),
                               })
                             }
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition flex items-center gap-1 cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition flex items-center gap-1.5 cursor-pointer"
                           >
-                            📄 Export SPOC
+                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                            <span>Export SPOC</span>
                           </button>
                         )}
 
@@ -937,7 +982,9 @@ function SIHTeamBuilderContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filteredBuilders.length === 0 ? (
               <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                <div className="text-3xl mb-3">🙋‍♂️</div>
+                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 dark:text-zinc-400">
+                  <Users className="w-5 h-5" />
+                </div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">No Builders Seeking Teams Yet</h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
                   {userCollege
@@ -949,7 +996,17 @@ function SIHTeamBuilderContent() {
                   disabled={togglingStatus}
                   className="btn btn-primary text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
                 >
-                  {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself for SIH"}
+                  {isUserLookingForTeam ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Looking for Team</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>List Myself for SIH</span>
+                    </>
+                  )}
                 </button>
               </div>
             ) : (
@@ -979,20 +1036,22 @@ function SIHTeamBuilderContent() {
                             </span>
                           )}
                           {builder.gender?.toLowerCase() === "female" && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/20 shrink-0">
-                              👩 Female Builder
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/20 shrink-0 inline-flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Female Builder</span>
                             </span>
                           )}
                         </div>
                         {builder.college && (
-                          <p className="text-[11px] text-orange-600 dark:text-orange-400 font-mono truncate mt-0.5">
-                            🏫 {builder.college}
+                          <p className="text-[11px] text-orange-600 dark:text-orange-400 font-mono truncate mt-0.5 inline-flex items-center gap-1">
+                            <Building2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{builder.college}</span>
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <p className="text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2 mb-4 font-sans leading-relaxed">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 line-clamp-2 mb-4 font-sans leading-relaxed">
                       {builder.bio || "Builder looking to join a 6-member SIH team."}
                     </p>
 
@@ -1018,8 +1077,11 @@ function SIHTeamBuilderContent() {
                   </div>
 
                   <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-                    <span className="text-[11px] text-zinc-500 font-mono">
-                      {builder.is_available !== false ? "🟢 Available to join" : "⚪ Busy"}
+                    <span className="text-[11px] font-mono inline-flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${builder.is_available !== false ? "bg-emerald-500" : "bg-zinc-400"}`} />
+                      <span className="text-zinc-500">
+                        {builder.is_available !== false ? "Available to join" : "Busy"}
+                      </span>
                     </span>
 
                     <Link
@@ -1056,7 +1118,7 @@ function SIHTeamBuilderContent() {
         initialCollege={userCollege}
         title="List Yourself for SIH 2026 Teammate Matching"
         subtitle="Teammates from your college will find you on the SIH builder board."
-        buttonText="🚀 Publish Profile & Get Matched"
+        buttonText="Publish Profile & Get Matched"
         onSuccess={(updatedProfile) => {
           setQuickOnboardingModalOpen(false);
           handleQuickOnboardingSuccess(updatedProfile);
@@ -1088,7 +1150,7 @@ function SIHTeamBuilderContent() {
         title="Share SIH 2026 Teammate Matcher"
         subtitle={`Connect with builders from ${userCollege || "your college"} looking for SIH 2026 teams!`}
         shareUrl={typeof window !== "undefined" ? `${window.location.origin}/hackathons/sih${userCollege ? `?college=${encodeURIComponent(userCollege)}` : ""}` : "https://hackermate.in/hackathons/sih"}
-        shareText={`🚀 Building for Smart India Hackathon 2026? Find 6-member team updates and teammates from ${userCollege || "our college"} on HackerMate!`}
+        shareText={`Building for Smart India Hackathon 2026? Find 6-member team updates and teammates from ${userCollege || "our college"} on HackerMate!`}
         type="team"
         metadata={{
           hackathonName: "Smart India Hackathon 2026",

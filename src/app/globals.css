@@ -62,9 +62,9 @@
   --warning-bg: rgba(245, 158, 11, 0.06);
   --warning-border: rgba(245, 158, 11, 0.15);
 
-  --primary-text: #3b82f6; /* Blue 500 */
-  --primary-bg: rgba(59, 130, 246, 0.06);
-  --primary-border: rgba(59, 130, 246, 0.15);
+  --primary-text: #B4F461; /* Brand Lime */
+  --primary-bg: rgba(180, 244, 97, 0.08);
+  --primary-border: rgba(180, 244, 97, 0.25);
 
   /* Interactive states */
   --interactive-hover: rgba(255, 255, 255, 0.04);
@@ -251,6 +251,11 @@ body {
   transform: scale(0.98);
 }
 
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px #B4F461;
+}
+
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -372,6 +377,17 @@ body {
   border-color: var(--primary-text);
   background: var(--surface-1);
   box-shadow: 0 0 0 2px var(--primary-bg);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: #B4F461;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(180, 244, 97, 0.35);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px #B4F461;
 }
 
 select.input {

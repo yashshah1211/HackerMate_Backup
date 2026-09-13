@@ -28,6 +28,10 @@ import {
   CheckCheck,
   Minus,
   Lightbulb,
+  Building2,
+  Bot,
+  Globe,
+  CheckCircle2,
 } from "lucide-react";
 
 interface PPTEvaluation {
@@ -303,20 +307,20 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       return {
         label: "Smart India Hackathon (SIH 2026)",
         badgeClass: "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20",
-        icon: "🏛️",
+        icon: <Building2 className="w-3.5 h-3.5 inline mr-1" />,
       };
     }
     if (trackId === "ai_genai") {
       return {
         label: "AI, GenAI & Agentic Systems",
         badgeClass: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20",
-        icon: "🤖",
+        icon: <Bot className="w-3.5 h-3.5 inline mr-1" />,
       };
     }
     return {
       label: "Web Development & Full-Stack",
       badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
-      icon: "🌐",
+      icon: <Globe className="w-3.5 h-3.5 inline mr-1" />,
     };
   };
 
@@ -526,21 +530,23 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 Evaluation Track & Rubric
               </label>
               {isAmbiguousFallback && !userExplicitlySelected ? (
-                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                  ⚠️ Defaulted — Review Required
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 inline-flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Defaulted — Review Required</span>
                 </span>
               ) : autoDetectedSource ? (
-                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                  ✓ {autoDetectedSource}
+                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>{autoDetectedSource}</span>
                 </span>
               ) : null}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {[
-                { id: "sih" as JudgingTrackId, label: "Smart India Hackathon (SIH)", sub: "Strict 6-member & female teammate rules", icon: "🏛️" },
-                { id: "ai_genai" as JudgingTrackId, label: "AI & GenAI Systems", sub: "Agents, RAG, Latency & Hallucination", icon: "🤖" },
-                { id: "web_dev" as JudgingTrackId, label: "Web Development & Full-Stack", sub: "APIs, Databases, SSR & Security", icon: "🌐" },
+                { id: "sih" as JudgingTrackId, label: "Smart India Hackathon (SIH)", sub: "Strict 6-member & female teammate rules", icon: <Building2 className="w-3.5 h-3.5" /> },
+                { id: "ai_genai" as JudgingTrackId, label: "AI & GenAI Systems", sub: "Agents, RAG, Latency & Hallucination", icon: <Bot className="w-3.5 h-3.5" /> },
+                { id: "web_dev" as JudgingTrackId, label: "Web Development & Full-Stack", sub: "APIs, Databases, SSR & Security", icon: <Globe className="w-3.5 h-3.5" /> },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -677,7 +683,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div className="text-xs space-y-1">
-                  <span className="font-bold text-sm block">⚠️ Evaluated under Web Dev fallback rubric:</span>
+                  <span className="font-bold text-sm block">Evaluated under Web Dev fallback rubric:</span>
                   <p className="text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
                     {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. If this team is competing in Smart India Hackathon (SIH 2026), official squad compliance, 6-member requirements, and female teammate rules were NOT evaluated. Select the SIH 2026 track above and re-evaluate."}
                   </p>

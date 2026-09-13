@@ -11,6 +11,7 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Clock,
   Zap,
   Users,
@@ -685,35 +686,38 @@ export default function ChallengeDetailPage() {
               <button
                 type="button"
                 onClick={() => setScoringTab("rubric")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                   scoringTab === "rubric"
                     ? "bg-lime-500/20 text-lime-400 border border-lime-500/30"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
                 }`}
               >
-                🎯 4 Core Rubric Pillars
+                <Layers className="w-3.5 h-3.5 text-amber-500" />
+                <span>4 Core Rubric Pillars</span>
               </button>
               <button
                 type="button"
                 onClick={() => setScoringTab("checklist")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                   scoringTab === "checklist"
                     ? "bg-lime-500/20 text-lime-400 border border-lime-500/30"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
                 }`}
               >
-                📋 6-Slide Pre-Flight Checklist
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>6-Slide Pre-Flight Checklist</span>
               </button>
               <button
                 type="button"
                 onClick={() => setScoringTab("deductions")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                   scoringTab === "deductions"
                     ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
                 }`}
               >
-                ⚠️ Deduction Triggers
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                <span>Deduction Triggers</span>
               </button>
             </div>
 
@@ -735,7 +739,10 @@ export default function ChallengeDetailPage() {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        <span className="font-bold block mb-1">✅ How to Score Full 25/25:</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>How to Score Full 25/25:</span>
+                        </span>
                         <ul className="list-disc pl-4 space-y-1 text-[11px]">
                           <li>Name 2+ specific user personas (e.g. Triage Nurse, Dispatch Officer).</li>
                           <li>Include quantified baseline friction (e.g. "45 min triage delay").</li>
@@ -743,7 +750,10 @@ export default function ChallengeDetailPage() {
                         </ul>
                       </div>
                       <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
-                        <span className="font-bold block mb-1">❌ Common Deduction (-5 to -8 pts):</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                          <span>Common Deduction (-5 to -8 pts):</span>
+                        </span>
                         <p className="text-[11px]">Generic problem statements with zero target persona definition or no measurable baseline numbers.</p>
                       </div>
                     </div>
@@ -763,7 +773,10 @@ export default function ChallengeDetailPage() {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        <span className="font-bold block mb-1">✅ How to Score Full 25/25:</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>How to Score Full 25/25:</span>
+                        </span>
                         <ul className="list-disc pl-4 space-y-1 text-[11px]">
                           <li>Detail a unique architectural moat (custom rule engine, local-first cache).</li>
                           <li>Show why competitor solutions fail where yours succeeds.</li>
@@ -771,7 +784,10 @@ export default function ChallengeDetailPage() {
                         </ul>
                       </div>
                       <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
-                        <span className="font-bold block mb-1">❌ Common Deduction (-5 to -8 pts):</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                          <span>Common Deduction (-5 to -8 pts):</span>
+                        </span>
                         <p className="text-[11px]">Superficial ChatGPT/OpenAI API wrappers lacking competitive technical differentiation.</p>
                       </div>
                     </div>
@@ -791,7 +807,10 @@ export default function ChallengeDetailPage() {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        <span className="font-bold block mb-1">✅ How to Score Full 30/30:</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>How to Score Full 30/30:</span>
+                        </span>
                         <ul className="list-disc pl-4 space-y-1 text-[11px]">
                           <li>Detail data pipeline: Ingestion → Worker/Queue → Storage → Edge Client.</li>
                           <li>Specify database choices, latency budgets, and security/auth layers.</li>
@@ -799,7 +818,10 @@ export default function ChallengeDetailPage() {
                         </ul>
                       </div>
                       <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
-                        <span className="font-bold block mb-1">❌ Common Deduction (-7 to -12 pts):</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                          <span>Common Deduction (-7 to -12 pts):</span>
+                        </span>
                         <p className="text-[11px]">Listing logo buzzwords ("React, Node, Mongo, AI") without an actual data flow pipeline.</p>
                       </div>
                     </div>
@@ -819,7 +841,10 @@ export default function ChallengeDetailPage() {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        <span className="font-bold block mb-1">✅ How to Score Full 20/20:</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>How to Score Full 20/20:</span>
+                        </span>
                         <ul className="list-disc pl-4 space-y-1 text-[11px]">
                           <li>Detail 3+ concrete edge cases with mitigation in Slide 4.</li>
                           <li>Include baseline vs projected ROI metrics in Slide 5.</li>
@@ -827,7 +852,10 @@ export default function ChallengeDetailPage() {
                         </ul>
                       </div>
                       <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
-                        <span className="font-bold block mb-1">❌ Common Deduction (-4 to -7 pts):</span>
+                        <span className="font-bold flex items-center gap-1.5 mb-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                          <span>Common Deduction (-4 to -7 pts):</span>
+                        </span>
                         <p className="text-[11px]">Ignoring system fail-safes (e.g. network dropout) or vague "launch soon" roadmaps.</p>
                       </div>
                     </div>

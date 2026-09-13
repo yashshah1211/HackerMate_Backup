@@ -14,6 +14,8 @@ import {
   Flame,
   Award,
   Zap,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import { ChallengeLeaderboard } from "@/components/challenges/ChallengeLeaderboard";
 
@@ -228,35 +230,38 @@ export default function ChallengesPage() {
             <button
               type="button"
               onClick={() => setRulesTab("rubric")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 rulesTab === "rubric"
                   ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
               }`}
             >
-              🎯 4 Core Pillars
+              <Layers className="w-3.5 h-3.5 text-amber-500" />
+              <span>4 Core Pillars</span>
             </button>
             <button
               type="button"
               onClick={() => setRulesTab("checklist")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 rulesTab === "checklist"
                   ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
               }`}
             >
-              📋 6-Slide Checklist
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>6-Slide Checklist</span>
             </button>
             <button
               type="button"
               onClick={() => setRulesTab("deductions")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 rulesTab === "deductions"
                   ? "bg-white dark:bg-zinc-800 text-rose-600 dark:text-rose-400 shadow-xs"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
               }`}
             >
-              ⚠️ Deduction Triggers
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+              <span>Deduction Triggers</span>
             </button>
           </div>
         </div>
@@ -279,15 +284,19 @@ export default function ChallengesPage() {
                 </p>
                 <div className="space-y-2 pt-1">
                   <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
-                    <span className="font-bold block mb-1">✅ How to Score Full 25/25:</span>
+                    <span className="font-bold flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>How to Score Full 25/25:</span>
+                    </span>
                     <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                       <li>Name 2+ specific user personas with domain roles.</li>
                       <li>Include quantified baseline metrics (e.g., "$120k/yr loss", "45 min delay").</li>
                       <li>Highlight the real cost of inaction.</li>
                     </ul>
                   </div>
-                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px]">
-                    <span className="font-bold">❌ Common Penalty (-5 to -8 pts):</span> Vague statements with no personas or baseline metrics.
+                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span><strong className="font-bold">Common Penalty (-5 to -8 pts):</strong> Vague statements with no personas or baseline metrics.</span>
                   </div>
                 </div>
               </div>
@@ -306,15 +315,19 @@ export default function ChallengesPage() {
                 </p>
                 <div className="space-y-2 pt-1">
                   <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
-                    <span className="font-bold block mb-1">✅ How to Score Full 25/25:</span>
+                    <span className="font-bold flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>How to Score Full 25/25:</span>
+                    </span>
                     <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                       <li>Detail an architectural moat (custom rule engine, offline cache, edge models).</li>
                       <li>Show why existing market tools fail and how yours overcomes them.</li>
                       <li>Walk through step-by-step user resolution.</li>
                     </ul>
                   </div>
-                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px]">
-                    <span className="font-bold">❌ Common Penalty (-5 to -8 pts):</span> Superficial ChatGPT wrapper app without proprietary logic.
+                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span><strong className="font-bold">Common Penalty (-5 to -8 pts):</strong> Superficial ChatGPT wrapper app without proprietary logic.</span>
                   </div>
                 </div>
               </div>
@@ -333,15 +346,19 @@ export default function ChallengesPage() {
                 </p>
                 <div className="space-y-2 pt-1">
                   <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
-                    <span className="font-bold block mb-1">✅ How to Score Full 30/30:</span>
+                    <span className="font-bold flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>How to Score Full 30/30:</span>
+                    </span>
                     <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                       <li>Explicit data pipeline: Ingestion → Worker/Queue → Storage → Client.</li>
                       <li>Database choices, latency budgets, and security/auth layers.</li>
                       <li>Clear architecture block diagram flowchart.</li>
                     </ul>
                   </div>
-                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px]">
-                    <span className="font-bold">❌ Common Penalty (-7 to -12 pts):</span> Merely listing logos ("React, Node, AI") without pipeline flow.
+                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span><strong className="font-bold">Common Penalty (-7 to -12 pts):</strong> Merely listing logos ("React, Node, AI") without pipeline flow.</span>
                   </div>
                 </div>
               </div>
@@ -360,15 +377,19 @@ export default function ChallengesPage() {
                 </p>
                 <div className="space-y-2 pt-1">
                   <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
-                    <span className="font-bold block mb-1">✅ How to Score Full 20/20:</span>
+                    <span className="font-bold flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>How to Score Full 20/20:</span>
+                    </span>
                     <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                       <li>Address 3+ concrete edge cases with mitigation in Slide 4.</li>
                       <li>Include baseline vs projected ROI metrics in Slide 5.</li>
                       <li>Sprint milestones with explicit team roles in Slide 6.</li>
                     </ul>
                   </div>
-                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px]">
-                    <span className="font-bold">❌ Common Penalty (-4 to -7 pts):</span> Omitting failure modes or vague "launching soon" roadmaps.
+                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span><strong className="font-bold">Common Penalty (-4 to -7 pts):</strong> Omitting failure modes or vague "launching soon" roadmaps.</span>
                   </div>
                 </div>
               </div>

@@ -8,6 +8,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 import { getInitials } from "@/lib/utils";
+import { GraduationCap, Trophy, Zap, Rocket } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -340,7 +341,7 @@ function DevelopersContent() {
             onChange={(e) => setCollegeFilter(e.target.value)}
             className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
           >
-            <option value="">🏛️ All Colleges</option>
+            <option value="">All Colleges</option>
             {uniqueColleges.map(({ displayName, count }) => (
               <option key={displayName} value={displayName}>
                 {displayName.length > 32 ? displayName.substring(0, 30) + "..." : displayName} ({count})
@@ -359,7 +360,7 @@ function DevelopersContent() {
             onChange={(e) => setYearFilter(e.target.value)}
             className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
           >
-            <option value="">🎓 All Years</option>
+            <option value="">All Academic Years</option>
             <option value="1st Year">1st Year</option>
             <option value="2nd Year">2nd Year</option>
             <option value="3rd Year">3rd Year</option>
@@ -451,8 +452,9 @@ function DevelopersContent() {
                           {dev.year_of_study && (
                             <>
                               <span className="text-zinc-400 dark:text-zinc-600">•</span>
-                              <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-mono text-[9px] font-semibold shrink-0">
-                                🎓 {dev.year_of_study}
+                              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-mono text-[10px] font-semibold shrink-0 inline-flex items-center gap-1">
+                                <GraduationCap className="w-3 h-3" />
+                                {dev.year_of_study}
                               </span>
                             </>
                           )}
@@ -460,16 +462,19 @@ function DevelopersContent() {
                         {/* Hackathon Badges */}
                         <div className="mt-1 flex items-center gap-1.5">
                           {dev.hackathon_wins && dev.hackathon_wins > 0 ? (
-                            <span className="text-[9px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                              🏆 {dev.hackathon_wins} Win{dev.hackathon_wins === 1 ? '' : 's'}
+                            <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                              <Trophy className="w-3 h-3" />
+                              {dev.hackathon_wins} Win{dev.hackathon_wins === 1 ? '' : 's'}
                             </span>
                           ) : dev.has_participated_hackathon ? (
-                            <span className="text-[9px] font-mono font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                              ⚡ Contender
+                            <span className="text-[10px] font-mono font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              Contender
                             </span>
                           ) : (
-                            <span className="text-[9px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                              🚀 Rookie
+                            <span className="text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                              <Rocket className="w-3 h-3" />
+                              Rookie
                             </span>
                           )}
                         </div>
@@ -492,7 +497,7 @@ function DevelopersContent() {
                     </div>
                   </div>
 
-                  <p className="text-zinc-600 dark:text-zinc-400 text-xs mb-3.5 line-clamp-2 min-h-[32px] leading-relaxed">
+                  <p className="text-zinc-600 dark:text-zinc-300 text-sm mb-3.5 line-clamp-2 min-h-[36px] leading-relaxed">
                     {dev.bio || "No bio added yet."}
                   </p>
 
