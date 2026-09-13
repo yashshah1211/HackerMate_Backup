@@ -1,9 +1,6 @@
 name: Daily Database Activity PDF Digest
 
 on:
-  schedule:
-    # Runs every day at 09:00 AM IST (03:30 AM UTC)
-    - cron: '30 3 * * *'
   workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
 
 jobs:
