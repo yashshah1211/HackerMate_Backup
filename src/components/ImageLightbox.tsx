@@ -48,6 +48,7 @@ export default function ImageLightbox({ src, alt = "Media attachment", onClose }
 
         <button
           onClick={() => setZoomed(!zoomed)}
+          aria-label={zoomed ? "Zoom out" : "Zoom in"}
           className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
           title={zoomed ? "Zoom out" : "Zoom in"}
         >
@@ -62,6 +63,7 @@ export default function ImageLightbox({ src, alt = "Media attachment", onClose }
 
         <button
           onClick={onClose}
+          aria-label="Close image lightbox"
           className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
           title="Close (Esc)"
         >

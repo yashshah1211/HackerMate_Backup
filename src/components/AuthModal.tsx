@@ -34,6 +34,8 @@ export default function AuthModal({
         {/* Close Button */}
         <button
           onClick={onClose}
+          aria-label="Close authentication modal"
+          title="Close"
           className="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg"
         >
           <X className="w-4 h-4" />

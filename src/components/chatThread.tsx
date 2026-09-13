@@ -2047,6 +2047,8 @@ export default function ChatThread({
             <button
               onClick={sendMessage}
               disabled={(!input.trim() && !stagedImage) || sending || isBlocked || uploadingMedia}
+              aria-label="Send message"
+              title="Send message"
               className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
               style={{ height: "38px", width: "38px", padding: 0 }}
             >

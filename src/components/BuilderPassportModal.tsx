@@ -89,6 +89,8 @@ export default function BuilderPassportModal({
         {/* Top Close Button */}
         <button
           onClick={onClose}
+          aria-label="Close builder passport dialog"
+          title="Close"
           className="absolute top-4 right-4 p-2 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors z-20 cursor-pointer"
         >
           <X className="w-4 h-4" />

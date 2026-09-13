@@ -118,6 +118,7 @@ export default function TeamWorkspaceSpotlightBanner({
         {/* Dismiss Button */}
         <button
           onClick={handleDismiss}
+          aria-label="Hide guide banner"
           className="absolute top-4 right-4 p-1.5 rounded-full bg-white/80 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer z-20 shadow-xs"
           title="Hide guide banner"
         >

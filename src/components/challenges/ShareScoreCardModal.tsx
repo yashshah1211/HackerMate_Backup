@@ -75,6 +75,8 @@ export function ShareScoreCardModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close share scorecard modal"
+            title="Close"
             className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />

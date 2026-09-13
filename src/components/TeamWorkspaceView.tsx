@@ -9,6 +9,8 @@ import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import PPTEvaluatorTab from "@/components/PPTEvaluatorTab";
 import SmartGapFiller from "@/components/SmartGapFiller";
+import { KanbanTasksSkeleton, CommitsTimelineSkeleton, IdeationBoardSkeleton } from "@/components/workspace/WorkspaceSkeletons";
+import { Lightbulb, Clock, Globe, FileText, GitCommit, CheckSquare, Link2, Bell } from "lucide-react";
 
 type Team = {
   id: string;
@@ -1911,10 +1913,7 @@ export default function TeamWorkspaceView({
               </div>
 
               {loadingTasks ? (
-                <div className="card card-static p-12 text-center">
-                  <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-800 border-t-zinc-900 dark:border-t-white rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-zinc-500 text-xs font-mono uppercase">Loading tasks...</p>
-                </div>
+                <KanbanTasksSkeleton />
               ) : (
                 <div className="space-y-4">
                   {tasks.length > 0 && (
@@ -2112,7 +2111,7 @@ export default function TeamWorkspaceView({
                         : "text-zinc-400 hover:text-white"
                     }`}
                   >
-                    💡 Ideas Board
+                    Ideas Board
                   </button>
                   <button
                     onClick={() => setIsBrainstormListView(true)}
@@ -2122,7 +2121,7 @@ export default function TeamWorkspaceView({
                         : "text-zinc-400 hover:text-white"
                     }`}
                   >
-                    📝 Document Pad
+                    Document Pad
                   </button>
                 </div>
 
@@ -2204,13 +2203,10 @@ export default function TeamWorkspaceView({
                   {/* Ideas list column */}
                   <div className="lg:col-span-2 space-y-4">
                     {loadingIdeas ? (
-                      <div className="py-12 text-center">
-                        <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                        <p className="text-zinc-550 text-xs font-mono uppercase">Loading board...</p>
-                      </div>
+                      <IdeationBoardSkeleton />
                     ) : brainstormIdeas.length === 0 ? (
                       <div className="card card-static p-12 text-center border border-zinc-800 bg-zinc-950/20 flex flex-col items-center justify-center rounded-2xl">
-                        <span className="text-2xl mb-2">💡</span>
+                        <Lightbulb className="w-8 h-8 text-zinc-500 mb-2" />
                         <h4 className="text-sm font-semibold text-white mb-1">Ideation Tag Board is Empty</h4>
                         <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
                           Share tech stack selections, project directions, or feature drafts. Teammates can vote to establish project direction!
@@ -2419,10 +2415,7 @@ export default function TeamWorkspaceView({
                       </div>
 
                       {loadingCommits ? (
-                        <div className="py-12 text-center">
-                          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                          <p className="text-zinc-500 text-xs font-mono uppercase tracking-wider">Syncing commit feed...</p>
-                        </div>
+                        <CommitsTimelineSkeleton />
                       ) : errorCommits ? (
                         <div className="py-8 text-center text-rose-400 text-xs font-mono">
                           <svg className="w-8 h-8 mx-auto mb-2 text-rose-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2648,7 +2641,7 @@ export default function TeamWorkspaceView({
                     </div>
                   ) : deployments.length === 0 ? (
                     <div className="card card-static p-12 text-center border border-zinc-800 bg-zinc-950/20 flex flex-col items-center justify-center rounded-2xl">
-                      <span className="text-2xl mb-2">🚀</span>
+                      <Globe className="w-8 h-8 text-zinc-500 mb-2" />
                       <h4 className="text-sm font-semibold text-white mb-1">No Active Deployments</h4>
                       <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
                         Link staging endpoints or frontend preview URLs. The client-side dashboard will automatically ping their headers and track latency.
@@ -2669,6 +2662,7 @@ export default function TeamWorkspaceView({
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <button
                                     onClick={() => pingUrl(dep.id, dep.url)}
+                                    aria-label="Recheck endpoint health"
                                     className="p-1 rounded bg-zinc-950 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-white transition-colors cursor-pointer"
                                     title="Recheck Health"
                                   >
@@ -2748,7 +2742,7 @@ export default function TeamWorkspaceView({
                 if (timeline.length === 0) {
                   return (
                     <div className="card card-static p-12 text-center flex flex-col items-center justify-center border border-zinc-800 bg-zinc-950/40 rounded-2xl max-w-xl mx-auto shadow-xl">
-                      <span className="text-2xl mb-2">⏳</span>
+                      <Clock className="w-8 h-8 text-zinc-500 mb-2" />
                       <h4 className="text-sm font-semibold text-white mb-1">No Activity Logged Yet</h4>
                       <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
                         Once tasks are created, resources added, brainstorm files saved, or code commits pushed, they will show up in this chronological timeline.
@@ -2761,11 +2755,11 @@ export default function TeamWorkspaceView({
                   <div className="relative border-l border-zinc-850 ml-4 pl-6 space-y-6">
                     {timeline.map((event) => {
                       const config = {
-                        commit: { icon: "💻", bg: "bg-emerald-500/10 text-emerald-450 border-emerald-500/20" },
-                        task: { icon: "📋", bg: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-                        resource: { icon: "🔗", bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-                        brainstorm: { icon: "🧠", bg: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
-                      }[event.type] || { icon: "🔔", bg: "bg-zinc-800 text-zinc-400 border-zinc-700" };
+                        commit: { icon: <GitCommit className="w-3 h-3 text-emerald-400" />, bg: "bg-emerald-500/10 text-emerald-450 border-emerald-500/20" },
+                        task: { icon: <CheckSquare className="w-3 h-3 text-violet-400" />, bg: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+                        resource: { icon: <Link2 className="w-3 h-3 text-amber-400" />, bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+                        brainstorm: { icon: <Lightbulb className="w-3 h-3 text-indigo-400" />, bg: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
+                      }[event.type] || { icon: <Bell className="w-3 h-3 text-zinc-400" />, bg: "bg-zinc-800 text-zinc-400 border-zinc-700" };
 
                       const formattedTime = new Date(event.timestamp).toLocaleString(undefined, {
                         month: "short",

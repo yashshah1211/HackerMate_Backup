@@ -69,6 +69,8 @@ export default function PartnerCompositionModal({
 
           <button
             onClick={onClose}
+            aria-label="Close partner composition dialog"
+            title="Close"
             className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
