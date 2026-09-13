@@ -590,7 +590,11 @@ export default function OrganizerPortalPage() {
               <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-semibold">
                 {hackathon?.min_team_size === 1 && hackathon?.max_team_size === 1
                   ? "Solo Only"
-                  : `${hackathon?.min_team_size || 1}–${hackathon?.max_team_size || 4} Members`}
+                  : hackathon?.min_team_size && hackathon?.max_team_size
+                  ? `${hackathon.min_team_size}–${hackathon.max_team_size} Members`
+                  : hackathon?.max_team_size
+                  ? `Up to ${hackathon.max_team_size} Members`
+                  : "Flexible (No Rule Published)"}
               </span>
             </div>
           </div>

@@ -97,19 +97,19 @@ const SECTION_CONFIGS: Array<{
     accentColor: "blue",
   },
   {
-    keywords: ["eligibility & team guidelines", "eligibility & team rules", "eligibility criteria", "eligibility", "who can participate", "prerequisites", "allowed participants"],
+    keywords: ["eligibility & team guidelines", "eligibility & team rules", "eligibility criteria", "eligibility", "who can participate", "prerequisites", "allowed participants", "how to enter", "how to apply"],
     title: "Eligibility & Team Rules",
     icon: "🎓",
     accentColor: "emerald",
   },
   {
-    keywords: ["selection criteria", "shortlisting criteria", "evaluation criteria", "judging criteria", "scoring criteria", "scoring"],
+    keywords: ["selection criteria", "shortlisting criteria", "evaluation criteria", "judging criteria", "scoring criteria", "scoring", "how we test and score", "how we test", "evaluation", "judging"],
     title: "Selection & Evaluation Criteria",
     icon: "⚖️",
     accentColor: "amber",
   },
   {
-    keywords: ["competition format", "process & rounds", "event format", "rounds & stages", "rounds", "stages", "duration"],
+    keywords: ["competition format", "process & rounds", "event format", "rounds & stages", "rounds", "stages", "duration", "timeline", "important dates", "important deadlines", "deadlines"],
     title: "Competition Format & Rounds",
     icon: "⚔️",
     accentColor: "violet",
@@ -121,13 +121,13 @@ const SECTION_CONFIGS: Array<{
     accentColor: "rose",
   },
   {
-    keywords: ["team formation rules", "rules of the hackathon", "rules & guidelines", "rules and guidelines", "general rules", "important rules", "code of conduct", "rules", "guidelines", "terms & conditions"],
+    keywords: ["team formation rules", "rules of the hackathon", "rules & guidelines", "rules and guidelines", "general rules", "important rules", "code of conduct", "rules", "guidelines", "terms & conditions", "what to submit", "submission requirements", "submission guidelines"],
     title: "Rules & Guidelines",
     icon: "📋",
     accentColor: "teal",
   },
   {
-    keywords: ["tracks & problem statements", "tracks and problem statements", "problem statements", "hackathon format & themes", "tracks & themes", "themes & tracks", "themes", "tracks", "challenges"],
+    keywords: ["tracks & problem statements", "tracks and problem statements", "problem statements", "hackathon format & themes", "tracks & themes", "themes & tracks", "themes", "tracks", "challenges", "what to build", "challenge details"],
     title: "Tracks & Problem Statements",
     icon: "💡",
     accentColor: "indigo",
@@ -159,6 +159,19 @@ function normalizeRawDescription(raw: string): string {
     "code of conduct", "team participation"
   );
   const uniqueKws = Array.from(new Set(allKeywords)).sort((a, b) => b.length - a.length);
+
+  // Standalone section phrases without colons before uppercase text (common on Unstop / Devfolio)
+  const standalonePhrases = [
+    "Overview", "What to Build", "What to Submit", "How We Test and Score", "How to Enter",
+    "Eligibility Criteria", "Who Can Participate", "Rules and Guidelines", "General Rules",
+    "Judging Criteria", "Evaluation Criteria", "Important Notes", "Contact Us", "Why Participate",
+    "Important Deadlines", "Important Dates"
+  ];
+  for (const phrase of standalonePhrases) {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`([.!?\\s]|^)(${escaped})(?=\\s+[A-Z0-9])`, "g");
+    text = text.replace(regex, "\n\n$2:\n");
+  }
 
   // Match "About [Event Name]:" or "Why [Event Name]:"
   text = text.replace(/([.!?\s]|^)(About\s+[A-Z0-9][A-Za-z0-9\s&—–'-]{2,35}):\s*/gi, "\n\n$2:\n");
@@ -434,10 +447,11 @@ export default function StructuredHackathonDescription({
     );
   }
 
+  const INITIAL_VISIBLE_COUNT = 2;
   const totalTextLength = cleanHtmlEntities(description).length;
-  const isLong = totalTextLength > 500 && sections.length > 1;
+  const canExpand = sections.length > INITIAL_VISIBLE_COUNT && totalTextLength > 500;
 
-  const visibleSections = isLong && !isExpanded ? sections.slice(0, 2) : sections;
+  const visibleSections = canExpand && !isExpanded ? sections.slice(0, INITIAL_VISIBLE_COUNT) : sections;
 
   return (
     <div className={`space-y-5 max-w-full overflow-hidden ${className}`}>
@@ -512,7 +526,7 @@ export default function StructuredHackathonDescription({
       ))}
 
       {/* Expansion Toggle */}
-      {isLong && (
+      {canExpand && (
         <div className="flex justify-center pt-2">
           <button
             onClick={() => setIsExpanded(!isExpanded)}

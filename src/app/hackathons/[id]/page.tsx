@@ -1462,7 +1462,11 @@ function HackathonDetailContent() {
                       ? "👤 Solo Participation"
                       : hackathon.min_team_size && hackathon.max_team_size
                       ? `👥 ${hackathon.min_team_size} – ${hackathon.max_team_size} Members`
-                      : "👥 1 – 4 Members (Default)"}
+                      : hackathon.max_team_size
+                      ? `👥 Up to ${hackathon.max_team_size} Members`
+                      : hackathon.min_team_size
+                      ? `👥 At least ${hackathon.min_team_size} Members`
+                      : "👥 Flexible (No Rule Published)"}
                   </p>
                 </div>
               </div>
