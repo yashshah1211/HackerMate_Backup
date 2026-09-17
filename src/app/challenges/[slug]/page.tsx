@@ -34,6 +34,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface Challenge {
   id: string;
@@ -303,9 +304,7 @@ export default function ChallengeDetailPage() {
               )}
             </div>
 
-            <div className="prose prose-zinc dark:prose-invert prose-sm max-w-none text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm leading-relaxed whitespace-pre-line space-y-4">
-              {challenge.problem_statement}
-            </div>
+            <MarkdownRenderer content={challenge.problem_statement} />
 
             {challenge.additional_rules && (
               <div className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
@@ -314,9 +313,7 @@ export default function ChallengeDetailPage() {
                     <Trophy className="w-3.5 h-3.5" />
                     <span>Additional Challenge Rules & Specific Criteria</span>
                   </h3>
-                  <div className="text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">
-                    {challenge.additional_rules}
-                  </div>
+                  <MarkdownRenderer content={challenge.additional_rules} />
                   <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-2 italic font-mono">
                     * The AI evaluator will directly test and grade your pitch against these custom rules.
                   </p>
