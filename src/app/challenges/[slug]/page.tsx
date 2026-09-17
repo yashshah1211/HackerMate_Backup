@@ -195,9 +195,16 @@ export default function ChallengeDetailPage() {
       return;
     }
 
-    if (!externalLink.trim()) {
-      setErrorMsg("Please provide your Google Slides or Google Drive presentation link.");
-      return;
+    if (inputMode === "upload") {
+      if (!file) {
+        setErrorMsg("Please select or drop your presentation PDF file.");
+        return;
+      }
+    } else {
+      if (!externalLink.trim()) {
+        setErrorMsg("Please provide your Google Slides or Google Drive presentation link.");
+        return;
+      }
     }
 
     if (submissionMode === "team" && !selectedTeamId) {
@@ -210,7 +217,11 @@ export default function ChallengeDetailPage() {
 
     try {
       const formData = new FormData();
-      formData.append("external_link_url", externalLink.trim());
+      if (inputMode === "upload" && file) {
+        formData.append("file", file);
+      } else {
+        formData.append("external_link_url", externalLink.trim());
+      }
       formData.append("submission_mode", submissionMode);
       if (submissionMode === "team" && selectedTeamId) {
         formData.append("team_id", selectedTeamId);
@@ -590,25 +601,117 @@ export default function ChallengeDetailPage() {
                     )}
                   </div>
                 )}
-                {/* Presentation Link (Google Slides / Google Drive) */}
-                  <div>
-                    <label className="block text-[11px] uppercase font-mono text-zinc-600 dark:text-zinc-400 mb-1.5 font-semibold flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <LinkIcon className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400" />
-                        <span>Google Slides / Drive Link *</span>
-                      </span>
-                      <span className="text-[10px] text-zinc-500 font-normal lowercase">public link</span>
-                    </label>
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://docs.google.com/presentation/d/... or https://drive.google.com/..."
-                      value={externalLink}
-                      onChange={(e) => setExternalLink(e.target.value)}
-                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 font-mono"
-                    />
-                    <p className="text-[10px] text-zinc-500 mt-1">Make sure sharing is set to &ldquo;Anyone with link can view&rdquo;.</p>
+                {/* Presentation Pitch Deck: PDF Upload vs Google Link */}
+                <div>
+                  <label className="block text-[11px] uppercase font-mono text-zinc-600 dark:text-zinc-400 mb-2 font-semibold flex items-center justify-between">
+                    <span>Presentation Pitch Deck *</span>
+                    <span className="text-[10px] text-lime-600 dark:text-lime-400 font-normal lowercase">PDF file or Drive Link</span>
+                  </label>
+
+                  {/* Input Mode Selector */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setInputMode("upload")}
+                      className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                        inputMode === "upload"
+                          ? "bg-lime-500/15 border-lime-500 text-lime-700 dark:text-lime-400 font-bold shadow-xs"
+                          : "bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Direct PDF Upload</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInputMode("link")}
+                      className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                        inputMode === "link"
+                          ? "bg-lime-500/15 border-lime-500 text-lime-700 dark:text-lime-400 font-bold shadow-xs"
+                          : "bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <LinkIcon className="w-3.5 h-3.5" />
+                      <span>Google Drive Link</span>
+                    </button>
                   </div>
+
+                  {inputMode === "upload" ? (
+                    <div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".pdf,.pptx,.ppt"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setFile(e.target.files[0]);
+                            setErrorMsg(null);
+                          }
+                        }}
+                      />
+                      {!file ? (
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                              setFile(e.dataTransfer.files[0]);
+                              setErrorMsg(null);
+                            }
+                          }}
+                          className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-lime-500 dark:hover:border-lime-500 rounded-lg p-5 text-center cursor-pointer transition-all bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-lime-500/5 group"
+                        >
+                          <Upload className="w-6 h-6 text-zinc-400 group-hover:text-lime-500 mx-auto mb-2 transition-colors" />
+                          <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                            Click to browse or drag & drop PDF deck
+                          </p>
+                          <p className="text-[10px] text-zinc-500 mt-1 font-mono">
+                            Supports .pdf (Recommended, max 25MB)
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-3 rounded-lg border border-lime-500/50 bg-lime-500/10 text-xs">
+                          <div className="flex items-center gap-2.5 truncate">
+                            <FileText className="w-4 h-4 text-lime-600 dark:text-lime-400 shrink-0" />
+                            <div className="truncate">
+                              <p className="font-bold text-zinc-900 dark:text-white truncate">{file.name}</p>
+                              <p className="text-[10px] text-zinc-600 dark:text-zinc-400">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB • Ready for AI Evaluation
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = "";
+                            }}
+                            className="p-1 text-zinc-400 hover:text-rose-500 transition-colors rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-zinc-500 mt-1.5">
+                        Direct upload avoids Google Drive access permissions or scraping blocks.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="url"
+                        required={inputMode === "link"}
+                        placeholder="https://docs.google.com/presentation/d/... or https://drive.google.com/..."
+                        value={externalLink}
+                        onChange={(e) => setExternalLink(e.target.value)}
+                        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 font-mono"
+                      />
+                      <p className="text-[10px] text-zinc-500 mt-1">Make sure sharing is set to &ldquo;Anyone with link can view&rdquo;.</p>
+                    </div>
+                  )}
+                </div>
 
                   {/* GitHub Repository */}
                   <div>
