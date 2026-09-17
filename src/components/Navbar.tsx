@@ -605,28 +605,28 @@ function isPublicDarkRoute(path: string | null): boolean {
         </nav>
 
         {/* User Navigation Card (Settings, Log out) */}
-        <div className="mt-auto pt-2 border-t border-zinc-800/60">
+        <div className="mt-auto pt-2 border-t border-zinc-200/80 dark:border-zinc-800/60">
           {user ? (
-            <div className="rounded-xl border border-zinc-800/80 bg-[#121215] p-1 shadow-xs">
+            <div className="rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 bg-zinc-100/90 dark:bg-[#121215] p-1 shadow-xs transition-colors">
               <Link
                 href="/settings"
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:bg-zinc-800/60 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-200/80 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800/60 dark:hover:text-white transition-colors cursor-pointer"
               >
-                <Settings className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <Settings className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
                 <span>Settings</span>
               </Link>
 
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:bg-zinc-800/60 hover:text-white transition-colors text-left cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-200/80 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800/60 dark:hover:text-white transition-colors text-left cursor-pointer"
               >
-                <LogOut className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <LogOut className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
                 <span>Log out</span>
               </button>
             </div>
           ) : authLoading || hasSession ? (
-            <div className="rounded-xl border border-zinc-800/40 bg-[#121215]/50 p-2 h-[72px] animate-pulse" />
+            <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800/40 bg-zinc-100/70 dark:bg-[#121215]/50 p-2 h-[72px] animate-pulse" />
           ) : (
             <Link
               href="/login"

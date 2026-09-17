@@ -1072,14 +1072,18 @@ html.light .content-area {
   color: var(--text-primary) !important;
 }
 
-/* Sidebar profile footer */
-.light .sidebar-panel .bg-zinc-900\/20 {
+/* Sidebar profile/navigation footer */
+.light .sidebar-panel .bg-zinc-900\/20,
+.light .sidebar-panel .bg-\[\#121215\],
+.light .sidebar-panel [class*="bg-[#121215]"] {
   background-color: var(--surface-2) !important;
   border-color: var(--card-border) !important;
 }
 
 /* Sidebar border */
-.light .sidebar-panel .border-zinc-900\/60 {
+.light .sidebar-panel .border-zinc-900\/60,
+.light .sidebar-panel .border-zinc-800\/60,
+.light .sidebar-panel .border-zinc-800\/80 {
   border-color: var(--card-border) !important;
 }
 
