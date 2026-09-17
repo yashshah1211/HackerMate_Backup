@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import DailyStreakTracker from "@/components/DailyStreakTracker";
@@ -13,7 +13,7 @@ import { getInitials } from "@/lib/utils";
 import NotificationDrawer from "@/components/NotificationDrawer";
 import Footer from "@/components/Footer";
 import { shouldRenderFooter } from "@/lib/layoutConfig";
-import { Flame } from "lucide-react";
+import { Flame, Settings, LogOut } from "lucide-react";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -27,7 +27,6 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string | null; role?: string | null } | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
 
@@ -480,22 +479,13 @@ function isPublicDarkRoute(path: string | null): boolean {
   const gradientIndex = (profile?.full_name?.charCodeAt(0) || 0) % avatarGradients.length;
   const avatarGradient = avatarGradients[gradientIndex];
 
-  const sidebarAvatarGradients = [
-    ["#3b82f6", "#1d4ed8"],
-    ["#8b5cf6", "#6d28d9"],
-    ["#10b981", "#047857"],
-    ["#f59e0b", "#b45309"]
-  ];
-  const sidebarGradientIndex = (profile?.full_name?.charCodeAt(0) || 0) % sidebarAvatarGradients.length;
-  const sidebarColorsGradient = sidebarAvatarGradients[sidebarGradientIndex];
-
   return (
     <div className="layout-root flex h-screen overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200 dashboard-redesign">
       <DailyStreakTracker />
 
       {/* Sidebar */}
       <aside
-        className={`sidebar-panel fixed inset-y-0 left-0 z-40 w-[248px] flex flex-col border-r border-[var(--border-soft)] bg-[var(--bg)] transition-all duration-300 md:translate-x-0 ${showMobileSidebar ? "translate-x-0" : "-translate-x-full"}`}
+        className={`sidebar-panel fixed inset-y-0 left-0 z-40 w-[280px] flex flex-col border-r border-[var(--border-soft)] bg-[var(--bg)] transition-all duration-300 md:translate-x-0 ${showMobileSidebar ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Logo */}
         <div className="logo px-5 py-5 flex items-center justify-between shrink-0">
@@ -564,58 +554,40 @@ function isPublicDarkRoute(path: string | null): boolean {
           </Link>
         </nav>
 
-        {/* Profile footer with dropdown */}
-        <div className="relative mt-auto">
-          <div
-            onClick={() => {
-              if (user) {
-                setProfileDropdownOpen(!profileDropdownOpen);
-              } else {
-                window.location.href = "/login";
-              }
-            }}
-            className="sidebar-footer cursor-pointer"
-          >
-            <div className="avatar-sm font-bold text-xs" style={{ background: `linear-gradient(135deg, ${sidebarColorsGradient[0]}, ${sidebarColorsGradient[1]})` }}>
-              {user ? userInitials : "G"}
-            </div>
-            <div className="who text-left flex-1 min-w-0">
-              <b className="truncate block">{profile?.full_name || (user ? "Builder" : "Guest")}</b>
-              <small className="truncate block text-zinc-500">{user?.email || "Click to sign in"}</small>
-            </div>
-            {user && (
-              <svg className={`w-3.5 h-3.5 text-[var(--text-faint)] hover:text-white transition-transform duration-200 shrink-0 ${profileDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            )}
-          </div>
+        {/* User Navigation Card (Settings, Log out) */}
+        <div className="mt-auto pt-2 border-t border-zinc-800/60">
+          {user ? (
+            <div className="rounded-xl border border-zinc-800/80 bg-[#121215] p-1 shadow-xs">
+              <Link
+                href="/settings"
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:bg-zinc-800/60 hover:text-white transition-colors cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span>Settings</span>
+              </Link>
 
-          {profileDropdownOpen && (
-            <div className="absolute bottom-16 left-0 right-0 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] shadow-2xl overflow-hidden z-50">
-              <div className="p-1">
-                <Link href="/settings" onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  Settings
-                </Link>
-                <Link href={`/profile/${user?.id}`} onClick={() => setProfileDropdownOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-[var(--text-dim)] hover:bg-[var(--bg-raised)] hover:text-white transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  View Profile
-                </Link>
-              </div>
-              <div className="h-px bg-[var(--border-soft)] mx-1" />
-              <div className="p-1">
-                <button onClick={() => { setProfileDropdownOpen(false); handleLogout(); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-colors text-left">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>
-                  Sign Out
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:bg-zinc-800/60 hover:text-white transition-colors text-left cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span>Log out</span>
+              </button>
             </div>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-950 bg-[#B4F461] hover:bg-[#a8eb52] transition-colors"
+            >
+              <span>Sign In</span>
+            </Link>
           )}
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="content-area flex-1 flex flex-col min-w-0 overflow-hidden relative md:pl-[248px]">
+      <div className="content-area flex-1 flex flex-col min-w-0 overflow-hidden relative md:pl-[280px]">
         <header className="topbar-panel h-14 border-b border-[var(--card-border)] flex items-center justify-between px-6 bg-[var(--background)]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-4">
             <button className="md:hidden text-zinc-500 hover:text-white" onClick={() => setShowMobileSidebar(true)}>

@@ -1196,10 +1196,10 @@ html.light .content-area {
 }
 
 .dashboard-redesign aside {
-  width: 248px;
+  width: 280px;
   flex-shrink: 0;
   border-right: 1px solid var(--border-soft);
-  padding: 20px 14px;
+  padding: 12px 10px 10px 10px;
   display: flex;
   flex-direction: column;
   background: var(--bg) !important;
@@ -1207,7 +1207,7 @@ html.light .content-area {
 
 .dashboard-redesign .logo {
   display: flex; align-items: center; gap: 10px;
-  padding: 4px 8px 20px 8px;
+  padding: 2px 8px 10px 8px;
 }
 
 .dashboard-redesign .logo-mark {
@@ -1232,12 +1232,12 @@ html.light .content-area {
 
 .dashboard-redesign .nav-label {
   font-size: 10px; color: var(--text-faint);
-  font-weight: 500; padding: 14px 10px 6px 10px;
+  font-weight: 500; padding: 8px 10px 3px 10px;
 }
 
 .dashboard-redesign .nav-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: 7px;
+  padding: 6px 10px; border-radius: 7px;
   font-size: 13px; color: var(--text-dim) !important; font-weight: 500;
   cursor: pointer; position: relative;
   transition: background 0.15s ease, color 0.15s ease;
@@ -2133,5 +2133,10 @@ html.light .content-area {
     transform: translateY(-600px) scale(0.6) rotate(15deg);
     opacity: 0;
   }
+}
+
+/* Hide Next.js dev badge from overlapping sidebar */
+nextjs-portal {
+  display: none !important;
 }
 
