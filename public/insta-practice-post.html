@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HackerMate Practice — Instagram Post (4 Slides)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #050505;
+      color: #e5e7eb;
+      font-family: 'Inter', sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+    }
+    .page-title {
+      text-align: center;
+    }
+    .page-title h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+    .page-title p {
+      font-size: 13px;
+      color: #71717a;
+    }
+    .slides-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 28px;
+      width: 100%;
+      max-width: 1140px;
+    }
+    .slide {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #0d0d0e;
+      border: 1px solid #27272a;
+      border-radius: 20px;
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+    }
+    .brand span {
+      color: #b4f461;
+    }
+    .slide-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #71717a;
+      background: #18181b;
+      border: 1px solid #27272a;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    /* Content */
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .headline {
+      font-size: 28px;
+      line-height: 1.25;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .headline span.accent {
+      color: #b4f461;
+    }
+    .subtext {
+      font-size: 14px;
+      line-height: 1.55;
+      color: #a1a1aa;
+    }
+
+    /* Clean Code/UI Cards */
+    .list-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .item-box {
+      background: #141416;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .item-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #b4f461;
+      background: #1e2615;
+      border: 1px solid rgba(180, 244, 97, 0.2);
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-top: 2px;
+    }
+    .item-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .item-desc {
+      font-size: 12px;
+      color: #71717a;
+      margin-top: 2px;
+    }
+
+    /* Terminal/Feedback Snippet */
+    .terminal-box {
+      background: #121214;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .terminal-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .terminal-tag {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .terminal-ok {
+      color: #b4f461;
+      background: rgba(180, 244, 97, 0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* Bottom Bar */
+    .bottombar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #27272a;
+      padding-top: 14px;
+      font-size: 12px;
+      color: #71717a;
+    }
+    .bottombar span.link {
+      color: #ffffff;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-title">
+    <h1>HackerMate Practice — Clean Developer Style (4 Slides)</h1>
+    <p>Human, grounded copy. No generic AI buzzwords or neon flares.</p>
+  </div>
+
+  <div class="slides-grid">
+
+    <!-- SLIDE 1 -->
+    <div class="slide">
+      <div class="topbar">
+        <div class="brand">hackermate<span>.in</span></div>
+        <div class="slide-num">01 / 04</div>
+      </div>
+
+      <div class="content">
+        <h2 class="headline">Most hackathon pitch decks get rejected in the first <span class="accent">30 seconds</span>.</h2>
+        <p class="subtext">Not because the code is bad — but because key architectural edge cases & metrics were left out.</p>
+
+        <div class="terminal-box">
+          <div class="terminal-line">
+            <span style="color: #a1a1aa;">Architecture diagram</span>
+            <span class="terminal-ok">✓ PRESENT</span>
+          </div>
+          <div class="terminal-line">
+            <span style="color: #a1a1aa;">Offline failure mitigation</span>
+            <span class="terminal-tag">✗ MISSING (-5 pts)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <span>Practice Hub on HackerMate</span>
+        <span>Swipe →</span>
+      </div>
+    </div>
+
+    <!-- SLIDE 2 -->
+    <div class="slide">
+      <div class="topbar">
+        <div class="brand">hackermate<span>.in</span></div>
+        <div class="slide-num">02 / 04</div>
+      </div>
+
+      <div class="content">
+        <h2 class="headline">Test your pitch before deadline day</h2>
+        <p class="subtext">A simple sandbox workflow to refine your deck before judges see it.</p>
+
+        <div class="list-group">
+          <div class="item-box">
+            <div class="item-num">01</div>
+            <div>
+              <div class="item-title">Pick a real problem statement</div>
+              <div class="item-desc">Browse active tracks in AI/ML, Web3, FinTech & HealthTech.</div>
+            </div>
+          </div>
+
+          <div class="item-box">
+            <div class="item-num">02</div>
+            <div>
+              <div class="item-title">Fill the 6-slide structure</div>
+              <div class="item-desc">Problem, Tech Stack, System Architecture, Impact & Roadmap.</div>
+            </div>
+          </div>
+
+          <div class="item-box">
+            <div class="item-num">03</div>
+            <div>
+              <div class="item-title">Get diagnostic feedback</div>
+              <div class="item-desc">Spot weak metrics and missing fallback handling instantly.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <span>3-Step Practice Workflow</span>
+        <span>Swipe →</span>
+      </div>
+    </div>
+
+    <!-- SLIDE 3 -->
+    <div class="slide">
+      <div class="topbar">
+        <div class="brand">hackermate<span>.in</span></div>
+        <div class="slide-num">03 / 04</div>
+      </div>
+
+      <div class="content">
+        <h2 class="headline">Why we built Practice for hackathon teams</h2>
+
+        <div class="list-group">
+          <div class="item-box">
+            <div>
+              <div class="item-title">Collaborate with your squad</div>
+              <div class="item-desc">Invite teammates to review slides together before submitting.</div>
+            </div>
+          </div>
+
+          <div class="item-box">
+            <div>
+              <div class="item-title">Build your practice streak</div>
+              <div class="item-desc">Track solved challenges & consistency on your builder passport.</div>
+            </div>
+          </div>
+
+          <div class="item-box">
+            <div>
+              <div class="item-title">Inter-college leaderboard</div>
+              <div class="item-desc">Contribute practice points directly to your campus ranking.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <span>Team Practice & Campus Rank</span>
+        <span>Swipe →</span>
+      </div>
+    </div>
+
+    <!-- SLIDE 4 -->
+    <div class="slide">
+      <div class="topbar">
+        <div class="brand">hackermate<span>.in</span></div>
+        <div class="slide-num">04 / 04</div>
+      </div>
+
+      <div class="content" style="text-align: left; justify-content: center; height: 100%;">
+        <h2 class="headline" style="font-size: 30px;">Refine your next pitch deck.</h2>
+        <p class="subtext" style="margin-top: 8px;">
+          Select a problem statement, test your slides, and ship with confidence on hackathon day.
+        </p>
+
+        <div style="margin-top: 24px;">
+          <div style="background: #ffffff; color: #050505; font-weight: 700; font-size: 14px; padding: 12px 20px; border-radius: 10px; display: inline-block;">
+            hackermate.in/challenges
+          </div>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <span>HackerMate Practice</span>
+        <span class="link">hackermate.in</span>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
