@@ -219,7 +219,35 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       console.warn("[Presentation Extractor] Google Slides export/txt fetch failed:", err.message);
     }
 
-    // Secondary attempt: HTML pub view
+    // Secondary attempt: Direct Google Drive file download
+    const directDriveUrl = `https://drive.google.com/uc?export=download&id=${presentationId}`;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(directDriveUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-SIH-Extractor/1.0",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const arrBuf = await res.arrayBuffer();
+        const buffer = Buffer.from(arrBuf);
+        if (buffer.length > 100 && (buffer.toString("utf8", 0, 10).includes("%PDF") || (res.headers.get("content-type") || "").includes("application/pdf"))) {
+          console.log("[Presentation Extractor] Successfully fetched PDF binary from Google Drive direct link");
+          return extractTextFromPDF(buffer);
+        }
+      }
+    } catch (err: any) {
+      console.warn("[Presentation Extractor] Direct Google Drive file download failed:", err.message);
+    }
+
+    // Tertiary attempt: HTML pub view
     const pubUrl = `https://docs.google.com/presentation/d/${presentationId}/pub`;
     try {
       const controller = new AbortController();
