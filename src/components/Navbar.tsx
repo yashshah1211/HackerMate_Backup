@@ -13,7 +13,7 @@ import { getInitials } from "@/lib/utils";
 import NotificationDrawer from "@/components/NotificationDrawer";
 import Footer from "@/components/Footer";
 import { shouldRenderFooter } from "@/lib/layoutConfig";
-import { Flame, Settings, LogOut } from "lucide-react";
+import { Flame, Settings, LogOut, Users, UserPlus, Handshake, Rocket, Trophy, FolderGit2, LayoutDashboard } from "lucide-react";
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -448,7 +448,7 @@ function isPublicDarkRoute(path: string | null): boolean {
       color: "text-violet-600 dark:text-violet-400",
       activeBg: "bg-violet-500/5 dark:bg-violet-500/10 border-violet-500/10 dark:border-violet-500/20",
       activeBar: "bg-violet-600 dark:bg-violet-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>)
+      icon: <LayoutDashboard className="w-4 h-4" />
     },
     {
       href: "/developers", label: "Builders",
@@ -462,21 +462,30 @@ function isPublicDarkRoute(path: string | null): boolean {
       color: "text-emerald-600 dark:text-emerald-400",
       activeBg: "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/10 dark:border-emerald-500/20",
       activeBar: "bg-emerald-600 dark:bg-emerald-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>)
+      icon: <Handshake className="w-4 h-4" />
     },
     {
       href: "/teams", label: "Teams",
       color: "text-amber-600 dark:text-amber-400",
       activeBg: "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/10 dark:border-amber-500/20",
       activeBar: "bg-amber-600 dark:bg-amber-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>)
+      icon: (
+        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="7" r="3" />
+          <path d="M7 21v-1.5a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4V21" />
+          <circle cx="5" cy="9" r="2.25" />
+          <path d="M1 21v-1a3 3 0 0 1 3-3h1" />
+          <circle cx="19" cy="9" r="2.25" />
+          <path d="M19 17h1a3 3 0 0 1 3 3v1" />
+        </svg>
+      )
     },
     {
       href: "/hackathons", label: "Hackathons",
       color: "text-rose-600 dark:text-rose-400",
       activeBg: "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/10 dark:border-rose-500/20",
       activeBar: "bg-rose-600 dark:bg-rose-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>)
+      icon: <Rocket className="w-4 h-4" />
     },
     {
       href: "/evaluator", label: "Idea Evaluator",
@@ -497,7 +506,7 @@ function isPublicDarkRoute(path: string | null): boolean {
       color: "text-amber-600 dark:text-amber-400",
       activeBg: "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/10 dark:border-amber-500/20",
       activeBar: "bg-amber-600 dark:bg-amber-500",
-      icon: (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.004-6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM12 3v3.75" /></svg>)
+      icon: <Trophy className="w-4 h-4" />
     },
     {
       href: "/messages", label: "Messages",
@@ -581,7 +590,7 @@ function isPublicDarkRoute(path: string | null): boolean {
             onClick={() => setShowMobileSidebar(false)}
             className={`nav-item ${pathname === "/my-teams" ? "active" : ""}`}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+            <FolderGit2 className="w-4 h-4" />
             My Teams
           </Link>
 
