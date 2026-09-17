@@ -122,7 +122,7 @@ export default function OutreachTab({
       `Hi Team ${lead.college_or_host || "Organizers"},\n\n` +
         `I saw that ${lead.title} is coming up on Unstop! Congrats on organizing it.\n\n` +
         `I'm Yash, founder of HackerMate (https://hackermate.in) — a dedicated team-formation platform for hackathons (skills & GitHub stats matching).\n\n` +
-        `Solo builders often struggle to find teammates, leading to dropouts & spam in Discord/WhatsApp groups. We'd love to serve as your Official Teammate Matching Partner (100% free for your event).\n\n` +
+        `Solo builders often struggle to find teammates, leading to dropouts & spam in Discord/WhatsApp groups. We'd love to serve as your Official Teammate Matching Partner for your event.\n\n` +
         `What we will do for ${lead.title}:\n` +
         `1. Provide a clean team-matching portal for your participants.\n` +
         `2. Eliminate team-formation spam in your channels.\n` +
@@ -193,7 +193,7 @@ export default function OutreachTab({
       `Hi Team,\n\n` +
         `Congrats on launching your hackathon on Unstop!\n\n` +
         `I'm Yash, founder of HackerMate (https://hackermate.in) — a dedicated team-formation platform for hackathons (skills & GitHub stats matching).\n\n` +
-        `Solo builders often struggle to find teammates, leading to dropouts & spam in Discord/WhatsApp groups. We'd love to serve as your Official Teammate Matching Partner (100% free for your event).\n\n` +
+        `Solo builders often struggle to find teammates, leading to dropouts & spam in Discord/WhatsApp groups. We'd love to serve as your Official Teammate Matching Partner for your event.\n\n` +
         `What we will do for your event:\n` +
         `1. Provide a clean team-matching portal for your participants.\n` +
         `2. Eliminate team-formation spam in your channels.\n` +
