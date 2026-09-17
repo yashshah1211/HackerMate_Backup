@@ -84,7 +84,7 @@ export default function ChallengesPage() {
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-700 dark:text-lime-400 text-xs font-mono mb-4 font-semibold">
             <Flame className="w-3.5 h-3.5" />
-            <span>BIWEEKLY SYSTEM DESIGN & PITCH DECK CHALLENGES</span>
+            <span>WEEKLY SYSTEM DESIGN & PITCH DECK CHALLENGES</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight">
             Sharpen Your Architecture & Pitch Decks

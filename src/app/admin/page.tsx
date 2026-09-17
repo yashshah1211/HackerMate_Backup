@@ -1323,7 +1323,7 @@ function AdminContent() {
                   </span>
                 </h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Publish recurring problem statements, set biweekly active windows, and manage submission lifecycles.
+                  Publish recurring problem statements, set weekly active windows, and manage submission lifecycles.
                 </p>
               </div>
 
