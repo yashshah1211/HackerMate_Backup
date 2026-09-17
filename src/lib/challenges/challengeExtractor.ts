@@ -95,6 +95,7 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
     const presentationId = googleSlidesMatch[1];
     const exportTxtUrl = `https://docs.google.com/presentation/d/${presentationId}/export/txt`;
 
+    // Strategy 1: Google Slides export/txt
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 7000);
@@ -112,7 +113,7 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
       if (res.ok) {
         const text = await res.text();
         const cleaned = sanitizeExtractedText(text);
-        if (cleaned.length > 50) {
+        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentChallengeSlidesFromText(cleaned);
           const structuredSlides = mapToChallengeSlideStructure(slideChunks, cleaned);
           return {
@@ -127,7 +128,7 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
       console.warn("[Challenge Extractor] Google Slides export/txt fetch failed:", err.message);
     }
 
-    // Secondary attempt: Direct Google Drive file download (for uploaded PDF files on Drive)
+    // Strategy 2: Direct Google Drive file download (for uploaded PDF files on Drive)
     const directDriveUrl = `https://drive.google.com/uc?export=download&id=${presentationId}`;
     try {
       const controller = new AbortController();
@@ -146,17 +147,50 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
       if (res.ok) {
         const arrBuf = await res.arrayBuffer();
         const buffer = Buffer.from(arrBuf);
-        // Check if PDF header '%PDF-' exists
         if (buffer.length > 100 && (buffer.toString("utf8", 0, 10).includes("%PDF") || (res.headers.get("content-type") || "").includes("application/pdf"))) {
-          console.log("[Challenge Extractor] Successfully fetched PDF binary from Google Drive direct download link");
-          return extractChallengeTextFromPDF(buffer);
+          console.log("[Challenge Extractor] Successfully fetched PDF binary from Google Drive direct link");
+          const pdfExtraction = await extractChallengeTextFromPDF(buffer);
+          if (pdfExtraction.success && pdfExtraction.rawDocumentText.length > 50 && !isGoogleAuthOrBlockedHtml(pdfExtraction.rawDocumentText)) {
+            return pdfExtraction;
+          }
         }
       }
     } catch (err: any) {
       console.warn("[Challenge Extractor] Direct Google Drive file download failed:", err.message);
     }
 
-    // Tertiary attempt: HTML pub view
+    // Strategy 3: Google Slides PDF export fallback
+    const googlePdfExportUrl = `https://docs.google.com/presentation/d/${presentationId}/export/pdf`;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(googlePdfExportUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-Challenge-Extractor/1.0",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const arrBuf = await res.arrayBuffer();
+        const buffer = Buffer.from(arrBuf);
+        if (buffer.length > 100 && buffer.toString("utf8", 0, 10).includes("%PDF")) {
+          console.log("[Challenge Extractor] Successfully fetched PDF binary from Google Slides export/pdf endpoint");
+          const pdfExtraction = await extractChallengeTextFromPDF(buffer);
+          if (pdfExtraction.success && pdfExtraction.rawDocumentText.length > 50 && !isGoogleAuthOrBlockedHtml(pdfExtraction.rawDocumentText)) {
+            return pdfExtraction;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("[Challenge Extractor] Google Slides export/pdf failed:", err.message);
+    }
+
+    // Strategy 4: HTML pub view
     const pubUrl = `https://docs.google.com/presentation/d/${presentationId}/pub`;
     try {
       const controller = new AbortController();
@@ -175,7 +209,7 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
       if (res.ok) {
         const html = await res.text();
         const cleaned = stripHtmlToText(html);
-        if (cleaned.length > 50) {
+        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentChallengeSlidesFromText(cleaned);
           const structuredSlides = mapToChallengeSlideStructure(slideChunks, cleaned);
           return {
@@ -217,7 +251,7 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
         } else if (contentType.includes("text/html") || contentType.includes("text/plain")) {
           const raw = buffer.toString("utf8");
           const cleaned = stripHtmlToText(raw);
-          if (cleaned.length > 50) {
+          if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
             const slideChunks = segmentChallengeSlidesFromText(cleaned);
             const structuredSlides = mapToChallengeSlideStructure(slideChunks, cleaned);
             return {
@@ -299,6 +333,22 @@ export function segmentChallengeSlidesFromText(rawText: string): string[] {
   }
 
   return [rawText];
+}
+
+/**
+ * Checks if extracted text is actually a Google Auth login screen or access denied page.
+ */
+export function isGoogleAuthOrBlockedHtml(text: string): boolean {
+  if (!text || text.length < 10) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("sign in - google accounts") ||
+    lower.includes("sign in to continue to google") ||
+    lower.includes("use your google account") ||
+    lower.includes("accounts.google.com") ||
+    (lower.includes("google drive") && lower.includes("sign in") && !lower.includes("slide")) ||
+    (lower.includes("access denied") && !lower.includes("architecture"))
+  );
 }
 
 function mapToChallengeSlideStructure(slideChunks: string[], fullText: string): ExtractedChallengeSlide[] {
