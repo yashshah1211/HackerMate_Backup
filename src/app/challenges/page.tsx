@@ -163,8 +163,8 @@ export default function ChallengesPage() {
                   href={`/challenges/${activeChallenge.slug}`}
                   className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${
                     isActive
-                      ? "bg-lime-500 hover:bg-lime-400 text-zinc-950 shadow-lg shadow-lime-500/20 hover:scale-[1.02]"
-                      : "bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-950 border border-zinc-900 dark:border-zinc-100 shadow-sm hover:scale-[1.02]"
+                      ? "bg-lime-500 hover:bg-lime-400 text-zinc-950 shadow-md shadow-lime-500/20 hover:scale-[1.02]"
+                      : "bg-lime-500/15 hover:bg-lime-500/25 text-lime-800 dark:text-lime-300 border border-lime-500/40 dark:border-lime-500/50 shadow-xs hover:scale-[1.02]"
                   }`}
                 >
                   <span>{isActive ? "Submit Solution" : "View Challenge Briefing"}</span>
