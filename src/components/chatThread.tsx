@@ -8,7 +8,22 @@ import { moderateMessage } from "@/lib/safety";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
 import ImageLightbox from "@/components/ImageLightbox";
 import VoiceNotePlayer from "@/components/VoiceNotePlayer";
-import { soundManager } from "@/lib/audioSounds";
+import {
+  Check,
+  CheckCheck,
+  Send,
+  Image as ImageIcon,
+  Mic,
+  Smile,
+  Code2,
+  Pin,
+  Trash2,
+  Flag,
+  CornerUpLeft,
+  ChevronLeft,
+  ExternalLink,
+  X,
+} from "lucide-react";
 
 type Message = {
   id: string;
@@ -42,6 +57,13 @@ type Props = {
   currentUserId: string;
   knownProfiles?: Record<string, SenderProfile>;
   height?: string;
+  otherUser?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    college?: string | null;
+  } | null;
+  onBack?: () => void;
 };
 
 const STANDARD_EMOJIS = ["👍", "❤️", "🔥", "🚀", "🎉", "😂", "👀"];
@@ -277,7 +299,9 @@ export default function ChatThread({
   conversationId,
   currentUserId,
   knownProfiles = {},
-  height = "420px",
+  height,
+  otherUser,
+  onBack,
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
@@ -312,11 +336,23 @@ export default function ChatThread({
   const [conversationType, setConversationType] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
-  // Audio chimes sound state
-  const [isMuted, setIsMuted] = useState(false);
-
   // Lightbox full-screen state
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  // Active message reaction picker state
+  const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeReactionPickerId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".reaction-picker-container")) {
+        setActiveReactionPickerId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeReactionPickerId]);
 
   // Voice note recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -345,15 +381,6 @@ export default function ChatThread({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const myProfile = profiles[currentUserId] || null;
-
-  useEffect(() => {
-    setIsMuted(soundManager.getMuted());
-  }, []);
-
-  const toggleSoundMute = () => {
-    const nextMute = soundManager.toggleMute();
-    setIsMuted(nextMute);
-  };
 
   function scrollToMessage(msgId: string) {
     const el = document.getElementById(`msg-${msgId}`);
@@ -589,7 +616,6 @@ export default function ChatThread({
           if (activeClearedAt && new Date(newMsg.created_at) <= new Date(activeClearedAt)) return;
           const isMine = newMsg.sender_id === currentUserId;
           if (!isMine) {
-            soundManager.playReceived();
             supabase.rpc("mark_conversation_read", {
               p_conversation_id: conversationId,
             }).then(({ error: readErr }) => {
@@ -1136,7 +1162,6 @@ export default function ChatThread({
         const { publicUrl } = await uploadRes.json();
 
         const voicePayload = `__VOICE__::${JSON.stringify({ url: publicUrl, duration: finalSeconds })}`;
-        soundManager.playSent();
 
         await supabase.rpc("send_message_with_mentions", {
           p_conversation_id: conversationId,
@@ -1193,8 +1218,6 @@ export default function ChatThread({
 
         const { publicUrl } = await uploadRes.json();
         const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: stagedImage.file.name })}`;
-        
-        soundManager.playSent();
 
         const { error: sendErr } = await supabase.rpc("send_message_with_mentions", {
           p_conversation_id: conversationId,
@@ -1229,8 +1252,6 @@ export default function ChatThread({
             return user ? safetyResult.sanitized.includes(`@${user.full_name}`) : false;
           })
         ));
-
-        soundManager.playSent();
 
         const { error } = await supabase.rpc("send_message_with_mentions", {
           p_conversation_id: conversationId,
@@ -1433,6 +1454,149 @@ export default function ChatThread({
     );
   }
 
+  function renderReplyQuote(replyToId: string, isMine: boolean) {
+    const parentMsg = messages.find((m) => m.id === replyToId);
+    const parentSender = parentMsg ? profiles[parentMsg.sender_id] : null;
+
+    return (
+      <div
+        onClick={() => scrollToMessage(replyToId)}
+        className={`mb-2 p-2 rounded-xl border text-[11px] cursor-pointer transition-all ${
+          isMine
+            ? "bg-black/20 border-white/20 text-white hover:bg-black/30"
+            : "bg-white dark:bg-zinc-950/80 border-zinc-200 dark:border-zinc-800/90 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
+        }`}
+      >
+        <div className={`flex items-center gap-1 font-semibold text-[10px] mb-0.5 ${isMine ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}>
+          <CornerUpLeft className="w-3 h-3" />
+          <span className="truncate">
+            {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
+          </span>
+        </div>
+        <p className="truncate opacity-90 text-[10px]">
+          {parentMsg
+            ? parentMsg.content.startsWith("__TEAM_INVITE__::")
+              ? "✉️ Team Invitation"
+              : parentMsg.content.startsWith("__IMAGE__::")
+                ? "🖼️ Photo Attachment"
+                : parentMsg.content.startsWith("__VOICE__::")
+                  ? "🎙️ Voice Note"
+                  : parentMsg.content
+            : "Click to jump to original message"}
+        </p>
+      </div>
+    );
+  }
+
+  function renderMessageActions(msg: Message, isMine: boolean) {
+    const isPickerOpen = activeReactionPickerId === msg.id;
+
+    return (
+      <div
+        className={`absolute -top-3.5 ${
+          isMine ? "right-1" : "left-1"
+        } ${
+          isPickerOpen
+            ? "opacity-100 z-40 pointer-events-auto"
+            : "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 z-20 pointer-events-none group-hover/msg:pointer-events-auto"
+        } transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-md`}
+      >
+        {/* All standard emojis */}
+        {STANDARD_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => toggleReaction(msg.id, emoji)}
+            className="hover:scale-125 transition-transform text-[12px] p-0.5 cursor-pointer leading-none"
+            title={`React with ${emoji}`}
+          >
+            {emoji}
+          </button>
+        ))}
+
+        {/* More reactions picker button */}
+        <div className="relative reaction-picker-container">
+          <button
+            type="button"
+            onClick={() => setActiveReactionPickerId(isPickerOpen ? null : msg.id)}
+            className={`p-1 text-zinc-400 hover:text-violet-600 dark:hover:text-white transition-colors cursor-pointer rounded-full ${
+              isPickerOpen ? "text-violet-600 dark:text-white bg-zinc-100 dark:bg-zinc-800" : ""
+            }`}
+            title="More reactions"
+          >
+            <Smile className="w-3 h-3" />
+          </button>
+
+          {/* Expanded Emoji Picker Popover */}
+          {isPickerOpen && (
+            <div
+              className={`absolute top-full mt-1.5 ${
+                isMine ? "right-0" : "left-0"
+              } p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 grid grid-cols-6 gap-1 w-56 animate-fade-in`}
+            >
+              {HACKATHON_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    toggleReaction(msg.id, emoji);
+                    setActiveReactionPickerId(null);
+                  }}
+                  className="hover:scale-125 transition-transform text-sm p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer flex items-center justify-center leading-none"
+                  title={`React with ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+
+        <button
+          type="button"
+          onClick={() => setReplyingTo(msg)}
+          className="p-1 text-zinc-400 hover:text-violet-600 dark:hover:text-white transition-colors cursor-pointer"
+          title="Reply to message"
+        >
+          <CornerUpLeft className="w-3 h-3" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
+          }
+          className="p-1 text-zinc-400 hover:text-amber-500 dark:hover:text-white transition-colors cursor-pointer"
+          title={msg.is_pinned ? "Unpin message" : "Pin message"}
+        >
+          <Pin className={`w-3 h-3 ${msg.is_pinned ? "fill-amber-500 text-amber-500" : ""}`} />
+        </button>
+
+        {isMine ? (
+          <button
+            type="button"
+            onClick={() => handleDeleteMessage(msg.id)}
+            className="p-1 text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+            title="Delete message"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setReportingMsg(msg)}
+            className="p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+            title="Report message or attachment"
+          >
+            <Flag className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const pinnedMessage = [...messages].reverse().find((m) => m.is_pinned) ?? null;
   const activeTyperNames = Object.values(typingUsers).map((u) => u.fullName);
 
@@ -1441,13 +1605,13 @@ export default function ChatThread({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`card card-static flex flex-col overflow-hidden relative bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 transition-all ${
-        isDraggingOver ? "ring-2 ring-violet-500 bg-violet-50 dark:bg-violet-950/20" : ""
+      className={`flex flex-col h-full min-h-0 w-full overflow-hidden relative bg-white dark:bg-[#0c0c0e] transition-all ${
+        isDraggingOver ? "ring-2 ring-violet-500 bg-violet-500/5" : ""
       }`}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDraggingOver && (
-        <div className="absolute inset-0 z-50 bg-violet-900/80 dark:bg-violet-950/80 backdrop-blur-xs border-2 border-dashed border-violet-400 rounded-2xl flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-none">
+        <div className="absolute inset-0 z-50 bg-violet-950/80 backdrop-blur-xs border-2 border-dashed border-violet-500 rounded-2xl flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-none">
           <div className="w-12 h-12 rounded-2xl bg-violet-600/30 flex items-center justify-center text-2xl mb-2 animate-bounce">
             📸
           </div>
@@ -1467,14 +1631,14 @@ export default function ChatThread({
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-rose-500 dark:text-rose-400 text-base">🚩</span>
+                <Flag className="w-4 h-4 text-rose-500" />
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Report Content</h3>
               </div>
               <button
                 onClick={() => setReportingMsg(null)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-xs cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-xs cursor-pointer p-1"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1543,54 +1707,107 @@ export default function ChatThread({
       )}
 
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/90 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
-            {conversationType === "dm" ? "Direct Message" : "Team Chat"}
-          </span>
-          {uploadingMedia && (
-            <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
-              Processing media...
+      {otherUser ? (
+        <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-900/40 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="lg:hidden p-1.5 -ml-1 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Back to conversations"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+
+            <div className="relative shrink-0">
+              {otherUser.avatar_url ? (
+                <img
+                  src={otherUser.avatar_url}
+                  alt={otherUser.full_name}
+                  className="w-9 h-9 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700/80"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-violet-600/10 dark:bg-violet-500/15 border border-violet-500/20 flex items-center justify-center font-bold text-violet-600 dark:text-violet-400 text-xs">
+                  {otherUser.full_name?.charAt(0)}
+                </div>
+              )}
+              <span
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900"
+                title="Active connection"
+              />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="font-semibold text-xs text-zinc-900 dark:text-white truncate">
+                {otherUser.full_name}
+              </h2>
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                {otherUser.college || "Independent Builder"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Link
+              href={`/profile/${otherUser.id}`}
+              className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 hover:text-zinc-900 border border-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:hover:text-white dark:border-zinc-700 text-[11px] font-medium transition-colors flex items-center gap-1 shadow-xs"
+            >
+              <span>View Profile</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+
+            <button
+              type="button"
+              onClick={clearChat}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
+              title="Clear Chat History"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[10px] font-mono uppercase">Clear</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
+              {conversationType === "dm" ? "Direct Message" : "Team Chat"}
             </span>
-          )}
-        </div>
+            {uploadingMedia && (
+              <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
+                Processing media...
+              </span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-3">
-          {/* Sound Mute Toggle */}
-          <button
-            onClick={toggleSoundMute}
-            className="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-            title={isMuted ? "Unmute chat sound effects" : "Mute chat sound effects"}
-          >
-            {isMuted ? "🔇" : "🔊"}
-          </button>
-
-          {/* Clear Chat */}
-          <button
-            onClick={clearChat}
-            className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1.5 cursor-pointer"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
-            Clear Chat
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearChat}
+              className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1 cursor-pointer p-1 rounded-lg"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Messages Scroll Area */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="overflow-y-auto px-4 py-4 space-y-3.5 bg-white dark:bg-zinc-950"
-        style={{ height }}
+        className="overflow-y-auto px-4 py-4 space-y-3 bg-white dark:bg-[#0c0c0e] flex-1 min-h-0"
+        style={height ? { height } : undefined}
       >
         {pinnedMessage && (
           <div className="mb-4 sticky top-0 z-10">
-            <div className="rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2">
+            <div className="rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 shadow-xs">
               <div className="flex items-center gap-2">
-                <span className="text-amber-500 dark:text-amber-400">📌</span>
+                <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-semibold">
                     Pinned Message
@@ -1619,13 +1836,14 @@ export default function ChatThread({
             <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3">
-              <svg className="w-5 h-5 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="flex flex-col items-center justify-center h-full text-center p-6">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
+              <svg className="w-6 h-6 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
             </div>
-            <p className="text-zinc-500 text-xs">No messages yet. Say hi 👋</p>
+            <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-0.5">No messages yet</h3>
+            <p className="text-zinc-500 text-[11px]">Say hi to start the conversation 👋</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -1633,11 +1851,7 @@ export default function ChatThread({
             const sender = profiles[msg.sender_id];
             const isMentioned = msg.mentions && msg.mentions.includes(currentUserId);
             const isInviteCard = msg.content.startsWith("__TEAM_INVITE__::");
-
-            const parentMsg = msg.reply_to_id
-              ? messages.find((m) => m.id === msg.reply_to_id)
-              : null;
-            const parentSender = parentMsg ? profiles[parentMsg.sender_id] : null;
+            const isImage = msg.content.startsWith("__IMAGE__::");
 
             const msgReactions = reactions[msg.id] || [];
             const reactionGroups: { emoji: string; count: number; hasReacted: boolean; userNames: string[] }[] = [];
@@ -1669,111 +1883,36 @@ export default function ChatThread({
                   </div>
                 )}
 
-                <div className={`max-w-[75%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
+                <div className={`max-w-[78%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
                   {!isMine && (
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-0.5 px-0.5 font-medium">
                       {sender?.full_name || "Unknown"}
                     </span>
                   )}
+
                   {isInviteCard ? (
                     renderMessageContent(msg.content, isMine)
+                  ) : isImage ? (
+                    <div className="group relative">
+                      {msg.reply_to_id && renderReplyQuote(msg.reply_to_id, isMine)}
+                      {renderMessageContent(msg.content, isMine)}
+                      {renderMessageActions(msg, isMine)}
+                    </div>
                   ) : (
                     <div className="group relative">
                       <div
                         className={`px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
                           isMine
-                            ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/10"
+                            ? "bg-violet-600 text-white rounded-br-xs shadow-xs"
                             : isMentioned
-                              ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 shadow-xs"
-                              : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100"
+                              ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 rounded-bl-xs shadow-xs"
+                              : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-bl-xs shadow-xs"
                         }`}
                       >
-                        {msg.reply_to_id && (
-                          <div
-                            onClick={() => scrollToMessage(msg.reply_to_id!)}
-                            className={`mb-2 p-2 rounded-xl border text-[11px] cursor-pointer transition-all ${
-                              isMine
-                                ? "bg-black/20 border-white/20 text-white hover:bg-black/30"
-                                : "bg-white dark:bg-zinc-950/80 border-zinc-200 dark:border-zinc-800/90 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
-                            }`}
-                          >
-                            <div className={`flex items-center gap-1 font-bold text-[10px] mb-0.5 ${isMine ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}>
-                              <span>↩️</span>
-                              <span className="truncate">
-                                {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
-                              </span>
-                            </div>
-                            <p className="truncate opacity-90 text-[10px]">
-                              {parentMsg
-                                ? parentMsg.content.startsWith("__TEAM_INVITE__::")
-                                  ? "✉️ Team Invitation"
-                                  : parentMsg.content.startsWith("__IMAGE__::")
-                                    ? "🖼️ Photo Attachment"
-                                    : parentMsg.content.startsWith("__VOICE__::")
-                                      ? "🎙️ Voice Note"
-                                      : parentMsg.content
-                                : "Click to jump to original message"}
-                            </p>
-                          </div>
-                        )}
+                        {msg.reply_to_id && renderReplyQuote(msg.reply_to_id, isMine)}
                         {renderMessageContent(msg.content, isMine)}
                       </div>
-
-                      {/* Floating Action & Quick Reaction Bar */}
-                      <div className={`absolute -top-3.5 ${isMine ? "-left-2" : "-right-2"} opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-lg z-20`}>
-                        {STANDARD_EMOJIS.slice(0, 4).map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => toggleReaction(msg.id, emoji)}
-                            className="hover:scale-125 transition-transform text-[12px] p-0.5 cursor-pointer leading-none"
-                            title={`React with ${emoji}`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                        
-                        <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
-
-                        <button
-                          onClick={() => setReplyingTo(msg)}
-                          className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-white text-[10px] transition-colors cursor-pointer"
-                          title="Reply to message"
-                        >
-                          ↩️
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
-                          }
-                          className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-white text-[10px] transition-colors cursor-pointer"
-                          title={msg.is_pinned ? "Unpin message" : "Pin message"}
-                        >
-                          {msg.is_pinned ? "📍" : "📌"}
-                        </button>
-
-                        {/* Delete message button (Sender only) */}
-                        {isMine && (
-                          <button
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
-                            title="Delete message"
-                          >
-                            🗑️
-                          </button>
-                        )}
-
-                        {/* Report message button (Recipient only) */}
-                        {!isMine && (
-                          <button
-                            onClick={() => setReportingMsg(msg)}
-                            className="px-1 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
-                            title="Report message or attachment"
-                          >
-                            🚩
-                          </button>
-                        )}
-                      </div>
+                      {renderMessageActions(msg, isMine)}
                     </div>
                   )}
 
@@ -1787,7 +1926,7 @@ export default function ChatThread({
                           title={`${group.userNames.join(", ")} reacted`}
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all cursor-pointer border ${
                             group.hasReacted
-                              ? "bg-violet-100 dark:bg-violet-950/70 border-violet-300 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold scale-100"
+                              ? "bg-violet-100 dark:bg-violet-950/70 border-violet-300 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold"
                               : "bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                           }`}
                         >
@@ -1800,26 +1939,17 @@ export default function ChatThread({
 
                   {/* Timestamp & Read Receipt */}
                   <div className="flex items-center gap-1 mt-0.5 px-0.5">
-                    <span className="text-[9px] text-zinc-500 dark:text-zinc-400">
+                    <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">
                       {formatTime(msg.created_at)}
                     </span>
                     {isMine && (
-                      <div className="flex items-center" title={msg.is_read ? "Read" : "Sent"}>
+                      <span className="flex items-center" title={msg.is_read ? "Read" : "Sent"}>
                         {msg.is_read ? (
-                          <div className="flex items-center -space-x-1.5">
-                            <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                            <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                          </div>
+                          <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
                         ) : (
-                          <svg className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                          </svg>
+                          <Check className="w-3 h-3 text-zinc-400 dark:text-zinc-600" />
                         )}
-                      </div>
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1830,7 +1960,7 @@ export default function ChatThread({
       </div>
 
       {/* Input & Footer Area */}
-      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-950/40 p-3.5 relative">
+      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-zinc-950/70 p-3 relative shrink-0">
         {/* Hidden File Input for Image attachments */}
         <input
           type="file"
@@ -1842,7 +1972,7 @@ export default function ChatThread({
 
         {/* Live Typing Indicator */}
         {activeTyperNames.length > 0 && (
-          <div className="absolute -top-6 left-4 flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 font-medium bg-white/90 dark:bg-zinc-900/90 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-900/60 shadow-xs animate-fade-in">
+          <div className="absolute -top-6 left-4 flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 font-medium bg-white/90 dark:bg-zinc-900/90 px-2.5 py-0.5 rounded-full border border-violet-200 dark:border-violet-900/60 shadow-xs animate-fade-in">
             <span>💬</span>
             <span>
               {activeTyperNames.length === 1
@@ -1859,13 +1989,14 @@ export default function ChatThread({
 
         {/* Replying banner */}
         {replyingTo && (
-          <div className="mb-2.5 p-2 rounded-xl bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
+          <div className="mb-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-1 h-7 rounded-full bg-violet-500 flex-shrink-0" />
+              <div className="w-1 h-6 rounded-full bg-violet-500 shrink-0" />
               <div className="min-w-0">
                 <div className="text-[10px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1">
-                  <span>↩️ Replying to</span>
-                  <span className="text-zinc-900 dark:text-zinc-200 truncate">
+                  <CornerUpLeft className="w-3 h-3" />
+                  <span>Replying to</span>
+                  <span className="text-zinc-900 dark:text-zinc-200 truncate font-semibold">
                     {profiles[replyingTo.sender_id]?.full_name || "User"}
                   </span>
                 </div>
@@ -1885,20 +2016,20 @@ export default function ChatThread({
               className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
               title="Cancel reply"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
         {/* Staged Image Preview in Typing Box */}
         {stagedImage && (
-          <div className="mb-2.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shadow-md animate-fade-in">
+          <div className="mb-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shadow-sm animate-fade-in">
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative shrink-0">
                 <img
                   src={stagedImage.previewUrl}
                   alt="Staged attachment preview"
-                  className="w-12 h-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-750 shadow-xs"
+                  className="w-10 h-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-750"
                 />
                 <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-500 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center text-[7px] text-white font-bold">
                   ✓
@@ -1909,7 +2040,7 @@ export default function ChatThread({
                   {stagedImage.file.name}
                 </p>
                 <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
-                  {(stagedImage.file.size / 1024).toFixed(0)} KB • Ready to send (add caption below)
+                  {(stagedImage.file.size / 1024).toFixed(0)} KB • Ready to send
                 </p>
               </div>
             </div>
@@ -1919,23 +2050,23 @@ export default function ChatThread({
                 URL.revokeObjectURL(stagedImage.previewUrl);
                 setStagedImage(null);
               }}
-              className="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white flex items-center justify-center text-xs transition-colors cursor-pointer"
+              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors cursor-pointer"
               title="Remove attachment"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
         {conversationType === "dm" && recipientId && ownedTeams.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-zinc-200 dark:border-zinc-800/60">
-            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mr-1 select-none font-semibold">Quick Invites:</span>
+          <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-zinc-200 dark:border-zinc-800/60">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mr-1 select-none font-semibold">Quick Invites:</span>
             {ownedTeams.map((team) => (
               <button
                 key={team.id}
                 onClick={() => handleSendQuickInvite(team.id, team.name)}
                 disabled={sending || uploadingMedia}
-                className="px-2.5 py-1 text-[10px] rounded-full border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition-all font-medium disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-0.5 text-[10px] rounded-full border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition-all font-medium disabled:opacity-50 flex items-center gap-1 cursor-pointer"
               >
                 <span>➕ Invite to {team.name}</span>
               </button>
@@ -1944,14 +2075,14 @@ export default function ChatThread({
         )}
 
         {safetyError && (
-          <div className="mb-2 p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] leading-normal animate-fade-in">
+          <div className="mb-2 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] leading-normal animate-fade-in">
             ⚠️ {safetyError}
           </div>
         )}
 
         {/* Emoji Picker Popover */}
         {showEmojiPicker && (
-          <div className="absolute bottom-16 left-3 p-2 rounded-2xl bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 shadow-2xl backdrop-blur-md z-40 grid grid-cols-6 gap-1 max-w-[240px] animate-fade-in">
+          <div className="absolute bottom-16 left-3 p-2 rounded-2xl bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 shadow-xl backdrop-blur-md z-40 grid grid-cols-6 gap-1 max-w-[240px] animate-fade-in">
             {HACKATHON_EMOJIS.map((em) => (
               <button
                 key={em}
@@ -1985,7 +2116,7 @@ export default function ChatThread({
 
             <button
               onClick={stopAndSendVoiceNote}
-              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
+              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1"
               title="Send voice note"
             >
               <span>Send</span>
@@ -1999,12 +2130,10 @@ export default function ChatThread({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50"
+              className="p-2 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
               title="Attach image (or drag & drop / Ctrl+V)"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
+              <ImageIcon className="w-4 h-4" />
             </button>
 
             {/* Voice Note Mic Button */}
@@ -2012,12 +2141,10 @@ export default function ChatThread({
               type="button"
               onClick={startVoiceRecording}
               disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50"
+              className="p-2 rounded-xl text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
               title="Record voice note"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 01-3-3V4.5a3 3 0 116 0v7.5a3 3 0 01-3 3z" />
-              </svg>
+              <Mic className="w-4 h-4" />
             </button>
 
             {/* Emoji Picker Trigger */}
@@ -2025,10 +2152,10 @@ export default function ChatThread({
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-amber-500 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50 text-xs leading-none"
+              className="p-2 rounded-xl text-zinc-500 hover:text-amber-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
               title="Add emoji"
             >
-              😀
+              <Smile className="w-4 h-4" />
             </button>
 
             {/* Insert Code Block Button */}
@@ -2036,10 +2163,10 @@ export default function ChatThread({
               type="button"
               onClick={insertCodeBlock}
               disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all cursor-pointer disabled:opacity-50 text-[11px] font-mono font-bold leading-none"
+              className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
               title="Insert code snippet"
             >
-              {"</>"}
+              <Code2 className="w-4 h-4" />
             </button>
 
             {/* Textarea */}
@@ -2061,23 +2188,21 @@ export default function ChatThread({
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
               disabled={isBlocked}
-              placeholder={isBlocked ? "You cannot message this user." : stagedImage ? "Add an optional caption..." : "Type message... (Paste image, drag & drop, or code ```)"}
-              rows={2}
-              className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-950/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[40px] max-h-[100px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder={isBlocked ? "You cannot message this user." : stagedImage ? "Add an optional caption..." : "Type message... (Paste image or drag & drop)"}
+              rows={1}
+              className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[38px] max-h-[120px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
             />
 
             {/* Send Button */}
             <button
+              type="button"
               onClick={sendMessage}
               disabled={(!input.trim() && !stagedImage) || sending || isBlocked || uploadingMedia}
               aria-label="Send message"
               title="Send message"
-              className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
-              style={{ height: "38px", width: "38px", padding: 0 }}
+              className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer h-[38px] w-[38px] p-0"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-              </svg>
+              <Send className="w-4 h-4" />
             </button>
 
             {/* Mentions dropdown */}

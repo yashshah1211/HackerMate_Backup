@@ -32,6 +32,7 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
 
   const [mounted, setMounted] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -63,6 +64,17 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       ) {
         setHasSession(true);
       }
+
+      // Synchronously restore cached user profile to eliminate guest flash on page reload
+      const cached = localStorage.getItem("hackermate_user_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.id) {
+          setUser({ id: parsed.id } as any);
+          setProfile({ full_name: parsed.full_name || null, role: parsed.role || null });
+          setHasSession(true);
+        }
+      }
     } catch {}
   }, []);
 
@@ -76,6 +88,16 @@ export default function Navbar({ children }: { children: React.ReactNode }) {
       const { data } = await supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, last_active_date").eq("id", activeUser.id).single();
 
       setProfile(data);
+      try {
+        localStorage.setItem(
+          "hackermate_user_cache",
+          JSON.stringify({
+            id: activeUser.id,
+            full_name: data?.full_name || null,
+            role: data?.role || null,
+          })
+        );
+      } catch {}
       if (data?.current_streak) {
         const todayStr = new Date().toISOString().split("T")[0];
         const yesterday = new Date();
@@ -216,13 +238,22 @@ function isPublicDarkRoute(path: string | null): boolean {
     let heartbeatInterval: NodeJS.Timeout | null = null;
 
     Promise.resolve().then(async () => {
-      const { data: { user: sessionUser } } = await supabase.auth.getUser();
-      if (!sessionUser) return;
-      if (!active) return;
+      try {
+        const { data: { user: sessionUser } } = await supabase.auth.getUser();
+        if (!sessionUser) {
+          setUser(null);
+          setProfile(null);
+          setHasSession(false);
+          try {
+            localStorage.removeItem("hackermate_user_cache");
+          } catch {}
+          return;
+        }
+        if (!active) return;
 
-      await loadUser(sessionUser);
-      await loadUnreadCount(sessionUser.id);
-      await loadUnreadMessages(sessionUser.id);
+        await loadUser(sessionUser);
+        await loadUnreadCount(sessionUser.id);
+        await loadUnreadMessages(sessionUser.id);
 
       // Start periodic 30-second heartbeat to track user activity/online status
       heartbeatInterval = setInterval(async () => {
@@ -259,7 +290,14 @@ function isPublicDarkRoute(path: string | null): boolean {
         });
 
       unsubNotif = subscribeWithRetry(notifChannel);
-      unsubParticipant = subscribeWithRetry(participantChannel);
+      unsubParticipant = () => {
+        supabase.removeChannel(participantChannel);
+      };
+      } catch (err) {
+        console.error("Failed to initialize navbar session:", err);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
     });
 
     return () => {
@@ -302,6 +340,9 @@ function isPublicDarkRoute(path: string | null): boolean {
   async function executeLogout() {
     setShowSignOutConfirm(false);
     localStorage.removeItem("theme");
+    try {
+      localStorage.removeItem("hackermate_user_cache");
+    } catch {}
     document.documentElement.className = "dark";
     setTheme("dark");
     setUser(null);
@@ -575,6 +616,8 @@ function isPublicDarkRoute(path: string | null): boolean {
                 <span>Log out</span>
               </button>
             </div>
+          ) : authLoading || hasSession ? (
+            <div className="rounded-xl border border-zinc-800/40 bg-[#121215]/50 p-2 h-[72px] animate-pulse" />
           ) : (
             <Link
               href="/login"
@@ -639,6 +682,8 @@ function isPublicDarkRoute(path: string | null): boolean {
               <Link href={`/profile/${user.id}`} className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-[11px] text-white hover:opacity-90 transition-opacity`}>
                 {userInitials}
               </Link>
+            ) : authLoading || hasSession ? (
+              <div className="w-8 h-8 rounded-lg bg-zinc-800/80 animate-pulse border border-[var(--card-border)]" />
             ) : (
               <Link href="/login" className="px-3 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a8eb52] text-black font-semibold text-xs transition-colors">
                 Sign In

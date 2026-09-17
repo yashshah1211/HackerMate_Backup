@@ -37,13 +37,15 @@ function formatRelativeTime(iso: string | null): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function formatPreviewSnippet(content: string | null): string {
-  if (!content) return "Start the conversation";
-  if (content.startsWith("__IMAGE__::")) return "🖼️ Photo attachment";
-  if (content.startsWith("__VOICE__::")) return "🎙️ Voice note";
-  if (content.startsWith("__TEAM_INVITE__::")) return "✉️ Team invitation";
-  if (content.startsWith("```")) return "💻 Code snippet";
-  return content;
+import { Search, X, MessageSquare, Users, Image as ImageIcon, Mic, Code2, Mail } from "lucide-react";
+
+function formatPreviewSnippet(content: string | null): { text: string; icon?: "image" | "voice" | "invite" | "code" } {
+  if (!content) return { text: "Start the conversation" };
+  if (content.startsWith("__IMAGE__::")) return { text: "Photo attachment", icon: "image" };
+  if (content.startsWith("__VOICE__::")) return { text: "Voice note", icon: "voice" };
+  if (content.startsWith("__TEAM_INVITE__::")) return { text: "Team invitation", icon: "invite" };
+  if (content.startsWith("```")) return { text: "Code snippet", icon: "code" };
+  return { text: content };
 }
 
 function MessagesContent() {
@@ -460,12 +462,10 @@ function MessagesContent() {
 
   if (loading || startingChat) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
-        </div>
-      </main>
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-6">
+        <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
+        <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
+      </div>
     );
   }
 
@@ -474,115 +474,124 @@ function MessagesContent() {
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
-      <div className="mb-6 animate-fade-in-up flex items-center justify-between">
-        <div>
-          <p className="section-label">COMMUNICATION</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white mb-1">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col p-2.5 sm:p-4 max-w-[1600px] w-full mx-auto min-h-0">
+      {/* Top Header / Subheader */}
+      <div className="flex items-center justify-between mb-2 sm:mb-3 px-1 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
             Direct Messages
           </h1>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-            Realtime messaging with builder connections & hackathon teammates.
-          </p>
+          <span className="hidden sm:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-md font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">
+            {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
+          </span>
+          {totalUnread > 0 && (
+            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-violet-600 text-white shadow-xs">
+              {totalUnread} unread
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[320px_1fr] gap-6 animate-fade-in-up stagger-1 items-start">
-        {/* Conversation list sidebar */}
-        <div className={`card card-static p-3 h-fit max-h-[660px] flex flex-col bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 shadow-xs ${activeConversationId ? "hidden lg:flex" : "flex"}`}>
-          {/* Search Input */}
-          <div className="relative mb-3">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search conversations..."
-              className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/40 shadow-xs"
-            />
-            <svg
-              className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs cursor-pointer"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-1.5 mb-3 pb-2 border-b border-zinc-200 dark:border-zinc-800/80">
-            <button
-              onClick={() => setFilterTab("all")}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filterTab === "all"
-                  ? "bg-zinc-200/90 dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-              }`}
-            >
-              All ({conversations.length})
-            </button>
-            <button
-              onClick={() => setFilterTab("unread")}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterTab === "unread"
-                  ? "bg-zinc-200/90 dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-              }`}
-            >
-              <span>Unread</span>
-              {totalUnread > 0 && (
-                <span className="w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center font-bold">
-                  {totalUnread}
-                </span>
+      {/* Unified Dual-Pane Shell */}
+      <div className="flex-1 min-h-0 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-xs flex overflow-hidden">
+        {/* Left pane: Conversation List */}
+        <aside
+          className={`w-full lg:w-80 xl:w-96 border-r border-zinc-200 dark:border-zinc-800/80 flex flex-col min-h-0 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 ${
+            activeConversationId ? "hidden lg:flex" : "flex"
+          }`}
+        >
+          {/* Search bar */}
+          <div className="p-3 border-b border-zinc-200 dark:border-zinc-800/80 shrink-0 space-y-2.5">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search conversations..."
+                className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all shadow-xs"
+              />
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               )}
-            </button>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setFilterTab("all")}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  filterTab === "all"
+                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700/60"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                }`}
+              >
+                All ({conversations.length})
+              </button>
+              <button
+                onClick={() => setFilterTab("unread")}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterTab === "unread"
+                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700/60"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                }`}
+              >
+                <span>Unread</span>
+                {totalUnread > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center font-bold">
+                    {totalUnread}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Conversation Cards List */}
-          <div className="overflow-y-auto flex-1 space-y-1 pr-0.5 max-h-[500px]">
+          {/* Conversation list */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {filteredConversations.length === 0 ? (
-              <div className="p-6 text-center">
-                <p className="text-zinc-500 text-xs leading-relaxed">
-                  {searchQuery ? "No conversations match your search." : "No conversations yet. Connect with builders to chat."}
+              <div className="p-8 text-center flex flex-col items-center justify-center h-full">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 mb-2.5">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <p className="text-xs text-zinc-500 max-w-[200px] leading-relaxed">
+                  {searchQuery ? "No conversations match your query." : "No conversations yet. Connect with builders to chat."}
                 </p>
               </div>
             ) : (
               filteredConversations.map((conv) => {
                 const isActive = activeConversationId === conv.conversationId;
+                const preview = formatPreviewSnippet(conv.lastMessage);
                 return (
                   <button
                     key={conv.conversationId}
                     onClick={() => selectConversation(conv)}
                     className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all relative cursor-pointer group ${
                       isActive
-                        ? "bg-violet-100/80 dark:bg-violet-950/30 border border-violet-300 dark:border-violet-500/40 shadow-xs"
-                        : "hover:bg-zinc-100 dark:hover:bg-zinc-900/60 border border-transparent"
+                        ? "bg-violet-50 dark:bg-violet-950/40 text-violet-950 dark:text-violet-100 shadow-xs border border-violet-200 dark:border-violet-500/30"
+                        : "hover:bg-zinc-100/90 dark:hover:bg-zinc-900/60 border border-transparent"
                     }`}
                   >
-                    {/* Active left indicator bar */}
+                    {/* Subtle active pill indicator on left edge */}
                     {isActive && (
-                      <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-violet-600 dark:bg-violet-500 shadow-sm" />
+                      <div className="absolute left-1 top-3 bottom-3 w-1 rounded-full bg-violet-600 dark:bg-violet-400" />
                     )}
 
                     {/* Avatar */}
-                    <div className="relative shrink-0">
+                    <div className="relative shrink-0 ml-1">
                       {conv.otherUser.avatar_url ? (
                         <img
                           src={conv.otherUser.avatar_url}
                           alt={conv.otherUser.full_name}
-                          className="w-10 h-10 rounded-xl object-cover border border-zinc-200 dark:border-zinc-800 group-hover:border-zinc-300 dark:group-hover:border-zinc-700 transition-colors"
+                          className="w-10 h-10 rounded-xl object-cover border border-zinc-200 dark:border-zinc-800"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center font-bold text-violet-700 dark:text-violet-400 text-sm">
+                        <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-800 flex items-center justify-center font-bold text-violet-700 dark:text-violet-300 text-sm">
                           {conv.otherUser.full_name?.charAt(0)}
                         </div>
                       )}
@@ -591,23 +600,29 @@ function MessagesContent() {
                       )}
                     </div>
 
-                    {/* Meta info */}
+                    {/* Content Preview */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <p className={`font-semibold text-xs truncate ${isActive ? "text-violet-950 dark:text-violet-200 font-bold" : "text-zinc-900 dark:text-white"}`}>
+                        <p className={`text-xs truncate ${isActive ? "font-bold text-violet-950 dark:text-violet-100" : "font-semibold text-zinc-900 dark:text-white"}`}>
                           {conv.otherUser.full_name}
                         </p>
                         {conv.lastMessageAt && (
-                          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
+                          <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 shrink-0">
                             {formatRelativeTime(conv.lastMessageAt)}
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between gap-1">
-                        <p className={`text-[11px] truncate ${conv.unreadCount > 0 ? "text-zinc-900 dark:text-zinc-200 font-semibold" : "text-zinc-600 dark:text-zinc-400"}`}>
-                          {formatPreviewSnippet(conv.lastMessage)}
-                        </p>
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1 min-w-0 text-[11px] truncate text-zinc-500 dark:text-zinc-400">
+                          {preview.icon === "image" && <ImageIcon className="w-3 h-3 text-violet-500 shrink-0" />}
+                          {preview.icon === "voice" && <Mic className="w-3 h-3 text-emerald-500 shrink-0" />}
+                          {preview.icon === "invite" && <Mail className="w-3 h-3 text-amber-500 shrink-0" />}
+                          {preview.icon === "code" && <Code2 className="w-3 h-3 text-blue-500 shrink-0" />}
+                          <span className={`truncate ${conv.unreadCount > 0 ? "font-semibold text-zinc-900 dark:text-zinc-200" : ""}`}>
+                            {preview.text}
+                          </span>
+                        </div>
                         {conv.unreadCount > 0 && (
                           <span className="shrink-0 px-1.5 py-0.2 rounded-full bg-violet-600 text-white font-mono text-[9px] font-bold">
                             {conv.unreadCount}
@@ -620,102 +635,62 @@ function MessagesContent() {
               })
             )}
           </div>
-        </div>
+        </aside>
 
-        {/* Active thread */}
-        <div className={`${activeConversationId ? "block" : "hidden lg:block"} w-full`}>
+        {/* Right pane: Active chat or Empty state */}
+        <section
+          className={`flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-zinc-950 ${
+            activeConversationId ? "flex" : "hidden lg:flex"
+          }`}
+        >
           {activeConversationId && activeUser ? (
-            <>
-              {/* Back to list button on mobile */}
-              <button
-                onClick={() => {
-                  setActiveConversationId(null);
-                  setActiveUser(null);
-                }}
-                className="lg:hidden mb-4 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors font-mono uppercase tracking-wider cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                </svg>
-                Back to Messages
-              </button>
-
-              {/* Chat Top Banner (Clean & Beautiful in both Light & Dark modes) */}
-              <div className="flex items-center justify-between mb-3.5 p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/90 dark:border-zinc-800/80 shadow-xs backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    {activeUser.avatar_url ? (
-                      <img
-                        src={activeUser.avatar_url}
-                        alt={activeUser.full_name}
-                        className="w-10 h-10 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300 text-sm">
-                        {activeUser.full_name?.charAt(0)}
-                      </div>
-                    )}
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" title="Active connection" />
-                  </div>
-
-                  <div>
-                    <p className="font-semibold text-xs text-zinc-900 dark:text-white">
-                      {activeUser.full_name}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate max-w-xs">
-                      {activeUser.college || "Independent Builder"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/profile/${activeUser.id}`}
-                    className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 hover:text-zinc-900 border border-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:hover:text-white dark:border-zinc-700 text-[11px] font-semibold transition-all shadow-xs"
-                  >
-                    View Profile ↗
-                  </Link>
-                </div>
-              </div>
-
-              <ChatThread
-                conversationId={activeConversationId}
-                currentUserId={currentUserId}
-                height="500px"
-              />
-            </>
+            <ChatThread
+              conversationId={activeConversationId}
+              currentUserId={currentUserId}
+              otherUser={activeUser}
+              onBack={() => {
+                setActiveConversationId(null);
+                setActiveUser(null);
+              }}
+              height="100%"
+            />
           ) : (
-            <div className="card card-static flex items-center justify-center h-[520px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 shadow-xs">
-                  <svg className="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                  </svg>
-                </div>
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-1">Your Conversations</h3>
-                <p className="text-zinc-500 text-xs">
-                  Select a conversation from the sidebar to chat
-                </p>
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-zinc-50/30 dark:bg-zinc-950/40">
+              <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-4 shadow-xs">
+                <MessageSquare className="w-7 h-7 text-violet-600 dark:text-violet-400" />
               </div>
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-1.5">
+                No Conversation Selected
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed mb-5">
+                Choose a conversation from the sidebar to chat, share code, record voice notes, or send team invites.
+              </p>
+              <Link
+                href="/developers"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+              >
+                <Users className="w-3.5 h-3.5" />
+                Find Builders to Message
+              </Link>
             </div>
           )}
-        </div>
+        </section>
       </div>
-    </main>
+    </div>
   );
 }
 
 export default function MessagesPage() {
   return (
     <AuthGuard>
-      <Suspense fallback={
-        <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
-          <div className="flex flex-col items-center justify-center min-h-[50vh]">
-            <div className="w-6 h-6 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
+      <Suspense
+        fallback={
+          <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-6">
+            <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
             <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
           </div>
-        </main>
-      }>
+        }
+      >
         <MessagesContent />
       </Suspense>
     </AuthGuard>
