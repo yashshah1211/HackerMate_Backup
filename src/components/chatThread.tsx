@@ -27,6 +27,7 @@ type Reaction = {
   message_id: string;
   user_id: string;
   emoji: string;
+  conversation_id?: string | null;
   created_at?: string;
 };
 
@@ -398,40 +399,54 @@ export default function ChatThread({
   }, []);
 
   async function loadMessages() {
-    const { data: conversation } = await supabase
+    const { data: conversation, error: convError } = await supabase
       .from("conversations")
       .select("type")
       .eq("id", conversationId)
       .maybeSingle();
 
+    if (convError) {
+      console.error("[chatThread] Error loading conversation:", convError);
+    }
     setConversationType(conversation?.type || null);
 
-    const { data: participantsData } = await supabase
+    const { data: participantsData, error: partError } = await supabase
       .from("conversation_participants")
       .select("user_id")
       .eq("conversation_id", conversationId);
+
+    if (partError) {
+      console.error("[chatThread] Error loading conversation participants:", partError);
+    }
 
     const otherUser = (participantsData || []).find((p) => p.user_id !== currentUserId);
 
     if (otherUser) {
       setRecipientId(otherUser.user_id);
-      const { data: block } = await supabase
+      const { data: block, error: blockError } = await supabase
         .from("blocked_users")
         .select("id")
         .or(`and(blocker_id.eq.${currentUserId},blocked_id.eq.${otherUser.user_id}),and(blocker_id.eq.${otherUser.user_id},blocked_id.eq.${currentUserId})`)
         .maybeSingle();
 
+      if (blockError) {
+        console.error("[chatThread] Error checking block status:", blockError);
+      }
       setIsBlocked(!!block);
     } else {
       setRecipientId(null);
     }
 
-    const { data: participantData } = await supabase
+    const { data: participantData, error: myPartError } = await supabase
       .from("conversation_participants")
       .select("cleared_at")
       .eq("conversation_id", conversationId)
       .eq("user_id", currentUserId)
       .maybeSingle();
+
+    if (myPartError) {
+      console.error("[chatThread] Error loading participant cleared timestamp:", myPartError);
+    }
 
     const currentClearedAt = participantData?.cleared_at || null;
     setClearedAt(currentClearedAt);
@@ -623,6 +638,7 @@ export default function ChatThread({
           event: "INSERT",
           schema: "public",
           table: "message_reactions",
+          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const newReaction = payload.new as Reaction;
@@ -649,6 +665,7 @@ export default function ChatThread({
           event: "UPDATE",
           schema: "public",
           table: "message_reactions",
+          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const updatedReaction = payload.new as Reaction;
@@ -673,6 +690,7 @@ export default function ChatThread({
           event: "DELETE",
           schema: "public",
           table: "message_reactions",
+          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const oldReaction = payload.old as { id?: string; message_id?: string; user_id?: string; emoji?: string };
@@ -1178,12 +1196,17 @@ export default function ChatThread({
         
         soundManager.playSent();
 
-        await supabase.rpc("send_message_with_mentions", {
+        const { error: sendErr } = await supabase.rpc("send_message_with_mentions", {
           p_conversation_id: conversationId,
           p_content: imagePayload,
           p_mentions: [],
           p_reply_to_id: replyingTo?.id || undefined,
         });
+
+        if (sendErr) {
+          console.error("[chatThread] Failed to send image message:", sendErr);
+          throw new Error(sendErr.message || "Failed to send image message");
+        }
 
         URL.revokeObjectURL(stagedImage.previewUrl);
         setStagedImage(null);

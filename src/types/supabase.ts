@@ -442,6 +442,7 @@ export type Database = {
       }
       message_reactions: {
         Row: {
+          conversation_id: string | null
           created_at: string
           emoji: string
           id: string
@@ -449,6 +450,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string
           emoji: string
           id?: string
@@ -456,6 +458,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string
           emoji?: string
           id?: string
@@ -463,6 +466,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "message_reactions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "message_reactions_message_id_fkey"
             columns: ["message_id"]

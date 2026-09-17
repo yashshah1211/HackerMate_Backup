@@ -15,6 +15,7 @@ export default function AuthGuard({
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -79,9 +80,9 @@ export default function AuthGuard({
         setAuthorized(true);
       } catch (err) {
         console.error("[AuthGuard] Profile verification error:", err);
-        // Fallback: keep user authorized if network error occurs to avoid destructive logout
+        // Never fail-open to authorized=true, which bypasses bans, onboarding, and admin gates
         if (isMountedRef.current) {
-          setAuthorized(true);
+          setAuthError("Unable to verify your account session. Please check your network connection.");
         }
       }
     }
@@ -144,6 +145,56 @@ export default function AuthGuard({
           </p>
           <div className="p-3 bg-zinc-950 border border-zinc-900 rounded text-[10px] text-zinc-500 font-mono">
             Error Code: AUTH_ACCOUNT_BANNED
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-6">
+        <div className="w-full max-w-md text-center card card-static p-8">
+          <div className="w-14 h-14 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold tracking-tight text-white mb-2">
+            Verification Unavailable
+          </h1>
+          <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+            {authError}
+          </p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => {
+                setAuthError(null);
+                supabase.auth.getUser().then(({ data: { user } }) => {
+                  if (user) {
+                    supabase.auth.getSession().then(({ data: { session } }) => {
+                      if (session?.user) {
+                        window.location.reload();
+                      }
+                    });
+                  } else {
+                    const next = `${window.location.pathname}${window.location.search}`;
+                    router.replace(`/login?next=${encodeURIComponent(next)}`);
+                  }
+                });
+              }}
+              className="btn btn-primary text-xs py-2 px-4 cursor-pointer"
+            >
+              Retry Connection
+            </button>
+            <button
+              onClick={() => {
+                router.replace("/login");
+              }}
+              className="btn btn-secondary text-xs py-2 px-4 cursor-pointer"
+            >
+              Back to Login
+            </button>
           </div>
         </div>
       </div>

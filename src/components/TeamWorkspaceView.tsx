@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
@@ -10,7 +10,7 @@ import { useNotification } from "@/context/NotificationContext";
 import PPTEvaluatorTab from "@/components/PPTEvaluatorTab";
 import SmartGapFiller from "@/components/SmartGapFiller";
 import { KanbanTasksSkeleton, CommitsTimelineSkeleton, IdeationBoardSkeleton } from "@/components/workspace/WorkspaceSkeletons";
-import { Lightbulb, Clock, Globe, FileText, GitCommit, CheckSquare, Link2, Bell } from "lucide-react";
+import { Lightbulb, Clock, Globe, FileText, GitCommit, CheckSquare, Link2, Bell, AlertTriangle } from "lucide-react";
 
 type Team = {
   id: string;
@@ -154,6 +154,7 @@ export default function TeamWorkspaceView({
           );
 
         if (error) {
+          console.error("Error upserting team github repo:", error);
           showToast(error.message, "error");
         } else {
           setActiveGithubRepoUrl(url.trim());
@@ -168,6 +169,7 @@ export default function TeamWorkspaceView({
         .eq("id", team.id);
 
       if (error) {
+        console.error("Error updating team github repo:", error);
         showToast(error.message, "error");
       } else {
         setActiveGithubRepoUrl(url.trim());
@@ -175,7 +177,7 @@ export default function TeamWorkspaceView({
         if (refreshTeam) refreshTeam();
       }
     } catch (err) {
-      console.error(err);
+      console.error("Unexpected error linking repository:", err);
       showToast("Failed to link repository.", "error");
     }
   };
@@ -192,16 +194,26 @@ export default function TeamWorkspaceView({
           const currentHackathonId = primaryHackathon?.id || team.hackathon_id;
 
           if (currentHackathonId) {
-            await supabase
+            const { error } = await supabase
               .from("team_github_repos")
               .delete()
               .eq("team_id", team.id)
               .eq("hackathon_id", currentHackathonId);
+            if (error) {
+              console.error("Error unlinking team github repo:", error);
+              showToast("Failed to disconnect repository.", "error");
+              return;
+            }
           } else {
-            await supabase
+            const { error } = await supabase
               .from("teams")
               .update({ github_repo_url: null })
               .eq("id", team.id);
+            if (error) {
+              console.error("Error unlinking team github repo from teams table:", error);
+              showToast("Failed to disconnect repository.", "error");
+              return;
+            }
           }
 
           setActiveGithubRepoUrl(null);
@@ -209,7 +221,7 @@ export default function TeamWorkspaceView({
           showToast("GitHub repository disconnected.", "info");
           if (refreshTeam) refreshTeam();
         } catch (err) {
-          console.error(err);
+          console.error("Unexpected error disconnecting repository:", err);
           showToast("Failed to disconnect repository.", "error");
         }
       }
@@ -303,6 +315,13 @@ export default function TeamWorkspaceView({
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [documentUpdatedAt, setDocumentUpdatedAt] = useState<string | null>(null);
   const [documentUpdatedBy, setDocumentUpdatedBy] = useState<string | null>(null);
+  const [documentConflict, setDocumentConflict] = useState<{
+    incomingContent: string;
+    incomingUpdatedAt: string | null;
+    incomingUpdatedBy: string | null;
+  } | null>(null);
+  const documentContentRef = useRef<string>("");
+  const lastSavedContentRef = useRef<string>("");
 
   // Workspace V2 States
   const [timeLeft, setTimeLeft] = useState("");
@@ -381,21 +400,27 @@ export default function TeamWorkspaceView({
     async function loadInviteData() {
       setLoadingProfiles(true);
       try {
-        const { data: profilesData } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("id, full_name, college, avatar_url, skills");
+        if (profilesError) {
+          console.error("Error fetching profiles for invite modal:", profilesError);
+        }
         setInviteProfiles(profilesData || []);
 
-        const { data: pendingData } = await supabase
+        const { data: pendingData, error: pendingError } = await supabase
           .from("team_invites")
           .select("invited_user_id")
           .eq("team_id", team.id)
           .eq("status", "pending");
+        if (pendingError) {
+          console.error("Error fetching pending team invites:", pendingError);
+        }
 
         const inviteIds = new Set((pendingData || []).map((i) => i.invited_user_id));
         setExistingPendingInvites(inviteIds);
       } catch (err) {
-        console.error(err);
+        console.error("Unexpected error in loadInviteData:", err);
       }
       setLoadingProfiles(false);
     }
@@ -412,7 +437,7 @@ export default function TeamWorkspaceView({
       .eq("team_id", team.id)
       .order("created_at", { ascending: true });
     if (error) {
-      console.error(error);
+      console.error("Error fetching team tasks:", error);
     } else {
       setTasks(data || []);
     }
@@ -428,10 +453,12 @@ export default function TeamWorkspaceView({
       .eq("team_id", team.id)
       .maybeSingle();
     if (error) {
-      console.error(error);
+      console.error("Error fetching team brainstorm document:", error);
     } else if (data) {
       setDocumentId(data.id);
       setDocumentContent(data.content || "");
+      documentContentRef.current = data.content || "";
+      lastSavedContentRef.current = data.content || "";
       setDocumentUpdatedAt(data.updated_at || null);
       setDocumentUpdatedBy(data.updated_by || null);
     } else {
@@ -442,23 +469,29 @@ export default function TeamWorkspaceView({
         .maybeSingle();
       if (insertError) {
         if (insertError.code === "23505") {
-          const { data: retryDoc } = await supabase
+          const { data: retryDoc, error: retryError } = await supabase
             .from("team_documents")
             .select("*")
             .eq("team_id", team.id)
             .maybeSingle();
-          if (retryDoc) {
+          if (retryError) {
+            console.error("Error retrying team brainstorm document fetch:", retryError);
+          } else if (retryDoc) {
             setDocumentId(retryDoc.id);
             setDocumentContent(retryDoc.content || "");
+            documentContentRef.current = retryDoc.content || "";
+            lastSavedContentRef.current = retryDoc.content || "";
             setDocumentUpdatedAt(retryDoc.updated_at || null);
             setDocumentUpdatedBy(retryDoc.updated_by || null);
           }
         } else {
-          console.error(insertError);
+          console.error("Error creating default brainstorm document:", insertError);
         }
       } else if (newDoc) {
         setDocumentId(newDoc.id);
         setDocumentContent(newDoc.content || "");
+        documentContentRef.current = newDoc.content || "";
+        lastSavedContentRef.current = newDoc.content || "";
         setDocumentUpdatedAt(newDoc.updated_at || null);
         setDocumentUpdatedBy(newDoc.updated_by || null);
       }
@@ -534,7 +567,9 @@ export default function TeamWorkspaceView({
       .select("*")
       .eq("team_id", team.id)
       .order("created_at", { ascending: false });
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching team deployments:", error);
+    } else if (data) {
       setDeployments(data);
       data.forEach((dep) => {
         pingUrl(dep.id, dep.url);
@@ -625,7 +660,9 @@ export default function TeamWorkspaceView({
       .select("*")
       .eq("team_id", team.id)
       .order("created_at", { ascending: false });
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching brainstorm ideas:", error);
+    } else if (data) {
       setBrainstormIdeas(data);
     }
     setLoadingIdeas(false);
@@ -904,20 +941,23 @@ export default function TeamWorkspaceView({
   const handleSaveDocument = async () => {
     if (!documentId) return;
     setSavingDocument(true);
+    const contentToSave = documentContentRef.current;
     const { data, error } = await supabase
       .from("team_documents")
-      .update({ content: documentContent, updated_by: currentUserId, updated_at: new Date().toISOString() })
+      .update({ content: contentToSave, updated_by: currentUserId, updated_at: new Date().toISOString() })
       .eq("id", documentId)
       .select()
       .maybeSingle();
     if (error) {
-      console.error(error);
+      console.error("Error saving team document:", error);
       showToast(error.message, "error");
     } else {
       if (data) {
         setDocumentUpdatedAt(data.updated_at || null);
         setDocumentUpdatedBy(data.updated_by || null);
       }
+      lastSavedContentRef.current = contentToSave;
+      setDocumentConflict(null);
       showToast("Document saved!", "success");
     }
     setSavingDocument(false);
@@ -1062,9 +1102,24 @@ export default function TeamWorkspaceView({
           const updatedDoc = payload.new as { content: string; updated_by: string; updated_at: string };
           supabase.auth.getUser().then(({ data: { user } }) => {
             if (user && updatedDoc.updated_by !== user.id) {
-              setDocumentContent(updatedDoc.content);
-              setDocumentUpdatedAt(updatedDoc.updated_at || null);
-              setDocumentUpdatedBy(updatedDoc.updated_by || null);
+              const isDirty = documentContentRef.current !== lastSavedContentRef.current;
+              const hasDifference = documentContentRef.current !== updatedDoc.content;
+
+              if (isDirty && hasDifference) {
+                setDocumentConflict({
+                  incomingContent: updatedDoc.content,
+                  incomingUpdatedAt: updatedDoc.updated_at || null,
+                  incomingUpdatedBy: updatedDoc.updated_by || null,
+                });
+                showToast("A teammate saved changes to this document while you were editing.", "warning");
+              } else {
+                setDocumentContent(updatedDoc.content);
+                documentContentRef.current = updatedDoc.content;
+                lastSavedContentRef.current = updatedDoc.content;
+                setDocumentUpdatedAt(updatedDoc.updated_at || null);
+                setDocumentUpdatedBy(updatedDoc.updated_by || null);
+                setDocumentConflict(null);
+              }
             }
           });
         }
@@ -2290,24 +2345,70 @@ export default function TeamWorkspaceView({
                     <p className="text-zinc-500 text-xs font-mono uppercase">Loading document...</p>
                   </div>
                 ) : (
-                  <div className="grid md:grid-cols-2 gap-5">
-                    <div className="flex flex-col space-y-2">
-                      <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Edit Markdown</label>
-                      <textarea
-                        value={documentContent}
-                        onChange={(e) => setDocumentContent(e.target.value)}
-                        rows={16}
-                        className="input font-mono text-xs w-full h-[350px] resize-none leading-relaxed p-4 bg-zinc-955 border border-zinc-900 focus:border-zinc-800"
-                        placeholder="# Brainstorming Ideas&#10;- Idea 1: Custom mobile app for matching builders&#10;- Idea 2: SaaS platform for collaborative hackathon workspaces"
-                      />
-                    </div>
+                  <div>
+                    {documentConflict && (
+                      <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="text-xs font-semibold text-amber-300">Conflict Detected: Teammate Saved Changes</h4>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">
+                              Another teammate updated this document while you were typing. Loading their version will discard your unsaved edits.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDocumentContent(documentConflict.incomingContent);
+                              documentContentRef.current = documentConflict.incomingContent;
+                              lastSavedContentRef.current = documentConflict.incomingContent;
+                              setDocumentUpdatedAt(documentConflict.incomingUpdatedAt);
+                              setDocumentUpdatedBy(documentConflict.incomingUpdatedBy);
+                              setDocumentConflict(null);
+                              showToast("Loaded latest teammate version.", "info");
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg border border-zinc-700 transition cursor-pointer"
+                          >
+                            Load Teammate Version
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSaveDocument();
+                              setDocumentConflict(null);
+                            }}
+                            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-lg transition cursor-pointer"
+                          >
+                            Overwrite with My Edits
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                    <div className="flex flex-col space-y-2">
-                      <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Live Preview</label>
-                      <div className="w-full h-[350px] overflow-y-auto p-4 bg-zinc-950/20 border border-zinc-900 rounded-xl space-y-3 prose prose-invert max-w-none text-left">
-                        {renderMarkdown(documentContent) || (
-                          <p className="text-zinc-650 text-[10px] italic font-mono">Empty document</p>
-                        )}
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Edit Markdown</label>
+                        <textarea
+                          value={documentContent}
+                          onChange={(e) => {
+                            setDocumentContent(e.target.value);
+                            documentContentRef.current = e.target.value;
+                          }}
+                          rows={16}
+                          className="input font-mono text-xs w-full h-[350px] resize-none leading-relaxed p-4 bg-zinc-955 border border-zinc-900 focus:border-zinc-800"
+                          placeholder="# Brainstorming Ideas&#10;- Idea 1: Custom mobile app for matching builders&#10;- Idea 2: SaaS platform for collaborative hackathon workspaces"
+                        />
+                      </div>
+
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Live Preview</label>
+                        <div className="w-full h-[350px] overflow-y-auto p-4 bg-zinc-950/20 border border-zinc-900 rounded-xl space-y-3 prose prose-invert max-w-none text-left">
+                          {renderMarkdown(documentContent) || (
+                            <p className="text-zinc-650 text-[10px] italic font-mono">Empty document</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
