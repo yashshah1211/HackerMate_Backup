@@ -32,9 +32,11 @@ import {
   Copy,
   ExternalLink,
   MessageCircle,
+  Trash2,
 } from "lucide-react";
 import { TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { useNotification } from "@/context/NotificationContext";
 
 interface Challenge {
   id: string;
@@ -68,6 +70,7 @@ interface SubmissionSummary {
 export default function ChallengeDetailPage() {
   const { slug } = useParams() as { slug: string };
   const router = useRouter();
+  const { showToast, confirm } = useNotification();
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [userTeams, setUserTeams] = useState<Array<{ id: string; name: string }>>([]);
@@ -77,6 +80,7 @@ export default function ChallengeDetailPage() {
   const [evaluatingStep, setEvaluatingStep] = useState<string>("");
   const [showCelebration, setShowCelebration] = useState(false);
   const [pendingSubmissionId, setPendingSubmissionId] = useState<string | null>(null);
+  const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
 
   // Scoring Guide Modal State
   const [showScoringGuideModal, setShowScoringGuideModal] = useState(false);
@@ -136,6 +140,47 @@ export default function ChallengeDetailPage() {
 
     loadChallengeData();
   }, [slug]);
+
+  function handleDeleteSubmission(e: React.MouseEvent, subId: string, version: number) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    confirm({
+      title: "DELETE SUBMISSION",
+      message: `Are you sure you want to delete Version ${version}? This will permanently remove its evaluation score, feedback, and diagnostic history.`,
+      confirmText: "Delete Version",
+      onConfirm: async () => {
+        setDeletingSubmissionId(subId);
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          const headers: Record<string, string> = {};
+          if (session?.access_token) {
+            headers["Authorization"] = `Bearer ${session.access_token}`;
+          }
+
+          const res = await fetch(`/api/challenges/${encodeURIComponent(slug)}/submissions/${subId}`, {
+            method: "DELETE",
+            headers,
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast(`Version ${version} deleted successfully.`, "success");
+            setPreviousSubmissions((prev) => prev.filter((s) => s.id !== subId));
+          } else {
+            showToast(data.error || "Failed to delete submission.", "error");
+          }
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete submission.", "error");
+        } finally {
+          setDeletingSubmissionId(null);
+        }
+      },
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -619,31 +664,50 @@ export default function ChallengeDetailPage() {
 
               <div className="space-y-2">
                 {previousSubmissions.map((sub) => (
-                  <Link
+                  <div
                     key={sub.id}
-                    href={`/challenges/${slug}/submissions/${sub.id}`}
                     className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-zinc-900 dark:text-white">v{sub.version}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 capitalize">
-                          {sub.submission_mode}
-                        </span>
+                    <Link
+                      href={`/challenges/${slug}/submissions/${sub.id}`}
+                      className="flex-1 min-w-0 flex items-center justify-between pr-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-zinc-900 dark:text-white">v{sub.version}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 capitalize">
+                            {sub.submission_mode}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-zinc-500 mt-0.5">
+                          {new Date(sub.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-zinc-500 mt-0.5">
-                        {new Date(sub.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <div className="text-xs font-bold text-lime-600 dark:text-lime-400">{sub.total_score}/100</div>
-                        <div className="text-[10px] text-zinc-600 dark:text-zinc-400">{sub.grade}</div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-lime-600 dark:text-lime-400">{sub.total_score}/100</div>
+                          <div className="text-[10px] text-zinc-600 dark:text-zinc-400">{sub.grade}</div>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                       </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                  </Link>
+                    </Link>
+
+                    {/* Delete Submission Action */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteSubmission(e, sub.id, sub.version)}
+                      disabled={deletingSubmissionId === sub.id}
+                      title="Delete this submission version"
+                      className="p-1.5 rounded-md text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0 ml-1"
+                    >
+                      {deletingSubmissionId === sub.id ? (
+                        <span className="w-3.5 h-3.5 block border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

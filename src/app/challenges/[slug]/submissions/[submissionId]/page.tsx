@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
@@ -15,8 +15,10 @@ import {
   AlertCircle,
   Share2,
   Trophy,
+  Trash2,
 } from "lucide-react";
 import { ShareScoreCardModal } from "@/components/challenges/ShareScoreCardModal";
+import { useNotification } from "@/context/NotificationContext";
 
 interface SubmissionDetail {
   id: string;
@@ -55,6 +57,8 @@ interface ChallengeMeta {
 
 export default function SubmissionResultPage() {
   const { slug, submissionId } = useParams() as { slug: string; submissionId: string };
+  const router = useRouter();
+  const { showToast, confirm } = useNotification();
 
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
   const [challenge, setChallenge] = useState<ChallengeMeta | null>(null);
@@ -62,6 +66,47 @@ export default function SubmissionResultPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [activeSlideTab, setActiveSlideTab] = useState<string>("slide1");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  function handleDeleteSubmission() {
+    if (!submission) return;
+
+    confirm({
+      title: "DELETE SUBMISSION",
+      message: `Are you sure you want to delete Version ${submission.version}? This will permanently remove its evaluation score, feedback, and diagnostic history.`,
+      confirmText: "Delete Submission",
+      onConfirm: async () => {
+        setIsDeleting(true);
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          const headers: Record<string, string> = {};
+          if (session?.access_token) {
+            headers["Authorization"] = `Bearer ${session.access_token}`;
+          }
+
+          const res = await fetch(`/api/challenges/${slug}/submissions/${submissionId}`, {
+            method: "DELETE",
+            headers,
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast(`Version ${submission.version} deleted successfully.`, "success");
+            router.push(`/challenges/${slug}`);
+          } else {
+            showToast(data.error || "Failed to delete submission.", "error");
+            setIsDeleting(false);
+          }
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete submission.", "error");
+          setIsDeleting(false);
+        }
+      },
+    });
+  }
 
   useEffect(() => {
     async function loadSubmission() {
@@ -155,7 +200,7 @@ export default function SubmissionResultPage() {
           <span className="text-zinc-900 dark:text-zinc-200 font-semibold">Version {submission.version} Diagnostic</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => setShowShareModal(true)}
@@ -171,6 +216,20 @@ export default function SubmissionResultPage() {
             <span>Revise & Resubmit Deck (v{submission.version + 1})</span>
             <ArrowUpRight className="w-4 h-4" />
           </Link>
+          <button
+            type="button"
+            onClick={handleDeleteSubmission}
+            disabled={isDeleting}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-colors cursor-pointer"
+            title="Delete this submission"
+          >
+            {isDeleting ? (
+              <span className="w-3.5 h-3.5 block border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+            <span>Delete</span>
+          </button>
         </div>
       </div>
 
