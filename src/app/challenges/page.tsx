@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Trophy,
   Layers,
@@ -33,10 +34,43 @@ interface Challenge {
 }
 
 export default function ChallengesPage() {
+  const router = useRouter();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTrack, setSelectedTrack] = useState<string>("all");
   const [rulesTab, setRulesTab] = useState<"rubric" | "checklist" | "deductions">("rubric");
+
+  // 2-Hour TTL for draft restoration (7,200,000 ms)
+  const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+
+  // If user lands on /challenges with a fresh unsubmitted draft, navigate directly to that challenge
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem("hackermate_challenge_draft");
+      if (raw) {
+        const draft = JSON.parse(raw);
+        const savedAt = Number(draft?.savedAt);
+        const now = Date.now();
+        if (!isNaN(savedAt) && now - savedAt < DRAFT_TTL_MS) {
+          if (draft.slug && draft.externalLink) {
+            const queryParams = new URLSearchParams();
+            queryParams.set("prefill_link", draft.externalLink);
+            queryParams.set("ts", String(savedAt));
+            if (draft.githubUrl) queryParams.set("github_url", draft.githubUrl);
+            if (draft.demoUrl) queryParams.set("demo_url", draft.demoUrl);
+            if (draft.submissionMode) queryParams.set("mode", draft.submissionMode);
+            router.push(`/challenges/${encodeURIComponent(draft.slug)}?${queryParams.toString()}`);
+          }
+        } else {
+          // Stale draft: purge
+          sessionStorage.removeItem("hackermate_challenge_draft");
+        }
+      }
+    } catch (err) {
+      console.warn("[Challenges Hub] Error checking draft:", err);
+    }
+  }, [router]);
 
   useEffect(() => {
     async function loadChallenges() {

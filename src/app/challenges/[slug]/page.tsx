@@ -37,6 +37,7 @@ import {
 import { TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useNotification } from "@/context/NotificationContext";
+import AuthModal from "@/components/AuthModal";
 
 interface Challenge {
   id: string;
@@ -85,6 +86,8 @@ export default function ChallengeDetailPage() {
   // Scoring Guide Modal State
   const [showScoringGuideModal, setShowScoringGuideModal] = useState(false);
   const [showInviteTeammatesModal, setShowInviteTeammatesModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authNextUrl, setAuthNextUrl] = useState<string>("/challenges");
   const [copiedLink, setCopiedLink] = useState(false);
   const [scoringTab, setScoringTab] = useState<"rubric" | "checklist" | "deductions">("rubric");
 
@@ -141,6 +144,95 @@ export default function ChallengeDetailPage() {
     loadChallengeData();
   }, [slug]);
 
+  // 2-Hour TTL for draft restoration (7,200,000 ms)
+  const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+
+  // Restore prefilled presentation link & draft values after sign-in / redirect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPrefill = urlParams.get("prefill_link") || urlParams.get("link");
+    const urlTimestamp = urlParams.get("ts");
+    const urlGithub = urlParams.get("github_url");
+    const urlDemo = urlParams.get("demo_url");
+    const urlMode = urlParams.get("mode");
+
+    const now = Date.now();
+
+    // 1. Check URL param freshness
+    let isUrlFresh = false;
+    if (urlPrefill) {
+      if (urlTimestamp) {
+        const parsedTs = Number(urlTimestamp);
+        isUrlFresh = !isNaN(parsedTs) && now - parsedTs < DRAFT_TTL_MS;
+      } else {
+        isUrlFresh = true;
+      }
+    }
+
+    // 2. Check sessionStorage draft freshness
+    let draft: any = null;
+    let isDraftFresh = false;
+    try {
+      const raw = sessionStorage.getItem("hackermate_challenge_draft");
+      if (raw) {
+        draft = JSON.parse(raw);
+        const savedAt = Number(draft?.savedAt);
+        if (!isNaN(savedAt) && now - savedAt < DRAFT_TTL_MS) {
+          isDraftFresh = true;
+        } else {
+          // Stale draft: evict immediately
+          sessionStorage.removeItem("hackermate_challenge_draft");
+          draft = null;
+        }
+      }
+    } catch (err) {
+      console.warn("[Challenges] Error reading sessionStorage draft:", err);
+    }
+
+    // 3. Determine effective restore values (ensure match with current challenge slug)
+    const effectiveLink =
+      (isUrlFresh && urlPrefill) ||
+      (isDraftFresh && draft?.slug === slug ? draft.externalLink : "");
+    const effectiveGithub =
+      (isUrlFresh && urlGithub) ||
+      (isDraftFresh && draft?.slug === slug ? draft.githubUrl : "");
+    const effectiveDemo =
+      (isUrlFresh && urlDemo) ||
+      (isDraftFresh && draft?.slug === slug ? draft.demoUrl : "");
+    const effectiveMode =
+      (isUrlFresh && urlMode) ||
+      (isDraftFresh && draft?.slug === slug ? draft.submissionMode : "");
+
+    if (effectiveLink) {
+      setExternalLink(effectiveLink);
+      if (effectiveGithub) setGithubUrl(effectiveGithub);
+      if (effectiveDemo) setDemoUrl(effectiveDemo);
+      if (effectiveMode === "team" || effectiveMode === "solo") {
+        setSubmissionMode(effectiveMode);
+      }
+
+      showToast("Welcome back! Your presentation link has been restored and is ready for AI evaluation.", "success");
+
+      // Smooth scroll to submission form
+      setTimeout(() => {
+        const el = document.getElementById("submission-form");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+
+      // Clean URL parameters from browser address bar
+      if (urlPrefill || urlTimestamp || urlGithub || urlDemo || urlMode) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } else if (urlPrefill && !isUrlFresh) {
+      // Stale URL param: clean up address bar without restoring
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [slug, showToast]);
+
   function handleDeleteSubmission(e: React.MouseEvent, subId: string, version: number) {
     e.preventDefault();
     e.stopPropagation();
@@ -191,7 +283,37 @@ export default function ChallengeDetailPage() {
     } = await supabase.auth.getSession();
 
     if (!session) {
-      setErrorMsg("Please sign in to submit your practice pitch deck.");
+      if (!externalLink.trim()) {
+        setErrorMsg("Please provide your Google Slides or Google Drive presentation link.");
+        return;
+      }
+
+      const now = Date.now();
+      const draft = {
+        slug,
+        externalLink: externalLink.trim(),
+        githubUrl: githubUrl.trim(),
+        demoUrl: demoUrl.trim(),
+        submissionMode,
+        savedAt: now,
+      };
+
+      try {
+        sessionStorage.setItem("hackermate_challenge_draft", JSON.stringify(draft));
+      } catch (err) {
+        console.warn("[Challenges] Could not save draft to sessionStorage:", err);
+      }
+
+      const queryParams = new URLSearchParams();
+      queryParams.set("prefill_link", externalLink.trim());
+      queryParams.set("ts", String(now));
+      if (githubUrl.trim()) queryParams.set("github_url", githubUrl.trim());
+      if (demoUrl.trim()) queryParams.set("demo_url", demoUrl.trim());
+      if (submissionMode) queryParams.set("mode", submissionMode);
+
+      const targetPath = `/challenges/${encodeURIComponent(slug)}?${queryParams.toString()}`;
+      setAuthNextUrl(targetPath);
+      setShowAuthModal(true);
       return;
     }
 
@@ -242,6 +364,9 @@ export default function ChallengeDetailPage() {
         setErrorMsg(data.error || "Evaluation failed. Please verify your file and try again.");
         setIsSubmitting(false);
       } else if (data.submission) {
+        try {
+          sessionStorage.removeItem("hackermate_challenge_draft");
+        } catch {}
         setPendingSubmissionId(data.submission.id);
         setShowCelebration(true);
         setIsSubmitting(false);
@@ -439,7 +564,7 @@ export default function ChallengeDetailPage() {
         {/* Right Column: Submission Form & Previous Versions (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
           {/* Submission Form Card */}
-          <div className="card p-6 border-lime-500/40 dark:border-lime-500/30 bg-white dark:bg-zinc-950/90 shadow-lg shadow-lime-500/5">
+          <div id="submission-form" className="card p-6 border-lime-500/40 dark:border-lime-500/30 bg-white dark:bg-zinc-950/90 shadow-lg shadow-lime-500/5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <FileText className="w-4 h-4 text-lime-600 dark:text-lime-400" />
@@ -1167,6 +1292,15 @@ export default function ChallengeDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Auth Modal for Unregistered / Anonymous Submissions */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title="Sign In to Submit Solution"
+        subtitle="Connect with Google or GitHub in 1 tap to submit your deck and run the AI evaluation cascade."
+        nextUrl={authNextUrl}
+      />
     </main>
   );
 }
