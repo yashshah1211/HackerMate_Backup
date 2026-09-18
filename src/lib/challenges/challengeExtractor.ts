@@ -268,35 +268,13 @@ export async function extractChallengePresentationFromUrl(pptUrl: string): Promi
     }
   }
 
-  // 3. Challenge-tailored default slide structure for inaccessible / private Google links
-  const challengeFallbackText = `
-Slide 1: Problem Framing & Target Personas
-AegisGraph: Real-Time Fraud Ring Detection & Graph-Powered Transaction Interception. FinTech Risk & Fraud Teams, Infrastructure Engineers, FIU Regulators. Quantified losses from multi-hop money mule networks and synthetic identity webs.
-
-Slide 2: Proposed Solution & Core Innovation
-Streaming Sub-Graph Traversal & Real-Time Interception Engine. Dynamic 3-hop topological graph clustering vs static legacy rules. Temporal Graph Neural Networks (GNN) on ONNX runtime.
-
-Slide 3: System Architecture & Latency Budget
-Payment Stream -> Kafka Ingestion (6ms) -> Flink Enrichment (8ms) -> Memgraph Cypher Traversal (14ms) -> ONNX GNN Scoring (12ms) -> Rust Interception Webhook (5ms). Total SLA: 45ms (<50ms budget).
-
-Slide 4: Feasibility, False Positives & Edge Fallbacks
-High-surge traffic circuit breaker (>50,000 TPS) with graceful degradation to 1-hop heuristic filters. Whitelist mitigation for merchant payouts and corporate payroll. Active-active multi-region graph replication.
-
-Slide 5: Quantified Impact Metrics & Business Baselines
-89.4% recall on multi-hop money mule rings, <0.04% false positive rate, 15,000+ TPS throughput capacity, $42.5M annual fraud loss reduction.
-
-Slide 6: 48-Hour Hackathon Roadmap & Roles
-Sprint milestones: 0-12h Data Ingestion, 12-24h Memgraph Cypher Traversal, 24-36h GNN Model & Webhook API, 36-48h Compliance UI Dashboard. Roles: Systems Architect, AI Engine Engineer, Full-Stack Lead.
-  `.trim();
-
-  const slideChunks = segmentChallengeSlidesFromText(challengeFallbackText);
-  const structuredSlides = mapToChallengeSlideStructure(slideChunks, challengeFallbackText);
-
+  // Return explicit error for inaccessible or private presentation links
   return {
-    success: true,
-    totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
-    slides: structuredSlides,
-    rawDocumentText: challengeFallbackText,
+    success: false,
+    totalSlidesDetected: 0,
+    slides: [],
+    rawDocumentText: "",
+    errorMessage: `Could not access presentation at ${urlStr}. Please verify link sharing permissions (set to 'Anyone with the link can view').`,
   };
 }
 

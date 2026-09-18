@@ -204,7 +204,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       } else if (res.ok) {
         const text = await res.text();
         const cleaned = sanitizeExtractedText(text);
-        if (cleaned.length > 50) {
+        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentSlidesFromText(cleaned);
           const structuredSlides = mapToSihSlideStructure(slideChunks, cleaned);
           return {
@@ -269,7 +269,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       } else if (res.ok) {
         const html = await res.text();
         const cleaned = stripHtmlToText(html);
-        if (cleaned.length > 50) {
+        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentSlidesFromText(cleaned);
           const structuredSlides = mapToSihSlideStructure(slideChunks, cleaned);
           return {
@@ -319,7 +319,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       } else if (contentType.includes("text/html") || contentType.includes("text/plain")) {
         const raw = await res.text();
         const cleaned = stripHtmlToText(raw);
-        if (cleaned.length > 50) {
+        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentSlidesFromText(cleaned);
           const structuredSlides = mapToSihSlideStructure(slideChunks, cleaned);
           return {
@@ -421,4 +421,17 @@ function stripHtmlToText(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function isGoogleAuthOrBlockedHtml(text: string): boolean {
+  if (!text || text.length < 10) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("sign in - google accounts") ||
+    lower.includes("sign in to continue to google") ||
+    lower.includes("use your google account") ||
+    lower.includes("accounts.google.com") ||
+    (lower.includes("google drive") && lower.includes("sign in") && !lower.includes("slide")) ||
+    (lower.includes("access denied") && !lower.includes("architecture"))
+  );
 }
