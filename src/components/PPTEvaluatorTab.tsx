@@ -32,6 +32,7 @@ import {
   Bot,
   Globe,
   CheckCircle2,
+  Zap,
 } from "lucide-react";
 
 interface PPTEvaluation {
@@ -669,6 +670,17 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   {getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").icon}{" "}
                   {getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").label}
                 </span>
+                {selectedEval.ai_feedback?.usedAiFallback ? (
+                  <span className="badge bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-xs px-2.5 py-0.5 font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Heuristic Fallback
+                  </span>
+                ) : (
+                  <span className="badge bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-xs px-2.5 py-0.5 font-semibold flex items-center gap-1 shadow-xs">
+                    <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Gemini AI ⚡
+                  </span>
+                )}
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
                 Evaluated on {new Date(selectedEval.created_at).toLocaleDateString()} at{" "}

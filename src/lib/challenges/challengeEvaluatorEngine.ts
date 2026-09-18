@@ -1,3 +1,5 @@
+import { callGeminiText } from "@/lib/ai/geminiClient";
+
 export interface ChallengeScoreDeductions {
   problem: string;
   solution: string;
@@ -49,7 +51,6 @@ export async function runChallengePitchEvaluation(
   if (geminiKey) {
     try {
       const aiResult = await callChallengeGeminiWithCascade(
-        geminiKey,
         challengeTitle,
         challengeTrack,
         problemStatementText,
@@ -84,7 +85,6 @@ export async function runChallengePitchEvaluation(
  * Cascading Gemini API caller with production-pinned model hierarchy.
  */
 async function callChallengeGeminiWithCascade(
-  geminiKey: string,
   challengeTitle: string,
   challengeTrack: string,
   problemStatementText: string,
@@ -157,103 +157,68 @@ Return ONLY a valid raw JSON object (no markdown, no backticks, no wrapping) mat
   "topActionItem": "The #1 highest priority change to make before resubmitting."
 }`;
 
-  const modelsToTry = [
-    "gemini-3.7-flash",
-    "gemini-flash-lite-latest",
-    "gemini-flash-latest",
-  ];
+  const { text: rawJsonText, modelUsed, latencyMs } = await callGeminiText(promptText, {
+    responseMimeType: "application/json",
+    temperature: 0.15,
+    maxOutputTokens: 2500,
+    timeoutMs: 9000,
+  });
 
-  let lastError: any = null;
+  console.log(`[Challenge Evaluator] Gemini AI evaluation completed via ${modelUsed} in ${latencyMs}ms.`);
 
-  for (const modelName of modelsToTry) {
-    try {
-      console.log(`[Challenge Evaluator] Trying Gemini model: ${modelName}...`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 18000);
+  const cleanJson = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const firstBrace = cleanJson.indexOf("{");
+  const lastBrace = cleanJson.lastIndexOf("}");
+  const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
+  const parsed = JSON.parse(targetJsonStr);
 
-      const aiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.15 },
-          }),
-          signal: controller.signal,
-        }
-      );
+  let rawProblem = parsed.scoreProblem ?? 18;
+  let rawSolution = parsed.scoreSolution ?? 18;
+  let rawArchitecture = parsed.scoreArchitecture ?? 20;
+  let rawFeasibilityImpact = parsed.scoreFeasibilityImpact ?? 14;
 
-      clearTimeout(timeoutId);
-
-      if (!aiRes.ok) {
-        console.warn(`[Challenge Evaluator] Model ${modelName} returned HTTP ${aiRes.status}`);
-        lastError = new Error(`Gemini API HTTP ${aiRes.status} (${modelName})`);
-        continue;
-      }
-
-      const aiData = await aiRes.json();
-      let rawJsonText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawJsonText) {
-        continue;
-      }
-
-      rawJsonText = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(rawJsonText);
-
-      let rawProblem = parsed.scoreProblem ?? 18;
-      let rawSolution = parsed.scoreSolution ?? 18;
-      let rawArchitecture = parsed.scoreArchitecture ?? 20;
-      let rawFeasibilityImpact = parsed.scoreFeasibilityImpact ?? 14;
-
-      // Handle 0-10 normalized scale edge case if returned
-      if (rawProblem <= 10 && rawSolution <= 10 && rawArchitecture <= 10 && rawFeasibilityImpact <= 10) {
-        rawProblem = Math.round((rawProblem / 10) * 25);
-        rawSolution = Math.round((rawSolution / 10) * 25);
-        rawArchitecture = Math.round((rawArchitecture / 10) * 30);
-        rawFeasibilityImpact = Math.round((rawFeasibilityImpact / 10) * 20);
-      }
-
-      const scoreProblem = Math.min(25, Math.max(0, rawProblem));
-      const scoreSolution = Math.min(25, Math.max(0, rawSolution));
-      const scoreArchitecture = Math.min(30, Math.max(0, rawArchitecture));
-      const scoreFeasibilityImpact = Math.min(20, Math.max(0, rawFeasibilityImpact));
-      const totalScore = scoreProblem + scoreSolution + scoreArchitecture + scoreFeasibilityImpact;
-
-      return {
-        scoreProblem,
-        scoreSolution,
-        scoreArchitecture,
-        scoreFeasibilityImpact,
-        totalScore,
-        grade: parsed.grade || computeChallengeGrade(totalScore),
-        strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ["Well-structured 6-slide system presentation"],
-        growthAreas: Array.isArray(parsed.growthAreas) && parsed.growthAreas.length > 0 ? parsed.growthAreas : ["Include concrete baseline metrics and milestones"],
-        formatViolations: Array.isArray(parsed.formatViolations) ? parsed.formatViolations : [],
-        slideFeedback: {
-          slide1: parsed.slideFeedback?.slide1 || "Ensure problem scope and user personas are clearly defined.",
-          slide2: parsed.slideFeedback?.slide2 || "Highlight your unique technical moat compared to existing market solutions.",
-          slide3: parsed.slideFeedback?.slide3 || "Detail the end-to-end data flow and infrastructure pipeline.",
-          slide4: parsed.slideFeedback?.slide4 || "Address potential latency, offline fallback, and security edge cases.",
-          slide5: parsed.slideFeedback?.slide5 || "Provide quantified baseline metrics and target outcomes.",
-          slide6: parsed.slideFeedback?.slide6 || "Outline execution milestones and builder responsibilities.",
-        },
-        scoreDeductions: {
-          problem: parsed.scoreDeductions?.problem || `Deducted ${25 - scoreProblem} pts in Problem Framing.`,
-          solution: parsed.scoreDeductions?.solution || `Deducted ${25 - scoreSolution} pts in Solution Innovation.`,
-          architecture: parsed.scoreDeductions?.architecture || `Deducted ${30 - scoreArchitecture} pts in Technical Architecture.`,
-          feasibilityImpact: parsed.scoreDeductions?.feasibilityImpact || `Deducted ${20 - scoreFeasibilityImpact} pts in Feasibility & Roadmap.`,
-        },
-        topActionItem: parsed.topActionItem || "Refine the technical data pipeline diagram and add quantified baseline metrics.",
-      };
-    } catch (err: any) {
-      console.warn(`[Challenge Evaluator] Model ${modelName} call exception:`, err.message);
-      lastError = err;
-    }
+  // Handle 0-10 normalized scale edge case if returned
+  if (rawProblem <= 10 && rawSolution <= 10 && rawArchitecture <= 10 && rawFeasibilityImpact <= 10) {
+    rawProblem = Math.round((rawProblem / 10) * 25);
+    rawSolution = Math.round((rawSolution / 10) * 25);
+    rawArchitecture = Math.round((rawArchitecture / 10) * 30);
+    rawFeasibilityImpact = Math.round((rawFeasibilityImpact / 10) * 20);
   }
 
-  throw lastError || new Error("All Gemini AI model attempts failed");
+  const scoreProblem = Math.min(25, Math.max(0, rawProblem));
+  const scoreSolution = Math.min(25, Math.max(0, rawSolution));
+  const scoreArchitecture = Math.min(30, Math.max(0, rawArchitecture));
+  const scoreFeasibilityImpact = Math.min(20, Math.max(0, rawFeasibilityImpact));
+  const totalScore = scoreProblem + scoreSolution + scoreArchitecture + scoreFeasibilityImpact;
+
+  return {
+    scoreProblem,
+    scoreSolution,
+    scoreArchitecture,
+    scoreFeasibilityImpact,
+    totalScore,
+    grade: parsed.grade || computeChallengeGrade(totalScore),
+    strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ["Well-structured 6-slide system presentation"],
+    growthAreas: Array.isArray(parsed.growthAreas) && parsed.growthAreas.length > 0 ? parsed.growthAreas : ["Include concrete baseline metrics and milestones"],
+    formatViolations: Array.isArray(parsed.formatViolations) ? parsed.formatViolations : [],
+    slideFeedback: {
+      slide1: parsed.slideFeedback?.slide1 || "Ensure problem scope and user personas are clearly defined.",
+      slide2: parsed.slideFeedback?.slide2 || "Highlight your unique technical moat compared to existing market solutions.",
+      slide3: parsed.slideFeedback?.slide3 || "Detail the end-to-end data flow and infrastructure pipeline.",
+      slide4: parsed.slideFeedback?.slide4 || "Address potential latency, offline fallback, and security edge cases.",
+      slide5: parsed.slideFeedback?.slide5 || "Provide quantified baseline metrics and target outcomes.",
+      slide6: parsed.slideFeedback?.slide6 || "Outline execution milestones and builder responsibilities.",
+    },
+    scoreDeductions: {
+      problem: parsed.scoreDeductions?.problem || `Deducted ${25 - scoreProblem} pts in Problem Framing.`,
+      solution: parsed.scoreDeductions?.solution || `Deducted ${25 - scoreSolution} pts in Solution Innovation.`,
+      architecture: parsed.scoreDeductions?.architecture || `Deducted ${30 - scoreArchitecture} pts in Technical Architecture.`,
+      feasibilityImpact: parsed.scoreDeductions?.feasibilityImpact || `Deducted ${20 - scoreFeasibilityImpact} pts in Feasibility & Roadmap.`,
+    },
+    topActionItem: parsed.topActionItem || "Refine the technical data pipeline diagram and add quantified baseline metrics.",
+  };
 }
+
 
 /**
  * Deterministic Content-Aware Heuristic Scoring Engine

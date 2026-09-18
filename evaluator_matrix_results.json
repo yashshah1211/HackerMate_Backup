@@ -14,39 +14,37 @@
     },
     "usedAi": true,
     "strengths": [
-      "Excellent integration of Yjs CRDTs with Redis presence caching for sub-30ms real-time synchronization.",
-      "Robust security model utilizing Supabase Row-Level Security (RLS) combined with HMAC-signed webhooks and sliding-window rate limiting.",
-      "Well-thought-out database indexing strategy on (team_id, updated_at) to optimize workspace queries.",
-      "Modern tech stack utilizing Next.js 15 App Router, Tailwind CSS v4, and BullMQ for asynchronous background processing."
+      "Sophisticated real-time state synchronization architecture using Yjs CRDTs and Redis presence caching",
+      "Strong database design considerations including Supabase RLS policies and targeted indexing on composite keys",
+      "Comprehensive full-stack stack utilization combining Next.js 15 App Router, Prisma, and BullMQ worker pools"
     ],
     "redFlags": [
-      "Prisma ORM can introduce connection pooling overhead in serverless/edge environments (like Vercel Edge Middleware) without a dedicated proxy like Prisma Accelerate.",
-      "Running BullMQ requires a persistent Redis instance; Upstash Redis has specific limitations with long-polling/blocking commands that BullMQ relies on, which could lead to high command counts and unexpected costs."
+      "Managing WebSocket gateway infrastructure alongside serverless/edge environments (Next.js/Vercel) requires careful handling of persistent connections",
+      "Schema-to-mock API generation complexity could lead to scope creep if not tightly bounded"
     ],
     "architectureSuggestions": [
-      "Consider using PgBouncer or Supabase Connection Pooler to handle connection spikes from Next.js serverless functions.",
-      "Verify Upstash compatibility with BullMQ, or migrate background jobs to a dedicated server/worker instance running standard Redis if blocking commands cause latency or cost spikes.",
-      "Implement a fallback mechanism (such as HTTP long-polling) for environments where WebSockets are blocked by corporate firewalls."
+      "Deploy dedicated WebSocket servers (e.g., using Node.js with ws and y-websocket) separate from Vercel serverless functions to ensure persistent real-time connection stability",
+      "Implement automated integration testing for Yjs document convergence edge cases under network partitions"
     ],
     "recommendedRoles": [
       {
-        "role": "Lead Real-Time Systems Engineer",
-        "reason": "To manage and optimize the Yjs CRDT synchronization and WebSocket gateway scaling.",
+        "role": "Distributed Systems Engineer",
+        "reason": "Crucial for scaling the WebSocket gateways, Yjs CRDT providers, and managing Redis presence synchronization.",
         "suggestedSkills": [
-          "Yjs",
           "WebSockets",
-          "Node.js",
-          "Redis"
+          "Redis",
+          "CRDTs",
+          "Node.js"
         ]
       },
       {
-        "role": "Database Administrator / Backend Architect",
-        "reason": "To oversee Prisma schema migrations, optimize Supabase RLS policies, and manage connection pooling.",
+        "role": "Full-Stack Performance Engineer",
+        "reason": "Needed to optimize React Server Components, optimistic UI state reconciliation, and edge middleware latency.",
         "suggestedSkills": [
+          "Next.js 15",
+          "TypeScript",
           "PostgreSQL",
-          "Prisma",
-          "Supabase RLS",
-          "Database Indexing"
+          "Tailwind CSS"
         ]
       }
     ]
@@ -59,45 +57,44 @@
     "totalScore": 15,
     "grade": "High Risk / Incomplete 🚨",
     "subScores": {
-      "novelty": 5,
-      "tech": 3,
-      "uiUxOrFeasibility": 5,
-      "impactOrTeam": 2
+      "novelty": 2,
+      "tech": 2,
+      "uiUxOrFeasibility": 10,
+      "impactOrTeam": 1
     },
     "usedAi": true,
     "strengths": [
-      "Simple and straightforward concept that is easy to understand.",
-      "Includes interactive elements like sound effects on button clicks to engage users."
+      "Clear and simple concept that is easy to understand",
+      "Functional basic layout using standard web building blocks"
     ],
     "redFlags": [
-      "Extremely sparse submission with no database schema, backend APIs, or modern framework architecture.",
-      "No repository or live demo links provided to verify the working prototype.",
-      "Tech stack is outdated (jQuery, static HTML/CSS) and lacks scalability, state management, or security."
+      "Extremely sparse submission with no backend architecture, database schema, or modern framework usage",
+      "Completely lacks data persistence, API integration, and scalable engineering practices",
+      "Relies on outdated technology (jQuery) without justification",
+      "Does not meet the baseline criteria for a hackathon-level full-stack project"
     ],
     "architectureSuggestions": [
-      "Migrate to a modern frontend framework like Next.js or React to handle component state (e.g., tracking likes, active video) cleanly.",
-      "Introduce a backend API (e.g., Node.js/Express or Next.js Serverless Functions) to fetch video metadata dynamically instead of hardcoding video tags.",
-      "Implement a database (e.g., PostgreSQL with Prisma or MongoDB) to store video metadata, user likes, and view counts.",
-      "Integrate an external media storage/CDN solution (like Cloudinary or AWS S3) to host and stream videos efficiently instead of loading raw local files."
+      "Migrate from vanilla HTML/jQuery to a modern component-driven framework like React or Next.js for better state management",
+      "Implement a robust backend API (Node.js/Express or Next.js API routes) connected to a database (PostgreSQL/Prisma) to store user likes and video metadata",
+      "Integrate a third-party video storage or streaming service (such as AWS S3 or Cloudinary with a CDN) instead of hardcoding raw video tags"
     ],
     "recommendedRoles": [
       {
-        "role": "Full-Stack Developer",
-        "reason": "To transition the static frontend into a dynamic application with a proper backend and database.",
+        "role": "Frontend Developer",
+        "reason": "Needed to transition the legacy jQuery implementation into a modern, responsive React/Next.js UI.",
         "suggestedSkills": [
           "React",
-          "Node.js",
-          "Express",
-          "MongoDB"
+          "Tailwind CSS",
+          "TypeScript"
         ]
       },
       {
-        "role": "DevOps / Cloud Engineer",
-        "reason": "To set up media hosting, CDN distribution for video streaming, and deployment pipelines.",
+        "role": "Backend Engineer",
+        "reason": "Required to build a proper database schema, authentication system, and API endpoints for persisting user interactions.",
         "suggestedSkills": [
-          "AWS S3",
-          "Cloudinary",
-          "Vercel"
+          "Node.js",
+          "PostgreSQL",
+          "Prisma"
         ]
       }
     ]
@@ -107,49 +104,45 @@
     "hackathon": "Axcentra x All India Hackathon",
     "category": "GREAT",
     "title": "BioMedSense: Multi-Agent Clinical Trial Protocol & Drug Target Verification System",
-    "totalScore": 89,
+    "totalScore": 86,
     "grade": "Top Tier / Nomination Ready 🏆",
     "subScores": {
-      "novelty": 22,
-      "tech": 32,
+      "novelty": 20,
+      "tech": 31,
       "uiUxOrFeasibility": 22,
       "impactOrTeam": 13
     },
     "usedAi": true,
     "strengths": [
-      "Sophisticated hybrid retrieval pipeline combining BGE-M3 sparse-dense embeddings, BM25, and Cohere ReRank v3 to handle complex biomedical ontologies.",
-      "Deterministic hallucination control using SHA-256 source document hashing and a strict 0.92 confidence threshold for citation verification.",
-      "Well-designed multi-agent orchestration (Researcher -> Drafter -> Auditor) using LangGraph to enforce clinical-grade verification loops."
+      "Sophisticated hybrid retrieval architecture combining BM25 sparse search and dense BGE-M3 embeddings via Reciprocal Rank Fusion",
+      "Robust multi-agent verification loop (Researcher -> Drafter -> Auditor) implemented via LangGraph",
+      "Rigorous hallucination control with a high confidence threshold (0.92) and SHA-256 hash-based citation mapping to source documents"
     ],
     "redFlags": [
-      "Sub-second latency claims are highly ambitious for a 3-stage LangGraph loop processing 500+ page PDFs, even with vLLM, without aggressive caching.",
-      "A hard 0.92 confidence threshold may cause high false-rejection rates or silent failures if the embedding space is not perfectly calibrated to clinical jargon."
+      "Sub-second latency claims for a 3-stage agent loop running cross-encoder re-ranking and vLLM inference over 500+ page documents may be overly optimistic",
+      "High confidence score cutoffs (0.92) could lead to excessive false negatives or query rejections in complex clinical domains"
     ],
     "architectureSuggestions": [
-      "Implement a semantic caching layer (e.g., Redis) to store and quickly serve recurring clinical queries and protocol patterns.",
-      "Integrate a specialized PDF parser (like Nougat or Marker) to extract complex tables, chemical structures, and clinical flowcharts that standard hierarchical chunking misses.",
-      "Incorporate LLM-as-a-Judge evaluation frameworks (e.g., Ragas or TruLens) to continuously monitor and calibrate the 0.92 confidence threshold."
+      "Implement asynchronous streaming for the multi-stage agent loop to improve perceived latency on the Next.js 15 dashboard",
+      "Add a semantic caching layer (e.g., GPTCache or Redis-based vector cache) for frequent protocol queries to reduce LLM and inference costs"
     ],
     "recommendedRoles": [
       {
-        "role": "Lead AI Platform Engineer",
-        "reason": "To optimize vLLM throughput, manage pgvector indexing (HNSW), and implement distributed caching to meet sub-second latency requirements.",
+        "role": "Bioinformatics AI Engineer",
+        "reason": "To fine-tune embeddings and manage biomedical ontology alignment for complex clinical trial protocols",
         "suggestedSkills": [
-          "vLLM",
-          "pgvector",
-          "Redis",
-          "CUDA optimization",
-          "FastAPI"
+          "PyTorch",
+          "BioBERT/BGE-M3",
+          "Ontology Parsing"
         ]
       },
       {
-        "role": "Clinical NLP Scientist",
-        "reason": "To fine-tune embedding models and domain-specific LLMs on biomedical ontologies (UMLS, MeSH) for improved retrieval accuracy.",
+        "role": "LLMOps & Infrastructure Lead",
+        "reason": "To optimize vLLM inference throughput and maintain pgvector scalability for large multi-document repositories",
         "suggestedSkills": [
-          "PyTorch",
-          "Hugging Face",
-          "Biomedical NER",
-          "Sentence-Transformers"
+          "vLLM",
+          "PostgreSQL/pgvector",
+          "Docker/Kubernetes"
         ]
       }
     ]
@@ -159,50 +152,38 @@
     "hackathon": "Axcentra x All India Hackathon",
     "category": "BAD_OFF_TOPIC",
     "title": "Super AI Fortune Teller",
-    "totalScore": 15,
+    "totalScore": 19,
     "grade": "High Risk / Incomplete 🚨",
     "subScores": {
-      "novelty": 3,
-      "tech": 4,
-      "uiUxOrFeasibility": 5,
-      "impactOrTeam": 3
+      "novelty": 2,
+      "tech": 5,
+      "uiUxOrFeasibility": 10,
+      "impactOrTeam": 2
     },
     "usedAi": true,
     "strengths": [
-      "Extremely simple and straightforward user flow",
-      "Streamlit allows for rapid prototyping of the basic UI"
+      "Extremely simple and quick to spin up using Streamlit for rapid prototyping.",
+      "Uses a popular, reliable frontend framework to collect user input."
     ],
     "redFlags": [
-      "Classic superficial wrapper around OpenAI API with zero custom logic, pipeline moat, or proprietary data",
-      "No repository or demo URL provided to verify functionality",
-      "No vector database, RAG architecture, or agentic orchestration",
-      "High risk of hallucination and lack of domain-specific grounding (e.g., actual astrological ephemeris calculations)"
+      "Classic superficial wrapper around an LLM API with zero custom AI novelty, prompting a heavy penalty.",
+      "No vector database, no RAG pipeline, no agent orchestration, and no custom retrieval mechanisms.",
+      "Completely lacks hallucination controls, safety guardrails, or latency optimization strategies.",
+      "No unit economics planning, cost budgeting, or evaluation metrics provided."
     ],
     "architectureSuggestions": [
-      "Integrate an external astronomical/astrological API (like Swiss Ephemeris) to calculate precise planetary positions based on birth date, time, and location instead of relying on LLM hallucinations",
-      "Implement a RAG pipeline using a vector database (e.g., pgvector or Pinecone) containing historical astrological texts and interpretations to ground the LLM's responses",
-      "Add guardrails and prompt safety layers (e.g., NeMo Guardrails) to handle sensitive user queries about health, wealth, or relationships",
-      "Introduce an agentic workflow (e.g., using LangChain or CrewAI) to separate calculation, interpretation, and personalization steps"
+      "Incorporate a robust RAG architecture using a vector database like Pinecone or pgvector to ground predictions in astrological data sources.",
+      "Implement guardrails and input validation layers (e.g., NeMo Guardrails or Llama Guard) to manage prompt safety and output reliability."
     ],
     "recommendedRoles": [
       {
-        "role": "AI Engineer / Architect",
-        "reason": "To transition the project from a basic API wrapper to a robust agentic RAG system.",
-        "suggestedSkills": [
-          "LangChain",
-          "Vector Databases",
-          "Prompt Engineering",
-          "LlamaIndex"
-        ]
-      },
-      {
-        "role": "Backend Developer",
-        "reason": "To integrate real-time astronomical APIs and handle secure user data ingestion.",
+        "role": "Full-Stack AI Engineer",
+        "reason": "Needed to transition this basic script into a scalable, production-grade application with proper backend architecture.",
         "suggestedSkills": [
           "Python",
-          "FastAPI",
-          "API Integration",
-          "Data Validation"
+          "Streamlit",
+          "LangChain",
+          "FastAPI"
         ]
       }
     ]
@@ -212,57 +193,58 @@
     "hackathon": "Smart India Hackathon 2026 (SIH Internal Round)",
     "category": "GREAT",
     "title": "JalDrishti: IoT Acoustic Telemetry & Satellite GIS Water Pipeline Anomaly Detection",
-    "totalScore": 90,
+    "totalScore": 91,
     "grade": "Top Tier / Nomination Ready 🏆",
     "subScores": {
       "novelty": 23,
       "tech": 32,
-      "uiUxOrFeasibility": 22,
+      "uiUxOrFeasibility": 23,
       "impactOrTeam": 13
     },
     "usedAi": true,
     "strengths": [
-      "Strong alignment with Ministry of Jal Shakti (PS 1729) addressing a critical 38% water loss issue.",
-      "Highly feasible and detailed 36-hour execution roadmap utilizing a synthetic leak test rig.",
-      "Excellent integration of academic research (IEEE citations) and open government datasets (Jal Jeevan Mission)."
+      "Excellent alignment with Ministry of Jal Shakti Problem Statement 1729, targeting non-revenue water loss.",
+      "Comprehensive end-to-end data pipeline architecture from ESP32 MEMS sensors via LoRaWAN and MQTT to TimescaleDB and FastAPI.",
+      "Strong inclusion of concrete technical components like XGBoost for anomaly classification and Mapbox GL JS for spatial visualization.",
+      "Quantified impact metrics with clear baseline economic and resource savings."
     ],
     "redFlags": [
-      "LoRaWAN gateway setup and physical acoustic calibration can be highly environment-dependent and challenging to demonstrate fully in a 36-hour hackathon venue.",
-      "XGBoost model training on acoustic transients requires high-quality labeled dataset which might be scarce or require extensive pre-processing during the hackathon."
+      "Team squad breakdown and specific member roles are missing from the submission details.",
+      "Limited detail on power management and battery life optimization for field-deployed ESP32 nodes."
     ],
     "architectureSuggestions": [
-      "Implement an edge-computing filter on the ESP32 to reduce LoRaWAN payload size by sending FFT features instead of raw audio/vibration streams.",
-      "Introduce a fallback cellular (NB-IoT/GSM) or Wi-Fi telemetry path in case LoRaWAN coverage is weak at the evaluation venue."
+      "Implement an edge-filtering algorithm on the ESP32 to transmit only anomalous acoustic signatures, conserving LoRaWAN bandwidth and battery life.",
+      "Add a spatial indexing extension like PostGIS alongside TimescaleDB to optimize GIS queries for pipeline leak proximity mapping."
     ],
     "recommendedRoles": [
       {
-        "role": "IoT & Hardware Engineer",
-        "reason": "To calibrate ESP32 I2S MEMS sensors and manage LoRaWAN/MQTT telemetry.",
+        "role": "Embedded Systems & IoT Engineer",
+        "reason": "Crucial for programming the ESP32, configuring I2S MEMS microphones, and setting up the LoRaWAN transmission pipeline.",
         "suggestedSkills": [
-          "ESP32",
-          "I2S Protocol",
+          "C++",
+          "ESP-IDF",
           "LoRaWAN",
-          "C++"
+          "I2S Protocol"
         ]
       },
       {
-        "role": "Data Scientist / ML Engineer",
-        "reason": "To preprocess acoustic signals and train/deploy the XGBoost anomaly classifier.",
+        "role": "Backend & Time-Series Data Engineer",
+        "reason": "Needed to manage high-frequency time-series ingestion via MQTT, set up TimescaleDB hypertables, and build FastAPI endpoints.",
         "suggestedSkills": [
           "Python",
-          "XGBoost",
-          "Signal Processing (FFT)",
-          "FastAPI"
+          "FastAPI",
+          "TimescaleDB",
+          "MQTT"
         ]
       },
       {
-        "role": "Full-Stack GIS Developer",
-        "reason": "To build the Next.js dashboard and integrate Mapbox GL JS for real-time spatial visualization.",
+        "role": "Machine Learning & Signal Processing Engineer",
+        "reason": "Required to train and optimize the XGBoost classifier using acoustic wave transient features for accurate leak detection.",
         "suggestedSkills": [
-          "Next.js 15",
-          "Mapbox GL JS",
-          "TimescaleDB",
-          "Tailwind CSS"
+          "Python",
+          "Scikit-Learn",
+          "XGBoost",
+          "Signal Processing"
         ]
       }
     ]
@@ -272,47 +254,35 @@
     "hackathon": "Smart India Hackathon 2026 (SIH Internal Round)",
     "category": "BAD_OFF_TOPIC",
     "title": "Meme Sharing App",
-    "totalScore": 12,
+    "totalScore": 14,
     "grade": "High Risk / Incomplete 🚨",
     "subScores": {
-      "novelty": 3,
+      "novelty": 2,
       "tech": 5,
-      "uiUxOrFeasibility": 2,
+      "uiUxOrFeasibility": 5,
       "impactOrTeam": 2
     },
     "usedAi": true,
     "strengths": [
-      "The chosen tech stack (React and Firebase) allows for rapid prototyping within a 36-hour hackathon window.",
-      "The target audience (college students) is highly accessible for immediate user testing and feedback."
+      "Simple and relatable concept for college students",
+      "Uses accessible and rapid development tools like Firebase"
     ],
     "redFlags": [
-      "The project does not align with any SIH themes, government initiatives, or critical social/economic problem statements.",
-      "No repository or demo URLs were provided, making it impossible to verify working code.",
-      "The submission is extremely sparse, lacking any detailed technical architecture, data flow diagrams, or security considerations.",
-      "Meme sharing apps do not present any technical novelty or research-backed baseline metrics."
+      "Complete lack of national, social, or governmental problem alignment required by Smart India Hackathon",
+      "Extremely superficial submission with zero architectural depth, missing core data schemas, and no concrete technical design",
+      "Fails to meet the minimum threshold for an engineering-level hackathon project of national scale"
     ],
     "architectureSuggestions": [
-      "Integrate an automated content moderation system using APIs like AWS Rekognition or Google Cloud Vision to prevent inappropriate uploads.",
-      "Implement a CDN (like Cloudflare) in front of Firebase Storage to optimize image delivery speeds and minimize bandwidth costs.",
-      "Incorporate a structured database schema (Firestore) to handle user profiles, likes, comments, and tags, rather than just listing raw files from storage."
+      "Incorporate a robust backend service with proper content moderation and reporting pipelines",
+      "Define clear database schemas, caching mechanisms, and scalable content delivery networks for media handling"
     ],
     "recommendedRoles": [
       {
-        "role": "Full Stack Developer",
-        "reason": "Required to set up the React frontend and integrate Firebase Authentication, Firestore, and Storage securely.",
+        "role": "Full-Stack Developer",
+        "reason": "Needed to build the core application feed and storage integration",
         "suggestedSkills": [
-          "React.js",
-          "Firebase SDK",
-          "JavaScript (ES6+)"
-        ]
-      },
-      {
-        "role": "UI/UX Designer",
-        "reason": "Needed to design an engaging, mobile-responsive feed layout that mimics modern social media interactions.",
-        "suggestedSkills": [
-          "Figma",
-          "Tailwind CSS",
-          "Responsive Web Design"
+          "React",
+          "Firebase"
         ]
       }
     ]

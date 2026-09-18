@@ -1,4 +1,5 @@
 import { JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
+import { callGeminiText } from "@/lib/ai/geminiClient";
 
 export interface ScoreDeductions {
   novelty: string;
@@ -303,105 +304,69 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
 }`;
   }
 
-  const modelsToTry = [
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-  ];
+  const { text: rawJsonText, modelUsed, latencyMs } = await callGeminiText(promptText, {
+    responseMimeType: "application/json",
+    temperature: 0.1,
+    timeoutMs: 9000,
+  });
 
-  let lastError: any = null;
+  console.log(`[Pitch Evaluator] Gemini AI evaluation completed via ${modelUsed} in ${latencyMs}ms.`);
 
-  for (const modelName of modelsToTry) {
-    try {
-      console.log(`[Pitch Evaluator] Trying Gemini model: ${modelName} (Track: ${trackId})...`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 18000);
+  const cleanJson = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const firstBrace = cleanJson.indexOf("{");
+  const lastBrace = cleanJson.lastIndexOf("}");
+  const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
+  const parsed = JSON.parse(targetJsonStr);
 
-      const aiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
-          }),
-          signal: controller.signal,
-        }
-      );
+  let rawNovelty = parsed.scoreNovelty ?? 15;
+  let rawTech = parsed.scoreTech ?? 20;
+  let rawUiUx = parsed.scoreUiUx ?? 15;
+  let defaultTeamScore = trackId === "sih"
+    ? (hasFemaleMember && memberCount === 6 ? 14 : 6)
+    : (memberCount >= 2 ? 14 : 9);
+  let rawTeam = parsed.scoreTeam ?? defaultTeamScore;
 
-      clearTimeout(timeoutId);
-
-      if (!aiRes.ok) {
-        console.warn(`[Pitch Evaluator] Model ${modelName} returned HTTP ${aiRes.status}`);
-        lastError = new Error(`Gemini API HTTP ${aiRes.status} (${modelName})`);
-        continue;
-      }
-
-      const aiData = await aiRes.json();
-      let rawJsonText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawJsonText) {
-        continue;
-      }
-
-      rawJsonText = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(rawJsonText);
-
-      let rawNovelty = parsed.scoreNovelty ?? 15;
-      let rawTech = parsed.scoreTech ?? 20;
-      let rawUiUx = parsed.scoreUiUx ?? 15;
-      let defaultTeamScore = trackId === "sih"
-        ? (hasFemaleMember && memberCount === 6 ? 14 : 6)
-        : (memberCount >= 2 ? 14 : 9);
-      let rawTeam = parsed.scoreTeam ?? defaultTeamScore;
-
-      // Check if model returned 0-10 subscores instead of category max
-      if (rawTech <= 10 && rawNovelty <= 10 && rawUiUx <= 10 && rawTeam <= 10) {
-        rawNovelty = Math.round((rawNovelty / 10) * 25);
-        rawTech = Math.round((rawTech / 10) * 35);
-        rawUiUx = Math.round((rawUiUx / 10) * 25);
-        rawTeam = Math.round((rawTeam / 10) * 15);
-      }
-
-      const scoreNovelty = Math.min(25, Math.max(0, rawNovelty));
-      const scoreTech = Math.min(35, Math.max(0, rawTech));
-      const scoreUiUx = Math.min(25, Math.max(0, rawUiUx));
-      const scoreTeam = Math.min(15, Math.max(0, rawTeam));
-      const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
-
-      const grade = parsed.grade || computeGrade(totalScore, hasFemaleMember, memberCount, parsed.formatViolations, trackId);
-
-      return {
-        scoreNovelty,
-        scoreTech,
-        scoreUiUx,
-        scoreTeam,
-        totalScore,
-        grade,
-        strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ["Well-structured presentation"],
-        spocRedFlags: Array.isArray(parsed.spocRedFlags) ? parsed.spocRedFlags : [],
-        formatViolations: Array.isArray(parsed.formatViolations) ? parsed.formatViolations : [],
-        slideRecommendations: {
-          titlePage: parsed.slideRecommendations?.titlePage || "Ensure project ID, category, and team details are clearly stated.",
-          proposedSolution: parsed.slideRecommendations?.proposedSolution || "Articulate clear competitive advantage over existing solutions.",
-          technicalApproach: parsed.slideRecommendations?.technicalApproach || "Include end-to-end data flow and block architecture diagram.",
-          feasibilityAndRisks: parsed.slideRecommendations?.feasibilityAndRisks || "List specific technical bottlenecks and exact mitigation strategies.",
-          impactAndBenefits: parsed.slideRecommendations?.impactAndBenefits || "Include quantitative baseline metrics and cost efficiency data.",
-          researchAndReferences: parsed.slideRecommendations?.researchAndReferences || "Cite official technical documentation, research papers, and open datasets.",
-        },
-        scoreDeductions: {
-          novelty: parsed.scoreDeductions?.novelty || `Lost ${25 - scoreNovelty} points in Problem Alignment & Novelty.`,
-          tech: parsed.scoreDeductions?.tech || `Lost ${35 - scoreTech} points in Technical Architecture.`,
-          uiUx: parsed.scoreDeductions?.uiUx || `Lost ${25 - scoreUiUx} points in UI/UX & Polish.`,
-          team: parsed.scoreDeductions?.team || `Lost ${15 - scoreTeam} points in Team Squad Balance & Rules.`,
-        },
-      };
-    } catch (err: any) {
-      console.warn(`[Pitch Evaluator] Model ${modelName} call exception:`, err.message);
-      lastError = err;
-    }
+  // Check if model returned 0-10 subscores instead of category max
+  if (rawTech <= 10 && rawNovelty <= 10 && rawUiUx <= 10 && rawTeam <= 10) {
+    rawNovelty = Math.round((rawNovelty / 10) * 25);
+    rawTech = Math.round((rawTech / 10) * 35);
+    rawUiUx = Math.round((rawUiUx / 10) * 25);
+    rawTeam = Math.round((rawTeam / 10) * 15);
   }
 
-  throw lastError || new Error("All Gemini AI model attempts failed");
+  const scoreNovelty = Math.min(25, Math.max(0, rawNovelty));
+  const scoreTech = Math.min(35, Math.max(0, rawTech));
+  const scoreUiUx = Math.min(25, Math.max(0, rawUiUx));
+  const scoreTeam = Math.min(15, Math.max(0, rawTeam));
+  const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
+
+  const grade = parsed.grade || computeGrade(totalScore, hasFemaleMember, memberCount, parsed.formatViolations, trackId);
+
+  return {
+    scoreNovelty,
+    scoreTech,
+    scoreUiUx,
+    scoreTeam,
+    totalScore,
+    grade,
+    strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ["Well-structured presentation"],
+    spocRedFlags: Array.isArray(parsed.spocRedFlags) ? parsed.spocRedFlags : [],
+    formatViolations: Array.isArray(parsed.formatViolations) ? parsed.formatViolations : [],
+    slideRecommendations: {
+      titlePage: parsed.slideRecommendations?.titlePage || "Ensure project ID, category, and team details are clearly stated.",
+      proposedSolution: parsed.slideRecommendations?.proposedSolution || "Articulate clear competitive advantage over existing solutions.",
+      technicalApproach: parsed.slideRecommendations?.technicalApproach || "Include end-to-end data flow and block architecture diagram.",
+      feasibilityAndRisks: parsed.slideRecommendations?.feasibilityAndRisks || "List specific technical bottlenecks and exact mitigation strategies.",
+      impactAndBenefits: parsed.slideRecommendations?.impactAndBenefits || "Include quantitative baseline metrics and cost efficiency data.",
+      researchAndReferences: parsed.slideRecommendations?.researchAndReferences || "Cite official technical documentation, research papers, and open datasets.",
+    },
+    scoreDeductions: {
+      novelty: parsed.scoreDeductions?.novelty || `Lost ${25 - scoreNovelty} points in Problem Alignment & Novelty.`,
+      tech: parsed.scoreDeductions?.tech || `Lost ${35 - scoreTech} points in Technical Architecture.`,
+      uiUx: parsed.scoreDeductions?.uiUx || `Lost ${25 - scoreUiUx} points in UI/UX & Polish.`,
+      team: parsed.scoreDeductions?.team || `Lost ${15 - scoreTeam} points in Team Squad Balance & Rules.`,
+    },
+  };
 }
 
 /**

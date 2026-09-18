@@ -717,8 +717,8 @@ export default function PitchEvaluatorClient({
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-tight bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 shadow-xs select-none"
                       title="Evaluated using live Gemini AI model with deep semantic reasoning and domain jury rubric checks."
                     >
-                      <Cpu className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                      <span>Gemini AI Engine</span>
+                      <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Gemini AI ⚡</span>
                     </div>
                   ) : (
                     <div

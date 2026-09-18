@@ -1,4 +1,5 @@
-// AI Content Moderation for HackerMate Media using Google Gemini Flash (₹0 Free Tier)
+// AI Content Moderation for HackerMate Media using Google Gemini Vision (Fail-Closed Safety Policy)
+import { callGeminiVision } from "@/lib/ai/geminiClient";
 
 export async function moderateImageWithGemini(
   imageBuffer: Buffer,
@@ -6,15 +7,14 @@ export async function moderateImageWithGemini(
 ): Promise<{ isSafe: boolean; reason?: string }> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) {
-    // If no API key configured, pass safely
-    return { isSafe: true };
+    console.error("[Gemini Moderation] Missing GEMINI_API_KEY. Rejecting upload under fail-closed security policy.");
+    return {
+      isSafe: false,
+      reason: "Media safety verification service is temporarily unavailable.",
+    };
   }
 
   try {
-    const base64Data = imageBuffer.toString("base64");
-
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
     const prompt = `You are a strict safety and compliance moderation engine for HackerMate, a student developer and hackathon community platform.
 Analyze the attached image strictly for safety violations.
 
@@ -32,51 +32,36 @@ Respond STRICTLY with a single JSON object in this exact format (no markdown for
 OR
 {"isSafe": false, "reason": "Short user-friendly explanation of violation"}`;
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: mimeType || "image/webp",
-                  data: base64Data,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 150,
-          responseMimeType: "application/json",
-        },
-      }),
+    const { text } = await callGeminiVision(prompt, imageBuffer, mimeType, {
+      temperature: 0.1,
+      maxOutputTokens: 200,
+      responseMimeType: "application/json",
+      timeoutMs: 4500,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn("Gemini moderation API error (non-fatal):", response.status, errText);
-      return { isSafe: true }; // Don't block uploads if AI rate limits occur
-    }
+    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleanText);
 
-    const data = await response.json();
-    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-
-    const parsed = JSON.parse(replyText);
     if (parsed && typeof parsed.isSafe === "boolean") {
       return {
         isSafe: parsed.isSafe,
-        reason: parsed.reason || "Content violates community safety guidelines.",
+        reason: parsed.reason || (parsed.isSafe ? undefined : "Content violates community safety guidelines."),
       };
     }
 
-    return { isSafe: true };
-  } catch (error) {
-    console.error("Gemini AI moderation execution error:", error);
-    return { isSafe: true }; // Fail-open to avoid breaking legitimate user experience on network hiccups
+    // Unparseable response under fail-closed policy
+    console.warn("[Gemini Moderation] Unexpected AI moderation output structure:", text);
+    return {
+      isSafe: false,
+      reason: "Media safety verification returned an unrecognized response. Please try again.",
+    };
+  } catch (error: any) {
+    // Fail-closed: Never allow uninspected media through on timeout or API error
+    console.error("[Gemini Moderation] Execution failure under fail-closed policy:", error?.message || error);
+    return {
+      isSafe: false,
+      reason: "Media safety verification temporarily unavailable. Please retry in a moment.",
+    };
   }
 }
+

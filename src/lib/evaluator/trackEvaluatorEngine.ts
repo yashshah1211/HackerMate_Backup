@@ -5,6 +5,7 @@ import {
   JudgingTrackId,
   RecommendedRoleGap,
 } from "./evaluatorTypes";
+import { callGeminiText } from "@/lib/ai/geminiClient";
 
 /**
  * Main evaluation orchestrator: attempts Gemini AI with fallback to the Content-Aware Heuristic Engine.
@@ -27,7 +28,7 @@ export async function runTrackAwareEvaluation(
     console.warn("[Track Evaluator] Missing GEMINI_API_KEY or NEXT_PUBLIC_GEMINI_API_KEY in environment. Falling back to Heuristic Engine.");
   } else {
     try {
-      const aiResult = await callGeminiForTrack(geminiKey, input, profile);
+      const aiResult = await callGeminiForTrack(input, profile);
       return {
         ...aiResult,
         usedAiEngine: true,
@@ -57,94 +58,61 @@ export async function runTrackAwareEvaluation(
  * Builds the track-specific Gemini prompt and parses the AI response.
  */
 async function callGeminiForTrack(
-  geminiKey: string,
   input: EvaluationInput,
   profile: any
 ): Promise<Omit<ProjectEvaluationResult, "usedAiEngine" | "evaluationTimestamp">> {
-  const models = [
-    "gemini-3-flash-preview",
-    "gemini-3.5-flash",
-    "gemini-flash-latest",
-  ];
   const promptText = buildGeminiPromptForTrack(input, profile);
 
-  let lastError: Error | null = null;
+  const { text: rawJson, modelUsed, latencyMs } = await callGeminiText(promptText, {
+    responseMimeType: "application/json",
+    temperature: 0.15,
+    maxOutputTokens: 2000,
+    timeoutMs: 9000,
+  });
 
-  for (const modelName of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
-      const aiRes = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(25000),
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: {
-            temperature: 0.15,
-            maxOutputTokens: 2000,
-            responseMimeType: "application/json",
-          },
-        }),
-      });
+  console.log(`[Track Evaluator] Gemini AI evaluation completed via ${modelUsed} in ${latencyMs}ms.`);
 
-      if (!aiRes.ok) {
-        throw new Error(`Model ${modelName} returned HTTP ${aiRes.status}`);
-      }
+  // Robust JSON extraction matching first { to last }
+  const cleanJson = rawJson.replace(/```json/gi, "").replace(/```/gi, "").trim();
+  const firstBrace = cleanJson.indexOf("{");
+  const lastBrace = cleanJson.lastIndexOf("}");
+  const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
+  const parsed = JSON.parse(targetJsonStr);
 
-      const aiData = await aiRes.json();
-      const rawJson = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+  const sNovelty = clamp(parsed.scoreNovelty ?? 15, 0, profile.categories.novelty.maxPts);
+  const sTech = clamp(parsed.scoreTech ?? 20, 0, profile.categories.tech.maxPts);
+  const sUiUx = clamp(parsed.scoreUiUxOrFeasibility ?? 15, 0, profile.categories.uiUxOrFeasibility.maxPts);
+  const sImpact = clamp(parsed.scoreImpactOrTeam ?? 10, 0, profile.categories.impactOrTeam.maxPts);
+  const total = sNovelty + sTech + sUiUx + sImpact;
 
-      if (!rawJson) {
-        throw new Error(`Empty response from ${modelName}`);
-      }
+  let grade: ProjectEvaluationResult["grade"] = "Needs Iteration ⚠️";
+  if (total >= 85) grade = "Top Tier / Nomination Ready 🏆";
+  else if (total >= 70) grade = "Strong Contender ✅";
+  else if (total < 40) grade = "High Risk / Incomplete 🚨";
 
-      // Robust JSON extraction matching first { to last }
-      const cleanJson = rawJson.replace(/```json/gi, "").replace(/```/gi, "").trim();
-      const firstBrace = cleanJson.indexOf("{");
-      const lastBrace = cleanJson.lastIndexOf("}");
-      const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
-      const parsed = JSON.parse(targetJsonStr);
-
-      const sNovelty = clamp(parsed.scoreNovelty ?? 15, 0, profile.categories.novelty.maxPts);
-      const sTech = clamp(parsed.scoreTech ?? 20, 0, profile.categories.tech.maxPts);
-      const sUiUx = clamp(parsed.scoreUiUxOrFeasibility ?? 15, 0, profile.categories.uiUxOrFeasibility.maxPts);
-      const sImpact = clamp(parsed.scoreImpactOrTeam ?? 10, 0, profile.categories.impactOrTeam.maxPts);
-      const total = sNovelty + sTech + sUiUx + sImpact;
-
-      let grade: ProjectEvaluationResult["grade"] = "Needs Iteration ⚠️";
-      if (total >= 85) grade = "Top Tier / Nomination Ready 🏆";
-      else if (total >= 70) grade = "Strong Contender ✅";
-      else if (total < 40) grade = "High Risk / Incomplete 🚨";
-
-      return {
-        trackId: input.trackId,
-        totalScore: total,
-        grade,
-        subScores: {
-          novelty: sNovelty,
-          tech: sTech,
-          uiUxOrFeasibility: sUiUx,
-          impactOrTeam: sImpact,
-        },
-        categoryLabels: {
-          novelty: profile.categories.novelty.label,
-          tech: profile.categories.tech.label,
-          uiUxOrFeasibility: profile.categories.uiUxOrFeasibility.label,
-          impactOrTeam: profile.categories.impactOrTeam.label,
-        },
-        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 4) : ["Clear initial concept."],
-        redFlags: Array.isArray(parsed.redFlags) ? parsed.redFlags.slice(0, 4) : ["Further technical depth needed."],
-        architectureSuggestions: Array.isArray(parsed.architectureSuggestions)
-          ? parsed.architectureSuggestions.slice(0, 4)
-          : ["Add comprehensive data flow architecture."],
-        recommendedRoles: formatRecommendedRoles(parsed.recommendedRoles, input.trackId),
-      };
-    } catch (err: any) {
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error("All Gemini cascade models failed.");
+  return {
+    trackId: input.trackId,
+    totalScore: total,
+    grade,
+    subScores: {
+      novelty: sNovelty,
+      tech: sTech,
+      uiUxOrFeasibility: sUiUx,
+      impactOrTeam: sImpact,
+    },
+    categoryLabels: {
+      novelty: profile.categories.novelty.label,
+      tech: profile.categories.tech.label,
+      uiUxOrFeasibility: profile.categories.uiUxOrFeasibility.label,
+      impactOrTeam: profile.categories.impactOrTeam.label,
+    },
+    strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 4) : ["Clear initial concept."],
+    redFlags: Array.isArray(parsed.redFlags) ? parsed.redFlags.slice(0, 4) : ["Further technical depth needed."],
+    architectureSuggestions: Array.isArray(parsed.architectureSuggestions)
+      ? parsed.architectureSuggestions.slice(0, 4)
+      : ["Add comprehensive data flow architecture."],
+    recommendedRoles: formatRecommendedRoles(parsed.recommendedRoles, input.trackId),
+  };
 }
 
 /**
