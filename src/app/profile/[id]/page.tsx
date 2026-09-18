@@ -440,6 +440,30 @@ export default function ProfilePage() {
       receiver_id: profile.id,
       has_pitch_message: !!pitchMessage,
     });
+
+    // Dispatch non-blocking transactional email to the recipient's registered email
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        await fetch("/api/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(sessionData?.session?.access_token
+              ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            senderId: currentUserId,
+            recipientId: profile.id,
+            type: "connection_request",
+          }),
+        });
+      } catch (emailErr) {
+        console.warn("[Profile] Non-blocking connection email dispatch error:", emailErr);
+      }
+    })();
+
     setConnectionLoading(false);
     setShowPitchModal(false);
   }

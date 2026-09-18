@@ -6,7 +6,13 @@ import { renderHackerMateEmail } from "@/lib/emailTemplate";
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Auth gate ──────────────────────────────────────────────────────────
+    // ── Auth gate & Admin client ──────────────────────────────────────────
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+
     // Build a server-side Supabase client that reads the caller's JWT from
     // the request cookies, exactly like middleware does.
     const supabase = createServerClient(
@@ -21,9 +27,22 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user: cookieUser } } = await supabase.auth.getUser();
+    let authUser = cookieUser;
 
-    if (authError || !user) {
+    // Dual-auth: if cookies did not yield an active session, check Authorization Bearer header
+    if (!authUser) {
+      const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.replace("Bearer ", "").trim();
+        const { data: tokenUserData, error: tokenErr } = await supabaseAdmin.auth.getUser(token);
+        if (!tokenErr && tokenUserData?.user) {
+          authUser = tokenUserData.user;
+        }
+      }
+    }
+
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     // ── End auth gate ──────────────────────────────────────────────────────
@@ -39,19 +58,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify the caller is acting as themselves — prevent sender impersonation.
-    if (senderId !== user.id) {
+    if (senderId !== authUser.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate Limiter Enforcement (15 emails per hour per authenticated user)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } }
-    );
-
     const { data: rateLimitData } = await supabaseAdmin.rpc("check_rate_limit", {
-      p_ip: user.id,
+      p_ip: authUser.id,
       p_limit: 15,
       p_window_interval: "1 hour",
     });
@@ -70,10 +83,10 @@ export async function POST(req: NextRequest) {
 
     // Only admins may send moderation_warning or onboarding_nudge emails.
     if (type === "moderation_warning" || type === "onboarding_nudge") {
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await supabaseAdmin
         .from("profiles")
         .select("role")
-        .eq("id", user.id)
+        .eq("id", authUser.id)
         .single();
       if (!callerProfile || callerProfile.role !== "admin") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -81,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Fetch Sender Details
-    const { data: sender, error: senderErr } = await supabase
+    const { data: sender, error: senderErr } = await supabaseAdmin
       .from("profiles")
       .select("full_name")
       .eq("id", senderId)
@@ -92,8 +105,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // 2. Fetch Recipient Details
-    const { data: recipient, error: recipientErr } = await supabase
+    // 2. Fetch Recipient Details (Querying via supabaseAdmin to safely resolve email under RLS)
+    const { data: recipient, error: recipientErr } = await supabaseAdmin
       .from("profiles")
       .select("full_name, email")
       .eq("id", recipientId)
@@ -101,6 +114,22 @@ export async function POST(req: NextRequest) {
 
     if (recipientErr || !recipient) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+
+    let recipientEmail = recipient.email;
+    if (!recipientEmail) {
+      // Fallback: check auth.users if profiles.email is not populated
+      try {
+        const { data: authUserRecord } = await supabaseAdmin.auth.admin.getUserById(recipientId);
+        recipientEmail = authUserRecord?.user?.email || null;
+      } catch (authLookupErr) {
+        console.warn("[Send Email API] Fallback auth email lookup error:", authLookupErr);
+      }
+    }
+
+    if (!recipientEmail) {
+      console.warn(`[Send Email API] Recipient ${recipientId} has no email address on file.`);
+      return NextResponse.json({ error: "Recipient does not have an email address on file." }, { status: 422 });
     }
 
     // 3. Fetch Team details if applicable
@@ -138,7 +167,7 @@ export async function POST(req: NextRequest) {
 
     if (type === "connection_request") {
       // Verify relationship: pending request exists
-      const { data: connReq, error: connErr } = await supabase
+      const { data: connReq, error: connErr } = await supabaseAdmin
         .from("friend_requests")
         .select("id, message")
         .eq("sender_id", senderId)
@@ -250,7 +279,7 @@ export async function POST(req: NextRequest) {
 
     if (!resendApiKey) {
       console.log("\n==================== [MOCK EMAIL LOG] ====================");
-      console.log(`To: ${recipient.email}`);
+      console.log(`To: ${recipientEmail}`);
       console.log(`Subject: ${subject}`);
       console.log(`HTML Payload:\n${html}`);
       console.log("========================================================\n");
@@ -263,7 +292,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Resend Sandbox limitation override: if using the default onboarding@resend.dev sender, redirect target to sandbox email
-    let targetEmail = recipient.email;
+    let targetEmail = recipientEmail;
     let finalSubject = subject;
     const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
     const isSandboxMode = fromEmail.includes("onboarding@resend.dev");

@@ -38,6 +38,7 @@ import { TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebra
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useNotification } from "@/context/NotificationContext";
 import AuthModal from "@/components/AuthModal";
+import PresentationErrorAlert from "@/components/ui/PresentationErrorAlert";
 
 interface Challenge {
   id: string;
@@ -588,12 +589,16 @@ export default function ChallengeDetailPage() {
               <span className="text-[11px] font-bold">View Rubric →</span>
             </button>
 
-            {errorMsg && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs mb-4 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+            <PresentationErrorAlert
+              error={errorMsg}
+              onDismiss={() => setErrorMsg(null)}
+              targetUrl={externalLink}
+              onSwitchToUpload={() => {
+                setInputMode("upload");
+                setErrorMsg(null);
+              }}
+              className="mb-4"
+            />
 
             {(() => {
               const isDeadlinePassed = new Date(challenge.ends_at).getTime() <= Date.now() || challenge.status === "closed";

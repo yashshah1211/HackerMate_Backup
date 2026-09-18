@@ -70,3 +70,5 @@ supabase/.temp/
 # Generated PDF reports & binary document exports
 *.pdf
 !public/sih1330_sample_pitch.pdf
+AGENTS.md
+CLAUDE.md
