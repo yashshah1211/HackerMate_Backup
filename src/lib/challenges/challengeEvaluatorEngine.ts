@@ -1,4 +1,4 @@
-import { callGeminiText } from "@/lib/ai/geminiClient";
+import { callGeminiText, extractJsonFromResponse } from "@/lib/ai/geminiClient";
 
 export interface ChallengeScoreDeductions {
   problem: string;
@@ -30,6 +30,9 @@ export interface ChallengeEvaluationResult {
   scoreDeductions: ChallengeScoreDeductions;
   topActionItem: string;
   usedAiFallback: boolean;
+  modelUsed?: string;
+  modelVersion?: string;
+  latencyMs?: number;
 }
 
 export async function runChallengePitchEvaluation(
@@ -95,7 +98,7 @@ async function callChallengeGeminiWithCascade(
 Evaluate this practice pitch presentation submission for the challenge: "${challengeTitle}" (Track: ${challengeTrack}).
 
 CHALLENGE PROBLEM STATEMENT:
-${problemStatementText.slice(0, 1500)}
+${problemStatementText.slice(0, 3000)}
 ${metadata?.additionalRules ? `\nADDITIONAL CHALLENGE-SPECIFIC RULES & CONSTRAINTS (Set by Admin):\n${metadata.additionalRules}\n` : ""}
 SUBMISSION METADATA:
 - Mode: ${metadata?.submissionMode === "team" ? "Team Submission" : "Solo Builder"}
@@ -111,9 +114,9 @@ MANDATORY 6-SLIDE FORMAT BLUEPRINT:
 5. Slide 5: Quantified Impact Baseline Metrics & Beneficiary ROI (10 pts)
 6. Slide 6: Execution Roadmap, Sprint Milestones & Team Roles (10 pts)
 
-EXTRACTED PRESENTATION SLIDE TEXT:
+EXTRACTED PRESENTATION SLIDE TEXT (Complete Deck):
 ---
-${slideText.slice(0, 7500)}
+${slideText.slice(0, 35000)}
 ---
 
 EVALUATION CRITERIA & SCORING RUBRIC (Max 100 Pts Total):
@@ -157,19 +160,17 @@ Return ONLY a valid raw JSON object (no markdown, no backticks, no wrapping) mat
   "topActionItem": "The #1 highest priority change to make before resubmitting."
 }`;
 
-  const { text: rawJsonText, modelUsed, latencyMs } = await callGeminiText(promptText, {
+  const { text: rawJsonText, modelUsed, modelVersion, latencyMs } = await callGeminiText(promptText, {
     responseMimeType: "application/json",
     temperature: 0.15,
-    maxOutputTokens: 2500,
-    timeoutMs: 9000,
+    maxOutputTokens: 3500,
+    perModelTimeoutMs: 10000,
+    totalTimeoutMs: 24000,
   });
 
-  console.log(`[Challenge Evaluator] Gemini AI evaluation completed via ${modelUsed} in ${latencyMs}ms.`);
+  console.log(`[Challenge Evaluator] Gemini AI evaluation completed via ${modelUsed} (${modelVersion}) in ${latencyMs}ms.`);
 
-  const cleanJson = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const firstBrace = cleanJson.indexOf("{");
-  const lastBrace = cleanJson.lastIndexOf("}");
-  const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
+  const targetJsonStr = extractJsonFromResponse(rawJsonText);
   const parsed = JSON.parse(targetJsonStr);
 
   let rawProblem = parsed.scoreProblem ?? 18;
@@ -216,6 +217,9 @@ Return ONLY a valid raw JSON object (no markdown, no backticks, no wrapping) mat
       feasibilityImpact: parsed.scoreDeductions?.feasibilityImpact || `Deducted ${20 - scoreFeasibilityImpact} pts in Feasibility & Roadmap.`,
     },
     topActionItem: parsed.topActionItem || "Refine the technical data pipeline diagram and add quantified baseline metrics.",
+    modelUsed,
+    modelVersion,
+    latencyMs,
   };
 }
 

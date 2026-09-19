@@ -358,14 +358,17 @@ export function segmentSlidesFromText(rawText: string): string[] {
       .filter((s) => s.length > 10);
   }
 
-  // 2. Normalize vertical tabs and form-feeds to form feed delimiter \f
-  let text = rawText.replace(/[\u000b\f]+/g, "\f").replace(/\r\n/g, "\n");
+  // 2. Normalize vertical tabs, form-feeds, horizontal rules, and page breaks
+  let text = rawText
+    .replace(/[\u000b\f]+/g, "\f")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n\s*[-=_]{3,}\s*\n/g, "\f");
 
   // 3. Replace SIH template footer transitions with \f
   text = text.replace(/\n+\s*(?:\d{1,2}\s*\n+)?@SIH[^\n]*\n+(?:Your Team Name[^\n]*\n+)?(?:\d{1,2}\s*\n+)?/gi, "\f");
 
-  // 4. Split on "Slide 1:", "Slide 2:", etc. or explicit \f
-  text = text.replace(/(?=\n\s*Slide\s*\d+[:.\s])/gi, "\f");
+  // 4. Split on "Slide 1:", "Slide 1 of 6", or explicit \f
+  text = text.replace(/(?=\n\s*Slide\s*\d+(?::|\.|\s+of|\s*\/|\s+[A-Z]))/gi, "\f");
 
   const chunks = text.split(/\f+/).map((s) => s.trim()).filter((s) => s.length > 10);
 

@@ -1,5 +1,4 @@
-// AI Content Moderation for HackerMate Media using Google Gemini Vision (Fail-Closed Safety Policy)
-import { callGeminiVision } from "@/lib/ai/geminiClient";
+import { callGeminiVision, extractJsonFromResponse } from "@/lib/ai/geminiClient";
 
 export async function moderateImageWithGemini(
   imageBuffer: Buffer,
@@ -34,12 +33,13 @@ OR
 
     const { text } = await callGeminiVision(prompt, imageBuffer, mimeType, {
       temperature: 0.1,
-      maxOutputTokens: 200,
+      maxOutputTokens: 300,
       responseMimeType: "application/json",
-      timeoutMs: 4500,
+      perModelTimeoutMs: 5000,
+      totalTimeoutMs: 15000,
     });
 
-    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const cleanText = extractJsonFromResponse(text);
     const parsed = JSON.parse(cleanText);
 
     if (parsed && typeof parsed.isSafe === "boolean") {

@@ -5,6 +5,9 @@ import { runPitchDeckEvaluation } from "@/lib/ppt/evaluatorEngine";
 import { JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
 import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 
+// Ensure Vercel allocates up to 60s execution budget for comprehensive AI evaluations
+export const maxDuration = 60;
+
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

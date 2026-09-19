@@ -292,11 +292,14 @@ export function segmentChallengeSlidesFromText(rawText: string): string[] {
       .filter((s) => s.length > 10);
   }
 
-  // 2. Normalize form feeds
-  let text = rawText.replace(/[\u000b\f]+/g, "\f").replace(/\r\n/g, "\n");
+  // 2. Normalize form feeds, horizontal rules, and line endings
+  let text = rawText
+    .replace(/[\u000b\f]+/g, "\f")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n\s*[-=_]{3,}\s*\n/g, "\f");
 
-  // 3. Split on "Slide 1:", "Slide 2:", etc. or explicit \f
-  text = text.replace(/(?=\n\s*Slide\s*\d+[:.\s])/gi, "\f");
+  // 3. Split on "Slide 1:", "Slide 1 of 6", or explicit \f
+  text = text.replace(/(?=\n\s*Slide\s*\d+(?::|\.|\s+of|\s*\/|\s+[A-Z]))/gi, "\f");
 
   const chunks = text.split(/\f+/).map((s) => s.trim()).filter((s) => s.length > 10);
 

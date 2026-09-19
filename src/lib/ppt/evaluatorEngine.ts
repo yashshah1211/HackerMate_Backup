@@ -1,5 +1,5 @@
 import { JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
-import { callGeminiText } from "@/lib/ai/geminiClient";
+import { callGeminiText, extractJsonFromResponse } from "@/lib/ai/geminiClient";
 
 export interface ScoreDeductions {
   novelty: string;
@@ -30,6 +30,9 @@ export interface EvaluationEngineResult {
   slideRecommendations: SlideRecommendations;
   scoreDeductions: ScoreDeductions;
   usedAiFallback: boolean;
+  modelUsed?: string;
+  modelVersion?: string;
+  latencyMs?: number;
   trackId?: JudgingTrackId;
 }
 
@@ -111,11 +114,11 @@ async function callGeminiWithCascade(
     promptText = `You are an exceptionally strict, zero-tolerance Senior Smart India Hackathon (SIH) National Grand Jury Evaluator and SPOC Screening Chair. Grade this pitch submission with rigorous national-level hackathon scrutiny.
 
 OFFICIAL SIH 2026 PRESENTATION TEMPLATE STRUCTURE (MANDATORY 6 SLIDES MAX):
-1. SLIDE 1 - TITLE PAGE: PS ID, PS Title, Theme, PS Category (Software/Hardware), Team ID, Team Name, College Name.
+1. SLIDE 1 - TITLE PAGE: PS ID, PS Title, Theme, PS Category (Software/Hardware/IoT), Team ID, Team Name, College Name.
 2. SLIDE 2 - IDEA TITLE & PROPOSED SOLUTION: Detailed explanation, how it addresses the problem, deep technical innovation & uniqueness/novelty over existing solutions.
-3. SLIDE 3 - TECHNICAL APPROACH: Concrete architecture, languages, frameworks, DBs, models/hardware, data ingestion & processing pipeline (flowcharts/architecture/prototype link).
+3. SLIDE 3 - TECHNICAL APPROACH: Concrete architecture, languages, frameworks, DBs, models/hardware (ESP32/sensors/LoRa if hardware), data ingestion & processing pipeline (flowcharts/architecture/prototype link).
 4. SLIDE 4 - FEASIBILITY AND VIABILITY: Feasibility analysis, potential challenges & technical risks, fail-safes, latency/offline mitigations, 36-hour hackathon execution roadmap.
-5. SLIDE 5 - IMPACT AND BENEFITS: Target beneficiaries, social/economic/environmental benefits, strictly quantified baseline metrics, unit economics/ROI.
+5. SLIDE 5 - IMPACT AND BENEFITS: Target beneficiaries, social/economic/environmental benefits, strictly quantified baseline metrics (₹, %, hours saved), unit economics/ROI.
 6. SLIDE 6 - RESEARCH AND REFERENCES: Supporting research papers, dataset sources, IEEE citations, reference links.
 
 OFFICIAL SIH FORMAT RULES & CONSTRAINTS:
@@ -123,6 +126,7 @@ OFFICIAL SIH FORMAT RULES & CONSTRAINTS:
 - Template structure must NOT be altered or re-ordered.
 - Paragraphs/text walls must be penalized; bullet points, flowcharts, architecture diagrams, and infographics are expected.
 - Generic wrappers around external APIs (e.g. basic Gemini/OpenAI calls without custom pipelines) must be penalized.
+- Hardware/IoT Check: If category involves Hardware, verify microcontroller specs, telemetry protocols (MQTT/BLE/LoRa), sensor telemetry, and offline telemetry buffer.
 
 SUBMISSION METADATA:
 - PS Title: ${psTitle}
@@ -135,9 +139,9 @@ TEAM COMPOSITION:
 - Total Members: ${memberCount} / 6
 - Mandatory Female Teammate: ${hasFemaleMember ? "YES" : "NO (CRITICAL SIH RULE DISQUALIFICATION)"}
 
-EXTRACTED PRESENTATION SLIDE CONTENT:
+EXTRACTED PRESENTATION SLIDE CONTENT (Complete Deck):
 ---
-${slideText.slice(0, 7000)}
+${slideText.slice(0, 35000)}
 ---
 
 STRICT SIH SCORING RUBRIC (Max 100 Points Total - Grade rigorously):
@@ -204,9 +208,9 @@ TEAM COMPOSITION:
 - Total Members: ${memberCount}
 - Members: ${(teamInfo?.members || []).map((m: any) => `${m.name || "Member"} (${(m.skills || []).join(", ") || "General"})`).join("; ") || "Team details provided"}
 
-EXTRACTED PRESENTATION SLIDE CONTENT:
+EXTRACTED PRESENTATION SLIDE CONTENT (Complete Deck):
 ---
-${slideText.slice(0, 7000)}
+${slideText.slice(0, 35000)}
 ---
 
 AI TRACK SCORING RUBRIC (Max 100 Points Total):
@@ -264,9 +268,9 @@ TEAM COMPOSITION:
 - Total Members: ${memberCount}
 - Members: ${(teamInfo?.members || []).map((m: any) => `${m.name || "Member"} (${(m.skills || []).join(", ") || "General"})`).join("; ") || "Team details provided"}
 
-EXTRACTED PRESENTATION SLIDE CONTENT:
+EXTRACTED PRESENTATION SLIDE CONTENT (Complete Deck):
 ---
-${slideText.slice(0, 7000)}
+${slideText.slice(0, 35000)}
 ---
 
 FULL-STACK SCORING RUBRIC (Max 100 Points Total):
@@ -304,18 +308,16 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
 }`;
   }
 
-  const { text: rawJsonText, modelUsed, latencyMs } = await callGeminiText(promptText, {
+  const { text: rawJsonText, modelUsed, modelVersion, latencyMs } = await callGeminiText(promptText, {
     responseMimeType: "application/json",
     temperature: 0.1,
-    timeoutMs: 9000,
+    perModelTimeoutMs: 10000,
+    totalTimeoutMs: 24000,
   });
 
-  console.log(`[Pitch Evaluator] Gemini AI evaluation completed via ${modelUsed} in ${latencyMs}ms.`);
+  console.log(`[Pitch Evaluator] Gemini AI evaluation completed via ${modelUsed} (${modelVersion}) in ${latencyMs}ms.`);
 
-  const cleanJson = rawJsonText.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const firstBrace = cleanJson.indexOf("{");
-  const lastBrace = cleanJson.lastIndexOf("}");
-  const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
+  const targetJsonStr = extractJsonFromResponse(rawJsonText);
   const parsed = JSON.parse(targetJsonStr);
 
   let rawNovelty = parsed.scoreNovelty ?? 15;
@@ -366,6 +368,9 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
       uiUx: parsed.scoreDeductions?.uiUx || `Lost ${25 - scoreUiUx} points in UI/UX & Polish.`,
       team: parsed.scoreDeductions?.team || `Lost ${15 - scoreTeam} points in Team Squad Balance & Rules.`,
     },
+    modelUsed,
+    modelVersion,
+    latencyMs,
   };
 }
 

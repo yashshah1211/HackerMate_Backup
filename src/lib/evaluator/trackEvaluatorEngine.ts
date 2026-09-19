@@ -5,7 +5,7 @@ import {
   JudgingTrackId,
   RecommendedRoleGap,
 } from "./evaluatorTypes";
-import { callGeminiText } from "@/lib/ai/geminiClient";
+import { callGeminiText, extractJsonFromResponse } from "@/lib/ai/geminiClient";
 
 /**
  * Main evaluation orchestrator: attempts Gemini AI with fallback to the Content-Aware Heuristic Engine.
@@ -63,20 +63,17 @@ async function callGeminiForTrack(
 ): Promise<Omit<ProjectEvaluationResult, "usedAiEngine" | "evaluationTimestamp">> {
   const promptText = buildGeminiPromptForTrack(input, profile);
 
-  const { text: rawJson, modelUsed, latencyMs } = await callGeminiText(promptText, {
+  const { text: rawJson, modelUsed, modelVersion, latencyMs } = await callGeminiText(promptText, {
     responseMimeType: "application/json",
     temperature: 0.15,
-    maxOutputTokens: 2000,
-    timeoutMs: 9000,
+    maxOutputTokens: 3500,
+    perModelTimeoutMs: 10000,
+    totalTimeoutMs: 24000,
   });
 
-  console.log(`[Track Evaluator] Gemini AI evaluation completed via ${modelUsed} in ${latencyMs}ms.`);
+  console.log(`[Track Evaluator] Gemini AI evaluation completed via ${modelUsed} (${modelVersion}) in ${latencyMs}ms.`);
 
-  // Robust JSON extraction matching first { to last }
-  const cleanJson = rawJson.replace(/```json/gi, "").replace(/```/gi, "").trim();
-  const firstBrace = cleanJson.indexOf("{");
-  const lastBrace = cleanJson.lastIndexOf("}");
-  const targetJsonStr = firstBrace !== -1 && lastBrace !== -1 ? cleanJson.slice(firstBrace, lastBrace + 1) : cleanJson;
+  const targetJsonStr = extractJsonFromResponse(rawJson);
   const parsed = JSON.parse(targetJsonStr);
 
   const sNovelty = clamp(parsed.scoreNovelty ?? 15, 0, profile.categories.novelty.maxPts);
@@ -112,6 +109,9 @@ async function callGeminiForTrack(
       ? parsed.architectureSuggestions.slice(0, 4)
       : ["Add comprehensive data flow architecture."],
     recommendedRoles: formatRecommendedRoles(parsed.recommendedRoles, input.trackId),
+    modelUsed,
+    modelVersion,
+    latencyMs,
   };
 }
 
@@ -125,7 +125,7 @@ PROBLEM STATEMENT & AUDIENCE: ${input.solutionDescription}
 TECH STACK: ${input.techStack || "Not provided"}
 ARCHITECTURE & WORKFLOW DETAILS: ${input.architectureDetails || "Not provided"}
 SLIDES / EXTRA NOTES:
-${(input.slidesText || "").slice(0, 4000)}
+${(input.slidesText || "").slice(0, 30000)}
   `.trim();
 
   let trackSpecificGuidance = "";

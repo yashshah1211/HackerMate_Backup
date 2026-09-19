@@ -6,6 +6,9 @@ import {
 } from "@/lib/challenges/challengeExtractor";
 import { runChallengePitchEvaluation } from "@/lib/challenges/challengeEvaluatorEngine";
 
+// Ensure Vercel allocates up to 60s execution budget for comprehensive AI evaluations
+export const maxDuration = 60;
+
 function getSupabaseClient(token?: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
