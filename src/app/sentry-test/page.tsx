@@ -7,12 +7,11 @@ export default function SentryTestPage() {
   const [sent, setSent] = useState(false);
 
   const triggerClientError = () => {
-    try {
-      throw new Error("HackerMate Client Verification Error");
-    } catch (err) {
-      Sentry.captureException(err);
-      setSent(true);
-    }
+    Sentry.captureException(new Error("HackerMate Client Verification Error"));
+    setSent(true);
+    setTimeout(() => {
+      (window as any).myUndefinedFunction();
+    }, 100);
   };
 
   return (
