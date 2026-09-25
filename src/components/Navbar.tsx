@@ -432,7 +432,7 @@ function isPublicDarkRoute(path: string | null): boolean {
             </div>
           </div>
         </header>
-        <div className="pt-14 min-h-screen bg-[var(--background)] flex flex-col">
+        <div className="pt-14 min-h-[100dvh] bg-[var(--background)] flex flex-col">
           <div className="flex-1">{children}</div>
           {showFooter && <Footer />}
         </div>
@@ -530,7 +530,7 @@ function isPublicDarkRoute(path: string | null): boolean {
   const avatarGradient = avatarGradients[gradientIndex];
 
   return (
-    <div className="layout-root flex h-screen overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200 dashboard-redesign">
+    <div className="layout-root flex h-[100dvh] overflow-hidden bg-[var(--background)] text-[var(--text-secondary)] font-sans transition-colors duration-200 dashboard-redesign">
       <DailyStreakTracker />
 
       {/* Sidebar */}

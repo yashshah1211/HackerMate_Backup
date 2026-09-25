@@ -1420,7 +1420,7 @@ export default function ChatThread({
 
     return (
       <div>
-        <div className="leading-relaxed">
+        <div className="leading-relaxed break-words whitespace-pre-wrap">
           {parts.length === 1 ? (
             content
           ) : (
@@ -1461,19 +1461,19 @@ export default function ChatThread({
     return (
       <div
         onClick={() => scrollToMessage(replyToId)}
-        className={`mb-2 p-2 rounded-xl border text-[11px] cursor-pointer transition-all ${
+        className={`mb-2 p-2 rounded-xl border text-[11px] cursor-pointer transition-all max-w-full overflow-hidden ${
           isMine
             ? "bg-black/20 border-white/20 text-white hover:bg-black/30"
             : "bg-white dark:bg-zinc-950/80 border-zinc-200 dark:border-zinc-800/90 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
         }`}
       >
-        <div className={`flex items-center gap-1 font-semibold text-[10px] mb-0.5 ${isMine ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}>
-          <CornerUpLeft className="w-3 h-3" />
-          <span className="truncate">
+        <div className={`flex items-center gap-1 font-semibold text-[10px] mb-0.5 max-w-full ${isMine ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}>
+          <CornerUpLeft className="w-3 h-3 shrink-0" />
+          <span className="truncate flex-1 min-w-0">
             {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
           </span>
         </div>
-        <p className="truncate opacity-90 text-[10px]">
+        <p className="truncate opacity-90 text-[10px] max-w-full">
           {parentMsg
             ? parentMsg.content.startsWith("__TEAM_INVITE__::")
               ? "✉️ Team Invitation"
@@ -1708,7 +1708,7 @@ export default function ChatThread({
 
       {/* Header */}
       {otherUser ? (
-        <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-900/40 flex items-center justify-between shrink-0">
+        <div className="sticky top-0 z-20 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-900/40 backdrop-blur-md flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {onBack && (
               <button
@@ -1770,7 +1770,7 @@ export default function ChatThread({
           </div>
         </div>
       ) : (
-        <div className="px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-950/60 flex items-center justify-between shrink-0">
+        <div className="sticky top-0 z-20 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-950/60 backdrop-blur-md flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
               {conversationType === "dm" ? "Direct Message" : "Team Chat"}
@@ -1893,15 +1893,15 @@ export default function ChatThread({
                   {isInviteCard ? (
                     renderMessageContent(msg.content, isMine)
                   ) : isImage ? (
-                    <div className="group relative">
+                    <div className="group relative max-w-full">
                       {msg.reply_to_id && renderReplyQuote(msg.reply_to_id, isMine)}
                       {renderMessageContent(msg.content, isMine)}
                       {renderMessageActions(msg, isMine)}
                     </div>
                   ) : (
-                    <div className="group relative">
+                    <div className="group relative max-w-full">
                       <div
-                        className={`px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
+                        className={`px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs max-w-full ${
                           isMine
                             ? "bg-violet-600 text-white rounded-br-xs shadow-xs"
                             : isMentioned
@@ -2190,7 +2190,7 @@ export default function ChatThread({
               disabled={isBlocked}
               placeholder={isBlocked ? "You cannot message this user." : stagedImage ? "Add an optional caption..." : "Type message... (Paste image or drag & drop)"}
               rows={1}
-              className="input flex-1 resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[38px] max-h-[120px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 w-full min-w-0 focus:outline-none leading-relaxed resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[38px] max-h-[120px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
             />
 
             {/* Send Button */}

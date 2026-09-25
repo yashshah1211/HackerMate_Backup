@@ -462,7 +462,7 @@ function MessagesContent() {
 
   if (loading || startingChat) {
     return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-6">
+      <div className="h-full flex flex-col items-center justify-center p-6">
         <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
         <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
       </div>
@@ -474,7 +474,7 @@ function MessagesContent() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col p-2.5 sm:p-4 max-w-[1600px] w-full mx-auto min-h-0">
+    <div className="h-full flex flex-col p-2.5 sm:p-4 max-w-[1600px] w-full mx-auto min-h-0">
       {/* Top Header / Subheader */}
       <div className="flex items-center justify-between mb-2 sm:mb-3 px-1 shrink-0">
         <div className="flex items-center gap-2.5">
@@ -495,8 +495,8 @@ function MessagesContent() {
       {/* Unified Dual-Pane Shell */}
       <div className="flex-1 min-h-0 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-xs flex overflow-hidden">
         {/* Left pane: Conversation List */}
-        <aside
-          className={`w-full lg:w-80 xl:w-96 border-r border-zinc-200 dark:border-zinc-800/80 flex flex-col min-h-0 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 ${
+        <div
+          className={`w-full lg:w-80 xl:w-96 border-r border-zinc-200 dark:border-zinc-800/80 flex-col min-h-0 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 ${
             activeConversationId ? "hidden lg:flex" : "flex"
           }`}
         >
@@ -635,11 +635,11 @@ function MessagesContent() {
               })
             )}
           </div>
-        </aside>
+        </div>
 
         {/* Right pane: Active chat or Empty state */}
-        <section
-          className={`flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-zinc-950 ${
+        <div
+          className={`flex-1 flex-col min-w-0 min-h-0 bg-white dark:bg-zinc-950 ${
             activeConversationId ? "flex" : "hidden lg:flex"
           }`}
         >
@@ -652,7 +652,6 @@ function MessagesContent() {
                 setActiveConversationId(null);
                 setActiveUser(null);
               }}
-              height="100%"
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-zinc-50/30 dark:bg-zinc-950/40">
@@ -674,7 +673,7 @@ function MessagesContent() {
               </Link>
             </div>
           )}
-        </section>
+        </div>
       </div>
     </div>
   );
@@ -685,7 +684,7 @@ export default function MessagesPage() {
     <AuthGuard>
       <Suspense
         fallback={
-          <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-6">
+          <div className="h-full flex flex-col items-center justify-center p-6">
             <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
             <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
           </div>
