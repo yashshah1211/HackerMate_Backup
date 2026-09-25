@@ -43,6 +43,9 @@ function DevelopersContent() {
 
   const [collegeFilter, setCollegeFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
+  const [serverRecommendations, setServerRecommendations] = useState<
+    Record<string, { compatibility: number; reasons: string[]; confidence?: number }>
+  >({});
 
   // Invite states
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -123,6 +126,29 @@ function DevelopersContent() {
         if (theirBlocks) {
           blockedUserIds.push(...theirBlocks.map((b) => b.blocker_id));
         }
+
+        // Fetch authoritative server matchmaking recommendations
+        try {
+          const { data: recData, error: recErr } = await supabase.rpc(
+            "get_recommended_teammates",
+            { p_user_id: user.id, p_limit: 50 }
+          );
+          if (recErr) {
+            console.error("Matchmaking RPC error on developers page:", recErr);
+          } else if (recData) {
+            const recMap: Record<string, { compatibility: number; reasons: string[]; confidence?: number }> = {};
+            (recData as any[]).forEach((r) => {
+              recMap[r.id] = {
+                compatibility: r.compatibility,
+                reasons: r.reasons,
+                confidence: r.confidence,
+              };
+            });
+            setServerRecommendations(recMap);
+          }
+        } catch (rpcErr) {
+          console.error("Failed to query get_recommended_teammates:", rpcErr);
+        }
       }
 
       // Fetch all developers with database-level search or up to 1000 builders
@@ -183,13 +209,16 @@ function DevelopersContent() {
 
   // Calculate compatibility score between current user and other builder
   function calculateCompatibility(other: Profile, currentOverride?: Profile | null) {
+    if (serverRecommendations[other.id]) {
+      return serverRecommendations[other.id].compatibility;
+    }
     const baseProfile = currentOverride !== undefined ? currentOverride : currentUserProfile;
     if (!baseProfile) return 0;
     
     const mySkills = (baseProfile.skills as string[]) || [];
     const otherSkills = (other.skills as string[]) || [];
 
-    // Jaccard similarity for skills (100% of score)
+    // Jaccard similarity fallback for builders outside the top recommendation pool
     let skillScore = 0;
     if (mySkills.length > 0 || otherSkills.length > 0) {
       const mySkillsLower = mySkills.map(s => s.toLowerCase().trim());
@@ -491,7 +520,7 @@ function DevelopersContent() {
                       </span>
                       {matchScore > 0 && (
                         <span className="text-[10px] text-indigo-700 dark:text-indigo-400 font-extrabold font-mono bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-md px-1.5 py-0.5">
-                          {matchScore}% Match
+                          {matchScore}% Fit
                         </span>
                       )}
                     </div>
@@ -525,6 +554,8 @@ function DevelopersContent() {
                     userB={dev}
                     isSelfViewer={true}
                     matchScore={matchScore}
+                    reasons={serverRecommendations[dev.id]?.reasons}
+                    confidence={serverRecommendations[dev.id]?.confidence}
                   />
                 </div>
 

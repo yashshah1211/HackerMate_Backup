@@ -987,7 +987,14 @@ function DashboardContent() {
                         ))}
                       </div>
                       <div className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-48 group-hover:opacity-100 transition-all duration-300 ease-out">
-                        <MatchReasoningBadge userA={profile} userB={dev} isSelfViewer={true} matchScore={dev.compatibility} />
+                        <MatchReasoningBadge
+                          userA={profile}
+                          userB={dev}
+                          isSelfViewer={true}
+                          matchScore={dev.compatibility}
+                          reasons={(dev as any).reasons}
+                          confidence={(dev as any).confidence}
+                        />
                       </div>
                     </div>
                     <div className="match-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
