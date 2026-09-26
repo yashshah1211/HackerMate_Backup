@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { promptDiscoverySignIn } from "@/lib/discovery-auth";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
@@ -49,7 +48,7 @@ type Member = {
   profiles: {
     id: string;
     full_name: string;
-    email?: string;
+    email: string;
     avatar_url?: string | null;
     skills?: string[] | null;
     gender?: string | null;
@@ -127,7 +126,8 @@ export default function TeamOverviewView({
   );
 
   const redirectToSignIn = () => {
-    promptDiscoverySignIn();
+    const next = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : `/teams/${team.id}`;
+    window.location.href = `/?next=${encodeURIComponent(next)}`;
   };
 
   // Invitation banner states

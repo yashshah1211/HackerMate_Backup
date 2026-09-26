@@ -27,20 +27,8 @@ interface DescriptionSection {
  */
 function cleanHtmlEntities(raw: string): string {
   if (!raw) return "";
-  
-  // Strip raw CSS block comments and rules that slipped through without <style> tags
-  let cleaned = raw
-    .replace(/\/\*[\s\S]*?\*\//gi, "")
-    .replace(/(?:@media[^{]+\{)?(?:[.#a-zA-Z0-9:_-][^{]*?\{[\s\S]*?\})(?:\s*\})?/gi, (match) => {
-      // Only remove if it looks distinctly like CSS
-      if (match.includes(";") && match.includes(":") && (match.includes("px") || match.includes("#") || match.includes("--") || match.includes("display") || match.includes("margin"))) {
-        return "";
-      }
-      return match;
-    });
-
-  return cleaned
-    // Strip zero-width joiners and spaces (e.g. &zwj;, &#8205;, ​)
+  return raw
+    // Strip zero-width joiners and spaces (e.g. &zwj;, &#8205;, \u200B)
     .replace(/&zwj;/gi, "")
     .replace(/&zwnj;/gi, "")
     .replace(/&#8205;/g, "")
@@ -48,9 +36,6 @@ function cleanHtmlEntities(raw: string): string {
     .replace(/&#8203;/g, "")
     .replace(/&#x200B;/gi, "")
     .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
-    // Strip style and script blocks entirely before removing other tags
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     // Formatting line breaks
     .replace(/<hr\s*\/?>/gi, "\n\n")
     .replace(/<br\s*\/?>/gi, "\n")
