@@ -189,6 +189,7 @@ function DashboardContent() {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [profileCompleteness, setProfileCompleteness] = useState({ percent: 0, pendingTasks: [] as string[] });
   const [showQuickOnboardingModal, setShowQuickOnboardingModal] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   // Academic Year Confirmation Banner state
   const [yearDismissed, setYearDismissed] = useState(true);
@@ -557,17 +558,19 @@ function DashboardContent() {
 
 
 
-  const formatActivityText = (text: string) => {
-    let formatted = text;
+  const FormattedActivityText = ({ text }: { text: string }) => {
     const keywords = ["matched with", "pushed a", "sent you", "accepted your", "invited you", "created task", "registration closes", "created a team"];
     for (const kw of keywords) {
       if (text.includes(kw)) {
         const parts = text.split(kw);
-        formatted = `<b>${parts[0].trim()}</b> ${kw} ${parts.slice(1).join(kw)}`;
-        break;
+        return (
+          <>
+            <b className="font-semibold text-zinc-900 dark:text-zinc-100">{parts[0].trim()}</b> {kw} {parts.slice(1).join(kw)}
+          </>
+        );
       }
     }
-    return formatted;
+    return <>{text}</>;
   };
 
   const avatarColors = [
@@ -631,7 +634,7 @@ function DashboardContent() {
 
         {/* Primary Action Banner driven by user state */}
         {(() => {
-          const strongMatchesCount = spotlights.filter((dev) => (dev.compatibility ?? 0) >= 40).length;
+          const strongMatchesCount = spotlights.filter((dev) => (dev.compatibility ?? 0) >= 80).length;
 
           if (profileCompleteness.percent < 100) {
             const pct = profileCompleteness.percent;
@@ -671,10 +674,10 @@ function DashboardContent() {
             }
 
             return (
-              <div className="profile-strength-card group relative">
-                {/* Circle Progress Indicator with dashed track & pulsing arc */}
+              <div className="profile-strength-card relative">
+                {/* Circle Progress Indicator with dashed track */}
                 <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center z-10">
-                  <svg className="w-full h-full transform -rotate-90" style={{ filter: `drop-shadow(0 0 6px ${dropShadowColor})` }} viewBox="0 0 64 64">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 64 64">
                     <defs>
                       <linearGradient id="profileUrgencyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stopColor={strokeGradientStart} />
@@ -683,7 +686,7 @@ function DashboardContent() {
                     </defs>
                     {/* Unfinished dashed track */}
                     <circle cx="32" cy="32" r="26" className="stroke-zinc-800/80 dark:stroke-zinc-800/80 light:stroke-zinc-200" strokeWidth="4" strokeDasharray="4 4" fill="transparent" />
-                    {/* Active progress arc with pulse animation */}
+                    {/* Active progress arc */}
                     <circle 
                       cx="32" cy="32" r="26" 
                       stroke="url(#profileUrgencyGradient)"
@@ -692,7 +695,7 @@ function DashboardContent() {
                       strokeLinecap="round"
                       strokeDasharray={163.36}
                       strokeDashoffset={163.36 * (1 - pct / 100)}
-                      className="transition-all duration-700 ease-out animate-pulse" 
+                      className="transition-all duration-700 ease-out" 
                     />
                   </svg>
                   <span className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -702,15 +705,11 @@ function DashboardContent() {
                 
                 {/* Content */}
                 <div className="flex-1 min-w-0 text-left z-10">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2 w-2">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${pulseDotBg} opacity-75`}></span>
-                      <span className={`relative inline-flex rounded-full h-2 w-2 ${pulseDotBg}`}></span>
-                    </span>
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="status-title tracking-wider text-xs font-bold text-zinc-100">
                       Your profile is missing pieces builders look for
                     </p>
-                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase border ${badgeBg}`}>
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase border shrink-0 ${badgeBg}`}>
                       {pct}% Unverified
                     </span>
                   </div>
@@ -726,22 +725,33 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                {/* Primary Action CTA Button for Incomplete Profile */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowQuickOnboardingModal(true);
-                  }}
-                  className="z-10 px-3.5 py-1.5 bg-[#B4F461] hover:bg-[#a3e64d] active:scale-[0.98] text-zinc-950 font-bold rounded-lg text-xs tracking-wide transition-all border border-[#B4F461]/50 whitespace-nowrap self-stretch md:self-center flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
-                >
-                  <span>Enhance Profile</span>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                  </svg>
-                </button>
+                {/* Primary Actions for Incomplete Profile */}
+                <div className="flex flex-col sm:flex-row gap-2 z-10 shrink-0 self-stretch md:self-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowChecklist(!showChecklist);
+                    }}
+                    className="px-3.5 py-1.5 bg-zinc-900/80 hover:bg-zinc-800 active:scale-[0.98] text-zinc-300 font-bold rounded-lg text-xs tracking-wide transition-all border border-zinc-700/50 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>View Checklist</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowQuickOnboardingModal(true);
+                    }}
+                    className="px-3.5 py-1.5 bg-[#B4F461] hover:bg-[#a3e64d] active:scale-[0.98] text-zinc-950 font-bold rounded-lg text-xs tracking-wide transition-all border border-[#B4F461]/50 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <span>Enhance Profile</span>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                </div>
 
-                {/* Hover Tooltip for Tasks */}
-                <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-zinc-950/95 dark:bg-zinc-950/95 light:bg-white backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 light:border-zinc-200 rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
+                {/* Toggleable Tooltip for Tasks */}
+                <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-zinc-950/95 dark:bg-zinc-950/95 light:bg-white backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 light:border-zinc-200 rounded-2xl p-4 transition-all duration-200 z-50 shadow-2xl" style={{ opacity: showChecklist ? 1 : 0, transform: showChecklist ? 'scale(1)' : 'scale(0.95)', pointerEvents: showChecklist ? 'auto' : 'none' }}>
                   <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-800 light:border-zinc-200 pb-2.5 mb-2.5">
                     <p className="text-[11px] text-zinc-300 dark:text-zinc-300 light:text-zinc-800 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5 text-amber-400" /> Profile Checklist ({pct}%)
@@ -778,7 +788,7 @@ function DashboardContent() {
                 <div className="hacker-status-grid" />
                 <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-[#B4F461]/[0.08] border border-[#B4F461]/[0.18] text-[#B4F461]/70 shadow-inner shadow-black/20">
                   <div className="absolute inset-0 rounded-full bg-[#B4F461]/[0.03] animate-ping opacity-75" />
-                  <span className="text-xl">⚡</span>
+                  <Zap className="w-5 h-5 text-[#B4F461]" />
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="status-title tracking-wider text-xs text-zinc-200 dark:text-zinc-200 font-bold">Teammate Match Radar</p>
@@ -837,39 +847,29 @@ function DashboardContent() {
 
       {/* Purposeful & Clickable Stat Cards */}
       <div className="stats-row">
-        <div 
-          className="stat-card cursor-pointer hover:border-white/[0.15] transition-all group relative overflow-hidden"
-          onClick={() => router.push("/developers")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && router.push("/developers")}
+        <Link 
+          href="/developers"
+          className="stat-card hover:border-white/[0.15] transition-all group relative overflow-hidden block focus:outline-none focus:ring-2 focus:ring-[#B4F461] focus:border-transparent"
         >
           <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
-            <div className="stat-label text-zinc-500 dark:text-zinc-400">Builders in network</div>
+            <div className="stat-label text-zinc-500 dark:text-zinc-400">Total Builders</div>
             <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">
             {stats.builders} 
-            <span className="stat-trend inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#B4F461]/10 border border-[#B4F461]/20 text-[#B4F461] font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
-              active
-            </span>
           </div>
-          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
+          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors mt-2">
             <span>Explore all verified builders</span>
             <span className="font-mono text-zinc-400">→</span>
           </div>
-        </div>
+        </Link>
 
-        <div 
-          className="stat-card cursor-pointer hover:border-white/[0.15] transition-all group relative overflow-hidden"
-          onClick={() => router.push("/teams")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && router.push("/teams")}
+        <Link 
+          href="/teams"
+          className="stat-card hover:border-white/[0.15] transition-all group relative overflow-hidden block focus:outline-none focus:ring-2 focus:ring-[#B4F461] focus:border-transparent"
         >
           <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
@@ -879,32 +879,29 @@ function DashboardContent() {
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">{stats.teams}</div>
-          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
-            <span>{stats.teams} ongoing projects — Find teams recruiting</span>
+          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors mt-2">
+            <span>{stats.teams} ongoing projects — Find teams</span>
             <span className="font-mono text-zinc-400">→</span>
           </div>
-        </div>
+        </Link>
 
-        <div 
-          className="stat-card cursor-pointer hover:border-white/[0.15] transition-all group relative overflow-hidden"
-          onClick={() => router.push("/hackathons")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && router.push("/hackathons")}
+        <Link 
+          href="/hackathons"
+          className="stat-card hover:border-white/[0.15] transition-all group relative overflow-hidden block focus:outline-none focus:ring-2 focus:ring-[#B4F461] focus:border-transparent"
         >
           <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
-            <div className="stat-label text-zinc-500 dark:text-zinc-400">Hackathons live</div>
+            <div className="stat-label text-zinc-500 dark:text-zinc-400">Open Hackathons</div>
             <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">{stats.hackathons}</div>
-          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
+          <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors mt-2">
             <span><b className="text-zinc-700 dark:text-zinc-200 font-semibold">{stats.closingSoon} closing</b> in 7 days</span>
             <span className="font-mono text-zinc-400">→</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Daily Visit Flame Streak Widget */}
@@ -1291,7 +1288,9 @@ function DashboardContent() {
                   >
                     <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: randColor, boxShadow: `0 0 6px ${randColor}80` }} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-zinc-700 dark:text-zinc-200 leading-snug" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
+                      <div className="text-sm text-zinc-700 dark:text-zinc-200 leading-snug">
+                        <FormattedActivityText text={act.message} />
+                      </div>
                       <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{act.timeLabel}</div>
                     </div>
                   </div>

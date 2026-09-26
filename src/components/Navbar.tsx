@@ -17,7 +17,8 @@ import { Flame, Settings, LogOut, Users, UserPlus, Handshake, Rocket, Trophy, Fo
 
 export default function Navbar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const showFooter = shouldRenderFooter(pathname);
+  // The landing page owns its footer; other public pages retain the shared footer.
+  const showFooter = pathname !== "/" && shouldRenderFooter(pathname);
   const { showToast } = useNotification();
 
   const [unreadCount, setUnreadCount] = useState(0);

@@ -4,16 +4,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import AuthGuard from "@/components/AuthGuard";
+import { promptDiscoverySignIn, PUBLIC_BUILDER_COLUMNS } from "@/lib/discovery-auth";
 import { useNotification } from "@/context/NotificationContext";
 import MatchReasoningBadge from "@/components/MatchReasoningBadge";
 import { getInitials } from "@/lib/utils";
-import { GraduationCap, Trophy, Zap, Rocket } from "lucide-react";
+import { Activity, ArrowRight, ChevronDown, GraduationCap, Search, Target, Trophy, Users, Zap } from "lucide-react";
 
 type Profile = {
   id: string;
   full_name: string;
-  email?: string | null;
 
   college: string;
   year_of_study?: string | null;
@@ -38,6 +37,7 @@ function DevelopersContent() {
   const [developers, setDevelopers] = useState<Profile[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [userOwnedTeams, setUserOwnedTeams] = useState<Team[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -78,6 +78,7 @@ function DevelopersContent() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      setCurrentUserId(user?.id ?? null);
       const blockedUserIds: string[] = [];
       let activeProfile: Profile | null = null;
 
@@ -85,16 +86,18 @@ function DevelopersContent() {
         // Fetch current user profile
         let { data: profile, error: pErr } = await supabase
           .from("profiles")
-          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+          .select(PUBLIC_BUILDER_COLUMNS)
           .eq("id", user.id)
           .single();
 
         if (pErr) {
-          const { data: fbProfile } = await supabase
+          console.error("Current builder profile query failed:", pErr);
+          const { data: fbProfile, error: fallbackProfileError } = await supabase
             .from("profiles")
-            .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+            .select(PUBLIC_BUILDER_COLUMNS)
             .eq("id", user.id)
             .single();
+          if (fallbackProfileError) console.error("Builder profile fallback failed:", fallbackProfileError);
           profile = fbProfile as any;
         }
 
@@ -154,7 +157,9 @@ function DevelopersContent() {
       // Fetch all developers with database-level search or up to 1000 builders
       let queryBuilder = supabase
         .from("profiles")
-        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+        .select(PUBLIC_BUILDER_COLUMNS)
+        .eq("onboarding_completed", true)
+        .or("is_banned.is.null,is_banned.eq.false")
         .order("created_at", { ascending: false });
 
       const term = (searchQuery !== undefined ? searchQuery : search).trim();
@@ -167,17 +172,20 @@ function DevelopersContent() {
       let { data, error } = await queryBuilder;
 
       if (error) {
-        console.warn("Primary developers query error, running fallback:", error);
+        console.error("Primary developers query error, running fallback:", error);
         let fbBuilder = supabase
           .from("profiles")
-          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+          .select(PUBLIC_BUILDER_COLUMNS)
+          .eq("onboarding_completed", true)
+          .or("is_banned.is.null,is_banned.eq.false")
           .order("created_at", { ascending: false });
 
         if (term) {
           fbBuilder = fbBuilder.or(`full_name.ilike.%${term}%,college.ilike.%${term}%,skills.cs.{${term}}`);
         }
         fbBuilder = fbBuilder.limit(1000);
-        const { data: fbData } = await fbBuilder;
+        const { data: fbData, error: fallbackError } = await fbBuilder;
+        if (fallbackError) console.error("Public builder fallback failed:", fallbackError);
         data = fbData as any;
       }
 
@@ -237,6 +245,7 @@ function DevelopersContent() {
 
   // Handle direct invite
   async function handleSendInvite() {
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
     if (!selectedTeam || !selectedDevId || !currentUserProfile) return;
     setInviteLoading(true);
 
@@ -323,12 +332,12 @@ function DevelopersContent() {
     .sort((a, b) => calculateCompatibility(b) - calculateCompatibility(a));
 
   return (
-    <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
+    <main className="mx-auto max-w-7xl px-4 pb-28 pt-28 font-[family-name:var(--font-geist-sans)] text-zinc-100 sm:px-6">
       {/* Hero */}
-      <section className="mb-10 animate-fade-in-up">
-        <p className="section-label">BUILDER NETWORK</p>
+      <section className="mb-9">
+        <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#B4F461]">BUILDER NETWORK</p>
 
-        <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">
+        <h1 className="mb-3 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-3xl font-semibold tracking-[-0.04em] text-transparent sm:text-4xl">
           Discover Builders
         </h1>
 
@@ -338,28 +347,17 @@ function DevelopersContent() {
       </section>
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8 animate-fade-in-up stagger-1">
+      <div className="mb-8 flex flex-col items-stretch gap-3 rounded-2xl border border-white/[0.08] bg-zinc-950/55 p-3 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:flex-row sm:items-center">
         {/* Search Input */}
         <div className="relative flex-1">
-          <svg
-            className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-            />
-          </svg>
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Search by name, skill, or college..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input text-xs pl-10 w-full"
+            className="min-h-11 w-full rounded-xl border border-white/10 bg-zinc-900/50 py-2.5 !pl-10 pr-3 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 hover:border-white/20 focus:border-[#B4F461]/50 focus:ring-2 focus:ring-[#B4F461]/10"
+            style={{ paddingLeft: "2.5rem" }}
           />
         </div>
 
@@ -368,7 +366,7 @@ function DevelopersContent() {
           <select
             value={collegeFilter}
             onChange={(e) => setCollegeFilter(e.target.value)}
-            className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
+            className="min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 pr-9 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/50 focus:ring-2 focus:ring-[#B4F461]/10"
           >
             <option value="">All Colleges</option>
             {uniqueColleges.map(({ displayName, count }) => (
@@ -377,9 +375,7 @@ function DevelopersContent() {
               </option>
             ))}
           </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 text-[10px]">
-            ▼
-          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {/* Year of Study Filter Select */}
@@ -387,7 +383,7 @@ function DevelopersContent() {
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value)}
-            className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
+            className="min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 pr-9 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/50 focus:ring-2 focus:ring-[#B4F461]/10"
           >
             <option value="">All Academic Years</option>
             <option value="1st Year">1st Year</option>
@@ -396,9 +392,7 @@ function DevelopersContent() {
             <option value="4th Year">4th Year</option>
             <option value="Postgrad / Alumni">Postgrad / Alumni</option>
           </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 text-[10px]">
-            ▼
-          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {(collegeFilter || yearFilter) && (
@@ -408,7 +402,7 @@ function DevelopersContent() {
               setCollegeFilter("");
               setYearFilter("");
             }}
-            className="btn btn-secondary text-[11px] py-2 px-3 shrink-0 flex items-center gap-1.5 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white cursor-pointer"
+            className="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[11px] font-semibold text-zinc-400 transition-colors hover:border-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461]"
           >
             <span>Clear Filters</span>
           </button>
@@ -421,31 +415,31 @@ function DevelopersContent() {
           Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="card p-5 flex flex-col justify-between min-h-[240px] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 animate-pulse shadow-sm"
+              className="flex min-h-[240px] flex-col justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-5 shadow-lg ring-1 ring-white/5"
             >
               <div>
                 <div className="flex items-start justify-between mb-3.5 gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-200 dark:bg-zinc-800/80 shrink-0" />
+                    <div className="h-11 w-11 shrink-0 rounded-xl bg-zinc-800/80" />
                     <div className="space-y-2 min-w-0">
-                      <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
-                      <div className="h-3 w-20 bg-zinc-100 dark:bg-zinc-900 rounded" />
+                      <div className="h-4 w-28 rounded bg-zinc-800/80" />
+                      <div className="h-3 w-20 rounded bg-zinc-900" />
                     </div>
                   </div>
-                  <div className="h-5 w-16 bg-zinc-100 dark:bg-zinc-900 rounded-full" />
+                  <div className="h-5 w-16 rounded-full bg-zinc-900" />
                 </div>
                 <div className="space-y-1.5 mb-3.5">
-                  <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900 rounded" />
-                  <div className="h-3 w-3/4 bg-zinc-100 dark:bg-zinc-900 rounded" />
+                  <div className="h-3 w-full rounded bg-zinc-900" />
+                  <div className="h-3 w-3/4 rounded bg-zinc-900" />
                 </div>
                 <div className="flex gap-1.5 mb-4">
-                  <div className="h-4 w-12 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
-                  <div className="h-4 w-14 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
-                  <div className="h-4 w-10 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+                  <div className="h-4 w-12 rounded bg-zinc-800/80" />
+                  <div className="h-4 w-14 rounded bg-zinc-800/80" />
+                  <div className="h-4 w-10 rounded bg-zinc-800/80" />
                 </div>
               </div>
-              <div className="pt-3.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between">
-                <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-800/80 rounded" />
+              <div className="mt-2 flex justify-between border-t border-white/[0.08] pt-3.5">
+                <div className="h-3 w-20 rounded bg-zinc-800/80" />
               </div>
             </div>
           ))
@@ -455,33 +449,34 @@ function DevelopersContent() {
             return (
               <div 
                 key={dev.id} 
-                className="card group p-5 flex flex-col justify-between min-h-[240px] hover:border-indigo-500/40 dark:hover:border-indigo-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-white dark:bg-zinc-950/40 border border-zinc-200/90 dark:border-zinc-800 shadow-sm dark:shadow-none"
+                className="group relative flex min-h-[240px] flex-col justify-between overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-5 shadow-lg ring-1 ring-white/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-950/70 focus-within:border-zinc-700 motion-reduce:transform-none"
               >
-                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none group-hover:bg-indigo-500/10 transition-colors" />
+                <div aria-hidden="true" className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 <div>
                   <div className="flex items-start justify-between mb-3.5 gap-3">
-                    <Link href={`/profile/${dev.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-90">
+                    {currentUserId ? (
+                      <Link href={`/profile/${dev.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-90">
                       {dev.avatar_url ? (
                         <img
                           src={dev.avatar_url}
                           alt={dev.full_name}
-                          className="w-11 h-11 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700/60 shadow-sm"
+                          className="size-11 shrink-0 rounded-xl border border-white/10 object-cover"
                         />
                       ) : (
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-sm shadow-sm">
+                        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 font-mono text-sm font-semibold text-zinc-300">
                           {getInitials(dev.full_name, 1)}
                         </div>
                       )}
                       <div className="min-w-0">
-                        <h2 className="font-bold text-sm text-zinc-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <h2 className="truncate text-sm font-semibold text-white transition-colors group-hover:text-[#B4F461]">
                           {dev.full_name}
                         </h2>
-                        <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 text-[11px] truncate mt-0.5">
+                        <div className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-zinc-500">
                           <span className="truncate">{dev.college || "Independent Builder"}</span>
                           {dev.year_of_study && (
                             <>
-                              <span className="text-zinc-400 dark:text-zinc-600">•</span>
-                              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-mono text-[10px] font-semibold shrink-0 inline-flex items-center gap-1">
+                              <span className="text-zinc-600">•</span>
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#22D3EE]/20 bg-[#22D3EE]/[0.07] px-2 py-0.5 font-mono text-[10px] font-medium text-[#22D3EE]">
                                 <GraduationCap className="w-3 h-3" />
                                 {dev.year_of_study}
                               </span>
@@ -491,42 +486,94 @@ function DevelopersContent() {
                         {/* Hackathon Badges */}
                         <div className="mt-1 flex items-center gap-1.5">
                           {dev.hackathon_wins && dev.hackathon_wins > 0 ? (
-                            <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#B4F461]">
                               <Trophy className="w-3 h-3" />
                               {dev.hackathon_wins} Win{dev.hackathon_wins === 1 ? '' : 's'}
                             </span>
                           ) : dev.has_participated_hackathon ? (
-                            <span className="text-[10px] font-mono font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[#22D3EE]/20 bg-[#22D3EE]/[0.07] px-2 py-0.5 font-mono text-[10px] font-medium text-[#22D3EE]">
                               <Zap className="w-3 h-3" />
                               Contender
                             </span>
                           ) : (
-                            <span className="text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                              <Rocket className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] font-medium text-zinc-400">
+                              <Target aria-hidden="true" className="size-3" />
                               Rookie
                             </span>
                           )}
                         </div>
                       </div>
                     </Link>
+                    ) : (
+                      <div className="flex items-center gap-3 min-w-0">
+                        {dev.avatar_url ? (
+                          <img
+                            src={dev.avatar_url}
+                            alt={dev.full_name}
+                            className="size-11 shrink-0 rounded-xl border border-white/10 object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 font-mono text-sm font-semibold text-zinc-300">
+                            {getInitials(dev.full_name, 1)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h2 className="truncate text-sm font-semibold text-white">
+                            {dev.full_name}
+                          </h2>
+                          <div className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-zinc-500">
+                            <span className="truncate">{dev.college || "Independent Builder"}</span>
+                            {dev.year_of_study && (
+                              <>
+                                <span className="text-zinc-600">•</span>
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#22D3EE]/20 bg-[#22D3EE]/[0.07] px-2 py-0.5 font-mono text-[10px] font-medium text-[#22D3EE]">
+                                  <GraduationCap className="w-3 h-3" />
+                                  {dev.year_of_study}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            {dev.hackathon_wins && dev.hackathon_wins > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#B4F461]">
+                                <Trophy className="w-3 h-3" />
+                                {dev.hackathon_wins} Win{dev.hackathon_wins === 1 ? '' : 's'}
+                              </span>
+                            ) : dev.has_participated_hackathon ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[#22D3EE]/20 bg-[#22D3EE]/[0.07] px-2 py-0.5 font-mono text-[10px] font-medium text-[#22D3EE]">
+                                <Zap className="w-3 h-3" />
+                                Contender
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] font-medium text-zinc-400">
+                                <Target aria-hidden="true" className="size-3" />
+                                Rookie
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className={`text-[9px] font-bold font-mono py-0.5 px-2 rounded-full border ${
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[10px] font-semibold ${
                         dev.is_available !== false
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-zinc-300 dark:border-zinc-700"
+                          ? "border-[#B4F461]/20 bg-[#B4F461]/10 text-[#B4F461]"
+                          : "border-white/10 bg-white/[0.04] text-zinc-500"
                       }`}>
-                        {dev.is_available !== false ? "● Available" : "○ Busy"}
+                        <Activity aria-hidden="true" className="size-3" />
+                        {dev.is_available !== false ? "Available" : "Busy"}
                       </span>
                       {matchScore > 0 && (
-                        <span className="text-[10px] text-indigo-700 dark:text-indigo-400 font-extrabold font-mono bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-md px-1.5 py-0.5">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#22D3EE]/20 bg-[#22D3EE]/[0.07] px-2 py-1 font-mono text-[10px] font-semibold text-[#22D3EE]">
+                          <Target aria-hidden="true" className="size-3" />
                           {matchScore}% Fit
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <p className="text-zinc-600 dark:text-zinc-300 text-sm mb-3.5 line-clamp-2 min-h-[36px] leading-relaxed">
+                  <p className="mb-3.5 min-h-[36px] text-sm leading-relaxed text-zinc-400 line-clamp-2">
                     {dev.bio || "No bio added yet."}
                   </p>
 
@@ -534,46 +581,63 @@ function DevelopersContent() {
                     {dev.skills?.length ? (
                       <>
                         {dev.skills.slice(0, 3).map((skill) => (
-                          <span key={skill} className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60">
+                          <span key={skill} className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] font-medium text-zinc-300">
                             {skill}
                           </span>
                         ))}
                         {dev.skills.length > 3 && (
-                          <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] font-medium text-zinc-500">
                             +{dev.skills.length - 3}
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600 italic">No skills listed</span>
+                      <span className="text-[10px] text-zinc-600 italic">No skills listed</span>
                     )}
                   </div>
 
-                  <MatchReasoningBadge
+                  {currentUserId ? <MatchReasoningBadge
                     userA={currentUserProfile}
                     userB={dev}
                     isSelfViewer={true}
                     matchScore={matchScore}
                     reasons={serverRecommendations[dev.id]?.reasons}
                     confidence={serverRecommendations[dev.id]?.confidence}
-                  />
+                  /> : <button type="button" onClick={() => promptDiscoverySignIn()} className="font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500 transition-colors hover:text-[#B4F461] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461]">Sign in to check fit</button>}
                 </div>
 
-                <div className="flex items-center justify-between pt-3.5 mt-2 border-t border-zinc-200 dark:border-zinc-800/80">
-                  <Link href={`/profile/${dev.id}`} className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1 group/btn">
-                    <span>View Profile</span>
-                    <span className="group-hover/btn:translate-x-0.5 transition-transform font-mono">→</span>
-                  </Link>
+                <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-3.5">
+                  {currentUserId ? (
+                    <>
+                      <Link href={`/profile/${dev.id}`} className="group/btn flex items-center gap-1 text-xs font-semibold text-zinc-400 transition-colors hover:text-white">
+                        <span>View Profile</span>
+                        <span className="group-hover/btn:translate-x-0.5 transition-transform font-mono">→</span>
+                      </Link>
 
-                  {userOwnedTeams.length > 0 && (
+                      {userOwnedTeams.length > 0 ? (
+                        <button
+                          onClick={() => {
+                            setSelectedDevId(dev.id);
+                            setShowInviteModal(true);
+                          }}
+                          className="inline-flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-[#B4F461]/40 bg-[#B4F461] px-3 text-xs font-bold text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_18px_rgba(180,244,97,0.1)] transition-all hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 motion-reduce:transform-none"
+                        >
+                          Invite to Team
+                        </button>
+                      ) : (
+                        <Link href={`/profile/${dev.id}`} className="text-xs font-semibold text-[#B4F461] transition-colors hover:text-[#c4f782]">
+                          Connect
+                        </Link>
+                      )}
+                    </>
+                  ) : (
                     <button
-                      onClick={() => {
-                        setSelectedDevId(dev.id);
-                        setShowInviteModal(true);
-                      }}
-                      className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-xs transition-all active:scale-95 cursor-pointer shadow-sm"
+                      type="button"
+                      onClick={() => promptDiscoverySignIn(`/profile/${dev.id}`)}
+                      className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-[#B4F461]/25 bg-[#B4F461]/[0.08] px-3 text-xs font-semibold text-[#B4F461] transition-all hover:-translate-y-0.5 hover:border-[#B4F461]/40 hover:bg-[#B4F461]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] motion-reduce:transform-none"
                     >
-                      Invite to Team
+                      <span>Sign in to Connect</span>
+                      <span className="font-mono">→</span>
                     </button>
                   )}
                 </div>
@@ -582,10 +646,8 @@ function DevelopersContent() {
           })
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-5">
-              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584.036-.219.05-.44.05-.666l.001-.03m11.911 0a9.1 9.1 0 00-11.911 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+            <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border border-white/10 bg-zinc-900/60 text-zinc-500">
+              <Users aria-hidden="true" className="size-6" />
             </div>
             <h3 className="text-sm font-semibold text-white mb-1.5">No builders yet</h3>
             <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
@@ -595,20 +657,51 @@ function DevelopersContent() {
         )}
       </div>
 
+      {!loading && !currentUserId && (
+        <aside
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-white/10 bg-[#0d0d11]/90 p-3 sm:px-4 sm:py-3 shadow-[0_16px_40px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl animate-fade-in-up"
+          aria-label="Guest browsing"
+        >
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-[#B4F461]/25 bg-[#B4F461]/10 text-[#B4F461]">
+                <Zap aria-hidden="true" className="size-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white tracking-tight">
+                  Connect with Hackathon Builders
+                </p>
+                <p className="text-[11px] text-zinc-400 leading-tight">
+                  Sign up to message developers and form your team
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => promptDiscoverySignIn()}
+              className="inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#B4F461]/40 bg-[#B4F461] px-4 text-xs font-bold !text-[#08080a] shadow-[0_6px_18px_rgba(180,244,97,0.13)] transition-all hover:-translate-y-0.5 hover:bg-[#c4fa83] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 motion-reduce:transform-none sm:w-auto"
+            >
+              <span>Sign Up Free</span>
+              <ArrowRight className="size-3.5" />
+            </button>
+          </div>
+        </aside>
+      )}
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Invite builder to team" className="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-950/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <h2 className="text-sm font-semibold text-white mb-1.5">Invite to Team</h2>
             <p className="text-xs text-zinc-400 mb-4">
               Select which team you would like to invite this developer to join.
             </p>
 
-            <label className="section-label block mb-1.5">Your Teams</label>
+            <label className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Your Teams</label>
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="input text-xs w-full mb-4"
+              className="mb-4 min-h-10 w-full rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10"
             >
               <option value="">Select a team</option>
               {userOwnedTeams.map((team) => (
@@ -618,21 +711,21 @@ function DevelopersContent() {
               ))}
             </select>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
+            <div className="flex justify-end gap-2 border-t border-white/[0.08] pt-3">
               <button
                 onClick={() => {
                   setShowInviteModal(false);
                   setSelectedTeam("");
                   setSelectedDevId(null);
                 }}
-                className="btn btn-secondary btn-sm"
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-zinc-900/60 px-3.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendInvite}
                 disabled={!selectedTeam || inviteLoading}
-                className="btn btn-primary btn-sm"
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#B4F461]/40 bg-[#B4F461] px-3.5 text-xs font-bold text-[#11160b] transition-colors hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {inviteLoading ? "Sending..." : "Send Invite"}
               </button>
@@ -646,8 +739,8 @@ function DevelopersContent() {
 
 export default function DevelopersPage() {
   return (
-    <AuthGuard>
+    <>
       <DevelopersContent />
-    </AuthGuard>
+    </>
   );
 }

@@ -7,7 +7,6 @@ export async function middleware(request: NextRequest) {
 
   const protectedRoutes = [
     "/dashboard",
-    "/developers",
     "/profile/edit",
     "/notifications",
     "/connections",
@@ -21,9 +20,10 @@ export async function middleware(request: NextRequest) {
   ];
 
   const isProtected =
-    protectedRoutes.some((route) => pathname.startsWith(route)) ||
-    pathname === "/teams/create" ||
-    (pathname.startsWith("/teams/") && (pathname.endsWith("/dashboard") || pathname.endsWith("/requests")));
+    protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`)) ||
+    pathname === "/teams/create" || pathname.startsWith("/teams/create/") ||
+    /^\/teams\/[^/]+\/(workspace|dashboard|requests)(\/|$)/.test(pathname) ||
+    /^\/hackathons\/[^/]+\/organizer(\/|$)/.test(pathname);
 
   if (!isProtected) {
     return NextResponse.next();
@@ -118,6 +118,7 @@ export const config = {
     "/teams/:path*",
     "/profile/:path*",
     "/notifications/:path*",
+    "/settings/:path*",
     "/connections/:path*",
     "/hackathons/:path*",
     "/invites/:path*",

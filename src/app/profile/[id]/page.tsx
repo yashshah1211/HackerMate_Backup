@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { promptDiscoverySignIn } from "@/lib/discovery-auth";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
@@ -15,6 +16,18 @@ import { trackEvent } from "@/lib/posthog";
 import { moderateMessage } from "@/lib/safety";
 import BuilderTrackRecord, { TrackRecordData } from "@/components/BuilderTrackRecord";
 import BuilderPassportModal from "@/components/BuilderPassportModal";
+import { 
+  Trophy, 
+  CheckCircle2, 
+  Award, 
+  Flame,
+  Activity,
+  Mail,
+  Zap,
+  Target,
+  Lock,
+  GraduationCap
+} from "lucide-react";
 
 
 
@@ -401,7 +414,8 @@ export default function ProfilePage() {
   const [showPitchModal, setShowPitchModal] = useState(false);
 
   function openPitchModal() {
-    if (!currentUserId || !profile) return;
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
+    if (!profile) return;
     setShowPitchModal(true);
   }
 
@@ -711,10 +725,10 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Premium Container */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950 p-6 md:p-8 animate-fade-in-up shadow-2xl">
+      <div className="card card-interactive relative overflow-hidden p-6 md:p-8 animate-fade-in-up shadow-2xl">
         {/* Decorative Grid & Glows */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/[0.04] rounded-full blur-3xl pointer-events-none" />
+        {/* glow removed */}
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/[0.04] rounded-full blur-3xl pointer-events-none" />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
@@ -725,28 +739,28 @@ export default function ProfilePage() {
             <div>
               {/* Avatar Frame with custom outline and offset */}
               <div className="relative w-28 h-28 mx-auto lg:mx-0 mb-6 group">
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 opacity-20 blur-md group-hover:opacity-40 transition-opacity duration-300" />
-                <div className="relative w-full h-full rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center overflow-hidden p-1 shadow-lg">
+                {/* blur removed */}
+                <div className="relative w-full h-full rounded-2xl bg-zinc-950/50 border border-zinc-800/80 flex items-center justify-center overflow-hidden shadow-xl ring-1 ring-white/5">
                   {profile.avatar_url ? (
                     <img
                       src={profile.avatar_url}
                       alt={profile.full_name}
-                      className="w-full h-full rounded-xl object-cover"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full rounded-xl bg-gradient-to-br from-indigo-900/30 to-purple-900/30 flex items-center justify-center font-bold text-white text-3xl font-sans">
+                    <div className="w-full h-full bg-zinc-900 flex items-center justify-center font-bold text-white text-3xl font-sans">
                       {getInitials(profile.full_name, 1)}
                     </div>
                   )}
                 </div>
                  {!isBlockedByMe && (
                   profile.is_available !== false ? (
-                    <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Available for teams">
-                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                    <div className="absolute -bottom-1.5 -right-1.5 bg-[#B4F461] w-5 h-5 rounded-full border-[3px] border-zinc-950 shadow-md flex items-center justify-center" title="Available for teams">
+                      <span className="w-1.5 h-1.5 bg-black/60 rounded-full animate-pulse" />
                     </div>
                   ) : (
-                    <div className="absolute -bottom-1.5 -right-1.5 bg-zinc-600 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Busy / Team Full">
-                      <span className="w-1.5 h-1.5 bg-zinc-450 rounded-full" />
+                    <div className="absolute -bottom-1.5 -right-1.5 bg-zinc-600 w-5 h-5 rounded-full border-[3px] border-zinc-950 shadow-md flex items-center justify-center" title="Busy / Team Full">
+                      <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full" />
                     </div>
                   )
                 )}
@@ -782,14 +796,14 @@ export default function ProfilePage() {
                         title={`Longest streak: ${profile.longest_streak || profile.current_streak} days`}
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        🔥 {profile.current_streak} Day Streak
+                        <Flame className="w-3 h-3 text-orange-400" /> {profile.current_streak} Day Streak
                       </span>
                     );
                   })()}
 
                   {/* Academic Year Badge */}
                   <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-cyan-500/10 text-cyan-300 border-cyan-500/30 flex items-center gap-1 font-semibold">
-                    🎓 {profile.year_of_study || "2nd Year"}
+                    <Activity className="w-3 h-3 text-cyan-300" /> {profile.year_of_study || "2nd Year"}
                   </span>
 
                   <span className={`text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border ${
@@ -813,12 +827,12 @@ export default function ProfilePage() {
                         <>
                           <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                            🏆 {profile.hackathon_wins} {profile.hackathon_wins === 1 ? "Hackathon Win" : "Hackathon Wins"}
+                            <Trophy className="w-3 h-3 text-amber-300" /> {profile.hackathon_wins} {profile.hackathon_wins === 1 ? "Hackathon Win" : "Hackathon Wins"}
                           </span>
                           {profile.hackathon_participations && profile.hackathon_participations > 0 && (
                             <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                              📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
+                              <Target className="w-3 h-3 text-indigo-300" /> {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
                             </span>
                           )}
                         </>
@@ -826,19 +840,19 @@ export default function ProfilePage() {
                         <>
                           <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-cyan-500/10 to-blue-500/10 text-cyan-400 border-cyan-500/25 flex items-center gap-1.5 select-none">
                             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                            ⚡ Contender
+                            <Target className="w-3 h-3 text-cyan-400" /> Contender
                           </span>
                           {profile.hackathon_participations && profile.hackathon_participations > 0 && (
                             <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                              📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
+                              <Target className="w-3 h-3 text-indigo-300" /> {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
                             </span>
                           )}
                         </>
                       ) : (
                         <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-300 border-indigo-500/25 flex items-center gap-1.5 select-none">
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                          🚀 Rising Builder
+                          <Target className="w-3 h-3 text-indigo-300" /> Rising Builder
                         </span>
                       )}
 
@@ -846,7 +860,7 @@ export default function ProfilePage() {
                       {practiceSolvedCount > 0 && (
                         <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-lime-500/10 text-lime-400 border-lime-500/30 flex items-center gap-1.5 shadow-[0_0_12px_rgba(132,204,22,0.15)] select-none">
                           <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse" />
-                          🎯 {practiceSolvedCount} Practice {practiceSolvedCount === 1 ? "Solved" : "Solved"}
+                          <Target className="w-3 h-3 text-lime-400" /> {practiceSolvedCount} Practice {practiceSolvedCount === 1 ? "Solved" : "Solved"}
                         </span>
                       )}
                     </>
@@ -1043,28 +1057,28 @@ export default function ProfilePage() {
               <>
                 {/* Premium Activity Statistics Panel */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up stagger-1">
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+                  <div className="card p-4 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Connections</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{connectionsCount}</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+                  <div className="card p-4 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Teams Joined</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{teamsCount}</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+                  <div className="card p-4 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Practice Solved</span>
                     <span className="text-2xl font-bold text-lime-400 mt-1.5 font-mono flex items-center gap-1.5">
                       <span>{practiceSolvedCount}</span>
                     </span>
                   </div>
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+                  <div className="card p-4 flex flex-col justify-between hover:border-zinc-700 transition-colors">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Skills Mastered</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{profile.skills?.length || 0}</span>
                   </div>
                 </div>
 
                 {/* Bio Block with quote styling */}
-                <div className="relative p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 overflow-hidden animate-fade-in-up stagger-2 group">
+                <div className="card relative p-6 overflow-hidden animate-fade-in-up stagger-2 group">
                   <div className="absolute right-4 bottom-2 text-zinc-800/25 pointer-events-none transform group-hover:scale-110 transition-transform duration-500 select-none">
                     <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
@@ -1081,7 +1095,7 @@ export default function ProfilePage() {
 
                 {/* GitHub Repositories & Language Insights */}
                 {profile.github_url && (
-                  <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-3">
+                  <div className="card p-6 animate-fade-in-up stagger-3">
                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                       <div>
                         <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">GitHub Repository Insights</p>
@@ -1155,10 +1169,10 @@ export default function ProfilePage() {
                                   href={repo.url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-3.5 rounded-lg bg-zinc-950/40 border border-zinc-900/60 hover:border-zinc-800 hover:bg-zinc-900/30 transition-all flex flex-col justify-between group"
+                                  className="p-3.5 rounded-lg border border-zinc-800/80 hover:border-zinc-700 bg-zinc-950/50 hover:bg-zinc-900/50 transition-all flex flex-col justify-between group"
                                 >
                                   <div>
-                                    <h4 className="text-xs font-semibold text-white group-hover:text-indigo-400 transition-colors truncate">
+                                    <h4 className="text-xs font-semibold text-white group-hover:text-cyan-400 transition-colors truncate">
                                       {repo.name}
                                     </h4>
                                     {repo.description && (
@@ -1195,7 +1209,7 @@ export default function ProfilePage() {
                         )}
                       </div>
                     ) : (
-                      <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20">
+                      <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg bg-zinc-950">
                         <svg className="w-8 h-8 text-zinc-700 mx-auto mb-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253" />
                         </svg>
@@ -1219,7 +1233,7 @@ export default function ProfilePage() {
                 )}
 
                 {/* Skills Grid Section */}
-                <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
+                <div className="card p-6 animate-fade-in-up stagger-4">
                   <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-4">Skills & Technologies</p>
 
                   <div className="flex flex-wrap gap-2">
@@ -1227,16 +1241,16 @@ export default function ProfilePage() {
                       profile.skills.map((skill) => (
                         <div
                           key={skill}
-                          className="px-3 py-1.5 rounded-lg bg-zinc-950/40 border border-zinc-800/60 hover:border-zinc-700/80 hover:bg-zinc-900/30 transition-all duration-250 flex items-center gap-2 group cursor-default"
+                          className="px-3 py-1.5 rounded-lg bg-zinc-950/50 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all duration-250 flex items-center gap-2 group cursor-default"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 group-hover:bg-purple-500 transition-colors" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover:bg-cyan-500 transition-colors" />
                           <span className="text-xs text-zinc-300 group-hover:text-white transition-colors font-medium">
                             {skill}
                           </span>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center w-full py-4 border border-dashed border-zinc-850 rounded-lg text-zinc-600 text-xs">
+                      <div className="text-center w-full py-4 border border-dashed border-zinc-800 rounded-lg text-zinc-600 text-xs">
                         No skills listed on this profile.
                       </div>
                     )}
@@ -1265,7 +1279,7 @@ export default function ProfilePage() {
                 )}
 
                 {profile.show_track_record === false && !isOwnProfile ? (
-                  <div className="p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 text-center space-y-3 shadow-xs animate-fade-in-up stagger-3">
+                  <div className="card p-8 text-center space-y-3 animate-fade-in-up stagger-3">
                     <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-xl">
                       🔒
                     </div>
@@ -1284,7 +1298,7 @@ export default function ProfilePage() {
                     )}
 
                     {/* Verified Badges & Achievements Section */}
-                    <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
+                    <div className="card p-6 animate-fade-in-up stagger-4">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <span className="text-amber-400 font-bold">🏆</span>
@@ -1302,11 +1316,11 @@ export default function ProfilePage() {
                           {userBadges.map((badge) => (
                             <div
                               key={badge.id}
-                              className="p-4 rounded-xl bg-gradient-to-br from-blue-950/20 via-zinc-950 to-indigo-950/20 border border-blue-500/30 hover:border-blue-400 transition-all flex flex-col justify-between group shadow-lg"
+                              className="p-4 rounded-xl border border-zinc-800/80 bg-zinc-950/50 hover:border-zinc-700 transition-all flex flex-col justify-between group shadow-lg"
                             >
                               <div>
                                 <div className="flex items-center justify-between gap-2 mb-2">
-                                  <span className="text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">
+                                  <span className="text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-zinc-800/50 text-[#B4F461] border border-zinc-700/50 uppercase">
                                     {badge.rank_title || "Verified Winner"}
                                   </span>
                                   <span className="text-[9px] text-zinc-500 font-mono">
@@ -1347,7 +1361,7 @@ export default function ProfilePage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center w-full py-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20 text-zinc-500 text-xs">
+                        <div className="text-center w-full py-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-950 text-zinc-500 text-xs">
                           No verified partner badges earned yet. Participating in partner hackathons awards official badges & certificates!
                         </div>
                       )}

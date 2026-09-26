@@ -1,87 +1,86 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ModernOAuthSignIn } from "@/components/ui/modern-animated-sign-in";
-import Link from "next/link";
-import Logo from "@/components/Logo";
-import { ArrowLeft } from "lucide-react";
-import { Suspense } from "react";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next") ?? searchParams.get("redirect") ?? "/dashboard";
+  const requestedPath = searchParams.get("next") ?? searchParams.get("redirect") ?? "/dashboard";
+  const nextUrl = requestedPath.startsWith("/") && !requestedPath.startsWith("//") && !/[\\\u0000-\u001f]/.test(requestedPath)
+    ? requestedPath
+    : "/dashboard";
   const collegeParam = searchParams.get("college");
 
-  // If already logged in, redirect directly to onboarding or dashboard
   useEffect(() => {
+    let cancelled = false;
+
     async function checkExistingSession() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("onboarding_completed")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        const safePath =
-          nextUrl.startsWith("/") && !nextUrl.startsWith("//")
-            ? nextUrl
-            : "/dashboard";
-
-        if (profile?.onboarding_completed) {
-          router.push(safePath);
-        } else {
-          const onboardingUrl = `/onboarding?next=${encodeURIComponent(safePath)}${
-            collegeParam ? `&college=${encodeURIComponent(collegeParam)}` : ""
-          }`;
-          router.push(onboardingUrl);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        if (authError.name !== "AuthSessionMissingError") {
+          console.error("Unable to check login session:", authError);
         }
+        return;
+      }
+      if (!user || cancelled) return;
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profileError) {
+        console.error("Unable to check onboarding status:", profileError);
+        return;
+      }
+      if (cancelled) return;
+
+      if (profile?.onboarding_completed) {
+        router.replace(nextUrl);
+      } else {
+        router.replace(`/onboarding?next=${encodeURIComponent(nextUrl)}${
+          collegeParam ? `&college=${encodeURIComponent(collegeParam)}` : ""
+        }`);
       }
     }
 
-    checkExistingSession();
+    void checkExistingSession();
+    return () => { cancelled = true; };
   }, [router, nextUrl, collegeParam]);
 
   return (
-    <main className="min-h-screen w-full flex flex-col justify-between bg-[#09090b] text-white p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-[#B4F461] selection:text-black">
-      {/* Background Ambience */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] opacity-30" />
-      <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[400px]">
-        <div className="absolute top-10 left-1/4 w-[350px] h-[350px] bg-[#B4F461]/8 rounded-full blur-[140px]" />
-        <div className="absolute top-10 right-1/4 w-[350px] h-[350px] bg-[#22D3EE]/8 rounded-full blur-[140px]" />
-      </div>
+    <main className="relative isolate flex min-h-[100dvh] flex-col overflow-hidden bg-[#09090b] px-4 pb-5 pt-5 text-zinc-50 selection:bg-[#B4F461] selection:text-zinc-950 sm:px-8 sm:pb-7 sm:pt-7">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:radial-gradient(ellipse_65%_60%_at_50%_45%,black,transparent)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute left-[12%] top-[-240px] -z-10 size-[520px] rounded-full bg-[#B4F461]/[0.045] blur-[120px]" />
+      <div aria-hidden="true" className="pointer-events-none absolute bottom-[-270px] right-[8%] -z-10 size-[520px] rounded-full bg-[#22D3EE]/[0.035] blur-[130px]" />
 
-      {/* Top Navigation Bar */}
-      <header className="relative z-20 w-full max-w-5xl mx-auto flex items-center justify-between py-2">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-mono text-zinc-400 hover:text-white transition-colors bg-zinc-900/70 hover:bg-zinc-850 border border-zinc-800 px-3.5 py-1.5 rounded-xl backdrop-blur-md"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Home</span>
+      <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between">
+        <Link href="/" className="group inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3.5 text-xs font-medium text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.16] hover:bg-white/[0.055] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 motion-reduce:transform-none">
+          <ArrowLeft aria-hidden="true" className="size-3.5 transition-transform group-hover:-translate-x-0.5 motion-reduce:transform-none" />
+          Back to home
         </Link>
+        <span className="hidden items-center gap-2 text-[11px] font-medium tracking-[0.12em] text-zinc-600 sm:inline-flex">
+          <span className="size-1.5 rounded-full bg-[#B4F461] shadow-[0_0_10px_rgba(180,244,97,0.5)]" />
+          HACKERMATE / ACCOUNT
+        </span>
       </header>
 
-      {/* Main 21st.dev Animated Sign In View */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto my-auto py-6">
+      <div className="relative z-10 mx-auto my-auto w-full max-w-5xl py-9 sm:py-12">
         <ModernOAuthSignIn
-          title="Welcome to HackerMate"
-          subtitle="Sign in with Google or GitHub in 1 tap to find teammates, join live hackathons, and access your workspace."
+          title="Make your next build count."
+          subtitle="Find your people, join the right hackathon, and keep every project moving. Your workspace starts here."
           nextUrl={nextUrl}
         />
       </div>
 
-      {/* Bottom Footer */}
-      <footer className="relative z-20 w-full max-w-5xl mx-auto text-center py-2">
-        <p className="text-[11px] font-mono text-zinc-600">
-          HackerMate • Team Operating System for College Hackathons
-        </p>
+      <footer className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 border-t border-white/[0.06] pt-5 text-[11px] text-zinc-600 sm:flex-row">
+        <span>© {new Date().getFullYear()} HackerMate</span>
+        <span className="inline-flex items-center gap-1.5"><LockKeyhole aria-hidden="true" className="size-3" /> Secure sign-in through Google or GitHub</span>
       </footer>
     </main>
   );
@@ -89,13 +88,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-[#B4F461] rounded-full animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center bg-[#09090b]"><div role="status" aria-label="Loading sign-in" className="size-6 animate-spin rounded-full border-2 border-zinc-800 border-t-[#B4F461]" /></div>}>
       <LoginContent />
     </Suspense>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { promptDiscoverySignIn } from "@/lib/discovery-auth";
 import TeamOverviewView from "@/components/TeamOverviewView";
 import { useNotification } from "@/context/NotificationContext";
 
@@ -27,7 +28,6 @@ type Member = {
   profiles: {
     id: string;
     full_name: string;
-    email: string;
     avatar_url?: string | null;
     skills?: string[] | null;
     gender?: string | null;
@@ -274,7 +274,7 @@ function TeamDetailsContent() {
   }
 
   async function toggleRecruiting() {
-    if (!team) return;
+    if (!team || !(isMember || isOwner)) return;
     const nextVal = team.is_recruiting === false ? true : false;
     const { error } = await supabase
       .from("teams")
@@ -328,7 +328,7 @@ function TeamDetailsContent() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      showToast("Please login first", "warning");
+      promptDiscoverySignIn();
       setRequestLoading(false);
       return;
     }
@@ -368,7 +368,7 @@ function TeamDetailsContent() {
 
 
   async function unlinkHackathon(hackathonId: string) {
-    if (!team) return;
+    if (!team || !(isMember || isOwner)) return;
     confirm({
       title: "Remove from Hackathon Listing",
       message: "Are you sure you want to remove this team from the hackathon listing?",

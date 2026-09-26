@@ -6,15 +6,21 @@ import {
   useState,
   useEffect,
   useRef,
+  useSyncExternalStore,
 } from "react";
 import {
   motion,
   useAnimation,
   useInView,
+  useReducedMotion,
 } from "motion/react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
+import Link from "next/link";
+import { ArrowUpRight, Check, LoaderCircle, ShieldCheck } from "lucide-react";
+
+const subscribeToClient = () => () => {};
 
 // ==================== BoxReveal Component ====================
 
@@ -41,16 +47,19 @@ export const BoxReveal = memo(function BoxReveal({
   const slideControls = useAnimation();
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
+  const prefersReducedMotion = useReducedMotion();
+  const mounted = useSyncExternalStore(subscribeToClient, () => true, () => false);
+  const reduceMotion = mounted && prefersReducedMotion;
 
   useEffect(() => {
-    if (isInView) {
+    if (isInView || reduceMotion) {
       slideControls.start("visible");
       mainControls.start("visible");
     } else {
       slideControls.start("hidden");
       mainControls.start("hidden");
     }
-  }, [isInView, mainControls, slideControls]);
+  }, [isInView, mainControls, slideControls, reduceMotion]);
 
   return (
     <section
@@ -69,16 +78,16 @@ export const BoxReveal = memo(function BoxReveal({
     >
       <motion.div
         variants={{
-          hidden: { opacity: 0, y: 75 },
+          hidden: { opacity: reduceMotion ? 1 : 0, y: reduceMotion ? 0 : 24 },
           visible: { opacity: 1, y: 0 },
         }}
         initial="hidden"
         animate={mainControls}
-        transition={{ duration: duration ?? 0.5, delay: 0.25 }}
+        transition={{ duration: reduceMotion ? 0 : duration ?? 0.45, delay: reduceMotion ? 0 : 0.12 }}
       >
         {children}
       </motion.div>
-      <motion.div
+      {!reduceMotion && <motion.div
         variants={{ hidden: { left: 0 }, visible: { left: "100%" } }}
         initial="hidden"
         animate={slideControls}
@@ -93,7 +102,7 @@ export const BoxReveal = memo(function BoxReveal({
           background: boxColor ?? "#B4F461",
           borderRadius: 4,
         }}
-      />
+      />}
     </section>
   );
 });
@@ -169,6 +178,10 @@ export const OrbitingCircles = memo(function OrbitingCircles({
   radius = 50,
   path = true,
 }: OrbitingCirclesProps) {
+  const prefersReducedMotion = useReducedMotion();
+  const mounted = useSyncExternalStore(subscribeToClient, () => true, () => false);
+  const reduceMotion = mounted && prefersReducedMotion;
+  const startAngle = (delay / duration) * 360;
   return (
     <>
       {path && (
@@ -186,24 +199,16 @@ export const OrbitingCircles = memo(function OrbitingCircles({
           />
         </svg>
       )}
-      <div
-        style={
-          {
-            "--duration": duration,
-            "--radius": radius,
-            "--delay": -delay,
-          } as React.CSSProperties
-        }
-        className={cn(
-          "absolute flex size-full transform-gpu animate-orbit items-center justify-center rounded-full border-none bg-transparent [animation-delay:calc(var(--delay)*1000ms)] pointer-events-none",
-          { "[animation-direction:reverse]": reverse },
-          className
-        )}
+      <motion.div
+        initial={{ rotate: startAngle }}
+        animate={reduceMotion ? undefined : { rotate: startAngle + (reverse ? -360 : 360) }}
+        transition={reduceMotion ? undefined : { duration, repeat: Infinity, ease: "linear" }}
+        className="pointer-events-none absolute inset-0 flex transform-gpu items-center justify-center"
       >
-        <div className="pointer-events-auto transition-transform hover:scale-125 duration-200">
+        <div style={{ transform: `translateX(${radius}px)` }} className={cn("pointer-events-auto flex items-center justify-center rounded-xl border border-white/[0.09] bg-[#17171b]/95 p-2 shadow-[0_8px_25px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-md transition-transform duration-200 hover:scale-110 motion-reduce:transform-none", className)}>
           {children}
         </div>
-      </div>
+      </motion.div>
     </>
   );
 });
@@ -383,181 +388,154 @@ export interface ModernOAuthSignInProps {
 
 export function ModernOAuthSignIn({
   title = "Welcome to HackerMate",
-  subtitle = "Sign in with Google or GitHub in 1 tap to find teammates, join live hackathons, and access your workspace.",
+  subtitle = "Find your people, join a hackathon, and start building.",
   nextUrl,
   className,
 }: ModernOAuthSignInProps) {
   const [loadingProvider, setLoadingProvider] = useState<"google" | "github" | null>(null);
   const [consentChecked, setConsentChecked] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const safeNextUrl = nextUrl?.startsWith("/") && !nextUrl.startsWith("//") && !/[\\\u0000-\u001f]/.test(nextUrl)
+    ? nextUrl
+    : "/dashboard";
 
   const handleOAuthSignIn = async (provider: "google" | "github") => {
-    if (!consentChecked) return;
+    if (!consentChecked || loadingProvider) return;
     setLoadingProvider(provider);
-    const targetUrl =
-      nextUrl || (typeof window !== "undefined" ? window.location.href : "/dashboard");
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== "undefined" ? window.location.origin : "");
-    const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(targetUrl)}`;
+    setErrorMessage(null);
 
-    await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo,
-      },
-    });
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNextUrl)}`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo },
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error(`Unable to start ${provider} sign-in:`, error);
+      setErrorMessage("We couldn't connect to the provider. Please try again.");
+      setLoadingProvider(null);
+    }
   };
 
+  const buttonClass = "group/btn relative flex min-h-13 w-full items-center justify-center gap-3 overflow-hidden rounded-xl border border-white/[0.09] bg-[#1a1a20] px-4 text-sm font-semibold text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#B4F461]/35 hover:bg-[#222229] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_28px_rgba(180,244,97,0.075)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:border-white/[0.09] disabled:hover:bg-[#1a1a20] disabled:hover:shadow-none motion-reduce:transform-none";
+
   return (
-    <div
-      className={cn(
-        "relative flex w-full min-h-[520px] overflow-hidden rounded-2xl border border-zinc-800/90 bg-zinc-950 shadow-2xl backdrop-blur-xl",
-        className
-      )}
-    >
-      {/* Ambient Radial Highlights */}
-      <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-[#B4F461]/10 blur-[100px]" />
-      <div className="pointer-events-none absolute -right-20 -bottom-20 h-72 w-72 rounded-full bg-[#22D3EE]/10 blur-[100px]" />
+    <div className={cn("relative isolate grid min-h-[590px] w-full overflow-hidden rounded-[24px] border border-white/[0.085] bg-[#111115]/95 shadow-[0_28px_90px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr]", className)}>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-20 top-0 z-20 h-px bg-gradient-to-r from-transparent via-[#B4F461]/35 to-transparent" />
+      <div aria-hidden="true" className="pointer-events-none absolute -left-20 top-0 -z-10 size-80 rounded-full bg-[#B4F461]/[0.035] blur-[100px]" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 right-0 -z-10 size-80 rounded-full bg-[#22D3EE]/[0.035] blur-[110px]" />
 
-      {/* Left Side: 4 Orbiting Tech Icons with Central HackerMate Logo (Zero text in circle area) */}
-      <div className="relative hidden w-1/2 flex-col items-center justify-center border-r border-zinc-800/80 bg-zinc-950 p-6 lg:flex overflow-hidden select-none">
-        {/* Subtle Ambient Radial Glow */}
-        <div className="pointer-events-none absolute w-72 h-72 rounded-full bg-[#B4F461]/5 blur-[80px]" />
-
-        {/* Central HackerMate Logo */}
-        <div className="z-10 text-center pointer-events-none select-none flex items-center justify-center p-3.5 rounded-2xl bg-zinc-950/90 border border-zinc-800/70 shadow-2xl backdrop-blur-md">
-          <Logo className="h-9 w-auto" />
+      <div className="relative hidden min-h-[590px] flex-col justify-between overflow-hidden border-r border-white/[0.07] bg-[#0c0c0f] p-10 lg:flex">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.022)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.022)_1px,transparent_1px)] bg-[size:38px_38px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[46%] size-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#B4F461]/[0.07] blur-[82px]" />
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg border border-[#B4F461]/20 bg-[#B4F461]/[0.06] text-[#B4F461]">
+            <span className="font-mono text-sm font-bold">H</span>
+          </div>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">The builder network</span>
         </div>
 
-        {/* 4 Orbiting Circles: JS, TS, Next.js, Supabase */}
-        {fourTechIcons.map((icon, index) => (
-          <OrbitingCircles
-            key={index}
-            className={icon.className}
-            duration={icon.duration}
-            delay={icon.delay}
-            radius={icon.radius}
-            path={icon.path}
-            reverse={icon.reverse}
-          >
-            {icon.component()}
-          </OrbitingCircles>
-        ))}
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 flex h-[440px] -translate-y-[54%] items-center justify-center select-none">
+          <div className="relative z-10 flex h-24 w-24 items-center justify-center rounded-[24px] border border-[#B4F461]/20 bg-[#14181a]/90 p-4 shadow-[0_0_0_8px_rgba(180,244,97,0.025),0_24px_70px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.09)] backdrop-blur-xl">
+            <Logo className="w-[68px]" />
+          </div>
+          {fourTechIcons.map((icon, index) => (
+            <OrbitingCircles
+              key={index}
+              className="size-10"
+              duration={icon.duration}
+              delay={icon.delay}
+              radius={icon.radius}
+              path={icon.path}
+              reverse={icon.reverse}
+            >
+              {icon.component()}
+            </OrbitingCircles>
+          ))}
+        </div>
+
+
       </div>
 
-      {/* Right Side: Clean OAuth Login Panel */}
-      <div className="flex w-full flex-col justify-center px-6 py-8 sm:px-12 lg:w-1/2 z-10">
-        <div className="mx-auto w-full max-w-sm space-y-5">
+      <div className="relative z-10 flex w-full flex-col justify-center px-6 py-10 sm:px-12 sm:py-12 lg:px-11">
+        <div className="mx-auto w-full max-w-[390px]">
+          <div className="mb-9 lg:hidden">
+            <div className="inline-flex h-9 items-center rounded-lg border border-[#B4F461]/20 bg-[#B4F461]/[0.06] px-3 font-mono text-[11px] font-semibold tracking-[0.15em] text-[#B4F461]">HACKERMATE</div>
+          </div>
 
-          {/* Header */}
-          <div className="space-y-2">
-            <BoxReveal boxColor="#B4F461" duration={0.3}>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
-                {title}
-              </h2>
+          <div className="mb-8">
+            <BoxReveal boxColor="#B4F461" duration={0.35}>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.21em] text-[#B4F461]">Your next chapter starts here</p>
             </BoxReveal>
-
-            <BoxReveal boxColor="#22D3EE" duration={0.35}>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
-                {subtitle}
-              </p>
+            <BoxReveal boxColor="#B4F461" duration={0.4} width="100%">
+              <h1 className="max-w-[330px] bg-gradient-to-b from-white via-zinc-100 to-zinc-400 bg-clip-text text-[31px] font-semibold leading-[1.13] tracking-[-0.045em] text-transparent sm:text-[35px]">{title}</h1>
+            </BoxReveal>
+            <BoxReveal boxColor="#22D3EE" duration={0.4} width="100%">
+              <p className="mt-4 max-w-[350px] text-sm leading-[1.7] text-zinc-400">{subtitle}</p>
             </BoxReveal>
           </div>
 
-          {/* 1-Tap Google Button */}
-          <BoxReveal boxColor="#27272a" duration={0.3} width="100%" overflow="visible">
-            <button
-              onClick={() => handleOAuthSignIn("google")}
-              disabled={!consentChecked || !!loadingProvider}
-              className={cn(
-                "group/btn relative flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-zinc-900/80 px-4 font-semibold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-200 ease-out hover:border-white/[0.22] hover:bg-zinc-850 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_8px_24px_rgba(0,0,0,0.6)] active:translate-y-0 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/[0.08] disabled:hover:bg-zinc-900/80 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-                !consentChecked && "opacity-40 cursor-not-allowed hover:border-white/[0.08] hover:bg-zinc-900/80 hover:translate-y-0 hover:shadow-none"
-              )}
-            >
-              {/* Google 4-Color SVG Icon */}
-              <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span className="text-sm font-medium">
-                {loadingProvider === "google"
-                  ? "Connecting to Google..."
-                  : "Login with Google"}
-              </span>
-              <BottomGradient />
-            </button>
-          </BoxReveal>
-
-          {/* Divider */}
-          <BoxReveal boxColor="#27272a" duration={0.3} width="100%">
-            <div className="flex items-center gap-4 my-0.5">
-              <hr className="flex-1 border-t border-dashed border-zinc-800" />
-              <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">or</p>
-              <hr className="flex-1 border-t border-dashed border-zinc-800" />
-            </div>
-          </BoxReveal>
-
-          {/* 1-Tap GitHub Button */}
-          <BoxReveal boxColor="#27272a" duration={0.3} width="100%" overflow="visible">
-            <button
-              onClick={() => handleOAuthSignIn("github")}
-              disabled={!consentChecked || !!loadingProvider}
-              className={cn(
-                "group/btn relative flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-zinc-900/80 px-4 font-semibold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-200 ease-out hover:border-white/[0.22] hover:bg-zinc-850 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_8px_24px_rgba(0,0,0,0.6)] active:translate-y-0 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-white/[0.08] disabled:hover:bg-zinc-900/80 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-                !consentChecked && "opacity-40 cursor-not-allowed hover:border-white/[0.08] hover:bg-zinc-900/80 hover:translate-y-0 hover:shadow-none"
-              )}
-            >
-              {/* GitHub SVG Icon */}
-              <svg className="h-5 w-5 fill-current shrink-0 text-white" viewBox="0 0 24 24">
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                />
-              </svg>
-              <span className="text-sm font-medium">
-                {loadingProvider === "github"
-                  ? "Connecting to GitHub..."
-                  : "Login with GitHub"}
-              </span>
-              <BottomGradient />
-            </button>
-          </BoxReveal>
-
-          {/* 18+ Terms & Privacy Consent Checkbox (Below buttons) */}
-          <BoxReveal boxColor="#B4F461" duration={0.3} width="100%">
-            <div className="p-3 bg-zinc-900/70 border border-zinc-800 rounded-xl mt-1">
-              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <BoxReveal boxColor="#27272a" duration={0.35} width="100%">
+            <div className="mb-5 rounded-xl border border-white/[0.075] bg-white/[0.025] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+              <div className="flex items-start gap-3">
                 <input
+                  id="login-consent"
                   type="checkbox"
                   checked={consentChecked}
-                  onChange={(e) => setConsentChecked(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-[#B4F461] focus:ring-[#B4F461] cursor-pointer shrink-0 accent-[#B4F461]"
+                  onChange={(event) => { setConsentChecked(event.target.checked); setErrorMessage(null); }}
+                  className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-zinc-600 bg-zinc-950 accent-[#B4F461] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461]"
                 />
-                <span className="text-[11px] text-zinc-400 leading-relaxed">
-                  I confirm that I am 18 years or older, and I agree to the{" "}
-                  <a href="/terms" target="_blank" className="text-[#B4F461] hover:underline">Terms of Service</a>{" "}
-                  and{" "}
-                  <a href="/privacy" target="_blank" className="text-[#B4F461] hover:underline">Privacy Policy</a>.
-                </span>
-              </label>
+                <div className="min-w-0 text-xs leading-[1.65] text-zinc-400">
+                  <label htmlFor="login-consent" className="cursor-pointer">I confirm I&apos;m 18 or older and agree to the </label>
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-zinc-200 underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-[#B4F461]">Terms</Link>
+                  <span> and </span>
+                  <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-zinc-200 underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-[#B4F461]">Privacy Policy</Link>
+                  <span>.</span>
+                </div>
+              </div>
             </div>
           </BoxReveal>
 
+          <div className="space-y-3">
+            <BoxReveal boxColor="#27272a" duration={0.35} width="100%" overflow="visible">
+              <button type="button" onClick={() => void handleOAuthSignIn("google")} disabled={!consentChecked || !!loadingProvider} aria-busy={loadingProvider === "google"} className={buttonClass}>
+                {loadingProvider === "google" ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : (
+                  <svg aria-hidden="true" className="size-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                )}
+                <span>{loadingProvider === "google" ? "Connecting to Google…" : "Continue with Google"}</span>
+                {!loadingProvider && <ArrowUpRight aria-hidden="true" className="absolute right-4 size-4 text-zinc-600 transition-colors group-hover/btn:text-[#B4F461]" />}
+                <BottomGradient />
+              </button>
+            </BoxReveal>
+            <BoxReveal boxColor="#27272a" duration={0.35} width="100%" overflow="visible">
+              <button type="button" onClick={() => void handleOAuthSignIn("github")} disabled={!consentChecked || !!loadingProvider} aria-busy={loadingProvider === "github"} className={buttonClass}>
+                {loadingProvider === "github" ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : (
+                  <svg aria-hidden="true" className="size-5 shrink-0 fill-current text-zinc-100" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  </svg>
+                )}
+                <span>{loadingProvider === "github" ? "Connecting to GitHub…" : "Continue with GitHub"}</span>
+                {!loadingProvider && <ArrowUpRight aria-hidden="true" className="absolute right-4 size-4 text-zinc-600 transition-colors group-hover/btn:text-[#B4F461]" />}
+                <BottomGradient />
+              </button>
+            </BoxReveal>
+          </div>
+
+          <div className="mt-5 min-h-5 text-center text-[11px] text-zinc-500" aria-live="polite">
+            {errorMessage ? <p role="alert" className="text-rose-400">{errorMessage}</p> : !consentChecked ? "Confirm the terms above to continue." : (
+              <span className="inline-flex items-center gap-1.5 text-zinc-400"><Check aria-hidden="true" className="size-3.5 text-[#B4F461]" /> Ready when you are.</span>
+            )}
+          </div>
+          <div className="mt-7 flex items-center justify-center gap-2 border-t border-white/[0.07] pt-6 text-[11px] text-zinc-500">
+            <ShieldCheck aria-hidden="true" className="size-3.5 text-zinc-400" />
+            Secure OAuth sign-in. No password required.
+          </div>
         </div>
       </div>
     </div>

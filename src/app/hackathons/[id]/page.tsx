@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import AuthGuard from "@/components/AuthGuard";
+import { promptDiscoverySignIn, PUBLIC_HACKATHON_COLUMNS } from "@/lib/discovery-auth";
 import { useNotification } from "@/context/NotificationContext";
 import { formatPrizeDisplay } from "@/app/hackathons/page";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
+import { ArrowLeft, ArrowRight, Bookmark, BookOpen, Building2, CalendarDays, ChevronDown, Download, ExternalLink, Globe2, Handshake, Layers, Link2Off, Mail, MapPin, Plus, Search, Target, Trash2, Trophy, Users, Wrench } from "lucide-react";
 
 type RoundInfo = {
   round_number: number;
@@ -66,7 +67,6 @@ type Registration = {
   profiles: {
     id: string;
     full_name: string;
-    email: string;
     college: string | null;
     avatar_url: string | null;
     skills: string[] | null;
@@ -129,6 +129,8 @@ function formatDateRange(start: string | null, end: string | null) {
 
 function htmlToPlainText(html: string) {
   return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/&zwj;/gi, "")
     .replace(/&zwnj;/gi, "")
     .replace(/&#8205;/g, "")
@@ -295,7 +297,7 @@ function HackathonDetailContent() {
     try {
       const { data: hackathonData, error: hackathonError } = await supabase
         .from("hackathons")
-        .select("*")
+        .select(PUBLIC_HACKATHON_COLUMNS)
         .eq("id", hackathonId)
         .single();
 
@@ -308,12 +310,13 @@ function HackathonDetailContent() {
       setHackathon(hackathonData);
 
       // Fetch partner config if exists for this hackathon
-      const { data: partnerData } = await supabase
+      const { data: partnerData, error: partnerError } = await supabase
         .from("partner_configs")
         .select("slug, partner_name")
         .eq("hackathon_id", hackathonId)
         .maybeSingle();
 
+      if (partnerError) console.error("Public partner query failed:", partnerError);
       if (partnerData) {
         setPartnerConfig(partnerData);
       } else {
@@ -321,13 +324,14 @@ function HackathonDetailContent() {
       }
 
       // Fetch hackathon stages for schedule timeline
-      const { data: stageData } = await supabase
+      const { data: stageData, error: stageError } = await supabase
         .from("hackathon_stages")
         .select("*")
         .eq("hackathon_id", hackathonId)
         .order("sort_order", { ascending: true })
         .order("start_time", { ascending: true });
 
+      if (stageError) console.error("Public schedule query failed:", stageError);
       setStages(stageData || []);
 
       let teamsData: any[] = [];
@@ -445,7 +449,7 @@ function HackathonDetailContent() {
         setTeams(teamsData);
       }
 
-      const { data: regData } = await supabase
+      const { data: regData, error: registrationError } = await supabase
         .from("hackathon_registrations")
         .select(`
           id,
@@ -470,15 +474,17 @@ function HackathonDetailContent() {
         .eq("hackathon_id", hackathonId)
         .order("created_at", { ascending: false });
 
+      if (registrationError) console.error("Hackathon registrations query failed:", registrationError);
       setRegistrations((regData as unknown as Registration[]) || []);
 
       // Load resources
-      const { data: resourcesData } = await supabase
+      const { data: resourcesData, error: resourceError } = await supabase
         .from("hackathon_resources")
         .select("*")
         .eq("hackathon_id", hackathonId)
         .order("created_at", { ascending: false });
 
+      if (resourceError) console.error("Public resources query failed:", resourceError);
       setResources(resourcesData || []);
 
       // Load all builders of all registered teams for this hackathon
@@ -486,7 +492,7 @@ function HackathonDetailContent() {
       const computedBuilders: BuilderWithMatch[] = [];
 
       if (registeredTeamIds.length > 0) {
-        const { data: teamMembersData } = await supabase
+        const { data: teamMembersData, error: memberError } = await supabase
           .from("team_members")
           .select(`
             id,
@@ -505,6 +511,7 @@ function HackathonDetailContent() {
           `)
           .in("team_id", registeredTeamIds);
 
+        if (memberError) console.error("Public member query failed:", memberError);
         const uniqueBuildersMap = new Map();
         if (teamMembersData) {
           teamMembersData.forEach((tm: any) => {
@@ -602,7 +609,8 @@ function HackathonDetailContent() {
 
   // Handle Native Registration Flow
   async function handleRegisterNatively() {
-    if (!currentUserId || !hackathon) return;
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
+    if (!hackathon) return;
     setInviteLoading(true);
     try {
       if (selectedTeam) {
@@ -669,13 +677,15 @@ function HackathonDetailContent() {
 
   // Handle External Registration Flow
   function handleRegisterExternally() {
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
     if (!hackathon || !hackathon.website_url) return;
     window.open(hackathon.website_url, "_blank", "noopener,noreferrer");
     setShowExternalRegisterModal(true);
   }
 
   async function handleRegisterExternallyConfirm() {
-    if (!currentUserId || !hackathon) return;
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
+    if (!hackathon) return;
     setInviteLoading(true);
     try {
       if (selectedTeam) {
@@ -840,7 +850,8 @@ function HackathonDetailContent() {
 
   // Cancel Native Registration
   async function handleCancelRegistration() {
-    if (!currentUserId || !hackathon) return;
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
+    if (!hackathon) return;
     confirm({
       title: "Cancel Registration",
       message: "Are you sure you want to cancel your registration?",
@@ -853,7 +864,8 @@ function HackathonDetailContent() {
   }
 
   async function handleToggleSave() {
-    if (!currentUserId || !hackathon) {
+    if (!currentUserId) { promptDiscoverySignIn(); return; }
+    if (!hackathon) {
       showToast("Please sign in to save this hackathon.", "warning");
       return;
     }
@@ -923,12 +935,13 @@ function HackathonDetailContent() {
         setShowAddResourceModal(false);
         showToast("Resource link added successfully!", "success");
         // Reload resources
-        const { data: resourcesData } = await supabase
+        const { data: resourcesData, error: resourceError } = await supabase
           .from("hackathon_resources")
           .select("*")
           .eq("hackathon_id", hackathonId)
           .order("created_at", { ascending: false });
-        setResources(resourcesData || []);
+        if (resourceError) console.error("Public resources query failed:", resourceError);
+      setResources(resourcesData || []);
       }
     } catch (err) {
       console.error(err);
@@ -1066,9 +1079,9 @@ function HackathonDetailContent() {
 
   if (loading) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
+      <main className="mx-auto min-h-[70vh] max-w-7xl bg-[#09090b] px-4 pb-12 pt-36 text-zinc-100 sm:px-6">
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
+          <div className="mb-3 size-6 animate-spin rounded-full border-2 border-zinc-800 border-t-[#B4F461]" />
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading hackathon details...</p>
         </div>
       </main>
@@ -1077,12 +1090,12 @@ function HackathonDetailContent() {
 
   if (!hackathon) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-16 text-center">
+      <main className="mx-auto min-h-[70vh] max-w-7xl bg-[#09090b] px-4 pb-12 pt-36 text-zinc-100 sm:px-6">
+        <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-16 text-center">
           <h3 className="text-sm font-semibold text-white mb-2">
             Hackathon not found
           </h3>
-          <Link href="/hackathons" className="link text-xs mt-2 inline-block">
+          <Link href="/hackathons" className="mt-2 inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-[#B4F461] hover:underline">
             Back to hackathons
           </Link>
         </div>
@@ -1091,33 +1104,30 @@ function HackathonDetailContent() {
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
+    <main className="relative isolate mx-auto min-h-screen max-w-7xl px-4 pb-20 pt-27 font-[family-name:var(--font-geist-sans)] text-zinc-100 sm:px-6 lg:pt-30">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px] bg-[radial-gradient(ellipse_55%_45%_at_15%_12%,rgba(180,244,97,0.045),transparent),radial-gradient(ellipse_45%_40%_at_85%_35%,rgba(34,211,238,0.025),transparent)]" />
       {/* Back link */}
-      <div className="mb-6 animate-fade-in-up">
+      <div className="mb-6">
         <Link
           href="/hackathons"
-          className="inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition-colors"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3.5 text-xs font-medium text-zinc-400 transition-all hover:-translate-y-0.5 hover:border-white/[0.16] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] motion-reduce:transform-none"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
+          <ArrowLeft aria-hidden="true" className="size-3.5" />
           Back to hackathons
         </Link>
       </div>
 
       {/* Official Partner Dedicated Page Banner */}
       {partnerConfig && (
-        <div className="mb-6 p-4 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-zinc-950 to-indigo-950/40 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-[20px] border border-[#22D3EE]/20 bg-zinc-950/60 p-5 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/20 text-blue-400 font-bold text-base">
-              🤝
-            </span>
+            <span className="flex size-9 items-center justify-center rounded-lg border border-[#22D3EE]/20 bg-[#22D3EE]/[0.07] text-[#22D3EE]"><Handshake aria-hidden="true" className="size-4" /></span>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold text-white">
                   Official Partner Event
                 </h3>
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase font-semibold">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#22D3EE]/[0.07] text-[#22D3EE] border border-[#22D3EE]/20 uppercase font-semibold">
                   {partnerConfig.partner_name}
                 </span>
               </div>
@@ -1128,26 +1138,24 @@ function HackathonDetailContent() {
           </div>
           <Link
             href={`/partners/${partnerConfig.slug}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md shrink-0"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-xs font-semibold text-zinc-100 transition-all hover:-translate-y-0.5 hover:border-[#22D3EE]/30 hover:text-[#22D3EE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22D3EE] motion-reduce:transform-none"
           >
-            <span>View Partner Portal →</span>
+            <span>View Partner Portal</span><ArrowRight aria-hidden="true" className="size-3.5" />
           </Link>
         </div>
       )}
 
       {/* Dedicated Organizer Portal Redirection Banner (Shown to Event Host) */}
       {isOrganizer && (
-        <div className="mb-6 p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-zinc-950 to-teal-950/40 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-[20px] border border-[#B4F461]/20 bg-zinc-950/60 p-5 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-base">
-              💼
-            </span>
+            <span className="flex size-9 items-center justify-center rounded-lg border border-[#B4F461]/20 bg-[#B4F461]/[0.07] text-[#B4F461]"><Building2 aria-hidden="true" className="size-4" /></span>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold text-white">
                   Organizer Control Center
                 </h3>
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase font-semibold">
+                <span className="rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.07] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
                   Event Host
                 </span>
               </div>
@@ -1158,83 +1166,84 @@ function HackathonDetailContent() {
           </div>
           <Link
             href={`/hackathons/${hackathon.id}/organizer`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-black bg-[#B4F461] hover:bg-[#a3e64f] transition-all shadow-md shrink-0 cursor-pointer"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/40 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] transition-all hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] motion-reduce:transform-none"
           >
-            <span>Open Organizer Portal →</span>
+            <span>Open Organizer Portal</span><ArrowRight aria-hidden="true" className="size-3.5" />
           </Link>
         </div>
       )}
 
       {/* Main Grid */}
-      <section className="grid lg:grid-cols-[2fr_1fr] gap-6 mb-10">
+      <section className="mb-10 grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(290px,1fr)]">
         {/* Left - Hackathon Info */}
-        <div className="card card-static p-6 md:p-8 animate-fade-in-up">
+        <div className="relative overflow-hidden rounded-[20px] border border-white/10 bg-zinc-950/60 p-6 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl md:p-8">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-[#B4F461]/35 to-transparent" />
           <div className="flex items-center gap-2 mb-4">
-            <p className="section-label mb-0">HACKATHON DETAILS</p>
-            <span className={`badge text-[9px] font-mono py-0.5 px-1.5 uppercase ${
-              hackathon.type === "native" ? "badge-success" : "badge-warning"
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 mb-0">HACKATHON DETAILS</p>
+            <span className={`inline-flex items-center rounded-md border px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] ${
+              hackathon.type === "native" ? "border-[#B4F461]/20 bg-[#B4F461]/[0.08] text-[#B4F461]" : "border-white/10 bg-white/[0.05] text-zinc-300"
             }`}>
               {hackathon.type === "native" ? "HackerMate Host" : "External Event"}
             </span>
           </div>
 
-          <h1 className="text-3xl font-semibold tracking-tight text-white mb-6">
+          <h1 className="mb-6 max-w-3xl bg-gradient-to-b from-white via-zinc-100 to-zinc-400 bg-clip-text text-[34px] font-semibold leading-[1.12] tracking-[-0.045em] text-transparent sm:text-[42px]">
             {hackathon.name}
           </h1>
 
           <StructuredHackathonDescription
             description={hackathon.description}
-            className="mb-6"
+            className="mb-6 [&>div]:!border-white/10 [&>div]:!bg-zinc-900/35 [&>div>div>span:last-child]:!border-[#B4F461]/25 [&>div>div>span:last-child]:!bg-[#B4F461]/[0.08] [&>div>div>span:last-child]:!text-[#B4F461]"
           />
 
           {/* Tags */}
-          <div className="pt-5 border-t border-zinc-900">
-            <h3 className="section-label mb-3">Tags</h3>
+          <div className="pt-5 border-t border-white/[0.08]">
+            <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 mb-3">Tags</h3>
             <div className="flex flex-wrap gap-1.5">
               {hackathon.tags?.length ? (
                 hackathon.tags.map((tag) => (
-                  <span key={tag} className="badge text-[10px] py-0.5 px-1.5">
+                   <span key={tag} className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-300">
                     {tag}
                   </span>
                 ))
               ) : (
-                <span className="badge text-[10px] text-zinc-600">No tags listed</span>
+                 <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500">No tags listed</span>
               )}
             </div>
           </div>
 
           {/* Hackathon Rounds Breakdown */}
           {hackathon.rounds_info && Array.isArray(hackathon.rounds_info) && hackathon.rounds_info.length > 0 && (
-            <div className="pt-6 border-t border-zinc-200 dark:border-zinc-900 mt-6">
+            <div className="mt-6 border-t border-white/[0.08] pt-6">
               <div className="flex items-center justify-between gap-2 mb-4">
-                <p className="section-label mb-0">🏆 HACKATHON ROUNDS ({hackathon.rounds_info.length})</p>
-                <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/60">
+                <p className="inline-flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400"><Trophy aria-hidden="true" className="size-3.5 text-[#B4F461]" /> Hackathon rounds ({hackathon.rounds_info.length})</p>
+                <span className="rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
                   {hackathon.rounds_info.length} {hackathon.rounds_info.length === 1 ? "Round" : "Rounds"}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 gap-3">
                 {hackathon.rounds_info.map((rd: any, idx: number) => (
-                  <div key={idx} className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/50 hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-all space-y-2">
+                  <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-zinc-900/35 p-4 transition-colors hover:border-white/20">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800/80 flex items-center justify-center text-xs font-bold font-mono">
+                        <span className="flex size-6 items-center justify-center rounded-full border border-[#B4F461]/25 bg-[#B4F461]/10 font-mono text-xs font-bold text-[#B4F461]">
                           {rd.round_number || idx + 1}
                         </span>
-                        <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
+                        <h4 className="text-sm font-bold text-white">
                           {rd.name || `Round ${idx + 1}`}
                         </h4>
                       </div>
 
                       {rd.type && (
-                        <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 font-medium">
+                        <span className="rounded-md border border-white/10 bg-white/[0.05] px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-300">
                           {rd.type}
                         </span>
                       )}
                     </div>
 
                     {rd.description && (
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pl-8">
+                      <p className="pl-8 text-xs leading-relaxed text-zinc-400">
                         {rd.description}
                       </p>
                     )}
@@ -1242,7 +1251,7 @@ function HackathonDetailContent() {
                     {(rd.start_date || rd.end_date) && (
                       <div className="pl-8 pt-1 flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-500">
                         {rd.start_date && (
-                          <span>🗓️ Start: {new Date(rd.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                          <span>Start: {new Date(rd.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                         )}
                         {rd.end_date && (
                           <span>→ Deadline: {new Date(rd.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
@@ -1257,9 +1266,9 @@ function HackathonDetailContent() {
 
           {/* Event Schedule & Timeline */}
           {stages.length > 0 && (
-            <div className="pt-6 border-t border-zinc-900 mt-6">
+            <div className="pt-6 border-t border-white/[0.08] mt-6">
               <div className="flex items-center justify-between gap-2 mb-4">
-                <p className="section-label mb-0">EVENT SCHEDULE & STAGES</p>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 mb-0">EVENT SCHEDULE & STAGES</p>
                 <span className="text-[10px] font-mono text-zinc-500">
                   {stages.length} {stages.length === 1 ? "Milestone" : "Milestones"}
                 </span>
@@ -1278,8 +1287,8 @@ function HackathonDetailContent() {
                   const isUpcoming = startTime > now;
 
                   const typeBadges: Record<string, string> = {
-                    ceremony: "bg-violet-950 text-violet-400 border-violet-800/60",
-                    checkpoint: "bg-blue-950 text-blue-400 border-blue-800/60",
+                    ceremony: "bg-zinc-900/60 text-[#B4F461] border-[#B4F461]/20",
+                    checkpoint: "bg-[#22D3EE]/[0.06] text-[#22D3EE] border-[#22D3EE]/20",
                     deadline: "bg-rose-950 text-rose-400 border-rose-800/60",
                     judging: "bg-amber-950 text-amber-400 border-amber-800/60",
                     other: "bg-zinc-900 text-zinc-400 border-zinc-800",
@@ -1292,17 +1301,17 @@ function HackathonDetailContent() {
                       <div
                         className={`absolute -left-[23.5px] top-1.5 w-3 h-3 rounded-full border-2 transition-all ${
                           isLive
-                            ? "bg-emerald-500 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse"
+                            ? "border-[#B4F461] bg-[#B4F461] shadow-[0_0_10px_rgba(180,244,97,0.35)]"
                             : isPast
                             ? "bg-zinc-800 border-zinc-700"
                             : "bg-zinc-950 border-zinc-500"
                         }`}
                       />
 
-                      <div className="bg-zinc-950/40 p-4 rounded-xl border border-zinc-800/80 group-hover:border-zinc-700/80 transition-colors">
+                       <div className="rounded-xl border border-white/10 bg-zinc-900/35 p-4 transition-colors group-hover:border-white/20">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase font-semibold ${badgeClass}`}>
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase font-semibold ${badgeClass}`}>
                               {stg.stage_type}
                             </span>
                             <h4 className={`text-sm font-bold ${isPast ? "text-zinc-400 line-through decoration-zinc-600" : "text-white"}`}>
@@ -1311,8 +1320,8 @@ function HackathonDetailContent() {
                           </div>
 
                           {isLive && (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-semibold animate-pulse flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            <span className="flex items-center gap-1 rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
+                              <span className="size-1.5 rounded-full bg-[#B4F461]" />
                               LIVE NOW
                             </span>
                           )}
@@ -1334,9 +1343,9 @@ function HackathonDetailContent() {
                           </p>
                         )}
 
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-400 pt-2 border-t border-zinc-900">
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-400 pt-2 border-t border-white/[0.08]">
                           <span>
-                            🗓️ Start: {startTime.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                             Start: {startTime.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </span>
                           {endTime && (
                             <span>
@@ -1354,11 +1363,11 @@ function HackathonDetailContent() {
         </div>
 
         {/* Right - Stats & Actions */}
-        <div className="card card-static p-6 md:p-8 animate-fade-in-up stagger-1 flex flex-col justify-between">
+        <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-6 md:p-8 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-6">
               {hackathon.mode && (
-                <span className="badge badge-primary text-[10px] py-0.5 px-1.5 capitalize">
+                 <span className="inline-flex items-center rounded-md border border-[#22D3EE]/20 bg-[#22D3EE]/[0.06] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#8fe7f3]">
                   {hackathon.mode}
                 </span>
               )}
@@ -1377,10 +1386,8 @@ function HackathonDetailContent() {
             <div className="space-y-4 mb-8">
               {/* Date */}
               <div className="flex items-start gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                  </svg>
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+                  <CalendarDays aria-hidden="true" className="size-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-zinc-500 font-mono uppercase">Dates</p>
@@ -1393,11 +1400,8 @@ function HackathonDetailContent() {
               {/* Location */}
               {!(hackathon.mode?.toLowerCase() === "online" && (!hackathon.location || hackathon.location.toLowerCase().includes("venue in india") || hackathon.location.toLowerCase().includes("online"))) && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+                    <MapPin aria-hidden="true" className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Location</p>
@@ -1411,10 +1415,8 @@ function HackathonDetailContent() {
               {/* College / University / Organizing Communities */}
               {hackathon.college && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
-                    </svg>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+                    <Building2 aria-hidden="true" className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">
@@ -1434,10 +1436,8 @@ function HackathonDetailContent() {
               {/* Prize Pool */}
               {hackathon.prize_pool && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+                    <Trophy aria-hidden="true" className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Prize Pool</p>
@@ -1450,23 +1450,21 @@ function HackathonDetailContent() {
 
               {/* Participant Team Sizes */}
               <div className="flex items-start gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a5.97 5.97 0 00-.942 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                  </svg>
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+                  <Users aria-hidden="true" className="size-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-zinc-500 font-mono uppercase">Team Size Rule</p>
                   <p className="text-xs font-semibold text-white break-words">
                     {hackathon.min_team_size === 1 && hackathon.max_team_size === 1
-                      ? "👤 Solo Participation"
+                      ? "Solo Participation"
                       : hackathon.min_team_size && hackathon.max_team_size
-                      ? `👥 ${hackathon.min_team_size} – ${hackathon.max_team_size} Members`
+                      ? `${hackathon.min_team_size} – ${hackathon.max_team_size} Members`
                       : hackathon.max_team_size
-                      ? `👥 Up to ${hackathon.max_team_size} Members`
+                      ? `Up to ${hackathon.max_team_size} Members`
                       : hackathon.min_team_size
-                      ? `👥 At least ${hackathon.min_team_size} Members`
-                      : "👥 Flexible (No Rule Published)"}
+                      ? `At least ${hackathon.min_team_size} Members`
+                      : "Flexible (No Rule Published)"}
                   </p>
                 </div>
               </div>
@@ -1474,15 +1472,13 @@ function HackathonDetailContent() {
               {/* Hackathon Rounds Count */}
               {hackathon.rounds_count && hackathon.rounds_count > 0 && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 003-3V8.25a3 3 0 00-3-3h-9a3 3 0 00-3 3v7.5a3 3 0 003 3m9 0v-1.5a1.5 1.5 0 00-1.5-1.5h-6a1.5 1.5 0 00-1.5 1.5v1.5m6-10.5h-6" />
-                    </svg>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+                    <Layers aria-hidden="true" className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-zinc-500 font-mono uppercase">Hackathon Rounds</p>
                     <p className="text-xs font-semibold text-white break-words">
-                      🏆 {hackathon.rounds_count} {hackathon.rounds_count === 1 ? "Round" : "Rounds"}
+                      {hackathon.rounds_count} {hackathon.rounds_count === 1 ? "Round" : "Rounds"}
                     </p>
                   </div>
                 </div>
@@ -1491,25 +1487,25 @@ function HackathonDetailContent() {
           </div>
 
           {/* Action buttons */}
-          <div className="space-y-2 pt-5 border-t border-zinc-900/50">
+          <div className="space-y-2 border-t border-white/[0.08] pt-5">
             {hackathon.type === "native" ? (
               <>
                 {isRegistered ? (
                   <div className="space-y-2">
-                    <div className="badge badge-success w-full justify-center py-2 text-xs font-semibold">
+                     <div className="inline-flex w-full items-center justify-center rounded-xl border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
                       Registered Natively ✓
                     </div>
                     <button
                       onClick={handleCancelRegistration}
-                      className="btn btn-danger btn-sm w-full"
+                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 text-xs font-semibold text-rose-300 transition-colors hover:border-rose-500/35 hover:bg-rose-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-55 w-full"
                     >
                       Cancel Registration
                     </button>
                   </div>
                 ) : (
                   <button
-                    onClick={() => setShowRegisterModal(true)}
-                    className="btn btn-primary w-full"
+                    onClick={() => { if (!currentUserId) { promptDiscoverySignIn(); return; } setShowRegisterModal(true); }}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none w-full"
                   >
                     Register Natively
                   </button>
@@ -1519,12 +1515,12 @@ function HackathonDetailContent() {
               <>
                 {isRegistered ? (
                   <div className="space-y-2">
-                    <div className="badge badge-success w-full justify-center py-2 text-xs font-semibold">
+                     <div className="inline-flex w-full items-center justify-center rounded-xl border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
                       Registered Externally ✓
                     </div>
                     <button
                       onClick={handleCancelRegistration}
-                      className="btn btn-danger btn-sm w-full"
+                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 text-xs font-semibold text-rose-300 transition-colors hover:border-rose-500/35 hover:bg-rose-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-55 w-full"
                     >
                       Cancel Registration
                     </button>
@@ -1533,7 +1529,7 @@ function HackathonDetailContent() {
                   hackathon.website_url && (
                     <button
                       onClick={handleRegisterExternally}
-                      className="btn btn-primary w-full"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none w-full"
                     >
                       Register Externally ↗
                     </button>
@@ -1546,18 +1542,16 @@ function HackathonDetailContent() {
               const linkedTeam = userOwnedTeams.find((t) => t.hackathon_id === hackathon?.id);
               if (linkedTeam) {
                 return (
-                  <div className="p-3 rounded-lg bg-violet-600/10 border border-violet-500/20 text-center space-y-2">
+                  <div className="p-3 rounded-lg bg-[#B4F461]/10 border border-[#B4F461]/20 text-center space-y-2">
                     <p className="text-xs text-zinc-300">
                       Your team <span className="font-semibold text-white">{linkedTeam.name}</span> is linked to this hackathon.
                     </p>
                     <button
                       onClick={handleUnlinkTeam}
                       disabled={inviteLoading}
-                      className="btn btn-danger btn-sm w-full flex items-center justify-center gap-1.5"
+                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 text-xs font-semibold text-rose-300 transition-colors hover:border-rose-500/35 hover:bg-rose-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-55 w-full flex items-center justify-center gap-1.5"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                      </svg>
+                      <Link2Off aria-hidden="true" className="size-4" />
                       <span>Remove Team from Listing</span>
                     </button>
                   </div>
@@ -1566,8 +1560,8 @@ function HackathonDetailContent() {
               return (
                 userOwnedTeams.length > 0 && (
                   <button
-                    onClick={() => setShowClaimModal(true)}
-                    className="btn btn-secondary w-full"
+                    onClick={() => { if (!currentUserId) { promptDiscoverySignIn(); return; } setShowClaimModal(true); }}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none w-full"
                   >
                     Claim Team on HackerMate
                   </button>
@@ -1578,31 +1572,28 @@ function HackathonDetailContent() {
 
             <Link
               href={`/teams/create?hackathon=${hackathon.id}`}
-              className="btn btn-secondary w-full btn-sm"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none w-full"
             >
               + Create a Team
             </Link>
 
             <button
               onClick={handleToggleSave}
-              className={`btn w-full btn-sm flex items-center justify-center gap-2 transition-all ${
+              aria-pressed={isSaved}
+              className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] motion-reduce:transform-none ${
                 isSaved
-                  ? "bg-violet-600/10 text-violet-400 border border-violet-500/30 hover:bg-violet-600/20"
-                  : "btn-secondary"
+                  ? "border-[#B4F461]/30 bg-[#B4F461]/10 text-[#B4F461] hover:bg-[#B4F461]/15"
+                  : "border-white/10 bg-zinc-900/50 text-zinc-200 hover:border-white/20 hover:bg-zinc-800/70"
               }`}
             >
               {isSaved ? (
                 <>
-                  <svg className="w-4 h-4 fill-violet-400 text-violet-400" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-                  </svg>
+                  <Bookmark aria-hidden="true" className="size-4 fill-[#B4F461] text-[#B4F461]" />
                   <span>Saved</span>
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-                  </svg>
+                  <Bookmark aria-hidden="true" className="size-4" />
                   <span>Save Event</span>
                 </>
               )}
@@ -1619,16 +1610,12 @@ function HackathonDetailContent() {
                   }
                 }}
                 disabled={!hackathon.start_date || !hackathon.end_date}
-                className="btn btn-secondary w-full btn-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none w-full flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title={(!hackathon.start_date || !hackathon.end_date) ? "Dates TBA" : undefined}
               >
-                <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                </svg>
+                <CalendarDays aria-hidden="true" className="size-4 text-zinc-400" />
                 <span>Add to Calendar</span>
-                <svg className={`w-3.5 h-3.5 ml-auto text-zinc-500 transition-transform ${showCalendarDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                </svg>
+                <ChevronDown aria-hidden="true" className={`ml-auto size-3.5 text-zinc-500 transition-transform ${showCalendarDropdown ? "rotate-180" : ""}`} />
               </button>
 
               {showCalendarDropdown && (
@@ -1637,7 +1624,7 @@ function HackathonDetailContent() {
                     className="fixed inset-0 z-20" 
                     onClick={() => setShowCalendarDropdown(false)}
                   />
-                  <div className="absolute right-0 left-0 bottom-full mb-2 z-30 rounded-xl border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl animate-fade-in">
+                  <div className="absolute inset-x-0 bottom-full z-30 mb-2 rounded-xl border border-white/10 bg-zinc-950/95 p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl">
                     <a
                       href={getCalendarUrls().google}
                       target="_blank"
@@ -1645,7 +1632,7 @@ function HackathonDetailContent() {
                       onClick={() => setShowCalendarDropdown(false)}
                       className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
                     >
-                      <span className="text-xs">🌐</span> Google Calendar
+                      <Globe2 aria-hidden="true" className="size-3.5" /> Google Calendar
                     </a>
                     <a
                       href={getCalendarUrls().outlook}
@@ -1654,7 +1641,7 @@ function HackathonDetailContent() {
                       onClick={() => setShowCalendarDropdown(false)}
                       className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
                     >
-                      <span className="text-xs">📧</span> Outlook Calendar
+                      <Mail aria-hidden="true" className="size-3.5" /> Outlook Calendar
                     </a>
                     <button
                       onClick={() => {
@@ -1663,7 +1650,7 @@ function HackathonDetailContent() {
                       }}
                       className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-all text-left"
                     >
-                      <span className="text-xs">📅</span> Download iCal (.ics)
+                      <Download aria-hidden="true" className="size-3.5" /> Download iCal (.ics)
                     </button>
                   </div>
                 </>
@@ -1673,11 +1660,9 @@ function HackathonDetailContent() {
             {isOrganizer && (
               <button
                 onClick={handleDeleteHackathon}
-                className="btn btn-danger w-full btn-sm flex items-center justify-center gap-2 mt-4"
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 text-xs font-semibold text-rose-300 transition-colors hover:border-rose-500/35 hover:bg-rose-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-55 w-full flex items-center justify-center gap-2 mt-4"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                </svg>
+                <Trash2 aria-hidden="true" className="size-4" />
                 <span>Delete Hackathon</span>
               </button>
             )}
@@ -1686,61 +1671,66 @@ function HackathonDetailContent() {
       </section>
 
       {/* Tabs / Sub-Sections */}
-      <section className="animate-fade-in-up stagger-2">
-        <div className="flex border-b border-zinc-900 mb-6 flex-wrap gap-y-2">
+      <section>
+        <div role="group" aria-label="Hackathon sections" className="mb-6 flex max-w-full gap-1 overflow-x-auto whitespace-nowrap border-b border-white/[0.08] scrollbar-none">
           <button
             onClick={() => setActiveTab("teams")}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "teams"}
+            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#B4F461] ${
               activeTab === "teams"
-                ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                ? "border-[#B4F461] text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            👥 Teams ({teams.length})
+            <Users aria-hidden="true" className="size-3.5" /> Teams ({teams.length})
           </button>
 
           <button
             onClick={() => setActiveTab("builders")}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "builders"}
+            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#B4F461] ${
               activeTab === "builders"
-                ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                ? "border-[#B4F461] text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            🛠️ Builders ({buildersList.length})
+            <Wrench aria-hidden="true" className="size-3.5" /> Builders ({buildersList.length})
           </button>
 
           <button
             onClick={() => setActiveTab("looking_for_teams")}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "looking_for_teams"}
+            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#B4F461] ${
               activeTab === "looking_for_teams"
-                ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                ? "border-[#B4F461] text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            🔍 Looking for Teams ({registrations.filter((r) => r.looking_for_team === true).length})
+            <Search aria-hidden="true" className="size-3.5" /> Looking for Teams ({registrations.filter((r) => r.looking_for_team === true).length})
           </button>
 
           <button
             onClick={() => setActiveTab("looking_for_builders")}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "looking_for_builders"}
+            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#B4F461] ${
               activeTab === "looking_for_builders"
-                ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                ? "border-[#B4F461] text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            🎯 Looking for Builders ({teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t)).length})
+            <Target aria-hidden="true" className="size-3.5" /> Looking for Builders ({teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t)).length})
           </button>
 
           <button
             onClick={() => setActiveTab("resources")}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
+            aria-pressed={activeTab === "resources"}
+            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#B4F461] ${
               activeTab === "resources"
-                ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                ? "border-[#B4F461] text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            📚 Resources
+            <BookOpen aria-hidden="true" className="size-3.5" /> Resources
           </button>
         </div>
 
@@ -1748,17 +1738,15 @@ function HackathonDetailContent() {
         {activeTab === "teams" && (
           <>
             {teams.length === 0 ? (
-              <div className="card card-static p-12 text-center">
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-12 text-center">
                 <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4 text-zinc-500">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" />
-                  </svg>
+                  <Users aria-hidden="true" className="size-5" />
                 </div>
                 <h3 className="text-sm font-semibold text-white mb-1">No teams yet</h3>
                 <p className="text-xs text-zinc-500 max-w-sm mx-auto mb-4">
                   Be the first to create a team for this hackathon on HackerMate!
                 </p>
-                <Link href={`/teams/create?hackathon=${hackathon.id}`} className="btn btn-primary btn-sm inline-flex">
+                <Link href={`/teams/create?hackathon=${hackathon.id}`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none inline-flex">
                   Create a Team
                 </Link>
               </div>
@@ -1768,18 +1756,18 @@ function HackathonDetailContent() {
                   <Link
                     key={team.id}
                     href={`/teams/${team.id}`}
-                    className={`card p-5 group flex flex-col justify-between min-h-[140px]`}
+                     className="group flex min-h-[140px] flex-col justify-between rounded-[20px] border border-white/10 bg-zinc-950/60 p-5 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 motion-reduce:transform-none"
                   >
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <h3 className="font-semibold text-sm text-white group-hover:text-white truncate">
                         {team.name}
                       </h3>
                       {team.is_recruiting !== false ? (
-                        <span className="badge badge-primary text-[9px] py-0.5 px-1.5 flex-shrink-0">
+                         <span className="inline-flex shrink-0 items-center rounded-md border border-[#22D3EE]/20 bg-[#22D3EE]/[0.06] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#8fe7f3]">
                           Recruiting
                         </span>
                       ) : (
-                        <span className="badge bg-zinc-800 text-zinc-500 border border-zinc-700 text-[9px] py-0.5 px-1.5 flex-shrink-0">
+                         <span className="inline-flex shrink-0 items-center rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500">
                           Full
                         </span>
                       )}
@@ -1792,16 +1780,16 @@ function HackathonDetailContent() {
                     <div className="flex flex-wrap gap-1.5 mb-4">
                       {team.skills?.length ? (
                         team.skills.slice(0, 3).map((skill) => (
-                          <span key={skill} className="badge text-[9px] py-0.5 px-1.5">
+                           <span key={skill} className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-300">
                             {skill}
                           </span>
                         ))
                       ) : (
-                        <span className="badge text-[9px] text-zinc-600">No skills listed</span>
+                         <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-zinc-500">No skills listed</span>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-zinc-900">
+                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
                       <span className="text-[10px] text-zinc-500 truncate">
                         {team.college || "Independent Team"}
                       </span>
@@ -1820,7 +1808,7 @@ function HackathonDetailContent() {
         {activeTab === "builders" && (
           <>
             {buildersList.length === 0 ? (
-              <div className="card card-static p-12 text-center">
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-12 text-center">
                 <p className="text-xs text-zinc-500">No matching builders found for this hackathon yet.</p>
               </div>
             ) : (
@@ -1829,7 +1817,7 @@ function HackathonDetailContent() {
                   <Link
                     key={builder.id}
                     href={`/profile/${builder.id}`}
-                    className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-700 transition-all min-h-[135px]"
+                     className="group flex min-h-[135px] flex-col justify-between rounded-[20px] border border-white/10 bg-zinc-950/60 p-4 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 motion-reduce:transform-none"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-3">
@@ -1847,7 +1835,7 @@ function HackathonDetailContent() {
                           )}
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <h3 className="font-semibold text-xs text-white truncate group-hover:text-violet-300 transition-colors">
+                              <h3 className="font-semibold text-xs text-white truncate group-hover:text-[#B4F461] transition-colors">
                                 {builder.full_name}
                               </h3>
                               <VerifiedBuilderBadge profile={builder} />
@@ -1859,8 +1847,8 @@ function HackathonDetailContent() {
                         </div>
 
                         {builder.matchedSkills.length > 0 && (
-                          <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">
-                            🎯 {builder.matchedSkills.length} Match{builder.matchedSkills.length !== 1 ? "es" : ""}
+                           <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
+                             <Target aria-hidden="true" className="size-3" /> {builder.matchedSkills.length} Match{builder.matchedSkills.length !== 1 ? "es" : ""}
                           </span>
                         )}
                       </div>
@@ -1872,10 +1860,10 @@ function HackathonDetailContent() {
                             return (
                               <span 
                                 key={skill} 
-                                className={`text-[8px] font-semibold px-1.5 py-0.5 rounded border ${
+                                 className={`rounded-md border px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider ${
                                   isMatched
-                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                    : "border-zinc-800/80 bg-zinc-900/30 text-zinc-455"
+                                     ? "border-[#B4F461]/25 bg-[#B4F461]/[0.08] text-[#B4F461]"
+                                     : "border-white/10 bg-white/[0.04] text-zinc-400"
                                 }`}
                               >
                                 {skill}
@@ -1883,27 +1871,27 @@ function HackathonDetailContent() {
                             );
                           })
                         ) : (
-                          <span className="text-[8px] text-zinc-650">No skills added</span>
+                           <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">No skills added</span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60">
+                     <div className="flex items-center justify-between border-t border-white/[0.08] pt-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {builder.isRegistered && (
-                          <span className="badge badge-success text-[8px] font-mono py-0.5 px-1 uppercase">
+                           <span className="inline-flex items-center rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
                             ✓ Registered
                           </span>
                         )}
-                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border ${
+                         <span className={`rounded-md border px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider ${
                           builder.teamName 
-                            ? "bg-zinc-800/20 text-zinc-500 border-zinc-800" 
-                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                             ? "border-white/10 bg-white/[0.04] text-zinc-400"
+                             : "border-[#B4F461]/20 bg-[#B4F461]/[0.08] text-[#B4F461]"
                         }`}>
                           {builder.teamName ? `In Team: ${builder.teamName}` : "Looking for Team"}
                         </span>
                       </div>
-                      <span className="text-[9px] text-zinc-500 group-hover:text-white transition-colors">
+                      <span className="text-[10px] text-zinc-500 group-hover:text-white transition-colors">
                         View Profile →
                       </span>
                     </div>
@@ -1918,7 +1906,7 @@ function HackathonDetailContent() {
         {activeTab === "looking_for_teams" && (
           <>
             {currentUserId && (
-              <div className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-white">List your profile as Looking for Teams</h4>
                   <p className="text-[10px] text-zinc-500 mt-1">Let other registered teams know you are looking to join a team for this hackathon.</p>
@@ -1930,22 +1918,22 @@ function HackathonDetailContent() {
                 ) : (
                   <button
                     onClick={handleToggleLookingForTeam}
-                    className={`btn btn-sm shrink-0 ${
+                    className={`btn shrink-0 ${
                       registrations.find(r => r.user_id === currentUserId)?.looking_for_team
-                        ? "btn-secondary"
-                        : "btn-primary"
+                        ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
+                        : "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
                     }`}
                   >
                     {registrations.find(r => r.user_id === currentUserId)?.looking_for_team
                       ? "Stop Listing Profile"
-                      : "🔍 List My Profile"}
+                       : "List My Profile"}
                   </button>
                 )}
               </div>
             )}
 
             {registrations.filter((r) => r.looking_for_team === true).length === 0 ? (
-              <div className="card card-static p-12 text-center">
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-12 text-center">
                 <p className="text-xs text-zinc-500">No builders are currently looking for teams. Be the first to list!</p>
               </div>
             ) : (
@@ -1965,7 +1953,7 @@ function HackathonDetailContent() {
                       <Link
                         key={reg.id}
                         href={`/profile/${reg.profiles.id}`}
-                        className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-700 transition-all min-h-[140px]"
+                         className="group flex min-h-[140px] flex-col justify-between rounded-[20px] border border-white/10 bg-zinc-950/60 p-4 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 motion-reduce:transform-none"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-3 mb-3">
@@ -1982,7 +1970,7 @@ function HackathonDetailContent() {
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <h3 className="font-semibold text-xs text-white truncate group-hover:text-violet-300 transition-colors">
+                                <h3 className="font-semibold text-xs text-white truncate group-hover:text-[#B4F461] transition-colors">
                                   {reg.profiles.full_name}
                                 </h3>
                                 <p className="text-zinc-500 text-[10px] truncate">
@@ -1992,8 +1980,8 @@ function HackathonDetailContent() {
                             </div>
 
                             {matchScore > 0 && (
-                              <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">
-                                🎯 {matchScore}% Match
+                               <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
+                                 <Target aria-hidden="true" className="size-3" /> {matchScore}% Match
                               </span>
                             )}
                           </div>
@@ -2005,10 +1993,10 @@ function HackathonDetailContent() {
                                 return (
                                   <span 
                                     key={skill} 
-                                    className={`text-[8px] font-semibold px-1.5 py-0.5 rounded border ${
+                                     className={`rounded-md border px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider ${
                                       isMatched
-                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                        : "border-zinc-800/80 bg-zinc-900/30 text-zinc-450"
+                                         ? "border-[#B4F461]/25 bg-[#B4F461]/[0.08] text-[#B4F461]"
+                                         : "border-white/10 bg-white/[0.04] text-zinc-400"
                                     }`}
                                   >
                                     {skill}
@@ -2016,16 +2004,16 @@ function HackathonDetailContent() {
                                 );
                               })
                             ) : (
-                              <span className="text-[8px] text-zinc-650">No skills added</span>
+                              <span className="text-[10px] text-zinc-500">No skills added</span>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60">
-                          <span className="text-[8px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">
+                        <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+                           <span className="rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
                             Looking to join
                           </span>
-                          <span className="text-[9px] text-zinc-500 group-hover:text-white transition-colors">
+                          <span className="text-[10px] text-zinc-500 group-hover:text-white transition-colors">
                             View Profile →
                           </span>
                         </div>
@@ -2041,28 +2029,28 @@ function HackathonDetailContent() {
         {activeTab === "looking_for_builders" && (
           <>
             {teams.filter(t => t.owner_id === currentUserId && !isTeamFullAndRegistered(t)).map(myTeam => (
-              <div key={myTeam.id} className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div key={myTeam.id} className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-white">Manage Recruitment for &ldquo;{myTeam.name}&rdquo;</h4>
                   <p className="text-[10px] text-zinc-500 mt-1">Toggle whether your team should be listed under &lsquo;Looking for Builders&rsquo; to find teammates.</p>
                 </div>
                 <button
                   onClick={() => handleToggleTeamRecruiting(myTeam.id, myTeam.is_recruiting === true)}
-                  className={`btn btn-sm shrink-0 ${
+                  className={`btn shrink-0 ${
                     myTeam.is_recruiting === true
-                      ? "btn-secondary"
-                      : "btn-primary"
+                      ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
+                      : "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
                   }`}
                 >
                   {myTeam.is_recruiting === true
                     ? "Stop Recruiting"
-                    : "🎯 List Team as Recruiting"}
+                     : "List Team as Recruiting"}
                 </button>
               </div>
             ))}
 
             {teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t)).length === 0 ? (
-              <div className="card card-static p-12 text-center">
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-12 text-center">
                 <p className="text-xs text-zinc-500">No teams are currently recruiting builders. Check back later!</p>
               </div>
             ) : (
@@ -2079,7 +2067,7 @@ function HackathonDetailContent() {
                       <Link
                         key={team.id}
                         href={`/teams/${team.id}`}
-                        className="card p-5 group flex flex-col justify-between min-h-[150px]"
+                         className="group flex min-h-[150px] flex-col justify-between rounded-[20px] border border-white/10 bg-zinc-950/60 p-5 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 motion-reduce:transform-none"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-4 mb-3">
@@ -2087,8 +2075,8 @@ function HackathonDetailContent() {
                               {team.name}
                             </h3>
                             {teamMatchScore > 0 && (
-                              <span className="text-[8px] font-mono font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded px-1.5 py-0.5">
-                                🎯 {teamMatchScore}% Match
+                               <span className="inline-flex items-center gap-1 rounded-md border border-[#B4F461]/20 bg-[#B4F461]/[0.08] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B4F461]">
+                                 <Target aria-hidden="true" className="size-3" /> {teamMatchScore}% Match
                               </span>
                             )}
                           </div>
@@ -2099,22 +2087,22 @@ function HackathonDetailContent() {
 
                           {team.roles_needed?.length ? (
                             <div className="mb-4">
-                              <span className="text-[9px] font-mono uppercase tracking-wide text-zinc-500 block mb-1">Roles Needed:</span>
+                              <span className="text-[10px] font-mono uppercase tracking-wide text-zinc-500 block mb-1">Roles Needed:</span>
                               <div className="flex flex-wrap gap-1">
                                 {team.roles_needed.slice(0, 2).map((role) => (
-                                  <span key={role} className="text-[8px] font-semibold bg-violet-600/10 border border-violet-500/20 text-violet-400 rounded px-1.5 py-0.5">
+                                  <span key={role} className="text-[10px] font-semibold bg-[#B4F461]/10 border border-[#B4F461]/20 text-[#B4F461] rounded px-1.5 py-0.5">
                                     {role}
                                   </span>
                                 ))}
                                 {team.roles_needed.length > 2 && (
-                                  <span className="text-[8px] text-zinc-500">+{team.roles_needed.length - 2} more</span>
+                                  <span className="text-[10px] text-zinc-500">+{team.roles_needed.length - 2} more</span>
                                 )}
                               </div>
                             </div>
                           ) : null}
                         </div>
 
-                        <div className="flex items-center justify-between pt-3 border-t border-zinc-900">
+                        <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
                           <span className="text-[10px] text-zinc-500 truncate">
                             {team.college || "Independent Team"}
                           </span>
@@ -2137,18 +2125,18 @@ function HackathonDetailContent() {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowAddResourceModal(true)}
-                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none flex items-center gap-1.5"
                 >
-                  ➕ Add Custom Resource Link
+                   <Plus aria-hidden="true" className="size-3.5" /> Add Custom Resource Link
                 </button>
               </div>
             )}
 
             <div className="grid md:grid-cols-2 gap-6">
               {/* Category 1: Boilerplates & Starters */}
-              <div className="card card-static p-5 border-zinc-900 bg-zinc-950/20">
-                <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-zinc-900 pb-2">
-                  🛠️ Boilerplates & Component Starter Kits
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-5">
+                <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-white/[0.08] pb-2">
+                   <Wrench aria-hidden="true" className="size-4 text-[#B4F461]" /> Boilerplates & Component Starter Kits
                 </h3>
                 <div className="space-y-3.5">
                   {/* Curated Auto Resources */}
@@ -2163,9 +2151,9 @@ function HackathonDetailContent() {
                             rel="noopener noreferrer"
                             className="text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
                           >
-                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                            {res.title} <ExternalLink aria-hidden="true" className="size-3 opacity-50 transition-opacity group-hover:opacity-100" />
                           </a>
-                          <span className="text-[8px] font-mono text-zinc-600 block mt-0.5">AUTO-RECOMMENDED STARTER</span>
+                          <span className="text-[10px] font-mono text-zinc-600 block mt-0.5">AUTO-RECOMMENDED STARTER</span>
                         </div>
                       </div>
                     ))}
@@ -2179,11 +2167,11 @@ function HackathonDetailContent() {
                             href={res.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-primary-400 hover:text-primary-300 transition-all flex items-center gap-1.5"
+                            className="text-xs font-semibold text-[#B4F461] hover:text-[#c4f782] transition-all flex items-center gap-1.5"
                           >
-                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                            {res.title} <ExternalLink aria-hidden="true" className="size-3 opacity-50 transition-opacity group-hover:opacity-100" />
                           </a>
-                          <span className="text-[8px] font-mono text-zinc-650 block mt-0.5">POSTED BY ORGANIZER</span>
+                          <span className="text-[10px] font-mono text-zinc-500 block mt-0.5">POSTED BY ORGANIZER</span>
                         </div>
                         {isOrganizer && (
                           <button
@@ -2199,9 +2187,9 @@ function HackathonDetailContent() {
               </div>
 
               {/* Category 2: Documentation & Developer APIs */}
-              <div className="card card-static p-5 border-zinc-900 bg-zinc-950/20">
-                <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-zinc-900 pb-2">
-                  📚 Developer Docs & Sandbox APIs
+              <div className="rounded-[20px] border border-white/10 bg-zinc-950/60 backdrop-blur-xl shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.05)] p-5">
+                <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-white/[0.08] pb-2">
+                   <BookOpen aria-hidden="true" className="size-4 text-[#22D3EE]" /> Developer Docs & Sandbox APIs
                 </h3>
                 <div className="space-y-3.5">
                   {/* Curated Auto Resources */}
@@ -2216,9 +2204,9 @@ function HackathonDetailContent() {
                             rel="noopener noreferrer"
                             className="text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
                           >
-                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                            {res.title} <ExternalLink aria-hidden="true" className="size-3 opacity-50 transition-opacity group-hover:opacity-100" />
                           </a>
-                          <span className="text-[8px] font-mono text-zinc-650 block mt-0.5">AUTO-RECOMMENDED GUIDE</span>
+                          <span className="text-[10px] font-mono text-zinc-500 block mt-0.5">AUTO-RECOMMENDED GUIDE</span>
                         </div>
                       </div>
                     ))}
@@ -2232,11 +2220,11 @@ function HackathonDetailContent() {
                             href={res.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-primary-400 hover:text-primary-300 transition-all flex items-center gap-1.5"
+                            className="text-xs font-semibold text-[#B4F461] hover:text-[#c4f782] transition-all flex items-center gap-1.5"
                           >
-                            {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                            {res.title} <ExternalLink aria-hidden="true" className="size-3 opacity-50 transition-opacity group-hover:opacity-100" />
                           </a>
-                          <span className="text-[8px] font-mono text-zinc-600 block mt-0.5">POSTED BY ORGANIZER</span>
+                          <span className="text-[10px] font-mono text-zinc-600 block mt-0.5">POSTED BY ORGANIZER</span>
                         </div>
                         {isOrganizer && (
                           <button
@@ -2257,8 +2245,8 @@ function HackathonDetailContent() {
 
       {/* MODAL: Add Resource Link */}
       {showAddResourceModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-fade-in">
-          <div className="card card-static p-5 w-full max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Add custom resource link" className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[20px] border border-white/10 bg-zinc-950/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <h3 className="text-sm font-semibold text-white mb-2">Add Custom Resource Link</h3>
             <form onSubmit={handleCreateResource} className="space-y-4">
               <div>
@@ -2268,7 +2256,7 @@ function HackathonDetailContent() {
                   placeholder="e.g. Official Challenge Guide"
                   value={resourceTitle}
                   onChange={(e) => setResourceTitle(e.target.value)}
-                  className="input text-xs w-full"
+                  className="min-h-10 rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10 w-full"
                   required
                 />
               </div>
@@ -2280,7 +2268,7 @@ function HackathonDetailContent() {
                   placeholder="https://docs.google.com/..."
                   value={resourceUrl}
                   onChange={(e) => setResourceUrl(e.target.value)}
-                  className="input text-xs w-full"
+                  className="min-h-10 rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10 w-full"
                   required
                 />
               </div>
@@ -2290,7 +2278,7 @@ function HackathonDetailContent() {
                 <select
                   value={resourceCategory}
                   onChange={(e) => setResourceCategory(e.target.value as "boilerplates" | "apis" | "docs" | "other")}
-                  className="input text-xs w-full"
+                  className="min-h-10 rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10 w-full"
                 >
                   <option value="boilerplates">Boilerplates & Templates</option>
                   <option value="apis">Sandbox APIs / Datasets</option>
@@ -2299,18 +2287,18 @@ function HackathonDetailContent() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-900">
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setShowAddResourceModal(false)}
-                  className="btn btn-secondary btn-sm"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingResource}
-                  className="btn btn-primary btn-sm"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
                 >
                   {savingResource ? "Adding..." : "Add Link"}
                 </button>
@@ -2322,8 +2310,8 @@ function HackathonDetailContent() {
 
       {/* MODAL 1: Register Natively */}
       {showRegisterModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Confirm hackathon registration" className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[20px] border border-white/10 bg-zinc-950/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <h2 className="text-sm font-semibold text-white mb-1.5">
               Confirm Registration
             </h2>
@@ -2332,11 +2320,11 @@ function HackathonDetailContent() {
               Register for {hackathon.name}. Choose if you are registering with an existing team.
             </p>
 
-            <label className="section-label block mb-1.5">Register with Team (Optional)</label>
+            <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 block mb-1.5">Register with Team (Optional)</label>
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="input text-xs w-full mb-4"
+              className="min-h-10 rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10 w-full mb-4"
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
@@ -2352,10 +2340,10 @@ function HackathonDetailContent() {
 
             </select>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
               <button
                 onClick={() => setShowRegisterModal(false)}
-                className="btn btn-secondary btn-sm"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
               >
                 Cancel
               </button>
@@ -2363,7 +2351,7 @@ function HackathonDetailContent() {
               <button
                 onClick={handleRegisterNatively}
                 disabled={inviteLoading}
-                className="btn btn-primary btn-sm"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
               >
                 {inviteLoading ? "Registering..." : "Confirm"}
               </button>
@@ -2374,8 +2362,8 @@ function HackathonDetailContent() {
 
       {/* MODAL 2: Claim Team Status */}
       {showClaimModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Link team to hackathon" className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[20px] border border-white/10 bg-zinc-950/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <h2 className="text-sm font-semibold text-white mb-1.5">
               Link Team to Hackathon
             </h2>
@@ -2384,11 +2372,11 @@ function HackathonDetailContent() {
               If your team has registered externally, associate your HackerMate team with {hackathon.name} to recruit builders and collaborate.
             </p>
 
-            <label className="section-label block mb-1.5">Select Team</label>
+            <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 block mb-1.5">Select Team</label>
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="input text-xs w-full mb-4"
+              className="min-h-10 rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10 w-full mb-4"
             >
               <option value="">Choose your team</option>
               {userOwnedTeams
@@ -2404,10 +2392,10 @@ function HackathonDetailContent() {
 
             </select>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
               <button
                 onClick={() => setShowClaimModal(false)}
-                className="btn btn-secondary btn-sm"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
               >
                 Cancel
               </button>
@@ -2415,7 +2403,7 @@ function HackathonDetailContent() {
               <button
                 onClick={handleClaimTeam}
                 disabled={!selectedTeam || inviteLoading}
-                className="btn btn-primary btn-sm"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
               >
                 {inviteLoading ? "Linking..." : "Link Team"}
               </button>
@@ -2426,8 +2414,8 @@ function HackathonDetailContent() {
 
       {/* MODAL 3: Confirm External Registration */}
       {showExternalRegisterModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Confirm external registration" className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[20px] border border-white/10 bg-zinc-950/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <h2 className="text-sm font-semibold text-white mb-1.5">
               Confirm External Registration
             </h2>
@@ -2436,11 +2424,11 @@ function HackathonDetailContent() {
               We opened the registration page for <strong className="text-white font-semibold">{hackathon.name}</strong> in a new tab. Please complete your registration there, then confirm below to log your status on HackerMate.
             </p>
 
-            <label className="section-label block mb-1.5">Register with Team (Optional)</label>
+            <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 block mb-1.5">Register with Team (Optional)</label>
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="input text-xs w-full mb-4"
+              className="min-h-10 rounded-xl border border-white/10 bg-zinc-900/50 px-3.5 text-xs text-zinc-100 outline-none transition-colors hover:border-white/20 focus:border-[#B4F461]/60 focus:ring-2 focus:ring-[#B4F461]/10 w-full mb-4"
             >
               <option value="">No team (Individual)</option>
               {userOwnedTeams
@@ -2456,13 +2444,13 @@ function HackathonDetailContent() {
 
             </select>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
               <button
                 onClick={() => {
                   setShowExternalRegisterModal(false);
                   setSelectedTeam("");
                 }}
-                className="btn btn-secondary btn-sm"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/50 px-4 text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-800/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
               >
                 Cancel
               </button>
@@ -2470,7 +2458,7 @@ function HackathonDetailContent() {
               <button
                 onClick={handleRegisterExternallyConfirm}
                 disabled={inviteLoading}
-                className="btn btn-primary btn-sm"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#B4F461]/45 bg-[#B4F461] px-4 text-xs font-bold !text-[#11160b] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(180,244,97,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c4f782] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4F461] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transform-none"
               >
                 {inviteLoading ? "Confirming..." : "I Have Registered"}
               </button>
@@ -2484,8 +2472,8 @@ function HackathonDetailContent() {
 
 export default function HackathonDetailPage() {
   return (
-    <AuthGuard>
+    <>
       <HackathonDetailContent />
-    </AuthGuard>
+    </>
   );
 }
