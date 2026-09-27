@@ -125,6 +125,7 @@ export const config = {
     "/my-teams/:path*",
     "/admin/:path*",
     "/api/admin/:path*",
+    "/settings/:path*",
   ],
 };
 

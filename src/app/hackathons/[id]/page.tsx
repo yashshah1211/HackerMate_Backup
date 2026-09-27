@@ -603,6 +603,12 @@ function HackathonDetailContent() {
   // Handle Native Registration Flow
   async function handleRegisterNatively() {
     if (!currentUserId || !hackathon) return;
+    
+    if (hackathon.end_date && new Date() > new Date(hackathon.end_date)) {
+      showToast("Registration is closed. This hackathon has already ended.", "error");
+      return;
+    }
+
     setInviteLoading(true);
     try {
       if (selectedTeam) {
@@ -676,6 +682,12 @@ function HackathonDetailContent() {
 
   async function handleRegisterExternallyConfirm() {
     if (!currentUserId || !hackathon) return;
+
+    if (hackathon.end_date && new Date() > new Date(hackathon.end_date)) {
+      showToast("Registration is closed. This hackathon has already ended.", "error");
+      return;
+    }
+
     setInviteLoading(true);
     try {
       if (selectedTeam) {

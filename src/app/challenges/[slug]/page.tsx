@@ -34,7 +34,7 @@ import {
   MessageCircle,
   Trash2,
 } from "lucide-react";
-import { TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
+import { CELEBRATION_THEMES, TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useNotification } from "@/context/NotificationContext";
 import AuthModal from "@/components/AuthModal";
@@ -401,6 +401,14 @@ export default function ChallengeDetailPage() {
     );
   }
 
+  const themePrefix = "ReactionTheme:";
+  const themeEntries = challenge.constraints.filter((constraint) =>
+    constraint.startsWith(themePrefix) &&
+    Object.prototype.hasOwnProperty.call(CELEBRATION_THEMES, constraint.slice(themePrefix.length))
+  );
+  const participantConstraints = challenge.constraints.filter((constraint) => !themeEntries.includes(constraint));
+  const reactionTheme = themeEntries[0]?.slice(themePrefix.length) ?? "default";
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       {/* Top Breadcrumb */}
@@ -492,11 +500,11 @@ export default function ChallengeDetailPage() {
               </div>
             )}
 
-            {challenge.constraints && challenge.constraints.length > 0 && (
+            {participantConstraints.length > 0 && (
               <div className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-400 mb-2.5">Key Constraints</h3>
                 <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  {challenge.constraints.map((c, i) => (
+                  {participantConstraints.map((c, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <span className="text-lime-600 dark:text-lime-400 font-bold">•</span>
                       <span>{c}</span>
@@ -1158,22 +1166,16 @@ export default function ChallengeDetailPage() {
       )}
 
       {/* Microsoft Teams Style Emoji Pop & Celebration Overlay */}
-      {(() => {
-        const themeEntry = challenge.constraints?.find((c) => c.startsWith("ReactionTheme:"));
-        const reactionTheme = themeEntry ? themeEntry.replace("ReactionTheme:", "") : "default";
-        return (
-          <TeamsEmojiCelebration
-            active={showCelebration}
-            theme={reactionTheme}
-            message="Your pitch deck has been evaluated by the AI Jury! Loading score diagnostics..."
-            onComplete={() => {
-              if (pendingSubmissionId) {
-                router.push(`/challenges/${slug}/submissions/${pendingSubmissionId}`);
-              }
-            }}
-          />
-        );
-      })()}
+      <TeamsEmojiCelebration
+        active={showCelebration}
+        theme={reactionTheme}
+        message="Your pitch deck has been evaluated by the AI Jury! Loading score diagnostics..."
+        onComplete={() => {
+          if (pendingSubmissionId) {
+            router.push(`/challenges/${slug}/submissions/${pendingSubmissionId}`);
+          }
+        }}
+      />
       {/* Invite Teammates Modal (WhatsApp + In-App) */}
       {showInviteTeammatesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">

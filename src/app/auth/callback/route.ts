@@ -29,11 +29,17 @@ export async function GET(request: NextRequest) {
 
     const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && user) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("onboarding_completed")
         .eq("id", user.id)
         .maybeSingle();
+
+      if (profileError) {
+        console.error("Auth callback profile fetch error:", profileError);
+        // On error, let them through to the dashboard, AuthGuard will handle it
+        return response;
+      }
 
       if (!profile || !profile.onboarding_completed) {
         const redirectRes = NextResponse.redirect(
