@@ -171,14 +171,14 @@ function CreateTeamForm() {
   async function loadHackathons() {
     let { data, error } = await supabase
       .from("hackathons")
-      .select("id, name, min_team_size, max_team_size")
+      .select("id, name, min_team_size, max_team_size, status, end_date")
       .order("start_date", { ascending: true });
 
     if (error) {
       console.error("[loadHackathons] Primary query failed, attempting fallback:", error);
       const fallback = await supabase
         .from("hackathons")
-        .select("id, name")
+        .select("id, name, status, end_date")
         .order("start_date", { ascending: true });
 
       if (fallback.error) {
@@ -188,7 +188,23 @@ function CreateTeamForm() {
       }
     }
 
-    setHackathons((data as unknown as Hackathon[]) || []);
+    const allHackathons = (data as unknown as (Hackathon & { status?: string, end_date?: string })[]) || [];
+    
+    // Filter out concluded or archived events
+    const activeHackathons = allHackathons.filter(h => {
+      if (h.status === "archived") return false;
+      if (h.end_date && new Date(h.end_date) < new Date()) return false;
+      return true;
+    });
+
+    setHackathons(activeHackathons);
+    
+    // If the preselected hackathon is now invalid, clear it
+    if (hackathonId && !activeHackathons.find(h => h.id === hackathonId)) {
+      setHackathonId("");
+      showToast("The selected event has concluded. You cannot form teams for it.", "warning");
+    }
+
     setHackathonsLoading(false);
   }
 

@@ -64,14 +64,16 @@ export default function PartnersPage() {
             </div>
 
             <div className="pt-4 flex flex-wrap gap-4 items-center">
-              <a
-                href="https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all hover:scale-105"
-              >
-                <Bot className="w-5 h-5" /> Add Bot to Your Discord
-              </a>
+              {process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID && (
+                <a
+                  href={`https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&scope=bot%20applications.commands`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all hover:scale-105"
+                >
+                  <Bot className="w-5 h-5" /> Add Bot to Your Discord
+                </a>
+              )}
               <Link
                 href="/contact"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-slate-200 border border-slate-700 transition-all"

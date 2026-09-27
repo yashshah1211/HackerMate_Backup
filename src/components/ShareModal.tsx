@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNotification } from "@/context/NotificationContext";
 
 type ShareModalProps = {
@@ -32,6 +32,51 @@ export default function ShareModal({
 }: ShareModalProps) {
   const { showToast } = useNotification();
   const [copied, setCopied] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement;
+    
+    // Focus the modal to start
+    setTimeout(() => modalRef.current?.focus(), 0);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      } else if (e.key === "Tab" && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select'
+        );
+        if (focusableElements.length === 0) return;
+        
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === modalRef.current) {
+            lastElement.focus();
+            e.preventDefault();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus();
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocusRef.current) {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -72,7 +117,12 @@ export default function ShareModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div
-        className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
+        ref={modalRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-modal-title"
+        className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Accent Gradient Line */}
@@ -81,7 +131,7 @@ export default function ShareModal({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <h3 id="share-modal-title" className="text-lg font-bold text-white flex items-center gap-2">
               <span>{title}</span>
             </h3>
             {subtitle && <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>}

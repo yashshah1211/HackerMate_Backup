@@ -914,24 +914,36 @@ function PartnerPageContent() {
 
           {/* Contextual Action Button */}
           {activeTab === "teams" ? (
-            <button
-              onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}&track=${selectedEventTrack}`)}
-              className="btn btn-lime px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <span className="text-black dark:text-black">+ Create Team</span>
-            </button>
+            isEventConcluded ? (
+              <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed select-none">
+                <span>🔒 Team Formation Closed</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}&track=${selectedEventTrack}`)}
+                className="btn btn-lime px-3.5 py-1.5 rounded-lg text-xs font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 border border-[#B4F461]/40 transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <span className="text-black dark:text-black">+ Create Team</span>
+              </button>
+            )
           ) : (
-            <button
-              onClick={() => handleToggleLookingForTeam()}
-              disabled={togglingStatus}
-              className={`text-xs py-1.5 px-3.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
-                isUserLookingForTeam
-                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
-                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
-            </button>
+            isEventConcluded ? (
+              <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed select-none">
+                <span>🔒 Formation Closed</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleToggleLookingForTeam()}
+                disabled={togglingStatus}
+                className={`text-xs py-1.5 px-3.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  isUserLookingForTeam
+                    ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
+                    : "bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                {isUserLookingForTeam ? "Looking for Team ✓" : "🙋‍♂️ List Myself as Looking for Team"}
+              </button>
+            )
           )}
         </div>
       </div>
@@ -975,12 +987,14 @@ function PartnerPageContent() {
                       ? `No teams listed for track '${partner.features?.events?.find((e: any) => e.id === selectedEventTrack)?.name || selectedEventTrack}' yet.`
                       : "No recruiting teams created yet — be the first to create a team and start recruiting top talent for this event!"}
                   </p>
-                  <button
-                    onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}&track=${selectedEventTrack}`)}
-                    className="btn btn-primary btn-sm inline-flex cursor-pointer"
-                  >
-                    Be the first to create a team
-                  </button>
+                  {!isEventConcluded && (
+                    <button
+                      onClick={() => handleProtectedAction(`/teams/create?hackathon=${partner.hackathon_id}&track=${selectedEventTrack}`)}
+                      className="btn btn-primary btn-sm inline-flex cursor-pointer"
+                    >
+                      Be the first to create a team
+                    </button>
+                  )}
                 </div>
               );
             }
