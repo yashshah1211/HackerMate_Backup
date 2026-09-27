@@ -407,7 +407,7 @@ function TeamDetailsContent() {
     return (
       <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
+          <div className="w-6 h-6 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team details...</p>
         </div>
       </main>
@@ -456,7 +456,7 @@ export default function TeamDetailsPage() {
     <Suspense fallback={
       <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
+          <div className="w-6 h-6 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team...</p>
         </div>
       </main>

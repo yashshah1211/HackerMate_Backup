@@ -581,7 +581,7 @@ function DashboardContent() {
     return (
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-8 h-8 border-2 border-zinc-800 border-t-[#B4F461] rounded-full animate-spin mb-4" />
+          <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-[#B4F461] rounded-full animate-spin mb-4" />
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest">Loading workspace...</p>
         </div>
       </main>
@@ -600,9 +600,9 @@ function DashboardContent() {
         <div className="greet">
           <h2>{getGreeting()}, <span>{profile?.full_name?.split(" ")[0] || "there"}</span></h2>
           {!yearDismissed ? (
-            <div className="flex items-center gap-2 mt-1.5 p-1.5 px-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-xs text-zinc-300 w-fit animate-fade-in-up">
-              <span className="text-zinc-400 font-mono font-semibold text-[11px] inline-flex items-center gap-1">
-                <GraduationCap className="w-3.5 h-3.5 text-zinc-400" />
+            <div className="flex items-center gap-2 mt-1.5 p-1.5 px-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-xs text-zinc-700 dark:text-zinc-300 w-fit animate-fade-in-up">
+              <span className="text-zinc-600 dark:text-zinc-400 font-mono font-semibold text-[11px] inline-flex items-center gap-1">
+                <GraduationCap className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                 Confirm Year:
               </span>
               <select
@@ -682,7 +682,7 @@ function DashboardContent() {
                       </linearGradient>
                     </defs>
                     {/* Unfinished dashed track */}
-                    <circle cx="32" cy="32" r="26" className="stroke-zinc-800/80 dark:stroke-zinc-800/80 light:stroke-zinc-200" strokeWidth="4" strokeDasharray="4 4" fill="transparent" />
+                    <circle cx="32" cy="32" r="26" className="stroke-zinc-200 dark:stroke-zinc-800/80" strokeWidth="4" strokeDasharray="4 4" fill="transparent" />
                     {/* Active progress arc with pulse animation */}
                     <circle 
                       cx="32" cy="32" r="26" 
@@ -715,11 +715,11 @@ function DashboardContent() {
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
-                    <p className="text-xs text-zinc-300 font-medium">
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300 font-medium">
                       {impactSubtext}
                     </p>
                     {profileCompleteness.pendingTasks.length > 1 && (
-                      <span className="text-[10px] text-zinc-400 font-mono font-medium shrink-0 bg-zinc-900/80 px-1.5 py-0.5 rounded border border-zinc-800">
+                      <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-mono font-medium shrink-0 bg-zinc-900/80 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800">
                         +{profileCompleteness.pendingTasks.length - 1} more items
                       </span>
                     )}
@@ -741,16 +741,16 @@ function DashboardContent() {
                 </button>
 
                 {/* Hover Tooltip for Tasks */}
-                <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-zinc-950/95 dark:bg-zinc-950/95 light:bg-white backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 light:border-zinc-200 rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-zinc-800 dark:border-zinc-800 light:border-zinc-200 pb-2.5 mb-2.5">
-                    <p className="text-[11px] text-zinc-300 dark:text-zinc-300 light:text-zinc-800 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
+                <div className="absolute left-1/2 md:left-auto md:right-0 top-full mt-2.5 -translate-x-1/2 md:translate-x-0 w-80 bg-white dark:bg-zinc-950/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2.5 mb-2.5">
+                    <p className="text-[11px] text-zinc-800 dark:text-zinc-300 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5 text-amber-400" /> Profile Checklist ({pct}%)
                     </p>
-                    <span className="text-[10px] text-zinc-400 font-mono">{profileCompleteness.pendingTasks.length} items left</span>
+                    <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-mono">{profileCompleteness.pendingTasks.length} items left</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {profileCompleteness.pendingTasks.map((task, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-3 text-xs text-zinc-300 dark:text-zinc-300 light:text-zinc-700 hover:text-white transition-colors py-1 px-2 rounded-lg hover:bg-zinc-900/60 dark:hover:bg-zinc-900/60 light:hover:bg-zinc-100 border border-transparent hover:border-zinc-800">
+                      <div key={idx} className="flex items-center justify-between gap-3 text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white transition-colors py-1 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900/60 border border-transparent dark:hover:border-zinc-200 dark:border-zinc-800">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                           <span className="truncate">{task}</span>
@@ -782,7 +782,7 @@ function DashboardContent() {
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="status-title tracking-wider text-xs text-zinc-200 dark:text-zinc-200 font-bold">Teammate Match Radar</p>
-                  <p className="status-desc text-xs text-zinc-400 mt-0.5">
+                  <p className="status-desc text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
                     You have <strong className="text-zinc-200 font-bold">{strongMatchesCount} strong teammate match{strongMatchesCount > 1 ? "es" : ""}</strong> ready to connect!
                   </p>
                 </div>
@@ -802,14 +802,14 @@ function DashboardContent() {
               className="hacker-status-card group cursor-pointer transition-colors"
             >
               <div className="hacker-status-grid" />
-              <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-inner shadow-black/20">
+              <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-zinc-800/60 border border-zinc-700/40 text-zinc-600 dark:text-zinc-400 shadow-inner shadow-black/20">
                 <div className="absolute inset-0 rounded-full bg-white/[0.02] animate-ping opacity-75" />
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="status-desc text-xs text-zinc-300">
+                <p className="status-desc text-xs text-zinc-700 dark:text-zinc-300">
                   Profile 100% complete. Match visibility scores are fully maximized!
                 </p>
               </div>
@@ -847,7 +847,7 @@ function DashboardContent() {
           <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
             <div className="stat-label text-zinc-500 dark:text-zinc-400">Builders in network</div>
-            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
+            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-600 dark:text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
           </div>
@@ -860,7 +860,7 @@ function DashboardContent() {
           </div>
           <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
             <span>Explore all verified builders</span>
-            <span className="font-mono text-zinc-400">→</span>
+            <span className="font-mono text-zinc-600 dark:text-zinc-400">→</span>
           </div>
         </div>
 
@@ -874,14 +874,14 @@ function DashboardContent() {
           <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
             <div className="stat-label text-zinc-500 dark:text-zinc-400">Teams active</div>
-            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
+            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-600 dark:text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">{stats.teams}</div>
           <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
             <span>{stats.teams} ongoing projects — Find teams recruiting</span>
-            <span className="font-mono text-zinc-400">→</span>
+            <span className="font-mono text-zinc-600 dark:text-zinc-400">→</span>
           </div>
         </div>
 
@@ -895,14 +895,14 @@ function DashboardContent() {
           <div className="absolute top-0 right-0 w-28 h-28 bg-white/[0.02] rounded-full blur-2xl pointer-events-none group-hover:bg-white/[0.04] transition-colors" />
           <div className="stat-top">
             <div className="stat-label text-zinc-500 dark:text-zinc-400">Hackathons live</div>
-            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-400 shadow-sm">
+            <div className="stat-icon bg-zinc-800/60 border border-zinc-700/40 text-zinc-600 dark:text-zinc-400 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
             </div>
           </div>
           <div className="stat-value text-zinc-900 dark:text-white">{stats.hackathons}</div>
           <div className="stat-sub text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200 transition-colors">
             <span><b className="text-zinc-700 dark:text-zinc-200 font-semibold">{stats.closingSoon} closing</b> in 7 days</span>
-            <span className="font-mono text-zinc-400">→</span>
+            <span className="font-mono text-zinc-600 dark:text-zinc-400">→</span>
           </div>
         </div>
       </div>
@@ -964,7 +964,7 @@ function DashboardContent() {
                 return (
                   <div
                     key={dev.id}
-                    className="group match-row cursor-pointer hover:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-700/50"
+                    className="group match-row cursor-pointer transition-all rounded-xl p-2.5 -mx-1 border border-transparent dark:hover:border-zinc-300 dark:hover:border-zinc-700/50"
                     onClick={() => router.push(`/profile/${dev.id}`)}
                   >
                     <div className="match-avatar shadow-md" style={{ background: avatarColors[idx % avatarColors.length] }}>
@@ -1003,7 +1003,7 @@ function DashboardContent() {
                         <span className="text-[9px] text-zinc-500 dark:text-zinc-400 block font-mono">match</span>
                       </div>
                       {connectionState === "connected" ? (
-                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
+                        <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
                       ) : connectionState === "request_sent" ? (
                         <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-500 bg-zinc-700/20 border border-zinc-700/40">Sent</div>
                       ) : connectionState === "request_received" ? (
@@ -1018,7 +1018,7 @@ function DashboardContent() {
                         </button>
                       ) : (
                         <button
-                          className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer shadow-sm"
+                          className="px-3 py-1 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer shadow-sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/profile/${dev.id}`);
@@ -1034,7 +1034,7 @@ function DashboardContent() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400 shadow-inner">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-600 dark:text-zinc-400 shadow-inner">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.115a8.312 8.312 0 01-.115 1.342m0 0A8.284 8.284 0 017.747 18.25m8.312 2.22c.28-.654.443-1.373.443-2.128v-.079c0-1.428-.433-2.755-1.173-3.856M7.747 18.25a8.284 8.284 0 01-.115-1.342v-.003c0-1.43.433-2.758 1.173-3.859M7.747 18.25V18a8.312 8.312 0 01.115-1.342m0 0A8.284 8.284 0 0012 15.75m0 0c.928 0 1.815.153 2.642.435" /></svg>
               </div>
               <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No compatible builders found</p>
@@ -1062,7 +1062,7 @@ function DashboardContent() {
               <span className="tag">Campus</span>
             </div>
             <div className="view-all flex items-center gap-2.5">
-              <span onClick={() => router.push("/leaderboard")} className="hover:text-zinc-300 text-zinc-400 font-mono text-[10px] cursor-pointer inline-flex items-center gap-1">
+              <span onClick={() => router.push("/leaderboard")} className="hover:text-zinc-700 dark:text-zinc-300 text-zinc-600 dark:text-zinc-400 font-mono text-[10px] cursor-pointer inline-flex items-center gap-1">
                 <Trophy className="w-3 h-3 text-amber-400" />
                 Campus Rank
               </span>
@@ -1077,7 +1077,7 @@ function DashboardContent() {
             if (displayedCollegeMates.length === 0) {
               return (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400 shadow-inner">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-600 dark:text-zinc-400 shadow-inner">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.22 4 2.22V20" /></svg>
                   </div>
                   <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No builders from your college found</p>
@@ -1101,7 +1101,7 @@ function DashboardContent() {
                   return (
                     <div
                       key={dev.id}
-                      className="match-row cursor-pointer hover:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-700/50"
+                      className="match-row cursor-pointer hover:bg-zinc-100/40 dark:bg-zinc-800/40 dark:hover:bg-zinc-100/40 dark:bg-zinc-800/40 transition-all rounded-xl p-2.5 -mx-1 border border-transparent hover:border-zinc-300 dark:hover:border-zinc-700/50"
                       onClick={() => router.push(`/profile/${dev.id}`)}
                     >
                       <div className="match-avatar shadow-md" style={{ background: avatarColors[(idx + 2) % avatarColors.length] }}>
@@ -1127,7 +1127,7 @@ function DashboardContent() {
                           </div>
                         ) : null}
                         {connectionState === "connected" ? (
-                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
+                          <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-700/30 border border-zinc-700/50">✓ Connected</div>
                         ) : connectionState === "request_sent" ? (
                           <div className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-500 bg-zinc-700/20 border border-zinc-700/40">Sent</div>
                         ) : connectionState === "request_received" ? (
@@ -1142,7 +1142,7 @@ function DashboardContent() {
                           </button>
                         ) : (
                           <button
-                            className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer shadow-sm"
+                            className="px-3 py-1 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/profile/${dev.id}`);
@@ -1206,7 +1206,7 @@ function DashboardContent() {
                       {/* Team Name + Category Pill + Subtitle */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors truncate">
+                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-zinc-900 dark:hover:text-white transition-colors truncate">
                             {team.name}
                           </span>
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase shrink-0 ${theme.bg} ${theme.text} border ${theme.border}`}>
@@ -1250,7 +1250,7 @@ function DashboardContent() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
+              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-600 dark:text-zinc-400">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" /></svg>
               </div>
               <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No active teams</p>
@@ -1286,13 +1286,13 @@ function DashboardContent() {
                       if (act.link) router.push(act.link);
                     }}
                     className={`flex items-start gap-2.5 p-2 rounded-xl transition-colors border border-transparent ${
-                      act.link ? "cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:border-zinc-200 dark:hover:border-zinc-700/50" : ""
+                      act.link ? "cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:border-zinc-200 dark:hover:border-zinc-300 dark:hover:border-zinc-700/50" : ""
                     }`}
                   >
                     <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: randColor, boxShadow: `0 0 6px ${randColor}80` }} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-zinc-700 dark:text-zinc-200 leading-snug" dangerouslySetInnerHTML={{ __html: formatActivityText(act.message) }} />
-                      <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{act.timeLabel}</div>
+                      <div className="text-[10px] text-zinc-600 dark:text-zinc-400 font-mono mt-0.5">{act.timeLabel}</div>
                     </div>
                   </div>
                 );
@@ -1300,7 +1300,7 @@ function DashboardContent() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
+              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-600 dark:text-zinc-400">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
               </div>
               <p className="text-zinc-700 dark:text-zinc-300 font-semibold text-xs">No recent activity</p>

@@ -652,8 +652,8 @@ export default function ProfilePage() {
     return (
       <main className="max-w-4xl mx-auto px-6 pt-36 pb-12">
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-8 h-8 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-4" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading profile...</p>
+          <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-4" />
+          <p className="text-xs text-zinc-500 dark:text-zinc-500 font-mono uppercase tracking-wider">Loading profile...</p>
         </div>
       </main>
     );
@@ -663,13 +663,13 @@ export default function ProfilePage() {
     return (
       <main className="max-w-4xl mx-auto px-6 pt-36 pb-12">
         <div className="card card-static p-12 text-center animate-fade-in-up">
-          <div className="w-12 h-12 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-4">
             <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
             </svg>
           </div>
           <h1 className="text-sm font-semibold text-white mb-1.5">Profile not found</h1>
-          <p className="text-xs text-zinc-500">This user doesn&apos;t exist or has been removed.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-500">This user doesn&apos;t exist or has been removed.</p>
         </div>
       </main>
     );
@@ -686,7 +686,7 @@ export default function ProfilePage() {
             </svg>
           </div>
           <h1 className="text-sm font-semibold text-white mb-1.5">Access Denied</h1>
-          <p className="text-xs text-zinc-500 max-w-xs mx-auto">This profile is not available. Return to discover other developers.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-xs mx-auto">This profile is not available. Return to discover other developers.</p>
           <Link href="/developers" className="btn btn-secondary btn-sm mt-5 inline-flex">
             Back to Builders
           </Link>
@@ -701,7 +701,7 @@ export default function ProfilePage() {
       <div className="mb-6 animate-fade-in-up">
         <Link
           href="/developers"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors mb-2 font-mono uppercase tracking-wider"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors mb-2 font-mono uppercase tracking-wider"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -711,7 +711,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Premium Container */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950 p-6 md:p-8 animate-fade-in-up shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-6 md:p-8 animate-fade-in-up shadow-2xl">
         {/* Decorative Grid & Glows */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/[0.04] rounded-full blur-3xl pointer-events-none" />
@@ -726,7 +726,7 @@ export default function ProfilePage() {
               {/* Avatar Frame with custom outline and offset */}
               <div className="relative w-28 h-28 mx-auto lg:mx-0 mb-6 group">
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 opacity-20 blur-md group-hover:opacity-40 transition-opacity duration-300" />
-                <div className="relative w-full h-full rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center overflow-hidden p-1 shadow-lg">
+                <div className="relative w-full h-full rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden p-1 shadow-lg">
                   {profile.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -758,7 +758,7 @@ export default function ProfilePage() {
                   <span>{profile.full_name}</span>
                   <VerifiedBuilderBadge profile={profile} />
                 </h1>
-                <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium mt-0.5">
                   🏫 {profile.college || "Independent Builder"}
                 </p>
 
@@ -797,7 +797,7 @@ export default function ProfilePage() {
                       ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
                       : profile.is_available !== false
                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                        : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20"
                   }`}>
                     {isBlockedByMe 
                       ? "Blocked" 
@@ -816,7 +816,7 @@ export default function ProfilePage() {
                             🏆 {profile.hackathon_wins} {profile.hackathon_wins === 1 ? "Hackathon Win" : "Hackathon Wins"}
                           </span>
                           {profile.hackathon_participations && profile.hackathon_participations > 0 && (
-                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
+                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-100 dark:bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                               📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
                             </span>
@@ -829,7 +829,7 @@ export default function ProfilePage() {
                             ⚡ Contender
                           </span>
                           {profile.hackathon_participations && profile.hackathon_participations > 0 && (
-                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
+                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-100 dark:bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                               📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
                             </span>
@@ -869,7 +869,7 @@ export default function ProfilePage() {
                     <>
                       <Link
                         href="/profile/edit"
-                        className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-zinc-800 hover:border-zinc-700 bg-zinc-900/20"
+                        className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-100/50 dark:bg-zinc-900/20"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -878,7 +878,7 @@ export default function ProfilePage() {
                       </Link>
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="w-full py-2.5 mt-2 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-rose-900/40 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg transition-all"
+                        className="w-full py-2.5 mt-2 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-rose-900/40 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-zinc-900 dark:hover:text-white rounded-lg transition-all"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -936,15 +936,15 @@ export default function ProfilePage() {
             {/* Links and Contact Section */}
             {!isBlockedByMe && (
               <div className="space-y-2 mt-6 pt-5 border-t border-zinc-900">
-                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Links & Contact</p>
+                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-3">Links & Contact</p>
                 
                 {/* Email Link */}
                 {profile.email && (
                   <a
                     href={`mailto:${profile.email}`}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/20 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all text-zinc-400 hover:text-white text-xs truncate"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900/40 transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs truncate"
                   >
-                    <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                     </svg>
                     <span className="truncate">{profile.email}</span>
@@ -958,15 +958,15 @@ export default function ProfilePage() {
                     href={formatUrl(profile.github_url)}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/20 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all text-zinc-400 hover:text-white text-xs truncate"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900/40 transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs truncate"
                   >
-                    <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                     </svg>
                     <span className="truncate">GitHub Profile</span>
                   </a>
                 ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-950/20 border border-zinc-900/50 text-zinc-600 text-xs">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-900/50 text-zinc-600 text-xs">
                     <svg className="w-4 h-4 text-zinc-700 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                     </svg>
@@ -980,15 +980,15 @@ export default function ProfilePage() {
                     href={formatUrl(profile.linkedin_url)}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/20 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all text-zinc-400 hover:text-white text-xs truncate"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900/40 transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs truncate"
                   >
-                    <svg className="w-4 h-4 text-zinc-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                     </svg>
                     <span className="truncate">LinkedIn Profile</span>
                   </a>
                 ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-950/20 border border-zinc-900/50 text-zinc-600 text-xs">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-900/50 text-zinc-600 text-xs">
                     <svg className="w-4 h-4 text-zinc-700 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                     </svg>
@@ -1000,7 +1000,7 @@ export default function ProfilePage() {
 
             {/* Block & Report actions footer */}
             {!isOwnProfile && (
-              <div className="flex items-center gap-2 mt-6 pt-4 border-t border-zinc-900/50">
+              <div className="flex items-center gap-2 mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-900/50">
                 <button
                   onClick={toggleBlock}
                   disabled={blockLoading}
@@ -1016,10 +1016,10 @@ export default function ProfilePage() {
                 {!isBlockedByMe && (
                   <button
                     onClick={() => setShowReportModal(true)}
-                    className="btn btn-secondary btn-xs py-2 px-3 flex items-center justify-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-800"
+                    className="btn btn-secondary btn-xs py-2 px-3 flex items-center justify-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-200 dark:border-zinc-800"
                     title="Report profile for rules violations"
                   >
-                    <svg className="w-3.5 h-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
                     </svg>
                     Report
@@ -1032,39 +1032,39 @@ export default function ProfilePage() {
           {/* ── RIGHT COLUMN: Stats, Bio & Skills ── */}
           <div className="lg:col-span-2 lg:pl-4 flex flex-col gap-6">
             {isBlockedByMe ? (
-              <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40 p-6 text-center">
+              <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950/40 p-6 text-center">
                 <svg className="w-10 h-10 text-zinc-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
-                <h3 className="text-sm font-semibold text-zinc-400 mb-1">Builder is Blocked</h3>
-                <p className="text-xs text-zinc-500 max-w-xs">You have blocked this builder. Unblock them using the button in the left sidebar to view their profile details.</p>
+                <h3 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Builder is Blocked</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-xs">You have blocked this builder. Unblock them using the button in the left sidebar to view their profile details.</p>
               </div>
             ) : (
               <>
                 {/* Premium Activity Statistics Panel */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up stagger-1">
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Connections</span>
+                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Connections</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{connectionsCount}</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Teams Joined</span>
+                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Teams Joined</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{teamsCount}</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Practice Solved</span>
+                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Practice Solved</span>
                     <span className="text-2xl font-bold text-lime-400 mt-1.5 font-mono flex items-center gap-1.5">
                       <span>{practiceSolvedCount}</span>
                     </span>
                   </div>
-                  <div className="p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/80 flex flex-col justify-between hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Skills Mastered</span>
+                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Skills Mastered</span>
                     <span className="text-2xl font-bold text-white mt-1.5 font-mono">{profile.skills?.length || 0}</span>
                   </div>
                 </div>
 
                 {/* Bio Block with quote styling */}
-                <div className="relative p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 overflow-hidden animate-fade-in-up stagger-2 group">
+                <div className="relative p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 overflow-hidden animate-fade-in-up stagger-2 group">
                   <div className="absolute right-4 bottom-2 text-zinc-800/25 pointer-events-none transform group-hover:scale-110 transition-transform duration-500 select-none">
                     <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
@@ -1072,8 +1072,8 @@ export default function ProfilePage() {
                   </div>
                   
                   <div className="relative z-10">
-                    <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">About Builder</p>
-                    <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-line font-sans">
+                    <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-3">About Builder</p>
+                    <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line font-sans">
                       {profile.bio || "This user hasn't written a biography yet."}
                     </p>
                   </div>
@@ -1081,10 +1081,10 @@ export default function ProfilePage() {
 
                 {/* GitHub Repositories & Language Insights */}
                 {profile.github_url && (
-                  <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-3">
+                  <div className="p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 animate-fade-in-up stagger-3">
                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                       <div>
-                        <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">GitHub Repository Insights</p>
+                        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-0.5">GitHub Repository Insights</p>
                         {profile.github_stats_updated_at && (
                           <span className="text-[9px] text-zinc-600 font-mono">
                             Synced {new Date(profile.github_stats_updated_at).toLocaleDateString()}
@@ -1096,7 +1096,7 @@ export default function ProfilePage() {
                         <button
                           onClick={syncGithubData}
                           disabled={syncing}
-                          className="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-800 bg-zinc-900/20 animate-fade-in"
+                          className="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/20 animate-fade-in"
                         >
                           {syncing ? (
                             <>
@@ -1105,7 +1105,7 @@ export default function ProfilePage() {
                             </>
                           ) : (
                             <>
-                              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <svg className="w-3 h-3 text-zinc-600 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                               </svg>
                               Sync Stats
@@ -1118,13 +1118,13 @@ export default function ProfilePage() {
                     {profile.github_stats ? (
                       <div className="space-y-6">
                         {/* Stats count badges */}
-                        <div className="flex items-center gap-6 border-b border-zinc-900/50 pb-4">
+                        <div className="flex items-center gap-6 border-b border-zinc-200 dark:border-zinc-900/50 pb-4">
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-zinc-500 text-[10px] font-mono">Followers:</span>
+                            <span className="text-zinc-500 dark:text-zinc-500 text-[10px] font-mono">Followers:</span>
                             <span className="text-white text-sm font-bold font-mono">{profile.github_stats.followers}</span>
                           </div>
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-zinc-500 text-[10px] font-mono">Public Repos:</span>
+                            <span className="text-zinc-500 dark:text-zinc-500 text-[10px] font-mono">Public Repos:</span>
                             <span className="text-white text-sm font-bold font-mono">{profile.github_stats.public_repos}</span>
                           </div>
                         </div>
@@ -1132,9 +1132,9 @@ export default function ProfilePage() {
                         {/* Languages Breakdown */}
                         {Object.keys(profile.github_stats.top_languages || {}).length > 0 && (
                           <div>
-                            <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-2.5">Top Languages</p>
+                            <p className="text-[9px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-2.5">Top Languages</p>
                             {/* Distribution Bar */}
-                            <div className="w-full h-2 rounded-full overflow-hidden flex bg-zinc-900">
+                            <div className="w-full h-2 rounded-full overflow-hidden flex bg-zinc-100 dark:bg-zinc-900">
                               {renderLanguageBar(profile.github_stats.top_languages)}
                             </div>
                             {/* Legends list */}
@@ -1147,7 +1147,7 @@ export default function ProfilePage() {
                         {/* Top Repos list */}
                         {profile.github_stats.repos && profile.github_stats.repos.length > 0 && (
                           <div>
-                            <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Featured Repositories</p>
+                            <p className="text-[9px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-3">Featured Repositories</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {profile.github_stats.repos.map((repo) => (
                                 <a
@@ -1155,14 +1155,14 @@ export default function ProfilePage() {
                                   href={repo.url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-3.5 rounded-lg bg-zinc-950/40 border border-zinc-900/60 hover:border-zinc-800 hover:bg-zinc-900/30 transition-all flex flex-col justify-between group"
+                                  className="p-3.5 rounded-lg bg-white dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-900/60 hover:border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900/30 transition-all flex flex-col justify-between group"
                                 >
                                   <div>
                                     <h4 className="text-xs font-semibold text-white group-hover:text-indigo-400 transition-colors truncate">
                                       {repo.name}
                                     </h4>
                                     {repo.description && (
-                                      <p className="text-[10px] text-zinc-500 line-clamp-2 mt-1 leading-normal">
+                                      <p className="text-[10px] text-zinc-500 dark:text-zinc-500 line-clamp-2 mt-1 leading-normal">
                                         {repo.description}
                                       </p>
                                     )}
@@ -1175,13 +1175,13 @@ export default function ProfilePage() {
                                           className="w-2 h-2 rounded-full"
                                           style={{ backgroundColor: getLanguageColor(repo.language) }}
                                         />
-                                        <span className="text-[10px] text-zinc-400 font-medium">{repo.language}</span>
+                                        <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-medium">{repo.language}</span>
                                       </div>
                                     ) : (
                                       <span className="text-[10px] text-zinc-600">Unknown</span>
                                     )}
 
-                                    <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                                    <div className="flex items-center gap-1 text-zinc-500 dark:text-zinc-500 group-hover:text-zinc-600 dark:text-zinc-400 transition-colors">
                                       <svg className="w-3 h-3 text-amber-500/70" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                       </svg>
@@ -1195,13 +1195,13 @@ export default function ProfilePage() {
                         )}
                       </div>
                     ) : (
-                      <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20">
+                      <div className="text-center py-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-950/20">
                         <svg className="w-8 h-8 text-zinc-700 mx-auto mb-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253" />
                         </svg>
                         {isOwnProfile ? (
                           <>
-                            <p className="text-zinc-500 text-xs mb-3">Enrich your builder card with public repository and language insights.</p>
+                            <p className="text-zinc-500 dark:text-zinc-500 text-xs mb-3">Enrich your builder card with public repository and language insights.</p>
                             <button
                               onClick={syncGithubData}
                               disabled={syncing}
@@ -1219,18 +1219,18 @@ export default function ProfilePage() {
                 )}
 
                 {/* Skills Grid Section */}
-                <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-4">Skills & Technologies</p>
+                <div className="p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 animate-fade-in-up stagger-4">
+                  <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-4">Skills & Technologies</p>
 
                   <div className="flex flex-wrap gap-2">
                     {profile.skills?.length ? (
                       profile.skills.map((skill) => (
                         <div
                           key={skill}
-                          className="px-3 py-1.5 rounded-lg bg-zinc-950/40 border border-zinc-800/60 hover:border-zinc-700/80 hover:bg-zinc-900/30 transition-all duration-250 flex items-center gap-2 group cursor-default"
+                          className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 hover:border-zinc-300 dark:hover:border-zinc-300 dark:hover:border-zinc-700/80 hover:bg-zinc-100 dark:hover:bg-zinc-900/30 transition-all duration-250 flex items-center gap-2 group cursor-default"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 group-hover:bg-purple-500 transition-colors" />
-                          <span className="text-xs text-zinc-300 group-hover:text-white transition-colors font-medium">
+                          <span className="text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:hover:text-white transition-colors font-medium">
                             {skill}
                           </span>
                         </div>
@@ -1270,7 +1270,7 @@ export default function ProfilePage() {
                       🔒
                     </div>
                     <h4 className="text-sm font-bold text-zinc-900 dark:text-white">Private Track Record</h4>
-                    <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-sm mx-auto leading-relaxed">
                       This builder has chosen to keep their hackathon track record and verified achievements private.
                     </p>
                   </div>
@@ -1284,11 +1284,11 @@ export default function ProfilePage() {
                     )}
 
                     {/* Verified Badges & Achievements Section */}
-                    <div className="p-6 rounded-xl bg-zinc-900/20 border border-zinc-800/80 animate-fade-in-up stagger-4">
+                    <div className="p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 animate-fade-in-up stagger-4">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <span className="text-amber-400 font-bold">🏆</span>
-                          <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Verified Badges & Achievements</p>
+                          <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">Verified Badges & Achievements</p>
                         </div>
                         {userBadges.length > 0 && (
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -1309,20 +1309,20 @@ export default function ProfilePage() {
                                   <span className="text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">
                                     {badge.rank_title || "Verified Winner"}
                                   </span>
-                                  <span className="text-[9px] text-zinc-500 font-mono">
+                                  <span className="text-[9px] text-zinc-500 dark:text-zinc-500 font-mono">
                                     {badge.issuer_name || "HackerMate Partner Network"}
                                   </span>
                                 </div>
                                 <h4 className="text-sm font-bold text-white group-hover:text-[#B4F461] transition-colors">
                                   {badge.badge_name}
                                 </h4>
-                                <p className="text-[11px] text-zinc-400 mt-1">
+                                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1">
                                   Official partner achievement verified by {badge.issuer_name || "HackerMate Partner Network"}.
                                 </p>
                               </div>
 
                               <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                                <span className="text-[9px] text-zinc-500 font-mono">
+                                <span className="text-[9px] text-zinc-500 dark:text-zinc-500 font-mono">
                                   Issued {new Date(badge.issued_at).toLocaleDateString()}
                                 </span>
                                 <div className="flex items-center gap-2">
@@ -1347,7 +1347,7 @@ export default function ProfilePage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center w-full py-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-950/20 text-zinc-500 text-xs">
+                        <div className="text-center w-full py-6 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-950/20 text-zinc-500 dark:text-zinc-500 text-xs">
                           No verified partner badges earned yet. Participating in partner hackathons awards official badges & certificates!
                         </div>
                       )}
@@ -1374,7 +1374,7 @@ export default function ProfilePage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="card card-static p-5 w-full max-w-sm">
             <h2 className="text-sm font-semibold text-white mb-1.5">Invite To Team</h2>
-            <p className="text-xs text-zinc-400 mb-4">Select a team to invite {profile.full_name} to.</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">Select a team to invite {profile.full_name} to.</p>
 
             <select
               value={selectedTeam}
@@ -1406,7 +1406,7 @@ export default function ProfilePage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="card card-static p-5 w-full max-w-md">
             <h2 className="text-sm font-semibold text-white mb-1.5">Report User Profile</h2>
-            <p className="text-xs text-zinc-400 mb-4">Please specify why you are reporting {profile.full_name}. This remains anonymous.</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">Please specify why you are reporting {profile.full_name}. This remains anonymous.</p>
 
             <form onSubmit={submitReport} className="space-y-4">
               <div>
@@ -1449,7 +1449,7 @@ export default function ProfilePage() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-7 max-w-sm w-full shadow-2xl flex flex-col items-center text-center gap-5">
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-7 max-w-sm w-full shadow-2xl flex flex-col items-center text-center gap-5">
             <div className="w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 border border-rose-500/20 shrink-0">
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -1457,7 +1457,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">Delete Account?</h3>
-              <p className="text-zinc-400 text-xs mt-2 leading-relaxed">
+              <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-2 leading-relaxed">
                 This will permanently delete your profile, DMs, files, and disband any teams where you are the sole member. This cannot be undone.
               </p>
             </div>
@@ -1465,7 +1465,7 @@ export default function ProfilePage() {
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={deleting}
-                className="flex-1 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:text-white bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-xl transition-all"
+                className="flex-1 px-4 py-2.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-all"
               >
                 Cancel
               </button>
@@ -1681,13 +1681,13 @@ function renderLanguageLegends(topLanguages: Record<string, number>) {
   return Object.entries(topLanguages).map(([lang, count]) => {
     const pct = ((count / total) * 100).toFixed(0);
     return (
-      <div key={lang} className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+      <div key={lang} className="flex items-center gap-1.5 text-[10px] text-zinc-600 dark:text-zinc-400">
         <span
           className="w-1.5 h-1.5 rounded-full"
           style={{ backgroundColor: getLanguageColor(lang) }}
         />
-        <span className="font-semibold text-zinc-300">{lang}</span>
-        <span className="text-zinc-500 font-mono">{pct}%</span>
+        <span className="font-semibold text-zinc-700 dark:text-zinc-300">{lang}</span>
+        <span className="text-zinc-500 dark:text-zinc-500 font-mono">{pct}%</span>
       </div>
     );
   });

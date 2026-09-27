@@ -504,6 +504,10 @@ function SIHTeamBuilderContent() {
     );
   }
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isEventConcluded = Boolean(hackathon?.end_date && hackathon.end_date < todayStr);
+
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white flex flex-col justify-between transition-colors">
       <main className="max-w-5xl mx-auto px-6 pt-32 pb-16 w-full">
@@ -963,10 +967,9 @@ function SIHTeamBuilderContent() {
 
                         <Link
                           href={`/teams/${team.id}`}
-                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm font-semibold inline-flex items-center"
-                          style={{ color: "#09090b" }}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-sm font-semibold inline-flex items-center ${(isEventConcluded || team.is_recruiting === false) && !isUserTeamMember ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700" : "bg-[#B4F461] hover:bg-[#a3e64f] text-[#09090b]"}`}
                         >
-                          {isUserTeamMember ? "View Team →" : "View & Apply →"}
+                          {isUserTeamMember ? "View Team →" : (isEventConcluded || team.is_recruiting === false) ? "View Team →" : "View & Apply →"}
                         </Link>
                       </div>
                     </div>

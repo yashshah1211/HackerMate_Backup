@@ -449,7 +449,7 @@ function LeaderboardContent() {
                 <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">{colleges[1].powerScore} PTS</span>
                 <button
                   onClick={() => handleShareWhatsApp(colleges[1].name, 2)}
-                  className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   Invite <ArrowRight className="w-3 h-3" />
                 </button>
@@ -503,7 +503,7 @@ function LeaderboardContent() {
                 <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">{colleges[2].powerScore} PTS</span>
                 <button
                   onClick={() => handleShareWhatsApp(colleges[2].name, 3)}
-                  className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   Invite <ArrowRight className="w-3 h-3" />
                 </button>
@@ -565,13 +565,13 @@ function LeaderboardContent() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             {/* Search Input */}
             <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-zinc-600 dark:text-zinc-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search college name, acronym, or city..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors shadow-sm"
+                className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white placeholder:text-zinc-600 dark:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors shadow-sm"
               />
             </div>
 
@@ -589,8 +589,8 @@ function LeaderboardContent() {
                   onClick={() => setSelectedCategory(tab.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-mono whitespace-nowrap transition-all cursor-pointer ${
                     selectedCategory === tab.id
-                      ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-white font-bold border border-zinc-900 dark:border-zinc-700 shadow-sm"
-                      : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 border border-transparent"
+                      ? "bg-zinc-100 dark:bg-zinc-900 text-white dark:bg-zinc-800 dark:text-white font-bold border border-zinc-900 dark:border-zinc-700 shadow-sm"
+                      : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-100 dark:bg-zinc-900 border border-transparent"
                   }`}
                 >
                   {tab.label}
@@ -628,7 +628,7 @@ function LeaderboardContent() {
                   <div
                     key={college.name}
                     className={`transition-colors ${
-                      isUserCollege ? "bg-amber-500/10 dark:bg-amber-500/5" : "hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
+                      isUserCollege ? "bg-amber-500/10 dark:bg-amber-500/5" : "hover:bg-zinc-50/80 dark:hover:bg-zinc-100 dark:bg-zinc-900/40"
                     }`}
                   >
                     {/* Main Row */}
@@ -690,14 +690,14 @@ function LeaderboardContent() {
                           <button
                             onClick={() => handleShareWhatsApp(college.name, rank)}
                             title="Share on WhatsApp"
-                            className="p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+                            className="p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
                           >
                             <Share2 className="w-3.5 h-3.5" />
                           </button>
                           
                           <button
                             onClick={() => setExpandedCollege(isExpanded ? null : college.name)}
-                            className="p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+                            className="p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
                           >
                             {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                           </button>
@@ -730,14 +730,14 @@ function LeaderboardContent() {
                               <Link
                                 key={builder.id}
                                 href={`/profile/${builder.id}`}
-                                className="p-2.5 rounded-xl bg-white dark:bg-zinc-900/60 hover:bg-zinc-50 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between gap-2.5 transition-all group shadow-sm"
+                                className="p-2.5 rounded-xl bg-white dark:bg-zinc-900/60 hover:bg-zinc-50 dark:hover:bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between gap-2.5 transition-all group shadow-sm"
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
                                   <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
                                     {builder.full_name ? builder.full_name.substring(0, 2).toUpperCase() : "HM"}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 truncate group-hover:text-indigo-600 dark:group-hover:text-white">
+                                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 truncate group-hover:text-indigo-600 dark:group-hover:text-zinc-900 dark:hover:text-white">
                                       {builder.full_name || "Anonymous Builder"}
                                     </p>
                                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate">
@@ -747,7 +747,7 @@ function LeaderboardContent() {
                                     </p>
                                   </div>
                                 </div>
-                                <ExternalLink className="w-3 h-3 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0" />
+                                <ExternalLink className="w-3 h-3 text-zinc-600 dark:text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-600 dark:text-zinc-400 shrink-0" />
                               </Link>
                             ))}
                           </div>

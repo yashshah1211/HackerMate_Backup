@@ -202,7 +202,7 @@ export default function ReportsTab({
       {/* Warning Modal */}
       {warningModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] shadow-2xl p-6 space-y-4 overflow-hidden">
+          <div className="relative w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[var(--bg)] shadow-2xl p-6 space-y-4 overflow-hidden">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-900">
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">

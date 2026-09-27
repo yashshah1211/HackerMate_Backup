@@ -1065,10 +1065,9 @@ function PartnerPageContent() {
                           )}
                           <button
                             onClick={() => handleProtectedAction(`/teams/${team.id}`)}
-                            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] transition shadow-sm font-semibold cursor-pointer inline-flex items-center"
-                            style={{ color: "#09090b" }}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-sm font-semibold cursor-pointer inline-flex items-center ${(isEventConcluded || team.is_recruiting === false) && !isUserTeamMember ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700" : "bg-[#B4F461] hover:bg-[#a3e64f] text-[#09090b]"}`}
                           >
-                            {isUserTeamMember ? "View Team →" : "View & Apply →"}
+                            {isUserTeamMember ? "View Team →" : (isEventConcluded || team.is_recruiting === false) ? "View Team →" : "View & Apply →"}
                           </button>
                         </>
                       );

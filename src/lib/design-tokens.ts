@@ -42,7 +42,7 @@ export const LANDING_TOKENS = {
 
   // Interactive Controls & Buttons
   button: {
-    primary: "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#B4F461] hover:bg-[#a8eb52] text-zinc-950 font-semibold text-sm transition-colors duration-150 cursor-pointer shadow-[0_0_20px_rgba(180,244,97,0.22)] hover:shadow-[0_0_32px_rgba(180,244,97,0.5)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]",
+    primary: "btn-lime inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-colors duration-150 cursor-pointer shadow-[0_0_20px_rgba(180,244,97,0.22)] hover:shadow-[0_0_32px_rgba(180,244,97,0.5)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]",
     secondaryLink: "inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer group",
     secondary: "inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer group",
   },

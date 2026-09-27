@@ -70,15 +70,11 @@ export function shouldRenderFooter(pathname: string | null | undefined): boolean
     return false;
   }
 
-  // 2. Explicit inclusion list for marketing, content, and public pages
+  // 2. Explicit inclusion list — ONLY truly public/marketing pages without sidebar
   if (
     normalized === "/" ||
-    normalized === "/leaderboard" ||
-    normalized.startsWith("/leaderboard/") ||
-    normalized === "/hackathons" ||
-    normalized.startsWith("/hackathons/") ||
-    normalized.startsWith("/partners") ||
-    (normalized.startsWith("/profile/") && normalized !== "/profile/edit") ||
+    // NOTE: /leaderboard, /hackathons/*, /partners/*, /profile/* are all app-style
+    // pages inside the sidebar layout — Footer should NOT render on these.
     normalized === "/faq" ||
     normalized.startsWith("/faq/") ||
     (normalized.startsWith("/tools/") && !normalized.startsWith("/tools/pitch-evaluator")) ||

@@ -82,7 +82,7 @@ type Props = {
   missingSkills?: string[];
   refreshTeam?: () => void;
   pendingInvite?: { id: string; status: string } | null;
-  listedHackathons?: { id: string; name: string; description?: string | null; start_date?: string; end_date?: string }[];
+  listedHackathons?: { id: string; name: string; description?: string | null; start_date?: string; end_date?: string; status?: string }[];
   unlinkHackathon?: (hackathonId: string) => void;
 };
 
@@ -129,6 +129,11 @@ export default function TeamOverviewView({
     const next = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : `/teams/${team.id}`;
     window.location.href = `/?next=${encodeURIComponent(next)}`;
   };
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isEventConcluded = listedHackathons.some(h => h.status === "archived" || (h.end_date && h.end_date < todayStr));
+  const isClosed = team.is_recruiting === false || isEventConcluded;
+
 
   // Invitation banner states
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
@@ -577,11 +582,11 @@ export default function TeamOverviewView({
               <div className="flex justify-between items-center mb-6">
                 <span className={`badge text-[10px] ${teamFull
                     ? "badge-error"
-                    : (team.is_recruiting === false)
+                    : isClosed
                       ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
                       : "badge-success"
                   }`}>
-                  {teamFull ? "FULL" : (team.is_recruiting === false) ? "CLOSED" : "RECRUITING"}
+                  {teamFull ? "FULL" : isClosed ? (isEventConcluded ? "ARCHIVED" : "CLOSED") : "RECRUITING"}
                 </span>
 
                 <div className="text-right">
@@ -670,7 +675,7 @@ export default function TeamOverviewView({
                     {inviteActionLoading ? "Declining..." : "Decline Invite"}
                   </button>
                 </div>
-              ) : team.is_recruiting === false ? (
+              ) : isClosed ? (
                 <button
                   disabled
                   className="btn bg-zinc-800 text-zinc-500 border border-zinc-800/80 w-full cursor-not-allowed flex items-center justify-center gap-1.5"
@@ -678,7 +683,7 @@ export default function TeamOverviewView({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
-                  <span>Recruitment Closed</span>
+                  <span>{isEventConcluded ? "Archived (Recruitment Closed)" : "Recruitment Closed"}</span>
                 </button>
               ) : (
                 <button

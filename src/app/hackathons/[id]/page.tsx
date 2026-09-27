@@ -1080,7 +1080,7 @@ function HackathonDetailContent() {
     return (
       <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
+          <div className="w-6 h-6 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
           <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading hackathon details...</p>
         </div>
       </main>
@@ -1108,7 +1108,7 @@ function HackathonDetailContent() {
       <div className="mb-6 animate-fade-in-up">
         <Link
           href="/hackathons"
-          className="inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -1133,7 +1133,7 @@ function HackathonDetailContent() {
                   {partnerConfig.partner_name}
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
                 Explore the dedicated team-matching hub & custom partner portal.
               </p>
             </div>
@@ -1163,7 +1163,7 @@ function HackathonDetailContent() {
                   Event Host
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
                 Manage participant roster, export CSV, track capacity limits, and post custom resource links.
               </p>
             </div>
@@ -1227,7 +1227,7 @@ function HackathonDetailContent() {
 
               <div className="grid grid-cols-1 gap-3">
                 {hackathon.rounds_info.map((rd: any, idx: number) => (
-                  <div key={idx} className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/50 hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-all space-y-2">
+                  <div key={idx} className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/50 hover:border-zinc-300 dark:hover:border-zinc-300 dark:hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-all space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800/80 flex items-center justify-center text-xs font-bold font-mono">
@@ -1277,7 +1277,7 @@ function HackathonDetailContent() {
                 </span>
               </div>
 
-              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-800">
+              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-200 dark:bg-zinc-800">
                 {stages.map((stg) => {
                   const now = new Date();
                   const startTime = new Date(stg.start_time);
@@ -1294,7 +1294,7 @@ function HackathonDetailContent() {
                     checkpoint: "bg-blue-950 text-blue-400 border-blue-800/60",
                     deadline: "bg-rose-950 text-rose-400 border-rose-800/60",
                     judging: "bg-amber-950 text-amber-400 border-amber-800/60",
-                    other: "bg-zinc-900 text-zinc-400 border-zinc-800",
+                    other: "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800",
                   };
                   const badgeClass = typeBadges[stg.stage_type] || typeBadges.other;
 
@@ -1306,18 +1306,18 @@ function HackathonDetailContent() {
                           isLive
                             ? "bg-emerald-500 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse"
                             : isPast
-                            ? "bg-zinc-800 border-zinc-700"
-                            : "bg-zinc-950 border-zinc-500"
+                            ? "bg-zinc-200 dark:bg-zinc-800 border-zinc-700"
+                            : "bg-white dark:bg-zinc-950 border-zinc-500"
                         }`}
                       />
 
-                      <div className="bg-zinc-950/40 p-4 rounded-xl border border-zinc-800/80 group-hover:border-zinc-700/80 transition-colors">
+                      <div className="bg-white dark:bg-zinc-950/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/80 group-hover:border-zinc-300 dark:hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-colors">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2">
                             <span className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase font-semibold ${badgeClass}`}>
                               {stg.stage_type}
                             </span>
-                            <h4 className={`text-sm font-bold ${isPast ? "text-zinc-400 line-through decoration-zinc-600" : "text-white"}`}>
+                            <h4 className={`text-sm font-bold ${isPast ? "text-zinc-600 dark:text-zinc-400 line-through decoration-zinc-600" : "text-white"}`}>
                               {stg.title}
                             </h4>
                           </div>
@@ -1334,19 +1334,19 @@ function HackathonDetailContent() {
                             </span>
                           )}
                           {isUpcoming && (
-                            <span className="text-[10px] font-mono text-zinc-400">
+                            <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
                               Upcoming
                             </span>
                           )}
                         </div>
 
                         {stg.description && (
-                          <p className="text-xs text-zinc-400 mb-2.5 leading-relaxed">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-2.5 leading-relaxed">
                             {stg.description}
                           </p>
                         )}
 
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-400 pt-2 border-t border-zinc-900">
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 pt-2 border-t border-zinc-900">
                           <span>
                             🗓️ Start: {startTime.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </span>
@@ -1389,7 +1389,7 @@ function HackathonDetailContent() {
             <div className="space-y-4 mb-8">
               {/* Date */}
               <div className="flex items-start gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
+                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                   </svg>
@@ -1405,7 +1405,7 @@ function HackathonDetailContent() {
               {/* Location */}
               {!(hackathon.mode?.toLowerCase() === "online" && (!hackathon.location || hackathon.location.toLowerCase().includes("venue in india") || hackathon.location.toLowerCase().includes("online"))) && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -1423,7 +1423,7 @@ function HackathonDetailContent() {
               {/* College / University / Organizing Communities */}
               {hackathon.college && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
                     </svg>
@@ -1446,7 +1446,7 @@ function HackathonDetailContent() {
               {/* Prize Pool */}
               {hackathon.prize_pool && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 shrink-0">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -1462,7 +1462,7 @@ function HackathonDetailContent() {
 
               {/* Participant Team Sizes */}
               <div className="flex items-start gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0">
+                <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-emerald-400 shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a5.97 5.97 0 00-.942 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                   </svg>
@@ -1486,7 +1486,7 @@ function HackathonDetailContent() {
               {/* Hackathon Rounds Count */}
               {hackathon.rounds_count && hackathon.rounds_count > 0 && (
                 <div className="flex items-start gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0">
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-emerald-400 shrink-0">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 003-3V8.25a3 3 0 00-3-3h-9a3 3 0 00-3 3v7.5a3 3 0 003 3m9 0v-1.5a1.5 1.5 0 00-1.5-1.5h-6a1.5 1.5 0 00-1.5 1.5v1.5m6-10.5h-6" />
                     </svg>
@@ -1503,7 +1503,7 @@ function HackathonDetailContent() {
           </div>
 
           {/* Action buttons */}
-          <div className="space-y-2 pt-5 border-t border-zinc-900/50">
+          <div className="space-y-2 pt-5 border-t border-zinc-200 dark:border-zinc-900/50">
             {hackathon.type === "native" ? (
               <>
                 {isRegistered ? (
@@ -1559,7 +1559,7 @@ function HackathonDetailContent() {
               if (linkedTeam) {
                 return (
                   <div className="p-3 rounded-lg bg-violet-600/10 border border-violet-500/20 text-center space-y-2">
-                    <p className="text-xs text-zinc-300">
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300">
                       Your team <span className="font-semibold text-white">{linkedTeam.name}</span> is linked to this hackathon.
                     </p>
                     <button
@@ -1634,7 +1634,7 @@ function HackathonDetailContent() {
                 className="btn btn-secondary w-full btn-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title={(!hackathon.start_date || !hackathon.end_date) ? "Dates TBA" : undefined}
               >
-                <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="w-4 h-4 text-zinc-600 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                 </svg>
                 <span>Add to Calendar</span>
@@ -1649,13 +1649,13 @@ function HackathonDetailContent() {
                     className="fixed inset-0 z-20" 
                     onClick={() => setShowCalendarDropdown(false)}
                   />
-                  <div className="absolute right-0 left-0 bottom-full mb-2 z-30 rounded-xl border border-zinc-800 bg-zinc-950 p-1.5 shadow-xl animate-fade-in">
+                  <div className="absolute right-0 left-0 bottom-full mb-2 z-30 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-1.5 shadow-xl animate-fade-in">
                     <a
                       href={getCalendarUrls().google}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setShowCalendarDropdown(false)}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
+                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
                     >
                       <span className="text-xs">🌐</span> Google Calendar
                     </a>
@@ -1664,7 +1664,7 @@ function HackathonDetailContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setShowCalendarDropdown(false)}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
+                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white rounded-lg hover:bg-white/[0.04] transition-colors"
                     >
                       <span className="text-xs">📧</span> Outlook Calendar
                     </a>
@@ -1673,7 +1673,7 @@ function HackathonDetailContent() {
                         downloadICSFile();
                         setShowCalendarDropdown(false);
                       }}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white rounded-lg hover:bg-white/[0.04] transition-all text-left"
+                      className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white rounded-lg hover:bg-white/[0.04] transition-all text-left"
                     >
                       <span className="text-xs">📅</span> Download iCal (.ics)
                     </button>
@@ -1705,7 +1705,7 @@ function HackathonDetailContent() {
             className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
               activeTab === "teams"
                 ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             👥 Teams ({teams.length})
@@ -1716,7 +1716,7 @@ function HackathonDetailContent() {
             className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
               activeTab === "builders"
                 ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             🛠️ Builders ({buildersList.length})
@@ -1727,7 +1727,7 @@ function HackathonDetailContent() {
             className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
               activeTab === "looking_for_teams"
                 ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             🔍 Looking for Teams ({registrations.filter((r) => r.looking_for_team === true).length})
@@ -1738,7 +1738,7 @@ function HackathonDetailContent() {
             className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
               activeTab === "looking_for_builders"
                 ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             🎯 Looking for Builders ({teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t)).length})
@@ -1749,7 +1749,7 @@ function HackathonDetailContent() {
             className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-[2px] transition-all flex items-center gap-2 ${
               activeTab === "resources"
                 ? "border-white text-white bg-white/[0.02]"
-                : "border-transparent text-zinc-500 hover:text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             📚 Resources
@@ -1761,7 +1761,7 @@ function HackathonDetailContent() {
           <>
             {teams.length === 0 ? (
               <div className="card card-static p-12 text-center">
-                <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4 text-zinc-500">
+                <div className="w-10 h-10 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-4 text-zinc-500">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z" />
                   </svg>
@@ -1783,7 +1783,7 @@ function HackathonDetailContent() {
                     className={`card p-5 group flex flex-col justify-between min-h-[140px]`}
                   >
                     <div className="flex items-start justify-between gap-4 mb-3">
-                      <h3 className="font-semibold text-sm text-white group-hover:text-white truncate">
+                      <h3 className="font-semibold text-sm text-white group-hover:text-zinc-900 dark:hover:text-white truncate">
                         {team.name}
                       </h3>
                       {team.is_recruiting !== false ? (
@@ -1791,13 +1791,13 @@ function HackathonDetailContent() {
                           Recruiting
                         </span>
                       ) : (
-                        <span className="badge bg-zinc-800 text-zinc-500 border border-zinc-700 text-[9px] py-0.5 px-1.5 flex-shrink-0">
+                        <span className="badge bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border border-zinc-700 text-[9px] py-0.5 px-1.5 flex-shrink-0">
                           Full
                         </span>
                       )}
                     </div>
 
-                    <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">
+                    <p className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">
                       {team.description || "No description provided."}
                     </p>
 
@@ -1817,7 +1817,7 @@ function HackathonDetailContent() {
                       <span className="text-[10px] text-zinc-500 truncate">
                         {team.college || "Independent Team"}
                       </span>
-                      <span className="text-[10px] font-semibold text-white group-hover:text-zinc-300 transition-colors">
+                      <span className="text-[10px] font-semibold text-white group-hover:text-zinc-700 dark:text-zinc-300 transition-colors">
                         View Team →
                       </span>
                     </div>
@@ -1841,7 +1841,7 @@ function HackathonDetailContent() {
                   <Link
                     key={builder.id}
                     href={`/profile/${builder.id}`}
-                    className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-700 transition-all min-h-[135px]"
+                    className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all min-h-[135px]"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-3">
@@ -1850,10 +1850,10 @@ function HackathonDetailContent() {
                             <img
                               src={builder.avatar_url}
                               alt={builder.full_name}
-                              className="w-9 h-9 rounded object-cover border border-zinc-800 shrink-0"
+                              className="w-9 h-9 rounded object-cover border border-zinc-200 dark:border-zinc-800 shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs shrink-0">
+                            <div className="w-9 h-9 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center font-bold text-zinc-600 dark:text-zinc-400 text-xs shrink-0">
                               {builder.full_name?.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -1887,7 +1887,7 @@ function HackathonDetailContent() {
                                 className={`text-[8px] font-semibold px-1.5 py-0.5 rounded border ${
                                   isMatched
                                     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                    : "border-zinc-800/80 bg-zinc-900/30 text-zinc-455"
+                                    : "border-zinc-200 dark:border-zinc-800/80 bg-zinc-900/30 text-zinc-455"
                                 }`}
                               >
                                 {skill}
@@ -1900,7 +1900,7 @@ function HackathonDetailContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60">
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-900/60">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {builder.isRegistered && (
                           <span className="badge badge-success text-[8px] font-mono py-0.5 px-1 uppercase">
@@ -1909,13 +1909,13 @@ function HackathonDetailContent() {
                         )}
                         <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border ${
                           builder.teamName 
-                            ? "bg-zinc-800/20 text-zinc-500 border-zinc-800" 
+                            ? "bg-zinc-100/20 dark:bg-zinc-800/20 text-zinc-500 border-zinc-200 dark:border-zinc-800" 
                             : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                         }`}>
                           {builder.teamName ? `In Team: ${builder.teamName}` : "Looking for Team"}
                         </span>
                       </div>
-                      <span className="text-[9px] text-zinc-500 group-hover:text-white transition-colors">
+                      <span className="text-[9px] text-zinc-500 group-hover:text-zinc-900 dark:hover:text-white transition-colors">
                         View Profile →
                       </span>
                     </div>
@@ -1930,13 +1930,13 @@ function HackathonDetailContent() {
         {activeTab === "looking_for_teams" && (
           <>
             {currentUserId && (
-              <div className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="card card-static p-4 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-white">List your profile as Looking for Teams</h4>
                   <p className="text-[10px] text-zinc-500 mt-1">Let other registered teams know you are looking to join a team for this hackathon.</p>
                 </div>
                 {!isRegistered ? (
-                  <div className="text-[10px] text-zinc-400 font-medium bg-zinc-900/50 border border-zinc-800 rounded px-3 py-1.5 shrink-0">
+                  <div className="text-[10px] text-zinc-600 dark:text-zinc-400 font-medium bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded px-3 py-1.5 shrink-0">
                     Register first to list your profile
                   </div>
                 ) : (
@@ -1977,7 +1977,7 @@ function HackathonDetailContent() {
                       <Link
                         key={reg.id}
                         href={`/profile/${reg.profiles.id}`}
-                        className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-700 transition-all min-h-[140px]"
+                        className="card card-static p-4 flex flex-col justify-between group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all min-h-[140px]"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-3 mb-3">
@@ -1986,10 +1986,10 @@ function HackathonDetailContent() {
                                 <img
                                   src={reg.profiles.avatar_url}
                                   alt={reg.profiles.full_name}
-                                  className="w-9 h-9 rounded object-cover border border-zinc-800 shrink-0"
+                                  className="w-9 h-9 rounded object-cover border border-zinc-200 dark:border-zinc-800 shrink-0"
                                 />
                               ) : (
-                                <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-xs shrink-0">
+                                <div className="w-9 h-9 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center font-bold text-zinc-600 dark:text-zinc-400 text-xs shrink-0">
                                   {reg.profiles.full_name?.charAt(0).toUpperCase()}
                                 </div>
                               )}
@@ -2020,7 +2020,7 @@ function HackathonDetailContent() {
                                     className={`text-[8px] font-semibold px-1.5 py-0.5 rounded border ${
                                       isMatched
                                         ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                        : "border-zinc-800/80 bg-zinc-900/30 text-zinc-450"
+                                        : "border-zinc-200 dark:border-zinc-800/80 bg-zinc-900/30 text-zinc-450"
                                     }`}
                                   >
                                     {skill}
@@ -2033,11 +2033,11 @@ function HackathonDetailContent() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60">
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-900/60">
                           <span className="text-[8px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">
                             Looking to join
                           </span>
-                          <span className="text-[9px] text-zinc-500 group-hover:text-white transition-colors">
+                          <span className="text-[9px] text-zinc-500 group-hover:text-zinc-900 dark:hover:text-white transition-colors">
                             View Profile →
                           </span>
                         </div>
@@ -2053,7 +2053,7 @@ function HackathonDetailContent() {
         {activeTab === "looking_for_builders" && (
           <>
             {teams.filter(t => t.owner_id === currentUserId && !isTeamFullAndRegistered(t)).map(myTeam => (
-              <div key={myTeam.id} className="card card-static p-4 border-zinc-800 bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div key={myTeam.id} className="card card-static p-4 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/20 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-white">Manage Recruitment for &ldquo;{myTeam.name}&rdquo;</h4>
                   <p className="text-[10px] text-zinc-500 mt-1">Toggle whether your team should be listed under &lsquo;Looking for Builders&rsquo; to find teammates.</p>
@@ -2095,7 +2095,7 @@ function HackathonDetailContent() {
                       >
                         <div>
                           <div className="flex items-start justify-between gap-4 mb-3">
-                            <h3 className="font-semibold text-sm text-white group-hover:text-white truncate">
+                            <h3 className="font-semibold text-sm text-white group-hover:text-zinc-900 dark:hover:text-white truncate">
                               {team.name}
                             </h3>
                             {teamMatchScore > 0 && (
@@ -2105,7 +2105,7 @@ function HackathonDetailContent() {
                             )}
                           </div>
 
-                          <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">
+                          <p className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">
                             {team.description || "No description provided."}
                           </p>
 
@@ -2130,7 +2130,7 @@ function HackathonDetailContent() {
                           <span className="text-[10px] text-zinc-500 truncate">
                             {team.college || "Independent Team"}
                           </span>
-                          <span className="text-[10px] font-semibold text-white group-hover:text-zinc-300 transition-colors">
+                          <span className="text-[10px] font-semibold text-white group-hover:text-zinc-700 dark:text-zinc-300 transition-colors">
                             View recruiting team →
                           </span>
                         </div>
@@ -2158,7 +2158,7 @@ function HackathonDetailContent() {
 
             <div className="grid md:grid-cols-2 gap-6">
               {/* Category 1: Boilerplates & Starters */}
-              <div className="card card-static p-5 border-zinc-900 bg-zinc-950/20">
+              <div className="card card-static p-5 border-zinc-900 bg-zinc-50 dark:bg-zinc-950/20">
                 <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-zinc-900 pb-2">
                   🛠️ Boilerplates & Component Starter Kits
                 </h3>
@@ -2173,7 +2173,7 @@ function HackathonDetailContent() {
                             href={res.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all flex items-center gap-1.5"
                           >
                             {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
                           </a>
@@ -2211,7 +2211,7 @@ function HackathonDetailContent() {
               </div>
 
               {/* Category 2: Documentation & Developer APIs */}
-              <div className="card card-static p-5 border-zinc-900 bg-zinc-950/20">
+              <div className="card card-static p-5 border-zinc-900 bg-zinc-50 dark:bg-zinc-950/20">
                 <h3 className="text-sm font-semibold text-white mb-3.5 flex items-center gap-2 border-b border-zinc-900 pb-2">
                   📚 Developer Docs & Sandbox APIs
                 </h3>
@@ -2226,7 +2226,7 @@ function HackathonDetailContent() {
                             href={res.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all flex items-center gap-1.5"
                           >
                             {res.title} <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
                           </a>
@@ -2274,7 +2274,7 @@ function HackathonDetailContent() {
             <h3 className="text-sm font-semibold text-white mb-2">Add Custom Resource Link</h3>
             <form onSubmit={handleCreateResource} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5">Resource Title</label>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">Resource Title</label>
                 <input
                   type="text"
                   placeholder="e.g. Official Challenge Guide"
@@ -2286,7 +2286,7 @@ function HackathonDetailContent() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5">Resource URL</label>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">Resource URL</label>
                 <input
                   type="url"
                   placeholder="https://docs.google.com/..."
@@ -2298,7 +2298,7 @@ function HackathonDetailContent() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5">Resource Category</label>
+                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">Resource Category</label>
                 <select
                   value={resourceCategory}
                   onChange={(e) => setResourceCategory(e.target.value as "boilerplates" | "apis" | "docs" | "other")}
@@ -2340,7 +2340,7 @@ function HackathonDetailContent() {
               Confirm Registration
             </h2>
 
-            <p className="text-xs text-zinc-400 mb-4">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
               Register for {hackathon.name}. Choose if you are registering with an existing team.
             </p>
 
@@ -2392,7 +2392,7 @@ function HackathonDetailContent() {
               Link Team to Hackathon
             </h2>
 
-            <p className="text-xs text-zinc-400 mb-4">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
               If your team has registered externally, associate your HackerMate team with {hackathon.name} to recruit builders and collaborate.
             </p>
 
@@ -2444,7 +2444,7 @@ function HackathonDetailContent() {
               Confirm External Registration
             </h2>
 
-            <p className="text-xs text-zinc-400 mb-4 font-light leading-relaxed">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4 font-light leading-relaxed">
               We opened the registration page for <strong className="text-white font-semibold">{hackathon.name}</strong> in a new tab. Please complete your registration there, then confirm below to log your status on HackerMate.
             </p>
 

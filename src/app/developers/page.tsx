@@ -368,7 +368,7 @@ function DevelopersContent() {
           <select
             value={collegeFilter}
             onChange={(e) => setCollegeFilter(e.target.value)}
-            className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
+            className="input text-xs w-full appearance-none pr-8 cursor-pointer"
           >
             <option value="">All Colleges</option>
             {uniqueColleges.map(({ displayName, count }) => (
@@ -387,7 +387,7 @@ function DevelopersContent() {
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value)}
-            className="input text-xs w-full appearance-none pr-8 cursor-pointer bg-zinc-950/80 border-zinc-800 text-zinc-200 focus:border-zinc-700"
+            className="input text-xs w-full appearance-none pr-8 cursor-pointer"
           >
             <option value="">All Academic Years</option>
             <option value="1st Year">1st Year</option>
@@ -468,7 +468,7 @@ function DevelopersContent() {
                           className="w-11 h-11 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700/60 shadow-sm"
                         />
                       ) : (
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-sm shadow-sm">
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm shadow-sm">
                           {getInitials(dev.full_name, 1)}
                         </div>
                       )}
@@ -582,12 +582,12 @@ function DevelopersContent() {
           })
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-5">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-600 mb-5">
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584.036-.219.05-.44.05-.666l.001-.03m11.911 0a9.1 9.1 0 00-11.911 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <h3 className="text-sm font-semibold text-white mb-1.5">No builders yet</h3>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-1.5">No builders yet</h3>
             <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
               You&apos;re the first one here. Share HackerMate with fellow builders to grow the network!
             </p>
@@ -599,8 +599,8 @@ function DevelopersContent() {
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="card card-static p-5 w-full max-w-sm">
-            <h2 className="text-sm font-semibold text-white mb-1.5">Invite to Team</h2>
-            <p className="text-xs text-zinc-400 mb-4">
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-1.5">Invite to Team</h2>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
               Select which team you would like to invite this developer to join.
             </p>
 
@@ -618,7 +618,7 @@ function DevelopersContent() {
               ))}
             </select>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-900">
               <button
                 onClick={() => {
                   setShowInviteModal(false);

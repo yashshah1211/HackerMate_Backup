@@ -402,11 +402,8 @@ export default function ChallengeDetailPage() {
   }
 
   const themePrefix = "ReactionTheme:";
-  const themeEntries = challenge.constraints.filter((constraint) =>
-    constraint.startsWith(themePrefix) &&
-    Object.prototype.hasOwnProperty.call(CELEBRATION_THEMES, constraint.slice(themePrefix.length))
-  );
-  const participantConstraints = challenge.constraints.filter((constraint) => !themeEntries.includes(constraint));
+  const participantConstraints = challenge.constraints.filter((c) => !c.startsWith(themePrefix));
+  const themeEntries = challenge.constraints.filter((c) => c.startsWith(themePrefix));
   const reactionTheme = themeEntries[0]?.slice(themePrefix.length) ?? "default";
 
   return (

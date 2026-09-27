@@ -47,7 +47,7 @@ function TeamsContent() {
 
     const { data, error } = await supabase
       .from("teams")
-      .select("*, team_members(id), team_hackathons(hackathons(id, name)), team_ppt_evaluations(total_score, grade, status)")
+      .select("*, team_members(id), team_hackathons(hackathons(id, name, end_date, status)), team_ppt_evaluations(total_score, grade, status)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -122,7 +122,7 @@ function TeamsContent() {
           Find your next team
         </h1>
 
-        <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-xl leading-relaxed">
           Explore active hackathon teams, discover opportunities, and find
           builders who share your vision.
         </p>
@@ -132,7 +132,7 @@ function TeamsContent() {
       <div className="flex flex-wrap gap-2.5 mb-8 animate-fade-in-up stagger-1">
         <Link href="/my-teams" className="btn btn-secondary">
           <svg
-            className="w-4 h-4 text-zinc-400"
+            className="w-4 h-4 text-zinc-600 dark:text-zinc-400"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -231,7 +231,7 @@ function TeamsContent() {
                 setCollegeFilter("");
                 setHackathonFilter("");
               }}
-              className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors underline underline-offset-2 cursor-pointer"
+              className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white transition-colors underline underline-offset-2 cursor-pointer"
             >
               Clear filters
             </button>
@@ -271,7 +271,7 @@ function TeamsContent() {
           ))
         ) : filteredTeams.length === 0 ? (
           <div className="col-span-full card card-static p-12 text-center animate-fade-in-up">
-            <div className="w-12 h-12 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-4">
               <svg
                 className="w-5 h-5 text-zinc-600"
                 fill="none"
@@ -305,7 +305,7 @@ function TeamsContent() {
               <Link
                 key={team.id}
                 href={`/teams/${team.id}`}
-                className="card group p-5 flex flex-col justify-between min-h-[250px] hover:border-sky-500/40 dark:hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-zinc-950/40 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-800"
+                className="card group p-5 flex flex-col justify-between min-h-[250px] hover:border-sky-500/40 dark:hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 rounded-2xl relative overflow-hidden bg-white dark:bg-zinc-950/40 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-800"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none group-hover:bg-sky-500/10 transition-colors" />
                 <div>
@@ -355,14 +355,14 @@ function TeamsContent() {
                         )}
                       </>
                     ) : (
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600 italic">No skills listed</span>
+                      <span className="text-[10px] text-zinc-600 dark:text-zinc-400 dark:text-zinc-600 italic">No skills listed</span>
                     )}
                   </div>
 
                   {/* Meta Info */}
                   <div className="space-y-1.5 mb-3 text-xs border-t border-zinc-200 dark:border-zinc-800/80 pt-2.5">
                     <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-[11px]">
-                      <svg className="w-3.5 h-3.5 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.485a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
+                      <svg className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.485a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
                       <span className="truncate">{team.college || "Independent / Multi-College"}</span>
                     </div>
 
@@ -400,10 +400,17 @@ function TeamsContent() {
                     {currentCount}/{maxCount} members
                   </span>
 
-                  <div className="flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 group-hover:translate-x-0.5 transition-transform">
-                    <span>View & Apply</span>
-                    <span className="font-mono">→</span>
-                  </div>
+                  {(() => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const isEventConcluded = team.team_hackathons?.some((th: any) => th.hackathons?.status === "archived" || (th.hackathons?.end_date && th.hackathons.end_date < todayStr));
+                    const isClosed = team.is_recruiting === false || isEventConcluded;
+                    return (
+                      <div className={`flex items-center gap-1 text-xs font-semibold group-hover:translate-x-0.5 transition-transform ${isClosed ? "text-zinc-500 dark:text-zinc-500" : "text-sky-600 dark:text-sky-400"}`}>
+                        <span>{isClosed ? "View Team" : "View & Apply"}</span>
+                        <span className="font-mono">→</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </Link>
             );

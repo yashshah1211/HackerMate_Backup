@@ -47,7 +47,7 @@ export default function PartnerCompositionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 md:p-6 overflow-y-auto animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl bg-white dark:bg-[#09090b] border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 relative my-auto max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-4xl bg-white dark:bg-[var(--bg)] border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 relative my-auto max-h-[90vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-900 shrink-0">
           <div>

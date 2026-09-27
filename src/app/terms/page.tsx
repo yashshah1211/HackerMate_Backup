@@ -5,7 +5,7 @@ import Logo from "@/components/Logo";
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-[#09090b] text-zinc-300 font-sans selection:bg-[#B4F461]/20 selection:text-[#B4F461] py-16 md:py-24 relative overflow-hidden">
+    <main className="min-h-screen bg-[var(--bg)] text-zinc-300 font-sans selection:bg-[#B4F461]/20 selection:text-[#B4F461] py-16 md:py-24 relative overflow-hidden">
       {/* Decorative Glows */}
       <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-[#B4F461]/2 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[450px] h-[450px] bg-emerald-500/2 rounded-full blur-[160px] pointer-events-none" />
