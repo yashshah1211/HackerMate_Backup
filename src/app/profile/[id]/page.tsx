@@ -205,9 +205,13 @@ export default function ProfilePage() {
     setProfile(data);
 
     fetch(`/api/builder-track-record/${data.id}`)
-      .then((res) => {
-        if (!res.ok) return null;
-        return res.json();
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (!res.ok || body?.success === false) {
+          console.error("[Profile] Track record request failed:", res.status, body?.error ?? null);
+          return null;
+        }
+        return body;
       })
       .then((resData) => {
         if (resData && resData.success && resData.data) {

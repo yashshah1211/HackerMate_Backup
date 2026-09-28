@@ -80,11 +80,17 @@ export default function ContextualProfileNudgeModal({
           .from("profiles")
           .update(updates)
           .eq("id", userProfile.id)
-          .select()
+          // Explicit column list: profiles has column-level SELECT grants, and
+          // an unrestricted RETURNING * fails on the non-readable email column.
+          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, is_available, onboarding_completed")
           .single();
 
-        if (!error && updated && onProfileUpdated) {
-          onProfileUpdated(updated);
+        if (error) {
+          console.error("[Profile Nudge Modal] Profile update failed:", error);
+        } else if (updated && onProfileUpdated) {
+          // The returned row only has the columns selected above, so merge it into
+          // the caller's profile instead of replacing that profile wholesale.
+          onProfileUpdated({ ...userProfile, ...updated });
         }
       }
     } catch (err) {

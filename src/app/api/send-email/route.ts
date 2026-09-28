@@ -63,22 +63,32 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate Limiter Enforcement (15 emails per hour per authenticated user)
-    const { data: rateLimitData } = await supabaseAdmin.rpc("check_rate_limit", {
+    const { data: rateLimitData, error: rateLimitErr } = await supabaseAdmin.rpc("check_rate_limit", {
       p_ip: authUser.id,
       p_limit: 15,
       p_window_interval: "1 hour",
     });
 
-    if (rateLimitData && rateLimitData.length > 0) {
-      const { allowed, reset_time } = rateLimitData[0];
-      if (!allowed) {
-        const resetMs = new Date(reset_time).getTime();
-        const retryAfterSeconds = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
-        return NextResponse.json(
-          { error: `Rate limit exceeded. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
-          { status: 429, headers: { "Retry-After": retryAfterSeconds.toString() } }
-        );
-      }
+    // Fail closed: if the rate limit can't be evaluated, don't send.
+    if (rateLimitErr || !rateLimitData || rateLimitData.length === 0) {
+      console.error(
+        "[Send Email API] Rate limiter unavailable; failing closed:",
+        rateLimitErr ?? "no rate-limit decision returned"
+      );
+      return NextResponse.json(
+        { error: "Email sending is temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
+    const { allowed, reset_time } = rateLimitData[0];
+    if (!allowed) {
+      const resetMs = new Date(reset_time).getTime();
+      const retryAfterSeconds = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
+        { status: 429, headers: { "Retry-After": retryAfterSeconds.toString() } }
+      );
     }
 
     // Only admins may send moderation_warning or onboarding_nudge emails.

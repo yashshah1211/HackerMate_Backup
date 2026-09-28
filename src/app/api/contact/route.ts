@@ -5,9 +5,15 @@ import { createClient } from "@supabase/supabase-js";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { renderHackerMateEmail } from "@/lib/emailTemplate";
 
+// Service-role client only. There is deliberately no anon-key fallback: the
+// rate limiter (check_rate_limit) is executable by service_role only, so a
+// missing key must fail closed instead of silently skipping rate limiting.
 function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return null;
+  }
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       persistSession: false,
@@ -34,9 +40,16 @@ function getIp(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin();
+  if (!supabaseAdmin) {
+    console.error("[Contact API] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY; failing closed.");
+    return NextResponse.json(
+      { error: "The contact form is temporarily unavailable. Please try again later." },
+      { status: 503 }
+    );
+  }
   const ip = getIp(req);
-  
-  // Call atomic Supabase rate limiter RPC
+
+  // Per-IP rate limit via the check_rate_limit RPC (service_role only).
   const { data: rateLimitData, error: rateLimitErr } = await supabaseAdmin.rpc(
     "check_rate_limit",
     {
@@ -46,24 +59,32 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  if (rateLimitErr) {
-    console.error("Database Rate Limiter Error:", rateLimitErr);
-  } else if (rateLimitData && rateLimitData.length > 0) {
-    const { allowed, reset_time } = rateLimitData[0];
-    
-    if (!allowed) {
-      const resetMs = new Date(reset_time).getTime();
-      const retryAfterSeconds = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
-      return NextResponse.json(
-        { error: `Too many requests. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": retryAfterSeconds.toString(),
-          },
-        }
-      );
-    }
+  // Fail closed: if the rate limit can't be evaluated, don't send.
+  if (rateLimitErr || !rateLimitData || rateLimitData.length === 0) {
+    console.error(
+      "[Contact API] Rate limiter unavailable; failing closed:",
+      rateLimitErr ?? "no rate-limit decision returned"
+    );
+    return NextResponse.json(
+      { error: "The contact form is temporarily unavailable. Please try again later." },
+      { status: 503 }
+    );
+  }
+
+  const { allowed, reset_time } = rateLimitData[0];
+
+  if (!allowed) {
+    const resetMs = new Date(reset_time).getTime();
+    const retryAfterSeconds = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: `Too many requests. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.` },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": retryAfterSeconds.toString(),
+        },
+      }
+    );
   }
 
   try {
