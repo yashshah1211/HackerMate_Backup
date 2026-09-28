@@ -1,95 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Inbox } from "lucide-react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
+import { Button, ButtonLink, EmptyState, ErrorNotice, Page, PageHeader, SkeletonRows, TeamMark } from "@/components/system";
+import { TeamsTabs } from "@/app/teams/TeamsTabs";
 
 type Invite = {
   id: string;
   status: string;
   team_id: string;
-  teams: {
-    id: string;
-    name: string;
-    description: string;
-    max_members: number;
-  };
-  profiles: {
-    full_name: string;
-  };
+  teams: { id: string; name: string; description: string | null; max_members: number } | null;
+  profiles: { full_name: string | null } | null;
 };
 
+/**
+ * Team invites. Same query, realtime channel and RPCs as V1
+ * (accept_team_invite / reject_team_invite).
+ */
 export default function InvitesPage() {
   const { showToast } = useNotification();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    let unsub: (() => void) | null = null;
-
-    loadInvites();
-
-    Promise.resolve().then(async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      if (!active) return;
-
-      const inviteChannel = supabase.channel(`team_invites:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "team_invites",
-            filter: `invited_user_id=eq.${user.id}`,
-          },
-          () => {
-            loadInvites();
-          }
-        );
-      unsub = subscribeWithRetry(inviteChannel);
-    });
-
-    return () => {
-      active = false;
-      if (unsub) unsub();
-    };
-  }, []);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function loadInvites() {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         setLoading(false);
         return;
       }
-
-      const { data, error } = await supabase
+      const { data, error: qErr } = await supabase
         .from("team_invites")
-        .select(`
-          *,
-          teams (
-            id,
-            name,
-            description,
-            max_members
-          ),
-          profiles!team_invites_invited_by_fkey (
-            full_name
-          )
-        `)
+        .select(`*, teams ( id, name, description, max_members ), profiles!team_invites_invited_by_fkey ( full_name )`)
         .eq("invited_user_id", user.id)
         .eq("status", "pending");
-
-      if (error) {
-        console.error(error);
+      if (qErr) {
+        console.error("[invites] load failed:", qErr);
+        setError(qErr.message);
       } else {
-        setInvites(data as Invite[] || []);
+        setError(null);
+        setInvites((data as Invite[]) || []);
       }
     } catch (err) {
       console.error(err);
@@ -97,152 +55,126 @@ export default function InvitesPage() {
     setLoading(false);
   }
 
-  async function acceptInvite(invite: Invite) {
-    try {
+  useEffect(() => {
+    let active = true;
+    let unsub: (() => void) | null = null;
+    Promise.resolve().then(async () => {
+      await loadInvites();
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (!user || !active) return;
+      const channel = supabase
+        .channel(`team_invites:${user.id}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "team_invites", filter: `invited_user_id=eq.${user.id}` }, () => {
+          loadInvites();
+        });
+      unsub = subscribeWithRetry(channel);
+    });
+    return () => {
+      active = false;
+      if (unsub) unsub();
+    };
+  }, []);
 
-      if (!user) return;
-
-      const { error } = await supabase.rpc("accept_team_invite", {
-        p_invite_id: invite.id,
-      });
-
-      if (error) {
-        showToast(error.message, "error");
+  async function acceptInvite(invite: Invite) {
+    setBusyId(invite.id);
+    try {
+      const { error: rpcErr } = await supabase.rpc("accept_team_invite", { p_invite_id: invite.id });
+      if (rpcErr) {
+        showToast(rpcErr.message, "error");
         return;
       }
-
       showToast("Invite accepted!", "success");
+      window.dispatchEvent(new Event("hm:teams-changed"));
       loadInvites();
     } catch (err) {
       console.error(err);
       showToast("Failed to accept invite.", "error");
+    } finally {
+      setBusyId(null);
     }
   }
 
   async function rejectInvite(inviteId: string) {
+    setBusyId(inviteId);
     try {
-      const { error } = await supabase.rpc("reject_team_invite", {
-        p_invite_id: inviteId,
-      });
-
-      if (error) {
-        showToast(error.message, "error");
+      const { error: rpcErr } = await supabase.rpc("reject_team_invite", { p_invite_id: inviteId });
+      if (rpcErr) {
+        showToast(rpcErr.message, "error");
         return;
       }
-
       showToast("Invite rejected.", "info");
       loadInvites();
     } catch (err) {
       console.error(err);
       showToast("Failed to reject invite.", "error");
+    } finally {
+      setBusyId(null);
     }
   }
 
-  if (loading) {
-    return (
-      <main className="max-w-5xl mx-auto px-6 pt-24 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading invites...</p>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="max-w-5xl mx-auto px-6 pt-24 pb-12">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-white mb-1">
-          Team Invites
-        </h1>
-
-        <p className="text-xs text-zinc-400">
-          Accept or reject invitations from team owners.
-        </p>
-      </div>
-
-      {invites.length === 0 ? (
-        <div className="card card-static p-12 text-center animate-fade-in-up">
-          <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4 text-zinc-500">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-7.5 4.125a2.25 2.25 0 01-2.134 0l-7.5-4.125A2.25 2.25 0 012.25 9V6.75m19.5 2.25v8.25A2.25 2.25 0 0119.5 19.5h-15A2.25 2.25 0 012.25 17.25V9"
-              />
-            </svg>
-          </div>
-
-          <h2 className="text-sm font-semibold text-white mb-1.5">
-            No invites yet
-          </h2>
-
-          <p className="text-xs text-zinc-500">
-            When team owners invite you, they&apos;ll appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {invites.map((invite) => (
-            <div
-              key={invite.id}
-              className="card card-static p-5 animate-fade-in-up"
-            >
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-semibold text-white mb-1">
-                    {invite.teams?.name}
-                  </h2>
-
-                  <p className="text-xs text-zinc-400 mb-3">
-                    {invite.teams?.description ||
-                      "No description provided."}
-                  </p>
-
-                  <div className="text-[10px] text-zinc-500">
-                    Invited by{" "}
-                    <span className="text-zinc-400 font-semibold">
-                      {invite.profiles?.full_name}
-                    </span>
+    <Page>
+      <PageHeader
+        title="Teams"
+        meta={loading ? "Checking invites…" : invites.length ? `${invites.length} team${invites.length === 1 ? " wants" : "s want"} you` : "No pending invites"}
+        tabs={<TeamsTabs invites={invites.length} />}
+      />
+      <div className="mt-7">
+        {error && <ErrorNotice className="mb-4" title="Couldn't load invites" detail={error} onRetry={loadInvites} />}
+        {loading ? (
+          <SkeletonRows rows={2} avatar="square" />
+        ) : invites.length === 0 ? (
+          <EmptyState
+            icon={<Inbox />}
+            title="No invites yet"
+            body="When a team owner invites you, it shows up here and on your home screen."
+            action={
+              <ButtonLink href="/teams" size="sm" variant="secondary">
+                Find a team
+              </ButtonLink>
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
+            <AnimatePresence initial={false}>
+              {invites.map((inv) => (
+                <motion.li
+                  key={inv.id}
+                  layout
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: 24 }}
+                  className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center"
+                >
+                  <div className="flex min-w-0 flex-1 items-start gap-3.5">
+                    <TeamMark name={inv.teams?.name} size="lg" />
+                    <div className="min-w-0">
+                      <Link href={`/teams/${inv.team_id}`} className="text-[15px] font-semibold text-ink hover:underline decoration-line-strong underline-offset-4">
+                        {inv.teams?.name || "A team"}
+                      </Link>
+                      <p className="mt-0.5 text-[12.5px] text-ink-3">Invited by {inv.profiles?.full_name || "the team owner"}</p>
+                      <p className="mt-1.5 line-clamp-2 text-[13px] text-ink-2">{inv.teams?.description || "No description provided."}</p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-                  <Link
-                    href={`/teams/${invite.team_id}`}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 transition inline-flex items-center gap-1"
-                  >
-                    View Team Overview →
-                  </Link>
-
-                  <button
-                    onClick={() => acceptInvite(invite)}
-                    className="btn btn-lime btn-sm font-bold bg-[#B4F461] text-[#09090b] hover:bg-[#a3e64f]"
-                  >
-                    Accept
-                  </button>
-
-                  <button
-                    onClick={() => rejectInvite(invite.id)}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </main>
+                  <div className="flex shrink-0 items-center gap-1.5 pl-[62px] sm:pl-0">
+                    <ButtonLink href={`/teams/${inv.team_id}`} size="sm" variant="ghost">
+                      View team
+                    </ButtonLink>
+                    <Button size="sm" variant="ghost" disabled={busyId === inv.id} onClick={() => rejectInvite(inv.id)}>
+                      Decline
+                    </Button>
+                    <Button size="sm" variant="primary" loading={busyId === inv.id} onClick={() => acceptInvite(inv)}>
+                      Accept
+                    </Button>
+                  </div>
+                </motion.li>
+              ))}
+            </AnimatePresence>
+          </ul>
+        )}
+      </div>
+    </Page>
   );
 }

@@ -11,14 +11,14 @@ type HackathonRef = { id?: string; name?: string; type?: string | null; tags?: s
 export function getTeamCategoryInfo(team: {
   hackathon_id?: string | null;
   hackathons?: HackathonRef;
-  team_hackathons?: { hackathon_id: string; hackathons: HackathonRef }[];
+  team_hackathons?: { hackathon_id?: string; hackathons: HackathonRef }[];
 }): {
   category: TeamCategory;
   tag: "SIH" | "PROJECT" | "HACKATHON";
   eventName: string;
 } {
   const hackathon = team.team_hackathons?.[0]?.hackathons || team.hackathons;
-  const targetHackathonId = team.team_hackathons?.[0]?.hackathon_id || team.hackathon_id;
+  const targetHackathonId = team.team_hackathons?.[0]?.hackathon_id || team.team_hackathons?.[0]?.hackathons?.id || team.hackathon_id;
 
   // 1. Exact relational UUID check for SIH
   if (targetHackathonId === SIH_HACKATHON_ID || hackathon?.id === SIH_HACKATHON_ID) {
