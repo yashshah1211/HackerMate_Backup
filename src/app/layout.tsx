@@ -1,19 +1,28 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+import AppShell from "@/components/shell/AppShell";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { AppProviders } from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// V2 type system: Instrument Sans for UI, Bricolage Grotesque for display
+// moments (page titles, names, numerals), JetBrains Mono for data and labels.
+const uiSans = Instrument_Sans({
+  variable: "--font-ui",
   subsets: ["latin"],
+  axes: ["wdth"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const displayFace = Bricolage_Grotesque({
+  variable: "--font-display-face",
+  subsets: ["latin"],
+  axes: ["opsz", "wdth"],
+});
+
+const codeMono = JetBrains_Mono({
+  variable: "--font-code",
   subsets: ["latin"],
 });
 
@@ -68,11 +77,12 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f3ee" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0f0e" },
   ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -96,9 +106,17 @@ export default function RootLayout({
     <html
       lang="en"
       data-scroll-behavior="smooth"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${uiSans.variable} ${displayFace.variable} ${codeMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
+        {/* Apply the saved theme before first paint (mirrors AppShell's rule:
+            public routes and signed-out visitors are always dark). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=location.pathname;var pub=["/","/login","/faq","/terms","/privacy","/contact","/partners","/onboarding"];var forced=pub.indexOf(p)>-1||p.indexOf("/partners/")===0||p.indexOf("/hackathons/sih")===0;var t="dark";if(!forced&&localStorage.getItem("hackermate_user_cache")&&localStorage.getItem("theme")==="light"){t="light"}var c=document.documentElement.classList;c.remove("dark","light");c.add(t)}catch(e){}})();`,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -131,10 +149,10 @@ export default function RootLayout({
           </>
         )}
       </head>
-      <body className="min-h-[100dvh] bg-[var(--background)]">
+      <body className="min-h-[100dvh] bg-canvas text-ink font-sans">
         <AppProviders>
           <NotificationProvider>
-            <Navbar>{children}</Navbar>
+            <AppShell>{children}</AppShell>
             <Analytics />
           </NotificationProvider>
         </AppProviders>

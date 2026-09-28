@@ -9,13 +9,13 @@ type Status = "idle" | "submitting" | "success" | "error";
 
 export default function FeedbackWidget() {
   const pathname = usePathname();
-  if (pathname?.startsWith("/admin")) return null;
-
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("suggestion");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+
+  if (pathname?.startsWith("/admin")) return null;
 
   function close() {
     setOpen(false);
@@ -67,14 +67,12 @@ export default function FeedbackWidget() {
         onClick={() => setOpen(true)}
         title="Send feedback"
         className="
-          fixed bottom-6 right-6 z-50
-          hidden lg:flex items-center gap-2
-          bg-violet-600 hover:bg-violet-700
-          text-white text-xs font-semibold
-          pl-3.5 pr-4 py-2.5 rounded-full
-          shadow-lg shadow-violet-900/30
-          transition-all duration-200 hover:scale-105 active:scale-95
-          border border-violet-500/40
+          fixed bottom-5 right-5 z-40
+          hidden lg:flex items-center gap-1.5
+          h-8 px-3 rounded-md
+          bg-raised border border-line-strong shadow-pop
+          text-ink-3 hover:text-ink hover:border-ink-4 text-[12.5px] font-medium
+          transition-colors active:scale-[0.98]
         "
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -168,7 +166,7 @@ export default function FeedbackWidget() {
                   <p className="text-xs text-[var(--text-muted)]">We&apos;ll review it and get back to you soon.</p>
                   <button
                     onClick={close}
-                    className="mt-5 text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+                    className="mt-5 text-xs font-semibold text-ink-2 hover:text-ink transition-colors"
                   >
                     Close
                   </button>
@@ -208,9 +206,9 @@ export default function FeedbackWidget() {
                       type="submit"
                       disabled={status === "submitting" || !message.trim()}
                       className="
-                        shrink-0 flex items-center gap-2 bg-violet-600 hover:bg-violet-700
+                        shrink-0 flex items-center gap-2 bg-ink hover:opacity-90
                         disabled:opacity-50 disabled:cursor-not-allowed
-                        text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors
+                        text-canvas text-xs font-semibold px-4 py-2 rounded-md transition-opacity
                       "
                     >
                       {status === "submitting" ? (
