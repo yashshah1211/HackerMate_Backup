@@ -3,8 +3,11 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { Users } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 import TeamOverviewView from "@/components/TeamOverviewView";
 import { useNotification } from "@/context/NotificationContext";
+import { ButtonLink, EmptyState, Page, PageLoader } from "@/components/system";
 
 type Team = {
   id: string;
@@ -19,6 +22,8 @@ type Team = {
   is_recruiting?: boolean;
   github_repo_url?: string | null;
 };
+
+type ListedHackathon = { id: string; name: string; description?: string | null; start_date?: string; end_date?: string; status?: string };
 
 type Member = {
   id: string;
@@ -46,7 +51,7 @@ function TeamDetailsContent() {
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
@@ -56,7 +61,7 @@ function TeamDetailsContent() {
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [processedJoin, setProcessedJoin] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{ id: string; status: string } | null>(null);
-  const [listedHackathons, setListedHackathons] = useState<any[]>([]);
+  const [listedHackathons, setListedHackathons] = useState<ListedHackathon[]>([]);
 
   useEffect(() => {
     if (teamId) {
@@ -105,13 +110,13 @@ function TeamDetailsContent() {
       .single();
 
     if (teamError) {
-      console.error(teamError);
+      console.error("[team] team read failed:", teamError);
       setLoading(false);
       return;
     }
 
     const requestedHackathonId = searchParams.get("hackathon_id");
-    const linkedHackathons = (teamData.team_hackathons || []).map((th: any) => th.hackathon_id).filter(Boolean);
+    const linkedHackathons = ((teamData.team_hackathons || []) as { hackathon_id: string }[]).map((th) => th.hackathon_id).filter(Boolean);
     const linkedHackathonId = 
       (requestedHackathonId && linkedHackathons.includes(requestedHackathonId) ? requestedHackathonId : null) ||
       teamData.team_hackathons?.[0]?.hackathon_id || 
@@ -198,9 +203,9 @@ function TeamDetailsContent() {
       console.error("Error loading team hackathons:", hackError);
       setListedHackathons([]);
     } else if (hackData) {
-      const list = hackData
-        .map((h: any) => h.hackathons)
-        .filter(Boolean);
+      const list = (hackData as unknown as { hackathons: ListedHackathon | null }[])
+        .map((h) => h.hackathons)
+        .filter((h): h is ListedHackathon => Boolean(h));
       setListedHackathons(list);
     } else {
       setListedHackathons([]);
@@ -404,24 +409,23 @@ function TeamDetailsContent() {
     teamSkills.length > 0 ? Math.round((matchedSkills.length / teamSkills.length) * 100) : 0;
 
   if (loading) {
-    return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team details...</p>
-        </div>
-      </main>
-    );
+    return <PageLoader label="Loading team" />;
   }
 
   if (!team) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-12 text-center">
-          <h1 className="text-sm font-semibold text-white mb-1">Team not found</h1>
-          <p className="text-xs text-zinc-500">This team does not exist or has been deleted.</p>
-        </div>
-      </main>
+      <Page width="narrow" className="pt-10">
+        <EmptyState
+          icon={<Users />}
+          title="Team not found"
+          body="This team doesn't exist or has been disbanded."
+          action={
+            <ButtonLink href="/teams" size="sm" variant="secondary">
+              Browse teams
+            </ButtonLink>
+          }
+        />
+      </Page>
     );
   }
 
@@ -453,14 +457,7 @@ function TeamDetailsContent() {
 
 export default function TeamDetailsPage() {
   return (
-    <Suspense fallback={
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team...</p>
-        </div>
-      </main>
-    }>
+    <Suspense fallback={<PageLoader label="Loading team" />}>
       <TeamDetailsContent />
     </Suspense>
   );
