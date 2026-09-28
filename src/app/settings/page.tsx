@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
+import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
 
 interface BlockedUserItem {
@@ -1038,6 +1039,8 @@ function SettingsContent() {
               </button>
             </div>
           </div>
+
+          <DeleteAccountSection />
         </div>
       )}
 

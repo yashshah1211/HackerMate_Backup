@@ -350,9 +350,9 @@ export default function TeamOverviewView({
   const handleLeaveTeam = (memberId: string) => {
     if (isOwner) {
       confirm({
-        title: "Leave and disband the team?",
-        message: "You lead this team. Leaving disbands it for everyone, including the workspace.",
-        confirmText: "Leave & disband",
+        title: "Disband this team?",
+        message: "You lead this team, so leaving disbands it for everyone. Members lose the workspace, chat, tasks and files. This can't be undone.",
+        confirmText: "Disband team",
         cancelText: "Cancel",
         onConfirm: () => {
           if (disbandTeam) disbandTeam();
@@ -416,7 +416,11 @@ export default function TeamOverviewView({
     overflow.push({ label: "Share team", icon: <Share2 />, onSelect: () => setShowShareModal(true) });
     if (isSIHTeam) overflow.push({ label: "SIH SPOC export", icon: <FileDown />, onSelect: () => setShowSIHExportModal(true) });
     if (selfMember) {
-      overflow.push({ type: "separator" }, { label: isOwner ? "Leave & disband team" : "Leave team", icon: <LogOut />, tone: "danger", onSelect: () => handleLeaveTeam(selfMember.id) });
+      overflow.push(
+        { type: "separator" },
+        isOwner ? { type: "label", label: "Owner" } : { type: "label", label: "Membership" },
+        { label: isOwner ? "Disband team…" : "Leave team…", icon: <LogOut />, tone: "danger", onSelect: () => handleLeaveTeam(selfMember.id) },
+      );
     }
   }
 
@@ -478,10 +482,10 @@ export default function TeamOverviewView({
         </div>
       </header>
 
-      <div className="mt-9 grid gap-10 border-t border-line pt-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
+      <div className="mt-9 grid grid-cols-1 gap-10 border-t border-line pt-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
         <div className="min-w-0 space-y-10">
           <Section title="What we're building">
-            <p className="max-w-[68ch] whitespace-pre-line text-[15px] leading-[1.65] text-ink-2">{team.description || "No description yet."}</p>
+            <p className="max-w-[68ch] whitespace-pre-line break-words text-[15px] leading-[1.65] text-ink-2 [overflow-wrap:anywhere]">{team.description || "No description yet."}</p>
           </Section>
 
           {/* Roster: filled seats then open seats */}
@@ -500,7 +504,7 @@ export default function TeamOverviewView({
                             {member.profiles?.full_name}
                           </Link>
                           {member.role === "owner" ? <Tape tone="solid">Owner</Tape> : <Tape>Member</Tape>}
-                          {isSelf && <span className="caps-label text-ink-4">you</span>}
+                          {isSelf && <span className="caps-label text-ink-3">you</span>}
                         </div>
                         {editing ? (
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -556,20 +560,15 @@ export default function TeamOverviewView({
                         )}
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-1.5 pl-12 sm:pl-0">
-                      {isSelf ? (
-                        <Button size="sm" variant="ghost" icon={<LogOut />} onClick={() => handleLeaveTeam(member.id)}>
-                          {isOwner ? "Leave & disband" : "Leave"}
+                    {/* Leaving / disbanding lives in the team's "…" menu (with
+                        confirmation), not beside your own name in the roster. */}
+                    {!isSelf && isOwner && member.profiles.id !== team.owner_id && (
+                      <div className="flex shrink-0 gap-1.5 pl-12 sm:pl-0">
+                        <Button size="sm" variant="ghost" icon={<UserMinus />} onClick={() => removeMember(member.id)}>
+                          Remove
                         </Button>
-                      ) : (
-                        isOwner &&
-                        member.profiles.id !== team.owner_id && (
-                          <Button size="sm" variant="ghost" icon={<UserMinus />} onClick={() => removeMember(member.id)}>
-                            Remove
-                          </Button>
-                        )
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -608,8 +607,11 @@ export default function TeamOverviewView({
             {!canAccessWorkspace && !isPublicVisitor && typeof matchScore === "number" && (team.skills?.length ?? 0) > 0 && (
               <div className="mt-4 rounded-lg border border-line p-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-[13px] font-semibold text-ink">Your fit</span>
-                  <span className={cn("font-display text-[22px] font-semibold leading-none tabular", matchScore >= 70 ? "text-ok" : matchScore >= 40 ? "text-warn" : "text-ink-3")}>{matchScore}%</span>
+                  <span className="text-[13px] font-semibold text-ink">Skills you already have</span>
+                  <span className={cn("font-display text-[22px] font-semibold leading-none tabular", matchScore >= 70 ? "text-ok" : matchScore >= 40 ? "text-warn" : "text-ink-3")}>
+                    {matchedSkills.length}
+                    <span className="text-[14px] text-ink-4">/{team.skills?.length ?? 0}</span>
+                  </span>
                 </div>
                 {matchedSkills.length > 0 && <p className="mt-2 text-[12.5px] text-ink-3">You bring <span className="text-ink-2">{matchedSkills.join(", ")}</span>.</p>}
                 {missingSkills.length > 0 && <p className="mt-1 text-[12.5px] text-ink-3">Still needed: <span className="text-ink-2">{missingSkills.join(", ")}</span>.</p>}
@@ -628,7 +630,7 @@ export default function TeamOverviewView({
           )}
         </div>
 
-        <aside className="space-y-9">
+        <aside className="min-w-0 space-y-9">
           <Section title="At a glance">
             <dl className="divide-y divide-line rounded-lg border border-line">
               <Fact label="Seats" value={<SeatMeter filled={members.length} total={team.max_members} />} />
@@ -874,7 +876,7 @@ export default function TeamOverviewView({
 function Fact({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-      <dt className="caps-label text-ink-4">{label}</dt>
+      <dt className="caps-label text-ink-3">{label}</dt>
       <dd className="min-w-0 truncate text-right text-[13px] text-ink-2">{value}</dd>
     </div>
   );

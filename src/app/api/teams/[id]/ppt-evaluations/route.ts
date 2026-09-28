@@ -46,11 +46,28 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: evaluations, error } = await supabaseAdmin
+    const BASE_COLUMNS =
+      "id, team_id, ps_title, ps_category, submission_type, external_link_url, file_name, version, status, score_novelty, score_tech, score_ui_ux, score_team, score_impact, score_plan, score_clarity, total_score, grade, slide_breakdown, ai_feedback, error_message, created_at, updated_at";
+
+    let { data: evaluations, error } = await supabaseAdmin
       .from("team_ppt_evaluations")
-      .select("id, team_id, track_id, ps_title, ps_category, submission_type, external_link_url, file_name, version, status, score_novelty, score_tech, score_ui_ux, score_team, score_impact, score_plan, score_clarity, total_score, grade, slide_breakdown, ai_feedback, error_message, created_at, updated_at")
+      .select(`${BASE_COLUMNS}, track_id`)
       .eq("team_id", teamId)
       .order("version", { ascending: false });
+
+    // Migration 20260905210000 (track_id) is not applied on every environment.
+    // Postgres reports the missing column as 42703; retry without it so the
+    // list still loads. The client already falls back to ai_feedback.track_id.
+    if (error && error.code === "42703") {
+      console.warn("[PPT Evaluations List] track_id column missing; retrying without it:", error.message);
+      const retry = await supabaseAdmin
+        .from("team_ppt_evaluations")
+        .select(BASE_COLUMNS)
+        .eq("team_id", teamId)
+        .order("version", { ascending: false });
+      evaluations = retry.data as typeof evaluations;
+      error = retry.error;
+    }
 
     if (error) {
       console.error("[PPT Evaluations List] DB query error:", error);

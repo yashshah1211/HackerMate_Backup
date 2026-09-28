@@ -74,7 +74,8 @@ export function Segmented<T extends string>({
       aria-label={label}
       className={cn(
         "inline-flex items-center rounded-md bg-sunken p-0.5 ring-1 ring-inset ring-line",
-        size === "sm" ? "h-7" : "h-8",
+        // Taller on touch screens so each segment is a comfortable target.
+        size === "sm" ? "h-9 md:h-7" : "h-10 md:h-8",
         className,
       )}
     >

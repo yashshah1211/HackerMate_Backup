@@ -185,7 +185,7 @@ export function ProfileView(props: Props) {
                 i === 3 && "md:border-l",
               )}
             >
-              <dt className="caps-label truncate text-ink-4">{f.label}</dt>
+              <dt className="caps-label truncate text-ink-3">{f.label}</dt>
               <dd className={cn("mt-1 font-display text-[21px] font-semibold leading-none tabular", f.tone || "text-ink")}>{f.value}</dd>
             </div>
           ))}
@@ -278,22 +278,24 @@ export function ProfileView(props: Props) {
 
             {isOwnProfile ? (
               <Section title="Your profile">
-                <div className="space-y-2">
-                  <ButtonLink href="/profile/edit" variant="secondary" className="w-full" icon={<PenLine />}>
-                    Edit profile
-                  </ButtonLink>
-                  <Link href="/settings?tab=privacy" className="flex items-center justify-between rounded-md px-1 py-1.5 text-[12.5px] text-ink-3 hover:text-ink">
-                    Track record: {isPrivate ? "hidden" : "public"}
-                    <ArrowUpRight className="size-3.5" aria-hidden />
-                  </Link>
-                </div>
-                <div className="mt-6 rounded-lg border border-bad/25 p-3.5">
-                  <p className="caps-label text-bad">Danger zone</p>
-                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-3">Deletes your profile, DMs and files, and disbands teams where you&apos;re the only member.</p>
-                  <Button size="sm" variant="danger" className="mt-3" onClick={props.actions.onDelete}>
-                    Delete account
-                  </Button>
-                </div>
+                {/* Edit lives in the header (desktop) and the sticky bar (mobile);
+                    account deletion lives in Settings → Account. */}
+                <ul className="divide-y divide-line rounded-lg border border-line">
+                  <li>
+                    <Link href="/settings?tab=privacy" className="flex min-h-11 items-center justify-between gap-2 px-3.5 py-2.5 text-[13px] text-ink-2 hover:bg-hover hover:text-ink">
+                      <span>
+                        Track record <span className="text-ink-3">· {isPrivate ? "hidden" : "public"}</span>
+                      </span>
+                      <ArrowUpRight className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/settings?tab=account" className="flex min-h-11 items-center justify-between gap-2 px-3.5 py-2.5 text-[13px] text-ink-2 hover:bg-hover hover:text-ink">
+                      Account &amp; sign-out settings
+                      <ArrowUpRight className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+                    </Link>
+                  </li>
+                </ul>
               </Section>
             ) : (
               props.viewerId && (
@@ -424,7 +426,7 @@ function LinkRow({ href, icon, label, value, external = true }: { href: string; 
         <span className="text-ink-3 group-hover:text-ink">{icon}</span>
         <span className="min-w-0 flex-1">
           <span className="block text-[12.5px] font-medium text-ink">{label}</span>
-          <span className="block truncate font-mono text-[11px] text-ink-4">{value}</span>
+          <span className="block truncate font-mono text-[11.5px] text-ink-3">{value}</span>
         </span>
         <ArrowUpRight className="size-3.5 text-ink-4 group-hover:text-ink" aria-hidden />
       </a>
@@ -525,7 +527,7 @@ function TrackRecord({ data, loading, isOwner }: { data: TrackRecordData | null;
                 <div className="pt-0.5 font-mono text-[11px] uppercase leading-tight text-ink-3 tabular">
                   {when ? new Date(when).toLocaleDateString("en-IN", { month: "short" }) : "—"}
                   <br />
-                  <span className="text-ink-4">{when ? new Date(when).getFullYear() : ""}</span>
+                  <span className="text-ink-3">{when ? new Date(when).getFullYear() : ""}</span>
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -552,7 +554,7 @@ function TrackRecord({ data, loading, isOwner }: { data: TrackRecordData | null;
                   {submission && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
                       <span className="text-ink-2">
-                        <span className="text-ink-4">Project</span> {submission.project_title}
+                        <span className="text-ink-3">Project</span> {submission.project_title}
                       </span>
                       {submission.demo_url && <ExtLink href={submission.demo_url}>Demo</ExtLink>}
                       {submission.github_url && <ExtLink href={submission.github_url}>Code</ExtLink>}
@@ -669,11 +671,11 @@ function GithubSection({ stats, syncedAt, isOwner, syncing, onSync }: { stats: G
         <div className="space-y-5">
           <div className="flex gap-8">
             <div>
-              <div className="caps-label text-ink-4">Public repos</div>
+              <div className="caps-label text-ink-3">Public repos</div>
               <div className="mt-1 font-display text-[21px] font-semibold leading-none tabular">{stats.public_repos}</div>
             </div>
             <div>
-              <div className="caps-label text-ink-4">Followers</div>
+              <div className="caps-label text-ink-3">Followers</div>
               <div className="mt-1 font-display text-[21px] font-semibold leading-none tabular">{stats.followers}</div>
             </div>
           </div>
@@ -689,7 +691,7 @@ function GithubSection({ stats, syncedAt, isOwner, syncing, onSync }: { stats: G
                   <li key={lang} className="flex items-center gap-1.5 text-[12px] text-ink-2">
                     <span className="size-2 rounded-full" style={{ backgroundColor: LANG_COLORS[lang] || "#8b8880" }} aria-hidden />
                     {lang}
-                    <span className="font-mono text-[11px] text-ink-4">{Math.round((n / total) * 100)}%</span>
+                    <span className="font-mono text-[11.5px] text-ink-3">{Math.round((n / total) * 100)}%</span>
                   </li>
                 ))}
               </ul>

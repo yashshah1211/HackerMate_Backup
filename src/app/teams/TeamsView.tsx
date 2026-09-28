@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Plus, SlidersHorizontal, Target, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Plus, SlidersHorizontal, Target, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -23,6 +23,7 @@ import {
   TeamMark,
 } from "@/components/system";
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
+import { coverageLabel, teamSkillCoverage } from "@/lib/matchPresentation";
 import { TeamsTabs } from "./TeamsTabs";
 import { teamMatchScore, teamStatus, type ListTeam } from "./useTeamsData";
 
@@ -67,6 +68,7 @@ export function TeamsView({
         t,
         status: teamStatus(t, today),
         match: teamMatchScore(t.skills, viewerSkills),
+        coverage: coverageLabel(teamSkillCoverage(t.skills, viewerSkills)),
         info: getTeamCategoryInfo(t),
         events: hackathonNames(t),
       })),
@@ -242,7 +244,7 @@ export function TeamsView({
           ) : (
             <>
               <ul className="divide-y divide-line border-y border-line" data-stagger>
-                {results.slice(0, limit).map(({ t, status, match, info, events }) => {
+                {results.slice(0, limit).map(({ t, status, coverage, info, events }) => {
                   const ppt = t.team_ppt_evaluations?.find((e) => e.status === "completed");
                   const tone = CATEGORY_TONE[info.category];
                   return (
@@ -259,7 +261,12 @@ export function TeamsView({
                             </Link>
                             {status.full ? <Tape tone="bad">Full</Tape> : status.closed ? <Tape>Closed</Tape> : <Tape tone="accent" dot>Recruiting</Tape>}
                             <Tape tone={tone}>{info.tag}</Tape>
-                            {match > 0 && <Tape tone="info">{match}% skill match</Tape>}
+                            {coverage && (
+                              <span className="inline-flex items-center gap-1 text-[12px] text-info">
+                                <CheckCircle2 className="size-3.5" aria-hidden />
+                                {coverage}
+                              </span>
+                            )}
                           </div>
                           <p className="mt-1 line-clamp-1 text-[13px] text-ink-2">{t.description || "No description yet."}</p>
                           <p className="mt-1 truncate text-[12.5px] text-ink-3">

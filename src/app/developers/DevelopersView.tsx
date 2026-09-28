@@ -27,6 +27,7 @@ import {
 } from "@/components/system";
 import { isOnline, relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { fitBand, matchReason } from "@/lib/matchPresentation";
 import { compatibilityFor, type Builder, type OwnedTeam, type Recommendation, type Relationship } from "./useDevelopersData";
 
 type Sort = "fit" | "active" | "new";
@@ -407,8 +408,13 @@ function BuilderRow({
   const wins = b.hackathon_wins ?? 0;
   const competed = b.has_participated_hackathon || (b.hackathon_participations ?? 0) > 0;
   const online = isOnline(b.last_seen_at);
-  const reason = rec?.reasons?.[0];
-  const discovery = Boolean(reason && /discovery suggestion/i.test(reason));
+  const why = matchReason({ reasons: rec?.reasons, builderSkills: b.skills, viewerSkills });
+  const reason = why?.text;
+  const discovery = Boolean(why?.discovery);
+  // Engine-scored builders always get a band; the client-side Jaccard fallback
+  // only earns one when the overlap is meaningful, so the list isn't a wall of
+  // "Possible fit" labels.
+  const band = rec || (fit ?? 0) >= 40 ? fitBand(fit, rec?.confidence) : null;
 
   return (
     <li className="group relative flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:gap-4">
@@ -457,11 +463,10 @@ function BuilderRow({
       </div>
 
       <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 pl-[60px] sm:w-[190px] sm:flex-col sm:items-end sm:justify-start sm:pl-0">
-        {fit !== null && (
-          <span className="flex items-baseline gap-1" title="Compatibility with you">
-            <span className="font-display text-[22px] font-semibold leading-none text-ink tabular">{fit}</span>
-            <span className="caps-label text-ink-4">fit</span>
-          </span>
+        {band && (
+          <Tape tone={band.tone} title={band.detail}>
+            {band.label}
+          </Tape>
         )}
         <div className="flex items-center gap-1.5">
           {relationship === "connected" ? (

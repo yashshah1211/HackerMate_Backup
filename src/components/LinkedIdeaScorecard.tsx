@@ -161,7 +161,7 @@ export default function LinkedIdeaScorecard({
   if (error) {
     return (
       <div className={`p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-xs text-rose-600 dark:text-rose-400 flex items-center justify-between gap-3 ${className}`}>
-        <span>Failed to load team&apos;s linked idea benchmark: {error}</span>
+        <span>Couldn&apos;t load the team&apos;s Idea Evaluator scores: {error}</span>
         <button
           onClick={() => window.location.reload()}
           className="font-bold underline shrink-0 hover:opacity-80"
@@ -183,7 +183,7 @@ export default function LinkedIdeaScorecard({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider font-mono">
-                Linked Idea Pitch Benchmark
+                Score from the Idea Evaluator
               </h4>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                 Not Linked
@@ -230,7 +230,7 @@ export default function LinkedIdeaScorecard({
           <div className="flex items-center flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-700 dark:text-lime-300 text-[10px] font-mono font-bold uppercase tracking-wider">
               <Target className="w-3 h-3 text-lime-500" />
-              Linked Idea Benchmark
+              Idea Evaluator score
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
               {trackInfo.badge}
@@ -275,7 +275,7 @@ export default function LinkedIdeaScorecard({
           <div className="flex items-center gap-3 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 rounded-xl shadow-xs">
             <div className="text-right">
               <div className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 uppercase font-semibold">
-                Idea Benchmark
+                Idea score
               </div>
               <div className="flex items-baseline justify-end gap-1">
                 <span className={`text-2xl font-black ${getScoreColor(currentEval.total_score)}`}>

@@ -327,14 +327,14 @@ export default function SmartGapFiller({
         <div>
           <div className="flex items-center gap-2">
             <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-xs px-2.5 py-0.5 font-bold font-mono">
-              AI SQUAD MATCHER
+              Squad matcher
             </span>
             <span className="text-xs text-zinc-500">
               {6 - memberCount} slot{6 - memberCount > 1 ? "s" : ""} open
             </span>
           </div>
           <h3 className="text-base font-bold text-zinc-900 dark:text-white mt-1">
-            Recommended Builders Matching Your Required Skills
+            Builders who have the skills you&apos;re missing
           </h3>
           <p className="text-xs text-zinc-500">
             HackerMate matches active builders who have completed their profiles and possess the specific skills required by {teamName}.
@@ -364,7 +364,7 @@ export default function SmartGapFiller({
           <div className="flex items-center gap-2">
             <span className="badge bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 text-xs px-2.5 py-1 flex items-center gap-1.5 font-medium">
               <Shield className="w-3.5 h-3.5" />
-              Missing Mandatory Female Teammate for SIH Compliance
+              SIH requires at least one woman on the team
             </span>
           </div>
         )}
@@ -408,7 +408,7 @@ export default function SmartGapFiller({
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-300 dark:border-violet-700/50 flex items-center justify-center font-bold text-violet-700 dark:text-violet-300 text-sm overflow-hidden flex-shrink-0">
                         {c.avatar_url ? (
                           <img src={c.avatar_url} alt={c.full_name} className="w-full h-full object-cover" />
@@ -416,15 +416,15 @@ export default function SmartGapFiller({
                           c.full_name.charAt(0).toUpperCase()
                         )}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <Link
                           href={`/profile/${c.id}`}
-                          className="text-sm font-bold text-zinc-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors flex items-center gap-1"
+                          className="text-sm font-bold text-zinc-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors flex min-w-0 items-center gap-1"
                         >
-                          <span>{c.full_name}</span>
-                          <ExternalLink className="w-3 h-3 text-zinc-400" />
+                          <span className="truncate">{c.full_name}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0 text-zinc-400" />
                         </Link>
-                        <p className="text-xs text-zinc-500 truncate max-w-[200px]">{c.college}</p>
+                        <p className="text-xs text-zinc-500 truncate">{c.college}</p>
                       </div>
                     </div>
 

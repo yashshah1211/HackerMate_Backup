@@ -1,8 +1,6 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import ShareModal from "@/components/ShareModal";
@@ -12,7 +10,56 @@ import SmartGapFiller from "@/components/SmartGapFiller";
 import { KanbanTasksSkeleton, CommitsTimelineSkeleton, IdeationBoardSkeleton } from "@/components/workspace/WorkspaceSkeletons";
 import { WorkspaceFrame } from "@/components/workspace/WorkspaceFrame";
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
-import { Lightbulb, Clock, Globe, FileText, GitCommit, CheckSquare, Link2, Bell, AlertTriangle } from "lucide-react";
+import { relativeTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
+import {
+  Avatar,
+  Button,
+  Chip,
+  Dialog,
+  EmptyState,
+  ErrorNotice,
+  FieldLabel,
+  IconButton,
+  Input,
+  Panel,
+  Progress,
+  SearchField,
+  Segmented,
+  Select,
+  Spinner,
+  StatusDot,
+  Tape,
+  Textarea,
+} from "@/components/system";
+import {
+  AlertTriangle,
+  Bell,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  CheckSquare,
+  ChevronUp,
+  Clock,
+  Code,
+  Copy,
+  ExternalLink,
+  FileText,
+  GitBranch,
+  GitCommit,
+  Globe,
+  Lightbulb,
+  Link2,
+  MessageSquare,
+  PenTool,
+  Plus,
+  RefreshCw,
+  Save,
+  SquareKanban,
+  Trash2,
+  Unlink,
+  UserPlus,
+} from "lucide-react";
 
 type Team = {
   id: string;
@@ -1344,217 +1391,203 @@ export default function TeamWorkspaceView({
     };
   }, [selectedTask]);
 
-  // Markdown renderer helper
+  // Mobile-only pane switch for the shared doc (write / preview side by side on desktop).
+  const [docPane, setDocPane] = useState<"write" | "preview">("write");
+
+  // Clock for overdue / due-soon badges; refreshed every minute so render stays pure.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  /** Open the add-task dialog, optionally prefilled from a starter suggestion. */
+  const openAddTask = (title = "") => {
+    setTaskTitle(title);
+    setShowAddTaskModal(true);
+  };
+
+  /** Open the add-link dialog, optionally prefilled from a quick-add suggestion. */
+  const openAddLink = (title = "", category: "design" | "repo" | "document" | "other" = "other") => {
+    setLinkTitle(title);
+    setLinkCategory(category);
+    setShowAddLinkModal(true);
+  };
+
+  // Markdown preview for the shared doc (same subset as V1: #, ##, ###, -, **bold**).
   const renderMarkdown = (text: string) => {
     if (!text) return null;
     const lines = text.split("\n");
     return lines.map((line, idx) => {
       if (line.startsWith("# ")) {
-        return <h1 key={idx} className="text-sm font-bold text-white mt-4 mb-2">{line.slice(2)}</h1>;
+        return <h1 key={idx} data-v2-heading className="mb-2 mt-4 font-display text-[18px] font-semibold tracking-[-0.01em] text-ink first:mt-0">{line.slice(2)}</h1>;
       }
       if (line.startsWith("## ")) {
-        return <h2 key={idx} className="text-xs font-bold text-white mt-3 mb-2">{line.slice(3)}</h2>;
+        return <h2 key={idx} className="mb-1.5 mt-3.5 text-[15px] font-semibold text-ink">{line.slice(3)}</h2>;
       }
       if (line.startsWith("### ")) {
-        return <h3 key={idx} className="text-[11px] font-semibold text-white mt-2 mb-1">{line.slice(4)}</h3>;
+        return <h3 key={idx} className="mb-1 mt-3 text-[13.5px] font-semibold text-ink">{line.slice(4)}</h3>;
       }
       if (line.startsWith("- ") || line.startsWith("* ")) {
-        return <li key={idx} className="list-disc ml-5 text-zinc-300 text-xs mb-1">{line.slice(2)}</li>;
+        return <li key={idx} className="mb-1 ml-5 list-disc text-[13.5px] leading-relaxed text-ink-2">{line.slice(2)}</li>;
       }
 
       let content: React.ReactNode = line;
       if (line.includes("**")) {
         const parts = line.split("**");
-        content = parts.map((part, pIdx) => {
-          if (pIdx % 2 === 1) {
-            return <strong key={pIdx} className="font-bold text-white">{part}</strong>;
-          }
-          return part;
-        });
+        content = parts.map((part, pIdx) => (pIdx % 2 === 1 ? <strong key={pIdx} className="font-semibold text-ink">{part}</strong> : part));
       }
 
-      return <p key={idx} className="text-zinc-300 text-xs min-h-[1.2em] leading-relaxed mb-1">{content}</p>;
+      return <p key={idx} className="mb-1 min-h-[1.2em] text-[13.5px] leading-relaxed text-ink-2">{content}</p>;
     });
   };
 
+  const PRIORITY_TONE = { high: "bad", medium: "warn", low: "neutral" } as const;
+  const STATUS_LABEL = { todo: "To do", in_progress: "In progress", completed: "Done" } as const;
+  const miniSelect =
+    "h-8 min-w-0 cursor-pointer appearance-none rounded-[5px] bg-sunken px-2 text-[12px] text-ink-2 ring-1 ring-inset ring-line-strong transition-shadow hover:ring-ink-4 focus:outline-none focus-visible:ring-accent-ink";
+
   const renderTaskCard = (task: Task) => {
     const assignee = members.find((m) => m.profiles.id === task.assignee_id);
+    const due = task.due_date ? new Date(task.due_date) : null;
+    const overdue = Boolean(due && task.status !== "completed" && due.getTime() < nowMs);
     return (
-      <div
+      <li
         key={task.id}
         draggable
         onDragStart={(e) => handleDragStart(e, task.id)}
         onClick={(e) => {
           const target = e.target as HTMLElement;
-          if (
-            target.tagName === "SELECT" || 
-            target.tagName === "OPTION" || 
-            target.tagName === "INPUT" || 
-            target.tagName === "BUTTON" || 
-            target.closest("button") || 
-            target.closest("select") || 
-            target.closest("input")
-          ) {
-            return;
-          }
+          if (target.closest("button, select, input, a")) return;
           setSelectedTask(task);
         }}
-        className="p-3 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg space-y-3 relative group/card hover:border-[var(--card-hover-border)] transition-all cursor-pointer shadow-md hover:shadow-lg"
+        className="group/card relative cursor-pointer rounded-md border border-line bg-raised p-3 transition-colors hover:border-line-strong"
       >
-        <div className="flex justify-between items-start gap-2">
-          <h4 className="text-xs font-semibold text-zinc-900 dark:text-white break-words pr-4">{task.title}</h4>
+        <div className="flex items-start justify-between gap-2">
           <button
-            onClick={() => handleDeleteTask(task.id)}
-            className="opacity-0 group-hover/card:opacity-100 absolute top-2 right-2 text-zinc-400 hover:text-rose-500 transition-opacity cursor-pointer"
+            type="button"
+            onClick={() => setSelectedTask(task)}
+            className={cn(
+              "min-w-0 flex-1 break-words text-left text-[13.5px] font-medium leading-snug text-ink",
+              task.status === "completed" && "text-ink-3 line-through decoration-ink-4",
+            )}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            {task.title}
           </button>
+          <IconButton
+            label={`Delete task ${task.title}`}
+            size="sm"
+            onClick={() => handleDeleteTask(task.id)}
+            className="-mr-1 -mt-1 opacity-100 hover:text-bad md:opacity-0 md:focus-visible:opacity-100 md:group-hover/card:opacity-100"
+          >
+            <Trash2 />
+          </IconButton>
         </div>
 
-        {task.description && (
-          <p className="text-[10px] text-zinc-600 dark:text-zinc-400 leading-relaxed break-words">{task.description}</p>
-        )}
-        <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
-          <div className="flex items-center gap-1">
-            <select
-              value={task.status}
-              onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value as "todo" | "in_progress" | "completed")}
-              className="text-[9px] font-semibold bg-[var(--surface-2)] border border-[var(--card-border)] rounded px-1.5 py-0.5 text-[var(--text-secondary)] focus:outline-none hover:border-[var(--card-hover-border)] cursor-pointer"
-            >
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </select>
+        {task.description && <p className="mt-1 line-clamp-2 break-words text-[12.5px] leading-relaxed text-ink-3">{task.description}</p>}
 
-            <span className={`text-[8px] font-semibold px-1 py-0.5 rounded border uppercase ${
-              task.priority === "high"
-                ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                : task.priority === "medium"
-                  ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                  : "bg-[var(--surface-3)] border-[var(--card-border)] text-[var(--text-secondary)]"
-            }`}>
-              {task.priority}
-            </span>
-          </div>
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <Tape tone={PRIORITY_TONE[task.priority]}>{task.priority}</Tape>
+          {overdue && <Tape tone="bad">Overdue</Tape>}
+          <label className="ml-auto inline-flex items-center gap-1 text-ink-3">
+            <CalendarDays className="size-3.5 shrink-0" aria-hidden />
+            <span className="sr-only">Due date for {task.title}</span>
+            <input
+              type="date"
+              value={task.due_date ? task.due_date.split("T")[0] : ""}
+              onChange={(e) => handleUpdateTaskDueDate(task.id, e.target.value || null)}
+              className={cn(miniSelect, "h-7 w-[124px] px-1.5 font-mono text-[11.5px] dark:[color-scheme:dark]", overdue && "text-bad")}
+            />
+          </label>
+        </div>
 
-          <div className="flex items-center gap-1.5 min-w-0">
-            {assignee ? (
-              assignee.profiles.avatar_url ? (
-                <img
-                  src={assignee.profiles.avatar_url}
-                  alt={assignee.profiles.full_name}
-                  className="w-4 h-4 rounded-full object-cover border border-zinc-800 shrink-0"
-                />
-              ) : (
-                <div className="w-4 h-4 rounded-full bg-[var(--surface-2)] border border-[var(--card-border)] flex items-center justify-center font-bold text-[var(--text-secondary)] text-[8px] shrink-0">
-                  {assignee.profiles.full_name.charAt(0)}
-                </div>
-              )
-            ) : (
-              <div className="w-4 h-4 rounded-full bg-[var(--surface-2)] border border-[var(--card-border)] flex items-center justify-center text-[var(--text-muted)] text-[8px] shrink-0">
-                👤
-              </div>
-            )}
+        <div className="mt-2.5 flex items-center gap-1.5 border-t border-line pt-2.5">
+          <select
+            aria-label={`Status for ${task.title}`}
+            value={task.status}
+            onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value as "todo" | "in_progress" | "completed")}
+            className={cn(miniSelect, "w-[104px] shrink-0")}
+          >
+            <option value="todo">To do</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Done</option>
+          </select>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <Avatar name={assignee?.profiles.full_name || "?"} src={assignee?.profiles.avatar_url} size="xs" className={assignee ? undefined : "opacity-40"} />
             <select
+              aria-label={`Assignee for ${task.title}`}
               value={task.assignee_id || ""}
               onChange={(e) => handleUpdateTaskAssignee(task.id, e.target.value || null)}
-              className="text-[9px] font-semibold bg-[var(--surface-2)] border border-[var(--card-border)] rounded px-1 py-0.5 text-[var(--text-secondary)] focus:outline-none hover:border-[var(--card-hover-border)] truncate max-w-[85px] cursor-pointer"
+              className={cn(miniSelect, "flex-1 truncate")}
             >
-              <option value="">Assignee</option>
+              <option value="">Unassigned</option>
               {members.map((m) => (
                 <option key={m.profiles.id} value={m.profiles.id}>
                   {m.profiles.full_name.split(" ")[0]}
                 </option>
               ))}
             </select>
-          </div>
+          </span>
         </div>
-
-        {/* Due Date Indicator & Date Input */}
-        <div className="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-900/60 pt-2 mt-1">
-          {(() => {
-            if (!task.due_date) return <span className="text-[9px] text-zinc-600 font-mono italic">No due date</span>;
-            const dueDate = new Date(task.due_date);
-            const now = new Date();
-            const isOverdue = task.status !== "completed" && dueDate < now;
-            const formatted = dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-            return (
-              <div className={`flex items-center gap-1 text-[9px] font-semibold font-mono ${
-                isOverdue ? "text-rose-455" : "text-zinc-500"
-              }`}>
-                <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="truncate">{formatted} {isOverdue ? "(Overdue)" : ""}</span>
-              </div>
-            );
-          })()}
-
-          <input
-            type="date"
-            value={task.due_date ? task.due_date.split("T")[0] : ""}
-            onChange={(e) => handleUpdateTaskDueDate(task.id, e.target.value || null)}
-            className="text-[9px] bg-[var(--surface-2)] border border-[var(--card-border)] rounded px-1.5 py-0.5 text-[var(--text-tertiary)] focus:outline-none hover:border-[var(--card-hover-border)] cursor-pointer w-20 leading-none shrink-0"
-          />
-        </div>
-      </div>
+      </li>
     );
   };
 
-  const renderCategoryPanel = (cat: "design" | "repo" | "document" | "other", title: string, iconPath: string) => {
-    const catLinks = links.filter((l) => l.category === cat);
+  const LINK_CATEGORIES: { id: "design" | "repo" | "document" | "other"; label: string; icon: React.ReactNode; suggestion: string }[] = [
+    { id: "design", label: "Design", icon: <PenTool />, suggestion: "Figma file" },
+    { id: "repo", label: "Code", icon: <Code />, suggestion: "Repository" },
+    { id: "document", label: "Docs & slides", icon: <FileText />, suggestion: "Pitch deck" },
+    { id: "other", label: "Other", icon: <Link2 />, suggestion: "Problem statement" },
+  ];
+
+  const linkHost = (url: string) => {
+    try {
+      return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).host.replace(/^www\./, "");
+    } catch {
+      return url;
+    }
+  };
+
+  const renderCategoryPanel = (cat: (typeof LINK_CATEGORIES)[number]) => {
+    const catLinks = links.filter((l) => l.category === cat.id);
+    if (catLinks.length === 0) return null;
     return (
-      <div className="card card-static p-4 flex flex-col justify-between min-h-[220px] bg-[var(--surface-1)] border border-[var(--card-border)]">
-        <div>
-          <div className="flex items-center gap-2 mb-4 border-b border-zinc-200 dark:border-zinc-900 pb-2">
-            <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
-            </svg>
-            <h4 className="text-xs font-semibold text-zinc-900 dark:text-white truncate">{title}</h4>
-          </div>
-
-          <div className="space-y-2 overflow-y-auto max-h-[140px] pr-0.5">
-            {catLinks.map((link) => (
-              <div key={link.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-100/80 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-800 transition-colors group/link">
-                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  {link.hackathon_id ? (
-                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20 shrink-0">
-                      Track
-                    </span>
-                  ) : (
-                    <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 shrink-0">
-                      Global
-                    </span>
-                  )}
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white truncate font-medium underline underline-offset-2"
-                  >
-                    {link.title}
-                  </a>
-                </div>
-
-                <button
-                  onClick={() => handleDeleteLink(link.id)}
-                  className="opacity-0 group-hover/link:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity shrink-0 cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-
-            {catLinks.length === 0 && (
-              <p className="text-[9px] text-zinc-600 italic py-8 text-center font-mono">No links saved</p>
-            )}
-          </div>
+      <section key={cat.id} aria-label={cat.label} className="min-w-0">
+        <div className="mb-2 flex items-center gap-2 text-ink-3 [&_svg]:size-3.5">
+          {cat.icon}
+          <h3 className="text-[13px] font-semibold text-ink">{cat.label}</h3>
+          <span className="font-mono text-[11.5px] text-ink-3 tabular">{catLinks.length}</span>
         </div>
-      </div>
+        <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
+          {catLinks.map((link) => (
+            <li key={link.id} className="group/link flex items-center gap-3 px-3.5 py-2.5">
+              <span className="min-w-0 flex-1">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full items-center gap-1 truncate text-[13.5px] font-medium text-ink hover:underline decoration-line-strong underline-offset-4"
+                >
+                  <span className="truncate">{link.title}</span>
+                  <ExternalLink className="size-3 shrink-0 text-ink-3" aria-hidden />
+                </a>
+                <span className="mt-0.5 flex items-center gap-2">
+                  <span className="truncate font-mono text-[11.5px] text-ink-3">{linkHost(link.url)}</span>
+                  {link.hackathon_id ? <Tape tone="info">This event</Tape> : <Tape>All events</Tape>}
+                </span>
+              </span>
+              <IconButton
+                label={`Delete link ${link.title}`}
+                size="sm"
+                onClick={() => handleDeleteLink(link.id)}
+                className="opacity-100 hover:text-bad md:opacity-0 md:focus-visible:opacity-100 md:group-hover/link:opacity-100"
+              >
+                <Trash2 />
+              </IconButton>
+            </li>
+          ))}
+        </ul>
+      </section>
     );
   };
 
@@ -1685,1484 +1718,1051 @@ export default function TeamWorkspaceView({
       onShare={() => setShowShareModal(true)}
       onFindBuilders={() => setShowInviteBuilderModal(true)}
     >
-        {/* Tab Contents */}
-        <div className="animate-fade-in">
-          {/* 1. CHAT TAB */}
-          {workspaceTab === "chat" && (
-            chatLoading ? (
-              <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
-                <p className="text-[var(--text-tertiary)] text-xs">Loading chat...</p>
-              </div>
-            ) : conversationId && currentUserId ? (
-              <div className="flex h-[calc(100dvh-8rem)] flex-col overflow-hidden rounded-lg border border-line md:h-[calc(100dvh-9rem)] lg:h-[calc(100dvh-6.5rem)]">
-                <ChatThread
-                  conversationId={conversationId}
-                  currentUserId={currentUserId}
-                  knownProfiles={knownProfiles}
-                />
-              </div>
-            ) : (
-              <div className="card card-static p-8 text-center bg-[var(--surface-1)] border border-[var(--card-border)]">
-                <p className="text-[var(--text-tertiary)] text-xs">
-                  Chat isn&apos;t available for this team yet.
-                </p>
-              </div>
-            )
-          )}
-
-          {/* 2. TASKS TAB */}
-          {workspaceTab === "tasks" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Collaborative Kanban</h3>
-                <button
-                  onClick={() => setShowAddTaskModal(true)}
-                  className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  Add Task
-                </button>
-              </div>
-
-              {loadingTasks ? (
-                <KanbanTasksSkeleton />
-              ) : (
-                <div className="space-y-4">
-                  {tasks.length > 0 && (
-                    <div className="grid lg:grid-cols-3 gap-4 bg-zinc-50/80 dark:bg-zinc-950/20 border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl p-4 text-left shadow-xs">
-                      <div className="space-y-2 border-r border-zinc-200 dark:border-zinc-900/60 pr-4">
-                        <span className="text-[9px] font-mono font-semibold tracking-wider text-violet-600 dark:text-violet-400 uppercase">Teammate Workload Balance</span>
-                        <div className="space-y-1.5 max-h-[100px] overflow-y-auto pr-1">
-                          {members.map((m) => {
-                            const assignedTasks = tasks.filter((t) => t.assignee_id === m.profiles.id);
-                            const completed = assignedTasks.filter((t) => t.status === "completed").length;
-                            const pending = assignedTasks.length - completed;
-                            const taskSharePct = tasks.length > 0 ? Math.round((assignedTasks.length / tasks.length) * 100) : 0;
-                            
-                            return (
-                              <div key={m.id} className="text-[10px] space-y-1">
-                                <div className="flex justify-between items-center text-zinc-350">
-                                  <span className="font-medium truncate max-w-[100px]">{m.profiles.full_name.split(" ")[0]}</span>
-                                  <span className="font-mono text-zinc-500">{pending} active / {completed} done ({taskSharePct}%)</span>
-                                </div>
-                                <div className="w-full h-1 bg-zinc-950 rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-violet-500 rounded-full" 
-                                    style={{ width: `${taskSharePct}%` }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 border-r border-zinc-900/60 px-4">
-                        <span className="text-[9px] font-mono font-semibold tracking-wider text-amber-400 uppercase">Priority Density</span>
-                        <div className="space-y-2 text-[10px]">
-                          <div className="flex items-center justify-between text-zinc-350">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                              <span>High Priority</span>
-                            </div>
-                            <span className="font-mono font-bold text-rose-400">{tasks.filter((t) => t.priority === "high").length} tasks</span>
-                          </div>
-                          <div className="flex items-center justify-between text-zinc-350">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              <span>Medium Priority</span>
-                            </div>
-                            <span className="font-mono font-bold text-amber-400">{tasks.filter((t) => t.priority === "medium").length} tasks</span>
-                          </div>
-                          <div className="flex items-center justify-between text-zinc-350">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                              <span>Low Priority</span>
-                            </div>
-                            <span className="font-mono font-bold text-zinc-400">{tasks.filter((t) => t.priority === "low").length} tasks</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pl-4">
-                        <span className="text-[9px] font-mono font-semibold tracking-wider text-rose-400 uppercase">Velocity Alerts & Deadlines</span>
-                        <div className="space-y-1.5 max-h-[100px] overflow-y-auto pr-1 text-[9px] font-mono">
-                          {(() => {
-                            const now = new Date();
-                            const alerts = tasks.filter((t) => t.status !== "completed" && t.due_date).map((t) => {
-                              const due = new Date(t.due_date!);
-                              const diffHrs = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
-                              if (diffHrs < 0) {
-                                return { type: "overdue", label: "OVERDUE", title: t.title, color: "text-rose-400" };
-                              } else if (diffHrs <= 24) {
-                                return { type: "soon", label: "DUE SOON", title: t.title, color: "text-amber-400" };
-                              }
-                              return null;
-                            }).filter(Boolean);
-
-                            if (alerts.length === 0) {
-                              return <p className="text-zinc-650 italic py-2 text-center">All tasks on track</p>;
-                            }
-
-                            return alerts.map((alert, idx) => (
-                              <div key={idx} className={`flex items-center gap-1.5 truncate ${alert!.color}`}>
-                                <span>⚠</span>
-                                <span className="font-bold">[{alert!.label}]</span>
-                                <span className="text-zinc-400 truncate flex-1">{alert!.title}</span>
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid md:grid-cols-3 gap-5">
-                    {/* TO DO COLUMN */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-300">To Do</span>
-                        <span className="badge text-[10px] bg-zinc-200/80 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 font-mono">
-                          {tasks.filter((t) => t.status === "todo").length}
-                        </span>
-                      </div>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnter={() => setDraggedOverColumn("todo")}
-                        onDragLeave={() => setDraggedOverColumn(null)}
-                        onDrop={(e) => {
-                          setDraggedOverColumn(null);
-                          handleDrop(e, "todo");
-                        }}
-                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
-                          draggedOverColumn === "todo"
-                            ? "bg-indigo-50/60 dark:bg-zinc-900/80 border border-dashed border-indigo-400 dark:border-zinc-600"
-                            : "bg-zinc-100/70 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-900/60"
-                        }`}
-                      >
-                        {tasks.filter((t) => t.status === "todo").map((task) => renderTaskCard(task))}
-                        {tasks.filter((t) => t.status === "todo").length === 0 && (
-                          <p className="text-zinc-500 dark:text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* IN PROGRESS COLUMN */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-300">In Progress</span>
-                        <span className="badge text-[10px] bg-zinc-200/80 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 font-mono">
-                          {tasks.filter((t) => t.status === "in_progress").length}
-                        </span>
-                      </div>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnter={() => setDraggedOverColumn("in_progress")}
-                        onDragLeave={() => setDraggedOverColumn(null)}
-                        onDrop={(e) => {
-                          setDraggedOverColumn(null);
-                          handleDrop(e, "in_progress");
-                        }}
-                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
-                          draggedOverColumn === "in_progress"
-                            ? "bg-indigo-50/60 dark:bg-zinc-900/80 border border-dashed border-indigo-400 dark:border-zinc-600"
-                            : "bg-zinc-100/70 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-900/60"
-                        }`}
-                      >
-                        {tasks.filter((t) => t.status === "in_progress").map((task) => renderTaskCard(task))}
-                        {tasks.filter((t) => t.status === "in_progress").length === 0 && (
-                          <p className="text-zinc-500 dark:text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* COMPLETED COLUMN */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-300">Completed</span>
-                        <span className="badge text-[10px] bg-zinc-200/80 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 font-mono">
-                          {tasks.filter((t) => t.status === "completed").length}
-                        </span>
-                      </div>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnter={() => setDraggedOverColumn("completed")}
-                        onDragLeave={() => setDraggedOverColumn(null)}
-                        onDrop={(e) => {
-                          setDraggedOverColumn(null);
-                          handleDrop(e, "completed");
-                        }}
-                        className={`p-3 rounded-xl min-h-[300px] space-y-2 transition-all duration-200 ${
-                          draggedOverColumn === "completed"
-                            ? "bg-indigo-50/60 dark:bg-zinc-900/80 border border-dashed border-indigo-400 dark:border-zinc-600"
-                            : "bg-zinc-100/70 dark:bg-zinc-950/40 border border-zinc-200/80 dark:border-zinc-900/60"
-                        }`}
-                      >
-                        {tasks.filter((t) => t.status === "completed").map((task) => renderTaskCard(task))}
-                        {tasks.filter((t) => t.status === "completed").length === 0 && (
-                          <p className="text-zinc-500 dark:text-zinc-600 text-[10px] text-center py-12 font-mono">No tasks</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* Tab contents */}
+      <div className="animate-hm-fade">
+        {/* 1. CHAT */}
+        {workspaceTab === "chat" &&
+          (chatLoading ? (
+            <Panel className="flex h-40 items-center justify-center">
+              <Spinner label="Loading chat" />
+            </Panel>
+          ) : conversationId && currentUserId ? (
+            // Viewport minus workspace chrome: mobile header 97px + 32px padding;
+            // md adds 16px padding; lg uses the 56px desktop header + 48px padding.
+            <div className="flex h-[calc(100dvh-8.125rem)] flex-col overflow-hidden rounded-lg border border-line md:h-[calc(100dvh-9.125rem)] lg:h-[calc(100dvh-6.5rem)]">
+              <ChatThread conversationId={conversationId} currentUserId={currentUserId} knownProfiles={knownProfiles} />
             </div>
-          )}
+          ) : (
+            <EmptyState
+              icon={<MessageSquare />}
+              title="Team chat isn't available yet"
+              body="The team thread couldn't be opened. Refresh the page; if it keeps happening, the team owner can reopen the workspace."
+            />
+          ))}
 
-          {/* 3. BRAINSTORM TAB */}
-          {workspaceTab === "brainstorm" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center bg-zinc-950 p-0.5 rounded-lg border border-zinc-800">
-                  <button
-                    onClick={() => setIsBrainstormListView(false)}
-                    className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
-                      !isBrainstormListView
-                        ? "bg-zinc-850 text-white font-semibold"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    Ideas Board
-                  </button>
-                  <button
-                    onClick={() => setIsBrainstormListView(true)}
-                    className={`px-3 py-1 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
-                      isBrainstormListView
-                        ? "bg-zinc-850 text-white font-semibold"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    Document Pad
-                  </button>
-                </div>
-
-                {isBrainstormListView && (
-                  <button
-                    onClick={handleSaveDocument}
-                    disabled={savingDocument || loadingDocument}
-                    className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {savingDocument ? (
-                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
-                      </svg>
-                    )}
-                    <span>Sync Document</span>
-                  </button>
-                )}
-              </div>
-
-              {!isBrainstormListView ? (
-                <div className="grid lg:grid-cols-3 gap-6">
-                  {/* Input column */}
-                  <div className="card card-static p-5 bg-zinc-950/20 border border-zinc-800 text-left space-y-4 h-fit">
-                    <div>
-                      <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Post New Idea</h4>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">Share concepts, features, stack ideas, or design notes.</p>
-                    </div>
-
-                    <form onSubmit={handleAddBrainstormIdea} className="space-y-3.5">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-medium text-zinc-400 uppercase font-mono">Idea Title</label>
-                        <input
-                          type="text"
-                          required
-                          value={newIdeaTitle}
-                          onChange={(e) => setNewIdeaTitle(e.target.value)}
-                          placeholder="e.g. Real-time push notifications"
-                          className="input text-xs"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-medium text-zinc-400 uppercase font-mono">Details / Context</label>
-                        <textarea
-                          value={newIdeaContent}
-                          onChange={(e) => setNewIdeaContent(e.target.value)}
-                          placeholder="Explain the concept or stack requirements..."
-                          rows={4}
-                          className="input text-xs resize-none"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-medium text-zinc-400 uppercase font-mono">Category</label>
-                        <select
-                          value={newIdeaCategory}
-                          onChange={(e) => setNewIdeaCategory(e.target.value as any)}
-                          className="input text-xs bg-zinc-950 cursor-pointer"
-                        >
-                          <option value="core">Core MVP Feature</option>
-                          <option value="nice-to-have">Nice to Have</option>
-                          <option value="tech-stack">Tech Stack / Tools</option>
-                          <option value="marketing">Marketing / Pitch</option>
-                        </select>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={submittingIdea || !newIdeaTitle.trim()}
-                        className="btn btn-primary text-xs w-full py-2 disabled:opacity-50 cursor-pointer"
-                      >
-                        {submittingIdea ? "Posting..." : "Post Idea note"}
-                      </button>
-                    </form>
-                  </div>
-
-                  {/* Ideas list column */}
-                  <div className="lg:col-span-2 space-y-4">
-                    {loadingIdeas ? (
-                      <IdeationBoardSkeleton />
-                    ) : brainstormIdeas.length === 0 ? (
-                      <div className="card card-static p-12 text-center border border-zinc-800 bg-zinc-950/20 flex flex-col items-center justify-center rounded-2xl">
-                        <Lightbulb className="w-8 h-8 text-zinc-500 mb-2" />
-                        <h4 className="text-sm font-semibold text-white mb-1">Ideation Tag Board is Empty</h4>
-                        <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-                          Share tech stack selections, project directions, or feature drafts. Teammates can vote to establish project direction!
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        {brainstormIdeas.map((idea) => {
-                          const creator = members.find((m) => m.profiles.id === idea.user_id)?.profiles;
-                          const hasUpvoted = idea.upvotes?.includes(currentUserId || "");
-                          
-                          const catLabels: Record<string, string> = {
-                            "core": "Core MVP",
-                            "nice-to-have": "Nice To Have",
-                            "tech-stack": "Tech Stack",
-                            "marketing": "Marketing"
-                          };
-
-                          const catColors: Record<string, string> = {
-                            "core": "bg-violet-500/10 border-violet-500/20 text-violet-400",
-                            "nice-to-have": "bg-sky-500/10 border-sky-500/20 text-sky-400",
-                            "tech-stack": "bg-amber-500/10 border-amber-500/20 text-amber-400",
-                            "marketing": "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                          };
-
-                          return (
-                            <div key={idea.id} className="card card-static p-4.5 bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700/60 rounded-2xl flex flex-col justify-between text-left space-y-3 relative group transition-all">
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-start gap-2">
-                                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase ${catColors[idea.category] || "bg-zinc-800"}`}>
-                                    {catLabels[idea.category] || idea.category}
-                                  </span>
-
-                                  {idea.user_id === currentUserId && (
-                                    <button
-                                      onClick={() => handleDeleteBrainstormIdea(idea.id)}
-                                      className="opacity-0 group-hover:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity p-0.5 shrink-0 cursor-pointer"
-                                    >
-                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    </button>
-                                  )}
-                                </div>
-
-                                <h4 className="text-xs font-bold text-white break-words">{idea.title}</h4>
-                                
-                                {idea.content && (
-                                  <p className="text-[10px] text-zinc-400 leading-relaxed break-words line-clamp-4">{idea.content}</p>
-                                )}
-                              </div>
-
-                              <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60 mt-auto">
-                                <span className="text-[9px] text-zinc-500">
-                                  By <span className="font-semibold text-zinc-400">{creator?.full_name?.split(" ")[0] || "Teammate"}</span>
-                                </span>
-
-                                <button
-                                  onClick={() => handleToggleIdeaUpvote(idea.id)}
-                                  className={`px-2 py-1 rounded-lg border text-[9px] font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                                    hasUpvoted 
-                                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-                                      : "bg-zinc-950 border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-850"
-                                  }`}
-                                >
-                                  <span>▲</span>
-                                  <span>{idea.upvotes?.length || 0}</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                loadingDocument ? (
-                  <div className="card card-static p-12 text-center">
-                    <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-zinc-500 text-xs font-mono uppercase">Loading document...</p>
-                  </div>
+        {/* 2. TASKS */}
+        {workspaceTab === "tasks" && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] text-ink-3">
+                {tasks.length > 0 ? (
+                  <>
+                    <span className="font-mono text-ink-2 tabular">{completedTasksCount}</span> of{" "}
+                    <span className="font-mono text-ink-2 tabular">{totalTasksCount}</span> done · drag cards between columns or change their status
+                  </>
                 ) : (
-                  <div>
-                    {documentConflict && (
-                      <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                          <div>
-                            <h4 className="text-xs font-semibold text-amber-300">Conflict Detected: Teammate Saved Changes</h4>
-                            <p className="text-[11px] text-zinc-400 mt-0.5">
-                              Another teammate updated this document while you were typing. Loading their version will discard your unsaved edits.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDocumentContent(documentConflict.incomingContent);
-                              documentContentRef.current = documentConflict.incomingContent;
-                              lastSavedContentRef.current = documentConflict.incomingContent;
-                              setDocumentUpdatedAt(documentConflict.incomingUpdatedAt);
-                              setDocumentUpdatedBy(documentConflict.incomingUpdatedBy);
-                              setDocumentConflict(null);
-                              showToast("Loaded latest teammate version.", "info");
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg border border-zinc-700 transition cursor-pointer"
-                          >
-                            Load Teammate Version
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleSaveDocument();
-                              setDocumentConflict(null);
-                            }}
-                            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-lg transition cursor-pointer"
-                          >
-                            Overwrite with My Edits
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                  "Plan the build as small tasks with an owner and a due date."
+                )}
+              </p>
+              <Button variant="primary" size="sm" icon={<Plus />} onClick={() => openAddTask()}>
+                New task
+              </Button>
+            </div>
 
-                    <div className="grid md:grid-cols-2 gap-5">
-                      <div className="flex flex-col space-y-2">
-                        <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Edit Markdown</label>
-                        <textarea
-                          value={documentContent}
-                          onChange={(e) => {
-                            setDocumentContent(e.target.value);
-                            documentContentRef.current = e.target.value;
+            {loadingTasks ? (
+              <KanbanTasksSkeleton />
+            ) : tasks.length === 0 ? (
+              <EmptyState
+                icon={<SquareKanban />}
+                title="No tasks yet"
+                body="Break the project into pieces your team can own. Start with one of these, or write your own."
+                action={
+                  <>
+                    <Button variant="primary" size="sm" icon={<Plus />} onClick={() => openAddTask()}>
+                      Add a task
+                    </Button>
+                    {["Set up the repo and README", "Write the problem statement", "Design the first screen", "Record the demo video"].map((s) => (
+                      <Button key={s} variant="secondary" size="sm" onClick={() => openAddTask(s)}>
+                        {s}
+                      </Button>
+                    ))}
+                  </>
+                }
+              />
+            ) : (
+              <>
+                {/* Team pulse: workload, priority mix, deadlines */}
+                <Panel className="grid divide-y divide-line lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+                  <div className="min-w-0 p-4">
+                    <p className="caps-label text-ink-3">Who&apos;s on what</p>
+                    <ul className="mt-2.5 max-h-[132px] space-y-2 overflow-y-auto pr-1">
+                      {members.map((m) => {
+                        const assigned = tasks.filter((t) => t.assignee_id === m.profiles.id);
+                        const done = assigned.filter((t) => t.status === "completed").length;
+                        const share = tasks.length ? Math.round((assigned.length / tasks.length) * 100) : 0;
+                        return (
+                          <li key={m.id} className="space-y-1">
+                            <div className="flex items-center justify-between gap-2 text-[12.5px]">
+                              <span className="flex min-w-0 items-center gap-1.5 text-ink-2">
+                                <Avatar name={m.profiles.full_name} src={m.profiles.avatar_url} size="xs" />
+                                <span className="truncate">{m.profiles.full_name.split(" ")[0]}</span>
+                              </span>
+                              <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+                                {assigned.length - done} open · {done} done
+                              </span>
+                            </div>
+                            <Progress value={share} />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                  <div className="min-w-0 p-4">
+                    <p className="caps-label text-ink-3">Priority mix</p>
+                    <ul className="mt-2.5 space-y-2 text-[12.5px]">
+                      {(["high", "medium", "low"] as const).map((p) => (
+                        <li key={p} className="flex items-center justify-between">
+                          <Tape tone={PRIORITY_TONE[p]}>{p}</Tape>
+                          <span className="font-mono text-ink-2 tabular">{tasks.filter((t) => t.priority === p).length}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="min-w-0 p-4">
+                    <p className="caps-label text-ink-3">Deadlines</p>
+                    {(() => {
+                      const now = nowMs;
+                      const alerts = tasks
+                        .filter((t) => t.status !== "completed" && t.due_date)
+                        .map((t) => {
+                          const hrs = (new Date(t.due_date!).getTime() - now) / 3600000;
+                          return hrs < 0 ? { t, label: "Overdue", tone: "bad" as const } : hrs <= 24 ? { t, label: "Due soon", tone: "warn" as const } : null;
+                        })
+                        .filter((a): a is { t: Task; label: string; tone: "bad" | "warn" } => Boolean(a));
+                      if (!alerts.length)
+                        return (
+                          <p className="mt-2.5 flex items-center gap-1.5 text-[12.5px] text-ok">
+                            <CheckCircle2 className="size-3.5" aria-hidden /> Nothing overdue or due in the next 24h
+                          </p>
+                        );
+                      return (
+                        <ul className="mt-2.5 max-h-[132px] space-y-1.5 overflow-y-auto pr-1">
+                          {alerts.map((a) => (
+                            <li key={a.t.id}>
+                              <button type="button" onClick={() => setSelectedTask(a.t)} className="flex w-full min-w-0 items-center gap-2 text-left text-[12.5px] text-ink-2 hover:text-ink">
+                                <Tape tone={a.tone}>{a.label}</Tape>
+                                <span className="truncate">{a.t.title}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
+                  </div>
+                </Panel>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  {(["todo", "in_progress", "completed"] as const).map((col) => {
+                    const colTasks = tasks.filter((t) => t.status === col);
+                    const over = draggedOverColumn === col;
+                    return (
+                      <section key={col} aria-label={STATUS_LABEL[col]} className="min-w-0">
+                        <div className="mb-2 flex items-center gap-2 px-0.5">
+                          <span className={cn("size-2 rounded-full", col === "todo" ? "bg-ink-4" : col === "in_progress" ? "bg-warn" : "bg-ok")} aria-hidden />
+                          <h3 className="text-[13px] font-semibold text-ink">{STATUS_LABEL[col]}</h3>
+                          <span className="font-mono text-[11.5px] text-ink-3 tabular">{colTasks.length}</span>
+                        </div>
+                        <ul
+                          onDragOver={(e) => e.preventDefault()}
+                          onDragEnter={() => setDraggedOverColumn(col)}
+                          onDragLeave={() => setDraggedOverColumn(null)}
+                          onDrop={(e) => {
+                            setDraggedOverColumn(null);
+                            handleDrop(e, col);
                           }}
-                          rows={16}
-                          className="input font-mono text-xs w-full h-[350px] resize-none leading-relaxed p-4 bg-zinc-955 border border-zinc-900 focus:border-zinc-800"
-                          placeholder="# Brainstorming Ideas&#10;- Idea 1: Custom mobile app for matching builders&#10;- Idea 2: SaaS platform for collaborative hackathon workspaces"
-                        />
-                      </div>
-
-                      <div className="flex flex-col space-y-2">
-                        <label className="text-[10px] uppercase tracking-widest font-mono text-zinc-500">Live Preview</label>
-                        <div className="w-full h-[350px] overflow-y-auto p-4 bg-zinc-950/20 border border-zinc-900 rounded-xl space-y-3 prose prose-invert max-w-none text-left">
-                          {renderMarkdown(documentContent) || (
-                            <p className="text-zinc-650 text-[10px] italic font-mono">Empty document</p>
+                          className={cn(
+                            "min-h-[120px] space-y-2 rounded-lg p-2 transition-colors md:min-h-[320px]",
+                            over ? "bg-accent-soft ring-1 ring-inset ring-accent/40" : "bg-sunken ring-1 ring-inset ring-line",
                           )}
-                        </div>
+                        >
+                          {colTasks.map((task) => renderTaskCard(task))}
+                          {colTasks.length === 0 && (
+                            <li className="flex h-[100px] items-center justify-center rounded-md border border-dashed border-line-strong px-3 text-center text-[12.5px] text-ink-3">
+                              {col === "completed" ? "Finished tasks land here" : "Drop a task here"}
+                            </li>
+                          )}
+                        </ul>
+                      </section>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 3. BRAINSTORM */}
+        {workspaceTab === "brainstorm" && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Segmented<"board" | "doc">
+                label="Brainstorm view"
+                value={isBrainstormListView ? "doc" : "board"}
+                onChange={(v) => setIsBrainstormListView(v === "doc")}
+                options={[
+                  { value: "board", label: "Ideas", count: brainstormIdeas.length },
+                  { value: "doc", label: "Shared doc" },
+                ]}
+              />
+              {isBrainstormListView && (
+                <div className="flex items-center gap-3">
+                  {documentUpdatedAt && (
+                    <span className="hidden text-[12px] text-ink-3 sm:inline">
+                      Saved {relativeTime(documentUpdatedAt, { suffix: true })}
+                      {documentUpdatedBy && members.find((m) => m.profiles.id === documentUpdatedBy)
+                        ? ` by ${members.find((m) => m.profiles.id === documentUpdatedBy)!.profiles.full_name.split(" ")[0]}`
+                        : ""}
+                    </span>
+                  )}
+                  <Button variant="primary" size="sm" icon={<Save />} loading={savingDocument} disabled={loadingDocument} onClick={handleSaveDocument}>
+                    Save doc
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {!isBrainstormListView ? (
+              <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+                <Panel className="h-fit p-4">
+                  <h3 className="text-[13.5px] font-semibold text-ink">Post an idea</h3>
+                  <p className="mt-0.5 text-[12.5px] text-ink-3">A feature, a stack choice, a pitch angle. Teammates vote on it.</p>
+                  <form onSubmit={handleAddBrainstormIdea} className="mt-3.5 space-y-3">
+                    <div>
+                      <FieldLabel htmlFor="idea-title">Idea</FieldLabel>
+                      <Input id="idea-title" required value={newIdeaTitle} onChange={(e) => setNewIdeaTitle(e.target.value)} placeholder="e.g. Offline mode for field workers" />
+                    </div>
+                    <div>
+                      <FieldLabel htmlFor="idea-details" hint="Optional">Details</FieldLabel>
+                      <Textarea id="idea-details" value={newIdeaContent} onChange={(e) => setNewIdeaContent(e.target.value)} rows={3} className="min-h-20 resize-none" placeholder="Why it matters, what it needs…" />
+                    </div>
+                    <div>
+                      <FieldLabel htmlFor="idea-category">Type</FieldLabel>
+                      <Select id="idea-category" value={newIdeaCategory} onChange={(e) => setNewIdeaCategory(e.target.value as typeof newIdeaCategory)}>
+                        <option value="core">Core feature</option>
+                        <option value="nice-to-have">Nice to have</option>
+                        <option value="tech-stack">Tech stack</option>
+                        <option value="marketing">Pitch / story</option>
+                      </Select>
+                    </div>
+                    <Button type="submit" variant="primary" className="w-full" loading={submittingIdea} disabled={!newIdeaTitle.trim()}>
+                      Post idea
+                    </Button>
+                  </form>
+                </Panel>
+
+                <div className="min-w-0">
+                  {loadingIdeas ? (
+                    <IdeationBoardSkeleton />
+                  ) : brainstormIdeas.length === 0 ? (
+                    <EmptyState
+                      icon={<Lightbulb />}
+                      title="No ideas yet"
+                      body="Post the problem you want to solve, a feature, or a stack choice. Teammates vote, and the top ideas become your plan."
+                    />
+                  ) : (
+                    <ul className="grid gap-3 sm:grid-cols-2" data-stagger>
+                      {brainstormIdeas.map((idea) => {
+                        const creator = members.find((m) => m.profiles.id === idea.user_id)?.profiles;
+                        const voted = Boolean(currentUserId && idea.upvotes?.includes(currentUserId));
+                        const cat = {
+                          core: { label: "Core feature", tone: "accent" },
+                          "nice-to-have": { label: "Nice to have", tone: "info" },
+                          "tech-stack": { label: "Tech stack", tone: "warn" },
+                          marketing: { label: "Pitch / story", tone: "proj" },
+                        }[idea.category] || { label: idea.category, tone: "neutral" };
+                        return (
+                          <li key={idea.id} className="group flex flex-col rounded-lg border border-line bg-raised p-4 transition-colors hover:border-line-strong">
+                            <div className="flex items-start justify-between gap-2">
+                              <Tape tone={cat.tone as "accent" | "info" | "warn" | "proj" | "neutral"}>{cat.label}</Tape>
+                              {idea.user_id === currentUserId && (
+                                <IconButton
+                                  label={`Delete idea ${idea.title}`}
+                                  size="sm"
+                                  onClick={() => handleDeleteBrainstormIdea(idea.id)}
+                                  className="-mr-1 -mt-1 opacity-100 hover:text-bad md:opacity-0 md:focus-visible:opacity-100 md:group-hover:opacity-100"
+                                >
+                                  <Trash2 />
+                                </IconButton>
+                              )}
+                            </div>
+                            <h4 className="mt-2 break-words text-[14px] font-semibold leading-snug text-ink">{idea.title}</h4>
+                            {idea.content && <p className="mt-1 line-clamp-4 break-words text-[13px] leading-relaxed text-ink-2">{idea.content}</p>}
+                            <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+                              <span className="flex min-w-0 items-center gap-1.5 text-[12px] text-ink-3">
+                                <Avatar name={creator?.full_name || "Teammate"} src={creator?.avatar_url} size="xs" />
+                                <span className="truncate">{creator?.full_name?.split(" ")[0] || "Teammate"}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleIdeaUpvote(idea.id)}
+                                aria-pressed={voted}
+                                aria-label={`${voted ? "Remove your vote from" : "Vote for"} ${idea.title}`}
+                                className={cn(
+                                  "inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-mono text-[12px] font-semibold tabular ring-1 ring-inset transition-colors",
+                                  voted ? "bg-accent-soft text-accent-ink ring-accent/40" : "text-ink-2 ring-line-strong hover:text-ink hover:ring-ink-4",
+                                )}
+                              >
+                                <ChevronUp className="size-4" aria-hidden />
+                                {idea.upvotes?.length || 0}
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ) : loadingDocument ? (
+              <Panel className="flex h-40 items-center justify-center">
+                <Spinner label="Loading the shared doc" />
+              </Panel>
+            ) : (
+              <div className="space-y-4">
+                {documentConflict && (
+                  <div role="alert" className="flex flex-col gap-3 rounded-lg bg-warn-soft px-4 py-3 ring-1 ring-inset ring-warn/30 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+                      <div>
+                        <p className="text-[13px] font-semibold text-ink">A teammate saved this doc while you were editing</p>
+                        <p className="mt-0.5 text-[12.5px] text-ink-3">Loading their version discards your unsaved edits. Keeping yours overwrites theirs.</p>
                       </div>
                     </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setDocumentContent(documentConflict.incomingContent);
+                          documentContentRef.current = documentConflict.incomingContent;
+                          lastSavedContentRef.current = documentConflict.incomingContent;
+                          setDocumentUpdatedAt(documentConflict.incomingUpdatedAt);
+                          setDocumentUpdatedBy(documentConflict.incomingUpdatedBy);
+                          setDocumentConflict(null);
+                          showToast("Loaded latest teammate version.", "info");
+                        }}
+                      >
+                        Load theirs
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="inverse"
+                        onClick={() => {
+                          handleSaveDocument();
+                          setDocumentConflict(null);
+                        }}
+                      >
+                        Keep mine
+                      </Button>
+                    </div>
                   </div>
-                )
-              )}
-            </div>
-          )}
-
-          {/* 4. RESOURCES TAB */}
-          {workspaceTab === "resources" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">Links Directory</h3>
-                <button
-                  onClick={() => setShowAddLinkModal(true)}
-                  className="btn btn-primary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  <span>Add Link</span>
-                </button>
-              </div>
-
-              {loadingLinks ? (
-                <div className="card card-static p-12 text-center">
-                  <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-zinc-500 text-xs font-mono uppercase">Loading links...</p>
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {renderCategoryPanel("design", "Figma / Design", "M9.813 15.904L9 21m0 0l-.813-5.096M9 21h3.75m-3.75 0H5.25m3.935-10.957a3.75 3.75 0 11-7.37 1.29l1.625 10.155A3.75 3.75 0 007.125 18h3.75a3.75 3.75 0 003.625-2.512l1.625-10.155a3.75 3.75 0 11-7.37-1.29z")}
-                  {renderCategoryPanel("repo", "GitHub / Code", "M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5")}
-                  {renderCategoryPanel("document", "Documents / Slides", "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z")}
-                  {renderCategoryPanel("other", "General / Other", "M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244")}
-                </div>
-              )}
-            </div>
-          )}
-
-
-
-          {/* 6. GITHUB TAB */}
-          {workspaceTab === "github" && (
-            <div className="space-y-6 animate-fade-in text-left">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest">GitHub Repository Sync</h3>
-                {activeGithubRepoUrl && (
-                  <button
-                    onClick={fetchCommits}
-                    disabled={loadingCommits}
-                    className="btn btn-secondary btn-sm text-xs py-1 px-3 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <svg className={`w-3.5 h-3.5 ${loadingCommits ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
-                    <span>Sync commits</span>
-                  </button>
                 )}
-              </div>
 
-              {!activeGithubRepoUrl ? (
+                <Segmented<"write" | "preview">
+                  label="Doc view"
+                  size="sm"
+                  className="md:hidden"
+                  value={docPane}
+                  onChange={setDocPane}
+                  options={[
+                    { value: "write", label: "Write" },
+                    { value: "preview", label: "Preview" },
+                  ]}
+                />
 
-                <div className="card card-static p-12 text-center flex flex-col items-center justify-center max-w-xl mx-auto border border-zinc-800 bg-zinc-950/40 rounded-2xl shadow-xl">
-                  <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-4 shadow-inner">
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-                    </svg>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className={cn("min-w-0", docPane !== "write" && "hidden md:block")}>
+                    <FieldLabel htmlFor="ws-doc" hint="Markdown">Write</FieldLabel>
+                    <Textarea
+                      id="ws-doc"
+                      value={documentContent}
+                      onChange={(e) => {
+                        setDocumentContent(e.target.value);
+                        documentContentRef.current = e.target.value;
+                      }}
+                      className="h-[52dvh] min-h-[280px] resize-none font-mono text-[13px] md:h-[420px]"
+                      placeholder={"# Our idea\n- Problem we're solving\n- Who it's for\n- **Must-have** features"}
+                    />
                   </div>
-                  <h4 className="text-sm font-semibold text-white mb-2">Connect GitHub Repository</h4>
-                  <p className="text-xs text-zinc-500 max-w-sm mb-6 leading-relaxed">
-                    Link your team&apos;s public GitHub repository to track commit logs, contributor statistics, and code progress directly from the workspace.
-                  </p>
-                  
-                  {isOwner ? (
-                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
-                      <input
-                        type="text"
+                  <div className={cn("min-w-0", docPane !== "preview" && "hidden md:block")}>
+                    <p className="mb-1.5 caps-label text-ink-3">Preview</p>
+                    <div className="h-[52dvh] min-h-[280px] overflow-y-auto rounded-md bg-raised p-4 ring-1 ring-inset ring-line md:h-[420px]">
+                      {renderMarkdown(documentContent) || <p className="text-[13px] text-ink-3">Nothing written yet.</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 4. RESOURCES */}
+        {workspaceTab === "resources" && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] text-ink-3">
+                {links.length > 0 ? (
+                  <>
+                    <span className="font-mono text-ink-2 tabular">{links.length}</span> shared {links.length === 1 ? "link" : "links"}
+                    {activeHackathon ? ` for ${activeHackathon.name} and all events` : ""}
+                  </>
+                ) : (
+                  "Everything the team keeps opening, in one place."
+                )}
+              </p>
+              <Button variant="primary" size="sm" icon={<Plus />} onClick={() => openAddLink()}>
+                Add link
+              </Button>
+            </div>
+
+            {loadingLinks ? (
+              <Panel className="flex h-40 items-center justify-center">
+                <Spinner label="Loading links" />
+              </Panel>
+            ) : links.length === 0 ? (
+              <EmptyState
+                icon={<Link2 />}
+                title="No shared links yet"
+                body="Keep the Figma file, repo, pitch deck and problem statement one tap away for the whole team."
+                action={
+                  <>
+                    <Button variant="primary" size="sm" icon={<Plus />} onClick={() => openAddLink()}>
+                      Add a link
+                    </Button>
+                    {LINK_CATEGORIES.map((c) => (
+                      <Button key={c.id} variant="secondary" size="sm" icon={c.icon} onClick={() => openAddLink(c.suggestion, c.id)}>
+                        {c.suggestion}
+                      </Button>
+                    ))}
+                  </>
+                }
+              />
+            ) : (
+              <>
+                <div className="grid gap-5 lg:grid-cols-2">{LINK_CATEGORIES.map((c) => renderCategoryPanel(c))}</div>
+                {LINK_CATEGORIES.some((c) => !links.some((l) => l.category === c.id)) && (
+                  <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+                    <span className="text-[12.5px] text-ink-3">Add a</span>
+                    {LINK_CATEGORIES.filter((c) => !links.some((l) => l.category === c.id)).map((c) => (
+                      <Button key={c.id} variant="ghost" size="sm" icon={c.icon} onClick={() => openAddLink(c.suggestion, c.id)}>
+                        {c.suggestion}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 5. GITHUB */}
+        {workspaceTab === "github" && (
+          <div className="space-y-5">
+            {!activeGithubRepoUrl ? (
+              <EmptyState
+                icon={<GitBranch />}
+                title="Connect your repo"
+                body="Link the team's public GitHub repository to see recent commits and who's pushing code, right here in the workspace."
+                action={
+                  isOwner ? (
+                    <form
+                      className="flex w-full max-w-lg flex-col gap-2 sm:flex-row"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleLinkGithubRepo(githubRepoUrlInput);
+                      }}
+                    >
+                      <Input
+                        aria-label="GitHub repository URL"
                         value={githubRepoUrlInput}
                         onChange={(e) => setGithubRepoUrlInput(e.target.value)}
-                        placeholder="e.g. https://github.com/username/reponame"
-                        className="input text-xs flex-1 bg-zinc-955 border-zinc-900 focus:border-zinc-800"
+                        placeholder="https://github.com/owner/repo"
+                        className="font-mono text-[13px]"
                       />
-                      <button
-                        onClick={() => handleLinkGithubRepo(githubRepoUrlInput)}
-                        className="btn btn-primary text-xs py-2 px-4 whitespace-nowrap cursor-pointer"
-                      >
-                        Link Repository
-                      </button>
-                    </div>
+                      <Button type="submit" variant="primary" disabled={!githubRepoUrlInput.trim()}>
+                        Link repo
+                      </Button>
+                    </form>
                   ) : (
-                    <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">Only the team owner can link a repository</span>
+                    <p className="text-[12.5px] text-ink-3">Only the team owner can link a repository.</p>
+                  )
+                }
+              />
+            ) : (
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <Panel className="min-w-0">
+                  <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+                    <h3 className="text-[13.5px] font-semibold text-ink">
+                      Recent commits <span className="ml-1 font-mono text-[11.5px] font-normal text-ink-3 tabular">{commits.length}</span>
+                    </h3>
+                    <Button size="sm" variant="ghost" icon={<RefreshCw className={loadingCommits ? "animate-spin" : undefined} />} disabled={loadingCommits} onClick={fetchCommits}>
+                      Refresh
+                    </Button>
+                  </div>
+                  {loadingCommits ? (
+                    <div className="p-4">
+                      <CommitsTimelineSkeleton />
+                    </div>
+                  ) : errorCommits ? (
+                    <div className="p-4">
+                      <ErrorNotice title="Couldn't load commits" detail={errorCommits} onRetry={fetchCommits} />
+                    </div>
+                  ) : commits.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-[13px] text-ink-3">No commits in this repository yet.</p>
+                  ) : (
+                    <ul className="divide-y divide-line">
+                      {commits.map((c, index) => {
+                        const author = c.commit?.author?.name || c.author?.login || "Unknown author";
+                        const message = c.commit?.message?.split("\n")[0] || "No message";
+                        const when = c.commit?.author?.date as string | undefined;
+                        const sha = (c.sha as string | undefined)?.substring(0, 7) || "";
+                        return (
+                          <li key={c.sha || index} className="flex items-start gap-3 px-4 py-3">
+                            <Avatar name={author} src={c.author?.avatar_url} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="break-words text-[13.5px] text-ink">{message}</p>
+                              <p className="mt-0.5 text-[12px] text-ink-3">
+                                {author}
+                                {when && ` · ${relativeTime(when, { suffix: true })}`}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              {c.html_url ? (
+                                <a href={c.html_url} target="_blank" rel="noreferrer" className="rounded px-1.5 py-1 font-mono text-[11.5px] text-ink-2 ring-1 ring-inset ring-line-strong hover:text-ink">
+                                  {sha}
+                                </a>
+                              ) : (
+                                <span className="font-mono text-[11.5px] text-ink-3">{sha}</span>
+                              )}
+                              <IconButton
+                                label="Copy commit hash"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(c.sha);
+                                  showToast("Commit hash copied!", "success");
+                                }}
+                              >
+                                <Copy />
+                              </IconButton>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
-                </div>
-              ) : (
-                <div className="grid lg:grid-cols-3 gap-6">
-                  {/* Commits Timeline */}
-                  <div className="lg:col-span-2 space-y-4">
-                    <div className="card card-static p-6 space-y-4 bg-zinc-950/20 border border-zinc-800">
-                      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
-                        <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider">Commit History</h4>
-                        <span className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-mono">
-                          {commits.length} recent commits
-                        </span>
-                      </div>
+                </Panel>
 
-                      {loadingCommits ? (
-                        <CommitsTimelineSkeleton />
-                      ) : errorCommits ? (
-                        <div className="py-8 text-center text-rose-400 text-xs font-mono">
-                          <svg className="w-8 h-8 mx-auto mb-2 text-rose-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          {errorCommits}
-                        </div>
-                      ) : commits.length === 0 ? (
-                        <div className="py-12 text-center text-zinc-500 text-xs font-mono">
-                          No commits found in this repository.
-                        </div>
-                      ) : (
-                        <div className="space-y-4 relative before:absolute before:inset-y-1 before:left-5 before:w-0.5 before:bg-zinc-800/80">
-                          {commits.map((commitItem, index) => {
-                            const authorName = commitItem.commit?.author?.name || commitItem.author?.login || "Unknown Author";
-                            const authorAvatar = commitItem.author?.avatar_url;
-                            const message = commitItem.commit?.message?.split("\n")[0] || "No message";
-                            const commitDate = commitItem.commit?.author?.date ? new Date(commitItem.commit.author.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }) : "";
-                            const hashShort = commitItem.sha?.substring(0, 7) || "";
-                            const htmlUrl = commitItem.html_url;
-
-                            return (
-                              <div key={commitItem.sha || index} className="flex gap-4 relative group">
-                                <div className="relative z-10 w-10 h-10 rounded-full border border-zinc-800 bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0 group-hover:border-zinc-700 transition-colors">
-                                  {authorAvatar ? (
-                                    <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-[10px] font-bold text-zinc-400 font-mono uppercase">{authorName.substring(0, 2)}</span>
-                                  )}
-                                </div>
-
-                                <div className="flex-1 card card-static p-4 bg-zinc-950/40 border border-zinc-900 group-hover:border-zinc-800 transition-colors text-left flex flex-col md:flex-row justify-between gap-3 items-start md:items-center">
-                                  <div>
-                                    <p className="text-xs font-semibold text-white tracking-wide">{message}</p>
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-zinc-500">
-                                      <span className="font-medium text-zinc-400">{authorName}</span>
-                                      <span className="text-zinc-700">•</span>
-                                      <span>{commitDate}</span>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {htmlUrl ? (
-                                      <a
-                                        href={htmlUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-[10px] font-mono text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 px-2 py-1 rounded transition-colors flex items-center gap-1"
-                                      >
-                                        <span>{hashShort}</span>
-                                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6a.75.75 0 0 0-1.5 0v3.586L5.97 3.556a.75.75 0 0 0-1.06 1.06L10.94 10.5H7.354a.75.75 0 0 0 0 1.5h4.9a.75.75 0 0 0 .75-.75v-4.9a.75.75 0 0 0-.75-.75z" />
-                                        </svg>
-                                      </a>
-                                    ) : (
-                                      <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">
-                                        {hashShort}
-                                      </span>
-                                    )}
-                                    <button
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(commitItem.sha);
-                                        showToast("Commit hash copied!", "success");
-                                      }}
-                                      className="text-zinc-600 hover:text-zinc-300 transition-colors p-1 cursor-pointer"
-                                      title="Copy SHA"
-                                    >
-                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Repository Widgets */}
-                  <div className="space-y-4">
-                    <div className="card card-static p-6 space-y-4 bg-zinc-950/20 border border-zinc-800 text-left">
-                      <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">Repository Link</h4>
-                      <div className="space-y-3">
-                        <div>
-                          <span className="text-[9px] font-mono text-zinc-500 uppercase block">GitHub URL</span>
-                          <a
-                            href={activeGithubRepoUrl || undefined}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-medium text-emerald-400 hover:underline break-all block mt-0.5"
-                          >
-                            {activeGithubRepoUrl}
-                          </a>
-
-                        </div>
-
-                        {isOwner && (
-                          <button
-                            onClick={handleUnlinkGithubRepo}
-                            className="btn btn-secondary text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 border-rose-950/30 w-full py-2 mt-2 flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15m0 0l6.75 6.75M4.5 12l6.75-6.75" />
-                            </svg>
-                            Disconnect Repo
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="card card-static p-6 space-y-4 bg-zinc-950/20 border border-zinc-800 text-left">
-                      <h4 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800 pb-2">Contributors</h4>
-                      {loadingCommits ? (
-                        <div className="w-4 h-4 border border-zinc-800 border-t-white rounded-full animate-spin" />
-                      ) : commits.length === 0 ? (
-                        <p className="text-xs text-zinc-500">No contribution data.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {(() => {
-                            const authorMap: Record<string, { count: number; avatar?: string }> = {};
-                            commits.forEach((c) => {
-                              const name = c.commit?.author?.name || c.author?.login || "Unknown";
-                              const avatar = c.author?.avatar_url;
-                              if (!authorMap[name]) {
-                                authorMap[name] = { count: 0, avatar };
-                              }
-                              authorMap[name].count++;
-                            });
-
-                            return Object.entries(authorMap)
-                              .sort((a, b) => b[1].count - a[1].count)
-                              .map(([name, info], idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full border border-zinc-900 bg-zinc-900 flex items-center justify-center overflow-hidden">
-                                      {info.avatar ? (
-                                        <img src={info.avatar} alt={name} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <span className="text-[8px] font-bold text-zinc-500 font-mono uppercase">{name.substring(0, 2)}</span>
-                                      )}
-                                    </div>
-                                    <span className="font-medium text-zinc-300">{name}</span>
-                                  </div>
-                                  <span className="font-mono text-zinc-500 bg-zinc-900/60 border border-zinc-900 px-2 py-0.5 rounded">
-                                    {info.count} commits
-                                  </span>
-                                </div>
-                              ));
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 7. DEPLOYMENTS TAB */}
-          {workspaceTab === "deployments" && (
-            <div className="space-y-6 animate-fade-in text-left">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest mb-1">Live Environments Cockpit</h3>
-                  <p className="text-[10px] text-zinc-500 font-mono">REGISTER AND MONITOR STAGING, DEPLOYMENT, AND SERVICE ENDPOINTS IN REAL-TIME.</p>
+                <div className="space-y-5">
+                  <Panel className="p-4">
+                    <p className="caps-label text-ink-3">Repository</p>
+                    <a href={activeGithubRepoUrl} target="_blank" rel="noreferrer" className="mt-1.5 flex items-center gap-1 break-all font-mono text-[12.5px] text-ink hover:underline decoration-line-strong underline-offset-4">
+                      {activeGithubRepoUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                      <ExternalLink className="size-3 shrink-0 text-ink-3" aria-hidden />
+                    </a>
+                    {isOwner && (
+                      <Button size="sm" variant="ghost" icon={<Unlink />} className="mt-3 -ml-2 text-bad hover:text-bad" onClick={handleUnlinkGithubRepo}>
+                        Disconnect repo
+                      </Button>
+                    )}
+                  </Panel>
+                  <Panel className="p-4">
+                    <p className="caps-label text-ink-3">Contributors</p>
+                    {loadingCommits ? (
+                      <Spinner className="mt-3" />
+                    ) : commits.length === 0 ? (
+                      <p className="mt-2 text-[12.5px] text-ink-3">No commits yet.</p>
+                    ) : (
+                      <ul className="mt-2.5 space-y-2">
+                        {(() => {
+                          const map: Record<string, { count: number; avatar?: string }> = {};
+                          commits.forEach((c) => {
+                            const name = c.commit?.author?.name || c.author?.login || "Unknown";
+                            if (!map[name]) map[name] = { count: 0, avatar: c.author?.avatar_url };
+                            map[name].count++;
+                          });
+                          return Object.entries(map)
+                            .sort((a, b) => b[1].count - a[1].count)
+                            .map(([name, info]) => (
+                              <li key={name} className="flex items-center justify-between gap-2 text-[13px]">
+                                <span className="flex min-w-0 items-center gap-2 text-ink-2">
+                                  <Avatar name={name} src={info.avatar} size="xs" />
+                                  <span className="truncate">{name}</span>
+                                </span>
+                                <span className="font-mono text-[11.5px] text-ink-3 tabular">{info.count}</span>
+                              </li>
+                            ));
+                        })()}
+                      </ul>
+                    )}
+                  </Panel>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="grid lg:grid-cols-3 gap-6">
-                <div className="card card-static p-5 bg-zinc-950/20 border border-zinc-800 text-left space-y-4 h-fit">
+        {/* 6. DEPLOYMENTS */}
+        {workspaceTab === "deployments" && (
+          <div className="space-y-5">
+            <p className="text-[13px] text-ink-3">Add your live demo, staging or API URLs. The workspace checks whether each one is reachable.</p>
+            <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <Panel className="h-fit p-4">
+                <h3 className="text-[13.5px] font-semibold text-ink">Add a URL</h3>
+                <form onSubmit={handleAddDeployment} className="mt-3 space-y-3">
                   <div>
-                    <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Register Environment</h4>
-                    <p className="text-[10px] text-zinc-550 mt-0.5">Add staging, sandbox, API, or production URLs to monitor health status.</p>
+                    <FieldLabel htmlFor="dep-name">Name</FieldLabel>
+                    <Input id="dep-name" required value={newDepName} onChange={(e) => setNewDepName(e.target.value)} placeholder="e.g. Live demo" />
                   </div>
+                  <div>
+                    <FieldLabel htmlFor="dep-url">URL</FieldLabel>
+                    <Input id="dep-url" required value={newDepUrl} onChange={(e) => setNewDepUrl(e.target.value)} placeholder="myapp.vercel.app" className="font-mono text-[13px]" />
+                  </div>
+                  <Button type="submit" variant="primary" className="w-full" loading={submittingDeployment} disabled={!newDepName.trim() || !newDepUrl.trim()}>
+                    Add URL
+                  </Button>
+                </form>
+              </Panel>
 
-                  <form onSubmit={handleAddDeployment} className="space-y-3.5">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-medium text-zinc-450 uppercase font-mono">Environment Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={newDepName}
-                        onChange={(e) => setNewDepName(e.target.value)}
-                        placeholder="e.g. Vercel Staging"
-                        className="input text-xs"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-medium text-zinc-455 uppercase font-mono">Target URL</label>
-                      <input
-                        type="text"
-                        required
-                        value={newDepUrl}
-                        onChange={(e) => setNewDepUrl(e.target.value)}
-                        placeholder="e.g. hackermate-staging.vercel.app"
-                        className="input text-xs"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={submittingDeployment || !newDepName.trim() || !newDepUrl.trim()}
-                      className="btn btn-primary text-xs w-full py-2 disabled:opacity-50 cursor-pointer"
-                    >
-                      {submittingDeployment ? "Registering..." : "Connect Environment"}
-                    </button>
-                  </form>
-                </div>
-
-                <div className="lg:col-span-2 space-y-4">
-                  {loadingDeployments ? (
-                    <div className="py-12 text-center">
-                      <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto mb-2" />
-                      <p className="text-zinc-500 text-xs font-mono uppercase">Syncing environments...</p>
-                    </div>
-                  ) : deployments.length === 0 ? (
-                    <div className="card card-static p-12 text-center border border-zinc-800 bg-zinc-950/20 flex flex-col items-center justify-center rounded-2xl">
-                      <Globe className="w-8 h-8 text-zinc-500 mb-2" />
-                      <h4 className="text-sm font-semibold text-white mb-1">No Active Deployments</h4>
-                      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-                        Link staging endpoints or frontend preview URLs. The client-side dashboard will automatically ping their headers and track latency.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      {deployments.map((dep) => {
-                        const state = pingStatus[dep.id] || { status: "checking" };
-                        const formattedUrl = /^https?:\/\//i.test(dep.url) ? dep.url : "https://" + dep.url;
-                        
-                        return (
-                          <div key={dep.id} className="card card-static p-5 bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700/60 rounded-2xl flex flex-col justify-between text-left space-y-4 group transition-all relative overflow-hidden">
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-start gap-2">
-                                <h4 className="text-xs font-bold text-white truncate max-w-[150px]">{dep.name}</h4>
-                                
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <button
-                                    onClick={() => pingUrl(dep.id, dep.url)}
-                                    aria-label="Recheck endpoint health"
-                                    className="p-1 rounded bg-zinc-950 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-white transition-colors cursor-pointer"
-                                    title="Recheck Health"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                                    </svg>
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleDeleteDeployment(dep.id)}
-                                    className="opacity-0 group-hover:opacity-100 text-zinc-650 hover:text-rose-400 transition-opacity p-1 shrink-0 cursor-pointer"
-                                    title="Remove Endpoint"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              </div>
-
-                              <a
-                                href={formattedUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-zinc-550 hover:text-zinc-350 truncate block hover:underline"
+              <div className="min-w-0">
+                {loadingDeployments ? (
+                  <Panel className="flex h-40 items-center justify-center">
+                    <Spinner label="Loading deployments" />
+                  </Panel>
+                ) : deployments.length === 0 ? (
+                  <EmptyState
+                    icon={<Globe />}
+                    title="No URLs yet"
+                    body="Add the link judges will open. You'll see at a glance whether it's up before the demo."
+                  />
+                ) : (
+                  <ul className="grid gap-3 sm:grid-cols-2">
+                    {deployments.map((dep) => {
+                      const state = pingStatus[dep.id] || { status: "checking" };
+                      const href = /^https?:\/\//i.test(dep.url) ? dep.url : "https://" + dep.url;
+                      return (
+                        <li key={dep.id} className="group flex flex-col rounded-lg border border-line bg-raised p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="min-w-0 truncate text-[14px] font-semibold text-ink">{dep.name}</h4>
+                            <div className="-mr-1 -mt-1 flex shrink-0 items-center">
+                              <IconButton label={`Recheck ${dep.name}`} size="sm" onClick={() => pingUrl(dep.id, dep.url)}>
+                                <RefreshCw className={state.status === "checking" ? "animate-spin" : undefined} />
+                              </IconButton>
+                              <IconButton
+                                label={`Remove ${dep.name}`}
+                                size="sm"
+                                onClick={() => handleDeleteDeployment(dep.id)}
+                                className="opacity-100 hover:text-bad md:opacity-0 md:focus-visible:opacity-100 md:group-hover:opacity-100"
                               >
-                                {dep.url}
-                              </a>
+                                <Trash2 />
+                              </IconButton>
                             </div>
-
-                            <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60 mt-auto">
-                              <div className="flex items-center gap-1.5">
-                                {state.status === "checking" ? (
-                                  <>
-                                    <div className="w-2 h-2 border border-zinc-800 border-t-white rounded-full animate-spin shrink-0" />
-                                    <span className="text-[8px] text-zinc-500 font-mono uppercase">Pinging...</span>
-                                  </>
-                                ) : state.status === "online" ? (
-                                  <>
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                                    <span className="text-[8px] text-emerald-400 font-mono font-bold uppercase">Online</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                                    <span className="text-[8px] text-rose-455 font-mono font-bold uppercase">Offline</span>
-                                  </>
-                                )}
-                              </div>
-
-                              {state.status === "online" && state.latency && (
-                                <span className="text-[8px] font-mono text-zinc-500 bg-zinc-950 border border-zinc-900 px-2 py-0.5 rounded-md">
-                                  Latency: {state.latency}ms
-                                </span>
+                          </div>
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="mt-0.5 truncate font-mono text-[12px] text-ink-3 hover:text-ink hover:underline">
+                            {dep.url}
+                          </a>
+                          <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                            <span className="flex items-center gap-2 text-[12.5px]">
+                              {state.status === "checking" ? (
+                                <>
+                                  <Spinner className="size-3" label="Checking" />
+                                  <span className="text-ink-3">Checking…</span>
+                                </>
+                              ) : state.status === "online" ? (
+                                <>
+                                  <StatusDot tone="ok" />
+                                  <span className="text-ok">Reachable</span>
+                                </>
+                              ) : (
+                                <>
+                                  <StatusDot tone="bad" />
+                                  <span className="text-bad">Not reachable</span>
+                                </>
                               )}
+                            </span>
+                            {state.status === "online" && state.latency ? <span className="font-mono text-[11.5px] text-ink-3 tabular">{state.latency}ms</span> : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 7. ACTIVITY */}
+        {workspaceTab === "activity" &&
+          (() => {
+            const timeline = getActivityTimeline();
+            const starters = (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" icon={<SquareKanban />} onClick={() => handleTabChange("tasks")}>
+                  Plan a task
+                </Button>
+                <Button size="sm" variant="secondary" icon={<Link2 />} onClick={() => handleTabChange("resources")}>
+                  Share a link
+                </Button>
+                <Button size="sm" variant="secondary" icon={<Lightbulb />} onClick={() => handleTabChange("brainstorm")}>
+                  Post an idea
+                </Button>
+              </div>
+            );
+            if (timeline.length === 0)
+              return (
+                <EmptyState
+                  icon={<Clock />}
+                  title="Nothing has happened here yet"
+                  body="New tasks, finished tasks, shared links and saves to the shared doc show up here, newest first."
+                  action={starters}
+                />
+              );
+            const icon = { commit: <GitCommit />, task: <CheckSquare />, resource: <Link2 />, brainstorm: <Lightbulb /> } as const;
+            return (
+              <div className="space-y-5">
+                <Panel>
+                  <ul className="divide-y divide-line">
+                    {timeline.map((event) => (
+                      <li key={event.id} className="flex items-start gap-3 px-4 py-3">
+                        <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-selected text-ink-2 [&_svg]:size-3.5">
+                          {icon[event.type] || <Bell />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-medium text-ink">{event.title}</p>
+                          <p className="mt-0.5 break-words text-[12.5px] text-ink-2">{event.description}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="font-mono text-[11.5px] text-ink-3 tabular">{relativeTime(event.timestamp)}</span>
+                          {event.user && (
+                            <span className="flex items-center gap-1 text-[12px] text-ink-3">
+                              <Avatar name={event.user.name} src={event.user.avatarUrl} size="xs" />
+                              <span className="hidden sm:inline">{event.user.name.split(" ")[0]}</span>
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+                {timeline.length < 4 && (
+                  <div className="rounded-lg border border-dashed border-line-strong px-4 py-4">
+                    <p className="text-[13px] font-medium text-ink">Keep the log useful</p>
+                    <p className="mt-0.5 text-[12.5px] text-ink-3">Tasks, shared links and doc saves are recorded automatically as the team works.</p>
+                    <div className="mt-3">{starters}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+        {/* 8. PITCH REVIEW */}
+        {workspaceTab === "ppt" && (
+          <div className="text-left">
+            <PPTEvaluatorTab teamId={team.id} />
+          </div>
+        )}
+
+        {/* 9. SQUAD MATCHER */}
+        {workspaceTab === "gap_filler" && (
+          <div className="text-left">
+            <SmartGapFiller
+              teamId={team.id}
+              teamName={team.name}
+              requiredSkills={team.skills}
+              rolesNeeded={team.roles_needed}
+              members={members as any}
+              isOwnerOrMember={isOwner || members.some((m) => m.profiles?.id === currentUserId || (m as any).user_id === currentUserId)}
+              onInviteSent={refreshTeam}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Task details + discussion */}
+      <Dialog
+        open={Boolean(selectedTask)}
+        onClose={() => setSelectedTask(null)}
+        size="lg"
+        title={selectedTask?.title || "Task"}
+        description={selectedTask ? `${STATUS_LABEL[selectedTask.status]} · ${selectedTask.priority} priority` : undefined}
+      >
+        {selectedTask &&
+          (() => {
+            const assignee = members.find((m) => m.profiles.id === selectedTask.assignee_id);
+            return (
+              <div className="space-y-4">
+                <dl className="grid grid-cols-2 gap-4 rounded-md bg-sunken p-3 ring-1 ring-inset ring-line">
+                  <div>
+                    <dt className="caps-label text-ink-3">Owner</dt>
+                    <dd className="mt-1 flex items-center gap-1.5 text-[13px] text-ink">
+                      {assignee ? (
+                        <>
+                          <Avatar name={assignee.profiles.full_name} src={assignee.profiles.avatar_url} size="xs" />
+                          {assignee.profiles.full_name}
+                        </>
+                      ) : (
+                        <span className="text-ink-3">Unassigned</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="caps-label text-ink-3">Due</dt>
+                    <dd className="mt-1 font-mono text-[13px] text-ink">
+                      {selectedTask.due_date ? (
+                        new Date(selectedTask.due_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                      ) : (
+                        <span className="font-sans text-ink-3">No due date</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+
+                {selectedTask.description && <p className="whitespace-pre-line break-words text-[13.5px] leading-relaxed text-ink-2">{selectedTask.description}</p>}
+
+                <div>
+                  <p className="caps-label text-ink-3">Discussion</p>
+                  <div className="mt-2 max-h-[40dvh] space-y-3 overflow-y-auto pr-1">
+                    {loadingComments ? (
+                      <Spinner />
+                    ) : taskComments.length === 0 ? (
+                      <p className="text-[13px] text-ink-3">No comments yet. Ask a question or post an update.</p>
+                    ) : (
+                      taskComments.map((comment) => {
+                        const who = members.find((m) => m.profiles.id === comment.user_id)?.profiles;
+                        return (
+                          <div key={comment.id} className="flex items-start gap-2.5">
+                            <Avatar name={who?.full_name || "Teammate"} src={who?.avatar_url} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[12.5px]">
+                                <span className="font-semibold text-ink">{who?.full_name || "Teammate"}</span>{" "}
+                                <span className="font-mono text-[11.5px] text-ink-3">{relativeTime(comment.created_at)}</span>
+                              </p>
+                              <p className="mt-0.5 whitespace-pre-line break-words text-[13.5px] leading-relaxed text-ink-2">{comment.content}</p>
                             </div>
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
+                      })
+                    )}
+                  </div>
+                  <form onSubmit={handleAddComment} className="mt-3 flex gap-2 border-t border-line pt-3">
+                    <Input
+                      aria-label="Write a comment"
+                      value={newTaskComment}
+                      onChange={(e) => setNewTaskComment(e.target.value)}
+                      placeholder="Write a comment…"
+                      disabled={submittingComment}
+                      className="flex-1"
+                    />
+                    <Button type="submit" variant="primary" loading={submittingComment} disabled={!newTaskComment.trim()}>
+                      Post
+                    </Button>
+                  </form>
                 </div>
               </div>
+            );
+          })()}
+      </Dialog>
+
+      {/* New task */}
+      <Dialog
+        open={showAddTaskModal}
+        onClose={() => setShowAddTaskModal(false)}
+        title="New task"
+        description="Give it an owner and a due date so nothing falls through."
+        footer={
+          <>
+            <Button variant="ghost" disabled={savingTask} onClick={() => setShowAddTaskModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="ws-add-task" variant="primary" loading={savingTask} disabled={!taskTitle.trim()}>
+              Create task
+            </Button>
+          </>
+        }
+      >
+        <form id="ws-add-task" onSubmit={handleAddTask} className="space-y-3.5">
+          <div>
+            <FieldLabel htmlFor="task-title">Title</FieldLabel>
+            <Input id="task-title" data-autofocus required value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="e.g. Build the login screen" />
+          </div>
+          <div>
+            <FieldLabel htmlFor="task-desc" hint="Optional">Details</FieldLabel>
+            <Textarea id="task-desc" value={taskDesc} onChange={(e) => setTaskDesc(e.target.value)} rows={2} className="min-h-16" placeholder="What does done look like?" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel htmlFor="task-priority">Priority</FieldLabel>
+              <Select id="task-priority" value={taskPriority} onChange={(e) => setTaskPriority(e.target.value as "low" | "medium" | "high")}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </Select>
             </div>
-          )}
+            <div>
+              <FieldLabel htmlFor="task-assignee">Owner</FieldLabel>
+              <Select id="task-assignee" value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
+                <option value="">Unassigned</option>
+                {members.map((m) => (
+                  <option key={m.profiles.id} value={m.profiles.id}>
+                    {m.profiles.full_name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div>
+            <FieldLabel htmlFor="task-due" hint="Optional">Due date</FieldLabel>
+            <Input id="task-due" type="date" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} className="font-mono dark:[color-scheme:dark]" />
+          </div>
+        </form>
+      </Dialog>
 
-          {/* 8. ACTIVITY TAB */}
-          {workspaceTab === "activity" && (
-            <div className="space-y-6 animate-fade-in text-left">
-              <div>
-                <h3 className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-widest mb-1">Team Activity Timeline</h3>
-                <p className="text-[10px] text-zinc-500 font-mono">CHRONOLOGICAL EVENT HISTORY RECORDED ACROSS ALL COLLABORATORS AND CONNECTED SERVICES.</p>
-              </div>
+      {/* Add link */}
+      <Dialog
+        open={showAddLinkModal}
+        onClose={() => setShowAddLinkModal(false)}
+        title="Add a link"
+        description="Shared with everyone on the team."
+        footer={
+          <>
+            <Button variant="ghost" disabled={savingLink} onClick={() => setShowAddLinkModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="ws-add-link" variant="primary" loading={savingLink} disabled={!linkTitle.trim() || !linkUrl.trim()}>
+              Add link
+            </Button>
+          </>
+        }
+      >
+        <form id="ws-add-link" onSubmit={handleAddLink} className="space-y-3.5">
+          <div>
+            <FieldLabel htmlFor="link-title">Name</FieldLabel>
+            <Input id="link-title" required value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="e.g. Figma file" />
+          </div>
+          <div>
+            <FieldLabel htmlFor="link-url">URL</FieldLabel>
+            <Input id="link-url" data-autofocus required value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="figma.com/file/…" className="font-mono text-[13px]" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <FieldLabel htmlFor="link-category">Type</FieldLabel>
+              <Select id="link-category" value={linkCategory} onChange={(e) => setLinkCategory(e.target.value as "design" | "repo" | "document" | "other")}>
+                <option value="design">Design</option>
+                <option value="repo">Code</option>
+                <option value="document">Docs &amp; slides</option>
+                <option value="other">Other</option>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel htmlFor="link-scope">Visible for</FieldLabel>
+              <Select id="link-scope" value={linkScope} onChange={(e) => setLinkScope(e.target.value as "event" | "global")}>
+                <option value="event">{activeHackathon?.name ? `${activeHackathon.name} only` : "This event only"}</option>
+                <option value="global">All of the team&apos;s events</option>
+              </Select>
+            </div>
+          </div>
+        </form>
+      </Dialog>
 
-              {(() => {
-                const timeline = getActivityTimeline();
-                if (timeline.length === 0) {
-                  return (
-                    <div className="card card-static p-12 text-center flex flex-col items-center justify-center border border-zinc-800 bg-zinc-950/40 rounded-2xl max-w-xl mx-auto shadow-xl">
-                      <Clock className="w-8 h-8 text-zinc-500 mb-2" />
-                      <h4 className="text-sm font-semibold text-white mb-1">No Activity Logged Yet</h4>
-                      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-                        Once tasks are created, resources added, brainstorm files saved, or code commits pushed, they will show up in this chronological timeline.
-                      </p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="relative border-l border-zinc-850 ml-4 pl-6 space-y-6">
-                    {timeline.map((event) => {
-                      const config = {
-                        commit: { icon: <GitCommit className="w-3 h-3 text-emerald-400" />, bg: "bg-emerald-500/10 text-emerald-450 border-emerald-500/20" },
-                        task: { icon: <CheckSquare className="w-3 h-3 text-violet-400" />, bg: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-                        resource: { icon: <Link2 className="w-3 h-3 text-amber-400" />, bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-                        brainstorm: { icon: <Lightbulb className="w-3 h-3 text-indigo-400" />, bg: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
-                      }[event.type] || { icon: <Bell className="w-3 h-3 text-zinc-400" />, bg: "bg-zinc-800 text-zinc-400 border-zinc-700" };
-
-                      const formattedTime = new Date(event.timestamp).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
-
+      {/* Invite builders to fill skill gaps */}
+      <Dialog
+        open={showInviteBuilderModal}
+        onClose={() => setShowInviteBuilderModal(false)}
+        size="lg"
+        title="Invite builders"
+        description={missingTeamSkills.length ? `Still missing: ${missingTeamSkills.join(", ")}` : "Send a team invite to builders on HackerMate."}
+        footer={
+          <Button variant="secondary" onClick={() => setShowInviteBuilderModal(false)}>
+            Done
+          </Button>
+        }
+      >
+        <SearchField value={searchQuery} onChange={setSearchQuery} placeholder="Search by name, college or skill" label="Search builders" />
+        <div className="mt-3 min-h-[240px]">
+          {loadingProfiles ? (
+            <div className="flex h-40 items-center justify-center">
+              <Spinner label="Loading builders" />
+            </div>
+          ) : (
+            (() => {
+              const memberIds = new Set(members.map((m) => m.profiles.id));
+              const q = searchQuery.toLowerCase();
+              const filtered = inviteProfiles.filter((p) => {
+                if (p.id === currentUserId || memberIds.has(p.id)) return false;
+                if (!q) return true;
+                return p.full_name?.toLowerCase().includes(q) || p.college?.toLowerCase().includes(q) || p.skills?.some((s) => s.toLowerCase().includes(q));
+              });
+              if (filtered.length === 0) return <p className="py-10 text-center text-[13px] text-ink-3">No builders match that search.</p>;
+              const shown = filtered.slice(0, 60);
+              return (
+                <>
+                  <ul className="divide-y divide-line">
+                    {shown.map((p) => {
+                      const invited = existingPendingInvites.has(p.id) || sessionInvitedIds.has(p.id);
                       return (
-                        <div key={event.id} className="relative group">
-                          <span className="absolute -left-[31px] top-0.5 flex items-center justify-center w-5 h-5 rounded-full bg-zinc-950 border border-zinc-800 text-[10px] shadow-sm z-10 shrink-0">
-                            {config.icon}
-                          </span>
-
-                          <div className="card card-static p-4 hover:border-zinc-800/80 transition-colors bg-zinc-900/40 border border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-[9px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded border ${config.bg}`}>
-                                  {event.title}
-                                </span>
-                                <span className="text-[10px] text-zinc-500 font-mono">{formattedTime}</span>
-                              </div>
-                              <p className="text-xs text-zinc-300 font-medium leading-relaxed">{event.description}</p>
-                            </div>
-
-                            {event.user && (
-                              <div className="flex items-center gap-2 shrink-0 bg-zinc-950/40 border border-zinc-900/60 rounded px-2.5 py-1.5 self-start sm:self-auto">
-                                {event.user.avatarUrl ? (
-                                  <img
-                                    src={event.user.avatarUrl}
-                                    alt={event.user.name}
-                                    className="w-4 h-4 rounded-full object-cover border border-zinc-800"
-                                  />
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full bg-zinc-855 border border-zinc-800 flex items-center justify-center font-bold text-zinc-400 text-[8px]">
-                                    {event.user.name.charAt(0)}
-                                  </div>
-                                )}
-                                <span className="text-[10px] text-zinc-400 font-semibold">{event.user.name.split(" ")[0]}</span>
+                        <li key={p.id} className="flex items-center gap-3 py-2.5">
+                          <Avatar name={p.full_name} src={p.avatar_url} size="sm" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13.5px] font-medium text-ink">{p.full_name || "Builder"}</p>
+                            {p.college && <p className="truncate text-[12px] text-ink-3">{p.college}</p>}
+                            {p.skills && p.skills.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {p.skills.slice(0, 3).map((s) => (
+                                  <Chip key={s} active={missingTeamSkills.some((m) => m.toLowerCase() === s.toLowerCase())}>
+                                    {s}
+                                  </Chip>
+                                ))}
+                                {p.skills.length > 3 && <Chip className="text-ink-3">+{p.skills.length - 3}</Chip>}
                               </div>
                             )}
                           </div>
-                        </div>
+                          <Button
+                            size="sm"
+                            variant={invited ? "ghost" : "secondary"}
+                            icon={invited ? <Check /> : <UserPlus />}
+                            disabled={invited}
+                            onClick={async () => {
+                              try {
+                                const { error } = await supabase.rpc("send_team_invite", { p_team_id: team.id, p_invited_user_id: p.id });
+                                if (error) {
+                                  console.error("[workspace] send_team_invite failed:", error);
+                                  showToast(error.message, "error");
+                                } else {
+                                  showToast(`Invite sent to ${p.full_name}!`, "success");
+                                  setSessionInvitedIds((prev) => new Set(prev).add(p.id));
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                showToast("Failed to send invite", "error");
+                              }
+                            }}
+                          >
+                            {invited ? "Invited" : "Invite"}
+                          </Button>
+                        </li>
                       );
                     })}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* 9. PPT AI EVALUATOR TAB */}
-          {workspaceTab === "ppt" && (
-            <div className="animate-fade-in text-left">
-              <PPTEvaluatorTab teamId={team.id} />
-            </div>
-          )}
-
-          {/* 10. SMART GAP FILLER TAB */}
-          {workspaceTab === "gap_filler" && (
-            <div className="animate-fade-in text-left">
-              <SmartGapFiller
-                teamId={team.id}
-                teamName={team.name}
-                requiredSkills={team.skills}
-                rolesNeeded={team.roles_needed}
-                members={members as any}
-                isOwnerOrMember={isOwner || members.some(m => m.profiles?.id === currentUserId || (m as any).user_id === currentUserId)}
-                onInviteSent={refreshTeam}
-              />
-            </div>
-          )}
-        </div>
-
-      {/* Selected Task Details & Comments Modal */}
-      {selectedTask && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-6 w-full max-w-lg flex flex-col max-h-[85vh] bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in text-left">
-            <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/[0.06]">
-              <div>
-                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase mb-1.5 inline-block ${
-                  selectedTask.priority === "high"
-                    ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                    : selectedTask.priority === "medium"
-                      ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                      : "bg-zinc-800 border-zinc-700 text-zinc-400"
-                }`}>
-                  {selectedTask.priority} Priority
-                </span>
-                <h2 className="text-sm font-semibold text-white leading-snug">{selectedTask.title}</h2>
-              </div>
-              <button 
-                onClick={() => setSelectedTask(null)}
-                className="text-zinc-500 hover:text-white transition-colors p-1 cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4 text-xs bg-zinc-100/80 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-900 rounded-lg p-3">
-              <div>
-                <span className="text-zinc-500 block mb-1">Assignee</span>
-                {(() => {
-                  const assignee = members.find((m) => m.profiles.id === selectedTask.assignee_id);
-                  return (
-                    <div className="flex items-center gap-1.5">
-                      {assignee ? (
-                        <>
-                          {assignee.profiles.avatar_url ? (
-                            <img src={assignee.profiles.avatar_url} alt={assignee.profiles.full_name} className="w-4 h-4 rounded-full object-cover border border-zinc-200 dark:border-zinc-800" />
-                          ) : (
-                            <div className="w-4 h-4 rounded-full bg-zinc-200 dark:bg-zinc-850 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-400 text-[8px]">{assignee.profiles.full_name.charAt(0)}</div>
-                          )}
-                          <span className="text-zinc-800 dark:text-zinc-300 font-semibold">{assignee.profiles.full_name}</span>
-                        </>
-                      ) : (
-                        <span className="text-zinc-500 italic">Unassigned</span>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <div>
-                <span className="text-zinc-500 block mb-1">Due Date</span>
-                {selectedTask.due_date ? (
-                  <span className="text-zinc-800 dark:text-zinc-300 font-semibold font-mono">{new Date(selectedTask.due_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
-                ) : (
-                  <span className="text-zinc-500 italic">No deadline set</span>
-                )}
-              </div>
-            </div>
-
-            {selectedTask.description && (
-              <div className="mb-4">
-                <span className="text-zinc-500 text-[10px] font-mono uppercase block mb-1">Description</span>
-                <p className="text-xs text-zinc-700 dark:text-zinc-300 bg-zinc-100/70 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-900/60 p-3 rounded-lg leading-relaxed break-words">{selectedTask.description}</p>
-              </div>
-            )}
-
-            <div className="flex-1 flex flex-col min-h-0">
-              <span className="text-zinc-500 text-[10px] font-mono uppercase block mb-2">Discussion Thread</span>
-              
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
-                {loadingComments ? (
-                  <div className="text-center py-6">
-                    <div className="w-4 h-4 border-2 border-zinc-800 border-t-white rounded-full animate-spin mx-auto" />
-                  </div>
-                ) : taskComments.length === 0 ? (
-                  <p className="text-xs text-zinc-500 italic text-center py-6">No comments posted yet. Start the conversation!</p>
-                ) : (
-                  taskComments.map((comment) => {
-                    const commenter = members.find((m) => m.profiles.id === comment.user_id)?.profiles;
-                    const date = new Date(comment.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-                    return (
-                      <div key={comment.id} className="flex gap-2.5 items-start">
-                        {commenter?.avatar_url ? (
-                          <img src={commenter.avatar_url} alt={commenter.full_name} className="w-5.5 h-5.5 rounded object-cover border border-zinc-800 mt-0.5" />
-                        ) : (
-                          <div className="w-5.5 h-5.5 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-zinc-500 text-[9px] mt-0.5">{commenter?.full_name?.charAt(0) || "U"}</div>
-                        )}
-                        <div className="flex-1 bg-zinc-100/80 dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-900/80 rounded-lg p-2.5">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-zinc-900 dark:text-white">{commenter?.full_name || "Teammate"}</span>
-                            <span className="text-[8px] text-zinc-500 font-mono">{date}</span>
-                          </div>
-                          <p className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">{comment.content}</p>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              <form onSubmit={handleAddComment} className="flex gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-900 mt-auto">
-                <input
-                  type="text"
-                  value={newTaskComment}
-                  onChange={(e) => setNewTaskComment(e.target.value)}
-                  placeholder="Post comment..."
-                  disabled={submittingComment}
-                  className="input text-xs flex-1 bg-[var(--surface-1)] border-[var(--card-border)] text-[var(--text-primary)] py-1.5 px-3"
-                />
-                <button
-                  type="submit"
-                  disabled={submittingComment || !newTaskComment.trim()}
-                  className="btn btn-primary text-xs py-1.5 px-4 disabled:opacity-50 cursor-pointer"
-                >
-                  Post
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Task Modal */}
-      {showAddTaskModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-md flex flex-col bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
-            <div className="flex justify-between items-start mb-4 pb-3 border-b border-zinc-200 dark:border-white/[0.06]">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-0.5">Create New Task</h2>
-                <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Assign tasks to builders on your team.</p>
-              </div>
-              <button 
-                onClick={() => setShowAddTaskModal(false)}
-                className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleAddTask} className="space-y-4">
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Task Title <span className="text-rose-400">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  placeholder="e.g. Design Landing Page"
-                  className="input text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Description</label>
-                <textarea
-                  value={taskDesc}
-                  onChange={(e) => setTaskDesc(e.target.value)}
-                  placeholder="What needs to be done?"
-                  rows={2}
-                  className="input text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Priority</label>
-                  <select
-                    value={taskPriority}
-                    onChange={(e) => setTaskPriority(e.target.value as "low" | "medium" | "high")}
-                    className="input text-xs px-4 cursor-pointer"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Assign To</label>
-                  <select
-                    value={taskAssignee}
-                    onChange={(e) => setTaskAssignee(e.target.value)}
-                    className="input text-xs px-4 cursor-pointer"
-                  >
-                    <option value="">Unassigned</option>
-                    {members.map((m) => (
-                      <option key={m.profiles.id} value={m.profiles.id}>
-                        {m.profiles.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5 mt-3 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Due Date (Optional)</label>
-                <input
-                  type="date"
-                  value={taskDueDate}
-                  onChange={(e) => setTaskDueDate(e.target.value)}
-                  className="input text-xs bg-[var(--surface-2)] border-[var(--card-border)] text-[var(--text-primary)] cursor-pointer"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-900 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddTaskModal(false)}
-                  className="btn btn-secondary btn-sm cursor-pointer"
-                  disabled={savingTask}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer"
-                  disabled={savingTask}
-                >
-                  {savingTask ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <span>Create Task</span>
+                  </ul>
+                  {filtered.length > shown.length && (
+                    <p className="pt-3 text-center text-[12px] text-ink-3">
+                      Showing {shown.length} of {filtered.length}. Search to narrow it down.
+                    </p>
                   )}
-                </button>
-              </div>
-            </form>
-          </div>
+                </>
+              );
+            })()
+          )}
         </div>
-      )}
+      </Dialog>
 
-      {/* Add Link Modal */}
-      {showAddLinkModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-md flex flex-col bg-[var(--surface-1)] border border-[var(--card-border)] animate-scale-in">
-            <div className="flex justify-between items-start mb-4 pb-3 border-b border-zinc-200 dark:border-white/[0.06]">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-0.5">Add Resource Link</h2>
-                <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Save important workspace links for your team.</p>
-              </div>
-              <button 
-                onClick={() => setShowAddLinkModal(false)}
-                className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleAddLink} className="space-y-4">
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Link Title <span className="text-rose-400">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={linkTitle}
-                  onChange={(e) => setLinkTitle(e.target.value)}
-                  placeholder="e.g. Figma Design File"
-                  className="input text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">URL <span className="text-rose-400">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  placeholder="e.g. figma.com/file/..."
-                  className="input text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Category</label>
-                <select
-                  value={linkCategory}
-                  onChange={(e) => setLinkCategory(e.target.value as "design" | "repo" | "document" | "other")}
-                  className="input text-xs px-4 cursor-pointer"
-                >
-                  <option value="other">General / Other</option>
-                  <option value="design">Figma / Design</option>
-                  <option value="repo">GitHub / Repository</option>
-                  <option value="document">Document / Slides</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Link Visibility / Scope</label>
-                <select
-                  value={linkScope}
-                  onChange={(e) => setLinkScope(e.target.value as "event" | "global")}
-                  className="input text-xs px-4 cursor-pointer"
-                >
-                  <option value="event">🏆 This Event Track Only ({activeHackathon?.name || "Current Event"})</option>
-                  <option value="global">🌐 Global (Shared Across All Team Events)</option>
-                </select>
-              </div>
-
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-900 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddLinkModal(false)}
-                  className="btn btn-secondary btn-sm cursor-pointer"
-                  disabled={savingLink}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer"
-                  disabled={savingLink}
-                >
-                  {savingLink ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <span>Add Link</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Invite Builder Modal */}
-      {showInviteBuilderModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-md flex flex-col max-h-[80vh]">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-white mb-0.5">Invite Builder</h2>
-                <p className="text-[10px] text-zinc-500">Send team invitations to other builders on HackerMate.</p>
-              </div>
-              <button 
-                onClick={() => setShowInviteBuilderModal(false)}
-                className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, college, or skills..."
-                className="input text-xs w-full"
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto min-h-[250px] pr-1 space-y-2">
-              {loadingProfiles ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-2" />
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Loading builders...</p>
-                </div>
-              ) : (() => {
-                const memberUserIds = new Set(members.map((m) => m.profiles.id));
-                const filtered = inviteProfiles.filter((p) => {
-                  if (p.id === currentUserId || memberUserIds.has(p.id)) return false;
-                  
-                  if (!searchQuery) return true;
-                  const query = searchQuery.toLowerCase();
-                  const nameMatch = p.full_name?.toLowerCase().includes(query);
-                  const collegeMatch = p.college?.toLowerCase().includes(query);
-                  const skillsMatch = p.skills?.some((s: string) => s.toLowerCase().includes(query));
-                  return nameMatch || collegeMatch || skillsMatch;
-                });
-
-                if (filtered.length === 0) {
-                  return (
-                    <div className="text-center py-12 text-zinc-500 text-xs">
-                      No builders found matching your search.
-                    </div>
-                  );
-                }
-
-                return filtered.map((profile) => {
-                  const isAlreadyInvited = existingPendingInvites.has(profile.id) || sessionInvitedIds.has(profile.id);
-                  return (
-                    <div key={profile.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/30 border border-zinc-900/80 hover:border-zinc-800 transition-colors">
-                      <div className="min-w-0 flex-1 mr-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-xs text-white truncate">{profile.full_name}</span>
-                          {profile.college && (
-                            <span className="text-[9px] text-zinc-500 truncate">({profile.college})</span>
-                          )}
-                        </div>
-                        {profile.skills && profile.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {profile.skills.slice(0, 3).map((s: string) => (
-                              <span key={s} className="text-[8px] px-1 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">{s}</span>
-                            ))}
-                            {profile.skills.length > 3 && (
-                              <span className="text-[8px] text-zinc-600">+{profile.skills.length - 3}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={async () => {
-                          try {
-                            const { error } = await supabase.rpc("send_team_invite", {
-                              p_team_id: team.id,
-                              p_invited_user_id: profile.id
-                            });
-
-                            if (error) {
-                              showToast(error.message, "error");
-                            } else {
-                              showToast(`Invite sent to ${profile.full_name}!`, "success");
-                              setSessionInvitedIds(prev => {
-                                const next = new Set(prev);
-                                next.add(profile.id);
-                                return next;
-                              });
-                            }
-
-                          } catch (err) {
-                            console.error(err);
-                            showToast("Failed to send invite", "error");
-                          }
-                        }}
-                        disabled={isAlreadyInvited}
-                        className={`btn btn-sm text-[10px] py-1 px-3 cursor-pointer ${
-                          isAlreadyInvited 
-                            ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border-transparent" 
-                            : "btn-primary"
-                        }`}
-                      >
-                        {isAlreadyInvited ? "Invited" : "Invite"}
-                      </button>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-zinc-900 mt-4">
-              <button
-                onClick={() => setShowInviteBuilderModal(false)}
-                className="btn btn-secondary btn-sm cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Share Modal */}
+      {/* Share */}
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        title={`Share Workspace — ${team.name}`}
-        subtitle="Share team workspace with collaborators"
+        title={`Share workspace · ${team.name}`}
+        subtitle="Share the team workspace with collaborators"
         shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/teams/${team.id}/workspace`}
-        shareText={`⚡ Check out our team workspace for '${team.name}' on HackerMate:`}
+        shareText={`Check out our team workspace for '${team.name}' on HackerMate:`}
         type="team"
         metadata={{
           teamName: team.name,

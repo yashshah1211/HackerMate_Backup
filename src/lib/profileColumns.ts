@@ -1,7 +1,7 @@
 /**
  * Explicit column projections for the column-restricted `profiles` table.
  *
- * AGENTS.md §2: never `select('*')` or embed `profiles(*)`. `email` is revoked
+ * AGENTS.md §2: never use a wildcard select or a wildcard profiles embed. `email` is revoked
  * from anon/authenticated, so it must never appear in these lists.
  * Keep SAFE_PROFILE_COLUMNS in sync with scripts/smoke-test-core-pages.js.
  */

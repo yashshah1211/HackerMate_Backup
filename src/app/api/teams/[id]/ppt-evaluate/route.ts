@@ -192,23 +192,33 @@ export async function POST(
     );
 
     // 8. Insert initial record with real track_id column (No conditional guessing)
-    const { data: initialRecord, error: insertErr } = await supabaseAdmin
+    const initialPayload = {
+      team_id: teamId,
+      submitted_by: userId,
+      ps_title: psTitle,
+      ps_category: psCategory,
+      submission_type: submissionType,
+      external_link_url: externalLinkUrl,
+      ppt_url: pptStorageUrl,
+      file_name: fileName,
+      version: currentVersion,
+      status: "evaluating",
+    };
+
+    let { data: initialRecord, error: insertErr } = await supabaseAdmin
       .from("team_ppt_evaluations")
-      .insert({
-        team_id: teamId,
-        submitted_by: userId,
-        track_id: resolvedTrackId,
-        ps_title: psTitle,
-        ps_category: psCategory,
-        submission_type: submissionType,
-        external_link_url: externalLinkUrl,
-        ppt_url: pptStorageUrl,
-        file_name: fileName,
-        version: currentVersion,
-        status: "evaluating",
-      })
+      .insert({ ...initialPayload, track_id: resolvedTrackId })
       .select("id")
       .single();
+
+    // Environments without migration 20260905210000 have no track_id column
+    // (42703). Retry without it; the track is still persisted in ai_feedback.track_id.
+    if (insertErr && insertErr.code === "42703") {
+      console.warn("[PPT Evaluate] track_id column missing; inserting without it:", insertErr.message);
+      const retry = await supabaseAdmin.from("team_ppt_evaluations").insert(initialPayload).select("id").single();
+      initialRecord = retry.data;
+      insertErr = retry.error;
+    }
 
     if (insertErr || !initialRecord) {
       console.error("[PPT Evaluate] DB initial record insert error:", insertErr);

@@ -107,11 +107,16 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
   async function loadTeamTrackContext() {
     try {
-      const { data: teamData } = await supabase
+      // `teams.track` and `hackathons.tag` are not present in the live schema;
+      // requesting them made PostgREST reject the whole query (400), which
+      // silently disabled track auto-detection. Only request real columns.
+      const { data: teamData, error: teamErr } = await supabase
         .from("teams")
-        .select("id, name, track, hackathon_name, team_hackathons(hackathons(id, name, tag, description))")
+        .select("id, name, hackathon_name, team_hackathons(hackathons(id, name, description))")
         .eq("id", teamId)
         .maybeSingle();
+
+      if (teamErr) console.error("[PPTEvaluatorTab] Team track context query failed:", teamErr);
 
       if (teamData) {
         const hackathonObj = (teamData.team_hackathons as any)?.[0]?.hackathons;
@@ -119,7 +124,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           name: teamData.hackathon_name || hackathonObj?.name,
           tag: hackathonObj?.tag,
           description: hackathonObj?.description,
-          track: teamData.track,
+          track: (teamData as { track?: string | null }).track ?? undefined,
         });
 
         if (detection.isConfident) {
@@ -414,7 +419,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               </span>
             </div>
             <h2 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-              AI Pitch Presentation Diagnostic
+              Pitch deck review
             </h2>
             <p className="text-zinc-600 dark:text-zinc-400 text-sm mt-1 max-w-2xl leading-relaxed">
               {selectedTrack === "sih"
@@ -521,7 +526,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       {/* Submission Form Card */}
       <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Evaluate New Pitch Deck Version</h3>
+          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Review a new version of your deck</h3>
         </div>
 
         <form onSubmit={handleEvaluate} className="space-y-4">
@@ -705,7 +710,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             </div>
           )}
 
-          {/* Iteration Progress Diff Card (When multiple versions exist) */}
+          {/* Change since last version Card (When multiple versions exist) */}
           {compareEval && (
             <div className="rounded-2xl p-5 border border-violet-200 dark:border-violet-500/30 bg-gradient-to-br from-violet-50/90 via-white to-indigo-50/60 dark:from-violet-950/20 dark:via-zinc-950/70 dark:to-indigo-950/20 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200/80 dark:border-zinc-800">
@@ -716,7 +721,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
-                        Iteration Progress Diff
+                        Change since last version
                       </h4>
                       <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-[10px] px-2 py-0.5 font-bold font-mono">
                         v{selectedEval.version} vs v{compareEval.version}
@@ -889,7 +894,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             <div className="rounded-2xl p-5 border border-rose-500/30 bg-rose-50/60 dark:bg-rose-950/20 shadow-xs space-y-3">
               <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
                 <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <h4 className="font-bold text-sm">Critical Jury Scrutiny & Red Flags</h4>
+                <h4 className="font-bold text-sm">What judges will push back on</h4>
               </div>
               <ul className="space-y-1.5 list-disc list-inside text-xs text-rose-800 dark:text-rose-300">
                 {selectedEval.ai_feedback.spocRedFlags?.map((flag, idx) => (
@@ -909,7 +914,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             <div className="rounded-2xl p-5 border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs space-y-2">
               <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
                 <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                <h4 className="font-bold text-sm">Jury-Recognized Highlights & Strengths</h4>
+                <h4 className="font-bold text-sm">What&apos;s already working</h4>
               </div>
               <ul className="space-y-1 list-disc list-inside text-xs text-emerald-800 dark:text-emerald-300">
                 {selectedEval.ai_feedback.strengths.map((str, idx) => (

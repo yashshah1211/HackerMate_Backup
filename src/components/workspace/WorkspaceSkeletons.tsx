@@ -1,60 +1,40 @@
 "use client";
 
-import React from "react";
+import { Skeleton } from "@/components/system";
 
-/**
- * Low-contrast shimmer skeleton for the 3-column Collaborative Kanban board.
- */
+/** Loading placeholder for the Tasks board: team pulse strip + three columns. */
 export function KanbanTasksSkeleton() {
-  const columns = ["To Do", "In Progress", "Completed"];
-
+  const columns = ["To do", "In progress", "Done"];
   return (
-    <div className="space-y-4 animate-pulse">
-      {/* Top workload balance placeholder */}
-      <div className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 space-y-2">
-        <div className="h-3 w-40 bg-zinc-200 dark:bg-zinc-800 rounded" />
-        <div className="flex gap-4">
-          <div className="h-2 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
-          <div className="h-2 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
-        </div>
+    <div className="space-y-5" aria-busy="true" aria-label="Loading tasks">
+      <div className="grid gap-4 rounded-lg border border-line bg-raised p-4 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-2.5 w-24" />
+            <Skeleton className="h-2 w-full" />
+            <Skeleton className="h-2 w-2/3" />
+          </div>
+        ))}
       </div>
-
-      {/* 3 Kanban Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-        {columns.map((colName, colIdx) => (
-          <div
-            key={colIdx}
-            className="flex flex-col rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-950/40 p-4 space-y-3 min-h-[380px]"
-          >
-            {/* Column Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800/80">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                <span className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">{colName}</span>
-              </div>
-              <div className="h-4 w-6 rounded-full bg-zinc-200 dark:bg-zinc-800" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {columns.map((name) => (
+          <div key={name} className="min-w-0">
+            <div className="mb-2 flex items-center gap-2 px-0.5">
+              <span className="size-2 rounded-full bg-line-strong" aria-hidden />
+              <span className="text-[13px] font-semibold text-ink-3">{name}</span>
             </div>
-
-            {/* Task Cards Skeletons */}
-            {[1, 2].map((cardIdx) => (
-              <div
-                key={cardIdx}
-                className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 space-y-2.5 shadow-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                  <div className="h-4 w-12 rounded bg-zinc-100 dark:bg-zinc-800" />
+            <div className="space-y-2 rounded-lg bg-sunken p-2 ring-1 ring-inset ring-line md:min-h-[320px]">
+              {[0, 1].map((c) => (
+                <div key={c} className="space-y-2.5 rounded-md border border-line bg-raised p-3">
+                  <Skeleton className="h-3 w-4/5" />
+                  <Skeleton className="h-2.5 w-2/3" />
+                  <div className="flex items-center justify-between border-t border-line pt-2.5">
+                    <Skeleton className="h-6 w-24 rounded-[5px]" />
+                    <Skeleton className="size-5 rounded-full" />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <div className="h-3.5 w-4/5 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                  <div className="h-3 w-2/3 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
-                </div>
-                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between">
-                  <div className="w-5 h-5 rounded-full bg-zinc-200 dark:bg-zinc-800" />
-                  <div className="h-3 w-14 bg-zinc-100 dark:bg-zinc-800 rounded" />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -62,51 +42,39 @@ export function KanbanTasksSkeleton() {
   );
 }
 
-/**
- * Low-contrast shimmer skeleton for the GitHub commit timeline.
- */
+/** Loading placeholder for the GitHub commit list. */
 export function CommitsTimelineSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
-      {[1, 2, 3, 4].map((idx) => (
-        <div key={idx} className="flex gap-4 items-start">
-          <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0 mt-0.5" />
-          <div className="flex-1 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 space-y-2">
-            <div className="h-3.5 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded" />
-            <div className="flex items-center gap-3">
-              <div className="h-3 w-24 bg-zinc-100 dark:bg-zinc-800 rounded" />
-              <div className="h-3 w-16 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
-            </div>
+    <div className="divide-y divide-line" aria-busy="true" aria-label="Loading commits">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex items-start gap-3 py-3">
+          <Skeleton className="size-7 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-2.5 w-1/3" />
           </div>
+          <Skeleton className="h-6 w-16 rounded" />
         </div>
       ))}
     </div>
   );
 }
 
-/**
- * Low-contrast shimmer skeleton for the brainstorm / ideation tag board.
- */
+/** Loading placeholder for the brainstorm ideas grid. */
 export function IdeationBoardSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
-      {[1, 2, 3, 4].map((idx) => (
-        <div
-          key={idx}
-          className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 space-y-3 shadow-xs"
-        >
-          <div className="flex items-center justify-between">
-            <div className="h-4 w-20 rounded-full bg-zinc-200 dark:bg-zinc-800" />
-            <div className="h-4 w-12 rounded bg-zinc-100 dark:bg-zinc-800" />
-          </div>
+    <div className="grid gap-3 sm:grid-cols-2" aria-busy="true" aria-label="Loading ideas">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="space-y-3 rounded-lg border border-line bg-raised p-4">
+          <Skeleton className="h-[18px] w-20 rounded-[3px]" />
           <div className="space-y-1.5">
-            <div className="h-4 w-5/6 bg-zinc-200 dark:bg-zinc-800 rounded" />
-            <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800/60 rounded" />
-            <div className="h-3 w-2/3 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+            <Skeleton className="h-3.5 w-5/6" />
+            <Skeleton className="h-2.5 w-full" />
+            <Skeleton className="h-2.5 w-2/3" />
           </div>
-          <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between">
-            <div className="h-3 w-24 bg-zinc-100 dark:bg-zinc-800 rounded" />
-            <div className="h-6 w-14 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+          <div className="flex items-center justify-between pt-1">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-8 w-14 rounded-md" />
           </div>
         </div>
       ))}
@@ -114,25 +82,18 @@ export function IdeationBoardSkeleton() {
   );
 }
 
-/**
- * Low-contrast shimmer skeleton for the workspace activity feed.
- */
+/** Loading placeholder for the activity log. */
 export function ActivityFeedSkeleton() {
   return (
-    <div className="space-y-3 animate-pulse">
-      {[1, 2, 3, 4, 5].map((idx) => (
-        <div
-          key={idx}
-          className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 flex items-center justify-between gap-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0" />
-            <div className="space-y-1">
-              <div className="h-3.5 w-48 bg-zinc-200 dark:bg-zinc-800 rounded" />
-              <div className="h-2.5 w-28 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
-            </div>
+    <div className="divide-y divide-line rounded-lg border border-line bg-raised" aria-busy="true" aria-label="Loading activity">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex items-start gap-3 px-4 py-3">
+          <Skeleton className="size-7 shrink-0 rounded-md" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-1/3" />
+            <Skeleton className="h-2.5 w-2/3" />
           </div>
-          <div className="h-3 w-16 bg-zinc-100 dark:bg-zinc-800 rounded font-mono" />
+          <Skeleton className="h-2.5 w-10" />
         </div>
       ))}
     </div>

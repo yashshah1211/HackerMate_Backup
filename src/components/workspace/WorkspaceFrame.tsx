@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
+  ChevronRight,
   ChevronsUpDown,
   Clock,
   CloudUpload,
@@ -71,6 +72,32 @@ export function WorkspaceFrame(props: Props) {
   const [teamSheet, setTeamSheet] = useState(false);
   const router = useRouter();
   useImmersive(true);
+
+  // Mobile section row: track whether there's more to scroll on either side,
+  // and keep the active section in view when it changes (e.g. ?tab=ppt).
+  const mobileNavRef = useRef<HTMLElement>(null);
+  const [navEdges, setNavEdges] = useState({ start: false, end: true });
+  const updateNavEdges = useCallback(() => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+    const start = el.scrollLeft > 4;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setNavEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+  useEffect(() => {
+    const el = mobileNavRef.current;
+    const active = el?.querySelector<HTMLElement>("[data-active]");
+    if (el && active) {
+      const left = active.offsetLeft - el.clientWidth / 2 + active.clientWidth / 2;
+      el.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    }
+    const t = window.setTimeout(updateNavEdges, 350);
+    window.addEventListener("resize", updateNavEdges);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("resize", updateNavEdges);
+    };
+  }, [tab, updateNavEdges]);
   const current = WORKSPACE_SECTIONS.find((s) => s.id === tab) || WORKSPACE_SECTIONS[0];
 
   return (
@@ -155,26 +182,51 @@ export function WorkspaceFrame(props: Props) {
               <AvatarStack className="mr-1" size="xs" max={3} people={props.onlineTeammates.map((u) => ({ id: u.id, name: u.name, src: u.avatarUrl }))} />
             )}
           </div>
-          <nav aria-label="Workspace sections" className="flex gap-1 overflow-x-auto px-2 pb-2 scrollbar-none">
-            {WORKSPACE_SECTIONS.map((s) => {
-              const active = s.id === tab;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => onTabChange(s.id)}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium transition-colors [&_svg]:size-3.5",
-                    active ? "bg-ink text-canvas" : "text-ink-3 ring-1 ring-inset ring-line active:bg-hover",
-                  )}
-                >
-                  {s.icon}
-                  {s.label}
-                </button>
-              );
-            })}
-          </nav>
+          <div className="relative">
+            <nav
+              ref={mobileNavRef}
+              aria-label="Workspace sections"
+              onScroll={updateNavEdges}
+              className="flex snap-x gap-1 overflow-x-auto scroll-px-2 px-2 pb-2 scrollbar-none"
+            >
+              {WORKSPACE_SECTIONS.map((s) => {
+                const active = s.id === tab;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    data-active={active || undefined}
+                    onClick={() => onTabChange(s.id)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors [&_svg]:size-3.5",
+                      active ? "bg-ink text-canvas" : "text-ink-2 ring-1 ring-inset ring-line-strong active:bg-hover",
+                    )}
+                  >
+                    {s.icon}
+                    {s.label}
+                  </button>
+                );
+              })}
+            </nav>
+            {/* Edge fades + chevron make it obvious the row scrolls. */}
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-canvas to-transparent transition-opacity",
+                navEdges.start ? "opacity-100" : "opacity-0",
+              )}
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-y-0 right-0 flex w-10 items-start justify-end bg-gradient-to-l from-canvas via-canvas/80 to-transparent pr-1 pt-2 transition-opacity",
+                navEdges.end ? "opacity-100" : "opacity-0",
+              )}
+            >
+              <ChevronRight className="size-4 text-ink-3" />
+            </span>
+          </div>
         </div>
 
         {/* Desktop section header */}
@@ -305,7 +357,7 @@ function EventBlock({ activeHackathon, listedHackathons, countdown, tasks }: Pro
   if (!activeHackathon) return null;
   return (
     <div className="border-b border-line px-4 py-3.5">
-      <p className="caps-label text-ink-4">Event</p>
+      <p className="caps-label text-ink-3">Event</p>
       {listedHackathons.length > 1 ? (
         <select
           aria-label="Switch event track"
@@ -362,7 +414,7 @@ function CoverageBlock({ coverage, isOwner, onFindBuilders }: Props) {
   return (
     <div className="border-t border-line px-4 py-3.5 lg:border-b-0">
       <div className="flex items-baseline justify-between">
-        <p className="caps-label text-ink-4">Stack coverage</p>
+        <p className="caps-label text-ink-3">Stack coverage</p>
         <span className="font-mono text-[12px] text-ink-2 tabular">{pct}%</span>
       </div>
       <Progress className="mt-2" value={pct} tone={pct >= 80 ? "ok" : "warn"} />
@@ -393,7 +445,7 @@ function PresenceBlock({ members, onlineTeammates }: Props) {
   const online = new Set(onlineTeammates.map((u) => u.id));
   return (
     <div className="border-t border-line px-4 py-3.5">
-      <p className="caps-label text-ink-4">
+      <p className="caps-label text-ink-3">
         Team · {onlineTeammates.length}/{members.length} here
       </p>
       <ul className="mt-2 space-y-1.5">

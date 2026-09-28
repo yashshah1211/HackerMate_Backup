@@ -36,6 +36,7 @@ import {
 } from "@/components/system";
 import StreakWidget from "@/components/StreakWidget";
 import { CATEGORY_TONE } from "@/lib/teamCategory";
+import { fitBand, matchReason } from "@/lib/matchPresentation";
 import { dateStamp, eventTimeline, greeting, relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
@@ -445,7 +446,7 @@ function BuildersForYou({ data }: { data: DashboardData }) {
       ) : (
         <ul className="divide-y divide-line" data-stagger key={view}>
           {list.map((b) => (
-            <BuilderRow key={b.id} b={b} state={data.connectionStates[b.id] || "not_connected"} />
+            <BuilderRow key={b.id} b={b} viewerSkills={data.profile?.skills || []} state={data.connectionStates[b.id] || "not_connected"} />
           ))}
         </ul>
       )}
@@ -453,11 +454,13 @@ function BuildersForYou({ data }: { data: DashboardData }) {
   );
 }
 
-function BuilderRow({ b, state }: { b: DashBuilder; state: ConnState }) {
+function BuilderRow({ b, state, viewerSkills }: { b: DashBuilder; state: ConnState; viewerSkills: string[] }) {
   const shared = new Set(b.shared_skills || []);
   const skills = [...(b.skills || [])].sort((x, y) => Number(shared.has(y)) - Number(shared.has(x))).slice(0, 4);
-  const reason = b.reasons?.[0];
-  const isDiscovery = Boolean(reason && /discovery suggestion/i.test(reason));
+  const why = matchReason({ reasons: b.reasons, builderSkills: b.skills, viewerSkills });
+  const reason = why?.text;
+  const isDiscovery = Boolean(why?.discovery);
+  const band = fitBand(b.compatibility, b.confidence);
 
   return (
     <li className="group relative flex items-start gap-3 py-3.5">
@@ -490,11 +493,10 @@ function BuilderRow({ b, state }: { b: DashBuilder; state: ConnState }) {
         )}
       </div>
       <div className="relative z-10 flex shrink-0 flex-col items-end gap-2">
-        {typeof b.compatibility === "number" && (
-          <span className="text-right" title="Compatibility score from matchmaking">
-            <span className="font-display text-[19px] font-semibold leading-none text-ink tabular">{b.compatibility}</span>
-            <span className="caps-label ml-1 text-ink-4">fit</span>
-          </span>
+        {band && (
+          <Tape tone={band.tone} title={band.detail}>
+            {band.label}
+          </Tape>
         )}
         <RelationshipCta id={b.id} state={state} />
       </div>
@@ -575,7 +577,7 @@ function Pulse({ data }: { data: DashboardData }) {
               i < 2 && "border-b border-line",
             )}
           >
-            <div className="caps-label text-ink-4">{it.label}</div>
+            <div className="caps-label text-ink-3">{it.label}</div>
             <div className={cn("mt-1 font-display text-[22px] font-semibold leading-none tabular", it.urgent ? "text-warn" : "text-ink")}>
               {data.loading ? <Skeleton className="mt-1 h-5 w-10" /> : it.value.toLocaleString("en-IN")}
             </div>
@@ -591,7 +593,7 @@ function SihCallout() {
     <Link href="/hackathons/sih" className="group block rounded-lg border border-line p-4 transition-colors hover:border-line-strong hover:bg-hover">
       <div className="flex items-center gap-2">
         <Tape tone="sih">SIH 2026</Tape>
-        <span className="caps-label text-ink-4">Team builder</span>
+        <span className="caps-label text-ink-3">Team builder</span>
       </div>
       <p className="mt-2 text-[14px] font-semibold text-ink">Smart India Hackathon internal round</p>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">Six members from your college, at least one woman on the team. Find the gaps in yours.</p>

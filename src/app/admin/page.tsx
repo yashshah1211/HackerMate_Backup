@@ -513,9 +513,12 @@ function AdminContent() {
         .order("name");
       if (hData) setAllHackathons(hData);
 
-      const { data: pConfigs } = await supabase
+      // partner_configs has no is_active column; requesting it made every
+      // admin load fail with a 400 and left the partner map empty.
+      const { data: pConfigs, error: pConfigsErr } = await supabase
         .from("partner_configs")
-        .select("id, hackathon_id, slug, partner_name, is_active, created_at");
+        .select("id, hackathon_id, slug, partner_name, created_at");
+      if (pConfigsErr) console.error("[admin] partner_configs query failed:", pConfigsErr);
       if (pConfigs) {
         const pMap: Record<string, { id: string; slug: string; partner_name: string }> = {};
         pConfigs.forEach((pc: any) => {
