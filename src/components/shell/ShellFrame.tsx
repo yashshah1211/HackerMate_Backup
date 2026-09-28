@@ -37,7 +37,7 @@ export function ShellFrame({
   const section = sectionFor(pathname);
   const detail = isDetailRoute(pathname);
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-canvas text-ink">
+    <div data-shell-root className="flex h-[100dvh] overflow-hidden bg-canvas text-ink">
       <NavRail
         session={session}
         section={section}
