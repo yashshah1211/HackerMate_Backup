@@ -2,9 +2,10 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { Lock, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import TeamWorkspaceView from "@/components/TeamWorkspaceView";
+import { ButtonLink, EmptyState, Page, PageLoader } from "@/components/system";
 
 type Team = {
   id: string;
@@ -167,24 +168,23 @@ function TeamWorkspaceContent() {
   }
 
   if (loading) {
-    return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading team workspace...</p>
-        </div>
-      </main>
-    );
+    return <PageLoader label="Opening workspace" />;
   }
 
   if (!team) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-12 text-center">
-          <h1 className="text-sm font-semibold text-white mb-1">Team not found</h1>
-          <p className="text-xs text-zinc-500">This team does not exist or has been deleted.</p>
-        </div>
-      </main>
+      <Page width="narrow" className="pt-10">
+        <EmptyState
+          icon={<Users />}
+          title="Team not found"
+          body="This team doesn't exist or has been disbanded."
+          action={
+            <ButtonLink href="/my-teams" size="sm" variant="secondary">
+              Your teams
+            </ButtonLink>
+          }
+        />
+      </Page>
     );
   }
 
@@ -193,41 +193,40 @@ function TeamWorkspaceContent() {
 
   if (!currentUser) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-12 text-center max-w-lg mx-auto space-y-4">
-          <span className="text-3xl">🔒</span>
-          <h1 className="text-base font-bold text-white">Sign In Required</h1>
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            Team workspaces are private for team builders. Please sign in to access workspace features.
-          </p>
-          <Link
-            href={`/teams/${team.id}`}
-            className="btn btn-primary btn-sm inline-block"
-          >
-            View Team Profile →
-          </Link>
-        </div>
-      </main>
+      <Page width="narrow" className="pt-10">
+        <EmptyState
+          icon={<Lock />}
+          title="Sign in to open this workspace"
+          body="Team workspaces are private to the team's members."
+          action={
+            <>
+              <ButtonLink href={`/login?next=${encodeURIComponent(`/teams/${team.id}/workspace`)}`} size="sm" variant="primary">
+                Sign in
+              </ButtonLink>
+              <ButtonLink href={`/teams/${team.id}`} size="sm" variant="ghost">
+                View team page
+              </ButtonLink>
+            </>
+          }
+        />
+      </Page>
     );
   }
 
   if (!canAccessWorkspace) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-12 text-center max-w-lg mx-auto space-y-4">
-          <span className="text-3xl">🚫</span>
-          <h1 className="text-base font-bold text-white">Workspace Access Restricted</h1>
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            The workspace for &quot;{team.name}&quot; is accessible only to active team members and the team owner.
-          </p>
-          <Link
-            href={`/teams/${team.id}`}
-            className="btn btn-primary btn-sm inline-block"
-          >
-            Back to Team Overview & Join Request →
-          </Link>
-        </div>
-      </main>
+      <Page width="narrow" className="pt-10">
+        <EmptyState
+          icon={<Lock />}
+          title={`${team.name}'s workspace is members-only`}
+          body="Taking you back to the team page, where you can ask to join."
+          action={
+            <ButtonLink href={`/teams/${team.id}`} size="sm" variant="secondary">
+              Go to team page
+            </ButtonLink>
+          }
+        />
+      </Page>
     );
   }
 
@@ -245,14 +244,7 @@ function TeamWorkspaceContent() {
 
 export default function TeamWorkspacePage() {
   return (
-    <Suspense fallback={
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading workspace...</p>
-        </div>
-      </main>
-    }>
+    <Suspense fallback={<PageLoader label="Opening workspace" />}>
       <TeamWorkspaceContent />
     </Suspense>
   );

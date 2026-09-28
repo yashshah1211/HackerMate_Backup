@@ -10,6 +10,8 @@ import { useNotification } from "@/context/NotificationContext";
 import PPTEvaluatorTab from "@/components/PPTEvaluatorTab";
 import SmartGapFiller from "@/components/SmartGapFiller";
 import { KanbanTasksSkeleton, CommitsTimelineSkeleton, IdeationBoardSkeleton } from "@/components/workspace/WorkspaceSkeletons";
+import { WorkspaceFrame } from "@/components/workspace/WorkspaceFrame";
+import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
 import { Lightbulb, Clock, Globe, FileText, GitCommit, CheckSquare, Link2, Bell, AlertTriangle } from "lucide-react";
 
 type Team = {
@@ -1658,267 +1660,31 @@ export default function TeamWorkspaceView({
   const completedTasksCount = tasks.filter((t) => t.status === "completed").length;
   const taskProgressPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
+  const workspaceTone = CATEGORY_TONE[
+    getTeamCategoryInfo({
+      hackathon_id: (team as { hackathon_id?: string | null }).hackathon_id ?? null,
+      team_hackathons: listedHackathons.map((h) => ({ hackathon_id: h.id, hackathons: { id: h.id, name: h.name } })),
+    }).category
+  ];
+
   return (
-    <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
-      {/* Header Back Link to Team Overview */}
-      <div className="mb-6 flex items-center justify-between animate-fade-in-up">
-        <Link
-          href={`/teams/${team.id}`}
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors font-mono uppercase tracking-wider bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 rounded-lg"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-          </svg>
-          Back to Team Overview
-        </Link>
-
-        {(isOwner || Boolean(currentUserId && members?.some((m: any) => m.user_id === currentUserId || m.id === currentUserId))) && (
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="btn btn-lime px-3.5 py-1 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-black font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm"
-          >
-            <span className="text-black">🔗 Share Workspace</span>
-          </button>
-        )}
-      </div>
-
-      <section className="animate-fade-in-up space-y-6">
-        {/* Top Countdown & Milestone Dashboard banner */}
-        {activeHackathon && (
-          <div className="card p-6 bg-gradient-to-r from-white via-zinc-50 to-white dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-xl dark:shadow-2xl relative overflow-hidden group">
-            <div className="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-violet-600/10 blur-3xl pointer-events-none group-hover:bg-violet-600/15 transition-all duration-700" />
-            <div className="absolute -left-24 -bottom-24 w-48 h-48 rounded-full bg-emerald-600/5 blur-3xl pointer-events-none group-hover:bg-emerald-600/10 transition-all duration-700" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center gap-6 flex-1 z-10">
-              <div className="space-y-1">
-                <span className="text-[9px] font-mono font-semibold tracking-widest text-emerald-400 uppercase flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Event Track Cockpit — {team.name}
-                </span>
-                {listedHackathons && listedHackathons.length > 1 ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-mono text-[var(--text-tertiary)]">Switch Track:</span>
-                    <select
-                      value={activeHackathon.id}
-                      onChange={(e) => {
-                        const newHackathonId = e.target.value;
-                        const url = new URL(window.location.href);
-                        url.searchParams.set("hackathon_id", newHackathonId);
-                        window.location.href = url.toString();
-                      }}
-                      className="text-xs font-bold bg-[var(--surface-1)] border border-[var(--card-border)] text-[var(--text-primary)] rounded-lg px-2.5 py-1 focus:outline-none hover:border-[var(--card-hover-border)] cursor-pointer"
-                    >
-                      {listedHackathons.map((h) => (
-                        <option key={h.id} value={h.id}>
-                          🏆 {h.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight leading-snug">
-                    {activeHackathon.name}
-                  </h3>
-                )}
-
-
-                <p className="text-[10px] text-zinc-500 font-medium">Chronological hackathon workspace coordination dashboard.</p>
-              </div>
-
-              {!countdownParts.ended ? (
-                <div className="flex gap-2 bg-[var(--surface-2)] border border-[var(--card-border)] p-2 rounded-xl backdrop-blur-sm shadow-inner">
-                  <div className="flex flex-col items-center">
-                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
-                      <span className="font-mono text-xs font-bold text-[var(--text-primary)] tracking-tight">
-                        {String(countdownParts.days).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Days</span>
-                  </div>
-
-                  <span className="text-[var(--text-muted)] self-center font-bold text-xs -mt-3">:</span>
-
-                  <div className="flex flex-col items-center">
-                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
-                      <span className="font-mono text-xs font-bold text-violet-400 tracking-tight">
-                        {String(countdownParts.hours).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Hours</span>
-                  </div>
-
-                  <span className="text-[var(--text-muted)] self-center font-bold text-xs -mt-3">:</span>
-
-                  <div className="flex flex-col items-center">
-                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
-                      <span className="font-mono text-xs font-bold text-violet-300 tracking-tight">
-                        {String(countdownParts.minutes).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Mins</span>
-                  </div>
-
-                  <span className="text-[var(--text-muted)] self-center font-bold text-xs -mt-3">:</span>
-
-                  <div className="flex flex-col items-center">
-                    <div className="bg-[var(--surface-1)] border border-[var(--card-border)] rounded-lg px-2.5 py-1.5 min-w-[42px] text-center">
-                      <span className="font-mono text-xs font-bold text-indigo-400 tracking-tight">
-                        {String(countdownParts.seconds).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Secs</span>
-                  </div>
-                </div>
-              ) : (
-                <span className="text-[9px] font-mono font-bold text-[var(--text-secondary)] bg-[var(--surface-3)] border border-[var(--card-border)] px-3 py-1 rounded-full uppercase tracking-wider">
-                  Event Closed
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-6 z-10 flex-wrap shrink-0">
-              <div className="flex flex-col gap-1.5 min-w-[125px]">
-                <div className="flex items-center justify-between text-[9px] font-mono">
-                  <span className="text-zinc-500 uppercase tracking-wider">Tasks</span>
-                  <span className="text-zinc-350 font-bold">{completedTasksCount}/{totalTasksCount} ({taskProgressPct}%)</span>
-                </div>
-                <div className="w-full h-1.5 bg-[var(--surface-1)] border border-[var(--card-border)] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]" 
-                    style={{ width: `${taskProgressPct}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Skills Gap Visualizer */}
-        {teamDesiredSkills.length > 0 && (() => {
-          const skillCoveragePct = teamDesiredSkills.length > 0 ? Math.round((coveredTeamSkills.length / teamDesiredSkills.length) * 100) : 100;
-          return (
-            <div className="card p-6 bg-[var(--surface-2)] border border-[var(--card-border)] rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-left shadow-lg relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-6 flex-1">
-                <div className="relative w-16 h-16 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center shrink-0 bg-[var(--surface-1)] shadow-inner group">
-                  <div className="absolute inset-0.5 rounded-full border border-dashed border-[var(--card-border)] animate-[spin_20s_linear_infinite]" />
-                  <div className="text-center z-10">
-                    <span className="text-[11px] font-bold text-[var(--text-primary)] block -mb-0.5">{skillCoveragePct}%</span>
-                    <span className="text-[6px] font-mono text-zinc-500 uppercase tracking-widest block">Match</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[9px] font-mono font-semibold tracking-widest text-amber-500 dark:text-amber-400 uppercase flex items-center gap-1.5">
-                    📊 Stack Fit Matrix
-                  </span>
-                  <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-200">Team Skills Coverage Radar</h4>
-                  <p className="text-[10px] text-zinc-500 max-w-md leading-relaxed">
-                    Matches requested team skills against current builders. Recruiting developers with missing competencies boosts event readiness.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-6 items-center shrink-0 z-10">
-                <div className="space-y-2">
-                  <span className="text-[8px] text-[var(--text-tertiary)] font-mono uppercase block font-bold tracking-wider">Acquired Stack ({coveredTeamSkills.length})</span>
-                  <div className="flex flex-wrap gap-1 max-w-[240px]">
-                    {coveredTeamSkills.map(s => (
-                      <span key={s} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-emerald-600 dark:bg-emerald-400" />
-                        {s}
-                      </span>
-                    ))}
-                    {coveredTeamSkills.length === 0 && <span className="text-[9px] text-[var(--text-muted)] italic">None yet</span>}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="text-[8px] font-mono uppercase block font-bold tracking-wider text-rose-600 dark:text-rose-400">Needed Stack ({missingTeamSkills.length})</span>
-                  <div className="flex flex-wrap gap-1 max-w-[240px]">
-                    {missingTeamSkills.map(s => (
-                      <span key={s} className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-400 text-[8px] font-mono uppercase font-bold flex items-center gap-1 animate-pulse">
-                        <span className="w-1 h-1 rounded-full bg-rose-600 dark:bg-rose-400" />
-                        {s}
-                      </span>
-                    ))}
-                    {missingTeamSkills.length === 0 && <span className="text-[8px] text-emerald-700 dark:text-emerald-400 italic font-medium">All stack requirements met</span>}
-                  </div>
-                </div>
-
-                {isOwner && missingTeamSkills.length > 0 && (
-                  <button
-                    onClick={() => setShowInviteBuilderModal(true)}
-                    className="btn btn-secondary text-[10px] px-3.5 py-1.5 whitespace-nowrap bg-[var(--surface-1)] border-[var(--card-border)] hover:border-[var(--card-hover-border)] hover:text-[var(--text-primary)] transition-all rounded-lg font-mono uppercase tracking-wider cursor-pointer"
-                  >
-                    Find Builders
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Tab Selector */}
-        <div className="flex items-center justify-between border-b border-[var(--card-border)] pb-3 flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="section-label mb-0.5 font-mono uppercase tracking-wider">Workspace</p>
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">{team.name} — Workspace Hub</h2>
-            </div>
-            
-            {onlineTeammates.length > 0 && (
-              <div className="flex items-center -space-x-1.5 overflow-hidden p-1 bg-zinc-950/20 rounded-full border border-zinc-900/60 ml-2">
-                {onlineTeammates.map((u) => (
-                  <div key={u.id} className="relative group shrink-0" title={`${u.name} (Online)`}>
-                    {u.avatarUrl ? (
-                      <img
-                        src={u.avatarUrl}
-                        alt={u.name}
-                        className="w-5 h-5 rounded-full object-cover border border-zinc-900"
-                      />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center font-bold text-zinc-400 text-[8px]">
-                        {u.name.charAt(0)}
-                      </div>
-                    )}
-                    <span className="absolute bottom-0 right-0 block h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-950 animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex bg-[var(--surface-1)] p-1 rounded-xl border border-[var(--card-border)] overflow-x-auto whitespace-nowrap scrollbar-none max-w-full gap-1 shadow-xs">
-            {([
-              { id: "chat", label: "Chat" },
-              { id: "tasks", label: "Tasks" },
-              { id: "brainstorm", label: "Brainstorm" },
-              { id: "resources", label: "Resources" },
-              { id: "github", label: "GitHub Sync" },
-              { id: "deployments", label: "🚀 Deployments" },
-              { id: "activity", label: "Activity Feed" },
-              { id: "ppt", label: "🎯 PPT AI Evaluator" },
-              { id: "gap_filler", label: "⚡ Squad Matcher" },
-            ] as const).map((tabItem) => {
-              const isActive = workspaceTab === tabItem.id;
-              return (
-                <button
-                  key={tabItem.id}
-                  onClick={() => handleTabChange(tabItem.id as WorkspaceTab)}
-                  className={`px-3 py-1.5 text-xs rounded-lg transition-all shrink-0 cursor-pointer ${
-                    isActive
-                      ? "bg-[var(--surface-2)] text-[var(--text-primary)] font-semibold shadow-xs border border-[var(--card-border)]"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]/60 font-medium"
-                  }`}
-                >
-                  {tabItem.label}
-                </button>
-              );
-            })}
-          </div>
-
-        </div>
-
+    <WorkspaceFrame
+      team={team}
+      tone={workspaceTone}
+      isOwner={isOwner}
+      canShare={isOwner || Boolean(currentUserId && members?.some((m) => m.profiles?.id === currentUserId))}
+      tab={workspaceTab}
+      onTabChange={handleTabChange}
+      listedHackathons={listedHackathons}
+      activeHackathon={activeHackathon}
+      countdown={countdownParts}
+      tasks={{ done: completedTasksCount, total: totalTasksCount, pct: taskProgressPct }}
+      coverage={{ desired: teamDesiredSkills, covered: coveredTeamSkills, missing: missingTeamSkills }}
+      onlineTeammates={onlineTeammates}
+      members={members}
+      onShare={() => setShowShareModal(true)}
+      onFindBuilders={() => setShowInviteBuilderModal(true)}
+    >
         {/* Tab Contents */}
         <div className="animate-fade-in">
           {/* 1. CHAT TAB */}
@@ -1928,18 +1694,11 @@ export default function TeamWorkspaceView({
                 <p className="text-[var(--text-tertiary)] text-xs">Loading chat...</p>
               </div>
             ) : conversationId && currentUserId ? (
-              <div className="space-y-4">
-                <div className="flex justify-end">
-                  <span className="badge badge-success text-[10px] py-0.5 px-1.5 bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                    Live Chat Thread
-                  </span>
-                </div>
+              <div className="flex h-[calc(100dvh-8rem)] flex-col overflow-hidden rounded-lg border border-line md:h-[calc(100dvh-9rem)] lg:h-[calc(100dvh-6.5rem)]">
                 <ChatThread
                   conversationId={conversationId}
                   currentUserId={currentUserId}
                   knownProfiles={knownProfiles}
-                  height="400px"
                 />
               </div>
             ) : (
@@ -2934,7 +2693,6 @@ export default function TeamWorkspaceView({
             </div>
           )}
         </div>
-      </section>
 
       {/* Selected Task Details & Comments Modal */}
       {selectedTask && (
@@ -3411,6 +3169,6 @@ export default function TeamWorkspaceView({
           hackathonName: team.hackathon_name || undefined,
         }}
       />
-    </main>
+    </WorkspaceFrame>
   );
 }
