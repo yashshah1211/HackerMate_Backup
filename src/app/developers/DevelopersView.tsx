@@ -25,7 +25,7 @@ import {
   Tape,
   TeamMark,
 } from "@/components/system";
-import { relativeTime } from "@/lib/time";
+import { isOnline, relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { compatibilityFor, type Builder, type OwnedTeam, type Recommendation, type Relationship } from "./useDevelopersData";
 
@@ -43,11 +43,6 @@ type Filters = {
 const EMPTY_FILTERS: Filters = { college: "", year: "", availableOnly: false, experience: "any", skills: [] };
 const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Postgrad / Alumni"];
 const PAGE = 40;
-
-function isOnline(lastSeen?: string | null) {
-  if (!lastSeen) return false;
-  return Date.now() - new Date(lastSeen).getTime() < 5 * 60 * 1000;
-}
 
 export function DevelopersView({
   builders,

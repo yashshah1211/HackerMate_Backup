@@ -110,8 +110,8 @@ export function Section({
 }) {
   return (
     <section id={id} className={cn("min-w-0", className)} aria-labelledby={id ? `${id}-title` : undefined}>
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-baseline gap-2">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-0 shrink-0 items-baseline gap-2">
           <h2 id={id ? `${id}-title` : undefined} className="truncate text-[13.5px] font-semibold text-ink">
             {title}
           </h2>

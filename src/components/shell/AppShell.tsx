@@ -164,7 +164,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           />
         </>
       )}
-      {showFeedback && <FeedbackWidget />}
+      {showFeedback && session.viewerId && <FeedbackWidget />}
       {signOutDialog}
     </ShellProvider>
   );

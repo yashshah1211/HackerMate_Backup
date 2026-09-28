@@ -1,1698 +1,302 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-import { useNotification } from "@/context/NotificationContext";
-import CertificateModal, { UserBadge } from "@/components/CertificateModal";
+import { Check, UserRound } from "lucide-react";
+import CertificateModal, { type UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
-import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import ConnectPitchModal from "@/components/ConnectPitchModal";
 import PostAcceptanceTeamPrompt from "@/components/PostAcceptanceTeamPrompt";
-import { trackEvent } from "@/lib/posthog";
-import { moderateMessage } from "@/lib/safety";
-import BuilderTrackRecord, { TrackRecordData } from "@/components/BuilderTrackRecord";
-import BuilderPassportModal from "@/components/BuilderPassportModal";
+import { Button, ButtonLink, Dialog, EmptyState, ErrorNotice, FieldLabel, Page, PageLoader, Select, TeamMark, Textarea } from "@/components/system";
+import { useNotification } from "@/context/NotificationContext";
+import { cn } from "@/lib/utils";
+import { ProfileView } from "./ProfileView";
+import { useProfileData } from "./useProfileData";
 
-
-
-import { parseGithubUsername, fetchGithubStats } from "@/lib/github";
-import { getInitials } from "@/lib/utils";
-
-type Profile = {
-  id: string;
-  full_name: string;
-  email?: string | null;
-
-  college: string;
-  year_of_study?: string | null;
-  bio: string;
-  github_url: string;
-  linkedin_url: string;
-  avatar_url: string;
-  skills: string[];
-  is_available?: boolean;
-  github_stats?: {
-    followers: number;
-    public_repos: number;
-    top_languages: Record<string, number>;
-    repos: Array<{
-      name: string;
-      description: string | null;
-      language: string | null;
-      stars: number;
-      url: string;
-    }>;
-  } | null;
-  github_stats_updated_at?: string | null;
-  has_participated_hackathon?: boolean;
-  hackathon_participations?: number;
-  has_won_hackathon?: boolean;
-  hackathon_wins?: number;
-  current_streak?: number;
-  longest_streak?: number;
-  last_active_date?: string | null;
-  show_track_record?: boolean;
-};
-
-type ConnectionState =
-  | "self"
-  | "not_connected"
-  | "request_sent"
-  | "request_received"
-  | "connected";
+const REPORT_REASONS = [
+  { value: "Spam", label: "Spam or scams" },
+  { value: "Harassment", label: "Harassment or abuse" },
+  { value: "Inappropriate Content", label: "Inappropriate profile content" },
+  { value: "Off-topic", label: "Off-topic link sharing" },
+  { value: "Other", label: "Other" },
+];
 
 export default function ProfilePage() {
-  const { showToast, confirm } = useNotification();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { showToast } = useNotification();
+  const p = useProfileData(id);
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
-  const [selectedBadgeForCert, setSelectedBadgeForCert] = useState<UserBadge | null>(null);
-  const [selectedBadgeForShare, setSelectedBadgeForShare] = useState<UserBadge | null>(null);
-
-  const [ownedTeams, setOwnedTeams] = useState<{ id: string; name: string; max_members: number | null; memberCount: number }[]>([]);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState("");
-  const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [alreadyInvited, setAlreadyInvited] = useState(false);
-
-  const [syncing, setSyncing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // ── Post-acceptance team prompt ──
-  const [postAcceptPromptOpen, setPostAcceptPromptOpen] = useState(false);
-
-  // ── Builder Passport ──
-  const [showPassportModal, setShowPassportModal] = useState(false);
-  const [practiceSolvedCount, setPracticeSolvedCount] = useState(0);
-  const [passportStats, setPassportStats] = useState<{
-    teamsCount?: number;
-    hackathonsCount?: number;
-    connectionsCount?: number;
-    practiceCount?: number;
-    topPitchScore?: number | null;
-  }>({});
-
-  async function handleDeleteAccount() {
-    setDeleting(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setDeleting(false);
-        return;
-      }
-      const { error } = await supabase.rpc("delete_user_completely", {
-        p_target_user_id: user.id
-      });
-      if (error) {
-        showToast(error.message, "error");
-        setDeleting(false);
-      } else {
-        showToast("Account permanently deleted.", "success");
-        await supabase.auth.signOut();
-        router.push("/");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "Failed to delete account.", "error");
-      setDeleting(false);
-    }
-  }
-
-  // ── Block & Report states ──
-  const [isBlockedByMe, setIsBlockedByMe] = useState(false);
-  const [hasBlockedMe, setHasBlockedMe] = useState(false);
-  const [blockLoading, setBlockLoading] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteTeam, setInviteTeam] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("Spam");
   const [reportDetails, setReportDetails] = useState("");
-  const [reportLoading, setReportLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [certBadge, setCertBadge] = useState<UserBadge | null>(null);
+  const [shareBadge, setShareBadge] = useState<UserBadge | null>(null);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const autoConnectHandled = useRef(false);
 
-  // ── Connections state ──
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [connectionState, setConnectionState] =
-    useState<ConnectionState>("not_connected");
-  const [connectionRequestId, setConnectionRequestId] = useState<string | null>(
-    null
-  );
-  const [connectionLoading, setConnectionLoading] = useState(false);
-
-  // ── Stats state ──
-  const [connectionsCount, setConnectionsCount] = useState(0);
-  const [teamsCount, setTeamsCount] = useState(0);
-  const [trackRecordData, setTrackRecordData] = useState<TrackRecordData | null>(null);
-
-
-  async function loadConnectionState(myId: string, otherId: string) {
-    const { data: existing } = await supabase
-      .from("friend_requests")
-      .select("id, sender_id, receiver_id, status")
-      .or(
-        `and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`
-      )
-      .maybeSingle();
-
-    if (!existing) {
-      setConnectionState("not_connected");
-      return;
-    }
-
-    setConnectionRequestId(existing.id);
-
-    if (existing.status === "accepted") {
-      setConnectionState("connected");
-    } else if (existing.status === "pending") {
-      if (existing.sender_id === myId) {
-        setConnectionState("request_sent");
-      } else {
-        setConnectionState("request_received");
-      }
-    } else {
-      // rejected — treat as not connected, allow re-sending
-      setConnectionState("not_connected");
-    }
-  }
-
-  async function loadProfile() {
-    let { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
-      .eq("id", id)
-      .single();
-
-    if (error) {
-      const { data: fbData } = await supabase
-        .from("profiles")
-        .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record, current_streak, longest_streak, last_active_date")
-        .eq("id", id)
-        .single();
-      data = fbData as any;
-    }
-
-    if (!data) {
-      setLoading(false);
-      return;
-    }
-
-    setProfile(data);
-
-    fetch(`/api/builder-track-record/${data.id}`)
-      .then(async (res) => {
-        const body = await res.json().catch(() => null);
-        if (!res.ok || body?.success === false) {
-          console.error("[Profile] Track record request failed:", res.status, body?.error ?? null);
-          return null;
-        }
-        return body;
-      })
-      .then((resData) => {
-        if (resData && resData.success && resData.data) {
-          setTrackRecordData(resData.data);
-          if (resData.data.profile?.email) {
-            setProfile((prev) => (prev ? { ...prev, email: resData.data.profile.email } : prev));
-          }
-        }
-      })
-      .catch((err) => console.warn("Track record data not available:", err));
-
-      // Load statistics (connections count and teams count for this user id) via secure RPC
-      const { data: statsData, error: statsErr } = await supabase.rpc("get_builder_public_stats", {
-        p_user_id: data.id,
-      });
-
-      if (statsErr) {
-        console.error("Failed to load builder public stats:", statsErr);
-      } else if (statsData) {
-        setConnectionsCount(statsData.connections_count || 0);
-        setTeamsCount(statsData.teams_count || 0);
-      }
-
-      const { data: badgesData } = await supabase
-        .from("user_badges")
-        .select("*")
-        .eq("user_id", data.id)
-        .order("issued_at", { ascending: false });
-      setUserBadges((badgesData as unknown as UserBadge[]) || []);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        setCurrentUserId(user.id);
-        setIsOwnProfile(user.id === data.id);
-
-        // Check if blocker / blocked relationship exists
-        if (user.id !== data.id) {
-          const { data: myBlock } = await supabase
-            .from("blocked_users")
-            .select("id")
-            .eq("blocker_id", user.id)
-            .eq("blocked_id", data.id)
-            .maybeSingle();
-          setIsBlockedByMe(!!myBlock);
-
-          const { data: theirBlock } = await supabase
-            .from("blocked_users")
-            .select("id")
-            .eq("blocker_id", data.id)
-            .eq("blocked_id", user.id)
-            .maybeSingle();
-          setHasBlockedMe(!!theirBlock);
-        }
-
-        const { data: teamsData } = await supabase
-          .from("teams")
-          .select("id, name, max_members, team_members(count)")
-          .eq("owner_id", user.id);
-
-        const teamsWithCounts = (teamsData as unknown as {
-          id: string;
-          name: string;
-          max_members: number;
-          team_members: { count: number }[] | { count: number };
-        }[] || []).map((t) => {
-          const countObj = Array.isArray(t.team_members) ? t.team_members[0] : t.team_members;
-          const memberCount = countObj ? countObj.count : 0;
-          return {
-            id: t.id,
-            name: t.name,
-            max_members: t.max_members,
-            memberCount: memberCount || 0,
-          };
-        });
-
-        setOwnedTeams(teamsWithCounts);
-        if (teamsData && teamsData.length > 0) {
-          const teamIds = teamsData.map((team) => team.id);
-
-          const { data: existingInvite } = await supabase
-            .from("team_invites")
-            .select("id")
-            .eq("invited_user_id", data.id)
-            .in("team_id", teamIds)
-            .eq("status", "pending")
-            .limit(1);
-
-          setAlreadyInvited(
-            !!existingInvite && existingInvite.length > 0
-          );
-        // ── Load connection state ──
-        if (user.id !== data.id) {
-          await loadConnectionState(user.id, data.id);
-        }
-      }
-    }
-
-    // Load Passport Stats & Practice Challenges Solved Count
-    try {
-      const [{ count: userTeamsCount }, { count: userHackathonsCount }, { count: userPracticeCount }] = await Promise.all([
-        supabase.from("team_members").select("id", { count: "exact", head: true }).eq("user_id", data.id),
-        supabase.from("hackathon_registrations").select("id", { count: "exact", head: true }).eq("user_id", data.id),
-        supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("user_id", data.id),
-      ]);
-
-      setPracticeSolvedCount(userPracticeCount || 0);
-      setPassportStats({
-        teamsCount: userTeamsCount || 1,
-        hackathonsCount: userHackathonsCount || (data.hackathon_participations || 1),
-        practiceCount: userPracticeCount || 0,
-        topPitchScore: 88,
-      });
-
-      // Disabled pending feature review
-      // if (typeof window !== "undefined") {
-      //   const urlParams = new URLSearchParams(window.location.search);
-      //   if (urlParams.get("passport") === "true") {
-      //     setShowPassportModal(true);
-      //   }
-      // }
-    } catch (statErr) {
-      console.warn("[Profile Passport Stats] Load warning:", statErr);
-    }
-
-    setLoading(false);
-  }
-
-  async function syncGithubData() {
-    if (!profile?.github_url) return;
-    const username = parseGithubUsername(profile.github_url);
-    if (!username) {
-      showToast("Could not parse a valid GitHub username from the URL.", "error");
-      return;
-    }
-
-    setSyncing(true);
-    try {
-      showToast("Fetching GitHub data...", "info");
-      const stats = await fetchGithubStats(username);
-      
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          github_stats: stats,
-          github_stats_updated_at: new Date().toISOString()
-        })
-        .eq("id", profile.id);
-
-      if (error) {
-        throw error;
-      }
-
-      showToast("GitHub stats synced successfully!", "success");
-      await loadProfile();
-    } catch (err) {
-      console.error(err);
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes("column") && message.includes("does not exist")) {
-        showToast(
-          "Database migration pending. Please run supabase db push to create github_stats column.",
-          "error"
-        );
-      } else {
-        showToast(message || "Failed to sync GitHub statistics.", "error");
-      }
-    } finally {
-      setSyncing(false);
-    }
-  }
-
+  // `?connect=1` (from dashboard/discovery "Connect") opens the pitch once.
   useEffect(() => {
-    if (id) {
-      Promise.resolve().then(() => {
-        loadProfile();
-      });
+    if (p.loading || autoConnectHandled.current) return;
+    const wants = new URLSearchParams(window.location.search).get("connect") === "1";
+    if (!wants) return;
+    autoConnectHandled.current = true;
+    router.replace(`/profile/${id}`, { scroll: false });
+    if (p.viewerId && !p.isOwnProfile && !p.isBlockedByMe && p.connectionState === "not_connected") {
+      Promise.resolve().then(() => setPitchOpen(true));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, p.connectionState, p.isBlockedByMe, p.isOwnProfile, p.loading, p.viewerId, router]);
 
-  function formatUrl(url: string) {
-    if (!url) return "";
+  if (p.loading) return <PageLoader label="Loading profile" />;
 
-    return url.startsWith("http://") || url.startsWith("https://")
-      ? url
-      : `https://${url}`;
+  if (!p.profile) {
+    return (
+      <Page width="narrow" className="pt-10">
+        {p.loadError ? (
+          <ErrorNotice title="Couldn't load this profile" detail={p.loadError} onRetry={p.reload} />
+        ) : (
+          <EmptyState
+            icon={<UserRound />}
+            title="Profile not found"
+            body="This builder doesn't exist or has deleted their account."
+            action={
+              <ButtonLink href="/developers" size="sm" variant="secondary">
+                Browse builders
+              </ButtonLink>
+            }
+          />
+        )}
+      </Page>
+    );
   }
 
-  const [showPitchModal, setShowPitchModal] = useState(false);
-
-  function openPitchModal() {
-    if (!currentUserId || !profile) return;
-    setShowPitchModal(true);
-  }
-
-  async function handleSendPitch(pitchMessage?: string) {
-    if (!currentUserId || !profile) return;
-
-    if (pitchMessage && pitchMessage.trim()) {
-      const moderation = moderateMessage(pitchMessage.trim());
-      if (!moderation.isValid) {
-        showToast(moderation.error || "Message blocked due to inappropriate content.", "error");
-        return;
-      }
-      pitchMessage = moderation.sanitized;
-    }
-
-    setConnectionLoading(true);
-
-    const { data, error } = await supabase.rpc("send_connection_request", {
-      p_receiver_id: profile.id,
-      p_message: pitchMessage || null,
-    });
-
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      setConnectionLoading(false);
-      setShowPitchModal(false);
-      return;
-    }
-
-    setConnectionRequestId(data);
-    setConnectionState("request_sent");
-    showToast("Connection request sent", "success");
-    trackEvent("connection_request_sent", {
-      receiver_id: profile.id,
-      has_pitch_message: !!pitchMessage,
-    });
-
-    // Dispatch non-blocking transactional email to the recipient's registered email
-    (async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        await fetch("/api/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(sessionData?.session?.access_token
-              ? { Authorization: `Bearer ${sessionData.session.access_token}` }
-              : {}),
-          },
-          body: JSON.stringify({
-            senderId: currentUserId,
-            recipientId: profile.id,
-            type: "connection_request",
-          }),
-        });
-      } catch (emailErr) {
-        console.warn("[Profile] Non-blocking connection email dispatch error:", emailErr);
-      }
-    })();
-
-    setConnectionLoading(false);
-    setShowPitchModal(false);
-  }
-
-  async function acceptConnectionRequest() {
-    if (!connectionRequestId || !profile || !currentUserId) return;
-    setConnectionLoading(true);
-
-    const { error } = await supabase.rpc("accept_connection_request", {
-      p_request_id: connectionRequestId,
-    });
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      setConnectionLoading(false);
-      return;
-    }
-
-    setConnectionState("connected");
-    showToast("Connection request accepted!", "success");
-    setConnectionLoading(false);
-
-    // Fire team formation prompt — ownedTeams already loaded
-    setPostAcceptPromptOpen(true);
-  }
-
-  async function cancelOrRemoveConnection() {
-    if (!connectionRequestId) return;
-    setConnectionLoading(true);
-
-    const { error } = await supabase
-      .from("friend_requests")
-      .delete()
-      .eq("id", connectionRequestId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      setConnectionLoading(false);
-      return;
-    }
-
-    setConnectionRequestId(null);
-    setConnectionState("not_connected");
-    showToast("Connection removed", "info");
-    setConnectionLoading(false);
-  }
-
-  async function performBlock() {
-    setBlockLoading(true);
-    try {
-      const { error } = await supabase
-        .from("blocked_users")
-        .insert({
-          blocker_id: currentUserId,
-          blocked_id: profile!.id,
-        });
-      if (error) {
-        showToast(error.message, "error");
-      } else {
-        setIsBlockedByMe(true);
-        showToast("User blocked successfully", "success");
-        // Auto remove pending requests/connections
-        if (connectionState !== "not_connected") {
-          await cancelOrRemoveConnection();
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setBlockLoading(false);
-    }
-  }
-
-  async function toggleBlock() {
-    if (!currentUserId || !profile) return;
-    try {
-      if (isBlockedByMe) {
-        setBlockLoading(true);
-        const { error } = await supabase
-          .from("blocked_users")
-          .delete()
-          .eq("blocker_id", currentUserId)
-          .eq("blocked_id", profile.id);
-        setBlockLoading(false);
-        if (error) {
-          showToast(error.message, "error");
-        } else {
-          setIsBlockedByMe(false);
-          showToast("User unblocked successfully", "success");
-        }
-      } else {
-        confirm({
-          title: "Block User",
-          message: "Are you sure you want to block this user? They will not be able to message you or see your profiles.",
-          confirmText: "Block",
-          cancelText: "Cancel",
-          onConfirm: () => {
-            performBlock();
+  if (p.hasBlockedMe) {
+    return (
+      <Page width="narrow" className="pt-10">
+        <EmptyState
+          icon={<UserRound />}
+          title="This profile isn't available"
+          body="Find other builders to team up with."
+          action={
+            <ButtonLink href="/developers" size="sm" variant="secondary">
+              Back to builders
+            </ButtonLink>
           }
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      setBlockLoading(false);
-    }
-  }
-
-  async function submitReport(e: React.FormEvent) {
-    e.preventDefault();
-    if (!profile) return;
-    setReportLoading(true);
-    try {
-      const { error } = await supabase
-        .from("user_reports")
-        .insert({
-          reporter_id: currentUserId,
-          reported_id: profile.id,
-          reason: reportReason,
-          details: reportDetails.trim(),
-        });
-
-      if (error) {
-        showToast(error.message, "error");
-      } else {
-        showToast("Report submitted successfully. Our safety team will review it.", "success");
-        setShowReportModal(false);
-        setReportDetails("");
-        setReportReason("Spam");
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setReportLoading(false);
-    }
-  }
-
-  async function sendInvite() {
-    if (!selectedTeam || !profile) return;
-
-    try {
-      setInviteLoading(true);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const { data: existingMember } = await supabase
-        .from("team_members")
-        .select("id")
-        .eq("team_id", selectedTeam)
-        .eq("user_id", profile.id)
-        .maybeSingle();
-
-      if (existingMember) {
-        showToast("This user is already a member of that team.", "warning");
-        return;
-      }
-
-      const { error } = await supabase.rpc("send_team_invite", {
-        p_team_id: selectedTeam,
-        p_invited_user_id: profile.id,
-      });
-
-      if (error) {
-        showToast(error.message, "error");
-        return;
-      }
-
-      showToast("Invite sent successfully!", "success");
-      setAlreadyInvited(true);
-      setShowInviteModal(false);
-      setSelectedTeam("");
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to send invite", "error");
-    } finally {
-      setInviteLoading(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <main className="max-w-4xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-white rounded-full animate-spin mb-4" />
-          <p className="text-xs text-zinc-500 dark:text-zinc-500 font-mono uppercase tracking-wider">Loading profile...</p>
-        </div>
-      </main>
+        />
+      </Page>
     );
   }
 
-  if (!profile) {
-    return (
-      <main className="max-w-4xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-12 text-center animate-fade-in-up">
-          <div className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
-            </svg>
-          </div>
-          <h1 className="text-sm font-semibold text-white mb-1.5">Profile not found</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500">This user doesn&apos;t exist or has been removed.</p>
-        </div>
-      </main>
-    );
-  }
-
-  // Blocker view check - Hide details if blocker or blocker relation exists
-  if (hasBlockedMe) {
-    return (
-      <main className="max-w-4xl mx-auto px-6 pt-36 pb-12">
-        <div className="card card-static p-12 text-center border-rose-500/20 bg-rose-500/[0.02] animate-fade-in-up">
-          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-4 text-rose-400">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-          </div>
-          <h1 className="text-sm font-semibold text-white mb-1.5">Access Denied</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-xs mx-auto">This profile is not available. Return to discover other developers.</p>
-          <Link href="/developers" className="btn btn-secondary btn-sm mt-5 inline-flex">
-            Back to Builders
-          </Link>
-        </div>
-      </main>
-    );
-  }
+  const profile = p.profile;
+  const invitable = p.ownedTeams.filter((t) => !t.max_members || t.memberCount < t.max_members);
+  const selectedInvite = inviteTeam || (invitable.length === 1 ? invitable[0].id : "");
 
   return (
-    <main className="max-w-5xl mx-auto px-6 pt-32 pb-16">
-      {/* Back Button */}
-      <div className="mb-6 animate-fade-in-up">
-        <Link
-          href="/developers"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors mb-2 font-mono uppercase tracking-wider"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-          </svg>
-          Back to Builders
-        </Link>
-      </div>
-
-      {/* Profile Premium Container */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-6 md:p-8 animate-fade-in-up shadow-2xl">
-        {/* Decorative Grid & Glows */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/[0.04] rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/[0.04] rounded-full blur-3xl pointer-events-none" />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
-          
-          {/* ── LEFT COLUMN: Summary, Actions & Links ── */}
-          <div className="lg:border-r lg:border-zinc-900 lg:pr-8 flex flex-col">
-
-            <div>
-              {/* Avatar Frame with custom outline and offset */}
-              <div className="relative w-28 h-28 mx-auto lg:mx-0 mb-6 group">
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 opacity-20 blur-md group-hover:opacity-40 transition-opacity duration-300" />
-                <div className="relative w-full h-full rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden p-1 shadow-lg">
-                  {profile.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={profile.full_name}
-                      className="w-full h-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full rounded-xl bg-gradient-to-br from-indigo-900/30 to-purple-900/30 flex items-center justify-center font-bold text-white text-3xl font-sans">
-                      {getInitials(profile.full_name, 1)}
-                    </div>
-                  )}
-                </div>
-                 {!isBlockedByMe && (
-                  profile.is_available !== false ? (
-                    <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Available for teams">
-                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                    </div>
-                  ) : (
-                    <div className="absolute -bottom-1.5 -right-1.5 bg-zinc-600 w-5 h-5 rounded-full border-4 border-zinc-950 shadow-md flex items-center justify-center" title="Busy / Team Full">
-                      <span className="w-1.5 h-1.5 bg-zinc-450 rounded-full" />
-                    </div>
-                  )
-                )}
-              </div>
-
-              {/* Title & Info */}
-              <div className="text-center lg:text-left mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-white mb-1.5 flex items-center justify-center lg:justify-start gap-2">
-                  <span>{profile.full_name}</span>
-                  <VerifiedBuilderBadge profile={profile} />
-                </h1>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium mt-0.5">
-                  🏫 {profile.college || "Independent Builder"}
-                </p>
-
-                {/* Status Badges */}
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-3.5">
-                  {/* Daily Visit Flame Streak Badge */}
-                  {(() => {
-                    const todayStr = new Date().toISOString().split("T")[0];
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    const yesterdayStr = yesterday.toISOString().split("T")[0];
-                    const isStreakActive =
-                      (profile.last_active_date === todayStr || profile.last_active_date === yesterdayStr) &&
-                      (profile.current_streak || 0) > 0;
-
-                    if (!isStreakActive) return null;
-
-                    return (
-                      <span
-                        className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1 font-bold shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none"
-                        title={`Longest streak: ${profile.longest_streak || profile.current_streak} days`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        🔥 {profile.current_streak} Day Streak
-                      </span>
-                    );
-                  })()}
-
-                  {/* Academic Year Badge */}
-                  <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-cyan-500/10 text-cyan-300 border-cyan-500/30 flex items-center gap-1 font-semibold">
-                    🎓 {profile.year_of_study || "2nd Year"}
-                  </span>
-
-                  <span className={`text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border ${
-                    isBlockedByMe
-                      ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                      : profile.is_available !== false
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20"
-                  }`}>
-                    {isBlockedByMe 
-                      ? "Blocked" 
-                      : profile.is_available !== false 
-                        ? "Available for Teams" 
-                        : "Busy / Team Full"}
-                  </span>
-
-                  {/* Hackathon Experience & Wins Badges */}
-                  {!isBlockedByMe && (
-                    <>
-                      {profile.hackathon_wins && profile.hackathon_wins > 0 ? (
-                        <>
-                          <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.15)] select-none">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                            🏆 {profile.hackathon_wins} {profile.hackathon_wins === 1 ? "Hackathon Win" : "Hackathon Wins"}
-                          </span>
-                          {profile.hackathon_participations && profile.hackathon_participations > 0 && (
-                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-100 dark:bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
-                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                              📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
-                            </span>
-                          )}
-                        </>
-                      ) : profile.has_participated_hackathon ? (
-                        <>
-                          <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-cyan-500/10 to-blue-500/10 text-cyan-400 border-cyan-500/25 flex items-center gap-1.5 select-none">
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                            ⚡ Contender
-                          </span>
-                          {profile.hackathon_participations && profile.hackathon_participations > 0 && (
-                            <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-zinc-100 dark:bg-zinc-900/40 text-indigo-300 border-indigo-500/20 flex items-center gap-1.5 select-none">
-                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                              📊 {profile.hackathon_participations} {profile.hackathon_participations === 1 ? "Participation" : "Participations"}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-300 border-indigo-500/25 flex items-center gap-1.5 select-none">
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                          🚀 Rising Builder
-                        </span>
-                      )}
-
-                      {/* Practice Challenges Solved Badge */}
-                      {practiceSolvedCount > 0 && (
-                        <span className="text-[10px] px-2.5 py-1 font-mono uppercase tracking-wider rounded border bg-lime-500/10 text-lime-400 border-lime-500/30 flex items-center gap-1.5 shadow-[0_0_12px_rgba(132,204,22,0.15)] select-none">
-                          <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse" />
-                          🎯 {practiceSolvedCount} Practice {practiceSolvedCount === 1 ? "Solved" : "Solved"}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons Menu */}
-              {!isBlockedByMe && (
-                <div className="space-y-2 mt-6">
-                  {/* Builder Passport Trigger Button (Disabled pending review) */}
-                  {/* <button
-                    onClick={() => setShowPassportModal(true)}
-                    className="btn btn-secondary w-full py-2.5 text-xs flex items-center justify-center gap-2 border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-all font-semibold cursor-pointer shadow-xs mb-2"
-                  >
-                    <span>📇 View Builder Passport</span>
-                  </button> */}
-
-                  {isOwnProfile ? (
-                    <>
-                      <Link
-                        href="/profile/edit"
-                        className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-100/50 dark:bg-zinc-900/20"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                        </svg>
-                        Edit Profile
-                      </Link>
-                      <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="w-full py-2.5 mt-2 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider border border-rose-900/40 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-zinc-900 dark:hover:text-white rounded-lg transition-all"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                        </svg>
-                        Delete Account
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <ConnectionButton
-                          state={connectionState}
-                          loading={connectionLoading}
-                          onConnect={openPitchModal}
-                          onAccept={acceptConnectionRequest}
-                          onCancelOrRemove={cancelOrRemoveConnection}
-                        />
-
-                        {connectionState === "connected" && (
-                          <Link
-                            href={`/messages?user=${profile.id}`}
-                            className="btn btn-secondary py-2 flex items-center justify-center gap-2 text-xs"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                            </svg>
-                            Message
-                          </Link>
-                        )}
-                      </div>
-
-                      {ownedTeams.length > 0 && (
-                        <button
-                          onClick={() => {
-                            if (!alreadyInvited) {
-                              setShowInviteModal(true);
-                            }
-                          }}
-                          disabled={alreadyInvited}
-                          className={`btn w-full py-2.5 text-xs ${
-                            alreadyInvited
-                              ? "btn-secondary opacity-70 cursor-not-allowed"
-                              : "btn-primary"
-                          }`}
-                        >
-                          {alreadyInvited ? "Invite Sent ✓" : "Invite to Team"}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Links and Contact Section */}
-            {!isBlockedByMe && (
-              <div className="space-y-2 mt-6 pt-5 border-t border-zinc-900">
-                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-3">Links & Contact</p>
-                
-                {/* Email Link */}
-                {profile.email && (
-                  <a
-                    href={`mailto:${profile.email}`}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900/40 transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs truncate"
-                  >
-                    <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                    </svg>
-                    <span className="truncate">{profile.email}</span>
-                  </a>
-                )}
-
-
-                {/* GitHub Link */}
-                {profile.github_url ? (
-                  <a
-                    href={formatUrl(profile.github_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900/40 transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs truncate"
-                  >
-                    <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                    </svg>
-                    <span className="truncate">GitHub Profile</span>
-                  </a>
-                ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-900/50 text-zinc-600 text-xs">
-                    <svg className="w-4 h-4 text-zinc-700 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                    </svg>
-                    <span>GitHub not added</span>
-                  </div>
-                )}
-
-                {/* LinkedIn Link */}
-                {profile.linkedin_url ? (
-                  <a
-                    href={formatUrl(profile.linkedin_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900/40 transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs truncate"
-                  >
-                    <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                    <span className="truncate">LinkedIn Profile</span>
-                  </a>
-                ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-900/50 text-zinc-600 text-xs">
-                    <svg className="w-4 h-4 text-zinc-700 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                    <span>LinkedIn not added</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Block & Report actions footer */}
-            {!isOwnProfile && (
-              <div className="flex items-center gap-2 mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-900/50">
-                <button
-                  onClick={toggleBlock}
-                  disabled={blockLoading}
-                  className={`btn btn-xs flex-1 py-2 font-mono uppercase tracking-wider text-[9px] ${
-                    isBlockedByMe
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
-                      : "bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20"
-                  }`}
-                >
-                  {isBlockedByMe ? "Unblock Builder" : "Block Builder"}
-                </button>
-
-                {!isBlockedByMe && (
-                  <button
-                    onClick={() => setShowReportModal(true)}
-                    className="btn btn-secondary btn-xs py-2 px-3 flex items-center justify-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-200 dark:border-zinc-800"
-                    title="Report profile for rules violations"
-                  >
-                    <svg className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
-                    </svg>
-                    Report
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── RIGHT COLUMN: Stats, Bio & Skills ── */}
-          <div className="lg:col-span-2 lg:pl-4 flex flex-col gap-6">
-            {isBlockedByMe ? (
-              <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950/40 p-6 text-center">
-                <svg className="w-10 h-10 text-zinc-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-                <h3 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Builder is Blocked</h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-xs">You have blocked this builder. Unblock them using the button in the left sidebar to view their profile details.</p>
-              </div>
-            ) : (
-              <>
-                {/* Premium Activity Statistics Panel */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up stagger-1">
-                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Connections</span>
-                    <span className="text-2xl font-bold text-white mt-1.5 font-mono">{connectionsCount}</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Teams Joined</span>
-                    <span className="text-2xl font-bold text-white mt-1.5 font-mono">{teamsCount}</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Practice Solved</span>
-                    <span className="text-2xl font-bold text-lime-400 mt-1.5 font-mono flex items-center gap-1.5">
-                      <span>{practiceSolvedCount}</span>
-                    </span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Skills Mastered</span>
-                    <span className="text-2xl font-bold text-white mt-1.5 font-mono">{profile.skills?.length || 0}</span>
-                  </div>
-                </div>
-
-                {/* Bio Block with quote styling */}
-                <div className="relative p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 overflow-hidden animate-fade-in-up stagger-2 group">
-                  <div className="absolute right-4 bottom-2 text-zinc-800/25 pointer-events-none transform group-hover:scale-110 transition-transform duration-500 select-none">
-                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                    </svg>
-                  </div>
-                  
-                  <div className="relative z-10">
-                    <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-3">About Builder</p>
-                    <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed whitespace-pre-line font-sans">
-                      {profile.bio || "This user hasn't written a biography yet."}
-                    </p>
-                  </div>
-                </div>
-
-                {/* GitHub Repositories & Language Insights */}
-                {profile.github_url && (
-                  <div className="p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 animate-fade-in-up stagger-3">
-                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                      <div>
-                        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-0.5">GitHub Repository Insights</p>
-                        {profile.github_stats_updated_at && (
-                          <span className="text-[9px] text-zinc-600 font-mono">
-                            Synced {new Date(profile.github_stats_updated_at).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {isOwnProfile && (
-                        <button
-                          onClick={syncGithubData}
-                          disabled={syncing}
-                          className="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1.5 font-mono uppercase tracking-wider text-[9px] border border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/20 animate-fade-in"
-                        >
-                          {syncing ? (
-                            <>
-                              <div className="w-2.5 h-2.5 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
-                              Syncing...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3 h-3 text-zinc-600 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                              </svg>
-                              Sync Stats
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-
-                    {profile.github_stats ? (
-                      <div className="space-y-6">
-                        {/* Stats count badges */}
-                        <div className="flex items-center gap-6 border-b border-zinc-200 dark:border-zinc-900/50 pb-4">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-zinc-500 dark:text-zinc-500 text-[10px] font-mono">Followers:</span>
-                            <span className="text-white text-sm font-bold font-mono">{profile.github_stats.followers}</span>
-                          </div>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-zinc-500 dark:text-zinc-500 text-[10px] font-mono">Public Repos:</span>
-                            <span className="text-white text-sm font-bold font-mono">{profile.github_stats.public_repos}</span>
-                          </div>
-                        </div>
-
-                        {/* Languages Breakdown */}
-                        {Object.keys(profile.github_stats.top_languages || {}).length > 0 && (
-                          <div>
-                            <p className="text-[9px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-2.5">Top Languages</p>
-                            {/* Distribution Bar */}
-                            <div className="w-full h-2 rounded-full overflow-hidden flex bg-zinc-100 dark:bg-zinc-900">
-                              {renderLanguageBar(profile.github_stats.top_languages)}
-                            </div>
-                            {/* Legends list */}
-                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-                              {renderLanguageLegends(profile.github_stats.top_languages)}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Top Repos list */}
-                        {profile.github_stats.repos && profile.github_stats.repos.length > 0 && (
-                          <div>
-                            <p className="text-[9px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-3">Featured Repositories</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {profile.github_stats.repos.map((repo) => (
-                                <a
-                                  key={repo.name}
-                                  href={repo.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="p-3.5 rounded-lg bg-white dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-900/60 hover:border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900/30 transition-all flex flex-col justify-between group"
-                                >
-                                  <div>
-                                    <h4 className="text-xs font-semibold text-white group-hover:text-indigo-400 transition-colors truncate">
-                                      {repo.name}
-                                    </h4>
-                                    {repo.description && (
-                                      <p className="text-[10px] text-zinc-500 dark:text-zinc-500 line-clamp-2 mt-1 leading-normal">
-                                        {repo.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between mt-3.5 pt-2 border-t border-zinc-900/40">
-                                    {repo.language ? (
-                                      <div className="flex items-center gap-1.5">
-                                        <span
-                                          className="w-2 h-2 rounded-full"
-                                          style={{ backgroundColor: getLanguageColor(repo.language) }}
-                                        />
-                                        <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-medium">{repo.language}</span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-[10px] text-zinc-600">Unknown</span>
-                                    )}
-
-                                    <div className="flex items-center gap-1 text-zinc-500 dark:text-zinc-500 group-hover:text-zinc-600 dark:text-zinc-400 transition-colors">
-                                      <svg className="w-3 h-3 text-amber-500/70" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                      </svg>
-                                      <span className="text-[10px] font-mono font-medium">{repo.stars}</span>
-                                    </div>
-                                  </div>
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-950/20">
-                        <svg className="w-8 h-8 text-zinc-700 mx-auto mb-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253" />
-                        </svg>
-                        {isOwnProfile ? (
-                          <>
-                            <p className="text-zinc-500 dark:text-zinc-500 text-xs mb-3">Enrich your builder card with public repository and language insights.</p>
-                            <button
-                              onClick={syncGithubData}
-                              disabled={syncing}
-                              className="btn btn-primary btn-xs py-1.5 px-4 font-mono uppercase tracking-wider text-[9px]"
-                            >
-                              {syncing ? "Syncing..." : "Sync GitHub Data"}
-                            </button>
-                          </>
-                        ) : (
-                          <p className="text-zinc-600 text-xs">No repository insights synced for this builder yet.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Skills Grid Section */}
-                <div className="p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 animate-fade-in-up stagger-4">
-                  <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-widest mb-4">Skills & Technologies</p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {profile.skills?.length ? (
-                      profile.skills.map((skill) => (
-                        <div
-                          key={skill}
-                          className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 hover:border-zinc-300 dark:hover:border-zinc-300 dark:hover:border-zinc-700/80 hover:bg-zinc-100 dark:hover:bg-zinc-900/30 transition-all duration-250 flex items-center gap-2 group cursor-default"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 group-hover:bg-purple-500 transition-colors" />
-                          <span className="text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:hover:text-white transition-colors font-medium">
-                            {skill}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center w-full py-4 border border-dashed border-zinc-850 rounded-lg text-zinc-600 text-xs">
-                        No skills listed on this profile.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Private Track Record Notice for Owner or Visitors */}
-                {profile.show_track_record === false && isOwnProfile && (
-                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in-up stagger-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-base leading-none">🔒</span>
-                      <div>
-                        <h5 className="font-bold text-amber-700 dark:text-amber-300">Public Track Record is Disabled</h5>
-                        <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">
-                          Your hackathon history, submissions, and badges are private. External visitors only see your basic info and skills.
-                        </p>
-                      </div>
-                    </div>
-                    <Link
-                      href="/settings?tab=privacy"
-                      className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 font-semibold text-xs transition-colors shrink-0 whitespace-nowrap"
-                    >
-                      Settings →
-                    </Link>
-                  </div>
-                )}
-
-                {profile.show_track_record === false && !isOwnProfile ? (
-                  <div className="p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 text-center space-y-3 shadow-xs animate-fade-in-up stagger-3">
-                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-xl">
-                      🔒
-                    </div>
-                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white">Private Track Record</h4>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500 max-w-sm mx-auto leading-relaxed">
-                      This builder has chosen to keep their hackathon track record and verified achievements private.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Builder Track Record Section */}
-                    {trackRecordData && (
-                      <div className="animate-fade-in-up stagger-3">
-                        <BuilderTrackRecord data={trackRecordData} isOwner={isOwnProfile} />
-                      </div>
-                    )}
-
-                    {/* Verified Badges & Achievements Section */}
-                    <div className="p-6 rounded-xl bg-zinc-100/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/80 animate-fade-in-up stagger-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-amber-400 font-bold">🏆</span>
-                          <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">Verified Badges & Achievements</p>
-                        </div>
-                        {userBadges.length > 0 && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            {userBadges.length} Verified
-                          </span>
-                        )}
-                      </div>
-
-                      {userBadges.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {userBadges.map((badge) => (
-                            <div
-                              key={badge.id}
-                              className="p-4 rounded-xl bg-gradient-to-br from-blue-950/20 via-zinc-950 to-indigo-950/20 border border-blue-500/30 hover:border-blue-400 transition-all flex flex-col justify-between group shadow-lg"
-                            >
-                              <div>
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <span className="text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">
-                                    {badge.rank_title || "Verified Winner"}
-                                  </span>
-                                  <span className="text-[9px] text-zinc-500 dark:text-zinc-500 font-mono">
-                                    {badge.issuer_name || "HackerMate Partner Network"}
-                                  </span>
-                                </div>
-                                <h4 className="text-sm font-bold text-white group-hover:text-[#B4F461] transition-colors">
-                                  {badge.badge_name}
-                                </h4>
-                                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1">
-                                  Official partner achievement verified by {badge.issuer_name || "HackerMate Partner Network"}.
-                                </p>
-                              </div>
-
-                              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                                <span className="text-[9px] text-zinc-500 dark:text-zinc-500 font-mono">
-                                  Issued {new Date(badge.issued_at).toLocaleDateString()}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => setSelectedBadgeForShare(badge)}
-                                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-[#B4F461]/10 text-[#B4F461] hover:bg-[#B4F461]/20 border border-[#B4F461]/30 transition cursor-pointer"
-                                  >
-                                    <span>🏆 Flex</span>
-                                  </button>
-                                  <button
-                                    onClick={() => setSelectedBadgeForCert(badge)}
-                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
-                                  >
-                                    <span>View Certificate</span>
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center w-full py-6 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-950/20 text-zinc-500 dark:text-zinc-500 text-xs">
-                          No verified partner badges earned yet. Participating in partner hackathons awards official badges & certificates!
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-        </div>
-      </div>
-
-      {/* Certificate Preview Modal */}
-      <CertificateModal
-        isOpen={!!selectedBadgeForCert}
-        onClose={() => setSelectedBadgeForCert(null)}
-        badge={selectedBadgeForCert}
-        recipientName={profile.full_name}
+    <>
+      <ProfileView
+        profile={profile}
+        viewerId={p.viewerId}
+        isOwnProfile={p.isOwnProfile}
+        connectionState={p.connectionState}
+        isBlockedByMe={p.isBlockedByMe}
+        badges={p.badges}
+        trackRecord={p.trackRecord}
+        trackRecordLoading={p.trackRecordLoading}
+        stats={p.stats}
+        canInvite={p.ownedTeams.length > 0}
+        alreadyInvited={p.alreadyInvited}
+        busy={p.busy}
+        actions={{
+          onConnect: () => setPitchOpen(true),
+          onAccept: async () => {
+            const ok = await p.acceptConnection();
+            if (ok) setPromptOpen(true);
+          },
+          onRemove: (msg) => p.removeConnection(msg),
+          onToggleBlock: p.toggleBlock,
+          onReport: () => setReportOpen(true),
+          onInvite: () => setInviteOpen(true),
+          onSyncGithub: p.syncGithub,
+          onDelete: () => setDeleteOpen(true),
+          onViewCertificate: setCertBadge,
+          onShareBadge: setShareBadge,
+          onCopyLink: async () => {
+            const url = `${window.location.origin}/profile/${profile.id}`;
+            try {
+              await navigator.clipboard.writeText(url);
+              showToast("Profile link copied", "success");
+            } catch {
+              showToast(url, "info");
+            }
+          },
+        }}
       />
 
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-sm">
-            <h2 className="text-sm font-semibold text-white mb-1.5">Invite To Team</h2>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">Select a team to invite {profile.full_name} to.</p>
+      <ConnectPitchModal
+        isOpen={pitchOpen}
+        onClose={() => setPitchOpen(false)}
+        onSend={async (note) => {
+          await p.sendConnectionRequest(note);
+          setPitchOpen(false);
+        }}
+        targetProfile={{ id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, college: profile.college, skills: profile.skills }}
+        loading={p.busy === "connect"}
+      />
 
-            <select
-              value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
-              className="input text-xs w-full mb-4"
+      <Dialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        size="sm"
+        title={`Invite ${profile.full_name.split(" ")[0]} to a team`}
+        description={invitable.length ? "They'll get a notification and can accept from their home screen." : "All of your teams are full."}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setInviteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={p.busy === "invite"}
+              disabled={!selectedInvite}
+              onClick={async () => {
+                const ok = await p.sendInvite(selectedInvite);
+                if (ok) {
+                  setInviteOpen(false);
+                  setInviteTeam("");
+                }
+              }}
             >
-              <option value="">Choose a team</option>
-              {ownedTeams
-                .filter((team) => !team.max_members || team.memberCount < team.max_members)
-                .map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name}
-                  </option>
-                ))}
-            </select>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
-              <button onClick={() => setShowInviteModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
-              <button onClick={sendInvite} disabled={!selectedTeam || inviteLoading} className="btn btn-primary btn-sm">
-                {inviteLoading ? "Sending..." : "Send Invite"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report User Modal */}
-      {showReportModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="card card-static p-5 w-full max-w-md">
-            <h2 className="text-sm font-semibold text-white mb-1.5">Report User Profile</h2>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">Please specify why you are reporting {profile.full_name}. This remains anonymous.</p>
-
-            <form onSubmit={submitReport} className="space-y-4">
-              <div>
-                <label className="section-label mb-1.5 block">Reason</label>
-                <select
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                  className="input text-xs w-full"
-                >
-                  <option value="Spam">Spam or Scams</option>
-                  <option value="Harassment">Harassment or Abuse</option>
-                  <option value="Inappropriate Content">Inappropriate profile content</option>
-                  <option value="Off-topic">Off-topic link sharing</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="section-label mb-1.5 block">Details (Optional)</label>
-                <textarea
-                  value={reportDetails}
-                  onChange={(e) => setReportDetails(e.target.value)}
-                  placeholder="Tell us what went wrong..."
-                  rows={4}
-                  className="input text-xs w-full resize-none leading-relaxed"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
-                <button type="button" onClick={() => setShowReportModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" disabled={reportLoading} className="btn btn-primary btn-sm">
-                  {reportLoading ? "Submitting..." : "Submit Report"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-7 max-w-sm w-full shadow-2xl flex flex-col items-center text-center gap-5">
-            <div className="w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 border border-rose-500/20 shrink-0">
-              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Delete Account?</h3>
-              <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-2 leading-relaxed">
-                This will permanently delete your profile, DMs, files, and disband any teams where you are the sole member. This cannot be undone.
-              </p>
-            </div>
-            <div className="flex gap-3 w-full mt-2">
+              Send invite
+            </Button>
+          </>
+        }
+      >
+        <div role="radiogroup" aria-label="Your teams" className="space-y-1.5">
+          {invitable.map((t) => {
+            const active = selectedInvite === t.id;
+            return (
               <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="flex-1 px-4 py-2.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-all"
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setInviteTeam(t.id)}
+                className={cn("flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left ring-1 ring-inset", active ? "bg-selected ring-ink-4" : "ring-line hover:bg-hover")}
               >
-                Cancel
+                <TeamMark name={t.name} size="sm" />
+                <span className="flex-1 truncate text-[13.5px] font-medium text-ink">{t.name}</span>
+                <span className="font-mono text-[11px] text-ink-4">
+                  {t.memberCount}/{t.max_members ?? "—"}
+                </span>
+                {active && <Check className="size-4" aria-hidden />}
               </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="flex-1 px-4 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-all border border-rose-500/30"
-              >
-                {deleting ? "Deleting..." : "Permanently Delete"}
-              </button>
-            </div>
+            );
+          })}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title={`Report ${profile.full_name.split(" ")[0]}`}
+        description="Reports are anonymous. Our safety team reviews every one."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setReportOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="inverse"
+              loading={p.busy === "report"}
+              onClick={async () => {
+                const ok = await p.submitReport(reportReason, reportDetails);
+                if (ok) {
+                  setReportOpen(false);
+                  setReportDetails("");
+                  setReportReason("Spam");
+                }
+              }}
+            >
+              Submit report
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <FieldLabel htmlFor="report-reason">Reason</FieldLabel>
+            <Select id="report-reason" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+              {REPORT_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <FieldLabel htmlFor="report-details" hint="optional">
+              Details
+            </FieldLabel>
+            <Textarea id="report-details" rows={4} value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} placeholder="What happened?" />
           </div>
         </div>
-      )}
+      </Dialog>
 
-      {/* Badge / Flex Share Modal */}
+      <Dialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        size="sm"
+        title="Delete your account?"
+        description="This permanently deletes your profile, DMs and files, and disbands any team where you're the only member. It can't be undone."
+        footer={
+          <>
+            <Button variant="ghost" disabled={p.busy === "delete"} onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" loading={p.busy === "delete"} onClick={p.deleteAccount}>
+              Delete permanently
+            </Button>
+          </>
+        }
+      />
+
+      <CertificateModal isOpen={!!certBadge} onClose={() => setCertBadge(null)} badge={certBadge} recipientName={profile.full_name} />
+
       <ShareModal
-        isOpen={!!selectedBadgeForShare}
-        onClose={() => setSelectedBadgeForShare(null)}
-        title={`Flex Achievement — ${selectedBadgeForShare?.badge_name || ""}`}
+        isOpen={!!shareBadge}
+        onClose={() => setShareBadge(null)}
+        title={`Flex Achievement — ${shareBadge?.badge_name || ""}`}
         subtitle="Showcase your verified achievement on LinkedIn, X, WhatsApp, or Telegram"
-        shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/profile/${profile?.id}`}
-        shareText={`🏆 Proud to share my verified achievement '${selectedBadgeForShare?.badge_name}' (${selectedBadgeForShare?.rank_title || "Verified Winner"}) verified by ${selectedBadgeForShare?.issuer_name || "HackerMate Partner Network"}! Check out my profile & certificate:`}
+        shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/profile/${profile.id}`}
+        shareText={`🏆 Proud to share my verified achievement '${shareBadge?.badge_name}' (${shareBadge?.rank_title || "Verified Winner"}) verified by ${shareBadge?.issuer_name || "HackerMate Partner Network"}! Check out my profile & certificate:`}
         type="badge"
         metadata={{
-          badgeTitle: selectedBadgeForShare?.badge_name,
-          rankTitle: selectedBadgeForShare?.rank_title || "Verified Winner",
-          issuerName: selectedBadgeForShare?.issuer_name || "HackerMate Partner Network",
+          badgeTitle: shareBadge?.badge_name,
+          rankTitle: shareBadge?.rank_title || "Verified Winner",
+          issuerName: shareBadge?.issuer_name || "HackerMate Partner Network",
         }}
       />
 
-      {/* Connect Pitch Modal */}
-      {showPitchModal && profile && (
-        <ConnectPitchModal
-          isOpen={showPitchModal}
-          onClose={() => setShowPitchModal(false)}
-          onSend={handleSendPitch}
-          targetProfile={{
-            id: profile.id,
-            full_name: profile.full_name,
-            avatar_url: profile.avatar_url,
-            college: profile.college,
-            skills: profile.skills,
-          }}
-          loading={connectionLoading}
-        />
-      )}
-
-      {/* Post-acceptance team formation prompt */}
-      {profile && !isOwnProfile && (
+      {!p.isOwnProfile && (
         <PostAcceptanceTeamPrompt
-          open={postAcceptPromptOpen}
-          onClose={() => setPostAcceptPromptOpen(false)}
-          connectedUser={{
-            id: profile.id,
-            full_name: profile.full_name,
-            avatar_url: profile.avatar_url,
-            college: profile.college,
-          }}
-          teamsWithSlots={ownedTeams
+          open={promptOpen}
+          onClose={() => setPromptOpen(false)}
+          connectedUser={{ id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, college: profile.college }}
+          teamsWithSlots={p.ownedTeams
             .filter((t) => (t.max_members ?? 4) - t.memberCount > 0)
-            .map((t) => ({
-              id: t.id,
-              name: t.name,
-              openSlots: (t.max_members ?? 4) - t.memberCount,
-            }))}
-          onCreateTeam={() =>
-            router.push(`/teams/create?invite=${profile.id}`)
-          }
+            .map((t) => ({ id: t.id, name: t.name, openSlots: (t.max_members ?? 4) - t.memberCount }))}
+          onCreateTeam={() => router.push(`/teams/create?invite=${profile.id}`)}
           onInviteToTeam={async (teamId) => {
-            const { error } = await supabase.rpc("send_team_invite", {
-              p_team_id: teamId,
-              p_invited_user_id: profile.id,
-            });
-            if (error) {
-              showToast(error.message, "error");
-            } else {
-              showToast(`Invite sent to ${profile.full_name}!`, "success");
-              setPostAcceptPromptOpen(false);
-            }
+            const ok = await p.inviteFromPrompt(teamId);
+            if (ok) setPromptOpen(false);
           }}
         />
       )}
-      {/* Builder Passport Modal (Disabled pending review) */}
-      {/* {profile && (
-        <BuilderPassportModal
-          isOpen={showPassportModal}
-          onClose={() => setShowPassportModal(false)}
-          profile={profile}
-          stats={passportStats}
-        />
-      )} */}
-    </main>
+    </>
   );
-}
-
-/* ── Connection button — handles all states ── */
-function ConnectionButton({
-  state,
-  loading,
-  onConnect,
-  onAccept,
-  onCancelOrRemove,
-}: {
-  state: ConnectionState;
-  loading: boolean;
-  onConnect: () => void;
-  onAccept: () => void;
-  onCancelOrRemove: () => void;
-}) {
-  if (state === "connected") {
-    return (
-      <button
-        onClick={onCancelOrRemove}
-        disabled={loading}
-        className="btn btn-secondary btn-sm group w-full py-2.5 flex items-center justify-center gap-1.5"
-        title="Remove connection"
-      >
-        <svg className="w-3.5 h-3.5 text-emerald-400 group-hover:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-        </svg>
-        <span className="group-hover:hidden text-xs">Connected</span>
-        <span className="hidden group-hover:inline text-xs">Disconnect</span>
-      </button>
-    );
-  }
-
-  if (state === "request_sent") {
-    return (
-      <button
-        onClick={onCancelOrRemove}
-        disabled={loading}
-        className="btn btn-secondary btn-sm opacity-80 text-xs w-full py-2.5 flex items-center justify-center gap-1"
-      >
-        {loading ? "..." : "Sent ✓"}
-      </button>
-    );
-  }
-
-  if (state === "request_received") {
-    return (
-      <button
-        onClick={onAccept}
-        disabled={loading}
-        className="btn btn-primary btn-sm text-xs w-full py-2.5 flex items-center justify-center gap-1"
-      >
-        {loading ? "..." : "Accept"}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      onClick={onConnect}
-      disabled={loading}
-      className="btn btn-primary btn-sm text-xs w-full py-2.5 flex items-center justify-center gap-1.5"
-    >
-      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-      </svg>
-      {loading ? "..." : "Connect"}
-    </button>
-  );
-}
-
-function getLanguageColor(lang: string): string {
-  const colors: Record<string, string> = {
-    TypeScript: "#3178c6",
-    JavaScript: "#f1e05a",
-    Python: "#3572A5",
-    HTML: "#e34c26",
-    CSS: "#563d7c",
-    Rust: "#dea584",
-    Go: "#00ADD8",
-    C: "#555555",
-    "C++": "#f34b7d",
-    "C#": "#178600",
-    Ruby: "#701516",
-    Java: "#b07219",
-    Swift: "#F05138",
-    Kotlin: "#A97BFF",
-    PHP: "#4F5D95",
-    Shell: "#89e051",
-    Vue: "#41b883",
-    Svelte: "#ff3e00",
-  };
-  return colors[lang] || "#8b949e";
-}
-
-function renderLanguageBar(topLanguages: Record<string, number>) {
-  const total = Object.values(topLanguages).reduce((a, b) => a + b, 0);
-  if (total === 0) return null;
-
-  return Object.entries(topLanguages).map(([lang, count]) => {
-    const pct = ((count / total) * 100).toFixed(1);
-    return (
-      <span
-        key={lang}
-        style={{
-          width: `${pct}%`,
-          backgroundColor: getLanguageColor(lang),
-        }}
-        title={`${lang}: ${pct}%`}
-      />
-    );
-  });
-}
-
-function renderLanguageLegends(topLanguages: Record<string, number>) {
-  const total = Object.values(topLanguages).reduce((a, b) => a + b, 0);
-  if (total === 0) return null;
-
-  return Object.entries(topLanguages).map(([lang, count]) => {
-    const pct = ((count / total) * 100).toFixed(0);
-    return (
-      <div key={lang} className="flex items-center gap-1.5 text-[10px] text-zinc-600 dark:text-zinc-400">
-        <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: getLanguageColor(lang) }}
-        />
-        <span className="font-semibold text-zinc-700 dark:text-zinc-300">{lang}</span>
-        <span className="text-zinc-500 dark:text-zinc-500 font-mono">{pct}%</span>
-      </div>
-    );
-  });
 }

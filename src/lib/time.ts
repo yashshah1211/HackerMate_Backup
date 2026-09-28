@@ -15,6 +15,12 @@ export function relativeTime(dateString: string | null | undefined, opts: { suff
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+/** Online = heartbeat (last_seen_at, updated every 30s by the shell) in the last 5 minutes. */
+export function isOnline(lastSeen: string | null | undefined): boolean {
+  if (!lastSeen) return false;
+  return Date.now() - new Date(lastSeen).getTime() < 5 * 60 * 1000;
+}
+
 /** Whole days from today (local) until the given date. Negative = past. */
 export function daysUntil(dateString: string | null | undefined): number | null {
   if (!dateString) return null;
