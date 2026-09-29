@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PageLoader } from "@/components/system";
-import { HMMark } from "@/components/shell/HMMark";
+import Logo from "@/components/Logo";
 import { SignInPanel } from "@/components/auth/SignInPanel";
 import { STAGES } from "@/components/landing/primitives";
 
@@ -58,12 +58,11 @@ function LoginContent() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-canvas text-ink">
-      {/* Same brand lockup as the landing header */}
+      {/* Same logo placement as the landing header */}
       <header className="border-b border-line">
         <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-5 md:px-8">
-          <Link href="/" className="flex items-center gap-2 rounded-md" aria-label="HackerMate home">
-            <HMMark size={28} className="rounded-[7px]" />
-            <span className="font-display text-[16px] font-bold tracking-[-0.02em] text-ink [font-variation-settings:'wdth'_90]">HackerMate</span>
+          <Link href="/" className="flex items-center rounded-md" aria-label="HackerMate home">
+            <Logo decorative className="h-7 md:h-8" />
           </Link>
           <Link
             href="/"

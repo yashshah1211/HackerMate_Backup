@@ -66,9 +66,9 @@
   --hm-topbar-h: 52px;
   --hm-tabbar-h: 60px;
 
-  /* Logo tint used by <Logo /> */
-  --logo-green: #b4f461;
-  --logo-cyan: #5fe3d6;
+  /* Logo colours used by <Logo />: the V1 brand values, shared with the app icon and OG image. */
+  --logo-green: #a3e635;
+  --logo-cyan: #22d3ee;
 
   /* ---- Legacy variable bridge (pages not yet rebuilt read these) ---- */
   --background: var(--hm-canvas);
@@ -161,8 +161,9 @@
   --hm-scrim: rgb(22 22 20 / 0.34);
   --hm-focus: #3d690a;
 
-  --logo-green: #3d7a0c;
-  --logo-cyan: #0f6f86;
+  /* V1's light-surface logo colours. */
+  --logo-green: #15803d;
+  --logo-cyan: #0369a1;
 
   --surface-3: #ecebe5;
   --surface-4: #dedcd4;

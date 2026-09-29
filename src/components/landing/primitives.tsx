@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useInView, useReducedMotion } from "motion/react";
-import { HMMark } from "@/components/shell/HMMark";
+import { LogoMark } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 /** Landing content width. Slightly wider than the app's 1240px pages. */
@@ -87,7 +87,7 @@ export function ProductFrame({
     >
       <div className="flex h-9 items-center justify-between gap-3 border-b border-line bg-raised px-3">
         <span className="flex min-w-0 items-center gap-2">
-          <HMMark size={16} className="rounded-[4px]" />
+          <LogoMark size={16} />
           <span className="truncate font-mono text-[11.5px] text-ink-3">
             <span className="hidden sm:inline">hackermate.in</span>
             {route}

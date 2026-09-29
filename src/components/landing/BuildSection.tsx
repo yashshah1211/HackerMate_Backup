@@ -25,7 +25,7 @@ import {
 import { Avatar, AvatarStack, Chip, Progress, StatusDot, Tape, TeamMark, buttonClass } from "@/components/system";
 import { WORKSPACE_SECTIONS, type WorkspaceTab } from "@/components/workspace/WorkspaceFrame";
 import { cn } from "@/lib/utils";
-import { EXAMPLE_COUNTDOWN_SECONDS, EXAMPLE_TEAM, pad2, splitCountdown } from "./fixtures";
+import { EXAMPLE_COUNTDOWN_SECONDS, EXAMPLE_DEMO_HOST, EXAMPLE_TEAM, pad2, splitCountdown } from "./fixtures";
 import { Container, Lede, SectionTitle, StageLabel, useCountdown, useStoryActive } from "./primitives";
 
 const CAPTIONS: Record<WorkspaceTab, string> = {
@@ -207,7 +207,7 @@ function ResourcesBody() {
     { label: "Design", icon: <PenTool />, title: "Figma file", host: "figma.com", scope: "event" },
     { label: "Code", icon: <Code2 />, title: "Repository", host: "github.com", scope: "all" },
     { label: "Docs & slides", icon: <FileText />, title: "Pitch deck", host: "docs.google.com", scope: "event" },
-    { label: "Other", icon: <Link2 />, title: "Problem statement", host: "sih.gov.in", scope: "event" },
+    { label: "Other", icon: <Link2 />, title: "Problem statement", host: "drive.google.com", scope: "event" },
   ];
   return (
     <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
@@ -292,9 +292,9 @@ function GithubBody() {
 
 function DeploymentsBody() {
   const deps = [
-    { name: "Live demo", url: "nullpointers.app", ok: true, ms: 182 },
-    { name: "API", url: "api.nullpointers.app", ok: true, ms: 240 },
-    { name: "Staging", url: "staging.nullpointers.app", ok: false },
+    { name: "Live demo", url: EXAMPLE_DEMO_HOST, ok: true, ms: 182 },
+    { name: "API", url: `api.${EXAMPLE_DEMO_HOST}`, ok: true, ms: 240 },
+    { name: "Staging", url: `staging.${EXAMPLE_DEMO_HOST}`, ok: false },
   ];
   return (
     <ul className="grid grid-cols-1 gap-2.5 @lg:grid-cols-2">
@@ -354,7 +354,7 @@ function PitchBody() {
   return (
     <div className="grid grid-cols-1 gap-3 @xl:grid-cols-[200px_minmax(0,1fr)]">
       <div className="rounded-lg border border-line bg-raised p-3.5">
-        <p className="caps-label text-ink-3">Deck v3 · SIH track</p>
+        <p className="caps-label text-ink-3">Deck v3 · AI &amp; GenAI track</p>
         <p className="mt-2 font-display text-[40px] font-semibold leading-none tracking-[-0.03em] text-ink tabular">
           78<span className="text-[18px] text-ink-3">/100</span>
         </p>
@@ -473,7 +473,7 @@ function DesktopWorkspace({ tab, onPick, running }: { tab: WorkspaceTab; onPick:
       <aside className="flex min-h-0 flex-col border-r border-line bg-raised">
         <div className="border-b border-line p-2.5" aria-hidden>
           <div className="flex items-center gap-2.5 rounded-md p-1.5">
-            <TeamMark name={EXAMPLE_TEAM.name} tone="sih" size="md" />
+            <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="md" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13.5px] font-semibold text-ink">{EXAMPLE_TEAM.name}</span>
               <span className="block truncate text-[11.5px] text-ink-3">You lead this team</span>
@@ -572,7 +572,7 @@ function MobileWorkspace({ tab, onPick, running }: { tab: WorkspaceTab; onPick: 
           <span className="inline-flex size-9 items-center justify-center text-ink-2">
             <ArrowLeft className="size-5" />
           </span>
-          <TeamMark name={EXAMPLE_TEAM.name} tone="sih" size="sm" />
+          <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="sm" />
           <span className="min-w-0 flex-1 pl-1">
             <span className="block truncate text-[14px] font-semibold text-ink">{EXAMPLE_TEAM.name}</span>
             <span className="block truncate text-[11.5px] text-ink-3">

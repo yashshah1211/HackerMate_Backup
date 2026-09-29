@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowRight, Check, Copy, ExternalLink, Mail } from "lucide-react";
 import { Button, ButtonLink, Dialog } from "@/components/system";
 import { useNotification } from "@/context/NotificationContext";
+import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 import { Container, STAGES, StageLabel } from "./primitives";
 
@@ -115,16 +116,10 @@ export function ShipSection({ onOrganizer }: { onOrganizer: () => void }) {
         </div>
       </Container>
 
-      {/* Sign-off: the brand, set large. */}
+      {/* Sign-off: the HackerMate logo, set large. */}
       <div aria-hidden className="mt-20 select-none overflow-hidden border-t border-line md:mt-28">
-        <Container className="flex items-end gap-[2vw] pb-6 pt-10 md:pb-8 md:pt-14">
-          {/* Display sizes need looser tracking than the 36px rail mark, or glyphs collide. */}
-          <span className="inline-flex aspect-square w-[clamp(40px,10.5vw,148px)] shrink-0 items-center justify-center rounded-[18%] bg-accent font-display text-[clamp(17px,4.4vw,62px)] font-extrabold leading-none tracking-[-0.02em] text-on-accent [font-variation-settings:'wdth'_88]">
-            hm
-          </span>
-          <span className="font-display text-[clamp(44px,12.5vw,176px)] font-semibold leading-[0.8] tracking-[-0.012em] text-ink [font-variation-settings:'wdth'_90]">
-            HackerMate
-          </span>
+        <Container className="pb-8 pt-12 md:pb-12 md:pt-16">
+          <Logo decorative className="h-auto w-[min(100%,720px)]" />
         </Container>
       </div>
     </section>

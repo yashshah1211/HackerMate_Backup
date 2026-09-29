@@ -37,12 +37,13 @@ export function LandingHero({
   hackathonCount: number;
   upcoming: UpcomingHackathon[];
 }) {
-  // Real platform totals (server snapshot, refreshed every minute). A number is
-  // only shown when the query returned one, so a failed count never reads as "0".
+  // Real platform totals from getLandingData (server snapshot, refreshed every minute).
+  // Each label names exactly what is counted. A number is only shown when the query
+  // returned one, so a failed count never reads as "0".
   const totals = [
-    { value: builderCount, label: "builders" },
-    { value: teamCount, label: teamCount === 1 ? "team formed" : "teams formed" },
-    { value: hackathonCount, label: "hackathons listed" },
+    { value: builderCount, label: builderCount === 1 ? "registered builder" : "registered builders" },
+    { value: teamCount, label: teamCount === 1 ? "team created" : "teams created" },
+    { value: hackathonCount, label: hackathonCount === 1 ? "hackathon listed" : "hackathons listed" },
   ].filter((t) => t.value > 0);
   return (
     <section aria-labelledby="hero-title" className="relative border-b border-line">

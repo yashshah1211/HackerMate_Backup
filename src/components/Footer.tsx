@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Mail } from "lucide-react";
-import { HMMark } from "@/components/shell/HMMark";
+import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 const PRODUCT = [
@@ -55,9 +55,8 @@ export default function Footer() {
     <footer className={cn("relative z-20 w-full border-t border-line bg-canvas", !landing && "mt-16 md:mt-24")}>
       <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-5 py-12 md:grid-cols-12 md:px-8 md:py-14">
         <div className="md:col-span-6">
-          <Link href="/" className="inline-flex items-center gap-2 rounded-md" aria-label="HackerMate home">
-            <HMMark size={28} className="rounded-[7px]" />
-            <span className="font-display text-[16px] font-bold tracking-[-0.02em] text-ink [font-variation-settings:'wdth'_90]">HackerMate</span>
+          <Link href="/" className="inline-flex items-center rounded-md" aria-label="HackerMate home">
+            <Logo decorative className="h-9" />
           </Link>
           <p className="mt-4 max-w-sm text-[14px] leading-relaxed text-ink-3">
             The team operating system for hackathon builders. Find teammates, form a team with every skill covered, and build together until you

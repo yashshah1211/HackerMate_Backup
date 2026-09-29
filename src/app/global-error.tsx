@@ -2,6 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import Logo from "@/components/Logo";
 // global-error replaces the root layout, so load the design tokens here.
 import "./globals.css";
 
@@ -20,7 +21,7 @@ export default function GlobalError({
     <html lang="en" className="dark">
       <body className="flex min-h-screen items-center justify-center bg-canvas p-6 font-sans text-ink antialiased">
         <main data-v2 className="flex w-full max-w-md flex-col items-center text-center">
-          <p className="caps-label text-ink-3">HackerMate</p>
+          <Logo className="h-8" />
           <h1 className="mt-3 text-[24px] font-semibold tracking-[-0.02em] text-ink">Something went wrong</h1>
           <p className="mt-3 text-[14.5px] leading-relaxed text-ink-2">
             An unexpected error occurred. Our team has been notified.

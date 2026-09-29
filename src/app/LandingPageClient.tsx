@@ -74,7 +74,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
         </div>
       )}
       <LandingHero
-        builderCount={initialData.userCount}
+        builderCount={initialData.builderCount}
         teamCount={initialData.teamCount}
         hackathonCount={initialData.hackathonCount}
         upcoming={initialData.upcoming}

@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import { Bell, ChevronLeft, Flame } from "lucide-react";
 import { Avatar, ButtonLink, CountBadge } from "@/components/system";
 import { cn } from "@/lib/utils";
-import { HMMark } from "./HMMark";
+import Logo from "@/components/Logo";
 import { NAV_ITEMS, type NavSection } from "./navConfig";
 import type { ShellSession } from "./useShellSession";
 
@@ -39,11 +39,8 @@ export function MobileTopBar({
             <ChevronLeft className="size-5" />
           </button>
         ) : (
-          <Link href={signedIn ? "/dashboard" : "/"} aria-label="HackerMate home" className="inline-flex items-center gap-2 pl-1">
-            <HMMark size={30} />
-            <span className="font-display text-[16px] font-bold tracking-[-0.02em] text-ink [font-variation-settings:'wdth'_90]">
-              HackerMate
-            </span>
+          <Link href={signedIn ? "/dashboard" : "/"} aria-label="HackerMate home" className="inline-flex h-10 items-center rounded-md pl-1.5 pr-1">
+            <Logo decorative className="h-7" />
           </Link>
         )}
       </div>

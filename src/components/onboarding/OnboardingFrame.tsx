@@ -1,21 +1,20 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
-import { HMMark } from "@/components/shell/HMMark";
+import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 /**
  * Bare-route frame for onboarding. Mirrors the V2 login page exactly:
- * brand lockup header, bg-canvas, 1280px container and mono footer strip.
+ * logo header, bg-canvas, 1280px container and mono footer strip.
  */
 export function OnboardingFrame({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn("flex min-h-[100dvh] flex-col bg-canvas text-ink", className)}>
       <header className="border-b border-line">
         <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center justify-between gap-4 px-5 md:px-8">
-          <Link href="/" className="flex items-center gap-2 rounded-md" aria-label="HackerMate home">
-            <HMMark size={28} className="rounded-[7px]" />
-            <span className="font-display text-[16px] font-bold tracking-[-0.02em] text-ink [font-variation-settings:'wdth'_90]">HackerMate</span>
+          <Link href="/" className="flex items-center rounded-md" aria-label="HackerMate home">
+            <Logo decorative className="h-7 md:h-8" />
           </Link>
           <Link
             href="/"

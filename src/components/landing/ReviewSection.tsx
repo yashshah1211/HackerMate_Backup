@@ -16,8 +16,8 @@ const STATS: [string, string][] = [
 ];
 
 const SHIPPED = [
-  { title: "Attendance from CCTV, no new hardware", event: "Smart India Hackathon 2025", result: "Finalist", links: ["Demo", "Code", "Slides"] },
-  // Generic event names: an example builder's result must never be attached to a real, listed event.
+  // Generic event names only: an example builder's result must never be attached to a real hackathon.
+  { title: "Attendance from CCTV, no new hardware", event: "Inter-college hackathon", result: "Finalist", links: ["Demo", "Code", "Slides"] },
   { title: "Rail delay predictor", event: "Campus 24h hackathon", result: "Winner", links: ["Demo", "Code"] },
   { title: "Campus lost-and-found bot", event: "Weekend build sprint", result: "Shipped", links: ["Code"] },
 ];
@@ -150,7 +150,7 @@ function ProfilePreview() {
                 <p className="flex items-center gap-2 text-[13.5px] font-semibold text-ink">
                   <GithubIcon className="size-4" /> GitHub
                 </p>
-                <p className="mt-0.5 text-[12px] text-ink-3">Synced from @kabir-builds</p>
+                <p className="mt-0.5 text-[12px] text-ink-3">Synced from their GitHub account</p>
                 <div className="mt-4 flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-selected">
                   {LANGS.map((l, i) => (
                     <span

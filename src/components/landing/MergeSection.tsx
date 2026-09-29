@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, Check, FileDown, Plus, UserPlus } from "lucide-react";
+import { ArrowUpRight, Check, Plus, UserPlus } from "lucide-react";
 import { Avatar, Chip, Progress, SeatMeter, Tape, TeamMark, buttonClass } from "@/components/system";
 import { cn } from "@/lib/utils";
 import { EXAMPLE_ROSTER, EXAMPLE_TEAM, JOINING_MEMBER } from "./fixtures";
@@ -31,7 +31,7 @@ function TeamPreview() {
       <ProductFrame route="/teams/null-pointers">
         <div className="flex flex-col gap-4 border-b border-line p-4 md:flex-row md:items-start md:justify-between md:p-5">
           <div className="flex min-w-0 items-start gap-3.5">
-            <TeamMark name={EXAMPLE_TEAM.name} tone="sih" size="lg" />
+            <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="lg" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-display text-[24px] font-semibold leading-none tracking-[-0.025em] text-ink [font-variation-settings:'wdth'_88] md:text-[28px]">
@@ -40,7 +40,7 @@ function TeamPreview() {
                 <Tape tone="accent" dot>
                   Recruiting
                 </Tape>
-                <Tape tone="sih">SIH</Tape>
+                <Tape tone="hack">Hackathon</Tape>
               </div>
               <p className="mt-1.5 text-[13px] text-ink-3">
                 {EXAMPLE_TEAM.event} · {EXAMPLE_TEAM.idea}
@@ -57,7 +57,10 @@ function TeamPreview() {
           <div className="min-w-0 border-b border-line p-4 md:p-5 lg:border-b-0 lg:border-r">
             <div className="mb-2.5 flex items-baseline justify-between gap-3">
               <p className="text-[13.5px] font-semibold text-ink">
-                Roster <span className="ml-1 font-mono text-[11.5px] font-normal text-ink-3 tabular">{roster.length}/6</span>
+                Roster{" "}
+                <span className="ml-1 font-mono text-[11.5px] font-normal text-ink-3 tabular">
+                  {roster.length}/{EXAMPLE_TEAM.maxMembers}
+                </span>
               </p>
               <SeatMeter filled={roster.length} total={EXAMPLE_TEAM.maxMembers} />
             </div>
@@ -126,7 +129,7 @@ function TeamPreview() {
             </div>
           </div>
 
-          {/* Requests, invites, SIH checks */}
+          {/* Requests, invites, team facts */}
           <div className="space-y-5 p-4 md:p-5">
             <div>
               <p className="mb-2 caps-label text-ink-3">Join requests</p>
@@ -184,26 +187,25 @@ function TeamPreview() {
               </div>
             </div>
 
+            {/* Same "At a glance" facts as the real team page (TeamOverviewView). */}
             <div>
-              <p className="mb-2 caps-label text-ink-3">SIH checks</p>
-              <ul className="space-y-1.5 text-[12.5px]">
-                <li className="flex items-center justify-between gap-2 text-ink-2">
-                  <span>Team size, 6 max</span>
-                  <span className="flex items-center gap-1 font-mono text-[11.5px] text-ok tabular">
-                    <Check className="size-3.5" /> {roster.length}/6
-                  </span>
-                </li>
-                <li className="flex items-center justify-between gap-2 text-ink-2">
-                  <span>At least one woman</span>
-                  <Check className="size-3.5 text-ok" />
-                </li>
-                <li className="flex items-center justify-between gap-2 text-ink-2">
-                  <span>Roster export for SPOC</span>
-                  <span className="flex items-center gap-1 text-[12px] text-ink-3">
-                    <FileDown className="size-3.5" /> Ready
-                  </span>
-                </li>
-              </ul>
+              <p className="mb-2 caps-label text-ink-3">At a glance</p>
+              <dl className="divide-y divide-line rounded-lg border border-line text-[12.5px]">
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <dt className="caps-label text-ink-3">Seats</dt>
+                  <dd className="font-mono text-[11.5px] text-ink-2 tabular">
+                    {roster.length}/{EXAMPLE_TEAM.maxMembers}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <dt className="caps-label text-ink-3">College</dt>
+                  <dd className="text-ink-2">Multi-college</dd>
+                </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <dt className="caps-label text-ink-3">Status</dt>
+                  <dd className="text-ink-2">{openSeats > 0 ? "Recruiting" : "Full"}</dd>
+                </div>
+              </dl>
             </div>
           </div>
         </div>

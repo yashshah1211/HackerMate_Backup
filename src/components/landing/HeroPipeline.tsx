@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, ChevronDown, Globe, Presentation, RotateCcw, Search, Trophy } from "lucide-react";
 import { Avatar, AvatarStack, Chip, Progress, SeatMeter, StatusDot, Tape, TeamMark } from "@/components/system";
 import { cn } from "@/lib/utils";
-import { EXAMPLE_BUILDERS, EXAMPLE_COUNTDOWN_SECONDS, EXAMPLE_TEAM, pad2, splitCountdown } from "./fixtures";
+import { EXAMPLE_BUILDERS, EXAMPLE_COUNTDOWN_SECONDS, EXAMPLE_DEMO_HOST, EXAMPLE_TEAM, pad2, splitCountdown } from "./fixtures";
 import { ExampleNote, STAGES, useCountdown, useStoryActive } from "./primitives";
 
 type Phase = "queued" | "running" | "done";
@@ -80,12 +80,12 @@ export function HeroPipeline() {
         {/* Run header */}
         <div className="flex h-11 items-center justify-between gap-3 border-b border-line px-3.5">
           <span className="flex min-w-0 items-center gap-2.5">
-            <TeamMark name={EXAMPLE_TEAM.name} tone="sih" size="sm" className="!size-6 !rounded-[5px] !text-[9.5px]" />
+            <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="sm" className="!size-6 !rounded-[5px] !text-[9.5px]" />
             <span className="truncate font-mono text-[12px] text-ink-2">
               null-pointers
               <span className="hidden min-[440px]:inline">
                 {" "}
-                <span className="text-ink-4">→</span> {EXAMPLE_TEAM.eventShort.toLowerCase().replace(" ", "-")}
+                <span className="text-ink-4">→</span> {EXAMPLE_TEAM.eventSlug}
               </span>
             </span>
           </span>
@@ -351,10 +351,10 @@ function MergeBody({ phase }: { phase: Phase }) {
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2">
-          <TeamMark name={EXAMPLE_TEAM.name} tone="sih" size="sm" className="hidden min-[400px]:inline-flex" />
+          <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="sm" className="hidden min-[400px]:inline-flex" />
           <span className="truncate text-[13.5px] font-semibold text-ink">{EXAMPLE_TEAM.name}</span>
-          <Tape tone="sih" className="hidden min-[400px]:inline-flex">
-            SIH
+          <Tape tone="hack" className="hidden min-[400px]:inline-flex">
+            Hackathon
           </Tape>
         </span>
         <SeatMeter filled={joined ? 4 : 3} total={6} />
@@ -463,7 +463,7 @@ function ShipBody({ phase }: { phase: Phase }) {
     <div className="flex h-full flex-col gap-2.5">
       <div className="flex items-center gap-2.5 rounded-md border border-line bg-canvas px-2.5 py-2">
         <Globe className="size-4 shrink-0 text-ink-3" aria-hidden />
-        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink">nullpointers.app</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink">{EXAMPLE_DEMO_HOST}</span>
         {shown >= 1 ? (
           <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-ok">
             <StatusDot tone="ok" /> Reachable <span className="hidden font-mono text-[11px] text-ink-3 min-[400px]:inline">182ms</span>

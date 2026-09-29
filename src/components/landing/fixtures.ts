@@ -100,8 +100,11 @@ export const DISCOVERY_SKILLS = ["Figma", "Flutter", "Python", "ML", "React"];
 
 export const EXAMPLE_TEAM = {
   name: "Null Pointers",
-  event: "Smart India Hackathon 2026",
-  eventShort: "SIH 2026",
+  // A fictional, generic event on purpose: an example team must never look
+  // registered for, counting down to, or submitting to a real hackathon.
+  event: "Campus Hackathon 2026",
+  eventShort: "Campus Hack",
+  eventSlug: "campus-hack",
   idea: "Attendance from existing CCTV, no new hardware",
   maxMembers: 6,
   skills: ["React", "Python", "PostgreSQL", "Figma", "Flutter"],
@@ -123,6 +126,9 @@ export const JOINING_MEMBER: RosterMember = {
   projectRole: "Mobile",
   skills: ["Flutter"],
 };
+
+/** Demo URLs use the reserved .example TLD (RFC 2606), so they can never point at someone's real site. */
+export const EXAMPLE_DEMO_HOST = "nullpointers.example";
 
 /** Starting point of the example event clock (it ticks down on the page). */
 export const EXAMPLE_COUNTDOWN_SECONDS = 12 * 86400 + 7 * 3600 + 41 * 60 + 9;

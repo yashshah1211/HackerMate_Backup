@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 import { Bell, ChevronDown, Flame, LogIn, Plus } from "lucide-react";
 import { CountBadge, TeamMark } from "@/components/system";
 import { cn } from "@/lib/utils";
-import { HMMark } from "./HMMark";
+import { LogoMark } from "@/components/Logo";
 import { NAV_ITEMS, type NavSection } from "./navConfig";
 import { AccountMenu } from "./AccountMenu";
 import type { ShellSession, ShellTeam } from "./useShellSession";
@@ -82,8 +82,9 @@ export function NavRail({
     >
       {/* Top: brand */}
       <div className="flex shrink-0 justify-center pb-1 pt-3 [@media(max-height:700px)]:pt-2">
+        {/* The rail is 76px wide, so it carries the app icon; the full logo sits in wider headers. */}
         <Link href={signedIn ? "/dashboard" : "/"} aria-label="HackerMate home" className="rounded-[10px] transition-transform active:scale-95">
-          <HMMark />
+          <LogoMark size={36} />
         </Link>
       </div>
 
