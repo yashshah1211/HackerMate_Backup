@@ -28,13 +28,22 @@ function modeLabel(mode: string | null) {
 
 export function LandingHero({
   builderCount,
+  teamCount,
   hackathonCount,
   upcoming,
 }: {
   builderCount: number;
+  teamCount: number;
   hackathonCount: number;
   upcoming: UpcomingHackathon[];
 }) {
+  // Real platform totals (server snapshot, refreshed every minute). A number is
+  // only shown when the query returned one, so a failed count never reads as "0".
+  const totals = [
+    { value: builderCount, label: "builders" },
+    { value: teamCount, label: teamCount === 1 ? "team formed" : "teams formed" },
+    { value: hackathonCount, label: "hackathons listed" },
+  ].filter((t) => t.value > 0);
   return (
     <section aria-labelledby="hero-title" className="relative border-b border-line">
       <Container className="grid grid-cols-1 items-center gap-10 pb-12 pt-10 md:pt-16 lg:grid-cols-12 lg:gap-12 lg:pb-16 lg:pt-20">
@@ -65,15 +74,19 @@ export function LandingHero({
               See how it works
             </ButtonLink>
           </div>
+          {totals.length > 0 && (
+            <dl className="mt-7 flex flex-wrap gap-x-7 gap-y-3" aria-label="HackerMate today">
+              {totals.map((t) => (
+                <div key={t.label} className="flex flex-col">
+                  <dt className="order-2 mt-1 font-mono text-[12px] text-ink-3">{t.label}</dt>
+                  <dd className="order-1 font-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink tabular">
+                    {t.value.toLocaleString("en-IN")}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
           <p className="mt-5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[12px] text-ink-3">
-            {builderCount > 0 && (
-              <>
-                <span>
-                  <span className="text-ink-2 tabular">{builderCount.toLocaleString("en-IN")}</span> builders
-                </span>
-                <span aria-hidden className="text-ink-4">/</span>
-              </>
-            )}
             <span>Free for students</span>
             <span aria-hidden className="text-ink-4">/</span>
             <span>Sign in with Google or GitHub</span>

@@ -675,6 +675,7 @@ function WorkspacePreview() {
             </span>
           )}
         </div>
+        <span className="mt-1 shrink-0 caps-label text-ink-3">Example data</span>
       </div>
     </div>
   );
@@ -693,8 +694,8 @@ export function BuildSection() {
           </div>
           <div className="lg:col-span-6 lg:pt-10">
             <Lede>
-              Every team gets a workspace with the event clock running. Talk, plan, keep the links and the repo in view, check the demo is up, and get
-              the deck reviewed before the judges see it.
+              Every team gets its own workspace. Talk, plan, keep the links and the repo in view, check the demo is up, and get the deck reviewed
+              before the judges see it.
             </Lede>
           </div>
         </div>

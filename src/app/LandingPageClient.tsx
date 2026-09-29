@@ -73,7 +73,12 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
           </div>
         </div>
       )}
-      <LandingHero builderCount={initialData.userCount} hackathonCount={initialData.hackathonCount} upcoming={initialData.upcoming} />
+      <LandingHero
+        builderCount={initialData.userCount}
+        teamCount={initialData.teamCount}
+        hackathonCount={initialData.hackathonCount}
+        upcoming={initialData.upcoming}
+      />
       <ScrambleSection />
       <FindSection />
       <ReviewSection />

@@ -100,6 +100,19 @@ export function ProductFrame({
   );
 }
 
+/**
+ * Visible caption for illustrative previews that don't sit in a ProductFrame
+ * (the hero run, the group-chat illustration), so no example reads as live data.
+ */
+export function ExampleNote({ label = "Example data", children, className }: { label?: string; children: ReactNode; className?: string }) {
+  return (
+    <p className={cn("mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12.5px] text-ink-3", className)}>
+      <span className="caps-label text-ink-3">{label}</span>
+      <span>{children}</span>
+    </p>
+  );
+}
+
 /** Numbered annotation pin used to tie copy to a spot in a preview. */
 export function Pin({ n, className }: { n: number; className?: string }) {
   return (

@@ -122,7 +122,8 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 disabled:opacity-50",
+        // after:-inset-2 gives the 20px track a ~36px touch area without changing its size.
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 after:absolute after:-inset-2 disabled:opacity-50",
         checked ? "bg-accent" : "bg-line-strong",
       )}
     >
@@ -154,7 +155,8 @@ export function FilterChip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[12.5px] font-medium transition-colors",
+        // after:-inset-y-1 extends the 28px chip's touch area to 36px; rows keep their visual density.
+        "relative inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[12.5px] font-medium transition-colors after:absolute after:inset-x-0 after:-inset-y-1",
         active
           ? "bg-ink text-canvas"
           : "bg-raised text-ink-2 ring-1 ring-inset ring-line-strong hover:text-ink hover:ring-ink-4",

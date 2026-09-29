@@ -17,8 +17,9 @@ const STATS: [string, string][] = [
 
 const SHIPPED = [
   { title: "Attendance from CCTV, no new hardware", event: "Smart India Hackathon 2025", result: "Finalist", links: ["Demo", "Code", "Slides"] },
-  { title: "Rail delay predictor", event: "Axcentra All India Hackathon", result: "Winner", links: ["Demo", "Code"] },
-  { title: "Campus lost-and-found bot", event: "DevSprint 36h", result: "Shipped", links: ["Code"] },
+  // Generic event names: an example builder's result must never be attached to a real, listed event.
+  { title: "Rail delay predictor", event: "Campus 24h hackathon", result: "Winner", links: ["Demo", "Code"] },
+  { title: "Campus lost-and-found bot", event: "Weekend build sprint", result: "Shipped", links: ["Code"] },
 ];
 
 const LANGS = [

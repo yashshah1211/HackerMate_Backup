@@ -23,9 +23,13 @@ export default function DevShell({ pathname, children, signedIn = true }: { path
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [immersive, setImmersive] = useState(false);
   const [teamCount, setTeamCount] = useState<number | null>(null);
+  // Fixtures use Date.now() relative times ("12m ago"), which differ between the
+  // server render and hydration. Render the page body on the client only.
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     Promise.resolve().then(() => {
+      setMounted(true);
       const params = new URLSearchParams(window.location.search);
       const q = params.get("theme");
       const stored = localStorage.getItem("hm_dev_theme");
@@ -77,7 +81,7 @@ export default function DevShell({ pathname, children, signedIn = true }: { path
         onOpenAccount={() => {}}
         onRequestSignOut={() => {}}
       >
-        {children}
+        {mounted ? children : null}
       </ShellFrame>
     </ShellProvider>
   );

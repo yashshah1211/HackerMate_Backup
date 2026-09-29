@@ -900,9 +900,10 @@ function SIHTeamBuilderContent() {
                           </Button>
                         )}
 
+                        {/* Secondary on every card: "Create SIH team" stays the page's one primary action. */}
                         <ButtonLink
                           href={`/teams/${team.id}`}
-                          variant={!isUserTeamMember && !isClosed ? "primary" : "secondary"}
+                          variant="secondary"
                           iconRight={<ArrowRight />}
                           className="max-md:h-9"
                         >

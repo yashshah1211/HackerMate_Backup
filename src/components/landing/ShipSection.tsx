@@ -90,7 +90,7 @@ export function ShipSection({ onOrganizer }: { onOrganizer: () => void }) {
               Ship with people who ship.
             </h2>
             <p className="mt-6 max-w-[48ch] text-[16.5px] leading-[1.6] text-ink-2 md:text-[18px]">
-              Free for students. Sign in with Google or GitHub, set up your builder profile, and have a team before the next deadline.
+              Free for students. Sign in with Google or GitHub, set up your builder profile, and start forming your team before the next deadline.
             </p>
             <div className="mt-8 flex flex-col gap-2.5 sm:flex-row sm:items-center">
               <ButtonLink href="/login" variant="primary" size="lg" iconRight={<ArrowRight />} className="w-full sm:w-auto">

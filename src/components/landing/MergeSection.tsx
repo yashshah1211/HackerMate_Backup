@@ -229,8 +229,8 @@ export function MergeSection() {
               Fill the gaps, not just the seats.
             </SectionTitle>
             <Lede className="mt-5">
-              Post the idea, the event and the skills you need. As builders join, the team page shows exactly which skills are still missing, so a
-              full roster means a complete team.
+              Post the idea, the event and the skills you need. As builders join, the team page shows which skills are still missing, so you know
+              what the next invite has to cover.
             </Lede>
           </div>
           <div className="lg:col-span-6 lg:self-end">

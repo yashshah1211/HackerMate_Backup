@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { ArrowRight, Hash } from "lucide-react";
 import { Avatar } from "@/components/system";
-import { Container, Eyebrow, Lede, SectionTitle, STAGES, useStoryActive } from "./primitives";
+import { Container, Eyebrow, ExampleNote, Lede, SectionTitle, STAGES, useStoryActive } from "./primitives";
 
 // Illustrative group-chat messages. Composite, not quotes from real people.
 const NOISE = [
@@ -82,6 +82,7 @@ export function ScrambleSection() {
           </div>
           <div className="lg:col-span-7">
             <ChatNoise />
+            <ExampleNote label="Illustration">Composite messages, not real people.</ExampleNote>
           </div>
         </div>
 

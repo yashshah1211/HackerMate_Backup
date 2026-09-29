@@ -27,17 +27,25 @@ export type LandingData = {
   upcoming: UpcomingHackathon[];
 };
 
+/**
+ * Events visitors can actually see on /hackathons: approved listings and
+ * cross-listed external events. Native events waiting for admin review
+ * (status "pending") or rejected ones must not be counted or advertised.
+ */
+const PUBLICLY_LISTED = "status.eq.approved,type.eq.external";
+
 export async function getLandingData(): Promise<LandingData> {
   const supabaseAdmin = getSupabaseAdmin();
   try {
     const [users, hackathons, teams, upcoming] = await Promise.all([
       // Only builders who finished onboarding (a real profile), not every sign-in.
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("onboarding_completed", true),
-      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }).or(PUBLICLY_LISTED),
       supabaseAdmin.from("teams").select("id", { count: "exact", head: true }),
       supabaseAdmin
         .from("hackathons")
         .select("id, name, mode, start_date, end_date")
+        .or(PUBLICLY_LISTED)
         .gte("start_date", new Date().toISOString())
         .order("start_date", { ascending: true })
         .limit(8),

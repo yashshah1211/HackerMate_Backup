@@ -6,7 +6,7 @@ import { Check, ChevronDown, Globe, Presentation, RotateCcw, Search, Trophy } fr
 import { Avatar, AvatarStack, Chip, Progress, SeatMeter, StatusDot, Tape, TeamMark } from "@/components/system";
 import { cn } from "@/lib/utils";
 import { EXAMPLE_BUILDERS, EXAMPLE_COUNTDOWN_SECONDS, EXAMPLE_TEAM, pad2, splitCountdown } from "./fixtures";
-import { STAGES, useCountdown, useStoryActive } from "./primitives";
+import { ExampleNote, STAGES, useCountdown, useStoryActive } from "./primitives";
 
 type Phase = "queued" | "running" | "done";
 
@@ -183,6 +183,7 @@ export function HeroPipeline() {
           })}
         </ol>
       </div>
+      <ExampleNote>An illustrative team&apos;s run, from search to submission.</ExampleNote>
     </div>
   );
 }
