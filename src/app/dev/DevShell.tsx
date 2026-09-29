@@ -3,19 +3,35 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ShellProvider } from "@/components/shell/ShellContext";
 import { ShellFrame } from "@/components/shell/ShellFrame";
-import type { ShellSession } from "@/components/shell/useShellSession";
+import type { ShellSession, ShellTeam } from "@/components/shell/useShellSession";
 import { DEV_TEAMS } from "./fixtures";
 
 /** Mock signed-in shell for the dev gallery. */
+const EXTRA_TEAM_NAMES = ["Byte Brigade", "Kernel Panic", "Dry Run", "Stack Smash", "Hot Reload", "Edge Cases", "Cold Start"];
+
+/** `?teams=N` repeats the fixture teams so rail layouts can be checked with a long team list. */
+function fixtureTeams(count: number | null): ShellTeam[] {
+  if (!count || count <= DEV_TEAMS.length) return count === 0 ? [] : DEV_TEAMS.slice(0, count ?? DEV_TEAMS.length);
+  const extra = Array.from({ length: count - DEV_TEAMS.length }, (_, i) => {
+    const base = DEV_TEAMS[i % DEV_TEAMS.length];
+    return { ...base, id: `dev-team-x${i + 1}`, name: EXTRA_TEAM_NAMES[i % EXTRA_TEAM_NAMES.length], isOwner: false };
+  });
+  return [...DEV_TEAMS, ...extra];
+}
+
 export default function DevShell({ pathname, children, signedIn = true }: { pathname: string; children: ReactNode; signedIn?: boolean }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [immersive, setImmersive] = useState(false);
+  const [teamCount, setTeamCount] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.resolve().then(() => {
-      const q = new URLSearchParams(window.location.search).get("theme");
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("theme");
       const stored = localStorage.getItem("hm_dev_theme");
       if (q === "light" || stored === "light") setTheme("light");
+      const n = params.get("teams");
+      if (n !== null && !Number.isNaN(Number(n))) setTeamCount(Math.max(0, Math.min(12, Number(n))));
     });
   }, []);
 
@@ -32,7 +48,7 @@ export default function DevShell({ pathname, children, signedIn = true }: { path
       hasSession: signedIn,
       viewerId: signedIn ? "dev-viewer" : null,
       profile: signedIn ? { id: "dev-viewer", full_name: "Ananya Rao", avatar_url: null, role: "admin" } : null,
-      teams: signedIn ? DEV_TEAMS : [],
+      teams: signedIn ? fixtureTeams(teamCount) : [],
       unreadNotifications: signedIn ? 3 : 0,
       setUnreadNotifications: () => {},
       unreadMessages: signedIn ? 2 : 0,
@@ -40,7 +56,7 @@ export default function DevShell({ pathname, children, signedIn = true }: { path
       reloadTeams: () => {},
       signOut: async () => {},
     }),
-    [signedIn],
+    [signedIn, teamCount],
   );
 
   const toggleTheme = () => {
