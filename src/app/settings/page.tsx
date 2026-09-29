@@ -281,29 +281,47 @@ function SettingsContent() {
     setLoadingBlocks(true);
     setBlocksError(null);
     try {
-      const { data, error } = await supabase
+      // blocked_users.blocked_id references auth.users, not public.profiles, so
+      // PostgREST cannot embed profiles here. Fetch the rows, then the profiles
+      // separately (explicit columns, normal RLS), and merge them client-side.
+      const { data: rows, error } = await supabase
         .from("blocked_users")
-        .select(
-          `
-          blocked_id,
-          created_at,
-          blocked_user:profiles!blocked_id (
-            id,
-            full_name,
-            avatar_url,
-            college
-          )
-        `
-        )
-        .eq("blocker_id", currentUid);
+        .select("blocked_id, created_at")
+        .eq("blocker_id", currentUid)
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to load blocked users:", error);
         setBlocksError(error.message);
+        return;
       }
-      if (!error && data) {
-        setBlockedUsers(data as any);
+
+      const blockRows = rows ?? [];
+      const ids = [...new Set(blockRows.map((r) => r.blocked_id))];
+      const profilesById = new Map<string, NonNullable<BlockedUserItem["blocked_user"]>>();
+
+      if (ids.length > 0) {
+        const { data: profs, error: profError } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, college")
+          .in("id", ids);
+
+        if (profError) {
+          console.error("Failed to load blocked builders' profiles:", profError);
+          setBlocksError(profError.message);
+          return;
+        }
+        for (const p of profs ?? []) profilesById.set(p.id, p);
       }
+
+      // Rows whose profile is missing still render (as "Unknown user") so they can be unblocked.
+      setBlockedUsers(
+        blockRows.map((r) => ({
+          blocked_id: r.blocked_id,
+          created_at: r.created_at,
+          blocked_user: profilesById.get(r.blocked_id) ?? null,
+        })),
+      );
     } catch (e) {
       console.error("Failed to load blocked users:", e);
       setBlocksError(e instanceof Error ? e.message : "Failed to load blocked users");
