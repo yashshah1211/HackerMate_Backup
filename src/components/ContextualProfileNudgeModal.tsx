@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Check, Lightbulb, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
+import { Button, Dialog, FieldLabel, FilterChip, Progress, Textarea } from "@/components/system";
 
 const POPULAR_SKILLS = [
   "React",
@@ -50,8 +52,6 @@ export default function ContextualProfileNudgeModal({
       setSkills(Array.isArray(userProfile.skills) ? userProfile.skills : []);
     }
   }, [userProfile]);
-
-  if (!isOpen) return null;
 
   const toggleSkill = (skill: string) => {
     setSkills((prev) =>
@@ -106,122 +106,78 @@ export default function ContextualProfileNudgeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl">
-        {/* Top Header Badge */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500 text-base">
-              💡
-            </span>
-            <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight">
-                Boost Your Team Visibility
-              </h3>
-              <p className="text-xs text-zinc-400">
-                Before {actionTitle.toLowerCase()}...
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleSkipAndProceed}
-            className="text-xs text-zinc-500 hover:text-zinc-300 font-mono transition"
-          >
-            ✕
-          </button>
+    <Dialog
+      open={isOpen}
+      // Dismissing (Escape, backdrop, close button) closes without acting.
+      // "Skip for now" still proceeds with the intended action.
+      onClose={() => {
+        if (!saving) onClose();
+      }}
+      title={
+        <span className="inline-flex items-center gap-2">
+          <Lightbulb className="size-4 shrink-0 text-accent-ink" aria-hidden />
+          Help teams find you
+        </span>
+      }
+      description={`Before ${actionTitle.toLowerCase()}, take a few seconds to fill in your profile.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={handleSkipAndProceed} disabled={saving}>
+            Skip for now
+          </Button>
+          <Button variant="primary" onClick={handleSaveAndProceed} loading={saving}>
+            {saving ? "Saving…" : "Save and continue"}
+          </Button>
+        </>
+      }
+    >
+      {/* Completeness summary */}
+      <div className="rounded-lg border border-line bg-sunken px-3.5 py-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-[13px] font-semibold text-ink">Your profile is {completeness.score}% complete</p>
+          <span className="font-mono text-[12px] text-accent-ink tabular">{completeness.score}%</span>
         </div>
+        <Progress value={completeness.score} className="mt-2" />
+        <p className="mt-2 text-[12.5px] text-ink-3">
+          Profiles with a bio and skills get <span className="font-medium text-ink-2">3x more team invites</span>.
+        </p>
+      </div>
 
-        {/* Banner Alert */}
-        <div className="mb-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/80 p-3.5 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-              Your profile is {completeness.score}% complete
-            </div>
-            <div className="text-[11px] text-zinc-400 mt-0.5">
-              Profiles with a bio & skills get <strong className="text-orange-400">3x more team invites</strong>!
-            </div>
-          </div>
-          <div className="shrink-0 text-right">
-            <div className="text-sm font-mono font-bold text-orange-400">
-              {completeness.score}%
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Fill Form Fields */}
-        <div className="space-y-4 mb-6">
-          {/* Quick Bio Input */}
+      {/* Quick fill fields */}
+      {(completeness.missingBio || completeness.missingSkills) && (
+        <div className="mt-5 space-y-5">
           {completeness.missingBio && (
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                Add a quick bio / short summary:
-              </label>
-              <textarea
+              <FieldLabel htmlFor="nudge-bio">Short bio</FieldLabel>
+              <Textarea
+                id="nudge-bio"
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="e.g. Full-stack developer passionate about Next.js and AI hackathons..."
+                placeholder="e.g. Full-stack developer who likes Next.js and AI hackathons"
                 rows={2}
-                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:border-orange-500 focus:outline-none transition"
+                className="min-h-16"
               />
             </div>
           )}
 
-          {/* Quick Skills Pills */}
           {completeness.missingSkills && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-2">
-                Select your top tech skills:
-              </label>
-              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+            <div role="group" aria-labelledby="nudge-skills-label">
+              <div id="nudge-skills-label" className="mb-2 caps-label text-ink-3">Your top skills</div>
+              <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pr-1 [&>button]:h-9 md:[&>button]:h-7">
                 {POPULAR_SKILLS.map((skill) => {
                   const isSelected = skills.includes(skill);
                   return (
-                    <button
-                      key={skill}
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                        isSelected
-                          ? "bg-orange-500 text-white shadow-xs"
-                          : "bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-zinc-700"
-                      }`}
-                    >
-                      {isSelected ? `✓ ${skill}` : `+ ${skill}`}
-                    </button>
+                    <FilterChip key={skill} active={isSelected} onClick={() => toggleSkill(skill)}>
+                      {isSelected ? <Check className="size-3.5" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+                      {skill}
+                    </FilterChip>
                   );
                 })}
               </div>
             </div>
           )}
         </div>
-
-        {/* Actions Bar */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-800/80">
-          <button
-            type="button"
-            onClick={handleSkipAndProceed}
-            disabled={saving}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition"
-          >
-            Skip for now
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveAndProceed}
-            disabled={saving}
-            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 active:scale-98 transition shadow-lg shadow-orange-500/20 flex items-center gap-1.5"
-          >
-            {saving ? (
-              <>
-                <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>Save & Continue →</>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </Dialog>
   );
 }

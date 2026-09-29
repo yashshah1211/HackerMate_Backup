@@ -4,6 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { identifyUser } from "@/lib/posthog";
+import { cn } from "@/lib/utils";
+import { Button, PageLoader } from "@/components/system";
+import { Ban, TriangleAlert } from "lucide-react";
 
 export default function AuthGuard({
   children,
@@ -130,44 +133,27 @@ export default function AuthGuard({
 
   if (isBanned) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-6">
-        <div className="w-full max-w-md text-center card card-static p-8">
-          <div className="w-14 h-14 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-semibold tracking-tight text-white mb-2">
-            Account Suspended
-          </h1>
-          <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
-            Your HackerMate account has been suspended for violating our community guidelines or receiving multiple user reports.
-          </p>
-          <div className="p-3 bg-zinc-950 border border-zinc-900 rounded text-[10px] text-zinc-500 font-mono">
-            Error Code: AUTH_ACCOUNT_BANNED
-          </div>
-        </div>
-      </div>
+      <GuardNotice
+        icon={<Ban aria-hidden />}
+        tone="bad"
+        title="Account suspended"
+        body="Your HackerMate account has been suspended for violating our community guidelines or receiving multiple user reports."
+        code="AUTH_ACCOUNT_BANNED"
+      />
     );
   }
 
   if (authError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-6">
-        <div className="w-full max-w-md text-center card card-static p-8">
-          <div className="w-14 h-14 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-semibold tracking-tight text-white mb-2">
-            Verification Unavailable
-          </h1>
-          <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
-            {authError}
-          </p>
-          <div className="flex justify-center gap-3">
-            <button
+      <GuardNotice
+        icon={<TriangleAlert aria-hidden />}
+        tone="warn"
+        title="Verification unavailable"
+        body={authError}
+        actions={
+          <>
+            <Button
+              variant="primary"
               onClick={() => {
                 setAuthError(null);
                 supabase.auth.getUser().then(({ data: { user } }) => {
@@ -183,31 +169,68 @@ export default function AuthGuard({
                   }
                 });
               }}
-              className="btn btn-primary text-xs py-2 px-4 cursor-pointer"
             >
-              Retry Connection
-            </button>
-            <button
+              Retry connection
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => {
                 router.replace("/login");
               }}
-              className="btn btn-secondary text-xs py-2 px-4 cursor-pointer"
             >
-              Back to Login
-            </button>
-          </div>
-        </div>
-      </div>
+              Back to login
+            </Button>
+          </>
+        }
+      />
     );
   }
 
   if (!authorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-        <div className="w-5 h-5 border-2 border-zinc-800 border-t-white rounded-full animate-spin" />
-      </div>
-    );
+    return <PageLoader label="Checking your session" />;
   }
 
   return <>{children}</>;
+}
+
+/** Full-page account notice (suspended / verification failure). */
+function GuardNotice({
+  icon,
+  tone,
+  title,
+  body,
+  code,
+  actions,
+}: {
+  icon: React.ReactNode;
+  tone: "bad" | "warn";
+  title: string;
+  body: string;
+  code?: string;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <main data-v2 className="flex min-h-[70vh] items-center justify-center px-4 py-12">
+      <div role="alert" className="w-full max-w-md rounded-lg border border-line bg-raised p-6 text-center md:p-8">
+        <span
+          className={cn(
+            "mx-auto mb-5 inline-flex size-11 items-center justify-center rounded-md [&_svg]:size-5",
+            tone === "bad" ? "bg-bad-soft text-bad" : "bg-warn-soft text-warn",
+          )}
+        >
+          {icon}
+        </span>
+        <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-ink [font-variation-settings:'wdth'_92]">
+          {title}
+        </h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">{body}</p>
+        {code && (
+          <p className="mt-5 rounded-md bg-sunken px-3 py-2 font-mono text-[11.5px] text-ink-3 ring-1 ring-inset ring-line">
+            Error code: {code}
+          </p>
+        )}
+        {actions && <div className="mt-6 flex flex-col-reverse justify-center gap-2 sm:flex-row">{actions}</div>}
+      </div>
+    </main>
+  );
 }

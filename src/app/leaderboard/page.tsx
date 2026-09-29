@@ -7,19 +7,50 @@ import { supabase } from "@/lib/supabase";
 import { normalizeCollege } from "@/lib/colleges";
 import {
   Trophy,
-  Users,
+  Award,
   ShieldCheck,
-  Search,
   Share2,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
-  Info,
-  CheckCircle2,
-  Flame,
+  Check,
+  Link2,
   ArrowRight,
+  School,
 } from "lucide-react";
-import Logo from "@/components/Logo";
+import {
+  Avatar,
+  Button,
+  ButtonLink,
+  EmptyState,
+  ErrorNotice,
+  IconButton,
+  Page,
+  PageHeader,
+  PageLoader,
+  Panel,
+  SearchField,
+  Segmented,
+  Skeleton,
+  SkeletonRows,
+  Stat,
+  Tape,
+} from "@/components/system";
+import { cn } from "@/lib/utils";
+
+type CategoryFilter = "all" | "maharashtra" | "iit_nit_bits" | "delhi" | "south";
+
+const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
+  { value: "all", label: "Top 10" },
+  { value: "maharashtra", label: "Maharashtra" },
+  { value: "iit_nit_bits", label: "IIT / NIT / BITS" },
+  { value: "delhi", label: "Delhi NCR" },
+  { value: "south", label: "South" },
+];
+
+/** Rank label, zero-padded mono (01, 02 …). */
+function rankLabel(rank: number) {
+  return String(rank).padStart(2, "0");
+}
 
 type BuilderProfile = {
   id: string;
@@ -104,10 +135,13 @@ function LeaderboardContent() {
   const [expandedCollege, setExpandedCollege] = useState<string | null>(null);
   const [showMethodology, setShowMethodology] = useState(false);
   const [copiedCollege, setCopiedCollege] = useState<string | null>(null);
+  // Presentation-only: surfaces load failures instead of a silent empty board.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
+      setLoadError(null);
       try {
         // 1. Fetch current session if any
         const { data: { user } } = await supabase.auth.getUser();
@@ -127,14 +161,20 @@ function LeaderboardContent() {
           .eq("is_banned", false)
           .eq("onboarding_completed", true);
 
-        if (pErr) console.error("Error loading profiles for leaderboard:", pErr);
+        if (pErr) {
+          console.error("Error loading profiles for leaderboard:", pErr);
+          setLoadError(pErr.message);
+        }
 
         // 3. Fetch public-safe teams with members
         const { data: teamsData, error: tErr } = await supabase
           .from("teams")
           .select("id, name, college, is_recruiting, created_at, team_members(id, user_id)");
 
-        if (tErr) console.error("Error loading teams for leaderboard:", tErr);
+        if (tErr) {
+          console.error("Error loading teams for leaderboard:", tErr);
+          setLoadError(tErr.message);
+        }
 
         const profiles = profilesData || [];
         const teams = teamsData || [];
@@ -215,6 +255,7 @@ function LeaderboardContent() {
         }
       } catch (err) {
         console.error("Leaderboard load failure:", err);
+        setLoadError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
@@ -270,351 +311,228 @@ function LeaderboardContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-zinc-900 dark:text-white selection:bg-[#B4F461] selection:text-black font-sans pb-24 transition-colors duration-200">
-      {/* Background Dot Matrix Grid */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] opacity-40 dark:opacity-25" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] pointer-events-none z-0">
-        <div className="absolute top-10 left-1/4 w-[400px] h-[400px] bg-[#B4F461]/8 dark:bg-[#B4F461]/6 rounded-full blur-[140px]" />
-        <div className="absolute top-10 right-1/4 w-[400px] h-[400px] bg-[#22D3EE]/8 dark:bg-[#22D3EE]/6 rounded-full blur-[140px]" />
+    <Page>
+      <PageHeader
+        eyebrow="Practice"
+        title="Leaderboard"
+        meta="Campus rankings by verified builders and active hackathon squads."
+      />
+
+      {/* Live totals */}
+      <div className="grid grid-cols-3 gap-4 border-y border-line py-4">
+        <Stat label="Colleges" value={loading ? <Skeleton className="h-5 w-10" /> : colleges.length} />
+        <Stat label="Verified devs" value={loading ? <Skeleton className="h-5 w-10" /> : totalBuilders} />
+        <Stat label="Active squads" value={loading ? <Skeleton className="h-5 w-10" /> : totalSquads} />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-8 space-y-8">
-        
-        {/* Header Title & Platform Live Stats */}
-        <div className="space-y-4 text-center max-w-3xl mx-auto pt-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-700 dark:text-zinc-300 backdrop-blur-md shadow-sm">
-            <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-            <span>INTER-COLLEGE HACKATHON LEADERBOARD</span>
-          </div>
+      {loadError && (
+        <ErrorNotice
+          className="mt-6"
+          title="Couldn't load the full leaderboard"
+          detail={loadError}
+          onRetry={() => window.location.reload()}
+        />
+      )}
 
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-white leading-tight font-sans">
-            Campus Engineering Power Rankings
-          </h1>
-
-          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-2xl mx-auto font-sans">
-            Real-time standings of India&apos;s collegiate developer communities. Ranked objectively by verified builders and formed hackathon squads.
-          </p>
-
-          {/* Quick Metrics Strip */}
-          <div className="grid grid-cols-3 gap-3 pt-2 max-w-md mx-auto">
-            <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center shadow-sm">
-              <span className="block text-lg sm:text-xl font-mono font-bold text-zinc-900 dark:text-white">
-                {loading ? (
-                  <span className="inline-block w-8 h-5 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded my-0.5" />
-                ) : (
-                  colleges.length
-                )}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Colleges</span>
-            </div>
-            <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center shadow-sm">
-              <span className="block text-lg sm:text-xl font-mono font-bold text-emerald-600 dark:text-[#B4F461]">
-                {loading ? (
-                  <span className="inline-block w-8 h-5 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded my-0.5" />
-                ) : (
-                  totalBuilders
-                )}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Verified Devs</span>
-            </div>
-            <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center shadow-sm">
-              <span className="block text-lg sm:text-xl font-mono font-bold text-cyan-600 dark:text-[#22D3EE]">
-                {loading ? (
-                  <span className="inline-block w-8 h-5 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded my-0.5" />
-                ) : (
-                  totalSquads
-                )}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Active Squads</span>
-            </div>
-          </div>
-        </div>
-
-        {/* User's College Pinned Status HUD or Logged-Out CTA */}
+      {/* Your campus standing / CTA */}
+      <div className="mt-6">
         {loading ? (
-          <div className="p-4 sm:p-5 rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/60 animate-pulse flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="w-28 h-4 bg-zinc-200 dark:bg-zinc-800 rounded" />
-              <div className="w-64 h-5 bg-zinc-200 dark:bg-zinc-800 rounded" />
+          <Panel className="flex items-center justify-between gap-4 p-4">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-4 w-64 max-w-full" />
             </div>
-            <div className="w-36 h-9 bg-zinc-200 dark:bg-zinc-800 rounded-xl hidden sm:block" />
-          </div>
+            <Skeleton className="hidden h-[34px] w-36 rounded-md sm:block" />
+          </Panel>
         ) : userCollegeRank ? (
-          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-white dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-950 border border-amber-500/30 shadow-md dark:shadow-xl relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-mono text-[11px] font-bold">
-                    YOUR CAMPUS: #{userCollegeRank.rank}
-                  </span>
-                  <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                    {userCollegeRank.college.builderCount} Builders • {userCollegeRank.college.activeSquadCount} Active Squads
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white font-sans">
-                  {userCollegeRank.college.name}
-                </h3>
-                {userCollegeRank.nextCollegeName && (
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 font-sans">
-                    <span className="text-emerald-600 dark:text-[#B4F461] font-semibold">{Math.ceil(userCollegeRank.pointsToNextRank / 10)} more builders</span> needed to overtake #{userCollegeRank.rank - 1} {userCollegeRank.nextCollegeName}!
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2.5 w-full sm:w-auto">
-                <button
-                  onClick={() => handleShareWhatsApp(userCollegeRank.college.name, userCollegeRank.rank)}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] !text-black font-bold text-xs shadow-lg transition-all cursor-pointer"
-                  style={{ color: "#000000" }}
-                >
-                  <Share2 className="w-3.5 h-3.5 !text-black" style={{ color: "#000000" }} />
-                  <span style={{ color: "#000000" }} className="!text-black font-bold">Invite Campus Mates</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : userProfile ? (
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 shadow-md dark:shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] font-semibold">
-                  CAMPUS TRACKER
+          <Panel className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Tape tone="accent">Your campus · #{userCollegeRank.rank}</Tape>
+                <span className="font-mono text-[12px] text-ink-3 tabular">
+                  {userCollegeRank.college.builderCount} builders · {userCollegeRank.college.activeSquadCount} active squads
                 </span>
-                <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">Unset College</span>
               </div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white font-sans">
-                Set your college to track your campus rank & team up
-              </h3>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 font-sans">
-                Add your college to your profile to contribute points to your campus leaderboard standing.
-              </p>
+              <h2 className="font-display text-[18px] font-semibold tracking-[-0.015em] text-ink break-words">
+                {userCollegeRank.college.name}
+              </h2>
+              {userCollegeRank.nextCollegeName && (
+                <p className="text-[13px] text-ink-3">
+                  <span className="font-medium text-accent-ink">
+                    {Math.ceil(userCollegeRank.pointsToNextRank / 10)} more builders
+                  </span>{" "}
+                  to overtake #{userCollegeRank.rank - 1} {userCollegeRank.nextCollegeName}.
+                </p>
+              )}
             </div>
-            <Link
-              href="/profile/edit"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-semibold text-xs transition-colors"
+            <Button
+              variant="primary"
+              icon={<Share2 aria-hidden />}
+              onClick={() => handleShareWhatsApp(userCollegeRank.college.name, userCollegeRank.rank)}
+              className="w-full sm:w-auto"
             >
-              <span>Set College in Profile →</span>
-            </Link>
-          </div>
-        ) : (
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-gradient-to-r dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-950 border border-zinc-200 dark:border-zinc-800/80 shadow-md dark:shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] font-semibold">
-                  CAMPUS TRACKER
-                </span>
-                <span className="text-xs font-mono text-emerald-600 dark:text-[#B4F461] font-semibold">Where does your college rank?</span>
-              </div>
-              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white font-sans">
-                Sign in to track your campus rank & find college hackathon teammates
-              </h3>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 font-sans">
-                Join verified developers from your college, build hackathon squads, and push your campus to #1.
+              Invite campus mates
+            </Button>
+          </Panel>
+        ) : userProfile ? (
+          <Panel className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <Tape>College not set</Tape>
+              <h2 className="text-[14.5px] font-semibold text-ink">Set your college to see your campus rank</h2>
+              <p className="text-[13px] text-ink-3">
+                Your profile counts toward your campus score once your college is added.
               </p>
             </div>
-            <Link
+            <ButtonLink href="/profile/edit" variant="secondary" iconRight={<ArrowRight aria-hidden />} className="w-full sm:w-auto">
+              Set college
+            </ButtonLink>
+          </Panel>
+        ) : (
+          <Panel className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <Tape>Where does your college rank?</Tape>
+              <h2 className="text-[14.5px] font-semibold text-ink">Sign in to track your campus rank</h2>
+              <p className="text-[13px] text-ink-3">
+                Join builders from your college, form squads and move your campus up the board.
+              </p>
+            </div>
+            <ButtonLink
               href={`/login?next=${encodeURIComponent(
                 `/leaderboard${highlightedCollegeParam ? `?college=${encodeURIComponent(highlightedCollegeParam)}` : ""}`
               )}${highlightedCollegeParam ? `&college=${encodeURIComponent(highlightedCollegeParam)}` : ""}`}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] font-extrabold text-xs shadow-md transition-all whitespace-nowrap cursor-pointer !text-black"
-              style={{ color: "#000000" }}
+              variant="primary"
+              iconRight={<ArrowRight aria-hidden />}
+              className="w-full sm:w-auto"
             >
-              <span style={{ color: "#000000" }} className="!text-black font-extrabold text-black">
-                Sign In to See Your Campus Rank →
-              </span>
-            </Link>
-          </div>
+              Sign in to see your rank
+            </ButtonLink>
+          </Panel>
         )}
+      </div>
 
-        {/* Top 3 Podium Cards */}
-        {!loading && colleges.length >= 3 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            {/* Silver: Rank 2 */}
-            <div className="order-2 md:order-1 p-5 rounded-2xl bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-700/60 shadow-md dark:shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-zinc-400 dark:hover:border-zinc-500 transition-all">
-              <div className="absolute top-0 right-0 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 border-b border-l border-zinc-200 dark:border-zinc-700 rounded-bl-xl font-mono text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                🥈 #2 Silver
-              </div>
-              <div className="space-y-3 pt-2">
-                <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">{colleges[1].cityState}</span>
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">
-                  {colleges[1].shortName}
-                </h3>
-                <div className="flex items-center gap-4 text-xs font-mono text-zinc-600 dark:text-zinc-300">
-                  <span>{colleges[1].builderCount} Builders</span>
-                  <span>•</span>
-                  <span>{colleges[1].activeSquadCount} Squads</span>
+      {/* Top 3 podium */}
+      {!loading && colleges.length >= 3 && (
+        <section aria-label="Top 3 colleges" className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {colleges.slice(0, 3).map((college, i) => {
+            const rank = i + 1;
+            const RankIcon = rank === 1 ? Trophy : Award;
+            return (
+              <Panel key={college.name} className={cn("flex min-w-0 flex-col p-4", rank === 1 && "ring-1 ring-inset ring-warn/30")}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[12px] font-semibold text-ink-2 tabular">
+                    <RankIcon className="size-4 text-warn" aria-hidden />
+                    {rankLabel(rank)}
+                  </span>
+                  <span className="truncate font-mono text-[11.5px] text-ink-3">{college.cityState}</span>
                 </div>
-              </div>
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 mt-4 flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">{colleges[1].powerScore} PTS</span>
-                <button
-                  onClick={() => handleShareWhatsApp(colleges[1].name, 2)}
-                  className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
-                >
-                  Invite <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            {/* Gold: Rank 1 (Center Highlighted) */}
-            <div className="order-1 md:order-2 p-6 rounded-2xl bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-white dark:from-amber-500/10 dark:via-zinc-950 dark:to-zinc-950 border border-amber-500/40 dark:border-amber-500/50 shadow-lg dark:shadow-2xl flex flex-col justify-between relative overflow-hidden md:-mt-2">
-              <div className="absolute top-0 right-0 px-3.5 py-1.5 bg-amber-500 text-black font-mono text-xs font-black rounded-bl-xl flex items-center gap-1 shadow-md">
-                <Trophy className="w-3.5 h-3.5" /> #1 Champion
-              </div>
-              <div className="space-y-3 pt-2">
-                <span className="text-[11px] font-mono text-amber-700 dark:text-amber-300/80 font-semibold">{colleges[0].cityState}</span>
-                <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white leading-snug line-clamp-2">
-                  {colleges[0].shortName}
+                <h3 className="mt-3 line-clamp-2 font-display text-[16px] font-semibold leading-snug tracking-[-0.015em] text-ink">
+                  {college.shortName}
                 </h3>
-                <div className="flex items-center gap-4 text-xs font-mono text-zinc-700 dark:text-zinc-200">
-                  <span className="text-zinc-900 dark:text-white font-bold">{colleges[0].builderCount} Verified Devs</span>
-                  <span>•</span>
-                  <span>{colleges[0].activeSquadCount} Active Squads</span>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-amber-200/60 dark:border-zinc-800/80 mt-4 flex items-center justify-between">
-                <span className="text-sm font-mono font-black text-amber-600 dark:text-amber-400">{colleges[0].powerScore} PTS</span>
-                <button
-                  onClick={() => handleShareWhatsApp(colleges[0].name, 1)}
-                  className="text-xs font-mono text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 flex items-center gap-1 font-semibold cursor-pointer"
-                >
-                  Share Campus Card <Share2 className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            {/* Bronze: Rank 3 */}
-            <div className="order-3 p-5 rounded-2xl bg-white dark:bg-zinc-950/80 border border-amber-200 dark:border-amber-700/40 shadow-md dark:shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-300 dark:hover:border-amber-700/60 transition-all">
-              <div className="absolute top-0 right-0 px-3 py-1 bg-amber-50 dark:bg-amber-900/60 border-b border-l border-amber-200 dark:border-amber-700/50 rounded-bl-xl font-mono text-xs font-bold text-amber-800 dark:text-amber-200">
-                🥉 #3 Bronze
-              </div>
-              <div className="space-y-3 pt-2">
-                <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">{colleges[2].cityState}</span>
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">
-                  {colleges[2].shortName}
-                </h3>
-                <div className="flex items-center gap-4 text-xs font-mono text-zinc-600 dark:text-zinc-300">
-                  <span>{colleges[2].builderCount} Builders</span>
-                  <span>•</span>
-                  <span>{colleges[2].activeSquadCount} Squads</span>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 mt-4 flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">{colleges[2].powerScore} PTS</span>
-                <button
-                  onClick={() => handleShareWhatsApp(colleges[2].name, 3)}
-                  className="text-xs font-mono text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
-                >
-                  Invite <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Auditable Scoring Methodology & Transparency Box */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 shadow-md dark:shadow-lg space-y-3">
-          <button
-            onClick={() => setShowMethodology(!showMethodology)}
-            className="w-full flex items-center justify-between text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-[#B4F461]" />
-              <span className="text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 font-sans">
-                Scoring Methodology & Anti-Gaming Integrity Policy
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              <span>{showMethodology ? "Hide formula" : "View formula & audit details"}</span>
-              {showMethodology ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </div>
-          </button>
-
-          {showMethodology && (
-            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 space-y-2.5 font-sans leading-relaxed">
-              <p>
-                To maintain absolute fairness, rankings are strictly calculated by an auditable, objective mathematical formula with zero manual weighting:
-              </p>
-              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 font-mono text-[11px] text-zinc-800 dark:text-zinc-200 space-y-1">
-                <p className="text-emerald-600 dark:text-[#B4F461] font-bold">
-                  Campus Power Score = (Verified Builders × 10) + (Active Formed Squads × 25)
+                <p className="mt-1 font-mono text-[12px] text-ink-3 tabular">
+                  {college.builderCount} builders · {college.activeSquadCount} squads
                 </p>
-              </div>
-              <ul className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-[11px]">
-                <li className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/60">
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200 block mb-0.5">Verified Builders (10 pts)</span>
-                  Only accounts with completed onboarding and verified college attribution count. Empty signups award 0 pts.
-                </li>
-                <li className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/60">
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200 block mb-0.5">Active Squads (25 pts)</span>
-                  Teams must have at least 2 verified student members. Solo or empty placeholder teams award 0 pts.
-                </li>
-                <li className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/60">
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200 block mb-0.5">Privacy First</span>
-                  Builders who toggled their profile track record to private are respected and excluded from public spotlight rosters.
-                </li>
-              </ul>
-            </div>
-          )}
+                <div className="mt-4 flex items-center justify-between gap-2 border-t border-line pt-3">
+                  <span className="font-display text-[20px] font-semibold leading-none text-ink tabular">
+                    {college.powerScore}
+                    <span className="ml-1 caps-label text-ink-3">pts</span>
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<Share2 aria-hidden />}
+                    onClick={() => handleShareWhatsApp(college.name, rank)}
+                    className="h-9 md:h-7"
+                  >
+                    Share
+                  </Button>
+                </div>
+              </Panel>
+            );
+          })}
+        </section>
+      )}
+
+      {/* Scoring methodology */}
+      <Panel className="mt-8">
+        <button
+          type="button"
+          onClick={() => setShowMethodology(!showMethodology)}
+          aria-expanded={showMethodology}
+          className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <ShieldCheck className="size-4 shrink-0 text-ok" aria-hidden />
+            <span className="text-[13.5px] font-semibold text-ink">How scoring works</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1 text-[12.5px] text-ink-3">
+            <span className="hidden sm:inline">{showMethodology ? "Hide formula" : "View formula"}</span>
+            {showMethodology ? <ChevronUp className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}
+          </span>
+        </button>
+
+        {showMethodology && (
+          <div className="space-y-3 border-t border-line px-4 py-4 text-[13px] leading-relaxed text-ink-2">
+            <p>Rankings use one fixed formula with no manual weighting:</p>
+            <p className="rounded-md bg-sunken px-3 py-2 font-mono text-[12px] text-ink ring-1 ring-inset ring-line">
+              Campus score = (Verified builders × 10) + (Active squads × 25)
+            </p>
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <li className="rounded-md border border-line p-3">
+                <span className="mb-0.5 block font-semibold text-ink">Verified builders (10 pts)</span>
+                <span className="text-ink-3">Only accounts with completed onboarding and a college set count. Empty signups score 0.</span>
+              </li>
+              <li className="rounded-md border border-line p-3">
+                <span className="mb-0.5 block font-semibold text-ink">Active squads (25 pts)</span>
+                <span className="text-ink-3">Teams need at least 2 members. Solo or empty teams score 0.</span>
+              </li>
+              <li className="rounded-md border border-line p-3">
+                <span className="mb-0.5 block font-semibold text-ink">Privacy</span>
+                <span className="text-ink-3">Builders who set their track record to private are left out of public rosters.</span>
+              </li>
+            </ul>
+          </div>
+        )}
+      </Panel>
+
+      {/* Rankings */}
+      <section aria-label="College rankings" className="mt-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search college, acronym or city"
+            label="Search colleges"
+            className="w-full sm:max-w-sm"
+          />
+          <div className="-mx-4 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0">
+            <Segmented
+              label="Region"
+              size="sm"
+              options={CATEGORY_OPTIONS}
+              value={selectedCategory as CategoryFilter}
+              onChange={(v) => setSelectedCategory(v)}
+              className="shrink-0 whitespace-nowrap"
+            />
+          </div>
         </div>
 
-        {/* Search, Filter Tabs & Rankings Table */}
-        <div className="space-y-4">
-          
-          {/* Controls Header */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-zinc-600 dark:text-zinc-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search college name, acronym, or city..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white placeholder:text-zinc-600 dark:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors shadow-sm"
+        <Panel className="mt-3 overflow-hidden">
+          {loading ? (
+            <div className="px-4">
+              <SkeletonRows rows={6} avatar="none" />
+            </div>
+          ) : filteredColleges.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                compact
+                icon={<School />}
+                title={searchQuery.trim() ? `No colleges match "${searchQuery}"` : "No ranked colleges yet"}
+                body={searchQuery.trim() ? "Try another college name or clear the filter." : "Colleges appear once builders add their college to their profile."}
               />
             </div>
-
-            {/* Category Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              {[
-                { id: "all", label: "Top 10 Colleges" },
-                { id: "maharashtra", label: "Maharashtra" },
-                { id: "iit_nit_bits", label: "IITs / NITs / BITS" },
-                { id: "delhi", label: "Delhi NCR" },
-                { id: "south", label: "South" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedCategory(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono whitespace-nowrap transition-all cursor-pointer ${
-                    selectedCategory === tab.id
-                      ? "bg-zinc-100 dark:bg-zinc-900 text-white dark:bg-zinc-800 dark:text-white font-bold border border-zinc-900 dark:border-zinc-700 shadow-sm"
-                      : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-100 dark:bg-zinc-900 border border-transparent"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Leaderboard Table / Card List */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/90 shadow-md dark:shadow-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-900">
-            {loading ? (
-              <div className="p-12 text-center space-y-3">
-                <div className="w-6 h-6 border-2 border-zinc-300 dark:border-zinc-800 border-t-emerald-600 dark:border-t-[#B4F461] rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-mono text-zinc-500">Calculating live campus power scores...</p>
-              </div>
-            ) : filteredColleges.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
-                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-300">No colleges matched &quot;{searchQuery}&quot;</p>
-                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                  Try searching for another college name or clear the filter.
-                </p>
-              </div>
-            ) : (
-              filteredColleges.map((college, idx) => {
+          ) : (
+            <ul className="divide-y divide-line">
+              {filteredColleges.map((college) => {
                 const rank = colleges.findIndex((c) => c.name === college.name) + 1;
                 const isExpanded = expandedCollege === college.name;
                 const isUserCollege = userProfile?.college && normalizeCollege(userProfile.college) === college.name;
@@ -625,156 +543,111 @@ function LeaderboardContent() {
                 );
 
                 return (
-                  <div
-                    key={college.name}
-                    className={`transition-colors ${
-                      isUserCollege ? "bg-amber-500/10 dark:bg-amber-500/5" : "hover:bg-zinc-50/80 dark:hover:bg-zinc-100 dark:bg-zinc-900/40"
-                    }`}
-                  >
-                    {/* Main Row */}
-                    <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        {/* Rank Badge */}
-                        <div
-                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-mono font-extrabold text-xs shrink-0 ${
-                            rank === 1
-                              ? "bg-amber-500 text-black shadow-md shadow-amber-500/20"
-                              : rank === 2
-                              ? "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-white"
-                              : rank === 3
-                              ? "bg-amber-100 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200"
-                              : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
-                          }`}
-                        >
-                          #{rank}
-                        </div>
+                  <li key={college.name} className={cn(isUserCollege && "bg-selected")}>
+                    <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
+                      <span className={cn("w-7 shrink-0 font-mono text-[12.5px] font-semibold tabular", rank <= 3 ? "text-ink-2" : "text-ink-3")}>
+                        {rankLabel(rank)}
+                      </span>
 
-                        {/* College Info */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate font-sans">
-                              {college.shortName}
-                            </h4>
-                            {isUserCollege && (
-                              <span className="px-2 py-0.2 rounded bg-amber-500/15 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono text-[9px] font-semibold border border-amber-500/30">
-                                Your Campus
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate font-mono">
-                            {college.cityState} • {college.name}
-                          </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {rank <= 3 && (rank === 1 ? <Trophy className="size-3.5 shrink-0 text-warn" aria-hidden /> : <Award className="size-3.5 shrink-0 text-warn" aria-hidden />)}
+                          <h4 className="truncate text-[14px] font-semibold text-ink">{college.shortName}</h4>
+                          {isUserCollege && <Tape tone="accent" className="shrink-0">You</Tape>}
                         </div>
+                        <p className="truncate font-mono text-[12px] text-ink-3">
+                          {college.cityState} · {college.name}
+                        </p>
                       </div>
 
-                      {/* Right Stats & Actions */}
-                      <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                        <div className="text-right hidden sm:block">
-                          <span className="block text-xs font-mono font-semibold text-zinc-800 dark:text-zinc-300">
-                            {college.builderCount} Devs
-                          </span>
-                          <span className="text-[10px] font-mono text-zinc-500">
-                            {college.activeSquadCount} Active Squads
-                          </span>
-                        </div>
+                      <div className="hidden shrink-0 text-right sm:block">
+                        <span className="block font-mono text-[12px] text-ink-2 tabular">{college.builderCount} devs</span>
+                        <span className="block font-mono text-[11.5px] text-ink-3 tabular">{college.activeSquadCount} squads</span>
+                      </div>
 
-                        <div className="text-right">
-                          <span className="block text-sm sm:text-base font-mono font-bold text-emerald-600 dark:text-[#B4F461]">
-                            {college.powerScore}
-                          </span>
-                          <span className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">Points</span>
-                        </div>
+                      <div className="shrink-0 text-right">
+                        <span className="block font-display text-[17px] font-semibold leading-none text-ink tabular">
+                          {college.powerScore}
+                        </span>
+                        <span className="caps-label text-ink-3">pts</span>
+                      </div>
 
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleShareWhatsApp(college.name, rank)}
-                            title="Share on WhatsApp"
-                            className="p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
-                          
-                          <button
-                            onClick={() => setExpandedCollege(isExpanded ? null : college.name)}
-                            className="p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
-                          >
-                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
+                      <div className="flex shrink-0 items-center">
+                        <IconButton label={`Share ${college.shortName} on WhatsApp`} onClick={() => handleShareWhatsApp(college.name, rank)}>
+                          <Share2 />
+                        </IconButton>
+                        <IconButton
+                          label={isExpanded ? "Hide builders" : "Show builders"}
+                          aria-expanded={isExpanded}
+                          onClick={() => setExpandedCollege(isExpanded ? null : college.name)}
+                        >
+                          {isExpanded ? <ChevronUp /> : <ChevronDown />}
+                        </IconButton>
                       </div>
                     </div>
 
-                    {/* Expandable Active Builders & Squads Drawer */}
+                    {/* Expanded builders roster */}
                     {isExpanded && (
-                      <div className="px-4 sm:px-5 pb-5 pt-2 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/80 dark:bg-zinc-950/60 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-xs font-mono font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
-                            Verified Builders from {college.shortName} ({optInBuilders.length})
+                      <div className="space-y-3 border-t border-line bg-sunken px-3 pb-4 pt-3 sm:px-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h5 className="caps-label text-ink-3">
+                            Builders from {college.shortName} · {optInBuilders.length}
                           </h5>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={copiedCollege === college.name ? <Check aria-hidden /> : <Link2 aria-hidden />}
                             onClick={() => handleCopyLink(college.name)}
-                            className="text-[11px] font-mono text-emerald-600 dark:text-[#B4F461] hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+                            className="h-9 md:h-7"
                           >
-                            {copiedCollege === college.name ? "✓ Link Copied!" : "Copy Campus Leaderboard Link"}
-                          </button>
+                            {copiedCollege === college.name ? "Link copied" : "Copy campus link"}
+                          </Button>
                         </div>
 
                         {optInBuilders.length === 0 ? (
-                          <p className="text-xs text-zinc-500 py-2">
-                            No builders from this college have public profile visibility enabled.
+                          <p className="text-[13px] text-ink-3">
+                            No builders from this college have a public profile yet.
                           </p>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                             {optInBuilders.slice(0, 9).map((builder) => (
-                              <Link
-                                key={builder.id}
-                                href={`/profile/${builder.id}`}
-                                className="p-2.5 rounded-xl bg-white dark:bg-zinc-900/60 hover:bg-zinc-50 dark:hover:bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between gap-2.5 transition-all group shadow-sm"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
-                                    {builder.full_name ? builder.full_name.substring(0, 2).toUpperCase() : "HM"}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 truncate group-hover:text-indigo-600 dark:group-hover:text-zinc-900 dark:hover:text-white">
-                                      {builder.full_name || "Anonymous Builder"}
-                                    </p>
-                                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate">
+                              <li key={builder.id} className="min-w-0">
+                                <Link
+                                  href={`/profile/${builder.id}`}
+                                  className="flex min-h-11 items-center gap-2.5 rounded-md border border-line bg-raised px-2.5 py-2 transition-colors hover:border-line-strong hover:bg-hover"
+                                >
+                                  <Avatar name={builder.full_name} src={builder.avatar_url} size="sm" />
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-[13px] font-medium text-ink">
+                                      {builder.full_name || "Anonymous builder"}
+                                    </span>
+                                    <span className="block truncate font-mono text-[11.5px] text-ink-3">
                                       {builder.skills && builder.skills.length > 0
                                         ? builder.skills.slice(0, 2).join(", ")
-                                        : "Full-Stack Builder"}
-                                    </p>
-                                  </div>
-                                </div>
-                                <ExternalLink className="w-3 h-3 text-zinc-600 dark:text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-600 dark:text-zinc-400 shrink-0" />
-                              </Link>
+                                        : "Full-stack builder"}
+                                    </span>
+                                  </span>
+                                </Link>
+                              </li>
                             ))}
-                          </div>
+                          </ul>
                         )}
                       </div>
                     )}
-                  </div>
+                  </li>
                 );
-              })
-            )}
-          </div>
-        </div>
-
-      </div>
-    </main>
+              })}
+            </ul>
+          )}
+        </Panel>
+      </section>
+    </Page>
   );
 }
 
 export default function LeaderboardPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[var(--background)] text-zinc-900 dark:text-white">
-          <div className="w-6 h-6 border-2 border-zinc-300 dark:border-zinc-800 border-t-emerald-600 dark:border-t-[#B4F461] rounded-full animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageLoader label="Loading leaderboard" />}>
       <LeaderboardContent />
     </Suspense>
   );

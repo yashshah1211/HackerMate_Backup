@@ -9,21 +9,45 @@ import LinkPreviewCard from "@/components/LinkPreviewCard";
 import ImageLightbox from "@/components/ImageLightbox";
 import VoiceNotePlayer from "@/components/VoiceNotePlayer";
 import {
+  ArrowLeft,
   Check,
   CheckCheck,
+  CheckCircle2,
+  Copy,
   Send,
   Image as ImageIcon,
+  ImagePlus,
+  Mail,
+  MessageSquare,
   Mic,
+  MoreHorizontal,
   Smile,
   Code2,
   Pin,
   Trash2,
   Flag,
   CornerUpLeft,
-  ChevronLeft,
-  ExternalLink,
+  TriangleAlert,
+  UserPlus,
+  UserRound,
   X,
 } from "lucide-react";
+import {
+  Avatar,
+  Button,
+  ButtonLink,
+  Dialog,
+  EmptyState,
+  ErrorNotice,
+  FieldLabel,
+  IconButton,
+  Menu,
+  Spinner,
+  StatusDot,
+  Tape,
+  Textarea,
+} from "@/components/system";
+import { cn } from "@/lib/utils";
 
 type Message = {
   id: string;
@@ -72,6 +96,14 @@ const HACKATHON_EMOJIS = [
   "🚀", "🔥", "💻", "💡", "🐛", "⚡", "🤝", "🙌",
   "🎯", "🏆", "💯", "🧠", "☕", "👍", "❤️", "🎉", "😂", "👀"
 ];
+
+/** One-line, emoji-free summary of a message for quotes, banners and the pinned strip. */
+function summarizeContent(content: string): { text: string; icon?: React.ReactNode } {
+  if (content.startsWith("__TEAM_INVITE__::")) return { text: "Team invite", icon: <Mail className="size-3.5" aria-hidden /> };
+  if (content.startsWith("__IMAGE__::")) return { text: "Photo", icon: <ImageIcon className="size-3.5" aria-hidden /> };
+  if (content.startsWith("__VOICE__::")) return { text: "Voice note", icon: <Mic className="size-3.5" aria-hidden /> };
+  return { text: content };
+}
 
 function TeamInviteCard({ 
   inviteId, 
@@ -138,77 +170,80 @@ function TeamInviteCard({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-1">
-        <div className="w-3.5 h-3.5 border border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
-        <span className="text-[10px] text-zinc-500 font-mono">Loading invitation...</span>
+      <div className="flex items-center gap-2 py-1 text-[12px] text-ink-3">
+        <Spinner className="size-3.5" label="Loading invite" />
+        <span>Loading invite…</span>
       </div>
     );
   }
 
   if (status === "invalid") {
     return (
-      <div className="text-zinc-500 font-mono text-[10px] py-1">
-        ⚠️ Invitation no longer exists
+      <div className="flex items-center gap-1.5 py-1 text-[12px] text-ink-3">
+        <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+        This invite no longer exists
       </div>
     );
   }
 
   return (
-    <div className={`p-3.5 rounded-xl border my-1 max-w-[280px] shadow-sm transition-all ${
-      isMine 
-        ? "bg-zinc-100 dark:bg-zinc-950/80 border-zinc-300 dark:border-zinc-850 text-zinc-900 dark:text-zinc-200" 
-        : "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-500/25 text-violet-950 dark:text-violet-100"
-    }`}>
-      <div className="text-[9px] font-mono uppercase tracking-wider text-violet-600 dark:text-violet-400 mb-1 flex items-center gap-1">
-        <span>✉</span>
-        <span>Team Invitation</span>
+    <div className="my-0.5 w-[280px] max-w-full rounded-lg bg-raised p-3.5 ring-1 ring-inset ring-line">
+      <div className="mb-1.5 flex items-center gap-1.5 caps-label text-ink-3">
+        <Mail className="size-3.5" aria-hidden />
+        <span>Team invite</span>
       </div>
-      <p className="text-xs font-medium leading-relaxed mb-3">
-        {isMine 
-          ? `You invited them to join team "${teamName}"` 
-          : `You are invited to join team "${teamName}"`}
+      <p className="mb-3 text-[13px] leading-relaxed text-ink-2 [overflow-wrap:anywhere]">
+        {isMine ? (
+          <>
+            You invited them to join <span className="font-semibold text-ink">{teamName}</span>
+          </>
+        ) : (
+          <>
+            You&apos;re invited to join <span className="font-semibold text-ink">{teamName}</span>
+          </>
+        )}
       </p>
 
       {status === "pending" ? (
         isMine ? (
-          <span className="text-[10px] font-mono text-zinc-500 uppercase font-semibold flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse" />
-            Pending Response
-          </span>
+          <Tape tone="neutral" dot>
+            Awaiting reply
+          </Tape>
         ) : (
-          <div className="flex flex-col gap-1.5 w-full">
-            <div className="flex gap-2">
-              <button
+          <div className="flex w-full flex-col gap-1.5">
+            <div className="flex gap-1.5">
+              <Button
+                variant="inverse"
+                size="sm"
                 onClick={handleAccept}
                 disabled={actionLoading}
-                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-violet-600 dark:bg-white text-white dark:text-black hover:bg-violet-500 dark:hover:bg-zinc-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                className="h-9 flex-1 md:h-7"
               >
-                {actionLoading ? "Joining..." : "Accept"}
-              </button>
-              <button
+                {actionLoading ? "Joining…" : "Accept"}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={handleDecline}
                 disabled={actionLoading}
-                className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-850 text-rose-600 dark:text-rose-400 border border-zinc-300 dark:border-zinc-800 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                className="h-9 flex-1 md:h-7"
               >
-                {actionLoading ? "Declining..." : "Decline"}
-              </button>
+                {actionLoading ? "Declining…" : "Decline"}
+              </Button>
             </div>
-            <Link
-              href={`/teams/${teamId}`}
-              className="w-full text-center px-3 py-1.5 text-[10px] font-bold bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 rounded-lg transition-colors block"
-            >
-              View Team
-            </Link>
+            <ButtonLink href={`/teams/${teamId}`} variant="ghost" size="sm" className="h-9 w-full md:h-7">
+              View team
+            </ButtonLink>
           </div>
         )
       ) : status === "accepted" ? (
-        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase font-semibold flex items-center gap-1">
-          ✓ Joined
-        </span>
+        <Tape tone="ok" icon={<Check aria-hidden />}>
+          Joined
+        </Tape>
       ) : (
-        <span className="text-[10px] font-mono text-zinc-500 uppercase flex items-center gap-1">
-          ✗ Declined
-        </span>
+        <Tape tone="neutral" icon={<X aria-hidden />}>
+          Declined
+        </Tape>
       )}
     </div>
   );
@@ -224,27 +259,23 @@ function CodeBlockCard({ code, lang }: { code: string; lang?: string }) {
   };
 
   return (
-    <div className="my-2 rounded-xl overflow-hidden border border-zinc-300 dark:border-zinc-800 bg-zinc-950 font-mono text-xs max-w-lg shadow-md">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900/90 border-b border-zinc-800 text-[10px] text-zinc-400">
-        <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>
+    <div className="my-1.5 w-full max-w-lg min-w-0 overflow-hidden rounded-md bg-sunken font-mono ring-1 ring-inset ring-line">
+      <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1">
+        <span className="truncate caps-label text-ink-3">{lang || "code"}</span>
         <button
+          type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
-        >
-          {copied ? (
-            <>
-              <span className="text-emerald-400">✓</span>
-              <span className="text-emerald-400">Copied!</span>
-            </>
-          ) : (
-            <>
-              <span>📋</span>
-              <span>Copy</span>
-            </>
+          aria-label={copied ? "Copied" : "Copy code"}
+          className={cn(
+            "-mr-1.5 inline-flex h-8 items-center gap-1 rounded-[5px] px-1.5 text-[11.5px] transition-colors [&_svg]:size-3.5",
+            copied ? "text-ok" : "text-ink-3 hover:bg-hover hover:text-ink",
           )}
+        >
+          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+          <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
-      <pre className="p-3 overflow-x-auto text-zinc-200 text-[11px] leading-relaxed">
+      <pre className="overflow-x-auto p-3 text-[12px] leading-relaxed text-ink-2">
         <code>{code}</code>
       </pre>
     </div>
@@ -317,6 +348,8 @@ export default function ChatThread({
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
+  // Surfaces a failed message load instead of showing a misleading "No messages yet".
+  const [loadError, setLoadError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -386,9 +419,9 @@ export default function ChatThread({
     const el = document.getElementById(`msg-${msgId}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("ring-2", "ring-violet-500", "rounded-lg", "transition-all", "duration-500");
+      el.classList.add("ring-2", "ring-accent/40", "rounded-lg", "transition-all", "duration-500");
       setTimeout(() => {
-        el.classList.remove("ring-2", "ring-violet-500");
+        el.classList.remove("ring-2", "ring-accent/40");
       }, 2000);
     }
   }
@@ -493,9 +526,11 @@ export default function ChatThread({
 
     if (error) {
       console.error(error);
+      setLoadError(error.message || "Messages could not be loaded.");
       setLoading(false);
       return;
     }
+    setLoadError(null);
 
     const fetchedMessages = [...(data || [])].reverse();
     setMessages(fetchedMessages);
@@ -1354,14 +1389,19 @@ export default function ChatThread({
         const payloadStr = content.substring("__IMAGE__::".length);
         const payload = JSON.parse(payloadStr);
         return (
-          <div className="my-1.5 overflow-hidden rounded-2xl max-w-xs border border-zinc-200 dark:border-zinc-700/60 shadow-md group/img cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setLightboxImg(payload.url)}>
+          <button
+            type="button"
+            className="my-0.5 block w-72 max-w-full cursor-zoom-in overflow-hidden rounded-md bg-sunken ring-1 ring-inset ring-line transition-[box-shadow] hover:ring-line-strong"
+            onClick={() => setLightboxImg(payload.url)}
+            aria-label={`Open ${payload.name || "photo"} full size`}
+          >
             <img
               src={payload.url}
               alt={payload.name || "Photo attachment"}
-              className="w-full max-h-72 object-cover"
+              className="block max-h-72 w-full object-cover"
               loading="lazy"
             />
-          </div>
+          </button>
         );
       } catch (err) {
         console.error("Failed to parse image payload", err);
@@ -1409,7 +1449,7 @@ export default function ChatThread({
       if (lastIdx < content.length) {
         elements.push(<span key={`text-${lastIdx}`}>{content.slice(lastIdx)}</span>);
       }
-      return <div>{elements}</div>;
+      return <div className="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{elements}</div>;
     }
 
     // 5. Normal Text with URLs and Link Previews
@@ -1419,8 +1459,8 @@ export default function ChatThread({
     const previewUrl = firstUrlMatch ? (firstUrlMatch[0].toLowerCase().startsWith("http") ? firstUrlMatch[0] : "http://" + firstUrlMatch[0]) : null;
 
     return (
-      <div>
-        <div className="leading-relaxed break-words whitespace-pre-wrap">
+      <div className="min-w-0">
+        <div className="whitespace-pre-wrap break-words leading-relaxed [overflow-wrap:anywhere]">
           {parts.length === 1 ? (
             content
           ) : (
@@ -1433,11 +1473,7 @@ export default function ChatThread({
                     href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className={`underline underline-offset-2 break-all ${
-                      isMine 
-                        ? "text-blue-100 hover:text-white font-semibold" 
-                        : "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold"
-                    }`}
+                    className="font-medium text-accent-ink underline decoration-accent-ink/40 underline-offset-2 [overflow-wrap:anywhere] hover:decoration-accent-ink"
                   >
                     {part}
                   </a>
@@ -1459,32 +1495,31 @@ export default function ChatThread({
     const parentSender = parentMsg ? profiles[parentMsg.sender_id] : null;
 
     return (
-      <div
+      <button
+        type="button"
         onClick={() => scrollToMessage(replyToId)}
-        className={`mb-2 p-2 rounded-xl border text-[11px] cursor-pointer transition-all max-w-full overflow-hidden ${
-          isMine
-            ? "bg-black/20 border-white/20 text-white hover:bg-black/30"
-            : "bg-white dark:bg-zinc-950/80 border-zinc-200 dark:border-zinc-800/90 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
-        }`}
+        className={cn(
+          "mb-1.5 block w-full max-w-full overflow-hidden rounded-[5px] border-l-2 border-ink-4 px-2 py-1 text-left transition-colors hover:border-ink-3",
+          isMine ? "bg-canvas/60" : "bg-sunken",
+        )}
       >
-        <div className={`flex items-center gap-1 font-semibold text-[10px] mb-0.5 max-w-full ${isMine ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}>
-          <CornerUpLeft className="w-3 h-3 shrink-0" />
-          <span className="truncate flex-1 min-w-0">
+        <span className="flex max-w-full items-center gap-1 text-[11.5px] font-semibold text-ink-2">
+          <CornerUpLeft className="size-3 shrink-0 text-ink-3" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">
             {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
           </span>
-        </div>
-        <p className="truncate opacity-90 text-[10px] max-w-full">
-          {parentMsg
-            ? parentMsg.content.startsWith("__TEAM_INVITE__::")
-              ? "✉️ Team Invitation"
-              : parentMsg.content.startsWith("__IMAGE__::")
-                ? "🖼️ Photo Attachment"
-                : parentMsg.content.startsWith("__VOICE__::")
-                  ? "🎙️ Voice Note"
-                  : parentMsg.content
-            : "Click to jump to original message"}
-        </p>
-      </div>
+        </span>
+        <span className="flex max-w-full items-center gap-1 text-[12px] text-ink-3">
+          {parentMsg ? (
+            <>
+              {summarizeContent(parentMsg.content).icon}
+              <span className="truncate">{summarizeContent(parentMsg.content).text}</span>
+            </>
+          ) : (
+            <span className="truncate">Jump to the original message</span>
+          )}
+        </span>
+      </button>
     );
   }
 
@@ -1493,46 +1528,55 @@ export default function ChatThread({
 
     return (
       <div
-        className={`absolute -top-3.5 ${
-          isMine ? "right-1" : "left-1"
-        } ${
+        className={cn(
+          "absolute -top-4 flex items-center gap-px rounded-md bg-overlay p-0.5 shadow-pop ring-1 ring-line-strong transition-opacity duration-150",
+          isMine ? "right-0" : "left-0",
           isPickerOpen
-            ? "opacity-100 z-40 pointer-events-auto"
-            : "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 z-20 pointer-events-none group-hover/msg:pointer-events-auto"
-        } transition-all duration-150 flex items-center gap-0.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-full px-1.5 py-0.5 shadow-md`}
+            ? "pointer-events-auto z-40 opacity-100"
+            : "pointer-events-none z-20 opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100",
+        )}
       >
-        {/* All standard emojis */}
-        {STANDARD_EMOJIS.map((emoji) => (
+        {/* Quick reactions: first three on phones (the rest live in the picker), all seven from sm up. */}
+        {STANDARD_EMOJIS.map((emoji, i) => (
           <button
             key={emoji}
             type="button"
             onClick={() => toggleReaction(msg.id, emoji)}
-            className="hover:scale-125 transition-transform text-[12px] p-0.5 cursor-pointer leading-none"
+            className={cn(
+              "size-8 items-center justify-center rounded-[5px] text-[15px] leading-none transition-colors hover:bg-hover md:size-7 md:text-[14px]",
+              i < 3 ? "inline-flex" : "hidden sm:inline-flex",
+            )}
             title={`React with ${emoji}`}
+            aria-label={`React with ${emoji}`}
           >
             {emoji}
           </button>
         ))}
 
         {/* More reactions picker button */}
-        <div className="relative reaction-picker-container">
+        {/* Not `relative`: the picker anchors to the toolbar edge so it never runs off a 360px screen. */}
+        <div className="reaction-picker-container">
           <button
             type="button"
             onClick={() => setActiveReactionPickerId(isPickerOpen ? null : msg.id)}
-            className={`p-1 text-zinc-400 hover:text-violet-600 dark:hover:text-white transition-colors cursor-pointer rounded-full ${
-              isPickerOpen ? "text-violet-600 dark:text-white bg-zinc-100 dark:bg-zinc-800" : ""
-            }`}
+            className={cn(
+              "inline-flex size-8 items-center justify-center rounded-[5px] transition-colors md:size-7 [&_svg]:size-4",
+              isPickerOpen ? "bg-selected text-ink" : "text-ink-3 hover:bg-hover hover:text-ink",
+            )}
             title="More reactions"
+            aria-label="More reactions"
+            aria-expanded={isPickerOpen}
           >
-            <Smile className="w-3 h-3" />
+            <Smile aria-hidden />
           </button>
 
           {/* Expanded Emoji Picker Popover */}
           {isPickerOpen && (
             <div
-              className={`absolute top-full mt-1.5 ${
-                isMine ? "right-0" : "left-0"
-              } p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 grid grid-cols-6 gap-1 w-56 animate-fade-in`}
+              className={cn(
+                "absolute top-full z-50 mt-1.5 grid w-56 animate-hm-fade grid-cols-6 gap-0.5 rounded-lg bg-overlay p-1.5 shadow-pop ring-1 ring-line",
+                isMine ? "right-0" : "left-0",
+              )}
             >
               {HACKATHON_EMOJIS.map((emoji) => (
                 <button
@@ -1542,8 +1586,9 @@ export default function ChatThread({
                     toggleReaction(msg.id, emoji);
                     setActiveReactionPickerId(null);
                   }}
-                  className="hover:scale-125 transition-transform text-sm p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer flex items-center justify-center leading-none"
+                  className="flex size-8 items-center justify-center rounded-md text-[16px] leading-none transition-colors hover:bg-hover"
                   title={`React with ${emoji}`}
+                  aria-label={`React with ${emoji}`}
                 >
                   {emoji}
                 </button>
@@ -1552,15 +1597,16 @@ export default function ChatThread({
           )}
         </div>
 
-        <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+        <div className="mx-0.5 h-4 w-px bg-line-strong" aria-hidden />
 
         <button
           type="button"
           onClick={() => setReplyingTo(msg)}
-          className="p-1 text-zinc-400 hover:text-violet-600 dark:hover:text-white transition-colors cursor-pointer"
+          className="inline-flex size-8 items-center justify-center rounded-[5px] text-ink-3 transition-colors hover:bg-hover hover:text-ink md:size-7 [&_svg]:size-4"
           title="Reply to message"
+          aria-label="Reply to message"
         >
-          <CornerUpLeft className="w-3 h-3" />
+          <CornerUpLeft aria-hidden />
         </button>
 
         <button
@@ -1568,29 +1614,36 @@ export default function ChatThread({
           onClick={() =>
             msg.is_pinned ? unpinMessage(msg.id) : pinMessage(msg.id)
           }
-          className="p-1 text-zinc-400 hover:text-amber-500 dark:hover:text-white transition-colors cursor-pointer"
+          className={cn(
+            "inline-flex size-8 items-center justify-center rounded-[5px] transition-colors hover:bg-hover md:size-7 [&_svg]:size-4",
+            msg.is_pinned ? "text-ink" : "text-ink-3 hover:text-ink",
+          )}
           title={msg.is_pinned ? "Unpin message" : "Pin message"}
+          aria-label={msg.is_pinned ? "Unpin message" : "Pin message"}
+          aria-pressed={!!msg.is_pinned}
         >
-          <Pin className={`w-3 h-3 ${msg.is_pinned ? "fill-amber-500 text-amber-500" : ""}`} />
+          <Pin className={msg.is_pinned ? "fill-current" : undefined} aria-hidden />
         </button>
 
         {isMine ? (
           <button
             type="button"
             onClick={() => handleDeleteMessage(msg.id)}
-            className="p-1 text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+            className="inline-flex size-8 items-center justify-center rounded-[5px] text-ink-3 transition-colors hover:bg-bad-soft hover:text-bad md:size-7 [&_svg]:size-4"
             title="Delete message"
+            aria-label="Delete message"
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 aria-hidden />
           </button>
         ) : (
           <button
             type="button"
             onClick={() => setReportingMsg(msg)}
-            className="p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+            className="inline-flex size-8 items-center justify-center rounded-[5px] text-ink-3 transition-colors hover:bg-bad-soft hover:text-bad md:size-7 [&_svg]:size-4"
             title="Report message or attachment"
+            aria-label="Report message or attachment"
           >
-            <Flag className="w-3 h-3" />
+            <Flag aria-hidden />
           </button>
         )}
       </div>
@@ -1600,23 +1653,40 @@ export default function ChatThread({
   const pinnedMessage = [...messages].reverse().find((m) => m.is_pinned) ?? null;
   const activeTyperNames = Object.values(typingUsers).map((u) => u.fullName);
 
+  const composerDisabled = isBlocked || uploadingMedia;
+  // IconButton has no disabled styling of its own.
+  const toolDisabled = "disabled:pointer-events-none disabled:opacity-40";
+
+  const conversationMenu = (
+    <Menu
+      align="end"
+      trigger={({ open, toggle, ref }) => (
+        <IconButton ref={ref} label="Conversation options" onClick={toggle} aria-expanded={open} aria-haspopup="menu">
+          <MoreHorizontal aria-hidden />
+        </IconButton>
+      )}
+      items={[{ label: "Clear chat history", icon: <Trash2 />, tone: "danger", onSelect: clearChat }]}
+    />
+  );
+
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex flex-col h-full min-h-0 w-full overflow-hidden relative bg-white dark:bg-[#0c0c0e] transition-all ${
-        isDraggingOver ? "ring-2 ring-violet-500 bg-violet-500/5" : ""
-      }`}
+      className={cn(
+        "relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas transition-[box-shadow,background-color]",
+        isDraggingOver && "bg-accent-soft ring-2 ring-inset ring-accent/40",
+      )}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDraggingOver && (
-        <div className="absolute inset-0 z-50 bg-violet-950/80 backdrop-blur-xs border-2 border-dashed border-violet-500 rounded-2xl flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-none">
-          <div className="w-12 h-12 rounded-2xl bg-violet-600/30 flex items-center justify-center text-2xl mb-2 animate-bounce">
-            📸
+        <div className="pointer-events-none absolute inset-0 z-50 flex animate-hm-fade items-center justify-center bg-canvas/85 p-6">
+          <div className="flex flex-col items-center rounded-lg border-2 border-dashed border-accent/40 bg-accent-soft px-8 py-7 text-center">
+            <ImagePlus className="mb-2 size-6 text-accent-ink" aria-hidden />
+            <p className="text-[14px] font-semibold text-ink">Drop to attach image</p>
+            <p className="mt-0.5 text-[12.5px] text-ink-3">You can add a caption before sending.</p>
           </div>
-          <p className="text-sm font-bold text-white">Drop image to stage in chat</p>
-          <p className="text-xs text-violet-200">Preview and add caption before sending</p>
         </div>
       )}
 
@@ -1626,173 +1696,149 @@ export default function ChatThread({
       )}
 
       {/* Report Modal */}
-      {reportingMsg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setReportingMsg(null)}>
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Flag className="w-4 h-4 text-rose-500" />
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Report Content</h3>
-              </div>
-              <button
-                onClick={() => setReportingMsg(null)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white text-xs cursor-pointer p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">Why are you reporting this?</label>
-              <div className="space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
-                {[
-                  "Inappropriate or Adult Content",
-                  "Spam, Scam, or Malicious Link",
-                  "Harassment or Hate Speech",
-                  "Other Community Guideline Violation"
-                ].map((reason) => (
-                  <label key={reason} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="reportReason"
-                      value={reason}
-                      checked={reportReason === reason}
-                      onChange={(e) => setReportReason(e.target.value)}
-                      className="accent-rose-500"
-                    />
-                    <span>{reason}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">Additional Details (Optional)</label>
-              <textarea
-                value={reportDetails}
-                onChange={(e) => setReportDetails(e.target.value)}
-                placeholder="Explain what is wrong with this content..."
-                rows={2}
-                className="w-full text-xs p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-rose-500 focus:outline-none resize-none"
+      <Dialog
+        open={!!reportingMsg}
+        onClose={() => setReportingMsg(null)}
+        size="sm"
+        title="Report message"
+        description="Reports go to the HackerMate moderation team for review."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setReportingMsg(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" icon={<Flag />} loading={submittingReport} onClick={handleReportMessage}>
+              {submittingReport ? "Submitting…" : "Submit report"}
+            </Button>
+          </>
+        }
+      >
+        <fieldset className="space-y-1.5">
+          <legend className="mb-2 caps-label text-ink-3">Why are you reporting this?</legend>
+          {[
+            "Inappropriate or Adult Content",
+            "Spam, Scam, or Malicious Link",
+            "Harassment or Hate Speech",
+            "Other Community Guideline Violation"
+          ].map((reason) => (
+            <label
+              key={reason}
+              className={cn(
+                "flex min-h-10 cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-[13px] ring-1 ring-inset transition-colors",
+                reportReason === reason ? "bg-selected text-ink ring-line-strong" : "bg-sunken text-ink-2 ring-line hover:ring-line-strong",
+              )}
+            >
+              <input
+                type="radio"
+                name="reportReason"
+                value={reason}
+                checked={reportReason === reason}
+                onChange={(e) => setReportReason(e.target.value)}
+                className="accent-accent"
               />
-            </div>
+              <span>{reason}</span>
+            </label>
+          ))}
+        </fieldset>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setReportingMsg(null)}
-                className="flex-1 px-3 py-2 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleReportMessage}
-                disabled={submittingReport}
-                className="flex-1 px-3 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-lg transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {submittingReport ? "Submitting..." : "Submit Report"}
-              </button>
-            </div>
-          </div>
+        <div className="mt-4">
+          <FieldLabel htmlFor="report-details" hint="Optional">
+            Details
+          </FieldLabel>
+          <Textarea
+            id="report-details"
+            value={reportDetails}
+            onChange={(e) => setReportDetails(e.target.value)}
+            placeholder="What's wrong with this message?"
+            rows={2}
+            className="min-h-20 resize-none"
+          />
         </div>
-      )}
+      </Dialog>
 
       {/* Report Success Toast */}
       {reportSuccessToast && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 px-3.5 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-xs font-semibold shadow-xl flex items-center gap-1.5 animate-fade-in">
-          <span>✓</span>
-          <span>Report submitted. Our moderation team will review this.</span>
+        <div
+          role="status"
+          className="absolute left-1/2 top-16 z-40 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 animate-hm-fade items-start gap-2 rounded-md bg-overlay px-3 py-2 text-[12.5px] text-ink shadow-pop ring-1 ring-line"
+        >
+          <CheckCircle2 className="mt-px size-4 shrink-0 text-ok" aria-hidden />
+          <span>Report submitted. Our moderation team will review it.</span>
         </div>
       )}
 
       {/* Header */}
       {otherUser ? (
-        <div className="sticky top-0 z-20 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-900/40 backdrop-blur-md flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {onBack && (
-              <button
-                type="button"
-                onClick={onBack}
-                className="lg:hidden p-1.5 -ml-1 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Back to conversations"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            )}
+        <header className="z-20 flex shrink-0 items-center gap-1 border-b border-line bg-canvas px-2 pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] md:gap-1.5 md:px-4 md:py-2">
+          {onBack && (
+            <IconButton label="Back to conversations" onClick={onBack} className="md:hidden">
+              <ArrowLeft aria-hidden />
+            </IconButton>
+          )}
 
-            <div className="relative shrink-0">
-              {otherUser.avatar_url ? (
-                <img
-                  src={otherUser.avatar_url}
-                  alt={otherUser.full_name}
-                  className="w-9 h-9 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700/80"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-xl bg-violet-600/10 dark:bg-violet-500/15 border border-violet-500/20 flex items-center justify-center font-bold text-violet-600 dark:text-violet-400 text-xs">
-                  {otherUser.full_name?.charAt(0)}
-                </div>
-              )}
-              <span
-                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900"
-                title="Active connection"
-              />
-            </div>
-
-            <div className="min-w-0">
-              <h2 className="font-semibold text-xs text-zinc-900 dark:text-white truncate">
+          <Link
+            href={`/profile/${otherUser.id}`}
+            className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1 py-1"
+          >
+            <Avatar name={otherUser.full_name} src={otherUser.avatar_url} size="md" />
+            <span className="min-w-0">
+              <span className="block truncate text-[14px] font-semibold text-ink decoration-line-strong underline-offset-4 group-hover:underline">
                 {otherUser.full_name}
-              </h2>
-              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
-                {otherUser.college || "Independent Builder"}
-              </p>
-            </div>
-          </div>
+              </span>
+              <span className="block truncate text-[12px] text-ink-3">
+                {otherUser.college || "Independent builder"}
+              </span>
+            </span>
+          </Link>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Link
-              href={`/profile/${otherUser.id}`}
-              className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 hover:text-zinc-900 border border-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:hover:text-white dark:border-zinc-700 text-[11px] font-medium transition-colors flex items-center gap-1 shadow-xs"
-            >
-              <span>View Profile</span>
-              <ExternalLink className="w-3 h-3" />
-            </Link>
+          {uploadingMedia && <Spinner className="mx-1" label="Uploading media" />}
 
-            <button
-              type="button"
-              onClick={clearChat}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
-              title="Clear Chat History"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[10px] font-mono uppercase">Clear</span>
-            </button>
-          </div>
-        </div>
+          <ButtonLink
+            href={`/profile/${otherUser.id}`}
+            variant="ghost"
+            size="sm"
+            icon={<UserRound />}
+            className="hidden sm:inline-flex"
+          >
+            View profile
+          </ButtonLink>
+
+          {conversationMenu}
+        </header>
       ) : (
-        <div className="sticky top-0 z-20 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-950/60 backdrop-blur-md flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
-              {conversationType === "dm" ? "Direct Message" : "Team Chat"}
+        <header className="z-20 flex h-11 shrink-0 items-center justify-between gap-2 border-b border-line bg-canvas pl-3 pr-1">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="caps-label text-ink-3">
+              {conversationType === "dm" ? "Direct message" : "Team chat"}
             </span>
             {uploadingMedia && (
-              <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
-                Processing media...
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-3">
+                <Spinner className="size-3.5" label="Processing media" />
+                Processing media…
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={clearChat}
-              className="text-[10px] font-mono text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors uppercase flex items-center gap-1 cursor-pointer p-1 rounded-lg"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear</span>
-            </button>
-          </div>
+          {conversationMenu}
+        </header>
+      )}
+
+      {/* Pinned message strip */}
+      {pinnedMessage && (
+        <div className="shrink-0 border-b border-line bg-canvas px-3 py-2 md:px-4">
+          <button
+            type="button"
+            onClick={() => scrollToMessage(pinnedMessage.id)}
+            className="flex w-full min-w-0 items-center gap-2.5 rounded-md bg-sunken px-3 py-2 text-left ring-1 ring-inset ring-line transition-colors hover:ring-line-strong"
+            aria-label="Jump to pinned message"
+          >
+            <Pin className="size-3.5 shrink-0 fill-current text-ink-3" aria-hidden />
+            <span className="shrink-0 caps-label text-ink-3">Pinned</span>
+            <span className="flex min-w-0 flex-1 items-center gap-1 text-[12.5px] text-ink-2">
+              {summarizeContent(pinnedMessage.content).icon}
+              <span className="truncate">{summarizeContent(pinnedMessage.content).text}</span>
+            </span>
+          </button>
         </div>
       )}
 
@@ -1800,50 +1846,40 @@ export default function ChatThread({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="overflow-y-auto px-4 py-4 space-y-3 bg-white dark:bg-[#0c0c0e] flex-1 min-h-0"
+        role="log"
+        aria-label="Messages"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-4 md:px-5"
         style={height ? { height } : undefined}
       >
-        {pinnedMessage && (
-          <div className="mb-4 sticky top-0 z-10">
-            <div className="rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 shadow-xs">
-              <div className="flex items-center gap-2">
-                <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-semibold">
-                    Pinned Message
-                  </p>
-                  <p className="text-xs text-zinc-800 dark:text-zinc-200 truncate">
-                    {pinnedMessage.content.startsWith("__IMAGE__::")
-                      ? "🖼️ Photo Attachment"
-                      : pinnedMessage.content.startsWith("__VOICE__::")
-                        ? "🎙️ Voice Note"
-                        : pinnedMessage.content}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {loadingMore && (
-          <div className="flex justify-center py-2">
-            <div className="w-4 h-4 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
+          <div className="flex justify-center py-1">
+            <Spinner label="Loading older messages" />
           </div>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin" />
+          <div className="flex h-full items-center justify-center">
+            <Spinner label="Loading messages" />
           </div>
+        ) : loadError && messages.length === 0 ? (
+          <ErrorNotice
+            title="Couldn't load messages"
+            detail={loadError}
+            onRetry={() => {
+              setLoading(true);
+              loadMessages();
+            }}
+          />
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
-              <svg className="w-6 h-6 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-              </svg>
-            </div>
-            <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-0.5">No messages yet</h3>
-            <p className="text-zinc-500 text-[11px]">Say hi to start the conversation 👋</p>
+          <div className="flex h-full items-center justify-center">
+            <EmptyState
+              align="center"
+              compact
+              icon={<MessageSquare />}
+              title="No messages yet"
+              body="Say hi to start the conversation."
+              className="max-w-xs"
+            />
           </div>
         ) : (
           messages.map((msg) => {
@@ -1870,44 +1906,61 @@ export default function ChatThread({
             });
 
             return (
-              <div id={`msg-${msg.id}`} key={msg.id} className={`flex gap-2.5 group/msg ${isMine ? "flex-row-reverse" : ""}`}>
-                {sender?.avatar_url ? (
-                  <img
-                    src={sender.avatar_url}
-                    alt={sender.full_name}
-                    className="w-7 h-7 rounded-xl object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-800"
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-600 dark:text-zinc-400 flex-shrink-0">
-                    {sender?.full_name?.charAt(0) || "?"}
-                  </div>
+              <div
+                id={`msg-${msg.id}`}
+                key={msg.id}
+                className={cn("group/msg flex gap-2.5", isMine ? "justify-end" : "justify-start")}
+              >
+                {!isMine && (
+                  <Avatar name={sender?.full_name} src={sender?.avatar_url} size="sm" className="mt-0.5" />
                 )}
 
-                <div className={`max-w-[78%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
-                  {!isMine && (
-                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-0.5 px-0.5 font-medium">
-                      {sender?.full_name || "Unknown"}
+                <div className={cn("flex min-w-0 max-w-[85%] flex-col md:max-w-[72%]", isMine ? "items-end" : "items-start")}>
+                  {/* Name + time */}
+                  <div className="mb-1 flex max-w-full items-baseline gap-2 px-0.5">
+                    {!isMine && (
+                      <span className="truncate text-[12.5px] font-semibold text-ink">
+                        {sender?.full_name || "Unknown"}
+                      </span>
+                    )}
+                    <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+                      {formatTime(msg.created_at)}
                     </span>
-                  )}
+                    {isMine && (
+                      <span
+                        className="inline-flex shrink-0 self-center"
+                        role="img"
+                        title={msg.is_read ? "Read" : "Sent"}
+                        aria-label={msg.is_read ? "Read" : "Sent"}
+                      >
+                        {msg.is_read ? (
+                          <CheckCheck className="size-3.5 text-ok" aria-hidden />
+                        ) : (
+                          <Check className="size-3.5 text-ink-3" aria-hidden />
+                        )}
+                      </span>
+                    )}
+                  </div>
 
                   {isInviteCard ? (
                     renderMessageContent(msg.content, isMine)
                   ) : isImage ? (
-                    <div className="group relative max-w-full">
+                    <div className="relative min-w-0 max-w-full">
                       {msg.reply_to_id && renderReplyQuote(msg.reply_to_id, isMine)}
                       {renderMessageContent(msg.content, isMine)}
                       {renderMessageActions(msg, isMine)}
                     </div>
                   ) : (
-                    <div className="group relative max-w-full">
+                    <div className="relative min-w-0 max-w-full">
                       <div
-                        className={`px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs max-w-full ${
+                        className={cn(
+                          "min-w-0 max-w-full rounded-lg px-3 py-2 text-[14px] leading-relaxed md:text-[13.5px]",
                           isMine
-                            ? "bg-violet-600 text-white rounded-br-xs shadow-xs"
+                            ? "bg-selected text-ink"
                             : isMentioned
-                              ? "bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-500/40 text-violet-950 dark:text-violet-100 rounded-bl-xs shadow-xs"
-                              : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-bl-xs shadow-xs"
-                        }`}
+                              ? "bg-accent-soft text-ink ring-1 ring-inset ring-accent/40"
+                              : "bg-raised text-ink-2 ring-1 ring-inset ring-line",
+                        )}
                       >
                         {msg.reply_to_id && renderReplyQuote(msg.reply_to_id, isMine)}
                         {renderMessageContent(msg.content, isMine)}
@@ -1918,40 +1971,27 @@ export default function ChatThread({
 
                   {/* Reaction Pills below message */}
                   {reactionGroups.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 mt-1 px-0.5">
+                    <div className={cn("mt-1 flex flex-wrap items-center gap-1", isMine && "justify-end")}>
                       {reactionGroups.map((group) => (
                         <button
                           key={group.emoji}
+                          type="button"
                           onClick={() => toggleReaction(msg.id, group.emoji)}
                           title={`${group.userNames.join(", ")} reacted`}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all cursor-pointer border ${
+                          aria-pressed={group.hasReacted}
+                          className={cn(
+                            "inline-flex h-7 items-center gap-1 rounded-[5px] px-1.5 text-[13px] leading-none ring-1 ring-inset transition-colors md:h-6 md:text-[12px]",
                             group.hasReacted
-                              ? "bg-violet-100 dark:bg-violet-950/70 border-violet-300 dark:border-violet-600 text-violet-900 dark:text-violet-200 font-semibold"
-                              : "bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                          }`}
+                              ? "bg-accent-soft text-accent-ink ring-accent/40"
+                              : "bg-raised text-ink-2 ring-line-strong hover:bg-hover",
+                          )}
                         >
                           <span>{group.emoji}</span>
-                          <span className="text-[9px] font-mono">{group.count}</span>
+                          <span className="font-mono text-[11px] tabular">{group.count}</span>
                         </button>
                       ))}
                     </div>
                   )}
-
-                  {/* Timestamp & Read Receipt */}
-                  <div className="flex items-center gap-1 mt-0.5 px-0.5">
-                    <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">
-                      {formatTime(msg.created_at)}
-                    </span>
-                    {isMine && (
-                      <span className="flex items-center" title={msg.is_read ? "Read" : "Sent"}>
-                        {msg.is_read ? (
-                          <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Check className="w-3 h-3 text-zinc-400 dark:text-zinc-600" />
-                        )}
-                      </span>
-                    )}
-                  </div>
                 </div>
               </div>
             );
@@ -1960,7 +2000,7 @@ export default function ChatThread({
       </div>
 
       {/* Input & Footer Area */}
-      <div className="border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-zinc-950/70 p-3 relative shrink-0">
+      <div className="relative shrink-0 border-t border-line bg-canvas px-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 md:px-4">
         {/* Hidden File Input for Image attachments */}
         <input
           type="file"
@@ -1972,242 +2012,153 @@ export default function ChatThread({
 
         {/* Live Typing Indicator */}
         {activeTyperNames.length > 0 && (
-          <div className="absolute -top-6 left-4 flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 font-medium bg-white/90 dark:bg-zinc-900/90 px-2.5 py-0.5 rounded-full border border-violet-200 dark:border-violet-900/60 shadow-xs animate-fade-in">
-            <span>💬</span>
-            <span>
-              {activeTyperNames.length === 1
-                ? `${activeTyperNames[0]} is typing...`
-                : `${activeTyperNames.slice(0, 2).join(", ")}${activeTyperNames.length > 2 ? ` +${activeTyperNames.length - 2}` : ""} are typing...`}
+          <div
+            role="status"
+            className="absolute bottom-full left-3 mb-1.5 flex max-w-[calc(100%-1.5rem)] animate-hm-fade items-center gap-1.5 rounded-[5px] bg-canvas px-2 py-0.5 text-[12px] text-ink-3 ring-1 ring-line md:left-4"
+          >
+            <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
+              <span className="size-1 animate-bounce rounded-full bg-ink-3" style={{ animationDelay: "0ms" }} />
+              <span className="size-1 animate-bounce rounded-full bg-ink-3" style={{ animationDelay: "150ms" }} />
+              <span className="size-1 animate-bounce rounded-full bg-ink-3" style={{ animationDelay: "300ms" }} />
             </span>
-            <span className="flex items-center gap-0.5 ml-0.5">
-              <span className="w-1 h-1 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1 h-1 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-1 h-1 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <span className="truncate">
+              {activeTyperNames.length === 1
+                ? `${activeTyperNames[0]} is typing…`
+                : `${activeTyperNames.slice(0, 2).join(", ")}${activeTyperNames.length > 2 ? ` +${activeTyperNames.length - 2}` : ""} are typing…`}
             </span>
           </div>
         )}
 
         {/* Replying banner */}
         {replyingTo && (
-          <div className="mb-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs shadow-xs animate-fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-1 h-6 rounded-full bg-violet-500 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1">
-                  <CornerUpLeft className="w-3 h-3" />
-                  <span>Replying to</span>
-                  <span className="text-zinc-900 dark:text-zinc-200 truncate font-semibold">
-                    {profiles[replyingTo.sender_id]?.full_name || "User"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 truncate">
-                  {replyingTo.content.startsWith("__TEAM_INVITE__::")
-                    ? "✉️ Team Invitation"
-                    : replyingTo.content.startsWith("__IMAGE__::")
-                      ? "🖼️ Photo Attachment"
-                      : replyingTo.content.startsWith("__VOICE__::")
-                        ? "🎙️ Voice Note"
-                        : replyingTo.content}
-                </p>
+          <div className="mb-2 flex animate-hm-fade items-center justify-between gap-2 rounded-md bg-raised py-1 pl-3 pr-1 ring-1 ring-inset ring-line">
+            <div className="min-w-0 border-l-2 border-accent-ink pl-2.5">
+              <div className="flex min-w-0 items-center gap-1 text-[12px] text-ink-3">
+                <CornerUpLeft className="size-3.5 shrink-0" aria-hidden />
+                <span className="shrink-0">Replying to</span>
+                <span className="truncate font-semibold text-ink">
+                  {profiles[replyingTo.sender_id]?.full_name || "User"}
+                </span>
               </div>
+              <p className="flex min-w-0 items-center gap-1 text-[12.5px] text-ink-2">
+                {summarizeContent(replyingTo.content).icon}
+                <span className="truncate">{summarizeContent(replyingTo.content).text}</span>
+              </p>
             </div>
-            <button
-              onClick={() => setReplyingTo(null)}
-              className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
-              title="Cancel reply"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <IconButton label="Cancel reply" onClick={() => setReplyingTo(null)}>
+              <X aria-hidden />
+            </IconButton>
           </div>
         )}
 
         {/* Staged Image Preview in Typing Box */}
         {stagedImage && (
-          <div className="mb-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shadow-sm animate-fade-in">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                <img
-                  src={stagedImage.previewUrl}
-                  alt="Staged attachment preview"
-                  className="w-10 h-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-750"
-                />
-                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-500 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center text-[7px] text-white font-bold">
-                  ✓
-                </span>
-              </div>
+          <div className="mb-2 flex animate-hm-fade items-center justify-between gap-3 rounded-md bg-raised p-1.5 pl-2 ring-1 ring-inset ring-line">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <img
+                src={stagedImage.previewUrl}
+                alt="Staged attachment preview"
+                className="size-10 shrink-0 rounded-[5px] object-cover ring-1 ring-line"
+              />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate max-w-[220px]">
+                <p className="truncate text-[13px] font-medium text-ink">
                   {stagedImage.file.name}
                 </p>
-                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
-                  {(stagedImage.file.size / 1024).toFixed(0)} KB • Ready to send
+                <p className="font-mono text-[11.5px] text-ink-3 tabular">
+                  {(stagedImage.file.size / 1024).toFixed(0)} KB · Ready to send
                 </p>
               </div>
             </div>
-            <button
-              type="button"
+            <IconButton
+              label="Remove attachment"
               onClick={() => {
                 URL.revokeObjectURL(stagedImage.previewUrl);
                 setStagedImage(null);
               }}
-              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors cursor-pointer"
-              title="Remove attachment"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
+              <X aria-hidden />
+            </IconButton>
           </div>
         )}
 
         {conversationType === "dm" && recipientId && ownedTeams.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-zinc-200 dark:border-zinc-800/60">
-            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mr-1 select-none font-semibold">Quick Invites:</span>
+          <div className="mb-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            <span className="shrink-0 caps-label text-ink-3">Invite to</span>
             {ownedTeams.map((team) => (
-              <button
+              <Button
                 key={team.id}
+                variant="secondary"
+                size="sm"
+                icon={<UserPlus />}
                 onClick={() => handleSendQuickInvite(team.id, team.name)}
                 disabled={sending || uploadingMedia}
-                className="px-2.5 py-0.5 text-[10px] rounded-full border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition-all font-medium disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                className="h-9 max-w-[200px] shrink-0 md:h-7"
+                title={`Invite to ${team.name}`}
               >
-                <span>➕ Invite to {team.name}</span>
-              </button>
+                <span className="min-w-0 truncate">{team.name}</span>
+              </Button>
             ))}
           </div>
         )}
 
         {safetyError && (
-          <div className="mb-2 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] leading-normal animate-fade-in">
-            ⚠️ {safetyError}
+          <div
+            role="alert"
+            className="mb-2 flex animate-hm-fade items-start gap-2 rounded-md bg-bad-soft px-3 py-2 text-[12.5px] leading-snug text-bad ring-1 ring-inset ring-bad/25"
+          >
+            <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 [overflow-wrap:anywhere]">{safetyError}</span>
           </div>
         )}
 
-        {/* Emoji Picker Popover */}
-        {showEmojiPicker && (
-          <div className="absolute bottom-16 left-3 p-2 rounded-2xl bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 shadow-xl backdrop-blur-md z-40 grid grid-cols-6 gap-1 max-w-[240px] animate-fade-in">
-            {HACKATHON_EMOJIS.map((em) => (
-              <button
-                key={em}
-                type="button"
-                onClick={() => insertEmoji(em)}
-                className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-lg hover:scale-125 transition-transform cursor-pointer"
-              >
-                {em}
-              </button>
-            ))}
-          </div>
+        {isBlocked && (
+          <p className="mb-2 flex items-center gap-1.5 text-[12.5px] text-ink-3">
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+            You can&apos;t message this user.
+          </p>
         )}
 
         {/* Input Bar & Controls */}
         {isRecording ? (
-          <div className="flex items-center gap-3 py-1.5 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 animate-pulse">
-            <div className="flex items-center gap-2 flex-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
-              <span className="text-xs font-mono font-semibold text-rose-600 dark:text-rose-400">
-                Recording Voice Note... {Math.floor(recordingSeconds / 60)}:{recordingSeconds % 60 < 10 ? "0" : ""}{recordingSeconds % 60}
-              </span>
-            </div>
+          <div
+            role="status"
+            className="flex min-h-[52px] items-center gap-2 rounded-md bg-sunken py-1.5 pl-3 pr-1.5 ring-1 ring-inset ring-bad/40"
+          >
+            <StatusDot tone="bad" pulse />
+            <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-bad tabular">
+              Recording {Math.floor(recordingSeconds / 60)}:{recordingSeconds % 60 < 10 ? "0" : ""}{recordingSeconds % 60}
+            </span>
 
-            <button
-              onClick={cancelVoiceRecording}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer"
-              title="Cancel recording"
-            >
-              Cancel ✕
-            </button>
+            <Button variant="ghost" onClick={cancelVoiceRecording} className="h-9" title="Cancel recording">
+              Cancel
+            </Button>
 
-            <button
-              onClick={stopAndSendVoiceNote}
-              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1"
-              title="Send voice note"
-            >
-              <span>Send</span>
-              <span>✓</span>
-            </button>
+            <Button variant="primary" icon={<Send />} onClick={stopAndSendVoiceNote} className="h-9" title="Send voice note">
+              Send
+            </Button>
           </div>
         ) : (
-          <div className="relative flex items-end gap-1.5">
-            {/* Attachment Button (Photo / Image) */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
-              title="Attach image (or drag & drop / Ctrl+V)"
-            >
-              <ImageIcon className="w-4 h-4" />
-            </button>
-
-            {/* Voice Note Mic Button */}
-            <button
-              type="button"
-              onClick={startVoiceRecording}
-              disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
-              title="Record voice note"
-            >
-              <Mic className="w-4 h-4" />
-            </button>
-
-            {/* Emoji Picker Trigger */}
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-amber-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
-              title="Add emoji"
-            >
-              <Smile className="w-4 h-4" />
-            </button>
-
-            {/* Insert Code Block Button */}
-            <button
-              type="button"
-              onClick={insertCodeBlock}
-              disabled={isBlocked || uploadingMedia}
-              className="p-2 rounded-xl text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer disabled:opacity-50"
-              title="Insert code snippet"
-            >
-              <Code2 className="w-4 h-4" />
-            </button>
-
-            {/* Textarea */}
-            <textarea
-              value={input}
-              onChange={(e) => {
-                const value = e.target.value;
-                setInput(value);
-                sendTypingBroadcast();
-
-                const match = value.match(/@([a-zA-Z\s]*)$/);
-                if (match) {
-                  setMentionQuery(match[1]);
-                  setShowMentions(true);
-                } else {
-                  setShowMentions(false);
-                }
-              }}
-              onPaste={handlePaste}
-              onKeyDown={handleKeyDown}
-              disabled={isBlocked}
-              placeholder={isBlocked ? "You cannot message this user." : stagedImage ? "Add an optional caption..." : "Type message... (Paste image or drag & drop)"}
-              rows={1}
-              className="flex-1 w-full min-w-0 focus:outline-none leading-relaxed resize-none py-2 px-3 text-xs bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 shadow-xs rounded-xl min-h-[38px] max-h-[120px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-
-            {/* Send Button */}
-            <button
-              type="button"
-              onClick={sendMessage}
-              disabled={(!input.trim() && !stagedImage) || sending || isBlocked || uploadingMedia}
-              aria-label="Send message"
-              title="Send message"
-              className="btn flex-shrink-0 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer h-[38px] w-[38px] p-0"
-            >
-              <Send className="w-4 h-4" />
-            </button>
+          <div className="relative">
+            {/* Emoji Picker Popover */}
+            {showEmojiPicker && (
+              <div className="absolute bottom-full left-0 z-40 mb-2 grid w-[240px] max-w-full animate-hm-fade grid-cols-6 gap-0.5 rounded-lg bg-overlay p-1.5 shadow-pop ring-1 ring-line">
+                {HACKATHON_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => insertEmoji(em)}
+                    aria-label={`Insert ${em}`}
+                    className="flex size-9 items-center justify-center rounded-md text-[18px] leading-none transition-colors hover:bg-hover"
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Mentions dropdown */}
             {showMentions && filteredParticipants.length > 0 && (
-              <div className="absolute bottom-16 left-0 right-0 mx-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl max-h-48 overflow-y-auto z-50">
+              <div className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-48 overflow-y-auto rounded-lg bg-overlay p-1 shadow-pop ring-1 ring-line">
                 {filteredParticipants.map((user) => (
                   <button
                     key={user.id}
@@ -2223,18 +2174,102 @@ export default function ChatThread({
                         prev.includes(user.id) ? prev : [...prev, user.id]
                       );
                     }}
-                    className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 flex items-center gap-2 cursor-pointer"
+                    className="flex h-10 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13.5px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
                   >
-                    <div className="w-7 h-7 rounded bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
-                      {user.full_name.charAt(0)}
-                    </div>
-                    <span className="text-sm text-zinc-800 dark:text-zinc-200">
-                      {user.full_name}
-                    </span>
+                    <Avatar name={user.full_name} src={user.avatar_url} size="sm" />
+                    <span className="truncate">{user.full_name}</span>
                   </button>
                 ))}
               </div>
             )}
+
+            <div className="rounded-md bg-sunken ring-1 ring-inset ring-line-strong transition-[box-shadow] focus-within:shadow-[0_0_0_3px_var(--hm-accent-soft)] focus-within:ring-accent-ink">
+              {/* Textarea */}
+              <textarea
+                value={input}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setInput(value);
+                  sendTypingBroadcast();
+
+                  const match = value.match(/@([a-zA-Z\s]*)$/);
+                  if (match) {
+                    setMentionQuery(match[1]);
+                    setShowMentions(true);
+                  } else {
+                    setShowMentions(false);
+                  }
+                }}
+                onPaste={handlePaste}
+                onKeyDown={handleKeyDown}
+                disabled={isBlocked}
+                aria-label="Message"
+                placeholder={isBlocked ? "You cannot message this user." : stagedImage ? "Add a caption (optional)…" : "Write a message…"}
+                rows={1}
+                className="block max-h-[120px] min-h-[40px] w-full resize-none overflow-y-auto bg-transparent px-3 pb-1 pt-2.5 text-[16px] leading-relaxed text-ink placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-[13.5px]"
+              />
+
+              <div className="flex items-center justify-between gap-2 px-1 pb-1">
+                <div className="flex min-w-0 items-center">
+                  {/* Attachment Button (Photo / Image) */}
+                  <IconButton
+                    label="Attach image (or drag & drop / paste)"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={composerDisabled}
+                    className={toolDisabled}
+                  >
+                    <ImageIcon aria-hidden />
+                  </IconButton>
+
+                  {/* Voice Note Mic Button */}
+                  <IconButton
+                    label="Record voice note"
+                    onClick={startVoiceRecording}
+                    disabled={composerDisabled}
+                    className={toolDisabled}
+                  >
+                    <Mic aria-hidden />
+                  </IconButton>
+
+                  {/* Emoji Picker Trigger */}
+                  <IconButton
+                    label="Add emoji"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    disabled={composerDisabled}
+                    aria-expanded={showEmojiPicker}
+                    className={cn(toolDisabled, showEmojiPicker && "bg-selected text-ink")}
+                  >
+                    <Smile aria-hidden />
+                  </IconButton>
+
+                  {/* Insert Code Block Button */}
+                  <IconButton
+                    label="Insert code snippet"
+                    onClick={insertCodeBlock}
+                    disabled={composerDisabled}
+                    className={toolDisabled}
+                  >
+                    <Code2 aria-hidden />
+                  </IconButton>
+                </div>
+
+                {/* Send Button */}
+                <button
+                  type="button"
+                  onClick={sendMessage}
+                  disabled={(!input.trim() && !stagedImage) || sending || isBlocked || uploadingMedia}
+                  aria-label="Send message"
+                  title="Send message (Enter)"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-on-accent transition-[background-color,opacity,transform] hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 [&_svg]:size-4"
+                >
+                  {sending || uploadingMedia ? (
+                    <Spinner className="text-on-accent" label="Sending" />
+                  ) : (
+                    <Send aria-hidden />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

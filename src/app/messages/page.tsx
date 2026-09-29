@@ -1,13 +1,25 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import ChatThread from "@/components/chatThread";
 import { useNotification } from "@/context/NotificationContext";
+import { useImmersive } from "@/components/shell/ShellContext";
+import {
+  Avatar,
+  ButtonLink,
+  CountBadge,
+  EmptyState,
+  ErrorNotice,
+  PageLoader,
+  SearchField,
+  Segmented,
+  useMediaQuery,
+} from "@/components/system";
+import { relativeTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 type Profile = {
   id: string;
@@ -24,20 +36,7 @@ type DMConversation = {
   unreadCount: number;
 };
 
-function formatRelativeTime(iso: string | null): string {
-  if (!iso) return "";
-  const now = new Date();
-  const date = new Date(iso);
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffSec < 60) return "Just now";
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
-  if (diffSec < 604800) return `${Math.floor(diffSec / 86400)}d`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-import { Search, X, MessageSquare, Users, Image as ImageIcon, Mic, Code2, Mail } from "lucide-react";
+import { MessageSquare, Users, Image as ImageIcon, Mic, Code2, Mail, SearchX } from "lucide-react";
 
 function formatPreviewSnippet(content: string | null): { text: string; icon?: "image" | "voice" | "invite" | "code" } {
   if (!content) return { text: "Start the conversation" };
@@ -65,6 +64,14 @@ function MessagesContent() {
   // Sidebar Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "unread">("all");
+
+  // Presentation-only state. On phones the page shows the list OR the thread;
+  // the thread only takes over after an explicit tap (or a ?user= deep link),
+  // so the desktop auto-selection never hides the list on mobile.
+  const [mobileView, setMobileView] = useState<"list" | "thread">(targetUserId ? "thread" : "list");
+  // Shown instead of a misleading "No conversations yet" when the list can't load.
+  const [listError, setListError] = useState<string | null>(null);
+  const isMobile = useMediaQuery("(max-width: 767px)");
 
   useEffect(() => {
     init();
@@ -181,6 +188,7 @@ function MessagesContent() {
     const { data: rpcData, error: rpcError } = await supabase.rpc("get_my_dm_conversations");
 
     if (!rpcError && rpcData) {
+      setListError(null);
       const dmRows = rpcData as Array<{
         conversation_id: string;
         other_user_id: string;
@@ -252,8 +260,10 @@ function MessagesContent() {
 
     if (partError || !myParticipations) {
       console.error("Error loading conversation participants:", partError);
+      setListError(partError?.message || "Conversations could not be loaded.");
       return;
     }
+    setListError(null);
 
     const convIds = myParticipations.map((p) => p.conversation_id);
     setConversationIds(convIds);
@@ -460,12 +470,15 @@ function MessagesContent() {
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount > 0 ? 1 : 0), 0);
 
+  const showThread = mobileView === "thread" && !!activeConversationId && !!activeUser;
+  // Hide the app's mobile top bar + tab bar only while a thread fills the phone screen.
+  useImmersive(isMobile && showThread);
+
   if (loading || startingChat) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6">
-        <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
-        <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
-      </div>
+      <main data-v2 className="flex min-h-0 flex-1 items-center justify-center bg-canvas">
+        <PageLoader label={startingChat ? "Opening conversation" : "Loading messages"} />
+      </main>
     );
   }
 
@@ -473,209 +486,205 @@ function MessagesContent() {
     return null;
   }
 
+  const listEmpty = conversations.length === 0;
+
   return (
-    <div className="h-full flex flex-col p-2.5 sm:p-4 max-w-[1600px] w-full mx-auto min-h-0">
-      {/* Top Header / Subheader */}
-      <div className="flex items-center justify-between mb-2 sm:mb-3 px-1 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            Direct Messages
-          </h1>
-          <span className="hidden sm:inline-flex text-[11px] font-mono px-2 py-0.5 rounded-md font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">
-            {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
-          </span>
-          {totalUnread > 0 && (
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-violet-600 text-white shadow-xs">
-              {totalUnread} unread
+    // Bounded height chain: shell #hm-scroll → flex-1 wrapper → this <main> (flex-1, min-h-0,
+    // overflow-hidden) → panes (min-h-0) → ChatThread (h-full). Only the message log scrolls,
+    // so the composer stays on screen at every viewport size.
+    <main data-v2 className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+      {/* Left pane: Conversation List */}
+      <aside
+        aria-label="Conversations"
+        className={cn(
+          "min-h-0 w-full flex-col bg-raised md:flex md:w-[300px] md:shrink-0 md:border-r md:border-line lg:w-[320px]",
+          showThread ? "hidden" : "flex",
+        )}
+      >
+        <div className="shrink-0 border-b border-line px-4 pb-3 pt-4 md:pt-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h1
+              data-v2-heading
+              className="font-display text-[24px] font-semibold leading-none tracking-[-0.025em] text-ink [font-variation-settings:'wdth'_92]"
+            >
+              Messages
+            </h1>
+            <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+              {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
+              {totalUnread > 0 && (
+                <>
+                  {" · "}
+                  <span className="text-accent-ink">{totalUnread} unread</span>
+                </>
+              )}
             </span>
+          </div>
+
+          {!listEmpty && (
+            <>
+              <SearchField
+                className="mt-3"
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search people or messages"
+                label="Search conversations"
+              />
+              <Segmented
+                className="mt-2.5"
+                size="sm"
+                label="Filter conversations"
+                value={filterTab}
+                onChange={setFilterTab}
+                options={[
+                  { value: "all", label: "All", count: conversations.length },
+                  { value: "unread", label: "Unread", count: totalUnread },
+                ]}
+              />
+            </>
           )}
         </div>
-      </div>
 
-      {/* Unified Dual-Pane Shell */}
-      <div className="flex-1 min-h-0 rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-xs flex overflow-hidden">
-        {/* Left pane: Conversation List */}
-        <div
-          className={`w-full lg:w-80 xl:w-96 border-r border-zinc-200 dark:border-zinc-800/80 flex-col min-h-0 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 ${
-            activeConversationId ? "hidden lg:flex" : "flex"
-          }`}
-        >
-          {/* Search bar */}
-          <div className="p-3 border-b border-zinc-200 dark:border-zinc-800/80 shrink-0 space-y-2.5">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search conversations..."
-                className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-all shadow-xs"
+        {/* Conversation list */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {listError && (
+            <ErrorNotice
+              className="m-3"
+              title="Couldn't load conversations"
+              detail={listError}
+              onRetry={() => loadConversations(currentUserId)}
+            />
+          )}
+
+          {listEmpty ? (
+            !listError && (
+              <EmptyState
+                className="m-4"
+                icon={<MessageSquare />}
+                title="No conversations yet"
+                body="You can message builders you're connected with. Find someone to build with, connect, then say hi."
+                action={
+                  <ButtonLink href="/developers" size="sm" variant="secondary" icon={<Users />}>
+                    Find builders
+                  </ButtonLink>
+                }
               />
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
-                  title="Clear search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setFilterTab("all")}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  filterTab === "all"
-                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700/60"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                }`}
-              >
-                All ({conversations.length})
-              </button>
-              <button
-                onClick={() => setFilterTab("unread")}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  filterTab === "unread"
-                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700/60"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                }`}
-              >
-                <span>Unread</span>
-                {totalUnread > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center font-bold">
-                    {totalUnread}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {filteredConversations.length === 0 ? (
-              <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 mb-2.5">
-                  <MessageSquare className="w-5 h-5" />
-                </div>
-                <p className="text-xs text-zinc-500 max-w-[200px] leading-relaxed">
-                  {searchQuery ? "No conversations match your query." : "No conversations yet. Connect with builders to chat."}
-                </p>
-              </div>
-            ) : (
-              filteredConversations.map((conv) => {
-                const isActive = activeConversationId === conv.conversationId;
-                const preview = formatPreviewSnippet(conv.lastMessage);
-                return (
-                  <button
-                    key={conv.conversationId}
-                    onClick={() => selectConversation(conv)}
-                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all relative cursor-pointer group ${
-                      isActive
-                        ? "bg-violet-50 dark:bg-violet-950/40 text-violet-950 dark:text-violet-100 shadow-xs border border-violet-200 dark:border-violet-500/30"
-                        : "hover:bg-zinc-100/90 dark:hover:bg-zinc-900/60 border border-transparent"
-                    }`}
-                  >
-                    {/* Subtle active pill indicator on left edge */}
-                    {isActive && (
-                      <div className="absolute left-1 top-3 bottom-3 w-1 rounded-full bg-violet-600 dark:bg-violet-400" />
-                    )}
-
-                    {/* Avatar */}
-                    <div className="relative shrink-0 ml-1">
-                      {conv.otherUser.avatar_url ? (
-                        <img
-                          src={conv.otherUser.avatar_url}
-                          alt={conv.otherUser.full_name}
-                          className="w-10 h-10 rounded-xl object-cover border border-zinc-200 dark:border-zinc-800"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-800 flex items-center justify-center font-bold text-violet-700 dark:text-violet-300 text-sm">
-                          {conv.otherUser.full_name?.charAt(0)}
-                        </div>
-                      )}
-                      {conv.unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white dark:ring-zinc-950 animate-pulse" />
-                      )}
-                    </div>
-
-                    {/* Content Preview */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <p className={`text-xs truncate ${isActive ? "font-bold text-violet-950 dark:text-violet-100" : "font-semibold text-zinc-900 dark:text-white"}`}>
-                          {conv.otherUser.full_name}
-                        </p>
-                        {conv.lastMessageAt && (
-                          <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 shrink-0">
-                            {formatRelativeTime(conv.lastMessageAt)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1 min-w-0 text-[11px] truncate text-zinc-500 dark:text-zinc-400">
-                          {preview.icon === "image" && <ImageIcon className="w-3 h-3 text-violet-500 shrink-0" />}
-                          {preview.icon === "voice" && <Mic className="w-3 h-3 text-emerald-500 shrink-0" />}
-                          {preview.icon === "invite" && <Mail className="w-3 h-3 text-amber-500 shrink-0" />}
-                          {preview.icon === "code" && <Code2 className="w-3 h-3 text-blue-500 shrink-0" />}
-                          <span className={`truncate ${conv.unreadCount > 0 ? "font-semibold text-zinc-900 dark:text-zinc-200" : ""}`}>
-                            {preview.text}
-                          </span>
-                        </div>
-                        {conv.unreadCount > 0 && (
-                          <span className="shrink-0 px-1.5 py-0.2 rounded-full bg-violet-600 text-white font-mono text-[9px] font-bold">
-                            {conv.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Right pane: Active chat or Empty state */}
-        <div
-          className={`flex-1 flex-col min-w-0 min-h-0 bg-white dark:bg-zinc-950 ${
-            activeConversationId ? "flex" : "hidden lg:flex"
-          }`}
-        >
-          {activeConversationId && activeUser ? (
-            <ChatThread
-              conversationId={activeConversationId}
-              currentUserId={currentUserId}
-              otherUser={activeUser}
-              onBack={() => {
-                setActiveConversationId(null);
-                setActiveUser(null);
-              }}
+            )
+          ) : filteredConversations.length === 0 ? (
+            <EmptyState
+              className="m-4"
+              compact
+              icon={<SearchX />}
+              title={searchQuery ? "No matches" : "No unread conversations"}
+              body={searchQuery ? `Nothing matches “${searchQuery}”.` : "You're all caught up."}
             />
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-zinc-50/30 dark:bg-zinc-950/40">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-4 shadow-xs">
-                <MessageSquare className="w-7 h-7 text-violet-600 dark:text-violet-400" />
-              </div>
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-1.5">
-                No Conversation Selected
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed mb-5">
-                Choose a conversation from the sidebar to chat, share code, record voice notes, or send team invites.
-              </p>
-              <Link
-                href="/developers"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Find Builders to Message
-              </Link>
-            </div>
+            <ul className="py-1">
+              {filteredConversations.map((conv) => {
+                const isActive = activeConversationId === conv.conversationId;
+                const preview = formatPreviewSnippet(conv.lastMessage);
+                const unread = conv.unreadCount > 0;
+                return (
+                  <li key={conv.conversationId}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectConversation(conv);
+                        setMobileView("thread");
+                      }}
+                      aria-current={isActive ? "true" : undefined}
+                      className={cn(
+                        "relative flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                        isActive ? "bg-selected" : "hover:bg-hover",
+                      )}
+                    >
+                      {isActive && (
+                        <span aria-hidden className="absolute inset-y-2 left-0 w-[2px] rounded-r-[2px] bg-signal" />
+                      )}
+
+                      <Avatar name={conv.otherUser.full_name} src={conv.otherUser.avatar_url} size="md" />
+
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="truncate text-[14px] font-semibold text-ink">
+                            {conv.otherUser.full_name}
+                          </span>
+                          {conv.lastMessageAt && (
+                            <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+                              {relativeTime(conv.lastMessageAt)}
+                            </span>
+                          )}
+                        </span>
+
+                        <span className="mt-0.5 flex items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "flex min-w-0 items-center gap-1 text-[12.5px]",
+                              unread ? "font-medium text-ink-2" : "text-ink-3",
+                            )}
+                          >
+                            {preview.icon === "image" && <ImageIcon className="size-3.5 shrink-0" aria-hidden />}
+                            {preview.icon === "voice" && <Mic className="size-3.5 shrink-0" aria-hidden />}
+                            {preview.icon === "invite" && <Mail className="size-3.5 shrink-0" aria-hidden />}
+                            {preview.icon === "code" && <Code2 className="size-3.5 shrink-0" aria-hidden />}
+                            <span className="truncate">{preview.text}</span>
+                          </span>
+                          {unread && (
+                            <span className="shrink-0">
+                              <CountBadge value={conv.unreadCount} />
+                              <span className="sr-only"> unread</span>
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
-      </div>
-    </div>
+      </aside>
+
+      {/* Right pane: Active chat or Empty state */}
+      <section
+        aria-label="Conversation"
+        className={cn("min-h-0 min-w-0 flex-1 flex-col bg-canvas md:flex", showThread ? "flex" : "hidden")}
+      >
+        {activeConversationId && activeUser ? (
+          <ChatThread
+            conversationId={activeConversationId}
+            currentUserId={currentUserId}
+            otherUser={activeUser}
+            onBack={() => {
+              setActiveConversationId(null);
+              setActiveUser(null);
+              setMobileView("list");
+            }}
+          />
+        ) : (
+          <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+            <EmptyState
+              align="center"
+              className="max-w-sm"
+              icon={<MessageSquare />}
+              title={listEmpty ? "Start your first conversation" : "Pick a conversation"}
+              body={
+                listEmpty
+                  ? "Connect with builders on HackerMate, then message them here to plan a team."
+                  : "Choose a chat from the list, or find more builders to message."
+              }
+              action={
+                listEmpty ? undefined : (
+                  <ButtonLink href="/developers" size="sm" variant="secondary" icon={<Users />}>
+                    Find builders
+                  </ButtonLink>
+                )
+              }
+            />
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
 
@@ -684,10 +693,9 @@ export default function MessagesPage() {
     <AuthGuard>
       <Suspense
         fallback={
-          <div className="h-full flex flex-col items-center justify-center p-6">
-            <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-violet-600 rounded-full animate-spin mb-3" />
-            <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading messages...</p>
-          </div>
+          <main data-v2 className="flex min-h-0 flex-1 items-center justify-center bg-canvas">
+            <PageLoader label="Loading messages" />
+          </main>
         }
       >
         <MessagesContent />

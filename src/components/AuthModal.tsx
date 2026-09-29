@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { ModernOAuthSignIn } from "@/components/ui/modern-animated-sign-in";
-import { X } from "lucide-react";
+import { Dialog } from "@/components/system";
+import { SignInPanel } from "@/components/auth/SignInPanel";
 
 type AuthModalProps = {
   isOpen: boolean;
@@ -13,42 +11,20 @@ type AuthModalProps = {
   nextUrl?: string;
 };
 
+/**
+ * In-context sign-in (e.g. submitting a challenge while signed out). Same
+ * props and OAuth flow as V1; rendered in the V2 Dialog (bottom sheet on mobile).
+ */
 export default function AuthModal({
   isOpen,
   onClose,
-  title = "Sign In to HackerMate",
-  subtitle = "Connect with Google or GitHub in 1 tap to join teams and live hackathons.",
+  title = "Sign in to HackerMate",
+  subtitle = "Use Google or GitHub to join teams and hackathons.",
   nextUrl,
 }: AuthModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          aria-label="Close authentication modal"
-          title="Close"
-          className="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        {/* 21st.dev Dual-Pane Animated Sign In */}
-        <ModernOAuthSignIn
-          title={title}
-          subtitle={subtitle}
-          nextUrl={nextUrl}
-          className="min-h-[480px]"
-        />
-      </div>
-    </div>
+    <Dialog open={isOpen} onClose={onClose} size="md" title="Sign in to continue">
+      <SignInPanel title={title} subtitle={subtitle} nextUrl={nextUrl} titleAs="h2" className="[&_h2]:text-[26px] [&_h2]:md:text-[28px]" />
+    </Dialog>
   );
 }

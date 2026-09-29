@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Logo from "@/components/Logo";
+import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Mail, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { buttonClass } from "@/components/system";
+import { Container, Eyebrow, Lede } from "@/components/landing/primitives";
 
 export default function FAQPage() {
   const faqItems = [
@@ -31,77 +36,88 @@ export default function FAQPage() {
     }
   ];
 
+  const [open, setOpen] = useState<number | null>(0);
+
   return (
-    <main className="min-h-screen bg-[var(--background)] text-zinc-700 dark:text-zinc-300 font-sans selection:bg-[#B4F461]/20 selection:text-[#B4F461] py-16 md:py-24 relative overflow-hidden">
-      {/* Decorative Glows */}
-      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-[#B4F461]/5 dark:bg-[#B4F461]/2 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[450px] h-[450px] bg-emerald-500/5 dark:bg-emerald-500/2 rounded-full blur-[160px] pointer-events-none" />
-
-      <div className="max-w-3xl mx-auto px-6 relative z-10">
-        
-        {/* Back navigation */}
-        <div className="mb-10 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm group">
-            <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span>Back to Home</span>
-          </Link>
-          <Logo className="h-6" />
-        </div>
-
-        {/* Header */}
-        <header className="mb-12 border-b border-zinc-200 dark:border-zinc-800 pb-8">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight mb-3">
+    <main data-v2 className="border-b border-line">
+      <Container className="grid grid-cols-1 gap-10 py-14 md:py-20 lg:grid-cols-12 lg:gap-14">
+        <header className="lg:col-span-4">
+          <Eyebrow>FAQ</Eyebrow>
+          <h1
+            data-v2-heading
+            className="mt-4 font-display text-[34px] font-semibold leading-[1.02] tracking-[-0.03em] text-ink text-balance [font-variation-settings:'wdth'_88] md:text-[46px]"
+          >
             Frequently Asked Questions
           </h1>
-          <p className="text-zinc-500">
+          <Lede className="mt-5">
             Everything you need to know about building teams and shipping projects with HackerMate.
-          </p>
+          </Lede>
         </header>
 
-        {/* FAQ Accordions using native semantic details & summary */}
-        <div className="space-y-4">
-          {faqItems.map((item, idx) => (
-            <details 
-              key={idx} 
-              className="group border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/20 rounded-lg p-5 transition-all duration-300 open:bg-zinc-100/60 dark:open:bg-zinc-950/60 open:border-zinc-300 dark:open:border-zinc-700/80 cursor-pointer"
-            >
-              <summary className="list-none flex items-center justify-between font-bold text-zinc-900 dark:text-white text-base md:text-lg select-none outline-none">
-                <span>{item.q}</span>
-                <span className="ml-4 transition-transform duration-300 group-open:rotate-180 flex items-center justify-center w-6 h-6 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-white">
-                  <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </summary>
-              <div className="mt-4 text-sm md:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed pt-2 border-t border-zinc-200 dark:border-zinc-800/60 transition-all duration-300">
-                <p>{item.a}</p>
-              </div>
-            </details>
-          ))}
-        </div>
+        <div className="min-w-0 lg:col-span-8">
+          <ul className="divide-y divide-line border-y border-line">
+            {faqItems.map((item, idx) => {
+              const isOpen = open === idx;
+              const panelId = `faq-page-panel-${idx}`;
+              return (
+                <li key={item.q}>
+                  <h2>
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      aria-controls={panelId}
+                      onClick={() => setOpen(isOpen ? null : idx)}
+                      className="flex min-h-14 w-full items-center justify-between gap-4 py-4 text-left text-[16px] font-medium text-ink transition-colors hover:text-ink-2"
+                    >
+                      {item.q}
+                      <Plus
+                        className={cn("size-4 shrink-0 text-ink-3 transition-transform duration-200", isOpen && "rotate-45 text-ink")}
+                        aria-hidden
+                      />
+                    </button>
+                  </h2>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        id={panelId}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <p className="max-w-[64ch] pb-5 text-[15px] leading-[1.65] text-ink-2">{item.a}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </li>
+              );
+            })}
+          </ul>
 
-        {/* Footer Info Box */}
-        <div className="mt-16 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center space-y-4">
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Still have questions?</h3>
-          <p className="text-sm text-zinc-500 max-w-md mx-auto">
-            Our support desk is always online. Contact us via our official channel or reach out to our team directly.
-          </p>
-          <div className="flex justify-center gap-4 pt-2">
-            <a 
-              href="mailto:contacthackermate@gmail.com" 
-              className="btn btn-primary inline-flex items-center gap-2 px-6 py-3 font-bold text-sm shadow-lg cursor-pointer"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span>Email contacthackermate@gmail.com</span>
-            </a>
+          {/* Still have questions */}
+          <div className="mt-10 flex flex-col gap-4 rounded-lg border border-line bg-raised p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-ink">Still have questions?</h2>
+              <p className="mt-1 max-w-md text-[13.5px] leading-relaxed text-ink-3">
+                Our support desk is always online. Contact us via our official channel or reach out to our team directly.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <a
+                href="mailto:contacthackermate@gmail.com"
+                className={buttonClass("primary", "md", "h-10 max-w-full")}
+              >
+                <Mail aria-hidden />
+                <span className="min-w-0 truncate">Email contacthackermate@gmail.com</span>
+              </a>
+              <Link href="/contact" className={buttonClass("secondary", "md", "h-10")}>
+                Contact form
+              </Link>
+            </div>
           </div>
         </div>
-
-      </div>
+      </Container>
     </main>
   );
 }

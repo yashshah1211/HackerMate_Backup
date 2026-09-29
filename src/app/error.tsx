@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import { LayoutDashboard, RotateCw, TriangleAlert } from "lucide-react";
+import { Button, ButtonLink } from "@/components/system";
 
 export default function Error({
   error,
@@ -16,54 +17,39 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 py-12 bg-[var(--background)] transition-colors duration-300">
-      <div className="w-full max-w-md p-8 rounded-2xl bg-[var(--surface-1)] border border-[var(--card-border)] shadow-2xl text-center space-y-6">
-        
-        {/* Error icon */}
-        <div className="mx-auto w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
-        </div>
+    <main
+      data-v2
+      className="mx-auto flex min-h-[70vh] w-full max-w-[560px] flex-col items-center justify-center px-5 py-16 text-center"
+    >
+      <span className="inline-flex size-11 items-center justify-center rounded-md bg-bad-soft text-bad">
+        <TriangleAlert className="size-5" aria-hidden />
+      </span>
+      <h1
+        data-v2-heading
+        className="mt-5 font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink [font-variation-settings:'wdth'_92] md:text-[34px]"
+      >
+        Something went wrong
+      </h1>
+      <p className="mt-3 max-w-sm text-[14.5px] leading-relaxed text-ink-2">
+        An unexpected error occurred. We have logged the details and are looking into it.
+      </p>
 
-        {/* Heading */}
-        <div className="space-y-2">
-          <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
-            Application Error
-          </h2>
-          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-            An unexpected error occurred in your workspace. We have logged the details and are looking into it.
-          </p>
+      {/* Technical details */}
+      {error.message && (
+        <div className="mt-6 max-h-32 w-full overflow-auto rounded-md bg-sunken px-3 py-2.5 text-left font-mono text-[12px] leading-relaxed text-ink-3 ring-1 ring-inset ring-line">
+          <span className="select-none font-semibold text-ink-2">Error: </span>
+          <span className="break-words">{error.message}</span>
         </div>
+      )}
 
-        {/* Technical details accordion (collapsible to keep UI clean) */}
-        {error.message && (
-          <div className="p-3 bg-[var(--surface-2)] border border-[var(--card-border)] rounded-lg text-left text-xs font-mono text-[var(--text-secondary)] overflow-x-auto max-h-32">
-            <span className="text-[var(--text-muted)] font-semibold select-none">Error: </span>
-            {error.message}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <button
-            onClick={() => reset()}
-            className="flex-1 flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-98 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-            </svg>
-            Try Again
-          </button>
-          
-          <Link
-            href="/dashboard"
-            className="flex-1 flex items-center justify-center border border-[var(--card-border)] hover:bg-[var(--surface-2)] active:scale-98 text-[var(--text-primary)] text-xs font-semibold px-4 py-2.5 rounded-lg transition-all"
-          >
-            Go to Dashboard
-          </Link>
-        </div>
+      <div className="mt-7 flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <Button variant="primary" size="lg" icon={<RotateCw aria-hidden />} onClick={() => reset()}>
+          Try again
+        </Button>
+        <ButtonLink href="/dashboard" variant="secondary" size="lg" icon={<LayoutDashboard aria-hidden />}>
+          Go to Dashboard
+        </ButtonLink>
       </div>
-    </div>
+    </main>
   );
 }

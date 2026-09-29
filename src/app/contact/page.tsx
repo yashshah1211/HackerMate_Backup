@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft, CheckCircle2, Mail, Send } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-import Logo from "@/components/Logo";
+import { Button, FieldLabel, Input, Textarea } from "@/components/system";
+import { Container, Eyebrow, Lede } from "@/components/landing/primitives";
 
 export default function ContactPage() {
   const { showToast } = useNotification();
@@ -107,164 +109,175 @@ export default function ContactPage() {
     }
   }
 
+  const backHref = isAuthenticated ? "/dashboard" : "/";
+
   return (
-    <main className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,rgba(180,244,97,0.03),transparent_50%)] relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(180,244,97,0.02),transparent_40%)] pointer-events-none" />
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Link href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center cursor-pointer">
-            <Logo className="h-9 w-auto" />
-          </Link>
-        </div>
-
-        {/* Form Card */}
-        <div className="bg-zinc-950/40 backdrop-blur-md border border-zinc-900/80 p-6 md:p-8 rounded-2xl shadow-xl">
-          {submitted ? (
-            <div className="text-center py-6 space-y-4 animate-fade-in">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-500 mb-2">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-white tracking-tight">Message Sent!</h2>
-              <p className="text-xs text-zinc-400 leading-relaxed max-w-sm mx-auto">
-                Thank you for contacting us. We've received your inquiry and our support team will get back to you shortly.
-              </p>
-              <div className="pt-4">
-                <button
-                  onClick={() => setSubmitted(false)}
-                  className="btn btn-secondary text-xs py-1.5 px-4 cursor-pointer"
-                >
-                  Send another message
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <h1 className="text-lg font-semibold text-white tracking-tight mb-1">Contact Us</h1>
-                <p className="text-xs text-zinc-500">Have questions or feedback? Drop us a line.</p>
-              </div>
-
-              {/* Honeypot field - completely hidden from screen readers and visual space */}
-              <div className="hidden" aria-hidden="true">
-                <input
-                  type="text"
-                  name="bot_check"
-                  value={botCheck}
-                  onChange={(e) => setBotCheck(e.target.value)}
-                  placeholder="Do not fill this out if you are human"
-                  tabIndex={-1}
-                  autoComplete="off"
-                />
-              </div>
-
-              {/* Name Field */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
-                  Your Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Yash Shah"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isAuthenticated && name !== ""}
-                  className="input text-xs disabled:opacity-60 disabled:cursor-not-allowed"
-                  required
-                />
-              </div>
-
-              {/* Email Field */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  placeholder="e.g. yash@hackermate.dev"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isAuthenticated}
-                  className="input text-xs disabled:opacity-60 disabled:cursor-not-allowed"
-                  required
-                />
-              </div>
-
-              {/* Subject Field */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
-                  Subject *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Question about team creation"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="input text-xs"
-                  required
-                />
-              </div>
-
-              {/* Message Field */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
-                  Message *
-                </label>
-                <textarea
-                  placeholder="Write your inquiry here..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={5}
-                  className="input text-xs resize-none"
-                  required
-                />
-                <p className="text-[9px] text-zinc-600 font-mono">Minimum 10 characters.</p>
-              </div>
-
-              {/* Submit Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full btn btn-primary text-xs py-2 px-5 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      <span>Sending...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                      </svg>
-                      <span>Send Message</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        {/* Back Link */}
-        <div className="flex justify-between items-center mt-6 px-2 text-xs">
-          <Link
-            href={isAuthenticated ? "/dashboard" : "/"}
-            className="text-zinc-500 hover:text-white transition-colors flex items-center gap-1 font-medium"
+    <main data-v2 className="border-b border-line">
+      <Container className="grid grid-cols-1 gap-10 py-14 md:py-20 lg:grid-cols-12 lg:gap-14">
+        {/* Intro */}
+        <header className="min-w-0 lg:col-span-5">
+          <Eyebrow>HackerMate support</Eyebrow>
+          <h1
+            data-v2-heading
+            className="mt-4 font-display text-[34px] font-semibold leading-[1.02] tracking-[-0.03em] text-ink text-balance [font-variation-settings:'wdth'_88] md:text-[46px]"
           >
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-            <span>Back to {isAuthenticated ? "Dashboard" : "Home"}</span>
+            Contact Us
+          </h1>
+          <Lede className="mt-5">Have questions or feedback? Drop us a line.</Lede>
+
+          <dl className="mt-8 divide-y divide-line border-y border-line text-[14px]">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
+              <dt className="caps-label text-ink-3">Email</dt>
+              <dd className="min-w-0">
+                <a
+                  href="mailto:contacthackermate@gmail.com"
+                  className="inline-flex min-h-9 items-center gap-1.5 break-all font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+                >
+                  <Mail className="size-4 shrink-0 text-ink-3" aria-hidden />
+                  contacthackermate@gmail.com
+                </a>
+              </dd>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
+              <dt className="caps-label text-ink-3">Common questions</dt>
+              <dd>
+                <Link
+                  href="/faq"
+                  className="inline-flex min-h-9 items-center font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+                >
+                  Read the FAQ
+                </Link>
+              </dd>
+            </div>
+          </dl>
+
+          <Link
+            href={backHref}
+            className="mt-6 inline-flex min-h-9 items-center gap-1.5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Back to {isAuthenticated ? "Dashboard" : "Home"}
           </Link>
-          <span className="text-zinc-700">|</span>
-          <p className="text-zinc-600 font-mono text-[10px]">HackerMate Support</p>
+        </header>
+
+        {/* Form */}
+        <div className="min-w-0 lg:col-span-7">
+          <div className="rounded-lg border border-line bg-raised p-5 md:p-7">
+            {submitted ? (
+              <div className="flex flex-col items-center py-8 text-center" role="status">
+                <span className="inline-flex size-11 items-center justify-center rounded-md bg-ok-soft text-ok">
+                  <CheckCircle2 className="size-5" aria-hidden />
+                </span>
+                <h2 className="mt-4 text-[17px] font-semibold text-ink">Message Sent!</h2>
+                <p className="mt-2 max-w-sm text-[14px] leading-relaxed text-ink-2">
+                  Thank you for contacting us. We&apos;ve received your inquiry and our support team will get back to you shortly.
+                </p>
+                <Button variant="secondary" className="mt-6 h-10" onClick={() => setSubmitted(false)}>
+                  Send another message
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-ink">Send a message</h2>
+                  <p className="mt-1 text-[13px] text-ink-3">All fields are required.</p>
+                </div>
+
+                {/* Honeypot field - completely hidden from screen readers and visual space */}
+                <div className="hidden" aria-hidden="true">
+                  <input
+                    type="text"
+                    name="bot_check"
+                    value={botCheck}
+                    onChange={(e) => setBotCheck(e.target.value)}
+                    placeholder="Do not fill this out if you are human"
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  {/* Name Field */}
+                  <div className="min-w-0">
+                    <FieldLabel htmlFor="contact-name">Your Name *</FieldLabel>
+                    <Input
+                      id="contact-name"
+                      type="text"
+                      placeholder="e.g. Yash Shah"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={isAuthenticated && name !== ""}
+                      className="h-10 disabled:cursor-not-allowed"
+                      autoComplete="name"
+                      required
+                    />
+                  </div>
+
+                  {/* Email Field */}
+                  <div className="min-w-0">
+                    <FieldLabel htmlFor="contact-email">Email Address *</FieldLabel>
+                    <Input
+                      id="contact-email"
+                      type="email"
+                      placeholder="e.g. yash@hackermate.dev"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isAuthenticated}
+                      className="h-10 disabled:cursor-not-allowed"
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Subject Field */}
+                <div>
+                  <FieldLabel htmlFor="contact-subject">Subject *</FieldLabel>
+                  <Input
+                    id="contact-subject"
+                    type="text"
+                    placeholder="e.g. Question about team creation"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="h-10"
+                    required
+                  />
+                </div>
+
+                {/* Message Field */}
+                <div>
+                  <FieldLabel htmlFor="contact-message" hint="Minimum 10 characters.">
+                    Message *
+                  </FieldLabel>
+                  <Textarea
+                    id="contact-message"
+                    placeholder="Write your inquiry here..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={6}
+                    className="resize-none text-[14px]"
+                    required
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex justify-end pt-1">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    icon={loading ? undefined : <Send aria-hidden />}
+                    className="w-full sm:w-auto"
+                  >
+                    {loading ? "Sending..." : "Send Message"}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
-      </div>
+      </Container>
     </main>
   );
 }

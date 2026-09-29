@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Plus, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { parseGithubUsername } from "@/lib/github";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
-
+import { trackEvent, identifyUser } from "@/lib/posthog";
+import { Button, Dialog, FieldLabel, Input, Select, Tape } from "@/components/system";
 
 interface QuickOnboardingModalProps {
   isOpen: boolean;
@@ -14,7 +16,7 @@ interface QuickOnboardingModalProps {
   initialGithubUrl?: string;
 }
 
-import { trackEvent, identifyUser } from "@/lib/posthog";
+const FORM_ID = "quick-onboarding-form";
 
 export default function QuickOnboardingModal({
   isOpen,
@@ -37,8 +39,6 @@ export default function QuickOnboardingModal({
   const [skillInput, setSkillInput] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
-
-  if (!isOpen) return null;
 
   function handleAddSkill() {
     const trimmed = skillInput.trim();
@@ -132,209 +132,189 @@ export default function QuickOnboardingModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg card card-static p-6 border-emerald-950/80 bg-zinc-950 animate-scale-in">
-        <div className="flex items-start justify-between gap-4 mb-4 border-b border-zinc-900 pb-3">
-          <div>
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <span>⚡ Quick Profile Setup</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                Verified Builder
-              </span>
-            </h2>
-            <p className="text-xs text-zinc-400 mt-1">
-              Complete your profile to unlock teammate matching and search visibility.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white text-xs"
-          >
-            ✕
-          </button>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      title={
+        <span className="inline-flex flex-wrap items-center gap-2">
+          Quick profile setup
+          <Tape tone="ok">Verified builder</Tape>
+        </span>
+      }
+      description="Finish your profile to show up in teammate matching and search."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="submit" form={FORM_ID} variant="primary" loading={submitting}>
+            {submitting ? "Saving profile…" : "Complete profile"}
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-4">
+        {/* GitHub Profile URL */}
+        <div>
+          <FieldLabel htmlFor="qo-github">GitHub username or URL</FieldLabel>
+          <Input
+            id="qo-github"
+            type="text"
+            placeholder="e.g. octocat or github.com/octocat"
+            value={githubInput}
+            onChange={(e) => setGithubInput(e.target.value)}
+            className="h-10 font-mono md:h-[34px]"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* GitHub Profile URL */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-              GitHub Username or Profile URL
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. octocat or github.com/octocat"
-              value={githubInput}
-              onChange={(e) => setGithubInput(e.target.value)}
-              className="input text-xs w-full font-mono"
-            />
-          </div>
-
-          {/* College Selection */}
-          <div className="relative">
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-              College / Institution <span className="text-rose-400">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Search or select your college..."
-              value={collegeSearch || college}
-              onChange={(e) => {
-                setCollegeSearch(e.target.value);
-                setShowCollegeDropdown(true);
-              }}
-              onFocus={() => setShowCollegeDropdown(true)}
-              className="input text-xs w-full"
-            />
-            {showCollegeDropdown && (
-              <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded shadow-xl">
-                {filteredColleges.slice(0, 30).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      setCollege(c);
-                      setCollegeSearch(c);
-                      setShowCollegeDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors border-b border-zinc-800/40 last:border-0"
-                  >
-                    {c}
-                  </button>
-                ))}
+        {/* College Selection */}
+        <div className="relative">
+          <FieldLabel htmlFor="qo-college" hint="Required">College / institution</FieldLabel>
+          <Input
+            id="qo-college"
+            type="text"
+            autoComplete="off"
+            placeholder="Search your college"
+            value={collegeSearch || college}
+            onChange={(e) => {
+              setCollegeSearch(e.target.value);
+              setShowCollegeDropdown(true);
+            }}
+            onFocus={() => setShowCollegeDropdown(true)}
+            className="h-10 md:h-[34px]"
+          />
+          {showCollegeDropdown && (
+            <div
+              role="listbox"
+              aria-label="Colleges"
+              className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-line bg-overlay p-1 shadow-pop"
+            >
+              {filteredColleges.slice(0, 30).map((c) => (
                 <button
+                  key={c}
                   type="button"
+                  role="option"
+                  aria-selected={college === c}
                   onClick={() => {
-                    setCollege("Other");
-                    setCollegeSearch("Other");
+                    setCollege(c);
+                    setCollegeSearch(c);
                     setShowCollegeDropdown(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-xs text-emerald-400 font-semibold hover:bg-zinc-800 transition-colors"
+                  className="flex min-h-9 w-full items-center rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
                 >
-                  + Other (Specify custom college)
+                  {c}
                 </button>
-              </div>
-            )}
+              ))}
+              <button
+                type="button"
+                role="option"
+                aria-selected={college === "Other"}
+                onClick={() => {
+                  setCollege("Other");
+                  setCollegeSearch("Other");
+                  setShowCollegeDropdown(false);
+                }}
+                className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-accent-ink transition-colors hover:bg-hover"
+              >
+                <Plus className="size-3.5" aria-hidden />
+                Other (type your college)
+              </button>
+            </div>
+          )}
 
-            {college === "Other" && (
-              <input
-                type="text"
-                placeholder="Type your college name..."
-                value={customCollege}
-                onChange={(e) => setCustomCollege(e.target.value)}
-                className="input text-xs w-full mt-2"
-                required
-              />
-            )}
-          </div>
-
-          {/* Academic Year of Study */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-              Academic Year of Study <span className="text-emerald-400">*</span>
-            </label>
-            <select
-              value={yearOfStudy}
-              onChange={(e) => setYearOfStudy(e.target.value)}
-              className="input text-xs w-full bg-zinc-950 text-zinc-200 cursor-pointer"
-            >
-              <option value="1st Year">1st Year (Fresher)</option>
-              <option value="2nd Year">2nd Year (Sophomore)</option>
-              <option value="3rd Year">3rd Year (Junior)</option>
-              <option value="4th Year">4th Year (Senior)</option>
-              <option value="Postgrad / Alumni">Postgrad / Alumni</option>
-            </select>
-          </div>
-
-          {/* Bio */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-              Short Bio / Tagline
-            </label>
-            <input
+          {college === "Other" && (
+            <Input
               type="text"
-              placeholder="e.g. Full-stack dev interested in AI & Web3 hackathons"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className="input text-xs w-full"
+              aria-label="College name"
+              placeholder="Type your college name"
+              value={customCollege}
+              onChange={(e) => setCustomCollege(e.target.value)}
+              className="mt-2 h-10 md:h-[34px]"
+              required
             />
-          </div>
+          )}
+        </div>
 
-          {/* Skills */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-              Skills & Tech Stack
-            </label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
+        {/* Academic Year of Study */}
+        <div>
+          <FieldLabel htmlFor="qo-year" hint="Required">Year of study</FieldLabel>
+          <Select
+            id="qo-year"
+            value={yearOfStudy}
+            onChange={(e) => setYearOfStudy(e.target.value)}
+            className="h-10 cursor-pointer md:h-[34px]"
+          >
+            <option value="1st Year">1st Year (Fresher)</option>
+            <option value="2nd Year">2nd Year (Sophomore)</option>
+            <option value="3rd Year">3rd Year (Junior)</option>
+            <option value="4th Year">4th Year (Senior)</option>
+            <option value="Postgrad / Alumni">Postgrad / Alumni</option>
+          </Select>
+        </div>
+
+        {/* Bio */}
+        <div>
+          <FieldLabel htmlFor="qo-bio">Short bio</FieldLabel>
+          <Input
+            id="qo-bio"
+            type="text"
+            placeholder="e.g. Full-stack dev interested in AI and Web3 hackathons"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            className="h-10 md:h-[34px]"
+          />
+        </div>
+
+        {/* Skills */}
+        <div>
+          <FieldLabel htmlFor="qo-skill">Skills and stack</FieldLabel>
+          {selectedSkills.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
               {selectedSkills.map((s) => (
                 <span
                   key={s}
-                  className="bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 rounded px-2 py-0.5 text-[10px] font-mono flex items-center gap-1"
+                  className="inline-flex h-9 items-center gap-1 rounded-[4px] bg-accent-soft pl-2 pr-0.5 font-mono text-[11.5px] text-accent-ink ring-1 ring-inset ring-accent/35 md:h-7"
                 >
-                  <span>{s}</span>
+                  <span className="max-w-[16ch] truncate">{s}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveSkill(s)}
-                    className="text-emerald-500 hover:text-emerald-200"
+                    aria-label={`Remove ${s}`}
+                    className="inline-flex size-8 items-center justify-center rounded-[3px] hover:bg-hover md:size-6"
                   >
-                    ×
+                    <X className="size-3" aria-hidden />
                   </button>
                 </span>
               ))}
             </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Add skill (e.g. React, Python, Figma)"
-                value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddSkill();
-                  }
-                }}
-                className="input text-xs flex-1"
-              />
-              <button
-                type="button"
-                onClick={handleAddSkill}
-                className="btn btn-secondary text-xs py-1 px-3 shrink-0"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-
-          {/* Submit */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary text-xs py-1.5 px-4"
-              disabled={submitting}
+          )}
+          <div className="flex gap-2">
+            <Input
+              id="qo-skill"
+              type="text"
+              placeholder="Add a skill (e.g. React, Python, Figma)"
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddSkill();
+                }
+              }}
+              className="h-10 min-w-0 flex-1 md:h-[34px]"
+            />
+            <Button
+              variant="secondary"
+              onClick={handleAddSkill}
+              icon={<Plus aria-hidden />}
+              className="h-10 shrink-0 md:h-[34px]"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn btn-primary text-xs py-2 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Saving Profile...</span>
-                </>
-              ) : (
-                <>
-                  <span>🚀 Complete Profile & Get Verified</span>
-                </>
-              )}
-            </button>
+              Add
+            </Button>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Dialog>
   );
 }

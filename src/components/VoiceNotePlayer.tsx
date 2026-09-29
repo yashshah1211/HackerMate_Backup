@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface VoiceNotePlayerProps {
   src: string;
@@ -59,36 +61,23 @@ export default function VoiceNotePlayer({ src, duration, isMine }: VoiceNotePlay
   const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
 
   return (
-    <div
-      className={`flex items-center gap-3 p-2.5 rounded-xl border my-1 max-w-[260px] select-none ${
-        isMine
-          ? "bg-violet-700/50 border-violet-500/40 text-white"
-          : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200"
-      }`}
-    >
+    <div className="my-0.5 flex w-[220px] max-w-full select-none items-center gap-3 text-ink-2">
       {/* Play/Pause Button */}
       <button
+        type="button"
         onClick={togglePlay}
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
-          isMine
-            ? "bg-white text-violet-700 hover:bg-zinc-100"
-            : "bg-violet-600 text-white hover:bg-violet-500"
-        }`}
-      >
-        {isPlaying ? (
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75zm10.5 0a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75z" clipRule="evenodd" />
-          </svg>
-        ) : (
-          <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-          </svg>
+        aria-label={isPlaying ? "Pause voice note" : "Play voice note"}
+        className={cn(
+          "inline-flex size-9 shrink-0 items-center justify-center rounded-full text-ink ring-1 ring-inset ring-line-strong transition-colors hover:ring-ink-4 active:scale-95 [&_svg]:size-4",
+          isMine ? "bg-canvas" : "bg-raised",
         )}
+      >
+        {isPlaying ? <Pause aria-hidden /> : <Play className="ml-0.5" aria-hidden />}
       </button>
 
       {/* Waveform / Progress bar */}
-      <div className="flex-1 flex flex-col justify-center gap-1 min-w-0">
-        <div className="flex items-center gap-0.5 h-4">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <div className="flex h-4 items-center gap-0.5" aria-hidden>
           {[40, 70, 90, 60, 100, 50, 80, 60, 75, 45, 95, 70, 50, 85, 60].map((h, i) => {
             const barProgress = (i / 15) * 100;
             const isFilled = progressPercent >= barProgress;
@@ -96,21 +85,13 @@ export default function VoiceNotePlayer({ src, duration, isMine }: VoiceNotePlay
               <div
                 key={i}
                 style={{ height: `${h}%` }}
-                className={`w-1 rounded-full transition-colors duration-100 ${
-                  isFilled
-                    ? isMine
-                      ? "bg-white"
-                      : "bg-violet-600 dark:bg-violet-400"
-                    : isMine
-                      ? "bg-violet-400/50"
-                      : "bg-zinc-200 dark:bg-zinc-700"
-                }`}
+                className={cn("w-1 rounded-full transition-colors duration-100", isFilled ? "bg-ink-2" : "bg-line-strong")}
               />
             );
           })}
         </div>
 
-        <div className="flex justify-between items-center text-[9px] font-mono opacity-80">
+        <div className="flex items-center justify-between font-mono text-[11px] text-ink-3 tabular">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(totalDuration)}</span>
         </div>

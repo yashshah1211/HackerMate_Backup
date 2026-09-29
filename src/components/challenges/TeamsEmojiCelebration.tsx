@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Plus, X, Smile, Zap } from "lucide-react";
+import { CheckCircle2, Plus, X } from "lucide-react";
+import { Tape } from "@/components/system";
+import { cn } from "@/lib/utils";
 
 interface FloatingEmoji {
   id: number;
@@ -26,26 +28,27 @@ export const CELEBRATION_THEMES: Record<string, { name: string; emoji: string; i
   heart: { name: "❤️ Heart", emoji: "❤️", icon: "❤️" },
 };
 
+// No star / sparkle emojis (workspace rule). Star-struck face removed.
 const EXTENDED_EMOJIS = [
-  "👏", "🚀", "🏆", "💯", "🔥", "❤️", "🎉", "🥳", "🤩", "🙌",
-  "💡", "🧠", "💎", "⚡", "🎯", "👑", "🥇", "🤖", "💻", "🦄",
-  "🎊", "🛠️", "🌈", "🍕", "☕", "🦾", "👾", "🎖️"
+  "👏", "🚀", "🏆", "💯", "🔥", "❤️", "🎉", "🥳", "🙌", "💡",
+  "🧠", "💎", "⚡", "🎯", "👑", "🥇", "🤖", "💻", "🦄", "🎊",
+  "🛠️", "🌈", "🍕", "☕", "🦾", "👾", "🎖️", "🤝"
 ];
 
 const DEFAULT_QUICK_REACTIONS = [
-  { emoji: "👏", label: "Applause", color: "hover:bg-amber-500/20" },
-  { emoji: "🚀", label: "Rocket", color: "hover:bg-lime-500/20" },
-  { emoji: "🏆", label: "Trophy", color: "hover:bg-yellow-500/20" },
-  { emoji: "💯", label: "100", color: "hover:bg-rose-500/20" },
-  { emoji: "🔥", label: "Fire", color: "hover:bg-orange-500/20" },
-  { emoji: "❤️", label: "Heart", color: "hover:bg-pink-500/20" },
+  { emoji: "👏", label: "Applause" },
+  { emoji: "🚀", label: "Rocket" },
+  { emoji: "🏆", label: "Trophy" },
+  { emoji: "💯", label: "100" },
+  { emoji: "🔥", label: "Fire" },
+  { emoji: "❤️", label: "Heart" },
 ];
 
 export function TeamsEmojiCelebration({
   active = false,
   theme = "default",
   customEmojis,
-  message = "🎉 Solution Received! Pitch Evaluated by AI Jury 🚀",
+  message = "Your deck has been scored.",
   onComplete,
 }: {
   active: boolean;
@@ -90,29 +93,33 @@ export function TeamsEmojiCelebration({
   if (!active && particles.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none flex flex-col items-center justify-center overflow-hidden">
-      {/* Dim overlay with soft glow */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs animate-fade-in pointer-events-auto" />
+    <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden px-4">
+      {/* Scrim */}
+      <div className="pointer-events-auto absolute inset-0 bg-[var(--hm-scrim)] animate-fade-in" />
 
-      {/* Microsoft Teams Style Pop Pill Toast */}
-      <div className="relative z-10 px-6 py-4 rounded-2xl bg-zinc-900/95 border border-lime-500/60 shadow-2xl shadow-lime-500/30 text-white flex items-center gap-3 animate-teams-pop pointer-events-auto">
-        <div className="w-10 h-10 rounded-full bg-lime-500/20 border border-lime-500 flex items-center justify-center text-xl animate-bounce">
+      {/* Toast */}
+      <div
+        role="status"
+        className="pointer-events-auto relative z-10 flex w-full max-w-sm items-center gap-3 rounded-lg border border-line bg-overlay px-4 py-3.5 shadow-pop animate-teams-pop"
+      >
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-soft text-xl" aria-hidden>
           {CELEBRATION_THEMES[theme]?.icon || "🎉"}
-        </div>
-        <div>
-          <div className="font-extrabold text-sm sm:text-base text-zinc-100 flex items-center gap-1.5">
-            <span>Solution Submitted!</span>
-            <span className="px-2 py-0.5 rounded-full bg-lime-500/20 text-lime-400 font-mono text-[10px]">100% Evaluated</span>
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[14px] font-semibold text-ink">Deck submitted</span>
+            <Tape tone="ok" icon={<CheckCircle2 />}>Scored</Tape>
           </div>
-          <p className="text-xs text-zinc-300 font-medium mt-0.5">{message}</p>
+          <p className="mt-0.5 text-[12.5px] text-ink-2">{message}</p>
         </div>
       </div>
 
-      {/* Floating Animated Emojis */}
+      {/* Floating emojis */}
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute bottom-0 text-center select-none"
+          aria-hidden
+          className="absolute bottom-0 select-none text-center"
           style={{
             left: `${p.left}%`,
             fontSize: `${p.size}px`,
@@ -128,7 +135,7 @@ export function TeamsEmojiCelebration({
 }
 
 /**
- * Microsoft Teams Style Floating Reaction Toolbar with Emoji Picker
+ * Floating reaction toolbar with an emoji picker.
  */
 export function TeamsLiveReactionBar() {
   const [floatingList, setFloatingList] = useState<FloatingEmoji[]>([]);
@@ -175,53 +182,50 @@ export function TeamsLiveReactionBar() {
 
   return (
     <>
-      {/* Teams Floating Reaction Bar */}
-      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-1 p-1.5 rounded-2xl bg-zinc-900/90 dark:bg-zinc-950/90 border border-zinc-700/80 dark:border-zinc-800 shadow-2xl backdrop-blur-md transition-all hover:scale-[1.02]">
-        <span className="text-[10px] font-mono text-zinc-400 uppercase px-2 font-semibold hidden sm:inline-block">
-          React:
-        </span>
+      <div className="fixed bottom-[calc(var(--hm-tabbar-h)+env(safe-area-inset-bottom)+12px)] right-4 z-40 flex items-center gap-0.5 rounded-lg border border-line bg-overlay p-1 shadow-pop md:bottom-6 md:right-6">
+        <span className="hidden px-2 caps-label text-ink-3 sm:inline-block">React</span>
         {DEFAULT_QUICK_REACTIONS.map((r) => (
           <button
             key={r.emoji}
             type="button"
             title={r.label}
+            aria-label={r.label}
             onClick={() => spawnEmoji(r.emoji)}
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl transition-all active:scale-125 cursor-pointer hover:bg-zinc-800/80 ${
-              r.color
-            } ${lastClicked === r.emoji ? "scale-125 bg-lime-500/20" : ""}`}
+            className={cn(
+              "flex size-9 items-center justify-center rounded-md text-lg transition-transform hover:bg-hover active:scale-110",
+              lastClicked === r.emoji && "scale-110 bg-selected",
+            )}
           >
-            <span className="transition-transform hover:scale-125 select-none">{r.emoji}</span>
+            <span className="select-none">{r.emoji}</span>
           </button>
         ))}
 
-        {/* Custom / More Reactions Picker Trigger */}
         <div className="relative" ref={pickerRef}>
           <button
             type="button"
-            title="More Reactions"
+            title="More reactions"
+            aria-label="More reactions"
+            aria-expanded={showPicker}
             onClick={() => setShowPicker(!showPicker)}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+            className="flex size-9 items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="size-4" />
           </button>
 
-          {/* Emoji Palette Popover */}
           {showPicker && (
-            <div className="absolute bottom-12 right-0 p-3 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl backdrop-blur-md w-64 animate-teams-pop">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800 text-xs font-semibold text-zinc-300">
-                <span className="flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-lime-400" />
-                  <span>Choose Reaction</span>
-                </span>
+            <div className="absolute bottom-11 right-0 w-64 rounded-lg border border-line bg-overlay p-2.5 shadow-pop animate-teams-pop">
+              <div className="mb-2 flex items-center justify-between border-b border-line pb-2">
+                <span className="caps-label text-ink-3">Choose reaction</span>
                 <button
                   type="button"
                   onClick={() => setShowPicker(false)}
-                  className="text-zinc-500 hover:text-zinc-300"
+                  aria-label="Close reactions"
+                  className="inline-flex size-7 items-center justify-center rounded-[5px] text-ink-3 hover:bg-hover hover:text-ink"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="size-3.5" />
                 </button>
               </div>
-              <div className="grid grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-6 gap-1">
                 {EXTENDED_EMOJIS.map((em) => (
                   <button
                     key={em}
@@ -230,7 +234,7 @@ export function TeamsLiveReactionBar() {
                       spawnEmoji(em);
                       setShowPicker(false);
                     }}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-base hover:bg-zinc-800 transition hover:scale-125 cursor-pointer"
+                    className="flex size-9 items-center justify-center rounded-md text-base hover:bg-hover"
                   >
                     <span className="select-none">{em}</span>
                   </button>
@@ -241,8 +245,7 @@ export function TeamsLiveReactionBar() {
         </div>
       </div>
 
-      {/* Render Floating Reaction Emojis Across Screen */}
-      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden>
         {floatingList.map((p) => (
           <div
             key={p.id}

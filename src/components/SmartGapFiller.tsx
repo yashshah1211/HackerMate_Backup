@@ -2,18 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  Users,
-  UserPlus,
-  CheckCircle2,
-  AlertCircle,
-  Shield,
-  Layers,
-  ExternalLink,
-  Award,
-  Code2,
-} from "lucide-react";
+import { Users, UserPlus, CheckCircle2, TriangleAlert, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
+import {
+  Avatar,
+  Button,
+  ButtonLink,
+  Chip,
+  EmptyState,
+  ErrorNotice,
+  List,
+  Panel,
+  SeatMeter,
+  Skeleton,
+  Tape,
+} from "@/components/system";
 
 interface MemberProfile {
   id: string;
@@ -103,11 +107,14 @@ export default function SmartGapFiller({
       );
 
       // 1. Fetch pending team invites to avoid showing builders already invited
-      const { data: existingInvites } = await supabase
+      const { data: existingInvites, error: invitesErr } = await supabase
         .from("team_invites")
         .select("invited_user_id, status")
         .eq("team_id", teamId)
         .in("status", ["pending", "accepted"]);
+
+      // Keep the real reason visible; the list below still renders without it.
+      if (invitesErr) console.error("[SmartGapFiller] Error fetching existing invites:", invitesErr);
 
       const pendingInviteUserIds = new Set(
         (existingInvites || []).map((inv: any) => inv.invited_user_id)
@@ -240,6 +247,7 @@ export default function SmartGapFiller({
       });
 
       if (inviteErr) {
+        console.error("[SmartGapFiller] Invite insert failed:", inviteErr);
         setErrorMsg(inviteErr.message || "Failed to dispatch team invitation.");
       } else {
         setInvitedIds((prev) => new Set([...Array.from(prev), candidateId]));
@@ -252,262 +260,190 @@ export default function SmartGapFiller({
     }
   }
 
+  // SIH rules as a compact checklist (presentation only; values come from the deficit analysis above).
+  const checks: { ok: boolean; label: string; detail: ReactNode }[] = [
+    {
+      ok: memberCount >= 6,
+      label: "6 members",
+      detail: <SeatMeter filled={Math.min(memberCount, 6)} total={6} />,
+    },
+    {
+      ok: hasFemaleBuilder,
+      label: "At least one woman on the team",
+      detail: <span className="text-[12px] text-ink-3">{hasFemaleBuilder ? "Met" : "Required for SIH"}</span>,
+    },
+  ];
+
+  const checklist = (
+    <Panel as="section" className="min-w-0">
+      <div className="border-b border-line px-4 py-3">
+        <h3 className="text-[13.5px] font-semibold text-ink">SIH checks</h3>
+      </div>
+      <List className="px-4">
+        {checks.map((c) => (
+          <li key={c.label} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5">
+            <span className="flex min-w-0 items-center gap-2 text-[13px] text-ink-2">
+              {c.ok ? (
+                <CheckCircle2 className="size-4 shrink-0 text-ok" aria-label="Met" />
+              ) : (
+                <TriangleAlert className="size-4 shrink-0 text-warn" aria-label="Not met" />
+              )}
+              <span className="min-w-0">{c.label}</span>
+            </span>
+            {c.detail}
+          </li>
+        ))}
+        {memberCount >= 6 ? (
+          <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5">
+            <span className="flex min-w-0 items-center gap-2 text-[13px] text-ink-2">
+              <CheckCircle2 className="size-4 shrink-0 text-ok" aria-label="Met" />
+              <span className="min-w-0">Skills on the team</span>
+            </span>
+            <span className="font-mono text-[12px] text-ink-3 tabular">{allTeamSkills.size} distinct</span>
+          </li>
+        ) : (
+          targetSkills.length > 0 && (
+            <li className="py-2.5">
+              <p className="text-[12.5px] text-ink-3">Skills the team asked for</p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {targetSkills.map((ts, idx) => (
+                  <Chip key={idx}>{ts}</Chip>
+                ))}
+              </div>
+            </li>
+          )
+        )}
+      </List>
+    </Panel>
+  );
+
   // If squad is full (6/6 members), show full squad assembled state
   if (memberCount >= 6) {
     return (
-      <div className="rounded-2xl p-6 sm:p-8 border border-emerald-500/30 bg-gradient-to-br from-emerald-50/60 via-white to-zinc-50 dark:from-emerald-950/20 dark:via-zinc-950/80 dark:to-black shadow-xs space-y-6 text-left">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="badge bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs px-2.5 py-0.5 font-bold font-mono">
-                SQUAD COMPLETE • 6/6 MEMBERS
-              </span>
-            </div>
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
-              🎉 Full Roster Assembled for {teamName}
-            </h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 max-w-xl leading-relaxed">
-              Your squad has reached the maximum 6-member limit required for Smart India Hackathon (SIH) and major hackathons. All team slots are officially filled.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-            <Award className="w-8 h-8 text-emerald-500" />
-            <div>
-              <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white block">
-                SIH Roster Ready
-              </span>
-              <span className="text-[11px] text-zinc-500">6 Members on Board</span>
-            </div>
-          </div>
+      <div className="space-y-5 text-left">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="min-w-0 text-[13px] text-ink-3">
+            {teamName} has all 6 seats filled, the most SIH and most hackathons allow.
+          </p>
+          <Tape tone="ok" icon={<CheckCircle2 />}>
+            Squad complete
+          </Tape>
         </div>
-
-        {/* Squad Status Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-            <div>
-              <span className="text-xs font-bold text-zinc-900 dark:text-white block">Full 6 Members</span>
-              <span className="text-[10px] text-zinc-500">Maximum squad limit reached</span>
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center gap-3">
-            {hasFemaleBuilder ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-            )}
-            <div>
-              <span className="text-xs font-bold text-zinc-900 dark:text-white block">
-                {hasFemaleBuilder ? "Female Builder Rule Met" : "Gender Balance Alert"}
-              </span>
-              <span className="text-[10px] text-zinc-500">
-                {hasFemaleBuilder ? "Mandatory SIH criteria satisfied" : "SIH mandates >= 1 female teammate"}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-            <div>
-              <span className="text-xs font-bold text-zinc-900 dark:text-white block">Tech Roles Covered</span>
-              <span className="text-[10px] text-zinc-500">{allTeamSkills.size} unique competencies</span>
-            </div>
-          </div>
-        </div>
+        {checklist}
       </div>
     );
   }
 
+  const openSeats = 6 - memberCount;
+
   return (
-    <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs space-y-5 text-left">
-      {/* Section Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-xs px-2.5 py-0.5 font-bold font-mono">
-              Squad matcher
-            </span>
-            <span className="text-xs text-zinc-500">
-              {6 - memberCount} slot{6 - memberCount > 1 ? "s" : ""} open
-            </span>
-          </div>
-          <h3 className="text-base font-bold text-zinc-900 dark:text-white mt-1">
-            Builders who have the skills you&apos;re missing
-          </h3>
-          <p className="text-xs text-zinc-500">
-            HackerMate matches active builders who have completed their profiles and possess the specific skills required by {teamName}.
-          </p>
-        </div>
+    <div className="space-y-5 text-left">
+      {/* Description + action */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 text-[13px] text-ink-3">
+          <span className="font-mono text-ink-2 tabular">{openSeats}</span> seat{openSeats > 1 ? "s" : ""} open · builders with the skills {teamName} asked for
+        </p>
+        <ButtonLink href="/developers" variant="secondary" size="sm" iconRight={<ArrowRight />} className="h-9 md:h-7">
+          Browse all builders
+        </ButtonLink>
       </div>
 
-      {/* Required Skills & Deficits Bar */}
-      <div className="space-y-2">
-        {targetSkills.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 font-mono">
-              Team Required Skills:
-            </span>
-            {targetSkills.map((ts, idx) => (
-              <span
-                key={idx}
-                className="text-xs px-2.5 py-0.5 rounded-md bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/80 text-violet-700 dark:text-violet-300 font-mono font-medium"
-              >
-                {ts}
-              </span>
-            ))}
-          </div>
-        )}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+        {/* Checklist first on mobile (context), right rail on desktop. */}
+        <div className="min-w-0 lg:order-2">{checklist}</div>
 
-        {!hasFemaleBuilder && (
-          <div className="flex items-center gap-2">
-            <span className="badge bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 text-xs px-2.5 py-1 flex items-center gap-1.5 font-medium">
-              <Shield className="w-3.5 h-3.5" />
-              SIH requires at least one woman on the team
-            </span>
-          </div>
-        )}
-      </div>
+        <div className="min-w-0 space-y-3 lg:order-1">
+          {errorMsg && <ErrorNotice title="Something went wrong" detail={errorMsg} />}
 
-      {errorMsg && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+          {/* Candidate recommendations */}
+          {loading ? (
+            <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2" aria-busy="true" aria-label="Loading suggestions">
+              {[1, 2].map((i) => (
+                <li key={i} className="rounded-lg border border-line bg-raised p-3">
+                  <div className="flex items-center gap-2.5">
+                    <Skeleton className="size-9 shrink-0 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-2.5 w-2/3" />
+                    </div>
+                  </div>
+                  <Skeleton className="mt-3 h-2.5 w-3/4" />
+                </li>
+              ))}
+            </ul>
+          ) : candidates.length === 0 ? (
+            <EmptyState
+              icon={<Users />}
+              title="No matching builders right now"
+              body="Add more skills in team settings, or look through everyone on the Builders page."
+              action={
+                <ButtonLink href="/developers" variant="secondary" size="sm" className="h-9 md:h-7">
+                  Browse all builders
+                </ButtonLink>
+              }
+            />
+          ) : (
+            <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+              {candidates.map((c) => {
+                const isInvited = invitedIds.has(c.id);
+                const isInviting = invitingId === c.id;
 
-      {/* Candidate Recommendation Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 animate-pulse h-28" />
-          ))}
-        </div>
-      ) : candidates.length === 0 ? (
-        <div className="text-center py-10 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
-          <Code2 className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-zinc-900 dark:text-white">No Matching Candidates Found</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-            Try adding more required skills in Team Settings or explore all active developers on the Builders page.
-          </p>
-          <Link href="/developers" className="btn btn-secondary btn-sm text-xs mt-4 inline-flex items-center gap-1.5">
-            <span>Browse All Builders →</span>
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {candidates.map((c) => {
-            const isInvited = invitedIds.has(c.id);
-            const isInviting = invitingId === c.id;
-
-            return (
-              <div
-                key={c.id}
-                className="p-4 bg-zinc-50/70 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 rounded-xl hover:border-violet-300 dark:hover:border-violet-500/40 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-300 dark:border-violet-700/50 flex items-center justify-center font-bold text-violet-700 dark:text-violet-300 text-sm overflow-hidden flex-shrink-0">
-                        {c.avatar_url ? (
-                          <img src={c.avatar_url} alt={c.full_name} className="w-full h-full object-cover" />
-                        ) : (
-                          c.full_name.charAt(0).toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0">
+                return (
+                  <li key={c.id} className="min-w-0 rounded-lg border border-line bg-raised p-3">
+                    <div className="flex items-start gap-2.5">
+                      <Avatar name={c.full_name} src={c.avatar_url} size="md" />
+                      <div className="min-w-0 flex-1">
                         <Link
                           href={`/profile/${c.id}`}
-                          className="text-sm font-bold text-zinc-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors flex min-w-0 items-center gap-1"
+                          className="block truncate text-[13.5px] font-semibold text-ink hover:underline hover:decoration-line-strong hover:underline-offset-4"
                         >
-                          <span className="truncate">{c.full_name}</span>
-                          <ExternalLink className="w-3 h-3 shrink-0 text-zinc-400" />
+                          {c.full_name}
                         </Link>
-                        <p className="text-xs text-zinc-500 truncate">{c.college}</p>
+                        <p className="truncate text-[12px] text-ink-3">
+                          {c.college} · <span className="font-mono tabular">{c.matchScore}%</span> match
+                        </p>
                       </div>
+
+                      {isOwnerOrMember &&
+                        (isInvited ? (
+                          <Button variant="ghost" size="sm" icon={<CheckCircle2 className="text-ok" />} disabled className="h-9 shrink-0 md:h-7">
+                            Invited
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<UserPlus />}
+                            loading={isInviting}
+                            onClick={() => handleSendInvite(c.id)}
+                            className="h-9 shrink-0 md:h-7"
+                          >
+                            {isInviting ? "Sending" : "Invite"}
+                          </Button>
+                        ))}
                     </div>
 
-                    <div className="flex flex-col items-end flex-shrink-0">
-                      <span className="badge bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs px-2 py-0.5 font-bold font-mono">
-                        {c.matchScore}% Match
-                      </span>
+                    {/* Why this builder */}
+                    <p className="mt-2 flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-2">
+                      <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                      <span className="min-w-0">{c.matchReasons.join(" · ")}</span>
+                    </p>
+
+                    {/* Skills, with the ones the team asked for highlighted */}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {c.skills.slice(0, 5).map((skill, sIdx) => (
+                        <Chip key={sIdx} active={c.matchedSkills.includes(skill)}>
+                          {skill}
+                        </Chip>
+                      ))}
                     </div>
-                  </div>
-
-                  {/* Match Reason Tags */}
-                  <div className="flex flex-wrap gap-1.5 my-2.5">
-                    {c.matchReasons.map((r, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[10px] px-2 py-0.5 rounded font-medium bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300"
-                      >
-                        {r}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Skills tags with highlighted matching skills */}
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {c.skills.slice(0, 5).map((skill, sIdx) => {
-                      const isMatching = c.matchedSkills.includes(skill);
-                      return (
-                        <span
-                          key={sIdx}
-                          className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium ${
-                            isMatching
-                              ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-bold"
-                              : "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400"
-                          }`}
-                        >
-                          {isMatching ? `✓ ${skill}` : skill}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Invite Action */}
-                <div className="pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
-                  <Link
-                    href={`/profile/${c.id}`}
-                    className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                  >
-                    View Full Profile
-                  </Link>
-
-                  {isOwnerOrMember && (
-                    <button
-                      type="button"
-                      disabled={isInvited || isInviting}
-                      onClick={() => handleSendInvite(c.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        isInvited
-                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "btn btn-primary shadow-xs"
-                      }`}
-                    >
-                      {isInvited ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>Invite Pending</span>
-                        </>
-                      ) : isInviting ? (
-                        <span>Sending Invite...</span>
-                      ) : (
-                        <>
-                          <UserPlus className="w-3.5 h-3.5" />
-                          <span>Invite to Team</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -3,9 +3,28 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Download, Megaphone, PenLine, Plus, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
+import {
+  Button,
+  Chip,
+  Dialog,
+  EmptyState,
+  FieldLabel,
+  IconButton,
+  Input,
+  Page,
+  PageHeader,
+  PageLoader,
+  Section,
+  SearchField,
+  Select,
+  Stat,
+  Tape,
+  Textarea,
+} from "@/components/system";
 
 type Hackathon = {
   id: string;
@@ -143,6 +162,7 @@ export default function OrganizerPortalPage() {
         .single();
 
       if (hackathonErr || !hackathonData) {
+        if (hackathonErr) console.error("Failed to load hackathon for organizer portal:", hackathonErr);
         showToast("Hackathon not found.", "error");
         router.push("/hackathons");
         return;
@@ -190,31 +210,34 @@ export default function OrganizerPortalPage() {
       }
 
       // 3. Fetch custom resources
-      const { data: resData } = await supabase
+      const { data: resData, error: resErr } = await supabase
         .from("hackathon_resources")
         .select("*")
         .eq("hackathon_id", hackathonId)
         .order("created_at", { ascending: false });
 
+      if (resErr) console.error("Failed to load hackathon resources:", resErr);
       setResources(resData || []);
 
       // 4. Fetch hackathon stages
-      const { data: stageData } = await supabase
+      const { data: stageData, error: stageErr } = await supabase
         .from("hackathon_stages")
         .select("*")
         .eq("hackathon_id", hackathonId)
         .order("sort_order", { ascending: true })
         .order("start_time", { ascending: true });
 
+      if (stageErr) console.error("Failed to load hackathon stages:", stageErr);
       setStages(stageData || []);
 
       // 5. Fetch announcements
-      const { data: announceData } = await supabase
+      const { data: announceData, error: announceErr } = await supabase
         .from("hackathon_announcements")
         .select("*, hackathon_stages:linked_stage_id(title)")
         .eq("hackathon_id", hackathonId)
         .order("created_at", { ascending: false });
 
+      if (announceErr) console.error("Failed to load announcements:", announceErr);
       setAnnouncements(announceData || []);
     } catch (err) {
       console.error(err);
@@ -469,12 +492,9 @@ export default function OrganizerPortalPage() {
   if (loading) {
     return (
       <AuthGuard>
-        <main className="max-w-7xl mx-auto px-6 pt-32 pb-16">
-          <div className="flex flex-col items-center justify-center min-h-[40vh]">
-            <div className="w-8 h-8 border-2 border-zinc-800 border-t-[#B4F461] rounded-full animate-spin mb-4" />
-            <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading Organizer Portal...</p>
-          </div>
-        </main>
+        <Page>
+          <PageLoader label="Loading organizer portal" />
+        </Page>
       </AuthGuard>
     );
   }
@@ -494,654 +514,481 @@ export default function OrganizerPortalPage() {
     return name.includes(q) || college.includes(q) || email.includes(q);
   });
 
+  const teamRuleLabel =
+    hackathon?.min_team_size === 1 && hackathon?.max_team_size === 1
+      ? "Solo only"
+      : hackathon?.min_team_size && hackathon?.max_team_size
+        ? `${hackathon.min_team_size}–${hackathon.max_team_size} members`
+        : hackathon?.max_team_size
+          ? `Up to ${hackathon.max_team_size} members`
+          : "Flexible team size";
+
+  const stageTone: Record<string, "info" | "neutral" | "bad" | "warn"> = {
+    ceremony: "info",
+    checkpoint: "neutral",
+    deadline: "bad",
+    judging: "warn",
+    other: "neutral",
+  };
+  const dateOpts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+
+  const statusTape = (reg: Registration) =>
+    reg.status === "waitlisted" ? <Tape tone="warn">Waitlisted</Tape> : <Tape tone="ok">Confirmed</Tape>;
+
+  const teamStatus = (reg: Registration) =>
+    reg.teams ? (
+      <Link href={`/teams/${reg.teams.id}`} className="min-w-0 truncate text-[12.5px] font-medium text-ink hover:underline decoration-line-strong underline-offset-4">
+        {reg.teams.name}
+      </Link>
+    ) : reg.looking_for_team ? (
+      <Tape tone="accent">Looking for team</Tape>
+    ) : (
+      <span className="text-[12.5px] text-ink-3">Solo</span>
+    );
+
+  const registeredOn = (reg: Registration) =>
+    new Date(reg.created_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
   return (
     <AuthGuard>
-      <main className="max-w-7xl mx-auto px-6 pt-28 pb-16">
-        {/* Back Link to Hackathon Detail Page */}
-        <div className="mb-6 animate-fade-in-up">
-          <Link
-            href={`/hackathons/${hackathonId}`}
-            className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors font-medium"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-            </svg>
-            <span>Back to {hackathon.name}</span>
+      <Page>
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center pt-5 text-[12.5px] text-ink-3 md:pt-6">
+          <Link href={`/hackathons/${hackathonId}`} className="inline-flex min-w-0 items-center gap-1.5 hover:text-ink">
+            <ArrowLeft className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">Back to {hackathon.name}</span>
           </Link>
+        </nav>
+
+        <PageHeader
+          className="pt-4 md:pt-5"
+          eyebrow="Organizer portal"
+          title={<span className="break-words [overflow-wrap:anywhere]">{hackathon.name}</span>}
+          meta="Participant roster, announcements, schedule and resource links."
+          actions={
+            <>
+              <Button variant="secondary" icon={<Plus />} onClick={() => setShowAddResourceModal(true)}>
+                Add resource
+              </Button>
+              <Button variant="primary" icon={<Download />} onClick={() => handleExportCSV(filteredRegs)}>
+                Export CSV
+              </Button>
+            </>
+          }
+        />
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-line py-5 sm:grid-cols-4">
+          <Stat
+            label="Confirmed"
+            value={confirmedCount}
+            hint={maxCap !== null && maxCap !== undefined ? `of ${maxCap} places` : "Unlimited places"}
+          />
+          <Stat label="Waitlisted" value={waitlistedCount} />
+          <Stat label="Matched teams" value={registrations.filter((r) => r.teams !== null).length} />
+          <Stat
+            label="Rounds"
+            value={hackathon?.rounds_count || 1}
+            hint={teamRuleLabel}
+          />
         </div>
 
-        {/* Portal Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-zinc-800/80 animate-fade-in-up">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase font-semibold">
-                ORGANIZER PORTAL
-              </span>
-              <span className="text-xs text-zinc-500">•</span>
-              <span className="text-xs text-zinc-400 font-mono">{hackathon.name}</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-              Event Management & Participant Roster
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAddResourceModal(true)}
-              className="btn btn-secondary btn-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>+ Add Resource Link</span>
-            </button>
-
-            <button
-              onClick={() => handleExportCSV(filteredRegs)}
-              className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>📥 Export CSV</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Stats & Capacity Banners Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="p-5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 text-lg">
-              ✓
-            </div>
-            <div>
-              <span className="text-xs text-zinc-400 font-mono uppercase block">Confirmed Registrations</span>
-              <span className="text-xl font-bold text-white">
-                {confirmedCount} {maxCap !== null && maxCap !== undefined ? `/ ${maxCap}` : "(Unlimited)"}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400 text-lg">
-              ⏳
-            </div>
-            <div>
-              <span className="text-xs text-zinc-400 font-mono uppercase block">Waitlisted Participants</span>
-              <span className="text-xl font-bold text-white">{waitlistedCount}</span>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400 text-lg">
-              👥
-            </div>
-            <div>
-              <span className="text-xs text-zinc-400 font-mono uppercase block">Matched Teams</span>
-              <span className="text-xl font-bold text-white">
-                {registrations.filter((r) => r.teams !== null).length}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800/60 flex items-center justify-center text-purple-700 dark:text-purple-400 text-lg">
-              🏆
-            </div>
-            <div>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase block">Rounds & Team Rules</span>
-              <span className="text-base font-bold text-zinc-900 dark:text-white block">
-                {hackathon?.rounds_count || 1} {(hackathon?.rounds_count || 1) === 1 ? "Round" : "Rounds"}
-              </span>
-              <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-semibold">
-                {hackathon?.min_team_size === 1 && hackathon?.max_team_size === 1
-                  ? "Solo Only"
-                  : hackathon?.min_team_size && hackathon?.max_team_size
-                  ? `${hackathon.min_team_size}–${hackathon.max_team_size} Members`
-                  : hackathon?.max_team_size
-                  ? `Up to ${hackathon.max_team_size} Members`
-                  : "Flexible (No Rule Published)"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 1: Participant Roster */}
-        <div className="card card-static p-6 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-            <div>
-              <h2 className="text-base font-bold text-white">Registered Participants ({registrations.length})</h2>
-              <p className="text-xs text-zinc-400">Search and manage all builders who signed up for this event.</p>
-            </div>
-
-            <input
-              type="text"
-              placeholder="Search by name, college, or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input text-xs w-full sm:w-72"
-            />
-          </div>
-
-          {filteredRegs.length === 0 ? (
-            <div className="text-center py-10 border border-dashed border-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500 font-mono">
-                {search ? "No participants match your search query." : "No registered participants yet."}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto border border-zinc-800/80 rounded-xl">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-zinc-800 bg-zinc-900/40 text-zinc-400 font-mono uppercase tracking-wider text-[10px]">
-                    <th className="py-3.5 px-4">Participant</th>
-                    <th className="py-3.5 px-4">College</th>
-                    <th className="py-3.5 px-4">Skills</th>
-                    <th className="py-3.5 px-4">Registration Status</th>
-                    <th className="py-3.5 px-4">Team Status</th>
-                    <th className="py-3.5 px-4 text-right">Registered</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60">
-                  {filteredRegs.map((reg) => {
-                    const isWaitlisted = reg.status === "waitlisted";
-                    return (
-                      <tr key={reg.id} className="hover:bg-zinc-900/30 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-white">{reg.profiles?.full_name || "Anonymous Builder"}</div>
-                          <span className="text-[11px] text-zinc-400 block mt-0.5">{reg.profiles?.email}</span>
-                        </td>
-                        <td className="py-3.5 px-4 text-zinc-300 font-medium">
-                          {reg.profiles?.college || "N/A"}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-wrap gap-1 max-w-[220px]">
-                            {(reg.profiles?.skills || []).slice(0, 3).map((skill, idx) => (
-                              <span
-                                key={idx}
-                                className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-zinc-800"
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                            {(reg.profiles?.skills || []).length > 3 && (
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-500">
-                                +{(reg.profiles?.skills || []).length - 3}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {isWaitlisted ? (
-                            <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-amber-950 text-amber-400 border border-amber-800/60 inline-flex items-center gap-1 font-semibold">
-                              <span>⏳ Waitlisted</span>
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 inline-flex items-center gap-1 font-semibold">
-                              <span>✓ Confirmed</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {reg.teams ? (
-                            <Link
-                              href={`/teams/${reg.teams.id}`}
-                              className="text-[11px] font-medium text-emerald-400 hover:underline flex items-center gap-1"
-                            >
-                              <span>👥 {reg.teams.name}</span>
-                            </Link>
-                          ) : reg.looking_for_team ? (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/60">
-                              🔍 Looking for Team
-                            </span>
-                          ) : (
-                            <span className="text-zinc-500 text-[11px] italic">Solo</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-zinc-500 text-right font-mono text-[11px]">
-                          {new Date(reg.created_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </td>
+        <div className="mt-8 space-y-12">
+          {/* ── Participant roster ─────────────────────────────── */}
+          <Section
+            title="Registered participants"
+            count={registrations.length}
+            description="Everyone who signed up for this event."
+          >
+            <SearchField value={search} onChange={setSearch} placeholder="Name, college or email" label="Search participants" className="mb-3 w-full sm:max-w-xs" />
+            {filteredRegs.length === 0 ? (
+              <EmptyState
+                icon={<Search />}
+                title={search ? "No participants match your search" : "No registered participants yet"}
+                compact
+              />
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto rounded-lg border border-line bg-raised md:block">
+                  <table className="w-full text-left text-[13px]">
+                    <thead>
+                      <tr className="border-b border-line">
+                        <th className="px-4 py-2.5 font-normal caps-label text-ink-3">Participant</th>
+                        <th className="px-4 py-2.5 font-normal caps-label text-ink-3">College</th>
+                        <th className="px-4 py-2.5 font-normal caps-label text-ink-3">Skills</th>
+                        <th className="px-4 py-2.5 font-normal caps-label text-ink-3">Registration</th>
+                        <th className="px-4 py-2.5 font-normal caps-label text-ink-3">Team</th>
+                        <th className="px-4 py-2.5 text-right font-normal caps-label text-ink-3">Registered</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {filteredRegs.map((reg) => (
+                        <tr key={reg.id} className="transition-colors hover:bg-hover">
+                          <td className="px-4 py-3 align-top">
+                            <div className="font-semibold text-ink">{reg.profiles?.full_name || "Anonymous Builder"}</div>
+                            {reg.profiles?.email && <span className="mt-0.5 block text-[12px] text-ink-3">{reg.profiles.email}</span>}
+                          </td>
+                          <td className="px-4 py-3 align-top text-ink-2">{reg.profiles?.college || "N/A"}</td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex max-w-[240px] flex-wrap gap-1">
+                              {(reg.profiles?.skills || []).slice(0, 3).map((skill, idx) => (
+                                <Chip key={idx}>{skill}</Chip>
+                              ))}
+                              {(reg.profiles?.skills || []).length > 3 && (
+                                <span className="self-center font-mono text-[11px] text-ink-3">+{(reg.profiles?.skills || []).length - 3}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">{statusTape(reg)}</td>
+                          <td className="max-w-[200px] px-4 py-3 align-top">{teamStatus(reg)}</td>
+                          <td className="px-4 py-3 text-right align-top font-mono text-[12px] text-ink-3 tabular">{registeredOn(reg)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-        {/* Section 2: Organizer Announcement Broadcast */}
-        <div className="card card-static p-6 mb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-800/80">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-base font-bold text-white">Broadcast Announcement</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/60 uppercase font-semibold">
-                  Multi-Channel Dispatch
-                </span>
-              </div>
-              <p className="text-xs text-zinc-400">
-                Send an official event announcement via email and in-app notifications to all {registrations.length} registered builder{registrations.length === 1 ? "" : "s"}.
-              </p>
-            </div>
-          </div>
+                {/* Mobile list */}
+                <ul className="divide-y divide-line rounded-lg border border-line bg-raised md:hidden">
+                  {filteredRegs.map((reg) => (
+                    <li key={reg.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[14px] font-semibold text-ink">{reg.profiles?.full_name || "Anonymous Builder"}</p>
+                          <p className="truncate text-[12.5px] text-ink-3">{reg.profiles?.college || "N/A"}</p>
+                        </div>
+                        <span className="shrink-0 font-mono text-[12px] text-ink-3 tabular">{registeredOn(reg)}</span>
+                      </div>
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        {statusTape(reg)}
+                        {teamStatus(reg)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Section>
 
-          <form onSubmit={handleSendBroadcast} className="space-y-4 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="section-label block mb-1.5">Announcement Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Checkpoint 1 Submissions Now Open!"
-                  value={broadcastTitle}
-                  onChange={(e) => setBroadcastTitle(e.target.value)}
-                  className="input text-xs"
-                />
+          {/* ── Broadcast announcement ─────────────────────────── */}
+          <Section
+            title="Broadcast announcement"
+            description={`Sent by email and in-app notification to all ${registrations.length} registered builder${registrations.length === 1 ? "" : "s"}.`}
+          >
+            <form onSubmit={handleSendBroadcast} className="space-y-4 rounded-lg border border-line bg-raised p-4 md:p-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="md:col-span-2">
+                  <FieldLabel htmlFor="broadcast-title">Title</FieldLabel>
+                  <Input
+                    id="broadcast-title"
+                    type="text"
+                    required
+                    placeholder="e.g. Checkpoint 1 submissions are open"
+                    value={broadcastTitle}
+                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="broadcast-stage" hint="optional">
+                    Linked stage
+                  </FieldLabel>
+                  <Select id="broadcast-stage" value={broadcastStageId} onChange={(e) => setBroadcastStageId(e.target.value)}>
+                    <option value="">No stage linked</option>
+                    {stages.map((stg) => (
+                      <option key={stg.id} value={stg.id}>
+                        {stg.title} ({stg.stage_type})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
 
               <div>
-                <label className="section-label block mb-1.5">Link to Schedule Stage (Optional)</label>
-                <select
-                  value={broadcastStageId}
-                  onChange={(e) => setBroadcastStageId(e.target.value)}
-                  className="input text-xs"
+                <FieldLabel htmlFor="broadcast-message">Message</FieldLabel>
+                <Textarea
+                  id="broadcast-message"
+                  rows={4}
+                  required
+                  placeholder="Write the announcement. Every registered participant gets an email and an in-app notification."
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  className="resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-[12.5px] text-ink-3">
+                  Recipients: <span className="font-mono text-ink tabular">{registrations.length}</span> registered participant
+                  {registrations.length === 1 ? "" : "s"}
+                </span>
+                <Button
+                  type="submit"
+                  variant="inverse"
+                  icon={<Megaphone />}
+                  loading={broadcastLoading}
+                  disabled={registrations.length === 0}
+                  className="self-start sm:self-auto"
                 >
-                  <option value="">-- No Stage Linked --</option>
-                  {stages.map((stg) => (
-                    <option key={stg.id} value={stg.id}>
-                      📍 {stg.title} ({stg.stage_type})
-                    </option>
-                  ))}
-                </select>
+                  {broadcastLoading ? "Sending…" : "Send announcement"}
+                </Button>
               </div>
-            </div>
+            </form>
 
-            <div>
-              <label className="section-label block mb-1.5">Announcement Message *</label>
-              <textarea
-                rows={4}
-                required
-                placeholder="Write your announcement details here. All registered participants will receive an email and in-app notification..."
-                value={broadcastMessage}
-                onChange={(e) => setBroadcastMessage(e.target.value)}
-                className="input text-xs resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-[11px] font-mono text-zinc-500">
-                📩 Target Recipients: <strong className="text-white">{registrations.length}</strong> registered participant{registrations.length === 1 ? "" : "s"}
-              </span>
-
-              <button
-                type="submit"
-                disabled={broadcastLoading || registrations.length === 0}
-                className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {broadcastLoading ? (
-                  <span>Broadcasting Announcement...</span>
-                ) : (
-                  <>
-                    <span>📢 Broadcast Announcement</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Broadcast History */}
-          <div className="pt-6 border-t border-zinc-900">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono mb-4">
-              Broadcast History ({announcements.length})
-            </h3>
-
-            {announcements.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-zinc-800 rounded-xl">
-                <p className="text-xs text-zinc-500 font-mono">No broadcasts sent yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {announcements.map((ann) => (
-                  <div
-                    key={ann.id}
-                    className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase font-semibold">
-                          SENT ✓
-                        </span>
-                        <h4 className="text-sm font-bold text-white">{ann.title}</h4>
-                        {ann.hackathon_stages?.title && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-950 text-violet-400 border border-violet-800/60">
-                            📍 {ann.hackathon_stages.title}
-                          </span>
-                        )}
+            <div className="mt-6">
+              <h3 className="mb-2.5 flex items-baseline gap-2 text-[13px] font-semibold text-ink">
+                History
+                <span className="font-mono text-[11.5px] font-normal text-ink-4 tabular">{announcements.length}</span>
+              </h3>
+              {announcements.length === 0 ? (
+                <p className="text-[13px] text-ink-3">No announcements sent yet.</p>
+              ) : (
+                <ul className="divide-y divide-line rounded-lg border border-line">
+                  {announcements.map((ann) => (
+                    <li key={ann.id} className="px-4 py-3.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Tape tone="ok">Sent</Tape>
+                        <h4 className="min-w-0 break-words text-[14px] font-semibold text-ink">{ann.title}</h4>
+                        {ann.hackathon_stages?.title && <Tape>{ann.hackathon_stages.title}</Tape>}
                       </div>
-                      <p className="text-xs text-zinc-400 whitespace-pre-line leading-relaxed mb-2">
-                        {ann.message}
+                      <p className="mt-1.5 whitespace-pre-line break-words text-[13.5px] leading-relaxed text-ink-2">{ann.message}</p>
+                      <p className="mt-1.5 font-mono text-[12px] text-ink-3 tabular">
+                        {ann.sent_at ? new Date(ann.sent_at).toLocaleString("en-US", dateOpts) : "Pending…"}
                       </p>
-                      <span className="text-[10px] font-mono text-zinc-500">
-                        Dispatched: {ann.sent_at ? new Date(ann.sent_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Pending..."}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Section 3: Event Schedule & Stage Builder */}
-        <div className="card card-static p-6 mb-8">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div>
-              <h2 className="text-base font-bold text-white">Event Schedule & Stage Builder</h2>
-              <p className="text-xs text-zinc-400">Define milestone ceremonies, checkpoints, submission deadlines, and judging stages.</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <button
-              onClick={openAddStageModal}
-              className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>+ Add Event Stage</span>
-            </button>
-          </div>
+          </Section>
 
-          {stages.length === 0 ? (
-            <div className="text-center py-8 border border-dashed border-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500 font-mono">No event stages added to schedule yet.</p>
-              <button
-                onClick={openAddStageModal}
-                className="btn btn-secondary btn-sm mt-3 cursor-pointer"
-              >
-                Create First Stage
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {stages.map((stg, idx) => {
-                const typeBadges: Record<string, string> = {
-                  ceremony: "bg-violet-950 text-violet-400 border-violet-800/60",
-                  checkpoint: "bg-blue-950 text-blue-400 border-blue-800/60",
-                  deadline: "bg-rose-950 text-rose-400 border-rose-800/60",
-                  judging: "bg-amber-950 text-amber-400 border-amber-800/60",
-                  other: "bg-zinc-900 text-zinc-400 border-zinc-800",
-                };
-                const badgeClass = typeBadges[stg.stage_type] || typeBadges.other;
-
-                return (
-                  <div
-                    key={stg.id}
-                    className="p-4 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-700/80 transition-all"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col items-center justify-center pt-1">
-                        <button
-                          disabled={idx === 0}
-                          onClick={() => handleMoveStage(stg, "up")}
-                          className="text-zinc-500 hover:text-white disabled:opacity-20 text-xs cursor-pointer p-0.5"
-                          title="Move up"
-                        >
-                          ▲
-                        </button>
-                        <span className="text-[10px] font-mono text-zinc-500">{idx + 1}</span>
-                        <button
+          {/* ── Schedule & stages ──────────────────────────────── */}
+          <Section
+            title="Schedule & stages"
+            count={stages.length}
+            description="Ceremonies, checkpoints, submission deadlines and judging."
+            action={
+              <Button size="sm" variant="secondary" icon={<Plus />} onClick={openAddStageModal}>
+                Add stage
+              </Button>
+            }
+          >
+            {stages.length === 0 ? (
+              <EmptyState
+                title="No stages on the schedule yet"
+                body="Stages show up as a timeline on the public hackathon page."
+                action={
+                  <Button size="sm" variant="secondary" onClick={openAddStageModal}>
+                    Create first stage
+                  </Button>
+                }
+              />
+            ) : (
+              <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
+                {stages.map((stg, idx) => (
+                  <li key={stg.id} className="flex flex-col gap-3 px-3 py-3.5 sm:flex-row sm:items-start sm:justify-between md:px-4">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <div className="flex shrink-0 flex-col items-center">
+                        <IconButton label="Move up" size="sm" disabled={idx === 0} onClick={() => handleMoveStage(stg, "up")} className="disabled:opacity-30">
+                          <ChevronUp />
+                        </IconButton>
+                        <span className="font-mono text-[11px] text-ink-3 tabular">{idx + 1}</span>
+                        <IconButton
+                          label="Move down"
+                          size="sm"
                           disabled={idx === stages.length - 1}
                           onClick={() => handleMoveStage(stg, "down")}
-                          className="text-zinc-500 hover:text-white disabled:opacity-20 text-xs cursor-pointer p-0.5"
-                          title="Move down"
+                          className="disabled:opacity-30"
                         >
-                          ▼
-                        </button>
+                          <ChevronDown />
+                        </IconButton>
                       </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase font-semibold ${badgeClass}`}>
-                            {stg.stage_type}
-                          </span>
-                          <h3 className="text-sm font-bold text-white">{stg.title}</h3>
+                      <div className="min-w-0 pt-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Tape tone={stageTone[stg.stage_type] || "neutral"}>{stg.stage_type}</Tape>
+                          <h3 className="min-w-0 break-words text-[14px] font-semibold text-ink">{stg.title}</h3>
                         </div>
-
-                        {stg.description && (
-                          <p className="text-xs text-zinc-400 mb-2 leading-relaxed">{stg.description}</p>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-500">
-                          <span>
-                            📅 Start: {new Date(stg.start_time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                          </span>
+                        {stg.description && <p className="mt-1 break-words text-[13px] leading-relaxed text-ink-2">{stg.description}</p>}
+                        <p className="mt-1 font-mono text-[12px] text-ink-3 tabular">
+                          {new Date(stg.start_time).toLocaleString("en-US", dateOpts)}
                           {stg.end_time && (
-                            <span>
-                              → End: {new Date(stg.end_time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                            </span>
+                            <>
+                              <span className="mx-1.5 text-ink-4">→</span>
+                              {new Date(stg.end_time).toLocaleString("en-US", dateOpts)}
+                            </>
                           )}
-                        </div>
+                        </p>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 self-end md:self-center">
-                      <button
-                        onClick={() => openEditStageModal(stg)}
-                        className="btn btn-secondary btn-sm text-xs cursor-pointer"
-                      >
+                    <div className="flex shrink-0 items-center gap-1.5 pl-10 sm:pl-0">
+                      <Button size="sm" variant="secondary" icon={<PenLine />} onClick={() => openEditStageModal(stg)}>
                         Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStage(stg.id)}
-                        className="btn btn-danger btn-sm text-xs cursor-pointer"
-                      >
+                      </Button>
+                      <Button size="sm" variant="danger" icon={<Trash2 />} onClick={() => handleDeleteStage(stg.id)}>
                         Delete
-                      </button>
+                      </Button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          {/* ── Resource links ─────────────────────────────────── */}
+          <Section
+            title="Resource links"
+            count={resources.length}
+            description="Challenge docs, API references or slides for participants."
+            action={
+              <Button size="sm" variant="secondary" icon={<Plus />} onClick={() => setShowAddResourceModal(true)}>
+                Add link
+              </Button>
+            }
+          >
+            {resources.length === 0 ? (
+              <p className="text-[13px] text-ink-3">No resource links posted yet.</p>
+            ) : (
+              <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
+                {resources.map((res) => (
+                  <li key={res.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <a
+                        href={res.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full items-start gap-1 text-[13.5px] font-medium text-ink hover:underline decoration-line-strong underline-offset-4"
+                      >
+                        <span className="min-w-0 break-words">{res.title}</span>
+                        <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-ink-4" aria-hidden />
+                      </a>
+                      <span className="mt-0.5 block caps-label text-ink-3">{res.category}</span>
+                    </div>
+                    <button type="button" onClick={() => handleDeleteResource(res.id)} className="shrink-0 text-[12.5px] text-ink-3 hover:text-bad">
+                      Delete
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
         </div>
 
-        {/* Section 3: Custom Resource Management */}
-        <div className="card card-static p-6">
-          <div className="flex items-center justify-between gap-4 mb-4">
+        {/* ── Add resource ─────────────────────────────────────── */}
+        <Dialog
+          open={showAddResourceModal}
+          onClose={() => setShowAddResourceModal(false)}
+          title="Add resource link"
+          description="Link developer docs, slides or guidelines."
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setShowAddResourceModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="organizer-resource-form" variant="primary" loading={resourceLoading}>
+                Add link
+              </Button>
+            </>
+          }
+        >
+          <form id="organizer-resource-form" onSubmit={handleAddResource} className="space-y-4">
             <div>
-              <h2 className="text-base font-bold text-white">Custom Resource Links</h2>
-              <p className="text-xs text-zinc-400">Post challenge docs, API references, or slides for participants.</p>
+              <FieldLabel htmlFor="org-resource-title">Title</FieldLabel>
+              <Input
+                id="org-resource-title"
+                data-autofocus
+                type="text"
+                required
+                placeholder="e.g. Official challenge guidelines"
+                value={resourceTitle}
+                onChange={(e) => setResourceTitle(e.target.value)}
+              />
             </div>
-            <button
-              onClick={() => setShowAddResourceModal(true)}
-              className="btn btn-secondary btn-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>+ Add Link</span>
-            </button>
-          </div>
-
-          {resources.length === 0 ? (
-            <div className="text-center py-6 border border-dashed border-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500 font-mono">No custom resource links posted yet.</p>
+            <div>
+              <FieldLabel htmlFor="org-resource-url">URL</FieldLabel>
+              <Input id="org-resource-url" type="url" required placeholder="https://..." value={resourceUrl} onChange={(e) => setResourceUrl(e.target.value)} />
             </div>
-          ) : (
-            <div className="divide-y divide-zinc-800/60 border border-zinc-800/80 rounded-xl overflow-hidden">
-              {resources.map((res) => (
-                <div key={res.id} className="p-4 bg-zinc-950/40 flex items-center justify-between gap-4 hover:bg-zinc-900/30 transition-colors">
-                  <div>
-                    <a
-                      href={res.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-white hover:text-emerald-400 transition-colors inline-flex items-center gap-1.5"
-                    >
-                      {res.title} ↗
-                    </a>
-                    <span className="text-[10px] font-mono text-zinc-500 block mt-0.5 uppercase">
-                      Category: {res.category}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteResource(res.id)}
-                    className="text-xs font-mono text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
-                  >
-                    Delete Link
-                  </button>
-                </div>
-              ))}
+            <div>
+              <FieldLabel htmlFor="org-resource-category">Category</FieldLabel>
+              <Select id="org-resource-category" value={resourceCategory} onChange={(e) => setResourceCategory(e.target.value)}>
+                <option value="docs">Documentation & Guidelines</option>
+                <option value="apis">APIs & SDKs</option>
+                <option value="starter">Starter Templates</option>
+                <option value="rules">Rules & Judging</option>
+              </Select>
             </div>
-          )}
-        </div>
+          </form>
+        </Dialog>
 
-        {/* Modal: Add Resource */}
-        {showAddResourceModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-fade-in">
-            <div className="card card-static p-6 w-full max-w-md">
-              <h3 className="text-base font-bold text-white mb-1">Add Custom Resource Link</h3>
-              <p className="text-xs text-zinc-400 mb-4">Post a link to developer docs, slides, or guidelines.</p>
-              <form onSubmit={handleAddResource} className="space-y-4">
-                <div>
-                  <label className="section-label block mb-1.5">Resource Title *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Official Challenge Guidelines & Rules"
-                    value={resourceTitle}
-                    onChange={(e) => setResourceTitle(e.target.value)}
-                    className="input text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="section-label block mb-1.5">Resource URL *</label>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://..."
-                    value={resourceUrl}
-                    onChange={(e) => setResourceUrl(e.target.value)}
-                    className="input text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="section-label block mb-1.5">Category</label>
-                  <select
-                    value={resourceCategory}
-                    onChange={(e) => setResourceCategory(e.target.value)}
-                    className="input text-xs"
-                  >
-                    <option value="docs">Documentation & Guidelines</option>
-                    <option value="apis">APIs & SDKs</option>
-                    <option value="starter">Starter Templates</option>
-                    <option value="rules">Rules & Judging</option>
-                  </select>
-                </div>
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddResourceModal(false)}
-                    className="btn btn-secondary btn-sm cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={resourceLoading}
-                    className="btn btn-primary btn-sm cursor-pointer"
-                  >
-                    {resourceLoading ? "Adding..." : "Add Resource Link"}
-                  </button>
-                </div>
-              </form>
+        {/* ── Add / edit stage ─────────────────────────────────── */}
+        <Dialog
+          open={showAddStageModal}
+          onClose={() => setShowAddStageModal(false)}
+          size="lg"
+          title={editingStage ? "Edit stage" : "Add stage"}
+          description="Ceremonies, checkpoints, deadlines or judging rounds."
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setShowAddStageModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="organizer-stage-form" variant="primary" loading={stageLoading}>
+                {editingStage ? "Save changes" : "Add stage"}
+              </Button>
+            </>
+          }
+        >
+          <form id="organizer-stage-form" onSubmit={handleSaveStage} className="space-y-4">
+            <div>
+              <FieldLabel htmlFor="stage-title">Title</FieldLabel>
+              <Input
+                id="stage-title"
+                data-autofocus
+                type="text"
+                required
+                placeholder="e.g. Opening ceremony & keynote"
+                value={stageTitle}
+                onChange={(e) => setStageTitle(e.target.value)}
+              />
             </div>
-          </div>
-        )}
-
-        {/* Modal: Add/Edit Stage */}
-        {showAddStageModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-fade-in">
-            <div className="card card-static p-6 w-full max-w-lg">
-              <h3 className="text-base font-bold text-white mb-1">
-                {editingStage ? "Edit Event Stage" : "Add Event Stage"}
-              </h3>
-              <p className="text-xs text-zinc-400 mb-4">
-                Define key ceremonies, checkpoints, deadlines, or judging rounds.
-              </p>
-              <form onSubmit={handleSaveStage} className="space-y-4">
-                <div>
-                  <label className="section-label block mb-1.5">Stage Title *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Opening Ceremony & Keynote"
-                    value={stageTitle}
-                    onChange={(e) => setStageTitle(e.target.value)}
-                    className="input text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="section-label block mb-1.5">Stage Type</label>
-                  <select
-                    value={stageType}
-                    onChange={(e) => setStageType(e.target.value)}
-                    className="input text-xs"
-                  >
-                    <option value="ceremony">🎉 Ceremony / Keynote</option>
-                    <option value="checkpoint">🚩 Checkpoint / Mentorship</option>
-                    <option value="deadline">⏰ Submission Deadline</option>
-                    <option value="judging">⚖️ Judging & Evaluation</option>
-                    <option value="other">📌 Other Event Milestone</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="section-label block mb-1.5">Start Time *</label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={stageStartTime}
-                      onChange={(e) => setStageStartTime(e.target.value)}
-                      className="input text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="section-label block mb-1.5">End Time (Optional)</label>
-                    <input
-                      type="datetime-local"
-                      value={stageEndTime}
-                      onChange={(e) => setStageEndTime(e.target.value)}
-                      className="input text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="section-label block mb-1.5">Description (Optional)</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Brief details about what happens during this stage..."
-                    value={stageDesc}
-                    onChange={(e) => setStageDesc(e.target.value)}
-                    className="input text-xs resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddStageModal(false)}
-                    className="btn btn-secondary btn-sm cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={stageLoading}
-                    className="btn btn-primary btn-sm cursor-pointer"
-                  >
-                    {stageLoading ? "Saving..." : editingStage ? "Save Changes" : "Add Stage"}
-                  </button>
-                </div>
-              </form>
+            <div>
+              <FieldLabel htmlFor="stage-type">Type</FieldLabel>
+              <Select id="stage-type" value={stageType} onChange={(e) => setStageType(e.target.value)}>
+                <option value="ceremony">Ceremony / Keynote</option>
+                <option value="checkpoint">Checkpoint / Mentorship</option>
+                <option value="deadline">Submission Deadline</option>
+                <option value="judging">Judging & Evaluation</option>
+                <option value="other">Other Event Milestone</option>
+              </Select>
             </div>
-          </div>
-        )}
-      </main>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="stage-start">Starts</FieldLabel>
+                <Input id="stage-start" type="datetime-local" required value={stageStartTime} onChange={(e) => setStageStartTime(e.target.value)} />
+              </div>
+              <div>
+                <FieldLabel htmlFor="stage-end" hint="optional">
+                  Ends
+                </FieldLabel>
+                <Input id="stage-end" type="datetime-local" value={stageEndTime} onChange={(e) => setStageEndTime(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <FieldLabel htmlFor="stage-desc" hint="optional">
+                Description
+              </FieldLabel>
+              <Textarea
+                id="stage-desc"
+                rows={3}
+                placeholder="What happens during this stage"
+                value={stageDesc}
+                onChange={(e) => setStageDesc(e.target.value)}
+                className="resize-none"
+              />
+            </div>
+          </form>
+        </Dialog>
+      </Page>
     </AuthGuard>
   );
 }

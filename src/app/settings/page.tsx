@@ -1,13 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { motion } from "motion/react";
+import { ArrowUpRight, Copy, Lock, LogOut, Plus, UserX, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+import { cn } from "@/lib/utils";
+import {
+  Avatar,
+  Button,
+  ButtonLink,
+  Dialog,
+  EmptyState,
+  ErrorNotice,
+  FieldLabel,
+  FilterChip,
+  GithubIcon,
+  Input,
+  LinkedinIcon,
+  List,
+  Page,
+  PageHeader,
+  SearchField,
+  Section,
+  Select,
+  Skeleton,
+  SkeletonRows,
+  Switch,
+  Textarea,
+} from "@/components/system";
 
 interface BlockedUserItem {
   blocked_id: string;
@@ -74,6 +99,63 @@ const SKILLS_LIST = [
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Postgrad / Alumni", "Other"];
 const GENDER_OPTIONS = ["Male", "Female", "Non-binary / Other", "Prefer not to say"];
 
+type SettingsTab = "profile" | "privacy" | "account";
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: "profile", label: "Profile" },
+  { id: "privacy", label: "Privacy" },
+  { id: "account", label: "Account" },
+];
+
+/* ── Presentational helpers ─────────────────────────────────────────────── */
+
+/** In-page section switch styled like RouteTabs (the tab lives in local state). */
+function SettingsTabs({ value, onChange }: { value: SettingsTab; onChange: (t: SettingsTab) => void }) {
+  const layoutId = useId();
+  return (
+    <div role="tablist" aria-label="Settings sections" className="-mb-px flex items-end gap-5 overflow-x-auto scrollbar-none">
+      {TABS.map((t) => {
+        const active = value === t.id;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "relative flex h-10 shrink-0 items-center text-[13px] font-medium transition-colors",
+              active ? "text-ink" : "text-ink-3 hover:text-ink",
+            )}
+          >
+            {t.label}
+            {active && (
+              <motion.span
+                layoutId={`settings-tab-${layoutId}`}
+                className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-signal"
+                transition={{ type: "spring", stiffness: 520, damping: 42 }}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Labelled row inside a boxed Section: text on the left, control on the right. */
+function SettingRow({ title, description, control }: { title: ReactNode; description?: ReactNode; control: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+      <div className="min-w-0">
+        <p className="text-[13.5px] font-medium text-ink">{title}</p>
+        {description && <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-3">{description}</p>}
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+}
+
 function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,6 +170,7 @@ function SettingsContent() {
   const [userCreatedAt, setUserCreatedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Profile Form States
   const [fullName, setFullName] = useState("");
@@ -117,6 +200,7 @@ function SettingsContent() {
   // Blocked Users
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserItem[]>([]);
   const [loadingBlocks, setLoadingBlocks] = useState(false);
+  const [blocksError, setBlocksError] = useState<string | null>(null);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   // Sign out confirmation modal
@@ -127,6 +211,7 @@ function SettingsContent() {
   }, []);
 
   async function loadSettings() {
+    setLoadError(null);
     try {
       const {
         data: { user },
@@ -153,6 +238,7 @@ function SettingsContent() {
 
       if (profErr) {
         console.error("Error loading profile settings:", profErr);
+        setLoadError(profErr.message || "Failed to load profile details");
         showToast("Failed to load profile details", "error");
       } else if (prof) {
         setFullName(prof.full_name || "");
@@ -185,6 +271,7 @@ function SettingsContent() {
       loadBlockedUsers(user.id);
     } catch (err) {
       console.error("Failed to initialize settings:", err);
+      setLoadError(err instanceof Error ? err.message : "Failed to initialize settings");
     } finally {
       setLoading(false);
     }
@@ -192,6 +279,7 @@ function SettingsContent() {
 
   async function loadBlockedUsers(currentUid: string) {
     setLoadingBlocks(true);
+    setBlocksError(null);
     try {
       const { data, error } = await supabase
         .from("blocked_users")
@@ -209,11 +297,16 @@ function SettingsContent() {
         )
         .eq("blocker_id", currentUid);
 
+      if (error) {
+        console.error("Failed to load blocked users:", error);
+        setBlocksError(error.message);
+      }
       if (!error && data) {
         setBlockedUsers(data as any);
       }
     } catch (e) {
       console.error("Failed to load blocked users:", e);
+      setBlocksError(e instanceof Error ? e.message : "Failed to load blocked users");
     } finally {
       setLoadingBlocks(false);
     }
@@ -281,7 +374,7 @@ function SettingsContent() {
         console.error("Save profile error:", error);
         showToast(error.message || "Failed to update profile", "error");
       } else {
-        showToast("Profile settings saved successfully! ✅", "success");
+        showToast("Profile settings saved", "success");
       }
     } catch (err: any) {
       console.error(err);
@@ -304,12 +397,13 @@ function SettingsContent() {
         .eq("id", userId);
 
       if (error) {
+        console.error(`Failed to update ${field}:`, error);
         showToast("Failed to update privacy preference", "error");
         // Revert local state
         if (field === "is_available") setIsAvailable(!newValue);
         if (field === "show_track_record") setShowTrackRecord(!newValue);
       } else {
-        showToast("Privacy settings updated! ✅", "success");
+        showToast("Privacy settings updated", "success");
       }
     } catch (e) {
       console.error(e);
@@ -336,6 +430,7 @@ function SettingsContent() {
             .eq("blocked_id", blockedId);
 
           if (error) {
+            console.error("Failed to unblock user:", error);
             showToast("Failed to unblock user", "error");
           } else {
             showToast("User unblocked successfully", "success");
@@ -361,7 +456,7 @@ function SettingsContent() {
   function copyUserId() {
     if (userId) {
       navigator.clipboard.writeText(userId);
-      showToast("User ID copied to clipboard! 📋", "info");
+      showToast("User ID copied to clipboard", "info");
     }
   }
 
@@ -375,701 +470,516 @@ function SettingsContent() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-12 space-y-6 animate-pulse">
-        <div className="h-32 rounded-2xl bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800" />
-        <div className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800" />
-        <div className="h-96 rounded-2xl bg-zinc-100 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800" />
-      </div>
+      <Page width="narrow">
+        <div className="pt-5 md:pt-8" aria-busy="true" aria-label="Loading settings">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="mt-3 h-3.5 w-56" />
+          <div className="mt-6 flex gap-5 border-b border-line pb-3">
+            <Skeleton className="h-3.5 w-14" />
+            <Skeleton className="h-3.5 w-14" />
+            <Skeleton className="h-3.5 w-14" />
+          </div>
+          <div className="mt-8 space-y-4">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-[34px] w-full rounded-md" />
+            <Skeleton className="h-[34px] w-full rounded-md" />
+            <Skeleton className="h-24 w-full rounded-md" />
+          </div>
+        </div>
+      </Page>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 md:py-12 space-y-8">
-      {/* ── Page Header / User Banner ── */}
-      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/80 backdrop-blur-md p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm dark:shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full bg-violet-500/10 dark:bg-violet-600/10 blur-3xl pointer-events-none" />
+    <Page width="narrow">
+      <PageHeader
+        title="Settings"
+        meta={
+          <span className="block truncate">
+            {userEmail}
+            {college && college !== "Other" && <span className="text-ink-4"> · </span>}
+            {college && college !== "Other" && college}
+          </span>
+        }
+        actions={
+          userId && (
+            <ButtonLink href={`/profile/${userId}`} variant="secondary" iconRight={<ArrowUpRight />}>
+              View public profile
+            </ButtonLink>
+          )
+        }
+        tabs={<SettingsTabs value={activeTab} onChange={setActiveTab} />}
+      />
 
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white font-extrabold text-xl shadow-md shrink-0 border border-violet-400/30">
-            {fullName ? fullName.charAt(0).toUpperCase() : "B"}
-          </div>
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight truncate">
-              {fullName || "Builder Profile"}
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{userEmail}</p>
-            {college && college !== "Other" && (
-              <p className="text-xs text-violet-600 dark:text-violet-400 font-semibold truncate flex items-center gap-1.5 pt-0.5">
-                <span>🎓</span> {college}
-              </p>
-            )}
-          </div>
-        </div>
+      {loadError && (
+        <ErrorNotice className="mt-6" title="Couldn't load your settings" detail={loadError} onRetry={() => loadSettings()} />
+      )}
 
-        {userId && (
-          <Link
-            href={`/profile/${userId}`}
-            className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/80 text-xs font-semibold transition-all flex items-center gap-2 shrink-0 shadow-xs"
-          >
-            <span>View Public Profile</span>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </Link>
-        )}
-      </div>
-
-      {/* ── Navigation Tabs ── */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800/80 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab("profile")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "profile"
-              ? "bg-violet-50 text-violet-700 border border-violet-200 shadow-xs dark:bg-violet-500/15 dark:text-violet-400 dark:border-violet-500/30"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-900/60"
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.219-.044-7.499-.12a.75.75 0 01-.5-.18z"
-            />
-          </svg>
-          <span>Profile & Identity</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("privacy")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "privacy"
-              ? "bg-violet-50 text-violet-700 border border-violet-200 shadow-xs dark:bg-violet-500/15 dark:text-violet-400 dark:border-violet-500/30"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-900/60"
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-            />
-          </svg>
-          <span>Privacy & Safety</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("account")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "account"
-              ? "bg-violet-50 text-violet-700 border border-violet-200 shadow-xs dark:bg-violet-500/15 dark:text-violet-400 dark:border-violet-500/30"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-900/60"
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
-            />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>Account</span>
-        </button>
-      </div>
-
-      {/* ── TAB 1: PROFILE & IDENTITY ── */}
+      {/* ── TAB 1: PROFILE ── */}
       {activeTab === "profile" && (
-        <form onSubmit={handleSaveProfile} className="space-y-6">
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-3 flex items-center gap-2">
-              <span>👤</span> Basic Information
-            </h2>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Full Name</label>
-                <span className="text-[10px] text-zinc-500 flex items-center gap-1 font-medium">
-                  <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                  </svg>
-                  Verified from Google Account
-                </span>
+        <form onSubmit={handleSaveProfile} className="mt-8 space-y-10">
+          <Section title="Basic info" id="settings-basic">
+            <div className="space-y-4">
+              <div>
+                <FieldLabel
+                  htmlFor="settings-name"
+                  hint={
+                    <span className="inline-flex items-center gap-1">
+                      <Lock className="size-3" aria-hidden />
+                      From your Google account
+                    </span>
+                  }
+                >
+                  Full name
+                </FieldLabel>
+                <Input id="settings-name" type="text" readOnly disabled value={fullName} />
               </div>
-              <input
-                type="text"
-                readOnly
-                disabled
-                value={fullName}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs cursor-not-allowed select-all"
-              />
-            </div>
 
-            {/* College Selector */}
-            <div className="space-y-1.5 relative">
-              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">College / Institution *</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={college === "Other" ? customCollege : collegeSearch || college}
-                  onFocus={() => {
-                    setShowCollegeDropdown(true);
-                    setCollegeSearch(college === "Other" ? "" : college);
-                  }}
-                  onChange={(e) => {
-                    setCollegeSearch(e.target.value);
-                    if (college === "Other") setCustomCollege(e.target.value);
-                    setShowCollegeDropdown(true);
-                  }}
-                  placeholder="Search and select your college..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-violet-500 focus:bg-white dark:focus:bg-zinc-900 transition-colors"
-                />
+              {/* College selector */}
+              <div>
+                <FieldLabel htmlFor="settings-college" hint="Required">
+                  College
+                </FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="settings-college"
+                    type="text"
+                    autoComplete="off"
+                    aria-expanded={showCollegeDropdown}
+                    aria-controls="settings-college-list"
+                    value={college === "Other" ? customCollege : collegeSearch || college}
+                    onFocus={() => {
+                      setShowCollegeDropdown(true);
+                      setCollegeSearch(college === "Other" ? "" : college);
+                    }}
+                    onChange={(e) => {
+                      setCollegeSearch(e.target.value);
+                      if (college === "Other") setCustomCollege(e.target.value);
+                      setShowCollegeDropdown(true);
+                    }}
+                    placeholder="Search your college"
+                  />
 
-                {showCollegeDropdown && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowCollegeDropdown(false)} />
-                    <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl z-20 p-1 space-y-0.5">
-                      {filteredColleges.slice(0, 20).map((c) => (
+                  {showCollegeDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowCollegeDropdown(false)} />
+                      <div
+                        id="settings-college-list"
+                        className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border border-line bg-overlay p-1 shadow-pop"
+                      >
+                        {filteredColleges.slice(0, 20).map((c) => (
+                          <button
+                            type="button"
+                            key={c}
+                            onClick={() => {
+                              setCollege(c);
+                              setCustomCollege("");
+                              setCollegeSearch("");
+                              setShowCollegeDropdown(false);
+                            }}
+                            className={cn(
+                              "flex min-h-9 w-full items-center rounded-[5px] px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                              college === c ? "bg-selected font-medium text-ink" : "text-ink-2 hover:bg-hover hover:text-ink",
+                            )}
+                          >
+                            {c}
+                          </button>
+                        ))}
                         <button
                           type="button"
-                          key={c}
                           onClick={() => {
-                            setCollege(c);
-                            setCustomCollege("");
-                            setCollegeSearch("");
+                            setCollege("Other");
+                            setCustomCollege(collegeSearch);
                             setShowCollegeDropdown(false);
                           }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
-                            college === c
-                              ? "bg-violet-600 text-white font-bold"
-                              : "text-zinc-800 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          }`}
+                          className="mt-1 flex min-h-9 w-full items-center gap-1.5 rounded-[5px] border-t border-line px-2.5 py-1.5 text-left text-[13px] font-medium text-accent-ink hover:bg-hover"
                         >
-                          {c}
+                          <Plus className="size-3.5 shrink-0" aria-hidden />
+                          Other (enter your college name)
                         </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCollege("Other");
-                          setCustomCollege(collegeSearch);
-                          setShowCollegeDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-lg text-xs text-amber-600 dark:text-amber-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-800 font-semibold"
-                      >
-                        + Other (Enter custom college name)
-                      </button>
-                    </div>
-                  </>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {college === "Other" && (
+                  <div className="mt-2">
+                    <Input
+                      type="text"
+                      required
+                      aria-label="College name"
+                      value={customCollege}
+                      onChange={(e) => setCustomCollege(e.target.value)}
+                      placeholder="Full name of your college"
+                    />
+                    <p className="mt-1.5 text-[12px] text-ink-3">Use the official, non-abbreviated name.</p>
+                  </div>
                 )}
               </div>
 
-              {college === "Other" && (
-                <div className="pt-2">
-                  <input
-                    type="text"
-                    required
-                    value={customCollege}
-                    onChange={(e) => setCustomCollege(e.target.value)}
-                    placeholder="Enter full name of your college..."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-amber-400 dark:border-amber-500/40 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
-                  />
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
-                    Please provide the official, non-abbreviated name of your institution.
-                  </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <FieldLabel htmlFor="settings-year">Year of study</FieldLabel>
+                  <Select id="settings-year" value={yearOfStudy} onChange={(e) => setYearOfStudy(e.target.value)}>
+                    {YEAR_OPTIONS.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
-              )}
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Year of Study</label>
-                <select
-                  value={yearOfStudy}
-                  onChange={(e) => setYearOfStudy(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-xs focus:outline-none focus:border-violet-500 transition-colors cursor-pointer"
-                >
-                  {YEAR_OPTIONS.map((y) => (
-                    <option key={y} value={y} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white">
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Gender</label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-xs focus:outline-none focus:border-violet-500 transition-colors cursor-pointer"
-                >
-                  <option value="" className="bg-white dark:bg-zinc-900 text-zinc-500">
-                    Select Gender
-                  </option>
-                  {GENDER_OPTIONS.map((g) => (
-                    <option key={g} value={g} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white">
-                      {g}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-zinc-500">Used for SIH mandatory diversity teaming validations.</p>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Bio / About You</label>
-              <textarea
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                maxLength={300}
-                placeholder="Tell potential teammates about your interests, past projects, or hackathon goals..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-violet-500 focus:bg-white dark:focus:bg-zinc-900 transition-colors resize-none"
-              />
-              <div className="flex justify-end text-[10px] text-zinc-500">{bio.length}/300</div>
-            </div>
-          </div>
-
-          {/* ── Skills & Tech Stack ── */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <span>⚡</span> Technical Skills & Roles
-              </h2>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{selectedSkills.length}/15 Selected</span>
-            </div>
-
-            {/* Selected Skills Chips */}
-            {selectedSkills.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Your Active Skills:</span>
-                <div className="flex flex-wrap gap-2">
-                  {selectedSkills.map((skill) => (
-                    <button
-                      type="button"
-                      key={skill}
-                      onClick={() => toggleSkill(skill)}
-                      className="px-3 py-1 rounded-lg bg-violet-50 dark:bg-violet-600/20 hover:bg-rose-50 dark:hover:bg-rose-500/20 text-violet-700 dark:text-violet-300 hover:text-rose-600 dark:hover:text-rose-300 border border-violet-200 dark:border-violet-500/30 hover:border-rose-200 dark:hover:border-rose-500/30 text-xs font-semibold transition-colors flex items-center gap-1.5 group cursor-pointer"
-                      title="Click to remove"
-                    >
-                      <span>{skill}</span>
-                      <span className="text-xs opacity-70 group-hover:opacity-100">✕</span>
-                    </button>
-                  ))}
+                <div className="min-w-0">
+                  <FieldLabel htmlFor="settings-gender">Gender</FieldLabel>
+                  <Select id="settings-gender" value={gender} onChange={(e) => setGender(e.target.value)}>
+                    <option value="">Select gender</option>
+                    {GENDER_OPTIONS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="mt-1.5 text-[12px] text-ink-3">Used to check SIH team composition rules.</p>
                 </div>
               </div>
-            )}
 
-            {/* Add More Skills */}
-            <div className="space-y-2.5">
-              <input
-                type="text"
-                value={skillSearch}
-                onChange={(e) => setSkillSearch(e.target.value)}
-                placeholder="Search skills to add (e.g. Next.js, Python, UI/UX)..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-violet-500 focus:bg-white dark:focus:bg-zinc-900 transition-colors"
-              />
-
-              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1">
-                {filteredSkills.slice(0, 24).map((skill) => (
-                  <button
-                    type="button"
-                    key={skill}
-                    onClick={() => toggleSkill(skill)}
-                    className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white border border-zinc-200 dark:border-zinc-800 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <span>+</span>
-                    <span>{skill}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Social & Connected Links ── */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-3 flex items-center gap-2">
-              <span>🔗</span> Social & Coding Profiles
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <span>GitHub Profile</span>
-                </label>
-                <input
-                  type="url"
-                  value={githubUrl}
-                  onChange={(e) => setGithubUrl(e.target.value)}
-                  placeholder="https://github.com/your-username"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-violet-500 focus:bg-white dark:focus:bg-zinc-900 transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <span>LinkedIn Profile</span>
-                </label>
-                <input
-                  type="url"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  placeholder="https://linkedin.com/in/your-profile"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-violet-500 focus:bg-white dark:focus:bg-zinc-900 transition-colors"
+              <div>
+                <FieldLabel htmlFor="settings-bio" hint={<span className="font-mono tabular">{bio.length}/300</span>}>
+                  Bio
+                </FieldLabel>
+                <Textarea
+                  id="settings-bio"
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  maxLength={300}
+                  className="resize-none"
+                  placeholder="What you like to build, past projects, what you want from your next hackathon"
                 />
               </div>
             </div>
-          </div>
+          </Section>
 
-          {/* ── Hackathon Track Record (Display-Only) ── */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3">
-              <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <span>🏆</span> Hackathon Experience
-              </h2>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Self-reported portfolio stats displayed on your profile card.
-              </p>
-            </div>
-
+          {/* ── Skills ── */}
+          <Section
+            title="Skills"
+            id="settings-skills"
+            action={<span className="font-mono text-[11.5px] text-ink-3 tabular">{selectedSkills.length}/15</span>}
+            description="Tap a selected skill to remove it."
+          >
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80">
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white">Have you participated in hackathons before?</h4>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Shows your builder experience to team leaders.</p>
+              {selectedSkills.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedSkills.map((skill) => (
+                    <FilterChip key={skill} active onClick={() => toggleSkill(skill)}>
+                      {skill}
+                      <X className="size-3" aria-hidden />
+                    </FilterChip>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setHasParticipated(true)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      hasParticipated
-                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40"
-                        : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
-                    }`}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHasParticipated(false);
-                      setParticipationsCount("");
-                      setHasWon(false);
-                      setWinsCount("");
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      !hasParticipated
-                        ? "bg-zinc-200 text-zinc-900 border border-zinc-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
-                        : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
-                    }`}
-                  >
-                    No
-                  </button>
-                </div>
-              </div>
+              ) : (
+                <p className="text-[13px] text-ink-3">No skills yet. Add up to 15 below.</p>
+              )}
 
-              {hasParticipated && (
-                <div className="p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 space-y-4 animate-fadeIn">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Total Hackathons Participated In</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={participationsCount}
-                      onChange={(e) => setParticipationsCount(e.target.value === "" ? "" : Number(e.target.value))}
-                      placeholder="e.g. 3"
-                      className="w-full max-w-xs px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-xs focus:outline-none focus:border-violet-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800/60">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Have you won / placed on a podium?</label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setHasWon(true)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          hasWon
-                            ? "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40"
-                            : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
-                        }`}
-                      >
-                        Yes, I have won
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHasWon(false);
-                          setWinsCount("");
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          !hasWon
-                            ? "bg-zinc-200 text-zinc-900 border border-zinc-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
-                            : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
-                        }`}
-                      >
-                        Not yet
-                      </button>
-                    </div>
-                  </div>
-
-                  {hasWon && (
-                    <div className="space-y-1.5 animate-fadeIn">
-                      <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Total Hackathons Won / Top 3</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={participationsCount || 99}
-                        value={winsCount}
-                        onChange={(e) => setWinsCount(e.target.value === "" ? "" : Number(e.target.value))}
-                        placeholder="e.g. 1"
-                        className="w-full max-w-xs px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-white text-xs focus:outline-none focus:border-violet-500"
-                      />
-                    </div>
+              <div className="space-y-2.5">
+                <SearchField
+                  value={skillSearch}
+                  onChange={setSkillSearch}
+                  placeholder="Search skills to add"
+                  label="Search skills to add"
+                />
+                <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto p-0.5">
+                  {filteredSkills.slice(0, 24).map((skill) => (
+                    <FilterChip key={skill} active={false} onClick={() => toggleSkill(skill)}>
+                      <Plus className="size-3 text-ink-3" aria-hidden />
+                      {skill}
+                    </FilterChip>
+                  ))}
+                  {filteredSkills.length === 0 && (
+                    <p className="text-[12.5px] text-ink-3">No matching skills.</p>
                   )}
                 </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* ── Links ── */}
+          <Section title="Links" id="settings-links">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="min-w-0">
+                <FieldLabel htmlFor="settings-github">GitHub</FieldLabel>
+                <Input
+                  id="settings-github"
+                  type="url"
+                  leading={<GithubIcon />}
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/username"
+                  className="font-mono text-[13px]"
+                />
+              </div>
+              <div className="min-w-0">
+                <FieldLabel htmlFor="settings-linkedin">LinkedIn</FieldLabel>
+                <Input
+                  id="settings-linkedin"
+                  type="url"
+                  leading={<LinkedinIcon />}
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://linkedin.com/in/profile"
+                  className="font-mono text-[13px]"
+                />
+              </div>
+            </div>
+          </Section>
+
+          {/* ── Hackathon experience (self-reported) ── */}
+          <Section
+            title="Hackathon experience"
+            id="settings-experience"
+            description="Self-reported. Shown on your profile card."
+            boxed
+          >
+            <div className="divide-y divide-line">
+              <SettingRow
+                title="I've taken part in hackathons"
+                description="Shows team leads you've shipped under pressure before."
+                control={
+                  <Switch
+                    label="I've taken part in hackathons"
+                    checked={hasParticipated}
+                    onChange={(v) => {
+                      if (v) {
+                        setHasParticipated(true);
+                      } else {
+                        setHasParticipated(false);
+                        setParticipationsCount("");
+                        setHasWon(false);
+                        setWinsCount("");
+                      }
+                    }}
+                  />
+                }
+              />
+
+              {hasParticipated && (
+                <div className="px-4 py-3.5">
+                  <FieldLabel htmlFor="settings-participations">Hackathons entered</FieldLabel>
+                  <Input
+                    id="settings-participations"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={99}
+                    value={participationsCount}
+                    onChange={(e) => setParticipationsCount(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="e.g. 3"
+                    className="max-w-[160px] font-mono tabular"
+                  />
+                </div>
+              )}
+
+              {hasParticipated && (
+                <SettingRow
+                  title="I've won or placed top 3"
+                  control={
+                    <Switch
+                      label="I've won or placed top 3"
+                      checked={hasWon}
+                      onChange={(v) => {
+                        if (v) {
+                          setHasWon(true);
+                        } else {
+                          setHasWon(false);
+                          setWinsCount("");
+                        }
+                      }}
+                    />
+                  }
+                />
+              )}
+
+              {hasParticipated && hasWon && (
+                <div className="px-4 py-3.5">
+                  <FieldLabel htmlFor="settings-wins">Wins / top-3 finishes</FieldLabel>
+                  <Input
+                    id="settings-wins"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={participationsCount || 99}
+                    value={winsCount}
+                    onChange={(e) => setWinsCount(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="e.g. 1"
+                    className="max-w-[160px] font-mono tabular"
+                  />
+                </div>
               )}
             </div>
-          </div>
+          </Section>
 
-          {/* ── Submit Button Bar ── */}
-          <div className="flex justify-end gap-3 sticky bottom-4 z-20 p-4 rounded-2xl bg-white/90 dark:bg-zinc-950/90 border border-zinc-200 dark:border-zinc-800 backdrop-blur-md shadow-lg dark:shadow-2xl">
-            <button
-              type="button"
-              onClick={() => loadSettings()}
-              className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-300 text-xs font-semibold transition-colors cursor-pointer border border-zinc-200 dark:border-zinc-800"
-            >
-              Discard Changes
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-extrabold transition-all shadow-md shadow-violet-600/20 disabled:opacity-50 cursor-pointer flex items-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <span>Save Profile Changes</span>
-              )}
-            </button>
+          {/* ── Save bar: fixed above the tab bar on mobile, inline on desktop ── */}
+          <div className="fixed inset-x-0 bottom-[calc(var(--hm-tabbar-h)+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 border-t border-line bg-canvas px-4 py-2.5 md:static md:justify-end md:border-t md:bg-transparent md:px-0 md:pb-0 md:pt-5">
+            <Button type="button" variant="ghost" onClick={() => loadSettings()} disabled={saving}>
+              Discard
+            </Button>
+            <Button type="submit" variant="primary" loading={saving} className="flex-1 md:flex-none">
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
           </div>
         </form>
       )}
 
-      {/* ── TAB 2: PRIVACY & SAFETY ── */}
+      {/* ── TAB 2: PRIVACY ── */}
       {activeTab === "privacy" && (
-        <div className="space-y-6">
-          {/* Visibility Controls */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-3 flex items-center gap-2">
-              <span>🔒</span> Public Visibility & Discovery
-            </h2>
-
-            <div className="space-y-5">
-              {/* Show Track Record Toggle */}
-              <div className="flex items-start justify-between gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white">Public Track Record Visibility</h4>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    When enabled, your verified badges, past hackathon participations, and campus leaderboard points are
-                    publicly visible on your profile and campus rosters.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={savingPrivacy}
-                  onClick={() => handleTogglePrivacy("show_track_record", !showTrackRecord)}
-                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                    showTrackRecord ? "bg-violet-600" : "bg-zinc-300 dark:bg-zinc-800"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
-                      showTrackRecord ? "right-1" : "left-1"
-                    }`}
+        <div className="mt-8 space-y-10">
+          <Section title="Visibility" id="settings-visibility" boxed>
+            <div className="divide-y divide-line">
+              <SettingRow
+                title="Show track record"
+                description="Your badges, past hackathons and campus leaderboard points appear on your profile and campus rosters."
+                control={
+                  <Switch
+                    label="Show track record"
+                    checked={showTrackRecord}
+                    disabled={savingPrivacy}
+                    onChange={(v) => handleTogglePrivacy("show_track_record", v)}
                   />
-                </button>
-              </div>
-
-              {/* Teaming Availability Toggle */}
-              <div className="flex items-start justify-between gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white">Available for Team Matchmaking</h4>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Allows squad leaders to find you in the Developer Directory and recommend you in compatibility
-                    matchmaking for upcoming hackathons.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={savingPrivacy}
-                  onClick={() => handleTogglePrivacy("is_available", !isAvailable)}
-                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                    isAvailable ? "bg-emerald-600" : "bg-zinc-300 dark:bg-zinc-800"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
-                      isAvailable ? "right-1" : "left-1"
-                    }`}
+                }
+              />
+              <SettingRow
+                title="Open to teams"
+                description="Team leads can find you in the builder directory and see you in match suggestions for upcoming hackathons."
+                control={
+                  <Switch
+                    label="Open to teams"
+                    checked={isAvailable}
+                    disabled={savingPrivacy}
+                    onChange={(v) => handleTogglePrivacy("is_available", v)}
                   />
-                </button>
-              </div>
+                }
+              />
             </div>
-          </div>
+          </Section>
 
-          {/* Blocked Users Manager */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                  <span>🚫</span> Blocked Users
-                </h2>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Blocked users cannot send you connection requests, team invites, or direct messages.
-                </p>
-              </div>
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">{blockedUsers.length} Blocked</span>
-            </div>
-
+          <Section
+            title="Blocked builders"
+            id="settings-blocked"
+            count={loadingBlocks ? undefined : blockedUsers.length}
+            description="Blocked builders can't send you connection requests, team invites or messages."
+          >
             {loadingBlocks ? (
-              <div className="py-8 text-center text-xs text-zinc-500">Loading blocked users...</div>
+              <SkeletonRows rows={2} />
+            ) : blocksError ? (
+              <ErrorNotice
+                title="Couldn't load blocked builders"
+                detail={blocksError}
+                onRetry={userId ? () => loadBlockedUsers(userId) : undefined}
+              />
             ) : blockedUsers.length === 0 ? (
-              <div className="py-8 text-center space-y-2 border border-dashed border-zinc-200 dark:border-zinc-800/80 rounded-xl">
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">You haven&apos;t blocked any builders.</p>
-                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                  You can block users anytime from their public profile card if needed.
-                </p>
-              </div>
+              <EmptyState
+                compact
+                icon={<UserX />}
+                title="No one blocked"
+                body="You can block a builder from their profile if you need to."
+              />
             ) : (
-              <div className="space-y-2.5">
-                {blockedUsers.map((b) => {
-                  const u = b.blocked_user;
-                  return (
-                    <div
-                      key={b.blocked_id}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 gap-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-700 dark:text-zinc-300 shrink-0">
-                          {u?.full_name?.charAt(0) || "U"}
+              <div className="rounded-lg border border-line bg-raised">
+                <List>
+                  {blockedUsers.map((b) => {
+                    const u = b.blocked_user;
+                    return (
+                      <li key={b.blocked_id} className="flex items-center gap-3 px-4 py-3">
+                        <Avatar name={u?.full_name || "Unknown"} src={u?.avatar_url} size="md" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13.5px] font-medium text-ink">{u?.full_name || "Unknown user"}</p>
+                          <p className="truncate text-[12.5px] text-ink-3">{u?.college || "College not set"}</p>
                         </div>
-                        <div className="min-w-0">
-                          <h5 className="text-xs font-bold text-zinc-900 dark:text-white truncate">{u?.full_name || "Unknown User"}</h5>
-                          <p className="text-[11px] text-zinc-500 truncate">{u?.college || "College not set"}</p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={unblockingId === b.blocked_id}
-                        onClick={() => handleUnblockUser(b.blocked_id, u?.full_name || "this user")}
-                        className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white border border-zinc-200 dark:border-zinc-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        {unblockingId === b.blocked_id ? "Unblocking..." : "Unblock"}
-                      </button>
-                    </div>
-                  );
-                })}
+                        <Button
+                          variant="ghost"
+                          loading={unblockingId === b.blocked_id}
+                          onClick={() => handleUnblockUser(b.blocked_id, u?.full_name || "this user")}
+                          className="shrink-0"
+                        >
+                          {unblockingId === b.blocked_id ? "Unblocking…" : "Unblock"}
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </List>
               </div>
             )}
-          </div>
+          </Section>
         </div>
       )}
 
-      {/* ── TAB 3: ACCOUNT & SESSION ── */}
+      {/* ── TAB 3: ACCOUNT ── */}
       {activeTab === "account" && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-6 md:p-8 space-y-6 shadow-sm dark:shadow-md">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-3 flex items-center gap-2">
-              <span>🛡️</span> Account Credentials
-            </h2>
-
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-1">
-                <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Registered Email Address</span>
-                <p className="text-xs font-mono text-zinc-900 dark:text-white select-all">{userEmail}</p>
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Authenticated securely via Supabase Auth.</p>
+        <div className="mt-8 space-y-10">
+          <Section title="Account" id="settings-account" boxed>
+            <dl className="divide-y divide-line">
+              <div className="px-4 py-3.5">
+                <dt className="caps-label text-ink-3">Email</dt>
+                <dd className="mt-1 break-all font-mono text-[13px] text-ink select-all">{userEmail}</dd>
               </div>
-
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between gap-4">
-                <div className="space-y-1 min-w-0">
-                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">User Identification ID</span>
-                  <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate select-all">{userId}</p>
+              <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+                <div className="min-w-0">
+                  <dt className="caps-label text-ink-3">User ID</dt>
+                  <dd className="mt-1 truncate font-mono text-[12.5px] text-ink-2 select-all">{userId}</dd>
                 </div>
-                <button
-                  type="button"
-                  onClick={copyUserId}
-                  className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold transition-colors cursor-pointer shrink-0"
-                >
-                  Copy ID
-                </button>
+                <Button variant="secondary" size="md" icon={<Copy />} onClick={copyUserId} className="shrink-0">
+                  Copy
+                </Button>
               </div>
-
               {userCreatedAt && (
-                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-1">
-                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Member Since</span>
-                  <p className="text-xs text-zinc-700 dark:text-zinc-300">{new Date(userCreatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+                <div className="px-4 py-3.5">
+                  <dt className="caps-label text-ink-3">Member since</dt>
+                  <dd className="mt-1 text-[13.5px] text-ink-2">
+                    {new Date(userCreatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                  </dd>
                 </div>
               )}
-            </div>
-          </div>
+            </dl>
+          </Section>
 
-          {/* Danger Zone */}
-          <div className="rounded-2xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/60 dark:bg-rose-500/5 p-6 md:p-8 space-y-4 shadow-sm dark:shadow-md">
-            <h2 className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
-              <span>⚠️</span> Session & Sign Out
-            </h2>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Sign out of your active session on this browser. All your teams, messages, and profile data will remain safe.
-            </p>
+          <Section title="Session" id="settings-session" boxed>
+            <SettingRow
+              title="Sign out on this browser"
+              description="Your teams, messages and profile stay as they are."
+              control={
+                <Button variant="secondary" icon={<LogOut />} onClick={() => setShowSignOutModal(true)}>
+                  Sign out
+                </Button>
+              }
+            />
+          </Section>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowSignOutModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors cursor-pointer shadow-md shadow-rose-600/20"
-              >
-                Sign Out of HackerMate
-              </button>
-            </div>
-          </div>
-
-          <DeleteAccountSection />
-        </div>
-      )}
-
-      {/* Sign Out Modal */}
-      {showSignOutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center">
-            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Sign Out?</h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">Are you sure you want to end your session?</p>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowSignOutModal(false)}
-                className="flex-1 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold border border-zinc-200 dark:border-zinc-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30"
-              >
-                Sign Out
-              </button>
-            </div>
+          {/* Destructive actions live last, visually separated from normal settings. */}
+          <div className="mt-10 border-t border-line pt-10">
+            <DeleteAccountSection />
           </div>
         </div>
       )}
-    </div>
+
+      {/* Sign out confirmation */}
+      <Dialog
+        open={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        size="sm"
+        title="Sign out?"
+        description="You'll need to sign in again to get back to your teams and messages."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowSignOutModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" icon={<LogOut />} onClick={handleSignOut}>
+              Sign out
+            </Button>
+          </>
+        }
+      />
+    </Page>
   );
 }
 

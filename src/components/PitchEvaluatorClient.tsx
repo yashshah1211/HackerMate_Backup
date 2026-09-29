@@ -13,25 +13,88 @@ import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 import {
   Layers,
   Cpu,
-  ShieldAlert,
+  Target,
   CheckCircle2,
-  AlertTriangle,
+  TriangleAlert,
   ArrowRight,
   Share2,
   Copy,
   Users,
-  Terminal,
-  ExternalLink,
-  RefreshCw,
   Zap,
-  Trophy,
   Check,
   History,
   Trash2,
-  X,
-  Clock,
   FolderPlus,
+  Lightbulb,
+  type LucideIcon,
 } from "lucide-react";
+import {
+  Button,
+  ButtonLink,
+  EmptyState,
+  ErrorNotice,
+  FieldLabel,
+  IconButton,
+  Input,
+  Page,
+  PageHeader,
+  Panel,
+  Progress,
+  Section,
+  Segmented,
+  Select,
+  Sheet,
+  Spinner,
+  Tape,
+  Textarea,
+  type TapeTone,
+} from "@/components/system";
+import { cn } from "@/lib/utils";
+
+/* ---------- Presentation-only helpers (V2) ---------- */
+
+/** Lucide icon per judging track (replaces the emoji in TRACK_PROFILES.icon). */
+const TRACK_ICON: Record<JudgingTrackId, LucideIcon> = {
+  web_dev: Layers,
+  ai_genai: Cpu,
+  sih: Target,
+};
+
+const TRACK_ORDER: JudgingTrackId[] = ["web_dev", "ai_genai", "sih"];
+
+/** Grade strings from the engine end in an emoji; strip it for display only. */
+function gradeLabel(grade: string | null | undefined): string {
+  // Trophy, check mark, warning sign (+ variation selector), rotating light.
+  return (grade || "").replace(/[\u{1F3C6}\u{2705}\u{26A0}\u{FE0F}\u{1F6A8}]/gu, "").trim();
+}
+
+function gradeTone(grade: string | null | undefined): TapeTone {
+  const g = (grade || "").toLowerCase();
+  if (g.startsWith("top tier")) return "ok";
+  if (g.startsWith("strong")) return "accent";
+  if (g.startsWith("needs")) return "warn";
+  if (g.startsWith("high risk")) return "bad";
+  return "neutral";
+}
+
+type RubricKey = "novelty" | "tech" | "uiUxOrFeasibility" | "impactOrTeam";
+const RUBRIC_KEYS: RubricKey[] = ["novelty", "tech", "uiUxOrFeasibility", "impactOrTeam"];
+
+/** One rubric row: label | score, with a thin bar underneath. */
+function RubricRow({ label, score, max }: { label: string; score?: number; max: number }) {
+  const pct = typeof score === "number" && max > 0 ? (score / max) * 100 : 0;
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1.5 py-2.5">
+      <span className="min-w-0 text-[13px] text-ink-2">{label}</span>
+      <span className="font-mono text-[12.5px] text-ink-3 tabular">
+        {typeof score === "number" ? <span className="font-semibold text-ink">{score}</span> : null}
+        {typeof score === "number" ? " / " : "max "}
+        {max}
+      </span>
+      {typeof score === "number" && <Progress value={pct} tone={pct < 50 ? "warn" : "accent"} className="col-span-2" />}
+    </li>
+  );
+}
 
 interface PitchEvaluatorClientProps {
   initialTrack?: JudgingTrackId;
@@ -91,6 +154,8 @@ export default function PitchEvaluatorClient({
       const data = await res.json();
       if (res.ok && data.success) {
         setHistory(data.history || []);
+      } else {
+        console.error("[PitchEvaluatorClient] loadHistory failed:", res.status, data?.error);
       }
     } catch (err) {
       console.error("[PitchEvaluatorClient] loadHistory error:", err);
@@ -152,10 +217,11 @@ export default function PitchEvaluatorClient({
 
         // 1. Fetch user's teams & joined hackathons
         try {
-          const { data: memberData } = await supabase
+          const { data: memberData, error: memberErr } = await supabase
             .from("team_members")
             .select("teams(id, name, description, team_hackathons(hackathons(id, name, description)))")
             .eq("user_id", sessionUser.id);
+          if (memberErr) console.error("[PitchEvaluatorClient] team_members load failed:", memberErr);
 
           const formattedTeams = (memberData as any[])
             ?.map((d) => d.teams)
@@ -167,10 +233,11 @@ export default function PitchEvaluatorClient({
 
         // 2. Fetch all platform hackathons for dropdown (alphabetical A-Z)
         try {
-          const { data: hackathonList } = await supabase
+          const { data: hackathonList, error: hackathonErr } = await supabase
             .from("hackathons")
             .select("id, name, description")
             .order("name", { ascending: true });
+          if (hackathonErr) console.error("[PitchEvaluatorClient] hackathons load failed:", hackathonErr);
 
           if (hackathonList) {
             setAllHackathons(hackathonList);
@@ -441,323 +508,287 @@ export default function PitchEvaluatorClient({
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
-      {/* Header Banner */}
-      <div className="text-center max-w-3xl mx-auto mb-8">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          {!user ? (
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-600 dark:text-lime-400 text-xs font-mono">
-              <Cpu className="w-3.5 h-3.5" />
-              <span>ZERO-LOGIN HACKATHON & IDEA GRADER</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-600 dark:text-lime-400 text-xs font-mono">
-                <Cpu className="w-3.5 h-3.5" />
-                <span>IDEA EVALUATOR ACTIVE</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHistoryDrawer(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer shadow-xs"
-              >
-                <Clock className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400" />
-                <span>History ({history.length})</span>
-              </button>
-            </div>
-          )}
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-          Track-Aware Idea Evaluator & Pitch Grader
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base mt-3 leading-relaxed">
-          Select your hackathon domain. The Idea Evaluator dynamically adapts its judging rubric, scrutinizes your architecture, highlights domain red flags, and identifies missing teammate skill gaps.
-        </p>
-      </div>
+    <Page>
+      <PageHeader
+        eyebrow="Practice"
+        title="Idea evaluator"
+        meta="Score your idea against a track-specific judging rubric. See red flags, next steps and the roles you still need."
+        actions={
+          user ? (
+            <Button variant="secondary" icon={<History aria-hidden />} onClick={() => setShowHistoryDrawer(true)}>
+              History
+              <span className="font-mono text-[11.5px] text-ink-3 tabular">{history.length}</span>
+            </Button>
+          ) : null
+        }
+      />
 
-      {/* Hackathon Selector (Auto-Track Detection for Logged-in Users) */}
-      {user && (userTeams.length > 0 || allHackathons.length > 0) && (
-        <div className="mb-6 p-4 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-lime-500/10 text-lime-600 dark:text-lime-400">
-              <Trophy className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-2 flex-wrap">
-                <span>Evaluating for a Specific Hackathon?</span>
+      <div className="mt-2 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* ---------- Form ---------- */}
+        <Panel as="section" className="min-w-0 p-4 md:p-5">
+          <form onSubmit={handleEvaluate} className="space-y-5">
+            {/* Hackathon selector (auto-track detection for logged-in users) */}
+            {user && (userTeams.length > 0 || allHackathons.length > 0) && (
+              <div>
+                <FieldLabel htmlFor="ev-hackathon" hint="Optional">Hackathon</FieldLabel>
+                <Select
+                  id="ev-hackathon"
+                  value={selectedHackathonId}
+                  onChange={(e) => handleHackathonSelect(e.target.value)}
+                >
+                  <option value="">Choose a hackathon to auto-detect its track</option>
+                  {userTeams.length > 0 && (
+                    <optgroup label="Your team hackathons">
+                      {userTeams.map((team) => {
+                        const th = team.team_hackathons?.[0]?.hackathons;
+                        if (!th) return null;
+                        return (
+                          <option key={`team-${th.id}`} value={th.id}>
+                            {th.name} ({team.name})
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  )}
+                  {allHackathons.length > 0 && (
+                    <optgroup label="All hackathons">
+                      {allHackathons.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </Select>
                 {autoDetectedBadge && (
-                  <span className="text-[10px] font-mono font-bold text-lime-600 dark:text-lime-400 bg-lime-500/10 px-2 py-0.5 rounded-full animate-fade-in flex items-center gap-1">
-                    <Check className="w-3 h-3" />
-                    {autoDetectedBadge}
-                  </span>
+                  <p className="mt-1.5 flex items-start gap-1.5 text-[12.5px] text-ink-3">
+                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-ok" aria-hidden />
+                    <span className="min-w-0">{autoDetectedBadge}</span>
+                  </p>
                 )}
               </div>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                Pick a hackathon to auto-detect its judging track and criteria.
-              </p>
+            )}
+
+            {/* Track picker */}
+            <fieldset>
+              <legend className="mb-1.5 flex w-full items-center justify-between gap-2">
+                <span className="caps-label text-ink-3">Judging track</span>
+              </legend>
+              <div role="radiogroup" aria-label="Judging track" className="divide-y divide-line overflow-hidden rounded-md border border-line">
+                {TRACK_ORDER.map((trackKey) => {
+                  const profile = TRACK_PROFILES[trackKey];
+                  const isSelected = selectedTrack === trackKey;
+                  const Icon = TRACK_ICON[trackKey];
+                  return (
+                    <button
+                      key={trackKey}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => {
+                        setSelectedTrack(trackKey);
+                        setResult(null);
+                      }}
+                      className={cn(
+                        "flex min-h-12 w-full items-start gap-3 px-3 py-2.5 text-left transition-colors",
+                        isSelected ? "bg-selected" : "hover:bg-hover",
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-full ring-1 ring-inset",
+                          isSelected ? "ring-accent-ink" : "ring-line-strong",
+                        )}
+                      >
+                        {isSelected && <span className="size-2 rounded-full bg-accent" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <Icon className={cn("size-4 shrink-0", isSelected ? "text-accent-ink" : "text-ink-3")} aria-hidden />
+                          <span className="text-[13.5px] font-medium text-ink">{profile.name}</span>
+                          <Tape tone={isSelected ? "accent" : "neutral"}>{profile.badge}</Tape>
+                        </span>
+                        <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-3">{profile.tagline}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[12.5px] text-ink-3">{currentProfile.description}</p>
+            </fieldset>
+
+            <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
+              <span className="caps-label text-ink-3">Your idea</span>
+              <Button variant="ghost" size="sm" icon={<Lightbulb aria-hidden />} onClick={loadSample} className="h-9 md:h-7">
+                Load sample idea
+              </Button>
             </div>
-          </div>
 
-          <div className="w-full sm:w-auto min-w-[260px]">
-            <select
-              value={selectedHackathonId}
-              onChange={(e) => handleHackathonSelect(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-medium rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500 cursor-pointer"
-            >
-              <option value="">Choose Hackathon (or select track below)...</option>
-              {userTeams.length > 0 && (
-                <optgroup label="Your Joined Team Hackathons">
-                  {userTeams.map((team) => {
-                    const th = team.team_hackathons?.[0]?.hackathons;
-                    if (!th) return null;
-                    return (
-                      <option key={`team-${th.id}`} value={th.id}>
-                        🏆 {th.name} ({team.name})
-                      </option>
-                    );
-                  })}
-                </optgroup>
-              )}
-              {allHackathons.length > 0 && (
-                <optgroup label="All Platform Hackathons">
-                  {allHackathons.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-        </div>
-      )}
+            <div>
+              <FieldLabel htmlFor="ev-title" hint="Required">Project or pitch title</FieldLabel>
+              <Input
+                id="ev-title"
+                type="text"
+                required
+                placeholder="e.g. Nexus: real-time collaboration workspace for dev teams"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="h-10 md:h-[34px]"
+              />
+            </div>
 
-      {/* Track Selector Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-        {(["web_dev", "ai_genai", "sih"] as JudgingTrackId[]).map((trackKey) => {
-          const profile = TRACK_PROFILES[trackKey];
-          const isSelected = selectedTrack === trackKey;
-          return (
-            <button
-              key={trackKey}
-              onClick={() => {
-                setSelectedTrack(trackKey);
-                setResult(null);
-              }}
-              type="button"
-              className={`p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
-                isSelected
-                  ? "bg-zinc-900 border-lime-400 dark:bg-zinc-900 text-white shadow-lg shadow-lime-500/10 ring-1 ring-lime-400"
-                  : "bg-white dark:bg-zinc-950/60 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300"
-              }`}
+            <div>
+              <FieldLabel htmlFor="ev-description" hint="Required">Problem and proposed solution</FieldLabel>
+              <Textarea
+                id="ev-description"
+                required
+                rows={4}
+                placeholder="What problem are you solving, who is it for, and what makes your solution different?"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <FieldLabel htmlFor="ev-stack">Tech stack</FieldLabel>
+              <Textarea
+                id="ev-stack"
+                rows={2}
+                placeholder="e.g. Next.js, TypeScript, PostgreSQL with Supabase RLS, Redis, Docker"
+                value={techStack}
+                onChange={(e) => setTechStack(e.target.value)}
+                className="min-h-16"
+              />
+            </div>
+
+            <div>
+              <FieldLabel htmlFor="ev-architecture">Architecture and data flow</FieldLabel>
+              <Textarea
+                id="ev-architecture"
+                rows={3}
+                placeholder="How the pieces connect: request flow, API, database, caching / RAG / queues, response handling."
+                value={architecture}
+                onChange={(e) => setArchitecture(e.target.value)}
+              />
+            </div>
+
+            {errorMsg && <ErrorNotice title={errorMsg} />}
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loading}
+              icon={<Zap aria-hidden />}
+              className="w-full"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xl">{profile.icon}</span>
-                <span
-                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                    isSelected
-                      ? "bg-lime-400 text-zinc-950 font-bold"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                  }`}
-                >
-                  {profile.badge}
+              <span className="min-w-0 truncate">
+                {loading
+                  ? evaluatingStep === 1
+                    ? "Reading architecture and stack…"
+                    : evaluatingStep === 2
+                      ? "Checking edge cases and red flags…"
+                      : "Scoring and finding role gaps…"
+                  : `Evaluate · ${currentProfile.badge}`}
+              </span>
+            </Button>
+          </form>
+        </Panel>
+
+        {/* ---------- Score aside ---------- */}
+        <aside id="evaluation-results" className="min-w-0 scroll-mt-6 space-y-4">
+          {loading ? (
+            <Panel className="flex items-center gap-3 p-4" >
+              <Spinner className="text-accent-ink" label="Evaluating" />
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-medium text-ink">Evaluating your idea</p>
+                <p className="text-[12.5px] text-ink-3">Step {Math.max(evaluatingStep, 1)} of 3</p>
+              </div>
+            </Panel>
+          ) : result ? (
+            <Panel className="p-4">
+              <div className="caps-label text-ink-3">{currentProfile.name}</div>
+              <h2 className="mt-1 break-words text-[14.5px] font-semibold leading-snug text-ink">{title}</h2>
+
+              <div className="mt-4 flex items-end gap-2">
+                <span className="font-display text-[56px] font-semibold leading-[0.9] tracking-[-0.03em] text-ink tabular [font-variation-settings:'wdth'_92]">
+                  {result.totalScore}
                 </span>
+                <span className="pb-1 font-mono text-[12.5px] text-ink-3 tabular">/ 100</span>
               </div>
-              <div className="font-bold text-sm text-zinc-900 dark:text-white mb-1">
-                {profile.name}
+
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <Tape tone={gradeTone(result.grade)} dot>{gradeLabel(result.grade)}</Tape>
+                {result.usedAiEngine ? (
+                  <Tape
+                    tone="ok"
+                    icon={<Zap aria-hidden />}
+                    title="Evaluated using live Gemini AI model with deep semantic reasoning and domain jury rubric checks."
+                  >
+                    Gemini AI
+                  </Tape>
+                ) : (
+                  <Tape
+                    tone="warn"
+                    icon={<Zap aria-hidden />}
+                    title="Evaluated using static pattern heuristic rules (offline / fast check mode)."
+                  >
+                    Quick heuristic check
+                  </Tape>
+                )}
               </div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-tight">
-                {profile.tagline}
+
+              <ul className="mt-4 divide-y divide-line border-t border-line">
+                {RUBRIC_KEYS.map((key) => (
+                  <RubricRow
+                    key={key}
+                    label={result.categoryLabels[key]}
+                    score={result.subScores[key]}
+                    max={currentProfile.categories[key].maxPts}
+                  />
+                ))}
+              </ul>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button variant="secondary" icon={<Share2 aria-hidden />} onClick={shareOnWhatsApp} className="h-10 md:h-[34px]">
+                  WhatsApp
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+                  onClick={copySummary}
+                  className="h-10 md:h-[34px]"
+                >
+                  {copied ? "Copied" : "Copy summary"}
+                </Button>
               </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Main Evaluator Form */}
-      <div className="card p-6 sm:p-8 bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl mb-12">
-        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4 mb-6">
-          <div>
-            <span className="text-xs font-mono uppercase text-lime-600 dark:text-lime-400 font-bold">
-              Active Mode: {currentProfile.name}
-            </span>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              {currentProfile.description}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={loadSample}
-            className="text-xs font-mono text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 bg-zinc-100 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5 transition-colors"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-500" />
-            <span>Load Sample Idea</span>
-          </button>
-        </div>
-
-        <form onSubmit={handleEvaluate} className="space-y-5">
-          {/* Project Title */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Project / Pitch Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Nexus: Distributed Real-Time Developer Collaboration Workspace"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500"
-            />
-          </div>
-
-          {/* Problem Statement & Solution */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Problem Statement & Proposed Solution <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              required
-              rows={4}
-              placeholder="What core problem are you solving, who is your target user, and what is your unique solution/moat?"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500 leading-relaxed"
-            />
-          </div>
-
-          {/* Tech Stack & Frameworks */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Tech Stack & Frameworks
-            </label>
-            <textarea
-              rows={2}
-              placeholder="e.g. Next.js 16, TypeScript, PostgreSQL with Supabase RLS, Redis, Docker, Tailwind CSS v4"
-              value={techStack}
-              onChange={(e) => setTechStack(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500 leading-relaxed"
-            />
-          </div>
-
-          {/* Architecture Details */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Technical Architecture & Data Pipeline Flow
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Explain how components connect: request flow -> API -> database schema -> caching / RAG / background queues -> response handling."
-              value={architecture}
-              onChange={(e) => setArchitecture(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-lime-500 leading-relaxed"
-            />
-          </div>
-
-          {/* Error Message */}
-          {errorMsg && (
-            <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
+            </Panel>
+          ) : (
+            <Panel className="p-4">
+              <div className="caps-label text-ink-3">How this track is scored</div>
+              <p className="mt-1 text-[13px] text-ink-2">{currentProfile.name}</p>
+              <ul className="mt-3 divide-y divide-line border-t border-line">
+                {RUBRIC_KEYS.map((key) => (
+                  <RubricRow
+                    key={key}
+                    label={currentProfile.categories[key].label}
+                    max={currentProfile.categories[key].maxPts}
+                  />
+                ))}
+              </ul>
+              <p className="mt-3 text-[12.5px] text-ink-3">
+                Fill in the form and run an evaluation. Your total score, rubric breakdown and red flags show up here.
+              </p>
+            </Panel>
           )}
 
-          {/* Submit Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-6 rounded-xl bg-lime-400 hover:bg-lime-500 text-zinc-950 font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-lime-400/10"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>
-                    {evaluatingStep === 1 && "Analyzing Architecture & Domain Stack..."}
-                    {evaluatingStep === 2 && "Checking Failure Edge Cases & Red Flags..."}
-                    {evaluatingStep >= 3 && "Finalizing Jury Scores & Teammate Gap Analysis..."}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Cpu className="w-4 h-4" />
-                  <span>Run AI Evaluation ({currentProfile.badge}) →</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Results Section */}
-      {result && (
-        <div id="evaluation-results" className="card p-6 sm:p-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl text-zinc-900 dark:text-white animate-fade-in-up mb-12">
-          {/* Top Score Row */}
-          <div className="flex flex-col sm:flex-row items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-6 mb-6 gap-6">
-            <div className="flex items-center gap-5">
-              <div className="relative flex items-center justify-center w-24 h-24 rounded-full bg-zinc-100 dark:bg-zinc-900 border-4 border-lime-500 dark:border-lime-400 text-center shadow-lg shadow-lime-500/20">
-                <div>
-                  <div className="text-3xl font-black text-zinc-900 dark:text-white">{result.totalScore}</div>
-                  <div className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 uppercase">/ 100 PTS</div>
-                </div>
-              </div>
-              <div>
-                <span className="text-xs font-mono uppercase text-lime-600 dark:text-lime-400 font-bold tracking-wider">
-                  {currentProfile.name} Result
-                </span>
-                <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white mt-0.5">{title}</h2>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <div className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-lime-400">
-                    {result.grade}
-                  </div>
-
-                  {/* Engine Transparency Badge */}
-                  {result.usedAiEngine ? (
-                    <div
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-tight bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 shadow-xs select-none"
-                      title="Evaluated using live Gemini AI model with deep semantic reasoning and domain jury rubric checks."
-                    >
-                      <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Gemini AI ⚡</span>
-                    </div>
-                  ) : (
-                    <div
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-tight bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 shadow-xs select-none"
-                      title="Evaluated using static pattern heuristic rules (offline / fast check mode)."
-                    >
-                      <Zap className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                      <span>Quick Heuristic Check</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={shareOnWhatsApp}
-                className="px-3.5 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Share WhatsApp</span>
-              </button>
-              <button
-                onClick={copySummary}
-                className="px-3.5 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>{copied ? "Copied!" : "Copy Summary"}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Fallback Notice Banner if heuristic engine was used */}
-          {!result.usedAiEngine && (
-            <div className="mb-6 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div className="leading-relaxed">
-                <span className="font-bold">Heuristic Evaluation Mode:</span>{" "}
+          {/* Fallback engine notice */}
+          {result && !result.usedAiEngine && (
+            <div className="flex items-start gap-2.5 rounded-lg bg-warn-soft px-4 py-3 ring-1 ring-inset ring-warn/25" role="status">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+              <p className="min-w-0 text-[12.5px] leading-relaxed text-ink-2">
+                <span className="font-semibold text-ink">Heuristic mode.</span>{" "}
                 {result.fallbackReason === "missing_api_key" ? (
                   <>
                     This scorecard was generated using pattern heuristics because the server&apos;s AI environment key is not configured. Scores are conservative baseline approximations.
@@ -771,465 +802,308 @@ export default function PitchEvaluatorClient({
                     This scorecard was generated using static rule heuristics because the live AI model was temporarily rate-limited or offline. Scores from the heuristic engine are conservative baseline approximations.
                   </>
                 )}
-              </div>
+              </p>
             </div>
           )}
+        </aside>
+      </div>
 
-          {/* 4 Category Score Bars */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800">
-              <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase font-semibold">
-                {result.categoryLabels.novelty}
-              </div>
-              <div className="text-xl font-bold text-zinc-900 dark:text-white mt-1">
-                {result.subScores.novelty} <span className="text-xs text-zinc-500">/ {currentProfile.categories.novelty.maxPts}</span>
-              </div>
-              <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-lime-500 dark:bg-lime-400 h-full rounded-full"
-                  style={{ width: `${(result.subScores.novelty / currentProfile.categories.novelty.maxPts) * 100}%` }}
-                />
-              </div>
+      {/* ---------- Detailed feedback ---------- */}
+      {result && (
+        <div className="mt-10 space-y-10">
+          <section aria-label="Evaluation details" className="min-w-0">
+            <div className="-mx-4 overflow-x-auto px-4 scrollbar-none md:mx-0 md:px-0">
+              <Segmented
+                label="Evaluation details"
+                value={activeTab}
+                onChange={(v) => setActiveTab(v)}
+                options={[
+                  { value: "feedback", label: "Feedback" },
+                  { value: "architecture", label: "Next steps" },
+                  { value: "team", label: "Roles", count: result.recommendedRoles.length },
+                ]}
+                className="shrink-0 whitespace-nowrap"
+              />
             </div>
 
-            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800">
-              <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase font-semibold">
-                {result.categoryLabels.tech}
-              </div>
-              <div className="text-xl font-bold text-zinc-900 dark:text-white mt-1">
-                {result.subScores.tech} <span className="text-xs text-zinc-500">/ {currentProfile.categories.tech.maxPts}</span>
-              </div>
-              <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-cyan-500 dark:bg-cyan-400 h-full rounded-full"
-                  style={{ width: `${(result.subScores.tech / currentProfile.categories.tech.maxPts) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800">
-              <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase font-semibold">
-                {result.categoryLabels.uiUxOrFeasibility}
-              </div>
-              <div className="text-xl font-bold text-zinc-900 dark:text-white mt-1">
-                {result.subScores.uiUxOrFeasibility} <span className="text-xs text-zinc-500">/ {currentProfile.categories.uiUxOrFeasibility.maxPts}</span>
-              </div>
-              <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-emerald-500 dark:bg-emerald-400 h-full rounded-full"
-                  style={{ width: `${(result.subScores.uiUxOrFeasibility / currentProfile.categories.uiUxOrFeasibility.maxPts) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800">
-              <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase font-semibold">
-                {result.categoryLabels.impactOrTeam}
-              </div>
-              <div className="text-xl font-bold text-zinc-900 dark:text-white mt-1">
-                {result.subScores.impactOrTeam} <span className="text-xs text-zinc-500">/ {currentProfile.categories.impactOrTeam.maxPts}</span>
-              </div>
-              <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-amber-500 dark:bg-amber-400 h-full rounded-full"
-                  style={{ width: `${(result.subScores.impactOrTeam / currentProfile.categories.impactOrTeam.maxPts) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Analysis Tabs */}
-          <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 gap-6 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab("feedback")}
-              className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "feedback"
-                  ? "border-lime-500 dark:border-lime-400 text-lime-600 dark:text-lime-400"
-                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              Jury Strengths & Red Flags
-            </button>
-            <button
-              onClick={() => setActiveTab("architecture")}
-              className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "architecture"
-                  ? "border-lime-500 dark:border-lime-400 text-lime-600 dark:text-lime-400"
-                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              Architecture & Moat Suggestions
-            </button>
-            <button
-              onClick={() => setActiveTab("team")}
-              className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "team"
-                  ? "border-lime-500 dark:border-lime-400 text-lime-600 dark:text-lime-400"
-                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              Missing Teammate Skill Gaps ({result.recommendedRoles.length})
-            </button>
-          </div>
-
-          {/* Tab Content 1: Feedback */}
-          {activeTab === "feedback" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40">
-                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs uppercase mb-3">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Key Technical Strengths</span>
-                </div>
-                <ul className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300">
-                  {result.strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">•</span>
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40">
-                <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-xs uppercase mb-3">
-                  <ShieldAlert className="w-4 h-4" />
-                  <span>Jury Red Flags & Vulnerabilities</span>
-                </div>
-                <ul className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300">
-                  {result.redFlags.map((rf, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-red-600 dark:text-red-400 font-bold">•</span>
-                      <span>{rf}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Content 2: Architecture Suggestions */}
-          {activeTab === "architecture" && (
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-3">
-              <div className="flex items-center gap-2 text-lime-600 dark:text-lime-400 font-bold text-xs uppercase">
-                <Cpu className="w-4 h-4" />
-                <span>Next Technical Iteration Steps to Boost Score</span>
-              </div>
-              <ul className="space-y-2.5 text-xs text-zinc-700 dark:text-zinc-300">
-                {result.architectureSuggestions.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2.5 bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                    <span className="text-lime-600 dark:text-lime-400 font-bold">0{i + 1}.</span>
-                    <span className="leading-relaxed">{a}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Tab Content 3: Team Skill Gaps */}
-          {activeTab === "team" && (
-            <div className="space-y-4">
-              <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                Based on your project architecture, the AI identified these recommended builder roles to complete your squad:
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {result.recommendedRoles.map((role, idx) => (
-                  <div key={idx} className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="font-bold text-sm text-zinc-900 dark:text-white">{role.role}</div>
-                      <span className="text-[10px] font-mono text-lime-600 dark:text-lime-400 bg-lime-500/10 px-2 py-0.5 rounded font-bold">
-                        Needed Role
-                      </span>
-                    </div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400 mb-3">{role.reason}</div>
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {role.suggestedSkills.map((sk, sIdx) => (
-                        <Link
-                          key={sIdx}
-                          href={`/developers?skills=${encodeURIComponent(sk)}`}
-                          className="text-[10px] font-mono bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-300 px-2 py-0.5 rounded font-medium transition-colors"
-                          title={`Find builders with ${sk}`}
-                        >
-                          {sk}
-                        </Link>
+            <div className="mt-4">
+              {activeTab === "feedback" && (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <Section title="Strengths" count={result.strengths.length}>
+                    <ul className="divide-y divide-line border-y border-line">
+                      {result.strengths.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2.5 py-2.5 text-[13.5px] leading-relaxed text-ink-2">
+                          <CheckCircle2 className="mt-1 size-4 shrink-0 text-ok" aria-hidden />
+                          <span className="min-w-0">{s}</span>
+                        </li>
                       ))}
-                    </div>
-                    <Link
-                      href={`/developers?skills=${encodeURIComponent(role.suggestedSkills.join(","))}`}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-lime-600 dark:text-lime-400 hover:underline"
-                    >
-                      <span>Find {role.role} builders on HackerMate →</span>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Post-Evaluation Funnel CTAs: Build with a Team & Attach to Team Workspace */}
-          <div className="mt-8 p-6 rounded-2xl bg-gradient-to-b from-zinc-50 to-zinc-100/60 dark:from-zinc-900/80 dark:to-zinc-900/40 border border-zinc-200 dark:border-zinc-800 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-4">
-              <div>
-                <div className="flex items-center gap-2 font-bold text-sm text-zinc-900 dark:text-white">
-                  <Zap className="w-4 h-4 text-lime-600 dark:text-lime-400" />
-                  <span>Next Steps: Take Your Idea to Execution</span>
+                    </ul>
+                  </Section>
+                  <Section title="Red flags" count={result.redFlags.length}>
+                    <ul className="divide-y divide-line border-y border-line">
+                      {result.redFlags.map((rf, i) => (
+                        <li key={i} className="flex items-start gap-2.5 py-2.5 text-[13.5px] leading-relaxed text-ink-2">
+                          <TriangleAlert className="mt-1 size-4 shrink-0 text-warn" aria-hidden />
+                          <span className="min-w-0">{rf}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Section>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Form a squad with prefilled requirements or link this scorecard to your team workspace.
-                </p>
-              </div>
-            </div>
+              )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* CTA 1: Build This with a Team (Guest & Logged-In) */}
-              <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex flex-col justify-between hover:border-lime-500/40 transition-colors">
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-lime-500" />
-                      Build This with a Team
-                    </span>
-                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-lime-500/10 text-lime-600 dark:text-lime-400">
-                      Auto-Prefill
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4">
-                    Instantly creates a new team on HackerMate with your idea title, problem description, and required developer skills pre-filled from this scorecard.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleBuildWithTeam}
-                  className="w-full py-2.5 px-4 rounded-lg bg-lime-400 hover:bg-lime-500 !text-black dark:!text-black font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+              {activeTab === "architecture" && (
+                <Section title="What to improve next" description="Technical iterations most likely to raise your score.">
+                  <ol className="divide-y divide-line border-y border-line">
+                    {result.architectureSuggestions.map((a, i) => (
+                      <li key={i} className="grid grid-cols-[28px_minmax(0,1fr)] gap-2 py-2.5 text-[13.5px] leading-relaxed text-ink-2">
+                        <span className="pt-0.5 font-mono text-[12px] font-semibold text-ink-3 tabular">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span>{a}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </Section>
+              )}
+
+              {activeTab === "team" && (
+                <Section
+                  title="Roles your team is missing"
+                  count={result.recommendedRoles.length}
+                  description="Based on your architecture, these roles would round out the squad."
                 >
-                  <span>Build This with a Team →</span>
-                </button>
-              </div>
-
-              {/* CTA 2: Attach to Team Workspace (Logged-In or Sign In) */}
-              <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex flex-col justify-between hover:border-cyan-500/40 transition-colors">
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-1.5">
-                      <FolderPlus className="w-4 h-4 text-cyan-500" />
-                      Attach to Team Workspace
-                    </span>
-                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                      Workspace Sync
-                    </span>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {result.recommendedRoles.map((role, idx) => (
+                      <Panel key={idx} className="flex min-w-0 flex-col p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="min-w-0 text-[14px] font-semibold text-ink">{role.role}</h3>
+                          <Tape tone="accent" className="shrink-0">Needed</Tape>
+                        </div>
+                        <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{role.reason}</p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {role.suggestedSkills.map((sk, sIdx) => (
+                            <Link
+                              key={sIdx}
+                              href={`/developers?skills=${encodeURIComponent(sk)}`}
+                              className="inline-flex h-7 items-center rounded-[4px] bg-selected px-2 font-mono text-[11.5px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
+                              title={`Find builders with ${sk}`}
+                            >
+                              {sk}
+                            </Link>
+                          ))}
+                        </div>
+                        <Link
+                          href={`/developers?skills=${encodeURIComponent(role.suggestedSkills.join(","))}`}
+                          className="group mt-3 inline-flex min-h-9 items-center gap-1 self-start text-[12.5px] font-medium text-accent-ink hover:underline underline-offset-4"
+                        >
+                          Find {role.role} builders
+                          <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                        </Link>
+                      </Panel>
+                    ))}
                   </div>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed mb-3">
-                    Save this evaluation result directly into an existing team&apos;s workspace so your teammates can review rubrics and track iterations together.
+                </Section>
+              )}
+            </div>
+          </section>
+
+          {/* ---------- Next steps: build with a team / attach to workspace ---------- */}
+          <Section title="Take it further" description="Start a team with this idea prefilled, or save the scorecard to a team you're already on.">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {/* Build this with a team */}
+              <Panel className="flex min-w-0 flex-col justify-between gap-4 p-4">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-ink">
+                      <Users className="size-4 shrink-0 text-ink-3" aria-hidden />
+                      Build this with a team
+                    </span>
+                    <Tape className="shrink-0">Prefilled</Tape>
+                  </div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
+                    Creates a new team with your title, problem description and the skills this scorecard recommends.
+                  </p>
+                </div>
+                <Button variant="inverse" iconRight={<ArrowRight aria-hidden />} onClick={handleBuildWithTeam} className="h-10 w-full md:h-[34px]">
+                  Build this with a team
+                </Button>
+              </Panel>
+
+              {/* Attach to team workspace */}
+              <Panel className="flex min-w-0 flex-col justify-between gap-4 p-4">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-ink">
+                      <FolderPlus className="size-4 shrink-0 text-ink-3" aria-hidden />
+                      Attach to a team
+                    </span>
+                    <Tape className="shrink-0">Workspace</Tape>
+                  </div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
+                    Save this evaluation to a team&apos;s workspace so teammates can review the rubric and track iterations.
                   </p>
                 </div>
 
-                {/* Team Selection Dropdown or Auth Prompt */}
                 {user ? (
                   userTeams.length > 0 ? (
                     <div className="space-y-2">
                       {attachedTeamName ? (
-                        <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2 text-xs text-emerald-700 dark:text-emerald-300">
-                          <span className="flex items-center gap-1.5 font-semibold">
-                            <Check className="w-4 h-4 text-emerald-500" />
-                            Attached to {attachedTeamName}
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-ok-soft px-3 py-2 ring-1 ring-inset ring-ok/25">
+                          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium text-ink">
+                            <CheckCircle2 className="size-4 shrink-0 text-ok" aria-hidden />
+                            <span className="truncate">Attached to {attachedTeamName}</span>
                           </span>
                           <Link
                             href={`/teams/${selectedAttachTeamId || userTeams[0]?.id}`}
-                            className="font-bold underline hover:opacity-80"
+                            className="inline-flex min-h-9 items-center gap-1 text-[12.5px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
                           >
-                            Open Workspace →
+                            Open team
                           </Link>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <select
+                            <label htmlFor="ev-attach-team" className="sr-only">Team to attach to</label>
+                            <Select
+                              id="ev-attach-team"
                               value={selectedAttachTeamId}
                               onChange={(e) => {
                                 setSelectedAttachTeamId(e.target.value);
                                 setAttachError(null);
                               }}
-                              className="flex-1 text-xs py-2 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-cyan-500"
                               disabled={isAttaching}
+                              className="h-10 min-w-0 flex-1 md:h-[34px]"
                             >
-                              <option value="">Select a team workspace...</option>
+                              <option value="">Select a team</option>
                               {userTeams.map((t) => (
                                 <option key={t.id} value={t.id}>
                                   {t.name}
                                 </option>
                               ))}
-                            </select>
-                            <button
-                              type="button"
+                            </Select>
+                            <Button
+                              variant="secondary"
                               onClick={() => handleAttachToTeam(selectedAttachTeamId)}
                               disabled={!selectedAttachTeamId || isAttaching}
-                              className="py-2 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+                              loading={isAttaching}
+                              className="h-10 shrink-0 md:h-[34px]"
                             >
-                              {isAttaching ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <span>Attach</span>
-                              )}
-                            </button>
+                              Attach
+                            </Button>
                           </div>
 
-                          {/* Dynamic Team Sharing Notice */}
+                          {/* Sharing notice */}
                           {selectedAttachTeamId && (() => {
                             const chosenTeam = userTeams.find((t) => t.id === selectedAttachTeamId);
                             const teamName = chosenTeam?.name || "this team";
                             return (
-                              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2 leading-relaxed">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                                <span>
-                                  This will share your full evaluation — including identified weaknesses and red flags — with all current and future members of <strong>{teamName}</strong>.
+                              <div className="flex items-start gap-2 rounded-md bg-warn-soft px-3 py-2 text-[12.5px] leading-relaxed text-ink-2 ring-1 ring-inset ring-warn/25">
+                                <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warn" aria-hidden />
+                                <span className="min-w-0">
+                                  This shares the full evaluation, including weaknesses and red flags, with all current and future members of{" "}
+                                  <strong className="font-semibold text-ink">{teamName}</strong>.
                                 </span>
                               </div>
                             );
                           })()}
                         </div>
                       )}
-                      {attachError && (
-                        <p className="text-[11px] text-rose-600 dark:text-rose-400">{attachError}</p>
-                      )}
+                      {attachError && <p className="text-[12.5px] text-bad" role="alert">{attachError}</p>}
                     </div>
                   ) : (
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
-                      <span>No active teams found.</span>
-                      <button
-                        type="button"
-                        onClick={handleBuildWithTeam}
-                        className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
-                      >
-                        Create your first team →
-                      </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-3">
+                      <span>You&apos;re not on a team yet.</span>
+                      <Button variant="ghost" size="sm" iconRight={<ArrowRight aria-hidden />} onClick={handleBuildWithTeam} className="h-9 md:h-7">
+                        Create your first team
+                      </Button>
                     </div>
                   )
                 ) : (
-                  <Link
+                  <ButtonLink
                     href={`/login?next=${encodeURIComponent("/evaluator")}`}
-                    className="w-full py-2.5 px-4 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-zinc-200 dark:border-zinc-800"
+                    variant="secondary"
+                    className="h-10 w-full md:h-[34px]"
                   >
-                    <span>Sign in to attach to a team workspace →</span>
-                  </Link>
+                    Sign in to attach to a team
+                  </ButtonLink>
                 )}
-              </div>
+              </Panel>
             </div>
-          </div>
+          </Section>
         </div>
       )}
 
-      {/* Evaluation History Slide-Over Drawer */}
-      {showHistoryDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
-            onClick={() => setShowHistoryDrawer(false)}
-          />
-
-          {/* Drawer Content */}
-          <div className="relative w-full max-w-md bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 h-full flex flex-col shadow-2xl z-10 animate-fade-in">
-            {/* Drawer Header */}
-            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-lime-500/10 text-lime-600 dark:text-lime-400">
-                  <History className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
-                    Evaluation History
-                  </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {history.length} saved {history.length === 1 ? "pitch scorecard" : "pitch scorecards"}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHistoryDrawer(false)}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {loadingHistory ? (
-                <div className="text-center py-16 text-xs text-zinc-400 flex flex-col items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-lime-500" />
-                  <span>Loading your evaluation history...</span>
-                </div>
-              ) : history.length === 0 ? (
-                <div className="text-center py-16 px-4">
-                  <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-900 mx-auto flex items-center justify-center text-zinc-400 mb-3">
-                    <History className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white mb-1">
-                    No Saved Evaluations Yet
-                  </h4>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
-                    Evaluate your project ideas or hackathon decks while signed in. All your scorecards and jury feedback will automatically save here.
-                  </p>
-                </div>
-              ) : (
-                history.map((item) => {
-                  const trackInfo = TRACK_PROFILES[item.track_id as JudgingTrackId] || TRACK_PROFILES.web_dev;
-                  const dateStr = new Date(item.created_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSelectHistoryItem(item)}
-                      className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all cursor-pointer group space-y-2 relative"
-                    >
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-zinc-500 dark:text-zinc-400">{dateStr}</span>
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                          {trackInfo.badge}
-                        </span>
-                      </div>
-
-                      <h4 className="text-xs font-bold text-zinc-900 dark:text-white group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors line-clamp-2">
-                        {item.ps_title}
-                      </h4>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-zinc-800/60">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-mono font-extrabold text-lime-600 dark:text-lime-400">
-                            {item.total_score}/100
-                          </span>
-                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate max-w-[150px]">
-                            • {item.grade}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 font-medium">
-                            View →
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => deleteHistoryItem(item.id, e)}
-                            disabled={deletingHistoryId === item.id}
-                            className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                            title="Delete this evaluation"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+      {/* ---------- History sheet ---------- */}
+      <Sheet
+        open={showHistoryDrawer}
+        onClose={() => setShowHistoryDrawer(false)}
+        label="Evaluation history"
+        title={
+          <span className="flex items-baseline gap-2">
+            Evaluation history
+            <span className="font-mono text-[11.5px] font-normal text-ink-3 tabular">{history.length}</span>
+          </span>
+        }
+      >
+        {loadingHistory ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-3">
+            <Spinner label="Loading history" />
+            Loading your history
           </div>
-        </div>
-      )}
-    </div>
+        ) : history.length === 0 ? (
+          <div className="p-4">
+            <EmptyState
+              compact
+              icon={<History />}
+              title="No saved evaluations yet"
+              body="Evaluations you run while signed in are saved here automatically."
+            />
+          </div>
+        ) : (
+          <ul className="divide-y divide-line">
+            {history.map((item) => {
+              const trackInfo = TRACK_PROFILES[item.track_id as JudgingTrackId] || TRACK_PROFILES.web_dev;
+              const dateStr = new Date(item.created_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              });
+              return (
+                <li key={item.id} className="flex items-start gap-1 pr-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectHistoryItem(item)}
+                    className="min-w-0 flex-1 px-4 py-3 text-left transition-colors hover:bg-hover md:px-5"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[11.5px] text-ink-3">{dateStr}</span>
+                      <Tape>{trackInfo.badge}</Tape>
+                    </span>
+                    <span className="mt-1 line-clamp-2 block text-[13.5px] font-medium text-ink">{item.ps_title}</span>
+                    <span className="mt-1 flex min-w-0 items-center gap-2">
+                      <span className="font-display text-[15px] font-semibold text-ink tabular">
+                        {item.total_score}
+                        <span className="font-mono text-[11.5px] font-normal text-ink-3">/100</span>
+                      </span>
+                      <span className="truncate text-[12px] text-ink-3">{gradeLabel(item.grade)}</span>
+                    </span>
+                  </button>
+                  <IconButton
+                    label="Delete this evaluation"
+                    onClick={(e) => deleteHistoryItem(item.id, e)}
+                    disabled={deletingHistoryId === item.id}
+                    className="mt-2.5 hover:text-bad"
+                  >
+                    {deletingHistoryId === item.id ? <Spinner label="Deleting" /> : <Trash2 />}
+                  </IconButton>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Sheet>
+    </Page>
   );
 }

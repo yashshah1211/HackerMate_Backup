@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Award, Download } from "lucide-react";
+import { Button, Dialog, Tape } from "@/components/system";
 
 export type UserBadge = {
   id: string;
@@ -68,11 +70,11 @@ export default function CertificateModal({
       const width = 842;
       const height = 595;
 
-      // Dark background (#090D16)
+      // Dark background (RGB 9,13,22)
       doc.setFillColor(9, 13, 22);
       doc.rect(0, 0, width, height, "F");
 
-      // Outer Decorative Border (Blue Gradient Accent #3B82F6 & #8B5CF6)
+      // Outer decorative border (two RGB accent strokes; PDF output only)
       doc.setLineWidth(3);
       doc.setDrawColor(59, 130, 246);
       doc.rect(20, 20, width - 40, height - 40, "S");
@@ -86,7 +88,7 @@ export default function CertificateModal({
       doc.rect(30, 30, width - 60, 6, "F");
 
       // Brand Logo Header: HackerMate x Partner Org
-      doc.setTextColor(180, 244, 97); // Lime accent #B4F461
+      doc.setTextColor(180, 244, 97); // Lime accent
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.text("HACKERMATE", 60, 75);
@@ -120,7 +122,7 @@ export default function CertificateModal({
       doc.text("PROUDLY PRESENTED TO", width / 2, 180, { align: "center" });
 
       // Recipient Name
-      doc.setTextColor(180, 244, 97); // #B4F461 Lime
+      doc.setTextColor(180, 244, 97); // Lime
       doc.setFont("helvetica", "bold");
       doc.setFontSize(28);
       doc.text(recipientName, width / 2, 230, { align: "center" });
@@ -206,85 +208,52 @@ export default function CertificateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-3xl rounded-2xl border border-white/10 bg-[#0c0d12] p-6 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 font-bold">
-              🏆
-            </span>
-            <div>
-              <h3 className="text-lg font-bold text-white">
-                Co-Branded Verified Certificate
-              </h3>
-              <p className="text-xs text-zinc-400">
-                Issued by {issuer} • ID: {certId}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white transition"
-          >
-            ✕
-          </button>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      title="Verified certificate"
+      description={
+        <>
+          Issued by {issuer} · <span className="font-mono text-[12px]">{certId}</span>
+        </>
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+          <Button variant="primary" icon={<Download />} loading={downloading} onClick={generatePDF}>
+            {downloading ? "Generating PDF…" : "Download official PDF"}
+          </Button>
+        </>
+      }
+    >
+      {/* Certificate preview */}
+      <div className="rounded-lg border border-line-strong bg-sunken px-5 py-7 text-center sm:px-8">
+        <div className="mb-5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 caps-label">
+          <span className="text-accent-ink">HackerMate</span>
+          <span className="text-ink-4" aria-hidden>
+            ×
+          </span>
+          <span className="text-ink-2">{partnerOrg}</span>
         </div>
 
-        {/* Certificate Visual Preview */}
-        <div className="my-6 rounded-xl border border-blue-500/30 bg-[#090D16] p-8 text-center shadow-inner relative overflow-hidden">
-          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-lime-400" />
-          
-          <div className="flex justify-center items-center gap-2 mb-4">
-            <span className="font-bold tracking-wider text-[#B4F461] text-xs">
-              HACKERMATE
-            </span>
-            <span className="text-zinc-500 text-xs">×</span>
-            <span className="font-bold tracking-wider text-blue-400 text-xs uppercase">
-              {partnerOrg}
-            </span>
-          </div>
+        <p className="caps-label text-ink-3">Certificate of achievement</p>
+        <p className="mt-2 break-words font-display text-[24px] font-semibold leading-tight tracking-[-0.02em] text-ink [font-variation-settings:'wdth'_92]">
+          {recipientName}
+        </p>
+        <p className="mt-3 text-[12.5px] text-ink-3">For outstanding achievement in</p>
+        <p className="mt-1 break-words text-[15px] font-semibold text-ink">{eventTitle}</p>
 
-          <h4 className="text-xs font-semibold tracking-widest text-zinc-400 uppercase">
-            Certificate of Achievement
-          </h4>
-          <h2 className="mt-2 text-2xl font-extrabold text-[#B4F461]">
-            {recipientName}
-          </h2>
-          <p className="mt-2 text-xs text-zinc-300">
-            For outstanding achievement in
-          </p>
-          <h3 className="mt-1 text-lg font-bold text-white">
-            {eventTitle}
-          </h3>
-
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-1.5 text-xs font-semibold text-blue-400">
-            <span>★ {rank} ★</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between border-t border-white/10 pt-4">
-          <div className="text-xs text-zinc-400">
-            Issued on {issueDateStr}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5 transition"
-            >
-              Close
-            </button>
-            <button
-              onClick={generatePDF}
-              disabled={downloading}
-              className="btn btn-lime flex items-center gap-2 rounded-lg bg-[#B4F461] px-5 py-2 text-sm font-semibold text-black dark:text-black hover:bg-[#a3e64f] transition disabled:opacity-50"
-            >
-              {downloading ? "Generating PDF..." : "Download Official PDF"}
-            </button>
-          </div>
+        <div className="mt-5 flex justify-center">
+          <Tape tone="accent" icon={<Award />}>
+            {rank}
+          </Tape>
         </div>
       </div>
-    </div>
+
+      <p className="mt-3 text-[12.5px] text-ink-3">Issued on {issueDateStr}</p>
+    </Dialog>
   );
 }

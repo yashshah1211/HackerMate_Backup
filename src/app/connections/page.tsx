@@ -1,15 +1,27 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Inbox, MessageSquare, Send, UsersRound } from "lucide-react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import PostAcceptanceTeamPrompt, { type TeamWithSlots, type ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
 import { trackEvent } from "@/lib/posthog";
-import { getInitials } from "@/lib/utils";
+import {
+  Avatar,
+  Button,
+  ButtonLink,
+  EmptyState,
+  ErrorNotice,
+  Page,
+  PageHeader,
+  RouteTabs,
+  Segmented,
+  SkeletonRows,
+} from "@/components/system";
+import { relativeTime } from "@/lib/time";
 
 type RequestRow = {
   id: string;
@@ -29,6 +41,11 @@ type Profile = {
 
 type EnrichedRequest = RequestRow & { profile: Profile };
 
+type View = "requests" | "sent" | "connected";
+
+// Taller on touch screens (36px), compact on desktop.
+const ROW_BTN = "h-9 sm:h-7";
+
 function ConnectionsContent() {
   const { showToast } = useNotification();
   const router = useRouter();
@@ -36,7 +53,9 @@ function ConnectionsContent() {
   const [outgoing, setOutgoing] = useState<EnrichedRequest[]>([]);
   const [connections, setConnections] = useState<EnrichedRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [view, setView] = useState<View | null>(null);
 
   // ── Post-acceptance team prompt ──
   const [promptOpen, setPromptOpen] = useState(false);
@@ -45,11 +64,12 @@ function ConnectionsContent() {
 
   async function fetchTeamsWithSlots(userId: string): Promise<TeamWithSlots[]> {
     // Fetch teams owned by the accepting user with open slots
-    const { data: teamsData } = await supabase
+    const { data: teamsData, error: teamsError } = await supabase
       .from("teams")
       .select("id, name, max_members, team_members(count)")
       .eq("owner_id", userId);
 
+    if (teamsError) console.error("[connections] owned teams lookup failed:", teamsError);
     if (!teamsData) return [];
 
     return (teamsData as unknown as {
@@ -143,6 +163,7 @@ function ConnectionsContent() {
 
     if (error) {
       console.error(error);
+      setLoadError(error.message);
       setLoading(false);
       return;
     }
@@ -157,11 +178,17 @@ function ConnectionsContent() {
     );
 
     let profilesById: Record<string, Profile> = {};
+    let profilesError: string | null = null;
     if (otherIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: profiles, error: profErr } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, college")
         .in("id", otherIds);
+
+      if (profErr) {
+        console.error("[connections] profiles lookup failed:", profErr);
+        profilesError = profErr.message;
+      }
 
       profilesById = (profiles || []).reduce((acc, p) => {
         acc[p.id] = p;
@@ -186,6 +213,7 @@ function ConnectionsContent() {
     );
     setConnections(enriched.filter((r) => r.status === "accepted"));
 
+    setLoadError(profilesError);
     setLoading(false);
   }
 
@@ -239,275 +267,236 @@ function ConnectionsContent() {
     setActionLoadingId(null);
   }
 
-  if (loading) {
-    return (
-      <main className="max-w-4xl mx-auto px-6 pt-24 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-6 h-6 border-2 border-zinc-800 border-t-white rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading connections...</p>
-        </div>
-      </main>
-    );
-  }
+  // Open on whatever needs attention first; the builder can switch freely.
+  const activeView: View =
+    view ??
+    (incoming.length > 0 ? "requests" : connections.length > 0 ? "connected" : outgoing.length > 0 ? "sent" : "requests");
+
+  const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 
   return (
     <>
-      <main className="max-w-4xl mx-auto px-6 pt-24 pb-16">
-      {/* Header */}
-      <div className="mb-8 animate-fade-in-up">
-        <p className="section-label">NETWORK</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-white mb-1">
-          Connections
-        </h1>
-        <p className="text-xs text-zinc-400">
-          Manage incoming requests and see who you&apos;re connected with.
-        </p>
-      </div>
-
-      {/* Incoming Requests */}
-      <section className="mb-8 animate-fade-in-up stagger-1">
-        <div className="flex items-center justify-between mb-3">
-          <p className="section-label mb-0">INCOMING REQUESTS</p>
-          {incoming.length > 0 && (
-            <span className="badge text-[10px] py-0.5 px-1.5">{incoming.length}</span>
-          )}
-        </div>
-
-        {incoming.length === 0 ? (
-          <div className="card card-static p-8 text-center">
-            <p className="text-zinc-500 text-xs">No pending requests right now.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {incoming.map((req) => (
-              <div key={req.id} className="card card-static p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <Link
-                    href={`/profile/${req.profile.id}`}
-                    className="flex items-center gap-3 min-w-0 flex-1"
-                  >
-                    {req.profile.avatar_url ? (
-                      <img
-                        src={req.profile.avatar_url}
-                        alt={req.profile.full_name}
-                        className="w-9 h-9 rounded object-cover border border-zinc-800"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {getInitials(req.profile.full_name, 1)}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-xs text-white truncate">
-                        {req.profile.full_name}
-                      </p>
-                      <p className="text-[10px] text-zinc-500 truncate">
-                        {req.profile.college || "Independent Builder"}
-                      </p>
-                    </div>
-                  </Link>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => acceptRequest(req.id, req.profile)}
-                      disabled={actionLoadingId === req.id}
-                      className="btn btn-primary btn-sm"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => rejectOrCancel(req.id)}
-                      disabled={actionLoadingId === req.id}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-
-                {req.message && (
-                  <div className="mt-3 p-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40 text-[11px] text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed flex items-start gap-2">
-                    <span className="text-indigo-600 dark:text-indigo-400 font-bold shrink-0">💬</span>
-                    <span>&quot;{req.message}&quot;</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Outgoing Requests */}
-      {outgoing.length > 0 && (
-        <section className="mb-8 animate-fade-in-up stagger-2">
-          <p className="section-label mb-3">SENT REQUESTS</p>
-          <div className="space-y-3">
-            {outgoing.map((req) => (
-              <div key={req.id} className="card card-static p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <Link
-                    href={`/profile/${req.profile.id}`}
-                    className="flex items-center gap-3 min-w-0 flex-1"
-                  >
-                    {req.profile.avatar_url ? (
-                      <img
-                        src={req.profile.avatar_url}
-                        alt={req.profile.full_name}
-                        className="w-9 h-9 rounded object-cover border border-zinc-800"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {getInitials(req.profile.full_name, 1)}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-xs text-white truncate">
-                        {req.profile.full_name}
-                      </p>
-                      <p className="text-[10px] text-zinc-500 truncate">
-                        {req.profile.college || "Independent Builder"}
-                      </p>
-                    </div>
-                  </Link>
-
-                  <button
-                    onClick={() => rejectOrCancel(req.id)}
-                    disabled={actionLoadingId === req.id}
-                    className="btn btn-secondary btn-sm flex-shrink-0"
-                  >
-                    Cancel
-                  </button>
-                </div>
-
-                {req.message && (
-                  <div className="mt-3 p-2.5 rounded-lg bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 text-[11px] text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed flex items-start gap-2">
-                    <span className="text-zinc-500 font-bold shrink-0">💬 Your Pitch:</span>
-                    <span>&quot;{req.message}&quot;</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Connections List */}
-      <section className="animate-fade-in-up stagger-3">
-        <div className="flex items-center justify-between mb-3">
-          <p className="section-label mb-0">YOUR CONNECTIONS</p>
-          {connections.length > 0 && (
-            <span className="badge text-[10px] py-0.5 px-1.5">{connections.length}</span>
-          )}
-        </div>
-
-        {connections.length === 0 ? (
-          <div className="card card-static p-12 text-center">
-            <div className="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.03a.005.005 0 01.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5A3.75 3.75 0 0012 12z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-sm font-semibold text-white mb-1">No connections yet</h3>
-            <p className="text-zinc-500 text-xs mb-4 max-w-xs mx-auto">
-              Connect with fellow builders to form hackathon squads and collaborate.
-            </p>
-            <Link
-              href="/developers"
-              className="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
-            >
-              <span>Explore Builders</span>
-              <span className="font-mono">→</span>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-3">
-            {connections.map((conn) => (
-              <div key={conn.id} className="card p-4 flex items-center gap-3">
-                <Link
-                  href={`/profile/${conn.profile.id}`}
-                  className="flex items-center gap-3 min-w-0 flex-1"
-                >
-                  {conn.profile.avatar_url ? (
-                    <img
-                      src={conn.profile.avatar_url}
-                      alt={conn.profile.full_name}
-                      className="w-9 h-9 rounded object-cover border border-zinc-800"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                      {getInitials(conn.profile.full_name, 1)}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-xs text-white truncate">
-                      {conn.profile.full_name}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 truncate">
-                      {conn.profile.college || "Independent Builder"}
-                    </p>
-                  </div>
-                </Link>
-
-                <Link
-                  href={`/messages?user=${conn.profile.id}`}
-                  className="btn btn-secondary btn-sm p-1.5 flex-shrink-0"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
-                    />
-                  </svg>
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
-
-    {/* Post-acceptance team formation prompt */}
-    {promptUser && (
-      <PostAcceptanceTeamPrompt
-        open={promptOpen}
-        onClose={() => setPromptOpen(false)}
-        connectedUser={promptUser}
-        teamsWithSlots={promptTeams}
-        onCreateTeam={() =>
-          router.push(`/teams/create?invite=${promptUser.id}`)
-        }
-        onInviteToTeam={async (teamId) => {
-          const { error } = await supabase.rpc("send_team_invite", {
-            p_team_id: teamId,
-            p_invited_user_id: promptUser.id,
-          });
-          if (error) {
-            showToast(error.message, "error");
-          } else {
-            showToast(`Invite sent to ${promptUser.full_name}!`, "success");
+      <Page width="wide">
+        <PageHeader
+          title="Builders"
+          meta={
+            loading
+              ? "Loading your network…"
+              : `${plural(connections.length, "connection", "connections")} · ${plural(incoming.length, "request", "requests")} waiting`
           }
+          tabs={
+            <RouteTabs
+              tabs={[
+                { href: "/developers", label: "Discover", active: false },
+                { href: "/connections", label: "Your network", active: true },
+              ]}
+            />
+          }
+        />
 
-        }}
-      />
-    )}
+        <div className="mt-6 max-w-[860px]">
+          <Segmented<View>
+            label="Network view"
+            value={activeView}
+            onChange={setView}
+            options={[
+              { value: "requests", label: "Requests", count: incoming.length },
+              { value: "sent", label: "Sent", count: outgoing.length },
+              { value: "connected", label: "Connected", count: connections.length },
+            ]}
+          />
+
+          {loadError && (
+            <ErrorNotice className="mt-4" title="Couldn't load your network" detail={loadError} onRetry={loadAll} />
+          )}
+
+          <div className="mt-4">
+            {loading ? (
+              <SkeletonRows rows={5} />
+            ) : activeView === "requests" ? (
+              incoming.length === 0 ? (
+                <EmptyState
+                  icon={<Inbox />}
+                  title="No pending requests"
+                  body="When a builder asks to connect, it shows up here."
+                  action={
+                    <ButtonLink href="/developers" size="sm" variant="secondary">
+                      Find builders
+                    </ButtonLink>
+                  }
+                />
+              ) : (
+                <ul className="divide-y divide-line border-y border-line" data-stagger>
+                  {incoming.map((req) => (
+                    <PersonRow
+                      key={req.id}
+                      profile={req.profile}
+                      when={`Requested ${relativeTime(req.created_at, { suffix: true })}`}
+                      message={req.message}
+                      actions={
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className={ROW_BTN}
+                            disabled={actionLoadingId === req.id}
+                            onClick={() => rejectOrCancel(req.id)}
+                          >
+                            Decline
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            className={ROW_BTN}
+                            loading={actionLoadingId === req.id}
+                            onClick={() => acceptRequest(req.id, req.profile)}
+                          >
+                            Accept
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))}
+                </ul>
+              )
+            ) : activeView === "sent" ? (
+              outgoing.length === 0 ? (
+                <EmptyState
+                  icon={<Send />}
+                  title="No sent requests"
+                  body="Requests you send wait here until the builder responds."
+                  action={
+                    <ButtonLink href="/developers" size="sm" variant="secondary">
+                      Find builders
+                    </ButtonLink>
+                  }
+                />
+              ) : (
+                <ul className="divide-y divide-line border-y border-line" data-stagger>
+                  {outgoing.map((req) => (
+                    <PersonRow
+                      key={req.id}
+                      profile={req.profile}
+                      when={`Sent ${relativeTime(req.created_at, { suffix: true })}`}
+                      message={req.message}
+                      messageLabel="Your pitch"
+                      actions={
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className={ROW_BTN}
+                          loading={actionLoadingId === req.id}
+                          onClick={() => rejectOrCancel(req.id)}
+                        >
+                          Cancel request
+                        </Button>
+                      }
+                    />
+                  ))}
+                </ul>
+              )
+            ) : connections.length === 0 ? (
+              <EmptyState
+                icon={<UsersRound />}
+                title="No connections yet"
+                body="Connect with builders to form hackathon teams and collaborate."
+                action={
+                  <ButtonLink href="/developers" size="sm" variant="secondary">
+                    Explore builders
+                  </ButtonLink>
+                }
+              />
+            ) : (
+              <ul className="divide-y divide-line border-y border-line" data-stagger>
+                {connections.map((conn) => (
+                  <PersonRow
+                    key={conn.id}
+                    profile={conn.profile}
+                    actions={
+                      <ButtonLink
+                        href={`/messages?user=${conn.profile.id}`}
+                        size="sm"
+                        variant="secondary"
+                        className={ROW_BTN}
+                        icon={<MessageSquare />}
+                      >
+                        Message
+                      </ButtonLink>
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </Page>
+
+      {/* Post-acceptance team formation prompt */}
+      {promptUser && (
+        <PostAcceptanceTeamPrompt
+          open={promptOpen}
+          onClose={() => setPromptOpen(false)}
+          connectedUser={promptUser}
+          teamsWithSlots={promptTeams}
+          onCreateTeam={() =>
+            router.push(`/teams/create?invite=${promptUser.id}`)
+          }
+          onInviteToTeam={async (teamId) => {
+            const { error } = await supabase.rpc("send_team_invite", {
+              p_team_id: teamId,
+              p_invited_user_id: promptUser.id,
+            });
+            if (error) {
+              showToast(error.message, "error");
+            } else {
+              showToast(`Invite sent to ${promptUser.full_name}!`, "success");
+            }
+
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** V2 builder row: avatar, name → profile, meta line, optional pitch, actions on the right. */
+function PersonRow({
+  profile,
+  when,
+  message,
+  messageLabel,
+  actions,
+}: {
+  profile: Profile;
+  when?: string;
+  message?: string | null;
+  messageLabel?: string;
+  actions: ReactNode;
+}) {
+  return (
+    <li className="group relative flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:gap-4">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <Avatar name={profile.full_name} src={profile.avatar_url} size="lg" />
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/profile/${profile.id}`}
+            className="block truncate text-[15px] font-semibold text-ink decoration-line-strong underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline"
+          >
+            {profile.full_name || "Builder"}
+          </Link>
+          <p className="mt-0.5 truncate text-[12.5px] text-ink-3">
+            {[profile.college || "Independent builder", when].filter(Boolean).join(" · ")}
+          </p>
+          {message && (
+            <p className="mt-2 border-l-2 border-line-strong pl-3 text-[13px] leading-relaxed break-words text-ink-2">
+              {messageLabel && <span className="mr-1.5 caps-label text-ink-3">{messageLabel}</span>}
+              &ldquo;{message}&rdquo;
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-1.5 pl-[60px] sm:pl-0">{actions}</div>
+    </li>
   );
 }
 

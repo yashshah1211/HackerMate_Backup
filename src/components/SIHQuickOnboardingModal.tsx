@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Check, GraduationCap, Plus, TriangleAlert, Zap } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+import { Button, Dialog, FieldLabel, Input, Tape } from "@/components/system";
+import { cn } from "@/lib/utils";
 
 
 type Props = {
@@ -41,6 +44,36 @@ const POPULAR_SKILLS = [
 ];
 
 import { trackEvent, identifyUser } from "@/lib/posthog";
+
+/** Toggle button sized for touch (36px on mobile, compact on desktop). */
+function ToggleOption({
+  active,
+  onClick,
+  children,
+  className,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 min-w-0 items-center justify-center gap-1 rounded-[5px] px-2.5 text-[12.5px] font-medium transition-colors md:h-8 [&_svg]:size-3.5 [&_svg]:shrink-0",
+        active
+          ? "bg-ink text-canvas"
+          : "bg-raised text-ink-2 ring-1 ring-inset ring-line-strong hover:text-ink hover:ring-ink-4",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function SIHQuickOnboardingModal({
   isOpen,
@@ -137,173 +170,117 @@ export default function SIHQuickOnboardingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="card card-static w-full max-w-lg p-6 space-y-5 border-emerald-500/30 bg-zinc-950 shadow-2xl relative overflow-hidden">
-        {/* Neon accent bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600" />
-
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-zinc-900 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
-                ⚡ 10-Second Registration
-              </span>
-            </div>
-            <h2 className="text-lg font-bold text-white tracking-tight mt-1.5">
-              {title || "List Yourself for SIH 2026 Teammate Matching"}
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              {subtitle || "Teammates from your college will find you on the SIH builder board."}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white transition p-1 text-base cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      title={title || "List Yourself for SIH 2026 Teammate Matching"}
+      description={subtitle || "Teammates from your college will find you on the SIH builder board."}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSave} loading={saving} icon={saving ? undefined : <Zap />}>
+            {saving ? "Saving profile…" : buttonText || "Publish Profile & Get Matched"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <Tape tone="accent" icon={<Zap />}>
+          Takes about 10 seconds
+        </Tape>
 
         {errorMsg && (
-          <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg">
-            {errorMsg}
+          <div className="flex items-start gap-2 rounded-md bg-bad-soft px-3 py-2.5 text-[12.5px] text-ink ring-1 ring-inset ring-bad/25" role="alert">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
+            <span className="min-w-0">{errorMsg}</span>
           </div>
         )}
 
-        <div className="space-y-4 text-xs">
-          {/* College Selection */}
-          <div className="relative">
-            <label className="block text-zinc-300 font-mono text-[11px] font-semibold mb-1.5">
-              1. Your College / University <span className="text-rose-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={collegeSearch}
-              onChange={(e) => {
-                setCollegeSearch(e.target.value);
-                setCollege(e.target.value);
-                setShowCollegeDropdown(true);
-              }}
-              onFocus={() => setShowCollegeDropdown(true)}
-              placeholder="Type or select college (e.g. VJTI, SPIT, DJSCE, IIT...)"
-              className="input w-full bg-zinc-900 border-zinc-800 text-white focus:border-emerald-500/50"
-            />
+        {/* College Selection */}
+        <div className="relative">
+          <FieldLabel htmlFor="sih-qo-college" hint="Required">
+            College / university
+          </FieldLabel>
+          <Input
+            id="sih-qo-college"
+            type="text"
+            autoComplete="off"
+            leading={<GraduationCap />}
+            value={collegeSearch}
+            onChange={(e) => {
+              setCollegeSearch(e.target.value);
+              setCollege(e.target.value);
+              setShowCollegeDropdown(true);
+            }}
+            onFocus={() => setShowCollegeDropdown(true)}
+            placeholder="VJTI, SPIT, DJSCE, IIT…"
+            className="max-md:h-10"
+          />
 
-            {showCollegeDropdown && filteredColleges.length > 0 && (
-              <div className="absolute z-20 left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl divide-y divide-zinc-800/50">
-                {filteredColleges.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      setCollege(c);
-                      setCollegeSearch(c);
-                      setShowCollegeDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition truncate cursor-pointer"
-                  >
-                    🏫 {c}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Primary Role */}
-          <div>
-            <label className="block text-zinc-300 font-mono text-[11px] font-semibold mb-1.5">
-              2. Your Primary SIH Role <span className="text-rose-400">*</span>
-            </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {POPULAR_ROLES.map((r) => (
+          {showCollegeDropdown && filteredColleges.length > 0 && (
+            <div className="absolute inset-x-0 z-20 mt-1 max-h-44 overflow-y-auto rounded-md border border-line bg-overlay p-1 shadow-pop">
+              {filteredColleges.map((c) => (
                 <button
-                  key={r}
+                  key={c}
                   type="button"
-                  onClick={() => setSelectedRole(r)}
-                  className={`py-1.5 px-2 rounded-lg text-[11px] font-mono transition cursor-pointer text-center truncate border ${
-                    selectedRole === r
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-bold shadow-sm"
-                      : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
-                  }`}
+                  onClick={() => {
+                    setCollege(c);
+                    setCollegeSearch(c);
+                    setShowCollegeDropdown(false);
+                  }}
+                  className="flex h-9 w-full items-center rounded-[5px] px-2.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
                 >
-                  {r}
+                  <span className="truncate">{c}</span>
                 </button>
               ))}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Top Skill Chips */}
-          <div>
-            <label className="block text-zinc-300 font-mono text-[11px] font-semibold mb-1.5 flex items-center justify-between">
-              <span>3. Top Skills (Select 1-5)</span>
-              <span className="text-zinc-500 font-normal">{selectedSkills.length} selected</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {POPULAR_SKILLS.map((s) => {
-                const isSelected = selectedSkills.includes(s);
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => toggleSkill(s)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono transition cursor-pointer ${
-                      isSelected
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold"
-                        : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
-                    }`}
-                  >
-                    {isSelected ? `✓ ${s}` : `+ ${s}`}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Short Bio */}
-          <div>
-            <label className="block text-zinc-300 font-mono text-[11px] font-semibold mb-1.5">
-              4. Short Teammate Bio
-            </label>
-            <input
-              type="text"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="e.g. Full-Stack Developer looking for AI/ML lead for SIH 2026..."
-              className="input w-full bg-zinc-900 border-zinc-800 text-white"
-            />
+        {/* Primary Role */}
+        <div>
+          <FieldLabel hint="Required">Primary SIH role</FieldLabel>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-label="Primary SIH role">
+            {POPULAR_ROLES.map((r) => (
+              <ToggleOption key={r} active={selectedRole === r} onClick={() => setSelectedRole(r)}>
+                <span className="truncate">{r}</span>
+              </ToggleOption>
+            ))}
           </div>
         </div>
 
-        {/* Footer CTA */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-900">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-secondary text-xs py-2 px-4"
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="btn btn-primary text-xs py-2 px-5 flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold border-none shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                <span>Saving Profile...</span>
-              </>
-            ) : (
-              <>
-                <span>{buttonText || "🚀 Publish Profile & Get Matched"}</span>
-              </>
-            )}
-          </button>
+        {/* Top Skill Chips */}
+        <div>
+          <FieldLabel hint={<span className="font-mono tabular">{selectedSkills.length}/5 selected</span>}>Top skills</FieldLabel>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Top skills">
+            {POPULAR_SKILLS.map((s) => {
+              const isSelected = selectedSkills.includes(s);
+              return (
+                <ToggleOption key={s} active={isSelected} onClick={() => toggleSkill(s)}>
+                  {isSelected ? <Check aria-hidden /> : <Plus aria-hidden />}
+                  {s}
+                </ToggleOption>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Short Bio */}
+        <div>
+          <FieldLabel htmlFor="sih-qo-bio">Short bio</FieldLabel>
+          <Input
+            id="sih-qo-bio"
+            type="text"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="e.g. Full-stack developer looking for an AI/ML lead for SIH 2026"
+            className="max-md:h-10"
+          />
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

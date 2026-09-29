@@ -1,8 +1,27 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Lightbulb, Minus, Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import {
+  Button,
+  ButtonLink,
+  Chip,
+  FieldLabel,
+  FilterChip,
+  IconButton,
+  Input,
+  Page,
+  PageHeader,
+  PageLoader,
+  Panel,
+  SeatMeter,
+  Section,
+  Select,
+  TeamMark,
+  Textarea,
+} from "@/components/system";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
@@ -36,12 +55,9 @@ export default function CreateTeamPage() {
   return (
     <AuthGuard>
       <Suspense fallback={
-        <main className="max-w-2xl mx-auto px-6 pt-36 pb-16">
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--primary-500)] to-[var(--accent-500)] animate-pulse mb-4" />
-            <p className="text-zinc-500">Loading team creator...</p>
-          </div>
-        </main>
+        <Page width="narrow">
+          <PageLoader label="Loading team creator" />
+        </Page>
       }>
         <CreateTeamForm />
       </Suspense>
@@ -235,6 +251,24 @@ function CreateTeamForm() {
     );
   }
 
+  // UI-only: free-text entries appended to the same selectedSkills / selectedRoles arrays.
+  const [customSkill, setCustomSkill] = useState("");
+  const [customRole, setCustomRole] = useState("");
+
+  function addCustomSkill() {
+    const trimmed = customSkill.trim();
+    if (!trimmed) return;
+    setSelectedSkills((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setCustomSkill("");
+  }
+
+  function addCustomRole() {
+    const trimmed = customRole.trim();
+    if (!trimmed) return;
+    setSelectedRoles((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setCustomRole("");
+  }
+
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
   const [nudgeModalOpen, setNudgeModalOpen] = useState(false);
 
@@ -368,99 +402,143 @@ function CreateTeamForm() {
     selectedSkills.length === 0 ||
     selectedRoles.length === 0;
 
+  // ── Presentation-only derived values ──
+  const selectedHackathonInfo = hackathons.find((h) => h.id === hackathonId);
+  const previewTone = hackathonId === SIH_HACKATHON_ID ? "sih" : hackathonId ? "hack" : "proj";
+  const extraSkills = selectedSkills.filter((s) => !SKILLS.includes(s));
+  const extraRoles = selectedRoles.filter((r) => !ROLES.includes(r));
+  const filteredColleges = COLLEGES.filter((col) =>
+    col.toLowerCase().includes(collegeSearch.toLowerCase())
+  );
+  const missing = [
+    !name.trim() && "team name",
+    !description.trim() && "description",
+    college === "Other" && !customCollege.trim() && "college name",
+    selectedSkills.length === 0 && "a skill",
+    selectedRoles.length === 0 && "a role",
+  ].filter(Boolean) as string[];
+  const missingText = missing.length > 0 ? `Still needed: ${missing.join(", ")}` : null;
+
+  const submitButton = (className?: string) => (
+    <Button
+      variant="primary"
+      size="lg"
+      onClick={handleCreateTeam}
+      disabled={isDisabled}
+      loading={loading}
+      icon={<Plus aria-hidden />}
+      className={className}
+    >
+      {loading ? "Creating team…" : "Create team"}
+    </Button>
+  );
+
   return (
-    <main className="max-w-2xl mx-auto px-6 pt-36 pb-16">
-      {/* Header */}
-      <div className="mb-8 animate-fade-in-up">
-        <p className="section-label">Team creation</p>
-        <h1 className="text-4xl md:text-5xl font-medium tracking-tight leading-tight mb-3">
-          Create your
-          <br />
-          <span className="text-gradient">team.</span>
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-base">
-          Build your dream team and start collaborating.
-        </p>
-      </div>
+    <Page width="narrow" className="pb-44 md:pb-16">
+      <PageHeader
+        eyebrow="Teams"
+        title="New team"
+        meta="Say what you're building and who you need."
+      />
 
-      {/* Contextual invite banner — shown when coming from post-acceptance prompt */}
-      {inviteUserId && (
-        <div className="mb-6 px-4 py-3 rounded-xl bg-indigo-950/40 border border-indigo-800/50 flex items-center gap-3 animate-fade-in-up">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
-            <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031a.005.005 0 01-.003.006A9.49 9.49 0 0112 21.75a9.49 9.49 0 01-9.12-6.923.004.004 0 01-.003-.007.003.003 0 01.001-.002m15.063 3.902h.001M12 12a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5zm-3.75 9h7.5m-7.5 0H12" />
-            </svg>
-          </div>
-          <p className="text-xs text-zinc-300 leading-relaxed">
-            <span className="font-semibold text-indigo-300">
-              {inviteUserName ? `Building with ${inviteUserName}` : "Team invite queued"}
-            </span>
-            {" — "}
-            {inviteUserName
-              ? `${inviteUserName} will automatically receive an invite once your team is created.`
-              : "An invite will be sent automatically once your team is created."}
-          </p>
+      {(inviteUserId || isFromEvaluator) && (
+        <div className="mt-1 space-y-2.5">
+          {/* Contextual invite banner — shown when coming from post-acceptance prompt */}
+          {inviteUserId && (
+            <Notice icon={<UserPlus />} title={inviteUserName ? `Building with ${inviteUserName}` : "Team invite queued"}>
+              {inviteUserName
+                ? `${inviteUserName} will get an invite as soon as your team is created.`
+                : "An invite will be sent as soon as your team is created."}
+            </Notice>
+          )}
+          {/* Contextual Idea Evaluator banner — shown when prefilled from /evaluator */}
+          {isFromEvaluator && (
+            <Notice icon={<Lightbulb />} title="Prefilled from your idea evaluation">
+              Name, description and skills came from your evaluation report. Review them below.
+            </Notice>
+          )}
         </div>
       )}
 
-      {/* Contextual Idea Evaluator banner — shown when prefilled from /evaluator */}
-      {isFromEvaluator && (
-        <div className="mb-6 px-4 py-3 rounded-xl bg-lime-500/10 border border-lime-500/30 flex items-center gap-3 animate-fade-in-up">
-          <div className="w-8 h-8 rounded-lg bg-lime-500/20 flex items-center justify-center flex-shrink-0 text-lime-400">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-            </svg>
-          </div>
-          <p className="text-xs text-zinc-300 leading-relaxed">
-            <span className="font-semibold text-lime-400">
-              Prefilled from your Idea Evaluation
-            </span>
-            {" — "}
-            Your team name, description, and required skillsets have been imported from your evaluation report. Review and fine-tune below!
-          </p>
-        </div>
-      )}
+      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0 space-y-9">
+          {/* ── Idea & event ── */}
+          <Section title="Idea & event">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <FieldLabel htmlFor="team-name" hint="Required">Team name</FieldLabel>
+                <Input
+                  id="team-name"
+                  type="text"
+                  placeholder="e.g. Hack Warriors"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-10 md:h-[34px]"
+                />
+              </div>
 
-      {/* Form Card */}
-      <div className="card card-static animate-fade-in-up stagger-1">
+              <div className="sm:col-span-2">
+                <FieldLabel htmlFor="team-description" hint="Required">What you&apos;re building</FieldLabel>
+                <Textarea
+                  id="team-description"
+                  placeholder="The problem, your idea, and how far along you are."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                />
+              </div>
 
-        {/* ── Basics ── */}
-        <section className="p-8 pb-0">
-          <SectionHeader label="Basics" />
-          <div className="space-y-5">
-            <Field label="Team name" required>
-              <input
-                type="text"
-                placeholder="e.g. Hack Warriors"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Description" required>
-              <textarea
-                placeholder="What's your team's mission?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="input"
-              />
-            </Field>
-          </div>
-        </section>
+              <div className="min-w-0">
+                <FieldLabel htmlFor="team-hackathon" hint="Optional">Hackathon</FieldLabel>
+                <Select
+                  id="team-hackathon"
+                  value={hackathonId}
+                  onChange={(e) => setHackathonId(e.target.value)}
+                  disabled={hackathonsLoading}
+                  className="h-10 md:h-[34px]"
+                >
+                  <option value="">
+                    {hackathonsLoading ? "Loading hackathons…" : "No hackathon"}
+                  </option>
+                  {hackathons.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </Select>
+                {!hackathonsLoading && hackathons.length === 0 && (
+                  <p className="mt-1.5 text-[12px] text-ink-3">No hackathons available yet.</p>
+                )}
+                {selectedHackathonInfo?.max_team_size ? (
+                  <p className="mt-1.5 text-[12px] text-ink-3">
+                    Team size set to {selectedHackathonInfo.max_team_size} for this event.
+                  </p>
+                ) : null}
+              </div>
 
-        <Divider />
+              {availableTracks.length > 0 && (
+                <div className="min-w-0">
+                  <FieldLabel htmlFor="team-track" hint="Optional">Track</FieldLabel>
+                  <Select
+                    id="team-track"
+                    value={selectedTrack}
+                    onChange={(e) => setSelectedTrack(e.target.value)}
+                    className="h-10 md:h-[34px]"
+                  >
+                    <option value="">Select a track</option>
+                    {availableTracks.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
 
-        {/* ── Context ── */}
-        <section className="px-8 pb-0">
-          <SectionHeader label="Context" />
-          <div className="grid md:grid-cols-2 gap-5">
-            <div>
-              <Field label="College (Optional)">
+              <div className={availableTracks.length > 0 ? "min-w-0 sm:col-span-2" : "min-w-0"}>
+                <FieldLabel htmlFor="team-college" hint="Optional">College</FieldLabel>
                 <div className="relative">
-                  <input
+                  <Input
+                    id="team-college"
                     type="text"
-                    placeholder="Search or select your college..."
+                    autoComplete="off"
+                    placeholder="Search your college"
                     value={showCollegeDropdown ? collegeSearch : (college || "")}
                     onFocus={() => {
                       setCollegeSearch("");
@@ -470,36 +548,39 @@ function CreateTeamForm() {
                       setCollegeSearch(e.target.value);
                       setShowCollegeDropdown(true);
                     }}
-                    className="input px-4 w-full"
+                    className="h-10 md:h-[34px]"
                   />
-                  
+
                   {showCollegeDropdown && (
                     <>
-                      <div 
-                        className="fixed inset-0 z-10" 
+                      <div
+                        className="fixed inset-0 z-10"
                         onClick={() => setShowCollegeDropdown(false)}
+                        aria-hidden
                       />
-                      <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-1.5 shadow-xl z-20 text-left">
-                        {COLLEGES.filter((col) => 
-                          col.toLowerCase().includes(collegeSearch.toLowerCase())
-                        ).map((collegeName) => (
+                      <div
+                        role="listbox"
+                        aria-label="Colleges"
+                        className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-line bg-overlay p-1 text-left shadow-pop"
+                      >
+                        {filteredColleges.map((collegeName) => (
                           <button
                             type="button"
+                            role="option"
+                            aria-selected={college === collegeName}
                             key={collegeName}
                             onClick={() => {
                               setCollege(collegeName);
                               setCollegeSearch("");
                               setShowCollegeDropdown(false);
                             }}
-                            className="w-full text-left px-3 py-2 rounded-md text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                            className="flex min-h-9 w-full items-center rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
                           >
                             {collegeName}
                           </button>
                         ))}
-                        {COLLEGES.filter((col) => 
-                          col.toLowerCase().includes(collegeSearch.toLowerCase())
-                        ).length === 0 && (
-                          <div className="text-center py-4 text-xs text-zinc-500 dark:text-zinc-600">
+                        {filteredColleges.length === 0 && (
+                          <div className="px-2.5 py-4 text-center text-[12.5px] text-ink-3">
                             No colleges match your search.
                           </div>
                         )}
@@ -507,135 +588,153 @@ function CreateTeamForm() {
                     </>
                   )}
                 </div>
-              </Field>
-              {college === "Other" && (
-                <input
-                  type="text"
-                  placeholder="Enter your college name"
-                  value={customCollege}
-                  onChange={(e) => setCustomCollege(e.target.value)}
-                  className="input mt-2.5"
-                />
-              )}
+                {college === "Other" && (
+                  <Input
+                    type="text"
+                    aria-label="College name"
+                    placeholder="Enter your college name"
+                    value={customCollege}
+                    onChange={(e) => setCustomCollege(e.target.value)}
+                    className="mt-2 h-10 md:h-[34px]"
+                  />
+                )}
+              </div>
             </div>
-            <Field label="Hackathon (Optional)">
-              <select
-                value={hackathonId}
-                onChange={(e) => setHackathonId(e.target.value)}
-                className="input px-4"
-                disabled={hackathonsLoading}
+          </Section>
+
+          {/* ── Who you need ── */}
+          <Section title="Who you need" description="Pick at least one skill and one role. Add your own if it isn't listed.">
+            <div className="space-y-6">
+              <ChipGroup
+                id="team-skills"
+                label="Skills"
+                count={selectedSkills.length}
+                addValue={customSkill}
+                onAddValueChange={setCustomSkill}
+                onAdd={addCustomSkill}
+                addPlaceholder="Add a skill"
               >
-                <option value="">
-                  {hackathonsLoading ? "Loading hackathons..." : "Select hackathon"}
-                </option>
-                {hackathons.map((h) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
+                {SKILLS.map((skill) => (
+                  <FilterChip key={skill} active={selectedSkills.includes(skill)} onClick={() => toggleSkill(skill)}>
+                    {skill}
+                  </FilterChip>
                 ))}
-              </select>
-              {!hackathonsLoading && hackathons.length === 0 && (
-                <p className="text-xs text-zinc-500 mt-1.5">
-                  No hackathons available yet.
-                </p>
-              )}
-            </Field>
+                {extraSkills.map((skill) => (
+                  <FilterChip key={skill} active onClick={() => toggleSkill(skill)}>
+                    {skill}
+                  </FilterChip>
+                ))}
+              </ChipGroup>
 
-            {availableTracks.length > 0 && (
-              <Field label="Event Track / Pillar (Optional)">
-                <select
-                  value={selectedTrack}
-                  onChange={(e) => setSelectedTrack(e.target.value)}
-                  className="input px-4"
-                >
-                  <option value="">Select track / pillar...</option>
-                  {availableTracks.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </Field>
-            )}
-          </div>
-        </section>
-
-        <Divider />
-
-        {/* ── Skills ── */}
-        <section className="px-8 pb-0">
-          <SectionHeader label="Skills needed" required />
-          <div className="flex flex-wrap gap-2">
-            {SKILLS.map((skill) => (
-              <TagButton
-                key={skill}
-                label={skill}
-                active={selectedSkills.includes(skill)}
-                onClick={() => toggleSkill(skill)}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-zinc-500 mt-2">Select all that apply</p>
-        </section>
-
-        <Divider />
-
-        {/* ── Roles ── */}
-        <section className="px-8 pb-0">
-          <SectionHeader label="Roles needed" required />
-          <div className="flex flex-wrap gap-2">
-            {ROLES.map((role) => (
-              <TagButton
-                key={role}
-                label={role}
-                active={selectedRoles.includes(role)}
-                onClick={() => toggleRole(role)}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-zinc-500 mt-2">Select all that apply</p>
-        </section>
-
-        <Divider />
-
-        {/* ── Team size ── */}
-        <section className="px-8">
-          <SectionHeader label="Team size" />
-          <div className="flex items-center gap-4">
-            <input
-              type="range"
-              min="2"
-              max="10"
-              value={maxMembers}
-              onChange={(e) => setMaxMembers(Number(e.target.value))}
-              className="flex-1 h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary-500"
-            />
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.06]">
-              <span className="text-lg font-medium text-zinc-900 dark:text-white">{maxMembers}</span>
+              <ChipGroup
+                id="team-roles"
+                label="Roles"
+                count={selectedRoles.length}
+                addValue={customRole}
+                onAddValueChange={setCustomRole}
+                onAdd={addCustomRole}
+                addPlaceholder="Add a role"
+              >
+                {ROLES.map((role) => (
+                  <FilterChip key={role} active={selectedRoles.includes(role)} onClick={() => toggleRole(role)}>
+                    {role}
+                  </FilterChip>
+                ))}
+                {extraRoles.map((role) => (
+                  <FilterChip key={role} active onClick={() => toggleRole(role)}>
+                    {role}
+                  </FilterChip>
+                ))}
+              </ChipGroup>
             </div>
-          </div>
-          <p className="text-xs text-zinc-500 mt-2">Maximum members allowed</p>
-        </section>
+          </Section>
 
-        {/* ── Submit ── */}
-        <div className="px-8 pb-8 pt-6">
-          <button
-            onClick={handleCreateTeam}
-            disabled={isDisabled}
-            className="btn btn-primary w-full btn-lg"
-          >
-            {loading ? (
-              <div className="flex items-center gap-2.5">
-                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>Creating team…</span>
+          {/* ── Team settings ── */}
+          <Section title="Team settings">
+            <div id="team-size-label" className="mb-2 caps-label text-ink-3">Max members</div>
+            <div className="flex flex-wrap items-center gap-4" role="group" aria-labelledby="team-size-label">
+              <div className="inline-flex items-center rounded-md bg-sunken ring-1 ring-inset ring-line-strong">
+                <IconButton
+                  label="Fewer members"
+                  onClick={() => setMaxMembers(Math.max(2, maxMembers - 1))}
+                  disabled={maxMembers <= 2}
+                  className="disabled:opacity-40"
+                >
+                  <Minus />
+                </IconButton>
+                <output
+                  aria-live="polite"
+                  className="w-10 text-center font-display text-[18px] font-semibold text-ink tabular"
+                >
+                  {maxMembers}
+                </output>
+                <IconButton
+                  label="More members"
+                  onClick={() => setMaxMembers(Math.min(10, maxMembers + 1))}
+                  disabled={maxMembers >= 10}
+                  className="disabled:opacity-40"
+                >
+                  <Plus />
+                </IconButton>
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                <span>Create team</span>
-              </div>
-            )}
-          </button>
+              <SeatMeter filled={1} total={maxMembers} />
+            </div>
+            <p className="mt-2 text-[12px] text-ink-3">Including you. Between 2 and 10.</p>
+          </Section>
+
+          {/* ── Submit (desktop) ── */}
+          <div className="hidden items-center gap-3 border-t border-line pt-5 md:flex">
+            <p className="mr-auto min-w-0 truncate text-[12.5px] text-ink-3">{missingText}</p>
+            <ButtonLink href="/teams" variant="ghost" size="lg">
+              Cancel
+            </ButtonLink>
+            {submitButton()}
+          </div>
         </div>
 
+        {/* ── Live preview (desktop) ── */}
+        <aside className="hidden lg:block" aria-label="Team card preview">
+          <div className="sticky top-6">
+            <div className="mb-2 caps-label text-ink-3">Preview</div>
+            <Panel className="p-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <TeamMark name={name.trim() || "New team"} tone={previewTone} size="md" />
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-semibold text-ink">{name.trim() || "Your team name"}</p>
+                  <p className="truncate text-[12px] text-ink-3">
+                    {selectedHackathonInfo?.name || "No hackathon"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-ink-2">
+                {description.trim() || "What you're building shows up here."}
+              </p>
+              <div className="mt-3">
+                <SeatMeter filled={1} total={maxMembers} />
+              </div>
+              {selectedSkills.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {selectedSkills.slice(0, 6).map((s) => (
+                    <Chip key={s}>{s}</Chip>
+                  ))}
+                  {selectedSkills.length > 6 && <Chip>+{selectedSkills.length - 6}</Chip>}
+                </div>
+              )}
+              {selectedRoles.length > 0 && (
+                <p className="mt-3 text-[12px] text-ink-3">
+                  Looking for <span className="text-ink-2">{selectedRoles.slice(0, 3).join(", ")}</span>
+                  {selectedRoles.length > 3 && ` +${selectedRoles.length - 3}`}
+                </p>
+              )}
+            </Panel>
+          </div>
+        </aside>
+      </div>
+
+      {/* ── Submit (mobile): fixed above the tab bar ── */}
+      <div className="fixed inset-x-0 bottom-[calc(var(--hm-tabbar-h)+env(safe-area-inset-bottom))] z-30 border-t border-line bg-canvas px-4 py-2.5 md:hidden">
+        {missingText && <p className="mb-2 truncate text-[12px] text-ink-3">{missingText}</p>}
+        {submitButton("w-full")}
       </div>
 
       <ContextualProfileNudgeModal
@@ -651,67 +750,80 @@ function CreateTeamForm() {
           setCurrentUserProfile(updated);
         }}
       />
-    </main>
+    </Page>
   );
 }
 
-/* ── Small shared components ── */
+/* ── Small presentational helpers ── */
 
-function SectionHeader({ label, required }: { label: string; required?: boolean }) {
+function Notice({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 mb-4 pb-3 border-b border-zinc-100 dark:border-white/[0.06]">
-      <span className="text-[10px] uppercase tracking-widest font-medium text-zinc-500">
-        {label}
+    <div className="flex items-start gap-3 rounded-lg border border-line bg-raised px-4 py-3">
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-ink [&_svg]:size-4" aria-hidden>
+        {icon}
       </span>
-      {required && <span className="text-rose-400 text-xs">*</span>}
+      <div className="min-w-0">
+        <p className="text-[13.5px] font-semibold text-ink">{title}</p>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-ink-3">{children}</p>
+      </div>
     </div>
   );
 }
 
-function Field({
+function ChipGroup({
+  id,
   label,
-  required,
+  count,
   children,
+  addValue,
+  onAddValueChange,
+  onAdd,
+  addPlaceholder,
 }: {
+  id: string;
   label: string;
-  required?: boolean;
-  children: React.ReactNode;
+  count: number;
+  children: ReactNode;
+  addValue: string;
+  onAddValueChange: (v: string) => void;
+  onAdd: () => void;
+  addPlaceholder: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-        {label}
-        {required && <span className="text-rose-400 ml-0.5">*</span>}
-      </label>
-      {children}
+    <div role="group" aria-labelledby={`${id}-label`}>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <span id={`${id}-label`} className="caps-label text-ink-3">{label}</span>
+        <span className={count > 0 ? "text-[12px] text-ink-3" : "text-[12px] text-warn"}>
+          {count > 0 ? `${count} selected` : "Required"}
+        </span>
+      </div>
+      {/* Chips are 36px tall on touch screens, compact on desktop. */}
+      <div className="flex flex-wrap gap-1.5 [&>button]:h-9 md:[&>button]:h-7">{children}</div>
+      <div className="mt-2.5 flex gap-2">
+        <Input
+          type="text"
+          aria-label={addPlaceholder}
+          placeholder={addPlaceholder}
+          value={addValue}
+          onChange={(e) => onAddValueChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onAdd();
+            }
+          }}
+          className="h-10 min-w-0 flex-1 md:h-[34px]"
+        />
+        <Button
+          variant="secondary"
+          icon={<Plus aria-hidden />}
+          onClick={onAdd}
+          disabled={!addValue.trim()}
+          className="h-10 md:h-[34px]"
+        >
+          Add
+        </Button>
+      </div>
     </div>
   );
-}
-
-function TagButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-        active
-          ? "bg-[var(--primary-500)] text-white border-[var(--primary-500)]"
-          : "bg-zinc-100 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.06] hover:border-zinc-300 dark:hover:border-white/[0.15] hover:text-zinc-900 dark:hover:text-zinc-300"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Divider() {
-  return <div className="border-t border-zinc-100 dark:border-white/[0.06] mx-8 my-6" />;
 }

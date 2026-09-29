@@ -2,12 +2,18 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { ExternalLink, X, ZoomIn, ZoomOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ImageLightboxProps {
   src: string;
   alt?: string;
   onClose: () => void;
 }
+
+const controlClass =
+  "inline-flex size-10 items-center justify-center rounded-md bg-overlay text-ink-2 ring-1 ring-inset ring-line-strong transition-colors hover:text-ink hover:ring-ink-4 [&_svg]:size-[18px]";
 
 export default function ImageLightbox({ src, alt = "Media attachment", onClose }: ImageLightboxProps) {
   const [zoomed, setZoomed] = useState(false);
@@ -26,56 +32,50 @@ export default function ImageLightbox({ src, alt = "Media attachment", onClose }
     };
   }, [onClose]);
 
-  return (
+  // Portalled to <body> so no transformed ancestor (tab fades, etc.) can trap the fixed layer.
+  return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt}
+      className="fixed inset-0 z-[100] flex animate-hm-fade items-center justify-center bg-canvas/95 p-4"
     >
       {/* Top action bar */}
-      <div className="absolute top-4 right-4 flex items-center gap-2 z-50" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10 flex items-center gap-1.5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <a
           href={src}
           target="_blank"
           rel="noopener noreferrer"
           download
-          className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+          className={controlClass}
           title="Open original"
+          aria-label="Open original"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
+          <ExternalLink aria-hidden />
         </a>
 
         <button
+          type="button"
           onClick={() => setZoomed(!zoomed)}
           aria-label={zoomed ? "Zoom out" : "Zoom in"}
-          className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+          className={controlClass}
           title={zoomed ? "Zoom out" : "Zoom in"}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            {zoomed ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
-            )}
-          </svg>
+          {zoomed ? <ZoomOut aria-hidden /> : <ZoomIn aria-hidden />}
         </button>
 
-        <button
-          onClick={onClose}
-          aria-label="Close image lightbox"
-          className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-          title="Close (Esc)"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button type="button" onClick={onClose} aria-label="Close image lightbox" className={controlClass} title="Close (Esc)">
+          <X aria-hidden />
         </button>
       </div>
 
       {/* Image container */}
       <div
-        className="relative max-w-full max-h-full flex items-center justify-center cursor-zoom-in"
+        className={cn("relative flex max-h-full max-w-full items-center justify-center", zoomed ? "cursor-zoom-out" : "cursor-zoom-in")}
         onClick={(e) => {
           e.stopPropagation();
           setZoomed(!zoomed);
@@ -84,11 +84,13 @@ export default function ImageLightbox({ src, alt = "Media attachment", onClose }
         <img
           src={src}
           alt={alt}
-          className={`max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl transition-transform duration-200 select-none ${
-            zoomed ? "scale-150 cursor-zoom-out" : "scale-100"
-          }`}
+          className={cn(
+            "max-h-[90vh] max-w-[90vw] select-none rounded-md object-contain ring-1 ring-line transition-transform duration-200",
+            zoomed ? "scale-150" : "scale-100",
+          )}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

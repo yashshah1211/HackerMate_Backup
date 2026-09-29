@@ -16,7 +16,27 @@ import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import { SIH_HACKATHON_ID } from "@/lib/constants";
 import ShareModal from "@/components/ShareModal";
 import { trackEvent } from "@/lib/posthog";
-import { Building2, Users, ShieldCheck, Zap, FileSpreadsheet, Target, Trophy, Share2, GraduationCap, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, FileSpreadsheet, GraduationCap, Lightbulb, Plus, Share2, Target, TriangleAlert, UserPlus, Users, Zap } from "lucide-react";
+import { eventTimeline } from "@/lib/time";
+import { cn } from "@/lib/utils";
+import {
+  Avatar,
+  AvatarStack,
+  Button,
+  ButtonLink,
+  Chip,
+  EmptyState,
+  Input,
+  Page,
+  PageHeader,
+  PageLoader,
+  SeatMeter,
+  Segmented,
+  SkeletonRows,
+  StatusDot,
+  Tape,
+  TeamMark,
+} from "@/components/system";
 
 type Profile = {
   id: string;
@@ -100,12 +120,7 @@ function isSameCollege(collegeA: string | null | undefined, collegeB: string | n
 
 export default function SIHTeamBuilderPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-xs text-zinc-500 font-mono">Loading SIH 2026 Directory...</p>
-      </div>
-    }>
+    <Suspense fallback={<PageLoader label="Loading SIH team builder" />}>
       <SIHTeamBuilderContent />
     </Suspense>
   );
@@ -467,7 +482,7 @@ function SIHTeamBuilderContent() {
     }
 
     setOnboardingIntent(null);
-    showToast("🎉 Profile set up! You are now listed for SIH 2026.", "success");
+    showToast("Profile set up! You are now listed for SIH 2026.", "success");
     executeToggleLookingForTeam();
   }
 
@@ -495,268 +510,235 @@ function SIHTeamBuilderContent() {
 
   if (loading) {
     return (
-      <main className="max-w-5xl mx-auto px-6 pt-36 pb-16 min-h-screen">
-        <div className="flex flex-col items-center justify-center min-h-[40vh]">
-          <div className="w-8 h-8 border-2 border-zinc-300 dark:border-zinc-800 border-t-orange-500 rounded-full animate-spin mb-4" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Loading SIH Team Builder...</p>
-        </div>
-      </main>
+      <Page>
+        <PageHeader eyebrow="Smart India Hackathon 2026" title="SIH team builder" meta="Loading teams and builders from your college…" />
+        <SkeletonRows rows={5} avatar="square" className="mt-4" />
+      </Page>
     );
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
   const isEventConcluded = Boolean(hackathon?.end_date && hackathon.end_date < todayStr);
-
+  const sihTimeline = hackathon ? eventTimeline(hackathon.start_date, hackathon.end_date) : null;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white flex flex-col justify-between transition-colors">
-      <main className="max-w-5xl mx-auto px-6 pt-32 pb-16 w-full">
-        {/* SIH Hero Banner */}
-        <div className="relative overflow-hidden rounded-2xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/70 dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-orange-950/20 p-8 md:p-10 shadow-lg dark:shadow-2xl mb-8 animate-fade-in-up transition-colors">
-          <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-[#B4F461]" />
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-            <div>
-              {/* Co-Branded Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3.5 py-1 text-xs font-mono uppercase tracking-wider mb-4">
-                <span className="text-orange-700 dark:text-orange-400 font-bold inline-flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-orange-500" />
-                  SMART INDIA HACKATHON 2026
-                </span>
-                <span className="text-zinc-400 dark:text-zinc-500">×</span>
-                <span className="text-[#649a1f] dark:text-[#B4F461] font-bold">HACKERMATE</span>
-              </div>
-
-              <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-                SIH Team Builder
-              </h1>
-              <p className="text-sm text-zinc-700 dark:text-zinc-300 max-w-2xl mt-2 leading-relaxed font-sans">
-                Form your official 6-member team from your college for SIH 2026 internal selection round. Open to all engineering & tech institutions across India with balanced skill mix and female teammate representation.
-              </p>
-
-              {/* SIH Mandate Badges */}
-              <div className="flex flex-wrap items-center gap-2.5 mt-5">
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-orange-800 dark:text-orange-300 font-medium shadow-sm">
-                  <Building2 className="w-3.5 h-3.5 text-orange-500" />
-                  <span>Same College Only</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-amber-800 dark:text-amber-300 font-medium shadow-sm">
-                  <Users className="w-3.5 h-3.5 text-amber-500" />
-                  <span>6 Members / Team</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-emerald-800 dark:text-emerald-300 font-medium shadow-sm">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>1+ Female Member Mandate</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-xs text-sky-800 dark:text-sky-300 font-medium shadow-sm">
-                  <Zap className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Diverse Skill Mix</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Hero CTAs */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-              <button
-                onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
-                className="btn btn-lime text-xs py-3 px-5 font-bold text-black dark:text-black bg-[#B4F461] hover:bg-[#a3e64f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-105"
-              >
-                <span className="text-black dark:text-black">+ Create SIH Team</span>
-              </button>
-
-              <button
-                onClick={handleToggleLookingForTeam}
-                disabled={togglingStatus}
-                className={`btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer ${isUserLookingForTeam
-                  ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold"
-                  : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                  }`}
-              >
-                {isUserLookingForTeam ? (
-                  "Looking for Team ✓"
-                ) : (
-                  <>
-                    <Zap className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-                    <span>List Myself for SIH</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => setShowSIHShareModal(true)}
-                className="btn text-xs py-3 px-4 flex items-center justify-center gap-1.5 transition cursor-pointer bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold"
-                title="Share SIH 2026 Teammate Matcher to college WhatsApp groups"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Share to WhatsApp</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-
-
-        {/* College Context & Picker Bar */}
-        <div className="mb-8 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
-              <GraduationCap className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">College / Institution Filter</div>
-              <div className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2 mt-0.5">
-                {userCollege ? (
-                  <span>Showing builders & teams from: <strong className="text-orange-600 dark:text-orange-400">{userCollege}</strong></span>
-                ) : (
-                  <span className="text-amber-600 dark:text-amber-400 inline-flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>No college selected in your profile. Select your college to filter teammates.</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            {!editingCollege ? (
-              <button
-                onClick={() => setEditingCollege(true)}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 transition"
-              >
-                {userCollege ? "Change College" : "Select College"}
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 relative">
-                <input
-                  type="text"
-                  value={collegeInput}
-                  onChange={(e) => {
-                    setCollegeInput(e.target.value);
-                    setCollegeSearch(e.target.value);
-                  }}
-                  placeholder="Type college name..."
-                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-orange-500 w-64"
-                />
-                <button
-                  onClick={handleSaveCollege}
-                  disabled={savingCollege}
-                  className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 font-bold text-xs text-white transition"
-                >
-                  {savingCollege ? "Saving..." : "Save"}
-                </button>
-                <button
-                  onClick={() => setEditingCollege(false)}
-                  className="px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-                >
-                  Cancel
-                </button>
-
-                {/* College Autocomplete Dropdown */}
-                {collegeSearch.length > 1 && (
-                  <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
-                    {filteredCollegesList.map((col) => (
-                      <button
-                        key={col}
-                        onClick={() => {
-                          setCollegeInput(col);
-                          setCollegeSearch("");
-                          if (currentUserId) {
-                            setSavingCollege(true);
-                            supabase
-                              .from("profiles")
-                              .update({ college: col })
-                              .eq("id", currentUserId)
-                              .then(({ error }) => {
-                                setSavingCollege(false);
-                                if (error) {
-                                  showToast(error.message, "error");
-                                } else {
-                                  setUserCollege(col);
-                                  updateCollegeInUrl(col);
-                                  if (currentUserProfile) {
-                                    setCurrentUserProfile({ ...currentUserProfile, college: col });
-                                  }
-                                  setEditingCollege(false);
-                                  showToast("College updated! Filtered SIH listings for your institution.", "success");
-                                }
-                              });
-                          } else {
-                            setUserCollege(col);
-                            updateCollegeInUrl(col);
-                            setEditingCollege(false);
-                            showToast(`Filter applied for ${col}!`, "info");
-                          }
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition truncate border-b border-zinc-100 dark:border-zinc-800/50 last:border-0"
-                      >
-                        {col}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+    <Page>
+      <PageHeader
+        eyebrow={
+          <span className="inline-flex flex-wrap items-center gap-x-2">
+            <span className="text-sih">Smart India Hackathon 2026</span>
+            <span className="text-ink-4" aria-hidden>
+              ×
+            </span>
+            <span>HackerMate</span>
+          </span>
+        }
+        title="SIH team builder"
+        meta={
+          <>
+            Form your official 6-member team from your college for the SIH 2026 internal round.
+            {sihTimeline && sihTimeline.state !== "unknown" && (
+              <span className={cn("ml-1.5 font-mono text-[12.5px] tabular", sihTimeline.urgent ? "text-warn" : "text-ink-2")}>
+                {sihTimeline.label}
+              </span>
             )}
-          </div>
-        </div>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              icon={<Share2 />}
+              onClick={() => setShowSIHShareModal(true)}
+              title="Share SIH 2026 Teammate Matcher to college WhatsApp groups"
+              className="max-md:h-9"
+            >
+              Share
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleToggleLookingForTeam}
+              loading={togglingStatus}
+              aria-pressed={isUserLookingForTeam}
+              title={isUserLookingForTeam ? "You're listed. Select to remove yourself." : undefined}
+              icon={isUserLookingForTeam ? <CheckCircle2 className="text-ok" /> : <UserPlus />}
+              className="max-md:h-9"
+            >
+              {isUserLookingForTeam ? "Looking for team" : "List myself"}
+            </Button>
+            <Button
+              variant="primary"
+              icon={<Plus />}
+              onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
+              className="max-md:h-9"
+            >
+              Create SIH team
+            </Button>
+          </>
+        }
+      />
 
-        {/* Tab & Controls Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-900">
-          <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-              <span>College Teammate Matcher</span>
-            </h2>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              Filtered strictly by {userCollege ? userCollege : "all institutions across India"}.
-            </p>
+      {/* SIH rules as compact facts */}
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+        {[
+          ["Team size", "6 members"],
+          ["Eligibility", "Same college"],
+          ["Mandate", "1+ female member"],
+          ["Skills", "Diverse mix"],
+        ].map(([label, value]) => (
+          <div key={label} className="min-w-0 bg-raised px-4 py-3">
+            <dt className="caps-label text-ink-3">{label}</dt>
+            <dd className="mt-1 text-[13.5px] font-medium text-ink">{value}</dd>
           </div>
+        ))}
+      </dl>
 
-          <div className="flex items-center gap-3">
-            <div className="flex bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 text-xs">
-              <button
-                onClick={() => setActiveTab("teams")}
-                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${activeTab === "teams"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                  }`}
-              >
-                Teams Recruiting ({filteredTeams.length})
-              </button>
-              <button
-                onClick={() => setActiveTab("builders")}
-                className={`px-4 py-1.5 rounded-md font-mono uppercase tracking-wider text-[10px] transition cursor-pointer ${activeTab === "builders"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold shadow-sm"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                  }`}
-              >
-                Builders Looking ({filteredBuilders.length})
-              </button>
+      {/* College Context & Picker */}
+      <div className="mt-4 rounded-lg border border-line bg-raised px-4 py-3.5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-selected text-ink-2" aria-hidden>
+              <GraduationCap className="size-[18px]" />
+            </span>
+            <div className="min-w-0">
+              <p className="caps-label text-ink-3">College filter</p>
+              {userCollege ? (
+                <p className="mt-0.5 break-words text-[13.5px] font-medium text-ink">{userCollege}</p>
+              ) : (
+                <p className="mt-0.5 flex items-start gap-1.5 text-[13px] text-warn">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  <span>No college selected in your profile. Pick your college to filter teammates.</span>
+                </p>
+              )}
             </div>
           </div>
+
+          {!editingCollege && (
+            <Button variant="secondary" onClick={() => setEditingCollege(true)} className="self-start max-md:h-9 sm:self-auto">
+              {userCollege ? "Change college" : "Select college"}
+            </Button>
+          )}
         </div>
 
-        {/* Teams Feed */}
-        {activeTab === "teams" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filteredTeams.length === 0 ? (
-              <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 dark:text-zinc-400">
-                  <Users className="w-5 h-5" />
+        {editingCollege && (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start">
+            <div className="relative min-w-0 flex-1">
+              <Input
+                type="text"
+                aria-label="College name"
+                autoComplete="off"
+                value={collegeInput}
+                onChange={(e) => {
+                  setCollegeInput(e.target.value);
+                  setCollegeSearch(e.target.value);
+                }}
+                placeholder="Type college name…"
+                className="max-md:h-10"
+              />
+
+              {/* College Autocomplete Dropdown */}
+              {collegeSearch.length > 1 && filteredCollegesList.length > 0 && (
+                <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border border-line bg-overlay p-1 shadow-pop">
+                  {filteredCollegesList.map((col) => (
+                    <button
+                      key={col}
+                      type="button"
+                      onClick={() => {
+                        setCollegeInput(col);
+                        setCollegeSearch("");
+                        if (currentUserId) {
+                          setSavingCollege(true);
+                          supabase
+                            .from("profiles")
+                            .update({ college: col })
+                            .eq("id", currentUserId)
+                            .then(({ error }) => {
+                              setSavingCollege(false);
+                              if (error) {
+                                showToast(error.message, "error");
+                              } else {
+                                setUserCollege(col);
+                                updateCollegeInUrl(col);
+                                if (currentUserProfile) {
+                                  setCurrentUserProfile({ ...currentUserProfile, college: col });
+                                }
+                                setEditingCollege(false);
+                                showToast("College updated! Filtered SIH listings for your institution.", "success");
+                              }
+                            });
+                        } else {
+                          setUserCollege(col);
+                          updateCollegeInUrl(col);
+                          setEditingCollege(false);
+                          showToast(`Filter applied for ${col}!`, "info");
+                        }
+                      }}
+                      className="flex h-9 w-full items-center rounded-[5px] px-2.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
+                    >
+                      <span className="truncate">{col}</span>
+                    </button>
+                  ))}
                 </div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">No SIH Teams Recruiting Yet</h3>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
-                  {userCollege
-                    ? `No teams from ${userCollege} have registered for SIH 2026 yet. Be the first to create one!`
-                    : "No teams found. Select your college above or create a team."}
-                </p>
-                <button
+              )}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button variant="inverse" onClick={handleSaveCollege} loading={savingCollege} className="max-md:h-9">
+                {savingCollege ? "Saving…" : "Save"}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingCollege(false)} className="max-md:h-9">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Directory header */}
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-ink">College teammate matcher</h2>
+          <p className="mt-0.5 text-[12.5px] text-ink-3">
+            Filtered by {userCollege ? userCollege : "all institutions across India"}.
+          </p>
+        </div>
+        <Segmented<"teams" | "builders">
+          label="SIH directory"
+          value={activeTab}
+          onChange={setActiveTab}
+          className="self-start sm:self-auto"
+          options={[
+            { value: "teams", label: "Teams recruiting", count: filteredTeams.length },
+            { value: "builders", label: "Builders looking", count: filteredBuilders.length },
+          ]}
+        />
+      </div>
+
+      {/* Teams Feed */}
+      {activeTab === "teams" && (
+        <div className="mt-4">
+          {filteredTeams.length === 0 ? (
+            <EmptyState
+              icon={<Users />}
+              title="No SIH teams recruiting yet"
+              body={
+                userCollege
+                  ? `No teams from ${userCollege} have registered for SIH 2026 yet. Be the first to create one.`
+                  : "No teams found. Select your college above or create a team."
+              }
+              action={
+                <Button
+                  variant="secondary"
+                  icon={<Plus />}
                   onClick={() => handleProtectedAction(`/teams/create?hackathon=${SIH_HACKATHON_ID}`)}
-                  className="btn btn-lime text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black dark:text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
+                  className="max-md:h-9"
                 >
-                  + Create SIH Team
-                </button>
-              </div>
-            ) : (
-              filteredTeams.map((team) => {
+                  Create SIH team
+                </Button>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {filteredTeams.map((team) => {
                 const memberCount = team.team_members?.length || 1;
                 const members = team.team_members || [];
 
@@ -781,152 +763,109 @@ function SIHTeamBuilderContent() {
                     members.some((m) => m.user_id === currentUserId || m.profiles?.id === currentUserId))
                 );
 
+                const pptEval = team.team_ppt_evaluations?.find((e: any) => e.status === "completed");
+                const teamCollege = getTeamCollege(team);
+                const isClosed = isEventConcluded || team.is_recruiting === false;
+
                 return (
-                  <div
-                    key={team.id}
-                    className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition flex flex-col justify-between shadow-sm"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div>
-                          <h3 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight leading-snug">
-                            {team.name}
+                  <article key={team.id} className="flex min-w-0 flex-col rounded-lg border border-line bg-raised">
+                    <div className="flex items-start gap-3 px-4 pt-4">
+                      <TeamMark name={team.name} tone="sih" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="min-w-0 truncate text-[15px] font-semibold leading-snug text-ink">
+                            <Link href={`/teams/${team.id}`} className="decoration-line-strong underline-offset-4 hover:underline">
+                              {team.name}
+                            </Link>
                           </h3>
-                          {getTeamCollege(team) && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-orange-600 dark:text-orange-400 font-mono mt-0.5">
-                              <Building2 className="w-3 h-3 shrink-0" />
-                              <span>{getTeamCollege(team)}</span>
-                            </span>
-                          )}
-                        </div>
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-mono uppercase font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shrink-0">
-                          {memberCount} / 6 Members
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2 mb-4 font-sans leading-relaxed">
-                        {team.description || "Building for Smart India Hackathon 2026."}
-                      </p>
-
-                      <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 mb-4 space-y-2 text-xs">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-bold border-b border-zinc-200 dark:border-zinc-800 pb-1 flex items-center justify-between">
-                          <span>SIH Compliance Checklist</span>
-                          <span className="text-orange-600 dark:text-orange-400">Target: 6 Members</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-600 dark:text-zinc-400">Team Headcount:</span>
-                          <span className={memberCount === 6 ? "text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1" : "text-amber-600 dark:text-amber-400 font-medium"}>
-                            {memberCount === 6 ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                <span>6/6 Members (Complete)</span>
-                              </>
-                            ) : (
-                              <span>{memberCount}/6 Members ({6 - memberCount} needed)</span>
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-600 dark:text-zinc-400">Female Representation:</span>
-                          <span className={hasFemaleMember ? "text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1" : "text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"}>
-                            {hasFemaleMember ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                <span>1+ Female Member</span>
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="w-3 h-3 text-amber-500" />
-                                <span>Requires Female Member</span>
-                              </>
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-600 dark:text-zinc-400">Skill Coverage:</span>
-                          <span className={missingRoles.length === 0 ? "text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1" : "text-sky-600 dark:text-sky-400 font-medium"}>
-                            {missingRoles.length === 0 ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                <span>Core Roles Covered</span>
-                              </>
-                            ) : (
-                              <span>Missing: {missingRoles.slice(0, 2).join(", ")}</span>
-                            )}
-                          </span>
-                        </div>
-
-                        {/* SIH Pitch Deck Diagnostic Score */}
-                        {(() => {
-                          const pptEval = team.team_ppt_evaluations?.find((e: any) => e.status === "completed");
-                          return (
-                            <div className="flex items-center justify-between pt-1 border-t border-zinc-200 dark:border-zinc-800">
-                              <span className="text-zinc-600 dark:text-zinc-400">Pitch Deck AI:</span>
-                              {pptEval ? (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
-                                  <Target className="w-3.5 h-3.5 text-emerald-500" />
-                                  <span>{pptEval.total_score}/100</span>
-                                  <span className="text-[10px] font-normal text-zinc-500">({pptEval.grade})</span>
-                                </span>
-                              ) : (
-                                <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[10px]">
-                                  Not Evaluated
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="mb-4">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
-                          Team Skill Mix
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {combinedSkills.length > 0 ? (
-                            combinedSkills.slice(0, 6).map((skill) => (
-                              <span
-                                key={skill}
-                                className="px-2 py-0.5 rounded text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/60 font-mono"
-                              >
-                                {skill}
-                              </span>
-                            ))
+                          {isUserTeamMember ? (
+                            <Tape tone="accent" className="shrink-0">Your team</Tape>
+                          ) : isClosed ? (
+                            <Tape tone="neutral" className="shrink-0">Closed</Tape>
                           ) : (
-                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">No skills listed yet</span>
-                          )}
-                          {combinedSkills.length > 6 && (
-                            <span className="px-2 py-0.5 rounded text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-mono">
-                              +{combinedSkills.length - 6} more
-                            </span>
+                            <Tape tone="sih" className="shrink-0">Recruiting</Tape>
                           )}
                         </div>
+                        {teamCollege && (
+                          <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[12.5px] text-ink-3">
+                            <Building2 className="size-3.5 shrink-0" aria-hidden />
+                            <span className="truncate">{teamCollege}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
-                      <div className="flex items-center -space-x-2">
-                        {members.map((m) => (
-                          <div
-                            key={m.id}
-                            className="w-7 h-7 rounded-full bg-zinc-200 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 overflow-hidden flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-300"
-                            title={m.profiles?.full_name || "Member"}
-                          >
-                            {m.profiles?.avatar_url ? (
-                              <img src={m.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              (m.profiles?.full_name || "M").substring(0, 1)
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                    <p className="mt-2.5 line-clamp-2 px-4 text-[13px] leading-relaxed text-ink-2">
+                      {team.description || "Building for Smart India Hackathon 2026."}
+                    </p>
 
-                      <div className="flex items-center gap-2">
+                    <div className="mt-3 px-4">
+                      <SeatMeter filled={memberCount} total={6} />
+                    </div>
+
+                    {/* SIH compliance checklist */}
+                    <ul className="mx-4 mt-3 divide-y divide-line rounded-md border border-line bg-sunken" aria-label="SIH compliance checklist">
+                      <CheckRow
+                        status={memberCount === 6 ? "ok" : "warn"}
+                        label="Headcount"
+                        value={memberCount === 6 ? "6/6 complete" : `${memberCount}/6 · ${6 - memberCount} needed`}
+                      />
+                      <CheckRow
+                        status={hasFemaleMember ? "ok" : "warn"}
+                        label="Female member"
+                        value={hasFemaleMember ? "1+ on team" : "Required"}
+                      />
+                      <CheckRow
+                        status={missingRoles.length === 0 ? "ok" : "info"}
+                        label="Skill coverage"
+                        value={missingRoles.length === 0 ? "Core roles covered" : `Missing: ${missingRoles.slice(0, 2).join(", ")}`}
+                      />
+                      <CheckRow
+                        status={pptEval ? "ok" : "neutral"}
+                        icon={<Target />}
+                        label="Pitch deck score"
+                        value={
+                          pptEval ? (
+                            <span className="font-mono tabular">
+                              {pptEval.total_score}/100 <span className="text-ink-3">({pptEval.grade})</span>
+                            </span>
+                          ) : (
+                            "Not evaluated"
+                          )
+                        }
+                      />
+                    </ul>
+
+                    <div className="mt-3 flex flex-wrap gap-1 px-4">
+                      {combinedSkills.length > 0 ? (
+                        <>
+                          {combinedSkills.slice(0, 6).map((skill) => (
+                            <Chip key={skill}>{skill}</Chip>
+                          ))}
+                          {combinedSkills.length > 6 && <Chip>+{combinedSkills.length - 6} more</Chip>}
+                        </>
+                      ) : (
+                        <span className="text-[12.5px] text-ink-3">No skills listed yet</span>
+                      )}
+                    </div>
+
+                    <div className="min-h-4 flex-1" aria-hidden />
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
+                      <AvatarStack
+                        max={6}
+                        people={members.map((m) => ({
+                          id: m.id,
+                          name: m.profiles?.full_name || "Member",
+                          src: m.profiles?.avatar_url,
+                        }))}
+                      />
+
+                      <div className="flex flex-wrap items-center gap-2">
                         {isUserTeamMember && (
-                          <button
+                          <Button
+                            variant="secondary"
+                            icon={<FileSpreadsheet />}
+                            className="max-md:h-9"
                             onClick={() =>
                               setSelectedExportTeam({
                                 team: {
@@ -956,151 +895,107 @@ function SIHTeamBuilderContent() {
                                 })),
                               })
                             }
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition flex items-center gap-1.5 cursor-pointer"
                           >
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
-                            <span>Export SPOC</span>
-                          </button>
+                            Export SPOC
+                          </Button>
                         )}
 
-
-
-                        <Link
+                        <ButtonLink
                           href={`/teams/${team.id}`}
-                          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-sm font-semibold inline-flex items-center ${(isEventConcluded || team.is_recruiting === false) && !isUserTeamMember ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700" : "bg-[#B4F461] hover:bg-[#a3e64f] text-[#09090b]"}`}
+                          variant={!isUserTeamMember && !isClosed ? "primary" : "secondary"}
+                          iconRight={<ArrowRight />}
+                          className="max-md:h-9"
                         >
-                          {isUserTeamMember ? "View Team →" : (isEventConcluded || team.is_recruiting === false) ? "View Team →" : "View & Apply →"}
-                        </Link>
+                          {isUserTeamMember ? "View team" : isClosed ? "View team" : "View & apply"}
+                        </ButtonLink>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 );
-              })
-            )}
-          </div>
-        )}
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Builders Feed */}
-        {activeTab === "builders" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filteredBuilders.length === 0 ? (
-              <div className="col-span-2 p-12 text-center rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-500 dark:text-zinc-400">
-                  <Users className="w-5 h-5" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">No Builders Seeking Teams Yet</h3>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto mb-6">
-                  {userCollege
-                    ? `No other builders from ${userCollege} have listed themselves for SIH 2026 yet.`
-                    : "No builders listed. Select your college above or list yourself."}
-                </p>
-                <button
+      {/* Builders Feed */}
+      {activeTab === "builders" && (
+        <div className="mt-4">
+          {filteredBuilders.length === 0 ? (
+            <EmptyState
+              icon={<Users />}
+              title="No builders looking for a team yet"
+              body={
+                userCollege
+                  ? `No other builders from ${userCollege} have listed themselves for SIH 2026 yet.`
+                  : "No builders listed. Select your college above or list yourself."
+              }
+              action={
+                <Button
+                  variant="secondary"
                   onClick={handleToggleLookingForTeam}
-                  disabled={togglingStatus}
-                  className="btn btn-primary text-xs py-2.5 px-4 font-bold bg-[#B4F461] text-black hover:bg-[#a3e64f] inline-flex items-center gap-1.5"
+                  loading={togglingStatus}
+                  icon={isUserLookingForTeam ? <CheckCircle2 className="text-ok" /> : <Zap />}
+                  className="max-md:h-9"
                 >
-                  {isUserLookingForTeam ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Looking for Team</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>List Myself for SIH</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : (
-              filteredBuilders.map((builder) => (
-                <div
-                  key={builder.id}
-                  className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition flex flex-col justify-between shadow-sm"
-                >
-                  <div>
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 overflow-hidden shrink-0 flex items-center justify-center text-lg font-bold text-zinc-700 dark:text-zinc-300">
-                        {builder.avatar_url ? (
-                          <img src={builder.avatar_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          (builder.full_name || builder.email || "B").substring(0, 1)
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                  {isUserLookingForTeam ? "Looking for team" : "List myself for SIH"}
+                </Button>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {filteredBuilders.map((builder) => (
+                <article key={builder.id} className="flex min-w-0 flex-col rounded-lg border border-line bg-raised">
+                  <div className="flex items-start gap-3 px-4 pt-4">
+                    <Avatar name={builder.full_name || builder.email || "B"} src={builder.avatar_url} size="lg" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <h3 className="min-w-0 truncate text-[15px] font-semibold text-ink">
+                          <Link href={`/profile/${builder.id}`} className="decoration-line-strong underline-offset-4 hover:underline">
                             {builder.full_name || "Anonymous Builder"}
-                          </h3>
-                          <VerifiedBuilderBadge profile={builder} />
-                          {builder.id === currentUserId && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20 shrink-0">
-                              You
-                            </span>
-                          )}
-                          {builder.gender?.toLowerCase() === "female" && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/20 shrink-0 inline-flex items-center gap-1">
-                              <ShieldCheck className="w-3 h-3" />
-                              <span>Female Builder</span>
-                            </span>
-                          )}
-                        </div>
-                        {builder.college && (
-                          <p className="text-[11px] text-orange-600 dark:text-orange-400 font-mono truncate mt-0.5 inline-flex items-center gap-1">
-                            <Building2 className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{builder.college}</span>
-                          </p>
-                        )}
+                          </Link>
+                        </h3>
+                        <VerifiedBuilderBadge profile={builder} />
+                        {builder.id === currentUserId && <Tape tone="accent">You</Tape>}
+                        {builder.gender?.toLowerCase() === "female" && <Tape tone="info">Female builder</Tape>}
                       </div>
-                    </div>
-
-                    <p className="text-sm text-zinc-600 dark:text-zinc-300 line-clamp-2 mb-4 font-sans leading-relaxed">
-                      {builder.bio || "Builder looking to join a 6-member SIH team."}
-                    </p>
-
-                    <div className="mb-4">
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
-                        Prominent Skill Tags
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {builder.skills && builder.skills.length > 0 ? (
-                          builder.skills.map((skill) => (
-                            <span
-                              key={skill}
-                              className="px-2 py-0.5 rounded text-[11px] bg-orange-50 dark:bg-orange-500/10 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-500/20 font-mono"
-                            >
-                              {skill}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">No skills specified</span>
-                        )}
-                      </div>
+                      {builder.college && (
+                        <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[12.5px] text-ink-3">
+                          <Building2 className="size-3.5 shrink-0" aria-hidden />
+                          <span className="truncate">{builder.college}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-                    <span className="text-[11px] font-mono inline-flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${builder.is_available !== false ? "bg-emerald-500" : "bg-zinc-400"}`} />
-                      <span className="text-zinc-500">
-                        {builder.is_available !== false ? "Available to join" : "Busy"}
-                      </span>
+                  <p className="mt-2.5 line-clamp-2 px-4 text-[13px] leading-relaxed text-ink-2">
+                    {builder.bio || "Builder looking to join a 6-member SIH team."}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-1 px-4">
+                    {builder.skills && builder.skills.length > 0 ? (
+                      builder.skills.map((skill) => <Chip key={skill}>{skill}</Chip>)
+                    ) : (
+                      <span className="text-[12.5px] text-ink-3">No skills specified</span>
+                    )}
+                  </div>
+
+                  <div className="min-h-4 flex-1" aria-hidden />
+                  <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-3">
+                      <StatusDot tone={builder.is_available !== false ? "ok" : "idle"} />
+                      {builder.is_available !== false ? "Available to join" : "Busy"}
                     </span>
-
-                    <Link
-                      href={`/profile/${builder.id}`}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 transition"
-                    >
-                      View Profile →
-                    </Link>
+                    <ButtonLink href={`/profile/${builder.id}`} variant="secondary" iconRight={<ArrowRight />} className="max-md:h-9">
+                      View profile
+                    </ButtonLink>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-      </main>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Official DJSCE SIH Nomination Certificate Modal */}
       <CertificateModal
@@ -1169,7 +1064,44 @@ function SIHTeamBuilderContent() {
           members={selectedExportTeam.members}
         />
       )}
+    </Page>
+  );
+}
 
-    </div>
+/** One row of the SIH compliance checklist. */
+function CheckRow({
+  status,
+  label,
+  value,
+  icon,
+}: {
+  status: "ok" | "warn" | "info" | "neutral";
+  label: string;
+  value: React.ReactNode;
+  icon?: React.ReactNode;
+}) {
+  const glyph =
+    status === "ok" ? (
+      <CheckCircle2 className="text-ok" />
+    ) : status === "warn" ? (
+      <TriangleAlert className="text-warn" />
+    ) : status === "info" ? (
+      <Lightbulb className="text-info" />
+    ) : (
+      icon || <Target />
+    );
+  return (
+    <li className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]">
+      <span className="shrink-0 text-ink-3">{label}</span>
+      <span
+        className={cn(
+          "flex min-w-0 items-center gap-1.5 text-right [&_svg]:size-3.5 [&_svg]:shrink-0",
+          status === "ok" ? "text-ok" : status === "warn" ? "text-warn" : status === "info" ? "text-ink-2" : "text-ink-3",
+        )}
+      >
+        {glyph}
+        <span className="truncate">{value}</span>
+      </span>
+    </li>
   );
 }

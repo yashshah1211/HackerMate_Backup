@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/system";
+import { cn } from "@/lib/utils";
 
 interface StructuredHackathonDescriptionProps {
   description: string | null | undefined;
@@ -15,8 +18,6 @@ interface SubItem {
 interface DescriptionSection {
   id: string;
   title: string;
-  icon: string;
-  accentColor: "blue" | "emerald" | "amber" | "violet" | "rose" | "teal" | "indigo" | "zinc";
   contentParagraphs: string[];
   bulletPoints: string[];
   subItems: SubItem[];
@@ -87,56 +88,38 @@ function cleanLineNoise(str: string): string {
 const SECTION_CONFIGS: Array<{
   keywords: string[];
   title: string;
-  icon: string;
-  accentColor: DescriptionSection["accentColor"];
 }> = [
   {
     keywords: ["about the event", "about the opportunity", "about the hackathon", "overview", "event overview", "about us", "description"],
     title: "About the Event",
-    icon: "🚀",
-    accentColor: "blue",
   },
   {
     keywords: ["eligibility & team guidelines", "eligibility & team rules", "eligibility criteria", "eligibility", "who can participate", "prerequisites", "allowed participants", "how to enter", "how to apply"],
     title: "Eligibility & Team Rules",
-    icon: "🎓",
-    accentColor: "emerald",
   },
   {
     keywords: ["selection criteria", "shortlisting criteria", "evaluation criteria", "judging criteria", "scoring criteria", "scoring", "how we test and score", "how we test", "evaluation", "judging"],
     title: "Selection & Evaluation Criteria",
-    icon: "⚖️",
-    accentColor: "amber",
   },
   {
     keywords: ["competition format", "process & rounds", "event format", "rounds & stages", "rounds", "stages", "duration", "timeline", "important dates", "important deadlines", "deadlines"],
     title: "Competition Format & Rounds",
-    icon: "⚔️",
-    accentColor: "violet",
   },
   {
     keywords: ["why participate?", "why participate", "prizes & perks", "prizes and perks", "prizes & rewards", "prizes and rewards", "prizes", "rewards", "prize pool", "certificates & swags", "swags & certificates", "swag & perks", "perks & benefits", "incubation support", "perks"],
     title: "Prizes & Rewards",
-    icon: "🏆",
-    accentColor: "rose",
   },
   {
     keywords: ["team formation rules", "rules of the hackathon", "rules & guidelines", "rules and guidelines", "general rules", "important rules", "code of conduct", "rules", "guidelines", "terms & conditions", "what to submit", "submission requirements", "submission guidelines"],
     title: "Rules & Guidelines",
-    icon: "📋",
-    accentColor: "teal",
   },
   {
     keywords: ["tracks & problem statements", "tracks and problem statements", "problem statements", "hackathon format & themes", "tracks & themes", "themes & tracks", "themes", "tracks", "challenges", "what to build", "challenge details"],
     title: "Tracks & Problem Statements",
-    icon: "💡",
-    accentColor: "indigo",
   },
   {
     keywords: ["contact & support", "contact us", "contact info", "contact information", "organizer contact", "helpdesk & support", "helpdesk", "queries & support", "queries"],
     title: "Contact & Support",
-    icon: "📞",
-    accentColor: "zinc",
   },
 ];
 
@@ -311,16 +294,12 @@ function parseDescription(raw: string): DescriptionSection[] {
   // Line-by-line section matching
   type RawSection = {
     title: string;
-    icon: string;
-    accentColor: DescriptionSection["accentColor"];
     lines: string[];
   };
 
   const rawSections: RawSection[] = [];
   let currentSec: RawSection = {
     title: "About the Event",
-    icon: "🚀",
-    accentColor: "blue",
     lines: [],
   };
 
@@ -348,8 +327,6 @@ function parseDescription(raw: string): DescriptionSection[] {
       }
       currentSec = {
         title: matchedConfig.title,
-        icon: matchedConfig.icon,
-        accentColor: matchedConfig.accentColor,
         lines: [],
       };
       continue;
@@ -366,8 +343,6 @@ function parseDescription(raw: string): DescriptionSection[] {
   if (rawSections.length === 0) {
     rawSections.push({
       title: "Event Details & Overview",
-      icon: "📌",
-      accentColor: "blue",
       lines: rawLines,
     });
   }
@@ -392,35 +367,12 @@ function parseDescription(raw: string): DescriptionSection[] {
       sections.push({
         id: `section-${i}`,
         title: rawSec.title,
-        icon: rawSec.icon,
-        accentColor: rawSec.accentColor,
         ...parsed,
       });
     }
   }
 
   return sections;
-}
-
-function getBadgeStyles(color: DescriptionSection["accentColor"]) {
-  switch (color) {
-    case "blue":
-      return "border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-400";
-    case "emerald":
-      return "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400";
-    case "amber":
-      return "border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400";
-    case "violet":
-      return "border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-950/20 text-violet-800 dark:text-violet-400";
-    case "rose":
-      return "border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-950/20 text-rose-800 dark:text-rose-400";
-    case "teal":
-      return "border-teal-200 dark:border-teal-500/30 bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-400";
-    case "indigo":
-      return "border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-800 dark:text-indigo-400";
-    default:
-      return "border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300";
-  }
 }
 
 export default function StructuredHackathonDescription({
@@ -430,21 +382,13 @@ export default function StructuredHackathonDescription({
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!description) {
-    return (
-      <div className="p-6 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 text-center text-zinc-500 text-xs font-mono">
-        No detailed description provided for this hackathon.
-      </div>
-    );
+    return <p className={cn("text-[13.5px] text-ink-3", className)}>No detailed description provided for this hackathon.</p>;
   }
 
   const sections = parseDescription(description);
 
   if (sections.length === 0) {
-    return (
-      <div className="p-6 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 text-center text-zinc-500 text-xs font-mono">
-        No detailed description available.
-      </div>
-    );
+    return <p className={cn("text-[13.5px] text-ink-3", className)}>No detailed description available.</p>;
   }
 
   const INITIAL_VISIBLE_COUNT = 2;
@@ -454,98 +398,59 @@ export default function StructuredHackathonDescription({
   const visibleSections = canExpand && !isExpanded ? sections.slice(0, INITIAL_VISIBLE_COUNT) : sections;
 
   return (
-    <div className={`space-y-5 max-w-full overflow-hidden ${className}`}>
+    <div className={cn("min-w-0 max-w-[72ch] space-y-7 break-words [overflow-wrap:anywhere]", className)}>
       {visibleSections.map((sec) => (
-        <div
-          key={sec.id}
-          className="p-5 rounded-2xl bg-zinc-50/80 dark:bg-zinc-950/50 border border-zinc-200/90 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-all shadow-sm space-y-3.5 overflow-hidden max-w-full break-words"
-        >
-          {/* Section Header */}
-          <div className="flex items-center gap-2.5 max-w-full overflow-hidden">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-base shrink-0 shadow-sm">
-              {sec.icon}
-            </span>
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-white tracking-tight truncate">
-              {sec.title}
-            </h3>
-            <span
-              className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border uppercase ml-auto shrink-0 ${getBadgeStyles(
-                sec.accentColor
-              )}`}
-            >
-              {sec.title}
-            </span>
-          </div>
+        <section key={sec.id} className="min-w-0">
+          <h3 className="text-[14.5px] font-semibold text-ink">{sec.title}</h3>
 
-          {/* Section Body - Paragraphs */}
+          {/* Paragraphs */}
           {sec.contentParagraphs.length > 0 && (
-            <div className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-sans break-words overflow-hidden">
+            <div className="mt-2 space-y-2.5 text-[14.5px] leading-[1.65] text-ink-2">
               {sec.contentParagraphs.map((para, idx) => (
-                <p key={idx} className="break-words">{para}</p>
+                <p key={idx}>{para}</p>
               ))}
             </div>
           )}
 
-          {/* Section Body - Sub Items (e.g., Rounds like Relay Sprint, Battle Royale) */}
+          {/* Key/value sub-items (e.g. rounds like Relay Sprint, Battle Royale) */}
           {sec.subItems.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <dl className="mt-3 divide-y divide-line border-y border-line">
               {sec.subItems.map((sub, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/90 text-xs space-y-1 hover:border-zinc-300 dark:hover:border-zinc-700 transition shadow-sm overflow-hidden break-words"
-                >
-                  <div className="font-mono font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 truncate">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0" />
-                    <span className="truncate">{sub.title}</span>
-                  </div>
-                  <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed text-[11px] break-words">
-                    {sub.text}
-                  </p>
+                <div key={idx} className="grid grid-cols-1 gap-1 py-2.5 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)] sm:gap-4">
+                  <dt className="text-[13.5px] font-medium text-ink">{sub.title}</dt>
+                  <dd className="text-[13.5px] leading-relaxed text-ink-2">{sub.text}</dd>
                 </div>
               ))}
-            </div>
+            </dl>
           )}
 
-          {/* Section Body - Bullet Points */}
+          {/* Bullet points */}
           {sec.bulletPoints.length > 0 && (
-            <ul className="space-y-2 pt-1">
+            <ul className="mt-2.5 list-disc space-y-1.5 pl-5 text-[14px] leading-relaxed text-ink-2 marker:text-ink-4">
               {sec.bulletPoints
                 .filter((bp) => bp.trim().length > 0)
                 .map((bp, idx) => (
-                  <li
-                    key={idx}
-                    className="text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-2 leading-relaxed break-words overflow-hidden"
-                  >
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 mt-0.5">✦</span>
-                    <span className="break-words">{bp}</span>
+                  <li key={idx} className="pl-0.5">
+                    {bp}
                   </li>
                 ))}
             </ul>
           )}
-        </div>
+        </section>
       ))}
 
-      {/* Expansion Toggle */}
+      {/* Expansion toggle */}
       {canExpand && (
-        <div className="flex justify-center pt-2">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 text-xs font-mono font-bold text-zinc-800 dark:text-white transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-          >
-            <span>{isExpanded ? "Show Less Sections" : `Read Full Description (${sections.length} Sections)`}</span>
-            <svg
-              className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-expanded={isExpanded}
+          iconRight={<ChevronDown className={cn("transition-transform", isExpanded && "rotate-180")} aria-hidden />}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? "Show less" : `Read full description · ${sections.length} sections`}
+        </Button>
       )}
     </div>
   );
 }
-

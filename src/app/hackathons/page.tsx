@@ -1,11 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ArrowRight, Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
+import { SIH_HACKATHON_ID } from "@/lib/constants";
+import { eventTimeline } from "@/lib/time";
+import { cn } from "@/lib/utils";
+import {
+  Button,
+  ButtonLink,
+  Chip,
+  EmptyState,
+  ErrorNotice,
+  FieldLabel,
+  FilterChip,
+  IconButton,
+  Page,
+  PageHeader,
+  PageLoader,
+  SearchField,
+  Segmented,
+  Select,
+  Sheet,
+  SkeletonRows,
+  Tape,
+  buttonClass,
+} from "@/components/system";
 
 type Hackathon = {
   id: string;
@@ -102,16 +126,178 @@ export function formatPrizeDisplay(prize: string | null | undefined, currency?: 
   return `${targetSymbol} ${clean.replace(/^[₹$]\s*/, "")}`;
 }
 
+/* ─── Presentational helpers ─────────────────────────────────────────────── */
+
+type Tab = "recommended" | "upcoming" | "saved" | "past";
+
+/** Mono date stamp (day + 3-letter month), matching the landing's upcoming strip. */
+function dayStamp(iso: string | null) {
+  if (!iso) return { day: "--", month: "TBA" };
+  const d = new Date(iso);
+  return {
+    day: d.toLocaleDateString("en-IN", { day: "2-digit", timeZone: "Asia/Kolkata" }),
+    month: d.toLocaleDateString("en-US", { month: "short", timeZone: "Asia/Kolkata" }).toUpperCase(),
+  };
+}
+
+/** Display label for where the event is hosted (mirrors the platform filter buckets). */
+function platformLabel(h: Hackathon): string {
+  if (h.type === "native") return "HackerMate";
+  if (h.website_url) {
+    const url = h.website_url.toLowerCase();
+    if (url.includes("unstop.com")) return "Unstop";
+    if (url.includes("hack2skill.com")) return "Hack2skill";
+    if (url.includes("devfolio.co")) return "Devfolio";
+  }
+  return "External";
+}
+
+function modeLabel(mode: string | null): string | null {
+  if (!mode) return null;
+  const m = mode.toLowerCase();
+  if (m.includes("person") || m.includes("offline")) return "In person";
+  if (m.includes("online")) return "Online";
+  if (m.includes("hybrid")) return "Hybrid";
+  return mode;
+}
+
+const MODE_OPTIONS: [string, string][] = [
+  ["", "Any"],
+  ["online", "Online"],
+  ["in-person", "In person"],
+];
+
+const PLATFORM_OPTIONS: [string, string][] = [
+  ["", "Any"],
+  ["native", "HackerMate"],
+  ["unstop", "Unstop"],
+  ["hack2skill", "Hack2skill"],
+  ["devfolio", "Devfolio"],
+  ["other", "Other"],
+];
+
+function MetaDot() {
+  return (
+    <span className="text-ink-4" aria-hidden>
+      ·
+    </span>
+  );
+}
+
+function HackathonRow({
+  h,
+  saved,
+  onToggleSave,
+}: {
+  h: Hackathon;
+  saved: boolean;
+  onToggleSave: (e: React.MouseEvent, id: string) => void;
+}) {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isEventPast = Boolean(h.end_date && h.end_date < todayStr);
+  const d = dayStamp(h.start_date);
+  const t = eventTimeline(h.start_date, h.end_date);
+  const prize = h.prize_pool ? formatPrizeDisplay(h.prize_pool, h.currency) : "";
+  const prizeShort = prize.length > 35 ? `${prize.slice(0, 32)}...` : prize;
+  const mode = modeLabel(h.mode);
+
+  let stateTape: ReactNode;
+  if (isEventPast) stateTape = <Tape tone="neutral">Ended</Tape>;
+  else if (t.state === "live") stateTape = <Tape tone="ok" dot>Live</Tape>;
+  else if (t.state === "upcoming") stateTape = <Tape tone="accent">Upcoming</Tape>;
+  else stateTape = <Tape tone="neutral">{t.state === "unknown" ? "Dates TBA" : "Started"}</Tape>;
+
+  return (
+    <li className="group relative flex gap-3.5 px-4 py-3.5 transition-colors hover:bg-hover sm:gap-4">
+      {/* Date stamp */}
+      <div className="flex w-9 shrink-0 flex-col items-center pt-0.5 font-mono leading-none" aria-hidden>
+        <span className={cn("text-[17px] font-semibold tabular", isEventPast ? "text-ink-3" : "text-ink")}>{d.day}</span>
+        <span className="mt-1 text-[10.5px] text-ink-3">{d.month}</span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/hackathons/${h.id}`}
+              className={cn(
+                "block truncate text-[15px] font-semibold outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-accent/40",
+                isEventPast ? "text-ink-2" : "text-ink",
+              )}
+            >
+              {h.name}
+            </Link>
+            <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink-3">
+              <span>{platformLabel(h)}</span>
+              {mode && (
+                <>
+                  <MetaDot />
+                  <span>{mode}</span>
+                </>
+              )}
+              <MetaDot />
+              <span className="max-w-full truncate">{h.location || "Location TBA"}</span>
+              {h.college && (
+                <>
+                  <MetaDot />
+                  <span className="max-w-full truncate">{h.college}</span>
+                </>
+              )}
+            </p>
+          </div>
+          <IconButton
+            label={saved ? "Remove from saved" : "Save hackathon"}
+            aria-pressed={saved}
+            onClick={(e) => onToggleSave(e, h.id)}
+            className={cn("relative z-10 -mr-1.5 -mt-1.5", saved && "text-accent-ink hover:text-accent-ink")}
+          >
+            <Bookmark className={saved ? "fill-current" : undefined} />
+          </IconButton>
+        </div>
+
+        <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-ink-2 md:line-clamp-1">{getPlainPreview(h.description)}</p>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+          {stateTape}
+          {h.id === SIH_HACKATHON_ID && <Tape tone="sih">SIH</Tape>}
+          {!isEventPast && (t.state === "live" || t.state === "upcoming") && (
+            <span className={cn("font-mono text-[12px] tabular", t.urgent ? "text-warn" : "text-ink-3")}>{t.label}</span>
+          )}
+          <span className="font-mono text-[12px] text-ink-3 tabular">{formatDateRange(h.start_date, h.end_date)}</span>
+          {prizeShort && (
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-[12px] text-ink-2">
+              <Trophy className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+              <span className="truncate">{prizeShort}</span>
+            </span>
+          )}
+          {h.tags && h.tags.length > 0 && (
+            <span className="flex min-w-0 flex-wrap gap-1">
+              {h.tags.slice(0, 3).map((tag) => (
+                <Chip key={tag} className="h-5 px-1.5 text-[11px]">
+                  {tag}
+                </Chip>
+              ))}
+              {h.tags.length > 3 && <Chip className="h-5 px-1.5 text-[11px]">+{h.tags.length - 3}</Chip>}
+            </span>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
 function HackathonsContent() {
   const { showToast } = useNotification();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [modeFilter, setModeFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
   const [sortBy, setSortBy] = useState("date");
   const [userSkills, setUserSkills] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -135,7 +321,9 @@ function HackathonsContent() {
 
     if (hackathonError) {
       console.error(hackathonError);
+      setLoadError(hackathonError.message || "Unknown error");
     } else {
+      setLoadError(null);
       const {
         data: { user: currentUser },
       } = await supabase.auth.getUser();
@@ -300,343 +488,266 @@ function HackathonsContent() {
     }
     }, [hackathons, savedIds, userSkills, search, modeFilter, platformFilter, sortBy, activeTab]);
 
+  // Presentational counts for the header.
+  const todayStr = new Date().toISOString().split("T")[0];
+  const upcomingCount = hackathons.filter((h) => !(h.end_date && h.end_date < todayStr)).length;
+  const activeFilterCount = (modeFilter ? 1 : 0) + (platformFilter ? 1 : 0) + (sortBy !== "date" ? 1 : 0);
+  const hasAnyFilter = Boolean(search || modeFilter || platformFilter || sortBy !== "date");
+
+  function clearFilters() {
+    setSearch("");
+    setModeFilter("");
+    setPlatformFilter("");
+    setSortBy("date");
+  }
+
+  const tabOptions: { value: Tab; label: string; count?: number }[] = [
+    { value: "recommended", label: "For you" },
+    { value: "upcoming", label: "Upcoming" },
+    { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
+    { value: "past", label: "Past" },
+  ];
+
+  const header = (
+    <PageHeader
+      title="Hackathons"
+      meta={
+        loading ? (
+          "Loading events…"
+        ) : (
+          <>
+            <span className="font-mono text-ink-2 tabular">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
+            <span className="font-mono text-ink-2 tabular">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
+            <span className="font-mono text-ink-2 tabular">{savedIds.size.toLocaleString("en-IN")}</span> saved
+          </>
+        )
+      }
+      actions={
+        <ButtonLink href="/hackathons/create" variant="secondary" icon={<Plus />}>
+          Host a hackathon
+        </ButtonLink>
+      }
+    />
+  );
+
+  const sihCallout = (
+    <Link
+      href="/hackathons/sih"
+      className="group flex items-center gap-3.5 rounded-lg border border-line bg-raised px-4 py-3.5 transition-colors hover:border-line-strong hover:bg-hover"
+    >
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[7px] bg-sih-soft text-sih ring-1 ring-inset ring-sih/25" aria-hidden>
+        <Target className="size-[18px]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <Tape tone="sih">SIH 2026</Tape>
+          <span className="caps-label text-ink-3">Internal round</span>
+        </span>
+        <span className="mt-1 block text-[14.5px] font-semibold text-ink">Find teammates for Smart India Hackathon</span>
+        <span className="mt-0.5 block text-[12.5px] text-ink-3">
+          6-member teams from your college, at least one woman, filtered by institution.
+        </span>
+      </span>
+      <span className={buttonClass("secondary", "md", "hidden shrink-0 sm:inline-flex")}>
+        Open SIH hub
+        <ArrowRight className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+      </span>
+      <ArrowRight className="size-4 shrink-0 text-ink-3 sm:hidden" aria-hidden />
+    </Link>
+  );
+
+  const filterGroups = (
+    <div className="space-y-5">
+      <div>
+        <FieldLabel>Mode</FieldLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {MODE_OPTIONS.map(([v, label]) => (
+            <FilterChip key={v || "any"} active={modeFilter === v} onClick={() => setModeFilter(v)}>
+              {label}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+      <div>
+        <FieldLabel>Platform</FieldLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {PLATFORM_OPTIONS.map(([v, label]) => (
+            <FilterChip key={v || "any"} active={platformFilter === v} onClick={() => setPlatformFilter(v)}>
+              {label}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+      <div>
+        <FieldLabel>Sort</FieldLabel>
+        <Segmented<"date" | "prize">
+          label="Sort hackathons"
+          size="sm"
+          value={sortBy === "prize" ? "prize" : "date"}
+          onChange={(v) => setSortBy(v)}
+          options={[
+            { value: "date", label: "Date" },
+            { value: "prize", label: "Prize (highest)" },
+          ]}
+        />
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
-      <main className="max-w-7xl mx-auto px-6 pt-36 pb-12">
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--primary-500)] to-[var(--accent-500)] animate-pulse mb-4" />
-          <p className="text-zinc-500">Loading hackathons...</p>
-        </div>
-      </main>
+      <Page>
+        {header}
+        <div className="mt-2">{sihCallout}</div>
+        <SkeletonRows rows={6} avatar="square" className="mt-6" />
+      </Page>
     );
   }
 
+  const emptyBody =
+    activeTab === "recommended"
+      ? userSkills.length === 0
+        ? "Add skills to your profile and we'll match hackathons to them."
+        : "No upcoming hackathons match your skills right now. Check back after the next weekly refresh."
+      : activeTab === "saved"
+        ? "You haven't saved any events yet. Use the bookmark on any hackathon to keep it here."
+        : activeTab === "upcoming"
+          ? "No upcoming events match your search. Try Past."
+          : "No past events match your filters.";
+
   return (
-    <main className="max-w-7xl mx-auto px-6 pt-24 pb-12">
-      {/* Hero */}
-      <section className="mb-10 animate-fade-in-up flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <p className="section-label">HACKATHON DISCOVERY</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">
-            Find your next hackathon
-          </h1>
-          <p className="text-zinc-400 text-sm max-w-xl leading-relaxed">
-            Browse upcoming hackathons, see who&apos;s already building teams, and find the right event for your next project.
-          </p>
-        </div>
-        <Link href="/hackathons/create" className="btn btn-primary btn-sm flex-shrink-0">
-          + Host a Hackathon
-        </Link>
-      </section>
+    <Page>
+      {header}
 
-      {/* Featured SIH 2026 Teammate Matcher Banner */}
-      <div className="mb-8 p-6 rounded-2xl border border-orange-200 dark:border-orange-500/30 bg-orange-50/70 dark:bg-gradient-to-r dark:from-zinc-950 dark:via-zinc-900 dark:to-orange-950/30 shadow-sm dark:shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-fade-in-up transition-colors">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/30 bg-orange-100 dark:bg-orange-500/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 animate-pulse" />
-            <span>🇮🇳 SMART INDIA HACKATHON 2026</span>
-          </div>
-          <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-            Find Teammates for SIH Internal Round
-          </h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1 max-w-xl leading-relaxed">
-            Form your official 6-member team within your college. Filter builders & teams by institution with gender mandate and skill mix checks.
-          </p>
-        </div>
-        <Link
-          href="/hackathons/sih"
-          className="px-5 py-2.5 rounded-xl text-xs font-extrabold !text-zinc-950 text-zinc-950 bg-[#B4F461] hover:bg-[#a3e64f] shadow-md shadow-[#B4F461]/20 transition-all hover:scale-105 shrink-0"
-        >
-          <span className="!text-zinc-950 text-zinc-950 font-extrabold">SIH Team Builder Hub →</span>
-        </Link>
-      </div>
+      <div className="mt-2">{sihCallout}</div>
 
-      {/* Filter Panel */}
-      <div className="card card-static p-6 mb-8 animate-fade-in-up stagger-1">
-        <div className="flex items-center gap-2 mb-4">
-          <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <p className="section-label mb-0">SEARCH & FILTER</p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <input
-            type="text"
-            placeholder="Search hackathon or tag..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input text-xs w-full"
-          />
-
-          <select
-            value={modeFilter}
-            onChange={(e) => setModeFilter(e.target.value)}
-            className="input px-4 text-xs w-full"
+      {/* Scope + search */}
+      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <Segmented<Tab> label="Hackathon scope" value={activeTab} onChange={setActiveTab} options={tabOptions} className="self-start" />
+        <div className="flex min-w-0 gap-2 md:w-[340px]">
+          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch} placeholder="Hackathon or tag" label="Search hackathons" />
+          <Button
+            variant="secondary"
+            icon={<SlidersHorizontal />}
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Filters"
+            className="h-9 md:hidden"
           >
-            <option value="">All modes</option>
-            <option value="online">Online</option>
-            <option value="in-person">In-person</option>
-          </select>
-
-          <select
-            value={platformFilter}
-            onChange={(e) => setPlatformFilter(e.target.value)}
-            className="input px-4 text-xs w-full"
-          >
-            <option value="">All Platforms</option>
-            <option value="native">HackerMate (Native)</option>
-            <option value="unstop">Unstop</option>
-            <option value="hack2skill">Hack2skills</option>
-            <option value="devfolio">Devfolio</option>
-            <option value="other">Other External</option>
-          </select>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="input px-4 text-xs w-full"
-          >
-            <option value="date">Sort by Date</option>
-            <option value="prize">Sort by Prize (Highest)</option>
-          </select>
+            {activeFilterCount > 0 ? activeFilterCount : null}
+          </Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-zinc-900 mb-6 animate-fade-in-up stagger-2 overflow-x-auto whitespace-nowrap max-w-full scrollbar-none">
-        <button
-          onClick={() => setActiveTab("recommended")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors flex items-center gap-1.5 shrink-0 ${
-            activeTab === "recommended"
-              ? "border-violet-500 text-violet-400"
-              : "border-transparent text-zinc-500 hover:text-white"
-          }`}
-        >
-          🎯 For You
-        </button>
-        <button
-          onClick={() => setActiveTab("upcoming")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors shrink-0 ${
-            activeTab === "upcoming"
-              ? "border-white text-white"
-              : "border-transparent text-zinc-500 hover:text-white"
-          }`}
-        >
-          Upcoming Events
-        </button>
-        <button
-          onClick={() => setActiveTab("saved")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors shrink-0 ${
-            activeTab === "saved"
-              ? "border-white text-white"
-              : "border-transparent text-zinc-500 hover:text-white"
-          }`}
-        >
-          Saved Events
-        </button>
-        <button
-          onClick={() => setActiveTab("past")}
-          className={`px-4 py-2.5 text-xs font-medium border-b-2 -mb-[2px] transition-colors shrink-0 ${
-            activeTab === "past"
-              ? "border-white text-white"
-              : "border-transparent text-zinc-500 hover:text-white"
-          }`}
-        >
-          Past Events
-        </button>
+      {/* Desktop filters */}
+      <div className="mt-3 hidden flex-wrap items-center gap-x-5 gap-y-2 md:flex">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Mode">
+          <span className="mr-1 caps-label text-ink-3">Mode</span>
+          {MODE_OPTIONS.map(([v, label]) => (
+            <FilterChip key={v || "any"} active={modeFilter === v} onClick={() => setModeFilter(v)}>
+              {label}
+            </FilterChip>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Platform">
+          <span className="mr-1 caps-label text-ink-3">Platform</span>
+          {PLATFORM_OPTIONS.map(([v, label]) => (
+            <FilterChip key={v || "any"} active={platformFilter === v} onClick={() => setPlatformFilter(v)}>
+              {label}
+            </FilterChip>
+          ))}
+        </div>
+        <label className="ml-auto flex items-center gap-2">
+          <span className="caps-label text-ink-3">Sort</span>
+          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-7 w-auto text-[12.5px]">
+            <option value="date">Date</option>
+            <option value="prize">Prize (highest)</option>
+          </Select>
+        </label>
       </div>
 
-      {/* Results Count */}
-      <div className="flex items-center justify-between mb-6 animate-fade-in-up stagger-2">
-        <p className="text-zinc-500 text-sm">
-          {filtered.length} event{filtered.length !== 1 ? "s" : ""} found
+      {/* Results count */}
+      <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[12.5px] text-ink-3">
+          <span className="font-mono text-ink-2 tabular">{filtered.length}</span> event{filtered.length !== 1 ? "s" : ""}
         </p>
-
-        {(search || modeFilter || platformFilter || sortBy !== "date") && (
+        {hasAnyFilter && (
           <button
-            onClick={() => {
-              setSearch("");
-              setModeFilter("");
-              setPlatformFilter("");
-              setSortBy("date");
-            }}
-            className="text-sm text-zinc-500 hover:text-white transition-colors"
+            type="button"
+            onClick={clearFilters}
+            className="text-[12.5px] font-medium text-ink-3 underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink"
           >
             Clear filters
           </button>
         )}
       </div>
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <div className="card card-static p-16 text-center animate-fade-in-up">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-            </svg>
-          </div>
-          <h3 className="text-sm font-semibold text-white mb-2">No events found</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto text-xs leading-relaxed">
-            {activeTab === "recommended"
-              ? userSkills.length === 0
-                ? "Add skills to your profile so we can recommend hackathons tailored to you!"
-                : "No upcoming hackathons match your skills right now. Check back after the next weekly refresh!"
-              : activeTab === "saved"
-              ? "You haven't bookmarked any events yet. Click the bookmark icon on any hackathon to save it!"
-              : activeTab === "upcoming"
-              ? "There are no upcoming events matching your query. Try checking Past Events!"
-              : "No past events match your filters."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((h, i) => {
-            const todayStr = new Date().toISOString().split("T")[0];
-            const isEventPast = h.end_date && h.end_date < todayStr;
-            return (
-              <Link
-                key={h.id}
-                href={`/hackathons/${h.id}`}
-                className={`card p-6 group animate-fade-in-up stagger-${Math.min(i % 6, 6) + 1} ${
-                  isEventPast ? "opacity-75 hover:opacity-100 transition-opacity" : ""
-                }`}
-              >
-                {/* Top - Name & Mode */}
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <h2 className="text-base font-semibold text-white group-hover:text-gradient transition-all">
-                    {h.name}
-                  </h2>
-
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    {h.mode && (
-                      <span className="badge badge-primary capitalize text-[10px] py-0.5 px-1.5">
-                        {h.mode}
-                      </span>
-                    )}
-                    {isEventPast ? (
-                      <span className="badge text-[10px] py-0.5 px-1.5 bg-zinc-800 text-zinc-500 border-zinc-700">
-                        Ended
-                      </span>
-                    ) : (
-                      <span className={`badge text-[10px] py-0.5 px-1.5 ${
-                        h.type === "native" ? "badge-success" : "badge-warning"
-                      }`}>
-                        {h.type === "native" ? "Native" : "External"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Description */}
-                <p className="text-zinc-400 text-xs leading-relaxed mb-5 line-clamp-3">
-                  {getPlainPreview(h.description)}
-                </p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-5">
-                  {h.tags?.length ? (
-                    h.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="badge text-[10px]">
-                        {tag}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="badge text-[10px] text-zinc-500">No tags</span>
-                  )}
-                  {h.tags && h.tags.length > 3 && (
-                    <span className="badge text-[10px]">+{h.tags.length - 3}</span>
-                  )}
-                </div>
-
-                {/* Meta Info */}
-                <div className="space-y-2.5 mb-6 text-xs">
-                  <div className="flex items-center gap-2 text-zinc-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.875V10.5h1.5a3.75 3.75 0 100-7.5h-9a3.75 3.75 0 100 7.5h1.5v3.75h-.875c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9" />
-                    </svg>
-                    <span>{formatDateRange(h.start_date, h.end_date)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-zinc-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
-                    <span>{h.location || "Location TBA"}</span>
-                  </div>
-
-                  {h.college && (
-                    <div className="flex items-center gap-2 text-zinc-500">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.094a50.57 50.57 0 0110.457 0 5.905 5.905 0 014.887 5.906a50.57 50.57 0 00-2.658.813M9.75 8.122v6.375M14.25 8.122v6.375" />
-                      </svg>
-                      <span className="truncate">{h.college}</span>
-                    </div>
-                  )}
-
-                  {h.prize_pool && (
-                    <div className="flex items-center gap-2 text-zinc-500">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>
-                        {formatPrizeDisplay(h.prize_pool, h.currency).length > 35 
-                          ? `${formatPrizeDisplay(h.prize_pool, h.currency).slice(0, 32)}...` 
-                          : formatPrizeDisplay(h.prize_pool, h.currency)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* CTA */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
-                  <button
-                    onClick={(e) => toggleSave(e, h.id)}
-                    className="flex items-center gap-1.5 text-zinc-500 hover:text-violet-400 transition-colors py-1 text-xs"
-                  >
-                    {savedIds.has(h.id) ? (
-                      <>
-                        <svg className="w-4 h-4 text-violet-500 fill-violet-500" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-                        </svg>
-                        <span className="text-violet-400 font-medium">Saved</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-                        </svg>
-                        <span>Save</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div className="flex items-center gap-1.5 font-medium text-white group-hover:text-primary-400 transition-colors">
-                    <span>Explore</span>
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+      {loadError && (
+        <ErrorNotice
+          className="mb-4"
+          title="Couldn't load hackathons"
+          detail={loadError}
+          onRetry={() => {
+            loadHackathons();
+          }}
+        />
       )}
-    </main>
+
+      {loadError && hackathons.length === 0 ? null : filtered.length === 0 ? (
+        <EmptyState
+          icon={<CalendarSearch />}
+          title="No events found"
+          body={emptyBody}
+          action={
+            hasAnyFilter ? (
+              <Button size="sm" variant="secondary" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-raised" data-stagger>
+          {filtered.map((h) => (
+            <HackathonRow key={h.id} h={h} saved={savedIds.has(h.id)} onToggleSave={toggleSave} />
+          ))}
+        </ul>
+      )}
+
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filter hackathons"
+        label="Filter hackathons"
+        footer={
+          <div className="flex gap-2">
+            {activeFilterCount > 0 && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setModeFilter("");
+                  setPlatformFilter("");
+                  setSortBy("date");
+                }}
+              >
+                Reset
+              </Button>
+            )}
+            <Button variant="inverse" className="flex-1" onClick={() => setFiltersOpen(false)}>
+              Show {filtered.length} event{filtered.length !== 1 ? "s" : ""}
+            </Button>
+          </div>
+        }
+      >
+        <div className="px-4 py-4">{filterGroups}</div>
+      </Sheet>
+    </Page>
   );
 }
 
 export default function HackathonsPage() {
   return (
     <AuthGuard>
-      <Suspense fallback={
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="w-8 h-8 border-2 border-zinc-800 border-t-violet-500 rounded-full animate-spin mb-4" />
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest">Loading hackathons...</p>
-        </div>
-      }>
+      <Suspense fallback={<PageLoader label="Loading hackathons" />}>
         <HackathonsContent />
       </Suspense>
     </AuthGuard>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import LinkedIdeaScorecard, { LinkedEvaluationRecord } from "@/components/LinkedIdeaScorecard";
 import PresentationErrorAlert from "@/components/ui/PresentationErrorAlert";
@@ -10,31 +10,36 @@ import {
 } from "@/lib/evaluator/evaluatorTypes";
 import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 import {
-  CheckCircle,
-  AlertTriangle,
-  RefreshCw,
+  TriangleAlert,
+  CheckCircle2,
   Link as LinkIcon,
-  Shield,
-  Layers,
-  Cpu,
-  Palette,
-  Users,
-  Award,
   Trash2,
-  Eye,
-  History,
   GitCompare,
   TrendingUp,
   TrendingDown,
-  CheckCheck,
   Minus,
   Lightbulb,
   Building2,
   Bot,
   Globe,
-  CheckCircle2,
-  Zap,
+  Cpu,
+  Presentation,
 } from "lucide-react";
+import {
+  Button,
+  FieldLabel,
+  IconButton,
+  Input,
+  List,
+  Panel,
+  Progress,
+  Segmented,
+  Select,
+  Spinner,
+  Tape,
+  type TapeTone,
+} from "@/components/system";
+import { cn } from "@/lib/utils";
 
 interface PPTEvaluation {
   id: string;
@@ -78,6 +83,31 @@ const ORDERED_SLIDES = [
   { key: "impactAndBenefits", label: "Slide 5: Impact, Benefits & Commercial ROI", slideNum: 5 },
   { key: "researchAndReferences", label: "Slide 6: Research Papers & References", slideNum: 6 },
 ] as const;
+
+const TRACK_OPTIONS: { id: JudgingTrackId; label: string; sub: string }[] = [
+  { id: "sih", label: "SIH", sub: "6 members, at least one woman, 6-slide template" },
+  { id: "ai_genai", label: "AI & GenAI", sub: "Agents, retrieval, latency and hallucination control" },
+  { id: "web_dev", label: "Web dev", sub: "APIs, data model, SSR and security" },
+];
+
+/** Engine grades end with emojis; show the words only. */
+function cleanGrade(grade: string = "") {
+  return grade.replace(/[^\p{L}\p{N}\s/&().,'-]/gu, "").replace(/\s+/g, " ").trim();
+}
+
+/** Panel header row: icon + title (+ mono count) and an optional action. */
+function PanelHead({ icon, title, meta, action }: { icon?: ReactNode; title: ReactNode; meta?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-3">
+      <h3 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold text-ink [&_svg]:size-4 [&_svg]:shrink-0">
+        {icon}
+        <span className="min-w-0 truncate">{title}</span>
+        {meta !== undefined && <span className="font-mono text-[11.5px] font-normal text-ink-3 tabular">{meta}</span>}
+      </h3>
+      {action}
+    </div>
+  );
+}
 
 export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [evaluations, setEvaluations] = useState<PPTEvaluation[]>([]);
@@ -171,6 +201,9 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         } else {
           setSelectedEval(null);
         }
+      } else {
+        // Keep the real reason visible instead of silently showing an empty history.
+        console.error("[PPTEvaluatorTab] Evaluations request failed:", res.status, contentType);
       }
     } catch (err) {
       console.error("[PPTEvaluatorTab] Load error:", err);
@@ -289,45 +322,42 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     }
   }
 
-  const getGradeBadge = (grade: string = "") => {
-    if (grade.includes("Gold")) {
-      return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30";
-    }
-    if (grade.includes("Ready") || grade.includes("Candidate") || grade.includes("A")) {
-      return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
-    }
-    if (grade.includes("Risk") || grade.includes("Poor") || grade.includes("F")) {
-      return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30";
-    }
-    return "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30";
+  // Grade → status tone. Same matching order as before; colour only encodes quality.
+  const getGradeTone = (grade: string = ""): TapeTone => {
+    if (grade.includes("Gold")) return "ok";
+    if (grade.includes("Ready") || grade.includes("Candidate") || grade.includes("A")) return "ok";
+    if (grade.includes("Risk") || grade.includes("Poor") || grade.includes("F")) return "bad";
+    return "warn";
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 88) return "text-amber-500 dark:text-amber-400";
-    if (score >= 72) return "text-emerald-500 dark:text-emerald-400";
-    if (score >= 50) return "text-yellow-500 dark:text-yellow-400";
-    return "text-rose-500 dark:text-rose-400";
+    if (score >= 72) return "text-ok";
+    if (score >= 50) return "text-warn";
+    return "text-bad";
   };
 
   const getTrackBadge = (trackId: string = "web_dev") => {
     if (trackId === "sih") {
       return {
-        label: "Smart India Hackathon (SIH 2026)",
-        badgeClass: "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20",
-        icon: <Building2 className="w-3.5 h-3.5 inline mr-1" />,
+        label: "SIH 2026",
+        short: "SIH",
+        tone: "sih" as TapeTone,
+        icon: <Building2 />,
       };
     }
     if (trackId === "ai_genai") {
       return {
-        label: "AI, GenAI & Agentic Systems",
-        badgeClass: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20",
-        icon: <Bot className="w-3.5 h-3.5 inline mr-1" />,
+        label: "AI & GenAI",
+        short: "AI/GenAI",
+        tone: "neutral" as TapeTone,
+        icon: <Bot />,
       };
     }
     return {
-      label: "Web Development & Full-Stack",
-      badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
-      icon: <Globe className="w-3.5 h-3.5 inline mr-1" />,
+      label: "Web dev",
+      short: "Web dev",
+      tone: "neutral" as TapeTone,
+      icon: <Globe />,
     };
   };
 
@@ -358,146 +388,119 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
   const renderDiffBadge = (diff: number | null, prefix: string = "") => {
     if (diff === null) return null;
-    if (diff > 0) {
-      return (
-        <span className="inline-flex items-center gap-0.5 text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-          <TrendingUp className="w-3 h-3" />
-          <span>+{diff}</span>
-          {prefix && <span className="text-[10px] font-normal opacity-80">{prefix}</span>}
-        </span>
-      );
-    }
-    if (diff < 0) {
-      return (
-        <span className="inline-flex items-center gap-0.5 text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
-          <TrendingDown className="w-3 h-3" />
-          <span>{diff}</span>
-          {prefix && <span className="text-[10px] font-normal opacity-80">{prefix}</span>}
-        </span>
-      );
-    }
+    const tone = diff > 0 ? "text-ok" : diff < 0 ? "text-bad" : "text-ink-3";
     return (
-      <span className="inline-flex items-center gap-0.5 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-500/10 px-1.5 py-0.5 rounded border border-zinc-500/20">
-        <Minus className="w-3 h-3" />
-        <span>0</span>
-        {prefix && <span className="text-[10px] font-normal opacity-80">{prefix}</span>}
+      <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-mono text-[11.5px] font-medium tabular", tone)}>
+        {diff > 0 ? <TrendingUp className="size-3" aria-hidden /> : diff < 0 ? <TrendingDown className="size-3" aria-hidden /> : <Minus className="size-3" aria-hidden />}
+        <span>{diff > 0 ? `+${diff}` : diff}</span>
+        {prefix && <span className="font-normal text-ink-3">{prefix}</span>}
       </span>
     );
   };
 
+  const trackDescription =
+    selectedTrack === "sih"
+      ? "Paste a Google Slides or Drive link. Scored 0–100 on the SIH rubric: novelty, architecture, UI/UX, a 6-member team with at least one woman, and the 6-slide limit."
+      : selectedTrack === "ai_genai"
+      ? "Paste a Google Slides or Drive link. Scored 0–100 on AI hackathon criteria: agent design, retrieval, latency, hallucination control and team roles."
+      : "Paste a Google Slides or Drive link. Scored 0–100 on full-stack criteria: API design, data model, caching, security, responsive UI and team roles.";
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <RefreshCw className="w-8 h-8 text-violet-500 dark:text-violet-400 animate-spin mb-4" />
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm font-mono uppercase tracking-wider">
-          Loading Pitch Deck Evaluations...
-        </p>
-      </div>
+      <Panel className="flex h-40 items-center justify-center gap-2">
+        <Spinner label="Loading pitch reviews" />
+        <span className="text-[12.5px] text-ink-3">Loading pitch reviews</span>
+      </Panel>
     );
   }
 
-  return (
-    <div className="space-y-6 animate-fade-in text-left">
-      {/* Top Diagnostic Banner (Dynamically Configured per Track) */}
-      <div className="rounded-2xl p-6 border border-violet-500/20 bg-gradient-to-br from-violet-50 via-white to-zinc-50 dark:from-violet-950/20 dark:via-zinc-950/60 dark:to-black relative overflow-hidden shadow-xs">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className={`badge text-xs px-2.5 py-0.5 font-mono font-bold ${getTrackBadge(selectedTrack).badgeClass}`}>
-                {selectedTrack === "sih"
-                  ? "SIH 2026 AI JURY EVALUATOR"
-                  : selectedTrack === "ai_genai"
-                  ? "AI & AGENTIC SYSTEMS JURY EVALUATOR"
-                  : "FULL-STACK HACKATHON JURY EVALUATOR"}
-              </span>
-              <span className="badge bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 text-xs px-2 py-0.5 font-medium">
-                {selectedTrack === "sih"
-                  ? "Official 6-Slide Rubric (6 Members + Female Teammate)"
-                  : selectedTrack === "ai_genai"
-                  ? "Agentic & RAG Rubric (Skill-based Squad)"
-                  : "Full-Stack Architecture Rubric (Skill-based Squad)"}
-              </span>
-            </div>
-            <h2 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-              Pitch deck review
-            </h2>
-            <p className="text-zinc-600 dark:text-zinc-400 text-sm mt-1 max-w-2xl leading-relaxed">
-              {selectedTrack === "sih"
-                ? "Paste your Google Slides or Drive link (view permissions enabled). Evaluates 0–100 against strict SIH criteria: Novelty, Architecture, UI/UX mockups, 6-member squad size, mandatory female builder, and 6-slide max limit."
-                : selectedTrack === "ai_genai"
-                ? "Paste your Google Slides or Drive link. Evaluates 0–100 against AI hackathon standards: Multi-agent coordination, RAG retrieval, latency, hallucination mitigation, and complementary squad roles."
-                : "Paste your Google Slides or Drive link. Evaluates 0–100 against full-stack hackathon standards: API contracts, relational DB schemas, caching, security, responsive UI/UX, and complementary squad roles."}
-            </p>
-          </div>
+  const selectedTrackInfo = selectedEval
+    ? getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev")
+    : null;
 
-          {evaluations.length > 0 && selectedEval && (
-            <div className="flex flex-col items-end flex-shrink-0 bg-white/90 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl shadow-xs">
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-1">Active Scorecard Total</div>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-4xl font-extrabold ${getScoreColor(selectedEval.total_score)}`}>
-                  {selectedEval.total_score}
-                </span>
-                <span className="text-zinc-400 font-mono text-lg">/100</span>
-                {compareEval && renderDiffBadge(scoreDiff, `vs v${compareEval.version}`)}
-              </div>
-              <div className="flex items-center gap-1.5 mt-2">
-                <span className={`badge text-xs px-2.5 py-0.5 font-bold ${getGradeBadge(selectedEval.grade)}`}>
-                  {selectedEval.grade}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+  const rubric = selectedEval
+    ? [
+        { key: "novelty", label: "Novelty & alignment", value: selectedEval.score_novelty, max: 25, note: selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives." },
+        { key: "tech", label: "Tech architecture", value: selectedEval.score_tech, max: 35, note: selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes." },
+        { key: "uiux", label: "UI/UX & polish", value: selectedEval.score_ui_ux, max: 25, note: selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates mockups, visual flowcharts, and slide clarity." },
+        { key: "team", label: "Team & squad balance", value: selectedEval.score_team, max: 15, note: selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates squad completeness and rules." },
+      ]
+    : [];
+
+  const compareRows =
+    selectedEval && compareEval
+      ? [
+          { label: "Overall", from: compareEval.total_score, to: selectedEval.total_score, diff: scoreDiff },
+          { label: "Novelty", from: compareEval.score_novelty, to: selectedEval.score_novelty, diff: noveltyDiff },
+          { label: "Tech", from: compareEval.score_tech, to: selectedEval.score_tech, diff: techDiff },
+          { label: "UI/UX", from: compareEval.score_ui_ux, to: selectedEval.score_ui_ux, diff: uiUxDiff },
+          { label: "Team", from: compareEval.score_team, to: selectedEval.score_team, diff: teamDiff },
+        ]
+      : [];
+
+  const hasPushback =
+    (selectedEval?.ai_feedback?.spocRedFlags && selectedEval.ai_feedback.spocRedFlags.length > 0) ||
+    (selectedEval?.ai_feedback?.formatViolations && selectedEval.ai_feedback.formatViolations.length > 0);
+
+  return (
+    <div className="space-y-5 text-left">
+      {/* Description + rubric in use */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 max-w-3xl text-[13px] leading-relaxed text-ink-3">{trackDescription}</p>
+        <Tape tone={getTrackBadge(selectedTrack).tone} icon={getTrackBadge(selectedTrack).icon}>
+          {getTrackBadge(selectedTrack).label} rubric
+        </Tape>
       </div>
 
-      {/* FAIL-LOUD FALLBACK WARNING BANNER (When track auto-detection was ambiguous) */}
+      {/* FAIL-LOUD FALLBACK WARNING (When track auto-detection was ambiguous) */}
       {isAmbiguousFallback && !userExplicitlySelected && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200 shadow-xs animate-fade-in">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <div className="space-y-2 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-sm">
-                  Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a SIH submission.
-                </span>
-              </div>
-              <p className="text-xs text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
-                Web Dev grading uses flexible team sizing and skips SIH SPOC gender/member rules. If you are preparing for Smart India Hackathon (SIH 2026), you must select the SIH track to evaluate official squad compliance and prevent disqualification risks.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTrack("sih");
-                    setUserExplicitlySelected(true);
-                    setIsAmbiguousFallback(false);
-                  }}
-                  className="btn btn-xs bg-amber-600 hover:bg-amber-700 text-white font-bold border-none cursor-pointer"
-                >
-                  Switch to SIH 2026 Rubric →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTrack("ai_genai");
-                    setUserExplicitlySelected(true);
-                    setIsAmbiguousFallback(false);
-                  }}
-                  className="btn btn-xs bg-zinc-800 hover:bg-zinc-700 text-white border-none cursor-pointer"
-                >
-                  Switch to AI / GenAI →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserExplicitlySelected(true);
-                    setIsAmbiguousFallback(false);
-                  }}
-                  className="btn btn-xs bg-transparent border border-amber-600/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer"
-                >
-                  Confirm Web Dev
-                </button>
-              </div>
+        <div role="alert" className="flex items-start gap-3 rounded-lg bg-warn-soft p-4 ring-1 ring-inset ring-warn/30">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-semibold text-ink">
+              Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a SIH submission.
+            </p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">
+              Web Dev grading uses flexible team sizing and skips the SIH team rules. If you&apos;re preparing for Smart India Hackathon (SIH 2026), pick the SIH track so the 6-member and women-on-team checks are scored.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Building2 />}
+                className="h-9 md:h-7"
+                onClick={() => {
+                  setSelectedTrack("sih");
+                  setUserExplicitlySelected(true);
+                  setIsAmbiguousFallback(false);
+                }}
+              >
+                Use SIH rubric
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Bot />}
+                className="h-9 md:h-7"
+                onClick={() => {
+                  setSelectedTrack("ai_genai");
+                  setUserExplicitlySelected(true);
+                  setIsAmbiguousFallback(false);
+                }}
+              >
+                Use AI / GenAI
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 md:h-7"
+                onClick={() => {
+                  setUserExplicitlySelected(true);
+                  setIsAmbiguousFallback(false);
+                }}
+              >
+                Keep Web Dev
+              </Button>
             </div>
           </div>
         </div>
@@ -523,115 +526,85 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         }}
       />
 
-      {/* Submission Form Card */}
-      <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Review a new version of your deck</h3>
-        </div>
+      {/* Submission form */}
+      <Panel as="section" className="min-w-0">
+        <PanelHead icon={<Presentation className="text-ink-3" />} title="Review a new version" />
 
-        <form onSubmit={handleEvaluate} className="space-y-4">
-          {/* Track Selector Section */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase font-mono tracking-wider">
-                Evaluation Track & Rubric
-              </label>
+        <form onSubmit={handleEvaluate} className="space-y-4 p-4">
+          {/* Track selector */}
+          <div className="min-w-0">
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <span id={`ppt-track-${teamId}`} className="caps-label text-ink-3">
+                Track
+              </span>
               {isAmbiguousFallback && !userExplicitlySelected ? (
-                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 inline-flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  <span>Defaulted — Review Required</span>
-                </span>
+                <Tape tone="warn" icon={<TriangleAlert />}>
+                  Defaulted · review
+                </Tape>
               ) : autoDetectedSource ? (
-                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>{autoDetectedSource}</span>
+                <span className="inline-flex min-w-0 items-center gap-1 text-[12px] text-ink-3">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-ok" aria-hidden />
+                  <span className="min-w-0 truncate">{autoDetectedSource}</span>
                 </span>
               ) : null}
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {[
-                { id: "sih" as JudgingTrackId, label: "Smart India Hackathon (SIH)", sub: "Strict 6-member & female teammate rules", icon: <Building2 className="w-3.5 h-3.5" /> },
-                { id: "ai_genai" as JudgingTrackId, label: "AI & GenAI Systems", sub: "Agents, RAG, Latency & Hallucination", icon: <Bot className="w-3.5 h-3.5" /> },
-                { id: "web_dev" as JudgingTrackId, label: "Web Development & Full-Stack", sub: "APIs, Databases, SSR & Security", icon: <Globe className="w-3.5 h-3.5" /> },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedTrack(t.id);
-                    setUserExplicitlySelected(true);
-                    setIsAmbiguousFallback(false);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    selectedTrack === t.id
-                      ? "border-violet-500 bg-violet-500/10 text-zinc-900 dark:text-white ring-1 ring-violet-500/50"
-                      : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-bold text-xs">
-                    <span>{t.icon}</span>
-                    <span>{t.label}</span>
-                  </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-tight">
-                    {t.sub}
-                  </div>
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Evaluation track"
+              value={selectedTrack}
+              onChange={(v) => {
+                setSelectedTrack(v);
+                setUserExplicitlySelected(true);
+                setIsAmbiguousFallback(false);
+              }}
+              options={TRACK_OPTIONS.map((t) => ({ value: t.id, label: t.label }))}
+            />
+            <p className="mt-1.5 text-[12px] text-ink-3">{TRACK_OPTIONS.find((t) => t.id === selectedTrack)?.sub}</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase font-mono tracking-wider">
-                Problem Statement Title / Idea Name
-              </label>
-              <input
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="min-w-0">
+              <FieldLabel htmlFor={`ppt-title-${teamId}`}>Problem statement or idea</FieldLabel>
+              <Input
+                id={`ppt-title-${teamId}`}
                 type="text"
                 value={psTitle}
                 onChange={(e) => setPsTitle(e.target.value)}
-                placeholder="e.g. AI Monument Audio Guide & Multilingual Vision"
-                className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition-colors"
+                placeholder="e.g. Multilingual audio guide for monuments"
+                className="h-10 md:h-[34px]"
                 required
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase font-mono tracking-wider">
-                Category
-              </label>
-              <select
+            <div className="min-w-0">
+              <FieldLabel htmlFor={`ppt-category-${teamId}`}>Category</FieldLabel>
+              <Select
+                id={`ppt-category-${teamId}`}
                 value={psCategory}
                 onChange={(e) => setPsCategory(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition-colors"
+                className="h-10 md:h-[34px]"
               >
                 <option value="software">Software Edition</option>
                 <option value="hardware">Hardware Edition</option>
                 <option value="open_innovation">Open Innovation Track</option>
-              </select>
+              </Select>
             </div>
           </div>
 
-          {/* Google Slides Presentation Link Input */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase font-mono tracking-wider">
-              Google Slides / Drive Presentation Link
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <LinkIcon className="w-4 h-4" />
-              </div>
-              <input
-                type="url"
-                value={externalLink}
-                onChange={(e) => setExternalLink(e.target.value)}
-                placeholder="Paste your presentation link..."
-                className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition-colors"
-                required
-              />
-            </div>
-            <p className="text-xs text-zinc-500">
-              Ensure your Google Slides presentation sharing permission is set to &ldquo;Anyone with the link can view&rdquo;.
+          {/* Google Slides presentation link */}
+          <div className="min-w-0">
+            <FieldLabel htmlFor={`ppt-link-${teamId}`}>Google Slides or Drive link</FieldLabel>
+            <Input
+              id={`ppt-link-${teamId}`}
+              type="url"
+              value={externalLink}
+              onChange={(e) => setExternalLink(e.target.value)}
+              placeholder="https://docs.google.com/presentation/…"
+              leading={<LinkIcon />}
+              className="h-10 font-mono text-[13px] md:h-[34px]"
+              required
+            />
+            <p className="mt-1.5 text-[12px] text-ink-3">
+              Set sharing to &ldquo;Anyone with the link can view&rdquo; first.
             </p>
           </div>
 
@@ -639,336 +612,222 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             error={errorMsg}
             onDismiss={() => setErrorMsg(null)}
             targetUrl={externalLink}
-            className="my-2"
           />
 
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn btn-primary flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg shadow-lg shadow-violet-600/20 disabled:opacity-50 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Evaluating Presentation...</span>
-                </>
-              ) : (
-                <span>Run AI Evaluation</span>
-              )}
-            </button>
+          <div className="flex justify-end border-t border-line pt-4">
+            <Button type="submit" variant="primary" loading={isSubmitting} className="h-10 w-full sm:h-[34px] sm:w-auto">
+              {isSubmitting ? "Reviewing deck…" : "Run review"}
+            </Button>
           </div>
         </form>
-      </div>
+      </Panel>
 
-      {/* Selected Evaluation Scorecard */}
-      {selectedEval && selectedEval.status === "completed" && (
-        <div className="space-y-6">
-          {/* Header Bar with Track Badge */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedEval.ps_title}</h3>
-                <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-xs px-2.5 py-0.5 font-bold font-mono">
-                  v{selectedEval.version} (Active)
-                </span>
-                <span className={`badge text-xs px-2.5 py-0.5 font-medium ${getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").badgeClass}`}>
-                  {getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").icon}{" "}
-                  {getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev").label}
-                </span>
-                {selectedEval.ai_feedback?.usedAiFallback ? (
-                  <span className="badge bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-xs px-2.5 py-0.5 font-medium flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Heuristic Fallback
-                  </span>
-                ) : (
-                  <span className="badge bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-xs px-2.5 py-0.5 font-semibold flex items-center gap-1 shadow-xs">
-                    <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Gemini AI ⚡
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Evaluated on {new Date(selectedEval.created_at).toLocaleDateString()} at{" "}
-                {new Date(selectedEval.created_at).toLocaleTimeString()} • {selectedEval.file_name}
-              </p>
+      {/* Selected evaluation scorecard */}
+      {selectedEval && selectedEval.status === "completed" && selectedTrackInfo && (
+        <div className="space-y-4">
+          {/* Title + state */}
+          <div className="min-w-0 border-b border-line pb-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Tape>v{selectedEval.version}</Tape>
+              <Tape tone={selectedTrackInfo.tone} icon={selectedTrackInfo.icon}>
+                {selectedTrackInfo.label}
+              </Tape>
+              {selectedEval.ai_feedback?.usedAiFallback ? (
+                <Tape tone="warn" icon={<TriangleAlert />} title="The AI reviewer was unavailable; scored with heuristics">
+                  Heuristic fallback
+                </Tape>
+              ) : (
+                <Tape icon={<Cpu />}>Gemini review</Tape>
+              )}
             </div>
+            <h3 className="mt-2 break-words text-[16px] font-semibold text-ink">{selectedEval.ps_title}</h3>
+            <p className="mt-0.5 break-words text-[12.5px] text-ink-3">
+              {new Date(selectedEval.created_at).toLocaleDateString()} at {new Date(selectedEval.created_at).toLocaleTimeString()} ·{" "}
+              <span className="font-mono text-[12px]">{selectedEval.file_name}</span>
+            </p>
           </div>
 
           {/* PERSISTENT LOUD WARNING ON SCORECARD (If evaluated under fallback) */}
           {(selectedEval.ai_feedback?.isFallbackTrack || selectedEval.ai_feedback?.trackWarning) && (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200 shadow-xs">
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div className="text-xs space-y-1">
-                  <span className="font-bold text-sm block">Evaluated under Web Dev fallback rubric:</span>
-                  <p className="text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
-                    {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. If this team is competing in Smart India Hackathon (SIH 2026), official squad compliance, 6-member requirements, and female teammate rules were NOT evaluated. Select the SIH 2026 track above and re-evaluate."}
-                  </p>
-                </div>
+            <div role="alert" className="flex items-start gap-3 rounded-lg bg-warn-soft p-4 ring-1 ring-inset ring-warn/30">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-semibold text-ink">Scored with the Web Dev fallback rubric</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">
+                  {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. If this team is competing in Smart India Hackathon (SIH 2026), official squad compliance, 6-member requirements, and female teammate rules were NOT evaluated. Select the SIH 2026 track above and re-evaluate."}
+                </p>
               </div>
             </div>
           )}
 
-          {/* Change since last version Card (When multiple versions exist) */}
-          {compareEval && (
-            <div className="rounded-2xl p-5 border border-violet-200 dark:border-violet-500/30 bg-gradient-to-br from-violet-50/90 via-white to-indigo-50/60 dark:from-violet-950/20 dark:via-zinc-950/70 dark:to-indigo-950/20 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200/80 dark:border-zinc-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-violet-600/10 border border-violet-500/20 text-violet-600 dark:text-violet-400">
-                    <GitCompare className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
-                        Change since last version
-                      </h4>
-                      <span className="badge bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20 text-[10px] px-2 py-0.5 font-bold font-mono">
-                        v{selectedEval.version} vs v{compareEval.version}
+          {/* Score + rubric */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+            <Panel className="p-4">
+              <p className="caps-label text-ink-3">
+                Deck v{selectedEval.version} · {selectedTrackInfo.short}
+              </p>
+              <p className="mt-2 font-display text-[40px] font-semibold leading-none tracking-[-0.03em] text-ink tabular">
+                {selectedEval.total_score}
+                <span className="text-[18px] text-ink-3">/100</span>
+              </p>
+              {compareEval && scoreDiff !== null && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-3">
+                  {renderDiffBadge(scoreDiff)}
+                  <span>vs v{compareEval.version}</span>
+                </p>
+              )}
+              <Tape tone={getGradeTone(selectedEval.grade)} className="mt-3 max-w-full">
+                <span className="min-w-0 truncate">{cleanGrade(selectedEval.grade)}</span>
+              </Tape>
+            </Panel>
+
+            <Panel className="min-w-0 p-4">
+              <ul className="space-y-3.5">
+                {rubric.map((r) => (
+                  <li key={r.key} className="min-w-0">
+                    <div className="mb-1 flex items-baseline justify-between gap-2 text-[13px]">
+                      <span className="min-w-0 truncate font-medium text-ink-2">{r.label}</span>
+                      <span className="shrink-0 font-mono text-[12px] text-ink-3 tabular">
+                        {r.value}/{r.max}
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                      Comparing Active Version ({selectedEval.file_name}) against Baseline Version ({compareEval.file_name})
-                    </p>
-                  </div>
-                </div>
-
-                {otherCompletedEvals.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">Compare with:</label>
-                    <select
-                      value={compareEval.id}
-                      onChange={(e) => setCompareVersionId(e.target.value)}
-                      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs rounded-lg px-2.5 py-1.5 text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 shadow-xs"
-                    >
-                      {otherCompletedEvals.map((ev) => (
-                        <option key={ev.id} value={ev.id}>
-                          v{ev.version} ({ev.total_score}/100 - {new Date(ev.created_at).toLocaleDateString()})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Metric Progression Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
-                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Overall Total</span>
-                  <div className="flex items-baseline justify-between gap-1">
-                    <span className="text-base sm:text-lg font-extrabold font-mono text-zinc-900 dark:text-white">
-                      {compareEval.total_score} → {selectedEval.total_score}
-                    </span>
-                    {renderDiffBadge(scoreDiff)}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
-                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Problem & Novelty</span>
-                  <div className="flex items-baseline justify-between gap-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
-                      {compareEval.score_novelty} → {selectedEval.score_novelty}
-                    </span>
-                    {renderDiffBadge(noveltyDiff)}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
-                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Tech Architecture</span>
-                  <div className="flex items-baseline justify-between gap-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
-                      {compareEval.score_tech} → {selectedEval.score_tech}
-                    </span>
-                    {renderDiffBadge(techDiff)}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
-                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">UI/UX & Polish</span>
-                  <div className="flex items-baseline justify-between gap-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
-                      {compareEval.score_ui_ux} → {selectedEval.score_ui_ux}
-                    </span>
-                    {renderDiffBadge(uiUxDiff)}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 col-span-2 sm:col-span-1 shadow-xs">
-                  <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mb-1">Team & Rules</span>
-                  <div className="flex items-baseline justify-between gap-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-white">
-                      {compareEval.score_team} → {selectedEval.score_team}
-                    </span>
-                    {renderDiffBadge(teamDiff)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Resolved Red Flags celebration banner */}
-              {resolvedRedFlags.length > 0 && (
-                <div className="p-3.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-900 dark:text-emerald-300 shadow-xs">
-                  <CheckCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold block mb-1">Resolved Jury Concerns from v{compareEval.version}:</span>
-                    <ul className="space-y-1 list-disc list-inside text-[11px]">
-                      {resolvedRedFlags.map((rf, i) => (
-                        <li key={i}>{rf}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 4 Core Rubric Score Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
-                  <span>Novelty & Alignment</span>
-                  <Award className="w-4 h-4 text-violet-500" />
-                </div>
-                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
-                  {selectedEval.score_novelty}
-                  <span className="text-xs text-zinc-400 font-normal"> / 25</span>
-                </div>
-              </div>
-              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives."}
-              </p>
-            </div>
-
-            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
-                  <span>Tech Architecture</span>
-                  <Cpu className="w-4 h-4 text-blue-500" />
-                </div>
-                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
-                  {selectedEval.score_tech}
-                  <span className="text-xs text-zinc-400 font-normal"> / 35</span>
-                </div>
-              </div>
-              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes."}
-              </p>
-            </div>
-
-            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
-                  <span>UI/UX & Polish</span>
-                  <Palette className="w-4 h-4 text-emerald-500" />
-                </div>
-                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
-                  {selectedEval.score_ui_ux}
-                  <span className="text-xs text-zinc-400 font-normal"> / 25</span>
-                </div>
-              </div>
-              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates mockups, visual flowcharts, and slide clarity."}
-              </p>
-            </div>
-
-            <div className="rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono uppercase mb-2">
-                  <span>Team & Squad Balance</span>
-                  <Users className="w-4 h-4 text-amber-500" />
-                </div>
-                <div className="text-3xl font-extrabold text-zinc-900 dark:text-white font-mono">
-                  {selectedEval.score_team}
-                  <span className="text-xs text-zinc-400 font-normal"> / 15</span>
-                </div>
-              </div>
-              <p className="text-xs text-zinc-500 mt-3 border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5 leading-relaxed">
-                {selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates squad completeness and rules."}
-              </p>
-            </div>
-          </div>
-
-          {/* SPOC / Jury Red Flags & Format Violations */}
-          {(selectedEval.ai_feedback?.spocRedFlags && selectedEval.ai_feedback.spocRedFlags.length > 0) ||
-          (selectedEval.ai_feedback?.formatViolations && selectedEval.ai_feedback.formatViolations.length > 0) ? (
-            <div className="rounded-2xl p-5 border border-rose-500/30 bg-rose-50/60 dark:bg-rose-950/20 shadow-xs space-y-3">
-              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <h4 className="font-bold text-sm">What judges will push back on</h4>
-              </div>
-              <ul className="space-y-1.5 list-disc list-inside text-xs text-rose-800 dark:text-rose-300">
-                {selectedEval.ai_feedback.spocRedFlags?.map((flag, idx) => (
-                  <li key={`rf-${idx}`} className="font-semibold">
-                    {flag}
+                    <Progress value={(r.value / r.max) * 100} tone={r.value / r.max >= 0.7 ? "ok" : "warn"} />
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-ink-3">{r.note}</p>
                   </li>
                 ))}
-                {selectedEval.ai_feedback.formatViolations?.map((violation, idx) => (
-                  <li key={`fv-${idx}`}>{violation}</li>
+              </ul>
+            </Panel>
+          </div>
+
+          {/* Change since last version (When multiple versions exist) */}
+          {compareEval && (
+            <Panel as="section" className="min-w-0">
+              <PanelHead
+                icon={<GitCompare className="text-ink-3" />}
+                title={`Change since v${compareEval.version}`}
+                action={
+                  otherCompletedEvals.length > 1 ? (
+                    <div className="flex min-w-0 items-center gap-2">
+                      <label htmlFor={`ppt-compare-${teamId}`} className="caps-label shrink-0 text-ink-3">
+                        Compare with
+                      </label>
+                      <Select
+                        id={`ppt-compare-${teamId}`}
+                        value={compareEval.id}
+                        onChange={(e) => setCompareVersionId(e.target.value)}
+                        className="h-9 w-auto min-w-0 max-w-full font-mono text-[12.5px] md:h-[30px]"
+                      >
+                        {otherCompletedEvals.map((ev) => (
+                          <option key={ev.id} value={ev.id}>
+                            v{ev.version} · {ev.total_score}/100 · {new Date(ev.created_at).toLocaleDateString()}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  ) : undefined
+                }
+              />
+              <p className="px-4 pt-3 text-[12.5px] text-ink-3">
+                <span className="font-mono text-[12px]">{selectedEval.file_name}</span> against{" "}
+                <span className="font-mono text-[12px]">{compareEval.file_name}</span>
+              </p>
+              <List className="px-4 pb-1">
+                {compareRows.map((row) => (
+                  <li key={row.label} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
+                    <span className={cn("min-w-0 truncate", row.label === "Overall" ? "font-semibold text-ink" : "text-ink-2")}>{row.label}</span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <span className="font-mono text-[12.5px] text-ink-2 tabular">
+                        {row.from} → {row.to}
+                      </span>
+                      <span className="w-12 text-right">{renderDiffBadge(row.diff)}</span>
+                    </span>
+                  </li>
+                ))}
+              </List>
+
+              {/* Resolved red flags */}
+              {resolvedRedFlags.length > 0 && (
+                <div className="border-t border-line px-4 py-3">
+                  <p className="caps-label text-ink-3">Resolved since v{compareEval.version}</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {resolvedRedFlags.map((rf, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-2">
+                        <CheckCircle2 className="mt-[3px] size-3.5 shrink-0 text-ok" aria-hidden />
+                        <span className="min-w-0">{rf}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Panel>
+          )}
+
+          {/* SPOC / Jury Red Flags & Format Violations */}
+          {hasPushback ? (
+            <Panel as="section" className="min-w-0">
+              <PanelHead icon={<TriangleAlert className="text-warn" />} title="What judges will push back on" />
+              <ul className="space-y-2 p-4">
+                {selectedEval.ai_feedback?.spocRedFlags?.map((flag, idx) => (
+                  <li key={`rf-${idx}`} className="flex items-start gap-2 text-[13px] font-medium leading-relaxed text-ink">
+                    <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-warn" aria-hidden />
+                    <span className="min-w-0">{flag}</span>
+                  </li>
+                ))}
+                {selectedEval.ai_feedback?.formatViolations?.map((violation, idx) => (
+                  <li key={`fv-${idx}`} className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-2">
+                    <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-warn" aria-hidden />
+                    <span className="min-w-0">{violation}</span>
+                  </li>
                 ))}
               </ul>
-            </div>
+            </Panel>
           ) : null}
 
           {/* Strengths */}
           {selectedEval.ai_feedback?.strengths && selectedEval.ai_feedback.strengths.length > 0 && (
-            <div className="rounded-2xl p-5 border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs space-y-2">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                <h4 className="font-bold text-sm">What&apos;s already working</h4>
-              </div>
-              <ul className="space-y-1 list-disc list-inside text-xs text-emerald-800 dark:text-emerald-300">
+            <Panel as="section" className="min-w-0">
+              <PanelHead icon={<CheckCircle2 className="text-ok" />} title="What's already working" />
+              <ul className="space-y-2 p-4">
                 {selectedEval.ai_feedback.strengths.map((str, idx) => (
-                  <li key={`str-${idx}`}>{str}</li>
+                  <li key={`str-${idx}`} className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-2">
+                    <CheckCircle2 className="mt-[3px] size-3.5 shrink-0 text-ok" aria-hidden />
+                    <span className="min-w-0">{str}</span>
+                  </li>
                 ))}
               </ul>
-            </div>
+            </Panel>
           )}
 
-          {/* Slide-by-Slide Actionable Recommendations */}
-          <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs space-y-4">
-            <h4 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-violet-500" />
-              <span>Slide-by-Slide Actionable Recommendations</span>
-            </h4>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {/* Slide-by-slide recommendations */}
+          <Panel as="section" className="min-w-0">
+            <PanelHead icon={<Lightbulb className="text-ink-3" />} title="Slide by slide" />
+            <List className="px-4">
               {ORDERED_SLIDES.map((slide) => {
                 const rec = selectedEval.ai_feedback?.slideRecommendations?.[slide.key];
                 return (
-                  <div
-                    key={slide.key}
-                    className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 space-y-1.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">
-                        {slide.slideNum}
-                      </span>
-                      <h5 className="text-xs font-bold text-zinc-900 dark:text-white">{slide.label}</h5>
+                  <li key={slide.key} className="flex items-start gap-3 py-3">
+                    <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[11.5px] text-ink-2 tabular">
+                      {slide.slideNum}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-ink">{slide.label.replace(/^Slide \d+:\s*/, "")}</p>
+                      <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-3">
+                        {rec || "Ensure standard template format is maintained."}
+                      </p>
                     </div>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pl-7">
-                      {rec || "Ensure standard template format is maintained."}
-                    </p>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
-          </div>
+            </List>
+          </Panel>
         </div>
       )}
 
-      {/* Version History Archive */}
+      {/* Version history */}
       {evaluations.length > 0 && (
-        <div className="rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <History className="w-4 h-4 text-violet-500" />
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-                Pitch Deck Iteration History ({evaluations.length})
-              </h3>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <Panel as="section" className="min-w-0">
+          <PanelHead title="Versions" meta={evaluations.length} />
+          <List>
             {evaluations.map((ev) => {
               const isCurrentSelected = selectedEval?.id === ev.id;
               const isConfirming = confirmDeleteId === ev.id;
@@ -976,111 +835,62 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               const evTrackInfo = getTrackBadge(ev.track_id || ev.ai_feedback?.track_id || "web_dev");
 
               return (
-                <div
+                <li
                   key={ev.id}
-                  className={`p-4 rounded-xl border transition-all ${
-                    isCurrentSelected
-                      ? "border-violet-500 bg-violet-50/30 dark:bg-violet-950/10 ring-1 ring-violet-500/50"
-                      : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  }`}
+                  className={cn(
+                    "flex flex-wrap items-center gap-x-2 gap-y-2 px-2 py-1.5 transition-colors",
+                    isCurrentSelected && "bg-selected",
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded font-mono text-xs font-bold bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
-                          v{ev.version}
-                        </span>
-                        <span className={`badge text-[10px] px-1.5 py-0.2 ${evTrackInfo.badgeClass}`}>
-                          {evTrackInfo.icon} {ev.track_id === "sih" ? "SIH" : ev.track_id === "ai_genai" ? "AI/GenAI" : "Web Dev"}
-                        </span>
-                      </div>
-                      <h4 className="text-xs font-bold text-zinc-900 dark:text-white truncate max-w-[180px] mt-1">
-                        {ev.ps_title}
-                      </h4>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 truncate max-w-[240px]">
-                        {ev.file_name} • {new Date(ev.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end flex-shrink-0">
-                      <span className={`text-base font-extrabold font-mono ${getScoreColor(ev.total_score)}`}>
-                        {ev.total_score}/100
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEval(ev)}
+                    aria-current={isCurrentSelected ? "true" : undefined}
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-hover"
+                  >
+                    <span className="w-7 shrink-0 font-mono text-[12.5px] font-semibold text-ink tabular">v{ev.version}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-ink">{ev.ps_title}</span>
+                      <span className="block truncate text-[12px] text-ink-3">
+                        {new Date(ev.created_at).toLocaleDateString()} · {evTrackInfo.short}
+                        {ev.status !== "completed" && ` · ${ev.status}`}
+                        <span className="hidden sm:inline"> · {ev.file_name}</span>
                       </span>
-                      <span className={`badge text-[9px] py-0.2 px-1.5 font-bold ${getGradeBadge(ev.grade)}`}>
-                        {ev.grade}
-                      </span>
-                    </div>
-                  </div>
+                    </span>
+                    <Tape tone={getGradeTone(ev.grade)} className="hidden max-w-[150px] md:inline-flex">
+                      <span className="min-w-0 truncate">{cleanGrade(ev.grade).split(" / ")[0]}</span>
+                    </Tape>
+                    <span className={cn("shrink-0 font-mono text-[13px] font-semibold tabular", getScoreColor(ev.total_score))}>
+                      {ev.total_score}
+                      <span className="text-[11px] font-normal text-ink-3">/100</span>
+                    </span>
+                  </button>
 
-                  {/* Rubric Breakdown Pills */}
-                  <div className="grid grid-cols-4 gap-1.5 py-2 my-2 border-y border-zinc-200/80 dark:border-zinc-800/80 text-[10px] font-mono">
-                    <div className="text-center">
-                      <span className="text-zinc-400 block text-[9px]">Nov</span>
-                      <span className="font-bold text-zinc-700 dark:text-zinc-300">{ev.score_novelty}/25</span>
-                    </div>
-                    <div className="text-center">
-                      <span className="text-zinc-400 block text-[9px]">Tech</span>
-                      <span className="font-bold text-zinc-700 dark:text-zinc-300">{ev.score_tech}/35</span>
-                    </div>
-                    <div className="text-center">
-                      <span className="text-zinc-400 block text-[9px]">UI/UX</span>
-                      <span className="font-bold text-zinc-700 dark:text-zinc-300">{ev.score_ui_ux}/25</span>
-                    </div>
-                    <div className="text-center">
-                      <span className="text-zinc-400 block text-[9px]">Team</span>
-                      <span className="font-bold text-zinc-700 dark:text-zinc-300">{ev.score_team}/15</span>
-                    </div>
-                  </div>
-
-                  {/* Action Controls */}
-                  <div className="flex items-center justify-between pt-1 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEval(ev)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        isCurrentSelected
-                          ? "bg-violet-600 text-white shadow-xs"
-                          : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white"
-                      }`}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>{isCurrentSelected ? "Active Scorecard" : "View Scorecard"}</span>
-                    </button>
-
-                    {isConfirming ? (
-                      <div className="flex items-center gap-1.5 animate-scale-in">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteEvaluation(ev.id)}
-                          disabled={isDeleting}
-                          className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer"
-                        >
-                          {isDeleting ? "Deleting..." : "Confirm Delete"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="px-2 py-1.5 rounded-lg text-[11px] font-medium bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDeleteId(ev.id)}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
-                        title="Delete this evaluation run"
+                  {isConfirming ? (
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5 pr-1">
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        loading={isDeleting}
+                        onClick={() => handleDeleteEvaluation(ev.id)}
+                        className="h-9 md:h-7"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                        {isDeleting ? "Deleting…" : "Delete"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)} className="h-9 md:h-7">
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <IconButton label="Delete this review" onClick={() => setConfirmDeleteId(ev.id)} className="hover:text-bad">
+                      <Trash2 />
+                    </IconButton>
+                  )}
+                </li>
               );
             })}
-          </div>
-        </div>
+          </List>
+        </Panel>
       )}
     </div>
   );

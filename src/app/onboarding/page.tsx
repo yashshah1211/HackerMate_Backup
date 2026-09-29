@@ -4,9 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
-import Logo from "@/components/Logo";
+import { ArrowRight, Check, ChevronDown, Plus } from "lucide-react";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
 import { trackEvent, identifyUser } from "@/lib/posthog";
+import { Button, FilterChip, Input, Skeleton } from "@/components/system";
+import { FormStep, OnboardingFrame, OnboardingLabel } from "@/components/onboarding/OnboardingFrame";
+import { ProfilePreview } from "@/components/onboarding/ProfilePreview";
+import { cn } from "@/lib/utils";
 
 
 const SKILLS = [
@@ -52,6 +56,10 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
 
+  // Display-only: name + avatar from the already-fetched profile row, used by the live preview.
+  const [previewName, setPreviewName] = useState<string | null>(null);
+  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+
   // Load existing profile data on mount to preserve all partial entries
   useEffect(() => {
     trackEvent("onboarding_started", {
@@ -76,6 +84,8 @@ export default function OnboardingPage() {
         if (error) {
           console.error("Error loading profile during onboarding:", error);
         } else if (data) {
+          setPreviewName(data.full_name ?? null);
+          setPreviewAvatar(data.avatar_url ?? null);
           if (data.college) {
             if (COLLEGES.includes(data.college)) {
               setCollege(data.college);
@@ -272,263 +282,296 @@ export default function OnboardingPage() {
     col !== "Other" && col.toLowerCase().includes(collegeSearch.toLowerCase())
   );
 
+  const displayCollege = college === "Other" ? customCollege.trim() : college;
+  const yearLabel = ACADEMIC_YEAR_OPTIONS.find((opt) => opt.value === yearOfStudy)?.label || yearOfStudy;
+  const requiredDone = Boolean(displayCollege) && selectedSkills.length > 0;
+
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 py-12 bg-[var(--background)]">
-      <div className="w-full max-w-lg">
-        {/* Header */}
-        <div className="text-center mb-8 animate-fade-in-up">
-          <div className="flex justify-center mb-4">
-            <Logo className="h-12 w-auto" />
-          </div>
-
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white mb-1.5">
-            Quick Builder Setup
+    <OnboardingFrame className="pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0">
+      <main data-v2 className="mx-auto grid w-full max-w-[1280px] flex-1 grid-cols-1 gap-10 px-5 py-10 md:px-8 md:py-14 lg:grid-cols-12 lg:gap-16">
+        <div className="min-w-0 lg:col-span-7">
+          <p className="font-mono text-[12px] text-ink-3">Builder profile · takes under a minute</p>
+          <h1
+            data-v2-heading
+            className="mt-2 font-display text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink [font-variation-settings:'wdth'_88] md:text-[36px]"
+          >
+            Set up your builder profile
           </h1>
-
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Set up your college and tech stack in under 30 seconds to start matching with teams.
+          <p className="mt-2.5 max-w-[52ch] text-[15px] leading-relaxed text-ink-2">
+            Teams search builders by the skill they&apos;re missing. Add your college and stack so the right teams find you.
           </p>
-        </div>
 
-        {/* Form Card (Flagship Surface) */}
-        <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.045] via-zinc-950/85 to-[#080808]/95 p-6 sm:p-8 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12),0_16px_40px_-8px_rgba(0,0,0,0.6)] backdrop-blur-xl animate-fade-in-up stagger-1 min-h-[380px]">
           {fetchingProfile ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-zinc-300 dark:border-zinc-700 border-t-[#B4F461] rounded-full animate-spin mb-4" />
-              <p className="text-xs text-zinc-500 font-mono">Loading profile data...</p>
+            <div className="mt-8" role="status" aria-label="Loading your profile">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="grid grid-cols-1 gap-4 border-t border-line py-7 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8">
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <div className="space-y-2.5">
+                    <Skeleton className="h-10 w-full rounded-md" />
+                    {i === 1 && <Skeleton className="h-24 w-full rounded-md" />}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* College / University */}
-              <div className="relative">
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
-                  College / University <span className="text-[#B4F461] font-mono">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search or select your college..."
-                  value={showCollegeDropdown ? collegeSearch : (college || "")}
-                  onFocus={() => {
-                    setCollegeSearch("");
-                    setShowCollegeDropdown(true);
-                  }}
-                  onChange={(e) => {
-                    setCollegeSearch(e.target.value);
-                    setShowCollegeDropdown(true);
-                  }}
-                  className="input text-xs w-full"
-                />
-
-                {showCollegeDropdown && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowCollegeDropdown(false)}
+            <form onSubmit={handleSubmit} className="mt-8">
+              {/* 01 — Campus: college + year */}
+              <FormStep
+                id="onb-campus"
+                n={1}
+                total={3}
+                label="Campus"
+                title="Where you study"
+                description="Used for college-only events like SIH and campus team filters."
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,200px)]">
+                  {/* College / University (searchable) */}
+                  <div className="relative min-w-0">
+                    <OnboardingLabel htmlFor="onb-college" required>
+                      College / University
+                    </OnboardingLabel>
+                    <Input
+                      id="onb-college"
+                      type="text"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={showCollegeDropdown}
+                      aria-controls="onb-college-list"
+                      autoComplete="off"
+                      placeholder="Search your college"
+                      value={showCollegeDropdown ? collegeSearch : (college || "")}
+                      onFocus={() => {
+                        setCollegeSearch("");
+                        setShowCollegeDropdown(true);
+                      }}
+                      onChange={(e) => {
+                        setCollegeSearch(e.target.value);
+                        setShowCollegeDropdown(true);
+                      }}
+                      className="h-10"
                     />
-                    <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-white/[0.08] bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl z-20">
-                      {filteredColleges.slice(0, 35).map((collegeName) => (
-                        <button
-                          type="button"
-                          key={collegeName}
-                          onClick={() => {
-                            setCollege(collegeName);
-                            setCollegeSearch("");
-                            setShowCollegeDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-lg text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-[#B4F461] transition-colors cursor-pointer"
+
+                    {showCollegeDropdown && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowCollegeDropdown(false)}
+                        />
+                        <div
+                          id="onb-college-list"
+                          className="absolute inset-x-0 top-full z-20 mt-1.5 max-h-64 overflow-y-auto rounded-lg border border-line bg-overlay p-1 shadow-pop"
                         >
-                          {collegeName}
-                        </button>
-                      ))}
-                      {filteredColleges.length === 0 && (
-                        <div className="text-center py-3 text-xs text-zinc-500">
-                          No matching colleges found.
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCollege("Other");
-                          setCollegeSearch("");
-                          setShowCollegeDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-lg text-xs text-[#B4F461] font-semibold hover:bg-white/[0.06] transition-colors border-t border-white/[0.08] cursor-pointer"
-                      >
-                        + Other (Specify custom college)
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {college === "Other" && (
-                  <input
-                    type="text"
-                    placeholder="Enter your custom college name..."
-                    value={customCollege}
-                    onChange={(e) => setCustomCollege(e.target.value)}
-                    className="input text-xs mt-2 w-full"
-                    required
-                  />
-                )}
-              </div>
-
-              {/* Academic Year of Study (Accessible Custom Dropdown) */}
-              <div className="relative">
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5 uppercase tracking-wider font-mono">
-                  Academic Year of Study <span className="text-[#B4F461] font-mono">*</span>
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowYearDropdown(!showYearDropdown);
-                    const currentIndex = ACADEMIC_YEAR_OPTIONS.findIndex((opt) => opt.value === yearOfStudy);
-                    setFocusedYearIndex(currentIndex >= 0 ? currentIndex : 0);
-                  }}
-                  onKeyDown={handleYearKeyDown}
-                  aria-haspopup="listbox"
-                  aria-expanded={showYearDropdown}
-                  className="flex h-10 w-full cursor-pointer items-center justify-between rounded-xl border border-white/[0.08] bg-zinc-950/80 px-3.5 text-xs text-zinc-200 transition-all duration-200 hover:border-white/[0.22] hover:bg-zinc-900 focus:border-white/[0.25] focus:outline-none"
-                >
-                  <span className="font-medium">
-                    {ACADEMIC_YEAR_OPTIONS.find((opt) => opt.value === yearOfStudy)?.label || yearOfStudy}
-                  </span>
-                  <svg
-                    className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${
-                      showYearDropdown ? "rotate-180 text-[#B4F461]" : ""
-                    }`}
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-
-                {showYearDropdown && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowYearDropdown(false)}
-                    />
-                    <div
-                      role="listbox"
-                      className="absolute left-0 right-0 top-full mt-1.5 rounded-xl border border-white/[0.08] bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl z-20"
-                    >
-                      {ACADEMIC_YEAR_OPTIONS.map((option, idx) => {
-                        const isSelected = option.value === yearOfStudy;
-                        const isFocused = idx === focusedYearIndex;
-                        return (
+                          {filteredColleges.slice(0, 35).map((collegeName) => (
+                            <button
+                              type="button"
+                              key={collegeName}
+                              onClick={() => {
+                                setCollege(collegeName);
+                                setCollegeSearch("");
+                                setShowCollegeDropdown(false);
+                              }}
+                              className={cn(
+                                "flex min-h-9 w-full items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-hover hover:text-ink",
+                                college === collegeName ? "bg-selected text-ink" : "text-ink-2",
+                              )}
+                            >
+                              <span className="min-w-0 flex-1">{collegeName}</span>
+                              {college === collegeName && <Check className="size-3.5 shrink-0 text-accent-ink" aria-hidden />}
+                            </button>
+                          ))}
+                          {filteredColleges.length === 0 && (
+                            <div className="px-2.5 py-3 text-[13px] text-ink-3">
+                              No matching colleges. Use Other below.
+                            </div>
+                          )}
                           <button
                             type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            key={option.value}
                             onClick={() => {
-                              setYearOfStudy(option.value);
-                              setShowYearDropdown(false);
+                              setCollege("Other");
+                              setCollegeSearch("");
+                              setShowCollegeDropdown(false);
                             }}
-                            onMouseEnter={() => setFocusedYearIndex(idx)}
-                            className={`flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
-                              isSelected
-                                ? "bg-[#B4F461]/10 font-semibold text-[#B4F461]"
-                                : isFocused
-                                ? "bg-white/[0.06] text-white"
-                                : "text-zinc-300 hover:bg-white/[0.04] hover:text-white"
-                            }`}
+                            className="mt-1 flex min-h-9 w-full items-center gap-2 rounded-[5px] border-t border-line px-2.5 py-1.5 text-left text-[13px] font-medium text-accent-ink transition-colors hover:bg-hover"
                           >
-                            <span>{option.label}</span>
-                            {isSelected && (
-                              <svg className="h-3.5 w-3.5 text-[#B4F461]" viewBox="0 0 20 20" fill="currentColor">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
+                            <Plus className="size-3.5 shrink-0" aria-hidden />
+                            Other (type your college name)
                           </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+                        </div>
+                      </>
+                    )}
 
-              {/* Skills & Tech Stack (Natural Flow + Option A Luminous Chips) */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider font-mono">
-                    Tech Stack & Skills <span className="text-[#B4F461] font-mono">*</span>
-                  </label>
-                  <span className="text-[10px] text-zinc-400 font-mono">
-                    <span className={selectedSkills.length > 0 ? "text-[#B4F461] font-semibold" : ""}>
-                      {selectedSkills.length}
-                    </span>{" "}
-                    selected
+                    {college === "Other" && (
+                      <Input
+                        type="text"
+                        aria-label="Your college name"
+                        placeholder="Type your college name"
+                        value={customCollege}
+                        onChange={(e) => setCustomCollege(e.target.value)}
+                        className="mt-2 h-10"
+                        required
+                      />
+                    )}
+                  </div>
+
+                  {/* Academic year (accessible custom dropdown) */}
+                  <div className="relative min-w-0">
+                    <OnboardingLabel id="onb-year-label" required>
+                      Year of study
+                    </OnboardingLabel>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowYearDropdown(!showYearDropdown);
+                        const currentIndex = ACADEMIC_YEAR_OPTIONS.findIndex((opt) => opt.value === yearOfStudy);
+                        setFocusedYearIndex(currentIndex >= 0 ? currentIndex : 0);
+                      }}
+                      onKeyDown={handleYearKeyDown}
+                      aria-haspopup="listbox"
+                      aria-expanded={showYearDropdown}
+                      aria-labelledby="onb-year-label onb-year-value"
+                      className={cn(
+                        "flex h-10 w-full items-center justify-between gap-2 rounded-md bg-sunken px-3 text-left text-[13.5px] text-ink ring-1 ring-inset ring-line-strong",
+                        "transition-[box-shadow] duration-150 hover:ring-ink-4 focus:outline-none focus-visible:ring-accent-ink focus-visible:shadow-[0_0_0_3px_var(--hm-accent-soft)]",
+                        showYearDropdown && "ring-accent-ink",
+                      )}
+                    >
+                      <span id="onb-year-value" className="min-w-0 truncate">
+                        {yearLabel}
+                      </span>
+                      <ChevronDown
+                        className={cn("size-4 shrink-0 text-ink-3 transition-transform duration-150", showYearDropdown && "rotate-180")}
+                        aria-hidden
+                      />
+                    </button>
+
+                    {showYearDropdown && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowYearDropdown(false)}
+                        />
+                        <div
+                          role="listbox"
+                          aria-labelledby="onb-year-label"
+                          className="absolute inset-x-0 top-full z-20 mt-1.5 min-w-[200px] rounded-lg border border-line bg-overlay p-1 shadow-pop sm:left-auto"
+                        >
+                          {ACADEMIC_YEAR_OPTIONS.map((option, idx) => {
+                            const isSelected = option.value === yearOfStudy;
+                            const isFocused = idx === focusedYearIndex;
+                            return (
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                key={option.value}
+                                onClick={() => {
+                                  setYearOfStudy(option.value);
+                                  setShowYearDropdown(false);
+                                }}
+                                onMouseEnter={() => setFocusedYearIndex(idx)}
+                                className={cn(
+                                  "flex min-h-9 w-full items-center justify-between gap-2 rounded-[5px] px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                                  isSelected ? "bg-selected font-medium text-ink" : isFocused ? "bg-hover text-ink" : "text-ink-2",
+                                )}
+                              >
+                                <span className="min-w-0">{option.label}</span>
+                                {isSelected && <Check className="size-3.5 shrink-0 text-accent-ink" aria-hidden />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </FormStep>
+
+              {/* 02 — Stack: skills */}
+              <FormStep
+                id="onb-stack"
+                n={2}
+                total={3}
+                label="Stack"
+                title="What you build with"
+                description="Pick at least one. This is what teams search for."
+                aside={
+                  <span className="font-mono text-[12px] text-ink-3 tabular" aria-live="polite">
+                    <span className={selectedSkills.length > 0 ? "text-accent-ink" : undefined}>{selectedSkills.length}</span> selected
                   </span>
+                }
+              >
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Skills and tech stack">
+                  {SKILLS.map((skill) => (
+                    <FilterChip key={skill} active={selectedSkills.includes(skill)} onClick={() => toggleSkill(skill)}>
+                      {skill}
+                    </FilterChip>
+                  ))}
                 </div>
+              </FormStep>
 
-                <div className="flex flex-wrap gap-2 p-3.5 bg-zinc-950/60 border border-white/[0.08] rounded-xl">
-                  {SKILLS.map((skill) => {
-                    const selected = selectedSkills.includes(skill);
-                    return (
-                      <button
-                        type="button"
-                        key={skill}
-                        onClick={() => toggleSkill(skill)}
-                        className={`text-[11px] py-1.5 px-3 font-medium border rounded-lg transition-all duration-150 ease-out cursor-pointer select-none active:scale-[0.96] ${
-                          selected
-                            ? "bg-[#B4F461]/10 text-[#B4F461] border-[#B4F461]/60 font-semibold shadow-[0_0_12px_rgba(180,244,97,0.18)] hover:border-[#B4F461] hover:bg-[#B4F461]/18 hover:-translate-y-0.5 hover:shadow-[0_0_16px_rgba(180,244,97,0.28)]"
-                            : "bg-zinc-900/60 text-zinc-400 border-white/[0.08] hover:border-white/[0.22] hover:text-zinc-200 hover:bg-zinc-850 hover:-translate-y-0.5"
-                        }`}
-                      >
-                        {skill}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Optional Short Tagline / Bio */}
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
-                  <span>Tagline / Bio</span>
-                  <span className="text-[10px] text-zinc-500 lowercase font-normal">(optional)</span>
-                </label>
-                <input
+              {/* 03 — Tagline: optional bio */}
+              <FormStep
+                id="onb-tagline"
+                n={3}
+                total={3}
+                label="Tagline"
+                title="One line about you"
+                description="Shown next to your name in search and on team requests."
+              >
+                <OnboardingLabel htmlFor="onb-bio">Tagline</OnboardingLabel>
+                <Input
+                  id="onb-bio"
                   type="text"
-                  placeholder="e.g. Full-stack dev interested in AI & Web3 hackathons"
+                  placeholder="e.g. Full-stack dev into AI and Web3 hackathons"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="input text-xs w-full"
+                  className="h-10"
                 />
+              </FormStep>
+
+              {/* Desktop / tablet action row */}
+              <div className="hidden items-center justify-between gap-4 border-t border-line pt-6 md:flex">
+                <p className="min-w-0 text-[13px] text-ink-3">
+                  {requiredDone ? "All set. You can change this anytime from your profile." : "College and at least one skill are required."}
+                </p>
+                <Button type="submit" variant="primary" size="lg" loading={loading} iconRight={loading ? undefined : <ArrowRight aria-hidden />}>
+                  {loading ? "Saving…" : "Finish setup"}
+                </Button>
               </div>
 
-              {/* Action Button */}
-              <div className="pt-4 border-t border-white/[0.06]">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="group relative w-full py-3.5 text-xs font-bold bg-[#B4F461] hover:bg-[#c2f77d] text-[#09090b] rounded-xl transition-all duration-200 shadow-[0_0_24px_rgba(180,244,97,0.25)] hover:shadow-[0_0_32px_rgba(180,244,97,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-                >
-                  {loading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-[#09090b]/30 border-t-[#09090b] rounded-full animate-spin" />
-                      <span>Completing Setup...</span>
-                    </div>
-                  ) : (
-                    <span>Start Building →</span>
-                  )}
-                </button>
+              {/* Mobile sticky action bar (bare route: no tab bar underneath) */}
+              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas pb-[env(safe-area-inset-bottom)] md:hidden">
+                <div className="mx-auto flex w-full max-w-[1280px] items-center gap-3 px-5 py-3">
+                  <p className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-3">
+                    {selectedSkills.length} skill{selectedSkills.length === 1 ? "" : "s"}
+                    {displayCollege ? ` · ${displayCollege}` : " · no college yet"}
+                  </p>
+                  <Button type="submit" variant="primary" size="lg" loading={loading} className="shrink-0">
+                    {loading ? "Saving…" : "Finish setup"}
+                  </Button>
+                </div>
               </div>
             </form>
           )}
         </div>
-      </div>
-    </main>
+
+        {/* Live preview of the builder card (desktop) */}
+        <aside aria-label="Profile preview" className="hidden lg:col-span-4 lg:col-start-9 lg:block">
+          <div className="sticky top-8">
+            <ProfilePreview
+              name={previewName}
+              avatarUrl={previewAvatar}
+              college={displayCollege}
+              year={yearOfStudy}
+              bio={bio}
+              skills={selectedSkills}
+            />
+          </div>
+        </aside>
+      </main>
+    </OnboardingFrame>
   );
 }

@@ -1,16 +1,9 @@
 "use client";
 
 import React from "react";
-import {
-  Lock,
-  ExternalLink,
-  AlertTriangle,
-  CheckCircle2,
-  X,
-  FileText,
-  UploadCloud,
-  HelpCircle,
-} from "lucide-react";
+import { Lock, ExternalLink, TriangleAlert, X, FileText, UploadCloud } from "lucide-react";
+import { Button, buttonClass } from "@/components/system";
+import { cn } from "@/lib/utils";
 
 interface PresentationErrorAlertProps {
   error: string | null;
@@ -18,6 +11,19 @@ interface PresentationErrorAlertProps {
   targetUrl?: string;
   onSwitchToUpload?: () => void;
   className?: string;
+}
+
+function DismissButton({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onDismiss}
+      aria-label="Dismiss error"
+      className="-m-1.5 inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-hover hover:text-ink md:size-7"
+    >
+      <X className="size-4" />
+    </button>
+  );
 }
 
 export default function PresentationErrorAlert({
@@ -50,118 +56,68 @@ export default function PresentationErrorAlert({
 
   // If it's a link sharing permission error, render the dedicated structured guide
   if (isPermissionError) {
+    const steps: React.ReactNode[] = [
+      <>
+        Click <strong className="font-semibold text-ink">Share</strong> in the top-right of your Google Slides or Drive deck.
+      </>,
+      <>
+        Under General access, switch to <strong className="font-semibold text-ink">&ldquo;Anyone with the link&rdquo;</strong>.
+      </>,
+      <>
+        Keep the role as <strong className="font-semibold text-ink">&ldquo;Viewer&rdquo;</strong>, click <strong className="font-semibold text-ink">Done</strong>, then submit again.
+      </>,
+    ];
+
     return (
-      <div
-        className={`relative overflow-hidden rounded-2xl border border-rose-500/40 dark:border-rose-500/30 bg-gradient-to-b from-rose-950/40 via-zinc-950/90 to-zinc-950 p-4 sm:p-5 shadow-xl shadow-rose-950/20 text-zinc-100 ${className} animate-in fade-in duration-200`}
-      >
-        {/* Subtle accent glow */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-rose-500 via-amber-500 to-rose-500 opacity-80" />
-
-        {/* Header Row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
-              <Lock className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm font-bold text-white tracking-tight">
-                  Presentation Link Is Private
-                </h4>
-                <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                  Access Denied
-                </span>
-              </div>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                The AI evaluation engine cannot read this Google Slides deck until public view permissions are enabled.
-              </p>
-            </div>
+      <div role="alert" className={cn("rounded-lg bg-bad-soft p-4 ring-1 ring-inset ring-bad/25", className)}>
+        <div className="flex items-start gap-3">
+          <Lock className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-semibold text-ink">This deck is private</p>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-3">
+              The reviewer can&apos;t open this Google Slides deck until link sharing is turned on.
+            </p>
           </div>
-
-          {onDismiss && (
-            <button
-              type="button"
-              onClick={onDismiss}
-              aria-label="Dismiss error"
-              className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-900 transition-colors cursor-pointer shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          {onDismiss && <DismissButton onDismiss={onDismiss} />}
         </div>
 
-        {/* Detected URL Chip & Direct Open Button */}
+        {/* Detected URL & direct open */}
         {detectedUrl && (
-          <div className="my-3 p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between gap-2.5 text-xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <FileText className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="font-mono text-zinc-300 truncate text-[11px]">
-                {detectedUrl}
-              </span>
-            </div>
+          <div className="mt-3 flex min-w-0 items-center gap-2 rounded-md bg-sunken px-2.5 py-1.5 ring-1 ring-inset ring-line">
+            <FileText className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+            <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-ink-2">{detectedUrl}</span>
             <a
               href={detectedUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-[11px] shrink-0 transition shadow-xs cursor-pointer"
+              className={buttonClass("secondary", "sm", "h-9 shrink-0 md:h-7")}
             >
-              <span>Open in Drive</span>
-              <ExternalLink className="w-3 h-3 text-zinc-400" />
+              Open
+              <ExternalLink />
             </a>
           </div>
         )}
 
-        {/* 3-Step Visual Resolution Guide */}
-        <div className="mt-3.5 pt-3 border-t border-zinc-800/80">
-          <div className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider font-mono mb-2 flex items-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5 text-lime-400" />
-            <span>How to unlock access in 10 seconds:</span>
-          </div>
+        {/* 3-step fix */}
+        <p className="mt-3.5 caps-label text-ink-3">How to fix it</p>
+        <ol className="mt-1.5 space-y-1.5">
+          {steps.map((s, i) => (
+            <li key={i} className="flex items-start gap-2.5 text-[12.5px] leading-snug text-ink-2">
+              <span className="mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] bg-raised font-mono text-[11px] text-ink-3 ring-1 ring-inset ring-line-strong tabular">
+                {i + 1}
+              </span>
+              <span className="min-w-0">{s}</span>
+            </li>
+          ))}
+        </ol>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/60 flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                1
-              </span>
-              <span className="text-[11px] text-zinc-300 leading-snug">
-                Click <strong className="text-white">Share</strong> in the top-right of your Google Slides / Drive deck.
-              </span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/60 flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                2
-              </span>
-              <span className="text-[11px] text-zinc-300 leading-snug">
-                Under General Access, switch to <strong className="text-white">&ldquo;Anyone with the link&rdquo;</strong>.
-              </span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/60 flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                3
-              </span>
-              <span className="text-[11px] text-zinc-300 leading-snug">
-                Ensure role is <strong className="text-white">&ldquo;Viewer&rdquo;</strong>, click <strong className="text-white">Done</strong>, then click submit again!
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Alternative Action: Switch to PDF Upload if Restricted by College/Org */}
+        {/* Alternative: switch to PDF upload if sharing is blocked by a college/org account */}
         {onSwitchToUpload && (
-          <div className="mt-3 pt-2.5 flex items-center justify-between gap-3 text-xs border-t border-zinc-900">
-            <span className="text-[11px] text-zinc-400">
-              Is your college/work Google account blocking public link sharing?
-            </span>
-            <button
-              type="button"
-              onClick={onSwitchToUpload}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-lime-500/15 hover:bg-lime-500/25 border border-lime-500/30 text-lime-400 font-semibold text-xs transition cursor-pointer shrink-0"
-            >
-              <UploadCloud className="w-3.5 h-3.5" />
-              <span>Upload PDF File Instead →</span>
-            </button>
+          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-bad/20 pt-3">
+            <span className="text-[12.5px] text-ink-3">College or work account blocking public sharing?</span>
+            <Button variant="secondary" size="sm" icon={<UploadCloud />} onClick={onSwitchToUpload} className="h-9 md:h-7">
+              Upload a PDF instead
+            </Button>
           </div>
         )}
       </div>
@@ -170,31 +126,13 @@ export default function PresentationErrorAlert({
 
   // Fallback for standard system/network errors (e.g. rate limit, file size, quota, network timeout)
   return (
-    <div
-      className={`rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 sm:p-4 text-rose-600 dark:text-rose-400 text-xs shadow-sm flex items-start justify-between gap-3 ${className} animate-in fade-in duration-200`}
-    >
-      <div className="flex items-start gap-2.5 min-w-0">
-        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-        <div>
-          <h5 className="font-bold text-rose-700 dark:text-rose-300 text-xs mb-0.5">
-            Submission Evaluation Alert
-          </h5>
-          <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-[11px]">
-            {error}
-          </p>
-        </div>
+    <div role="alert" className={cn("flex items-start gap-3 rounded-lg bg-bad-soft px-4 py-3 ring-1 ring-inset ring-bad/25", className)}>
+      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-ink">Review didn&apos;t go through</p>
+        <p className="mt-0.5 break-words text-[12.5px] leading-relaxed text-ink-3">{error}</p>
       </div>
-
-      {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss error"
-          className="text-zinc-400 hover:text-zinc-200 p-1 rounded hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      )}
+      {onDismiss && <DismissButton onDismiss={onDismiss} />}
     </div>
   );
 }

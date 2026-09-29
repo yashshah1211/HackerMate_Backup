@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import PitchEvaluatorClient from "@/components/PitchEvaluatorClient";
+import { PageLoader } from "@/components/system";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -7,12 +8,11 @@ export const metadata: Metadata = {
   description: "Evaluate your hackathon ideas, pitch, tech stack, and architecture with our Idea Evaluator. Get instant rubric scores, domain red flags, and find teammates on HackerMate.",
 };
 
+// PitchEvaluatorClient renders its own V2 <Page> (<main data-v2>) frame.
 export default function EvaluatorPage() {
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pt-20 pb-16">
-      <Suspense fallback={<div className="text-center py-20 text-xs text-zinc-500">Loading Evaluator...</div>}>
-        <PitchEvaluatorClient initialTrack="web_dev" />
-      </Suspense>
-    </main>
+    <Suspense fallback={<PageLoader label="Loading evaluator" />}>
+      <PitchEvaluatorClient initialTrack="web_dev" />
+    </Suspense>
   );
 }
