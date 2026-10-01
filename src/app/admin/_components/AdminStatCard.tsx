@@ -48,10 +48,11 @@ export function AdminStatCard({
       </div>
 
       {subtitle && (
-        <div className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+        <div className="text-[12px] font-mono text-zinc-400 dark:text-zinc-500">
           {subtitle}
         </div>
       )}
     </div>
   );
 }
+

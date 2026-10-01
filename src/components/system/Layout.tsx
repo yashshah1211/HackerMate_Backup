@@ -115,7 +115,7 @@ export function Section({
           <h2 id={id ? `${id}-title` : undefined} className="truncate text-[13.5px] font-semibold text-ink">
             {title}
           </h2>
-          {count !== undefined && <span className="font-mono text-[11.5px] text-ink-4 tabular">{count}</span>}
+          {count !== undefined && <span className="font-mono text-[12.5px] text-ink-4 tabular">{count}</span>}
         </div>
         {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
       </div>
@@ -148,7 +148,7 @@ export function Stat({ label, value, hint, className }: { label: string; value: 
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] bg-selected px-1 font-mono text-[10.5px] text-ink-3 ring-1 ring-inset ring-line-strong">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] bg-selected px-1 font-mono text-[12.5px] text-ink-3 ring-1 ring-inset ring-line-strong">
       {children}
     </kbd>
   );
@@ -167,3 +167,4 @@ export function List({ children, className, stagger = false }: { children: React
     </ul>
   );
 }
+

@@ -212,7 +212,7 @@ function HackathonRow({
       {/* Date stamp */}
       <div className="flex w-9 shrink-0 flex-col items-center pt-0.5 font-mono leading-none" aria-hidden>
         <span className={cn("text-[17px] font-semibold tabular", isEventPast ? "text-ink-3" : "text-ink")}>{d.day}</span>
-        <span className="mt-1 text-[10.5px] text-ink-3">{d.month}</span>
+        <span className="mt-1 text-[12.5px] text-ink-3">{d.month}</span>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -273,11 +273,11 @@ function HackathonRow({
           {h.tags && h.tags.length > 0 && (
             <span className="flex min-w-0 flex-wrap gap-1">
               {h.tags.slice(0, 3).map((tag) => (
-                <Chip key={tag} className="h-5 px-1.5 text-[11px]">
+                <Chip key={tag} className="h-5 px-1.5 text-[12px]">
                   {tag}
                 </Chip>
               ))}
-              {h.tags.length > 3 && <Chip className="h-5 px-1.5 text-[11px]">+{h.tags.length - 3}</Chip>}
+              {h.tags.length > 3 && <Chip className="h-5 px-1.5 text-[12px]">+{h.tags.length - 3}</Chip>}
             </span>
           )}
         </div>
@@ -753,3 +753,4 @@ export default function HackathonsPage() {
     </AuthGuard>
   );
 }
+

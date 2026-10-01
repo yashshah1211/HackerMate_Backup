@@ -22,7 +22,7 @@ export type Builder = {
   created_at?: string | null;
 };
 
-export type Recommendation = { compatibility: number; reasons: string[]; confidence?: number };
+export type Recommendation = { compatibility: number; reasons: string[]; confidence?: number; matchEngine?: "v3" | "v2" };
 export type Relationship = "connected" | "request_sent" | "request_received";
 export type OwnedTeam = { id: string; name: string; owner_id: string };
 
@@ -35,7 +35,7 @@ const PROFILE_COLUMNS = `${SAFE_PROFILE_COLUMNS}, year_of_study`;
  * `year_of_study` is now selected (it is a granted column) so the year
  * filter actually works.
  */
-export function useDevelopersData(search: string) {
+export function useDevelopersData(search: string, sort: "fit" | "active" | "new") {
   const { showToast } = useNotification();
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [viewer, setViewer] = useState<Builder | null>(null);
@@ -48,7 +48,7 @@ export function useDevelopersData(search: string) {
   const firstLoad = useRef(true);
   const blockedRef = useRef<Set<string>>(new Set());
 
-  const load = useCallback(async (term: string) => {
+  const load = useCallback(async (term: string, sortOrder: "fit" | "active" | "new") => {
     try {
       const {
         data: { user },
@@ -56,12 +56,22 @@ export function useDevelopersData(search: string) {
       const blocked = new Set<string>();
 
       if (user && firstLoad.current) {
+        const fetchMatch = async () => {
+          const res = await supabase.rpc("get_recommended_teammates_v3", { p_user_id: user.id, p_limit: 100 });
+          if (res.error && (res.error.code === "PGRST202" || res.error.code === "42883" || res.error.message?.includes("Could not find the function") || res.error.message?.includes("function get_recommended_teammates_v3 does not exist"))) {
+            console.info("[matchmaking] V3 unavailable; using V2 compatibility fallback");
+            const v2Res = await supabase.rpc("get_recommended_teammates", { p_user_id: user.id, p_limit: 100 });
+            return { data: v2Res.data, error: v2Res.error, matchEngine: "v2" as const };
+          }
+          return { data: res.data, error: res.error, matchEngine: "v3" as const };
+        };
+
         const [profileRes, teamsRes, myBlocks, theirBlocks, recRes, frRes] = await Promise.all([
           supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).single(),
           supabase.from("teams").select("id, name, owner_id").eq("owner_id", user.id),
           supabase.from("blocked_users").select("blocked_id").eq("blocker_id", user.id),
           supabase.from("blocked_users").select("blocker_id").eq("blocked_id", user.id),
-          supabase.rpc("get_recommended_teammates", { p_user_id: user.id, p_limit: 50 }),
+          fetchMatch(),
           supabase.from("friend_requests").select("sender_id, receiver_id, status").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
         ]);
         if (profileRes.error) console.error("[developers] viewer profile failed:", profileRes.error);
@@ -77,7 +87,7 @@ export function useDevelopersData(search: string) {
         (theirBlocks.data || []).forEach((b) => blocked.add(b.blocker_id));
         const map: Record<string, Recommendation> = {};
         ((recRes.data as { id: string; compatibility: number; reasons: string[]; confidence?: number }[] | null) || []).forEach((r) => {
-          map[r.id] = { compatibility: r.compatibility, reasons: r.reasons, confidence: r.confidence };
+          map[r.id] = { compatibility: r.compatibility, reasons: r.reasons, confidence: r.confidence, matchEngine: recRes.matchEngine };
         });
         setRecs(map);
         const rel: Record<string, Relationship> = {};
@@ -90,7 +100,13 @@ export function useDevelopersData(search: string) {
         blockedRef.current = blocked;
       }
 
-      let q = supabase.from("profiles").select(PROFILE_COLUMNS).order("created_at", { ascending: false });
+      let q = supabase.from("profiles").select(PROFILE_COLUMNS);
+      if (sortOrder === "active") {
+        q = q.order("last_seen_at", { ascending: false, nullsFirst: false });
+      } else {
+        q = q.order("created_at", { ascending: false });
+      }
+
       const t = term.trim();
       if (t) q = q.or(`full_name.ilike.%${t}%,college.ilike.%${t}%,skills.cs.{${t}}`);
       const primary = await q.limit(1000);
@@ -98,7 +114,12 @@ export function useDevelopersData(search: string) {
       const qErr = primary.error;
       if (qErr) {
         console.warn("[developers] primary query failed, retrying:", qErr);
-        let fb = supabase.from("profiles").select(PROFILE_COLUMNS).order("created_at", { ascending: false });
+        let fb = supabase.from("profiles").select(PROFILE_COLUMNS);
+        if (sortOrder === "active") {
+          fb = fb.order("last_seen_at", { ascending: false, nullsFirst: false });
+        } else {
+          fb = fb.order("created_at", { ascending: false });
+        }
         if (t) fb = fb.or(`full_name.ilike.%${t}%,college.ilike.%${t}%,skills.cs.{${t}}`);
         const retry = await fb.limit(1000);
         data = retry.data;
@@ -123,11 +144,11 @@ export function useDevelopersData(search: string) {
     }
   }, []);
 
-  // Debounced server search (300ms), same as V1.
+  // Debounced server search (300ms) and sort changes.
   useEffect(() => {
-    const h = setTimeout(() => load(search), 300);
+    const h = setTimeout(() => load(search, sort), 300);
     return () => clearTimeout(h);
-  }, [search, load]);
+  }, [search, sort, load]);
 
   /** V1 invite flow: membership check → pending-invite check → send_team_invite RPC. */
   const sendInvite = useCallback(
@@ -175,18 +196,7 @@ export function useDevelopersData(search: string) {
     [showToast],
   );
 
-  return { builders, viewer, ownedTeams, recs, relationships, loading, error, inviteBusy, sendInvite, retry: () => load(search) };
+  return { builders, viewer, ownedTeams, recs, relationships, loading, error, inviteBusy, sendInvite, retry: () => load(search, sort) };
 }
 
-/** Server score when available, else Jaccard skill overlap (V1 fallback, clamped 5–99). */
-export function compatibilityFor(b: Builder, viewer: Builder | null, recs: Record<string, Recommendation>): number {
-  if (recs[b.id]) return recs[b.id].compatibility;
-  if (!viewer) return 0;
-  const mine = (viewer.skills || []).map((s) => s.toLowerCase().trim());
-  const theirs = (b.skills || []).map((s) => s.toLowerCase().trim());
-  if (!mine.length && !theirs.length) return 5;
-  const shared = theirs.filter((s) => mine.includes(s));
-  const union = new Set([...mine, ...theirs]);
-  const score = union.size ? Math.round((shared.length / union.size) * 100) : 0;
-  return Math.max(5, Math.min(score, 99));
-}
+

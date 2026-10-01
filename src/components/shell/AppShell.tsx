@@ -32,43 +32,66 @@ function applyThemeClass(theme: "dark" | "light") {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";
   const session = useShellSession();
-  const [themePref, setThemePref] = useState<"dark" | "light">("dark");
+  const [themePref, setThemePrefState] = useState<"dark" | "light" | "system">("system");
+  const [sysTheme, setSysTheme] = useState<"dark" | "light">("dark");
   const [inboxOpen, setInboxOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [immersive, setImmersive] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const update = (e: MediaQueryListEvent | MediaQueryList) => setSysTheme(e.matches ? "light" : "dark");
+    update(mq);
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   // Read the saved preference once on the client.
   useEffect(() => {
     Promise.resolve().then(() => {
       try {
-        if (localStorage.getItem("theme") === "light") setThemePref("light");
+        const stored = localStorage.getItem("theme");
+        if (stored === "light" || stored === "dark" || stored === "system") {
+          setThemePrefState(stored as any);
+        }
       } catch {}
     });
   }, []);
 
   // V1 rule: marketing/public routes and signed-out visitors are always dark.
-  const theme: "dark" | "light" = isForcedDarkRoute(pathname) || !session.viewerId ? "dark" : themePref;
+  const appliedPref = themePref === "system" ? sysTheme : themePref;
+  const theme: "dark" | "light" = isForcedDarkRoute(pathname) || !session.viewerId ? "dark" : appliedPref;
 
   useEffect(() => {
     applyThemeClass(theme);
   }, [theme]);
 
-  const toggleTheme = useCallback(() => {
-    // Suppress transitions for one frame so the swap is instant.
+  const applyThemeWithTransition = useCallback((nextApplied: "dark" | "light") => {
     const css = document.createElement("style");
     css.appendChild(document.createTextNode("*,*::before,*::after{transition:none!important}"));
     document.head.appendChild(css);
-    const next = theme === "dark" ? "light" : "dark";
-    setThemePref(next);
-    try {
-      localStorage.setItem("theme", next);
-    } catch {}
-    applyThemeClass(next);
+    applyThemeClass(nextApplied);
     void window.getComputedStyle(document.documentElement).opacity;
     requestAnimationFrame(() => requestAnimationFrame(() => css.remove()));
-  }, [theme]);
+  }, []);
+
+  const setThemePref = useCallback((pref: "dark" | "light" | "system") => {
+    setThemePrefState(pref);
+    try {
+      localStorage.setItem("theme", pref);
+    } catch {}
+    const nextApplied = pref === "system" ? sysTheme : pref;
+    applyThemeWithTransition(nextApplied);
+  }, [sysTheme, applyThemeWithTransition]);
+
+  const toggleTheme = useCallback(() => {
+    // Maintain legacy toggle behavior for anywhere it might still be used
+    const nextPref = theme === "dark" ? "light" : "dark";
+    setThemePref(nextPref);
+  }, [theme, setThemePref]);
 
   const openInbox = useCallback(() => setInboxOpen(true), []);
   const requestSignOut = useCallback(() => setSignOutOpen(true), []);
@@ -79,8 +102,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [session]);
 
   const ctx = useMemo(
-    () => ({ session, theme, toggleTheme, setImmersive, openInbox }),
-    [session, theme, toggleTheme, openInbox],
+    () => ({ session, theme, themePref, setThemePref, toggleTheme, setImmersive, openInbox }),
+    [session, theme, themePref, setThemePref, toggleTheme, openInbox],
   );
 
   const signOutDialog = (

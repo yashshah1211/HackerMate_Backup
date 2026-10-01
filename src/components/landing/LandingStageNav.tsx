@@ -64,7 +64,7 @@ export function LandingStageNav({ className }: { className?: string }) {
               on ? "text-ink" : "text-ink-3 hover:text-ink",
             )}
           >
-            <span className={cn("font-mono text-[11px] tabular transition-colors", on ? "text-accent-ink" : "text-ink-4")}>{s.n}</span>
+            <span className={cn("font-mono text-[12px] tabular transition-colors", on ? "text-accent-ink" : "text-ink-4")}>{s.n}</span>
             {s.verb}
             {on && (
               <motion.span
@@ -91,3 +91,4 @@ export function LandingScrollProgress() {
     />
   );
 }
+

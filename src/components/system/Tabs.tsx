@@ -27,14 +27,14 @@ export function RouteTabs({ tabs, className }: { tabs: RouteTab[]; className?: s
           href={t.href}
           aria-current={t.active ? "page" : undefined}
           className={cn(
-            "relative flex h-10 shrink-0 items-center gap-1.5 text-[13px] font-medium transition-colors [&_svg]:size-4",
+            "relative flex h-10 shrink-0 items-center gap-1.5 text-[14.5px] font-medium transition-colors [&_svg]:size-4",
             t.active ? "text-ink" : "text-ink-3 hover:text-ink",
           )}
         >
           {t.icon}
           {t.label}
           {typeof t.count === "number" && t.count > 0 && (
-            <span className={cn("font-mono text-[11px] tabular", t.active ? "text-ink-2" : "text-ink-4")}>{t.count}</span>
+            <span className={cn("font-mono text-[12px] tabular", t.active ? "text-ink-2" : "text-ink-4")}>{t.count}</span>
           )}
           {t.active && (
             <motion.span
@@ -90,7 +90,7 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             className={cn(
               "relative h-full rounded-[5px] px-2.5 font-medium transition-colors",
-              size === "sm" ? "text-[12px]" : "text-[12.5px]",
+              size === "sm" ? "text-[13.5px]" : "text-[14.5px]",
               active ? "text-ink" : "text-ink-3 hover:text-ink-2",
             )}
           >
@@ -104,7 +104,7 @@ export function Segmented<T extends string>({
             <span className="relative inline-flex items-center gap-1.5">
               {o.label}
               {typeof o.count === "number" && (
-                <span className="font-mono text-[10.5px] text-ink-4 tabular">{o.count}</span>
+                <span className="font-mono text-[12.5px] text-ink-4 tabular">{o.count}</span>
               )}
             </span>
           </button>
@@ -113,3 +113,4 @@ export function Segmented<T extends string>({
     </div>
   );
 }
+

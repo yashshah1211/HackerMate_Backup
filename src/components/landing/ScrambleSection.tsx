@@ -29,7 +29,7 @@ function ChatNoise() {
           <Hash className="size-3.5 text-ink-3" />
           find-a-team
         </span>
-        <span className="font-mono text-[11.5px] text-ink-3">college group chat · 11:34 pm</span>
+        <span className="font-mono text-[12.5px] text-ink-3">college group chat · 11:34 pm</span>
       </div>
       <div className="relative h-[300px] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_16%,black_84%,transparent)] md:h-[340px]">
         <motion.ul
@@ -42,7 +42,7 @@ function ChatNoise() {
               <Avatar name={m.who} size="sm" className="opacity-70" />
               <div className="min-w-0">
                 <p className="text-[12px] text-ink-3">
-                  <span className="font-medium text-ink-2">{m.who}</span> <span className="font-mono text-[11px]">{m.t}</span>
+                  <span className="font-medium text-ink-2">{m.who}</span> <span className="font-mono text-[12px]">{m.t}</span>
                 </p>
                 <p className="text-[14px] text-ink-2">{m.text}</p>
               </div>
@@ -97,7 +97,7 @@ export function ScrambleSection() {
                   href={`#${s.id}`}
                   className="group grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-4 transition-colors hover:bg-hover md:grid-cols-[44px_110px_minmax(0,1fr)_230px] md:px-5"
                 >
-                  <span className="inline-flex h-[22px] w-fit items-center rounded-[4px] bg-accent-soft px-1.5 font-mono text-[11.5px] font-semibold text-accent-ink ring-1 ring-inset ring-accent/40 tabular">
+                  <span className="inline-flex h-[22px] w-fit items-center rounded-[4px] bg-accent-soft px-1.5 font-mono text-[12.5px] font-semibold text-accent-ink ring-1 ring-inset ring-accent/40 tabular">
                     {s.n}
                   </span>
                   <span className="caps-label text-ink">{s.verb}</span>
@@ -115,3 +115,4 @@ export function ScrambleSection() {
     </section>
   );
 }
+

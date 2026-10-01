@@ -63,7 +63,7 @@ function ChatBody() {
             <Avatar name={m.who} size="sm" />
             <div className="min-w-0">
               <p className="text-[12.5px]">
-                <span className="font-semibold text-ink">{m.who.split(" ")[0]}</span> <span className="font-mono text-[11px] text-ink-3">{m.t}</span>
+                <span className="font-semibold text-ink">{m.who.split(" ")[0]}</span> <span className="font-mono text-[12px] text-ink-3">{m.t}</span>
               </p>
               {m.voice ? (
                 <span className="mt-1 inline-flex h-8 items-center gap-2 rounded-full bg-selected px-3 ring-1 ring-inset ring-line-strong">
@@ -73,13 +73,13 @@ function ChatBody() {
                       <span key={i} className="w-[2px] rounded-full bg-ink-3" style={{ height: h }} />
                     ))}
                   </span>
-                  <span className="font-mono text-[11px] text-ink-3">{m.voice}</span>
+                  <span className="font-mono text-[12px] text-ink-3">{m.voice}</span>
                 </span>
               ) : (
                 <p className="text-[13.5px] leading-snug text-ink-2">{m.text}</p>
               )}
               {m.react && (
-                <span className="mt-1 inline-flex h-6 items-center gap-1 rounded-full bg-accent-soft px-2 font-mono text-[11px] text-accent-ink ring-1 ring-inset ring-accent/30">
+                <span className="mt-1 inline-flex h-6 items-center gap-1 rounded-full bg-accent-soft px-2 font-mono text-[12px] text-accent-ink ring-1 ring-inset ring-accent/30">
                   +1 <span className="tabular">{m.react}</span>
                 </span>
               )}
@@ -137,7 +137,7 @@ function TasksBody() {
           <p className="mb-2 flex items-center gap-2 px-0.5 text-[12.5px] font-semibold text-ink">
             <span className={cn("size-2 rounded-full", col.dot)} />
             {col.label}
-            <span className="font-mono text-[11px] font-normal text-ink-3 tabular">{col.tasks.length}</span>
+            <span className="font-mono text-[12px] font-normal text-ink-3 tabular">{col.tasks.length}</span>
           </p>
           <ul className="space-y-2 rounded-lg bg-sunken p-2 ring-1 ring-inset ring-line">
             {col.tasks.map((t, i) => (
@@ -145,7 +145,7 @@ function TasksBody() {
                 <p className={cn("text-[13px] font-medium leading-snug text-ink", col.id === "done" && "text-ink-3 line-through decoration-ink-4")}>{t.title}</p>
                 <div className="mt-2 flex items-center gap-1.5">
                   <Tape tone={t.p === "high" ? "bad" : t.p === "medium" ? "warn" : "neutral"}>{t.p}</Tape>
-                  <span className="ml-auto inline-flex items-center gap-1 font-mono text-[11px] text-ink-3">
+                  <span className="ml-auto inline-flex items-center gap-1 font-mono text-[12px] text-ink-3">
                     <CalendarDays className="size-3" /> {t.due}
                   </span>
                   <Avatar name={t.who} size="xs" />
@@ -170,7 +170,7 @@ function BrainstormBody() {
     <div>
       <div className="inline-flex h-8 items-center rounded-md bg-sunken p-0.5 ring-1 ring-inset ring-line">
         <span className="rounded-[5px] bg-raised px-2.5 py-1 text-[12.5px] font-medium text-ink ring-1 ring-inset ring-line-strong">
-          Ideas <span className="font-mono text-[10.5px] text-ink-4">4</span>
+          Ideas <span className="font-mono text-[12.5px] text-ink-4">4</span>
         </span>
         <span className="px-2.5 text-[12.5px] font-medium text-ink-3">Shared doc</span>
       </div>
@@ -224,7 +224,7 @@ function ResourcesBody() {
                 <ExternalLink className="size-3 shrink-0 text-ink-3" />
               </span>
               <span className="mt-0.5 flex items-center gap-2">
-                <span className="truncate font-mono text-[11.5px] text-ink-3">{g.host}</span>
+                <span className="truncate font-mono text-[12.5px] text-ink-3">{g.host}</span>
                 {g.scope === "event" ? <Tape tone="info">This event</Tape> : <Tape>All events</Tape>}
               </span>
             </span>
@@ -247,9 +247,9 @@ function GithubBody() {
       <div className="min-w-0 rounded-lg border border-line bg-raised">
         <p className="flex items-center justify-between border-b border-line px-3 py-2 text-[13px] font-semibold text-ink">
           <span>
-            Recent commits <span className="ml-1 font-mono text-[11px] font-normal text-ink-3">15</span>
+            Recent commits <span className="ml-1 font-mono text-[12px] font-normal text-ink-3">15</span>
           </span>
-          <span className="font-mono text-[11px] font-normal text-ink-3">nullpointers/attendance</span>
+          <span className="font-mono text-[12px] font-normal text-ink-3">nullpointers/attendance</span>
         </p>
         <ul className="divide-y divide-line">
           {commits.map((c, i) => (
@@ -257,11 +257,11 @@ function GithubBody() {
               <Avatar name={c.who} size="xs" className="mt-0.5" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] text-ink">{c.msg}</p>
-                <p className="text-[11.5px] text-ink-3">
+                <p className="text-[12.5px] text-ink-3">
                   {c.who.split(" ")[0]} · {c.t}
                 </p>
               </div>
-              <span className="hidden shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] text-ink-2 ring-1 ring-inset ring-line-strong @sm:inline-flex">
+              <span className="hidden shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[12px] text-ink-2 ring-1 ring-inset ring-line-strong @sm:inline-flex">
                 {c.sha}
                 <Copy className="size-3 text-ink-4" />
               </span>
@@ -281,7 +281,7 @@ function GithubBody() {
             <li key={name} className="flex items-center gap-2 text-[12.5px] text-ink-2">
               <Avatar name={name as string} size="xs" />
               <span className="truncate">{(name as string).split(" ")[0]}</span>
-              <span className="ml-auto font-mono text-[11px] text-ink-3 tabular">{n}</span>
+              <span className="ml-auto font-mono text-[12px] text-ink-3 tabular">{n}</span>
             </li>
           ))}
         </ul>
@@ -304,7 +304,7 @@ function DeploymentsBody() {
             <p className="flex items-center gap-2 text-[13.5px] font-semibold text-ink">
               <Globe className="size-3.5 text-ink-3" /> {d.name}
             </p>
-            {d.ok ? <span className="font-mono text-[11px] text-ink-3 tabular">{d.ms}ms</span> : null}
+            {d.ok ? <span className="font-mono text-[12px] text-ink-3 tabular">{d.ms}ms</span> : null}
           </div>
           <p className="mt-0.5 truncate font-mono text-[12px] text-ink-3">{d.url}</p>
           <p className={cn("mt-2.5 flex items-center gap-2 border-t border-line pt-2.5 text-[12.5px]", d.ok ? "text-ok" : "text-bad")}>
@@ -334,7 +334,7 @@ function ActivityBody() {
             <p className="truncate text-[12.5px] text-ink-2">{r.body}</p>
           </div>
           <span className="flex shrink-0 flex-col items-end gap-1">
-            <span className="font-mono text-[11px] text-ink-3">{r.t}</span>
+            <span className="font-mono text-[12px] text-ink-3">{r.t}</span>
             <Avatar name={r.who} size="xs" />
           </span>
         </li>
@@ -366,7 +366,7 @@ function PitchBody() {
             <li key={k} className="grid grid-cols-[96px_minmax(0,1fr)_36px] items-center gap-2 text-[12.5px] text-ink-2">
               <span className="truncate">{k}</span>
               <Progress value={(v / 20) * 100} tone={v >= 16 ? "ok" : "warn"} />
-              <span className="text-right font-mono text-[11px] text-ink-3 tabular">{v}/20</span>
+              <span className="text-right font-mono text-[12px] text-ink-3 tabular">{v}/20</span>
             </li>
           ))}
         </ul>
@@ -448,13 +448,13 @@ function Countdown({ running, compact = false }: { running: boolean; compact?: b
   return (
     <span className="font-mono text-[17px] font-semibold leading-none text-ink tabular">
       {c.days}
-      <span className="text-[11px] text-ink-4">d </span>
+      <span className="text-[12px] text-ink-4">d </span>
       {pad2(c.hours)}
-      <span className="text-[11px] text-ink-4">h </span>
+      <span className="text-[12px] text-ink-4">h </span>
       {pad2(c.minutes)}
-      <span className="text-[11px] text-ink-4">m </span>
+      <span className="text-[12px] text-ink-4">m </span>
       <span className="text-ink-3">{pad2(c.seconds)}</span>
-      <span className="text-[11px] text-ink-4">s</span>
+      <span className="text-[12px] text-ink-4">s</span>
     </span>
   );
 }
@@ -476,7 +476,7 @@ function DesktopWorkspace({ tab, onPick, running }: { tab: WorkspaceTab; onPick:
             <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="md" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13.5px] font-semibold text-ink">{EXAMPLE_TEAM.name}</span>
-              <span className="block truncate text-[11.5px] text-ink-3">You lead this team</span>
+              <span className="block truncate text-[12.5px] text-ink-3">You lead this team</span>
             </span>
             <ChevronsUpDown className="size-4 shrink-0 text-ink-4" />
           </div>
@@ -488,7 +488,7 @@ function DesktopWorkspace({ tab, onPick, running }: { tab: WorkspaceTab; onPick:
             <Countdown running={running} />
           </p>
           <div className="mt-2.5">
-            <div className="mb-1 flex justify-between text-[11.5px] text-ink-3">
+            <div className="mb-1 flex justify-between text-[12.5px] text-ink-3">
               <span>Tasks done</span>
               <span className="font-mono tabular">7/12</span>
             </div>
@@ -575,7 +575,7 @@ function MobileWorkspace({ tab, onPick, running }: { tab: WorkspaceTab; onPick: 
           <TeamMark name={EXAMPLE_TEAM.name} tone="hack" size="sm" />
           <span className="min-w-0 flex-1 pl-1">
             <span className="block truncate text-[14px] font-semibold text-ink">{EXAMPLE_TEAM.name}</span>
-            <span className="block truncate text-[11.5px] text-ink-3">
+            <span className="block truncate text-[12.5px] text-ink-3">
               <Countdown running={running} compact /> · {EXAMPLE_TEAM.eventShort}
             </span>
           </span>
@@ -656,7 +656,7 @@ function WorkspacePreview() {
       <DesktopWorkspace tab={tab} onPick={pick} running={active} />
       <MobileWorkspace tab={tab} onPick={pick} running={active} />
       <div className="mt-4 flex items-start gap-3">
-        <span className="mt-[3px] inline-flex h-[22px] shrink-0 items-center rounded-[4px] bg-selected px-1.5 font-mono text-[11px] text-ink-2 ring-1 ring-inset ring-line-strong tabular">
+        <span className="mt-[3px] inline-flex h-[22px] shrink-0 items-center rounded-[4px] bg-selected px-1.5 font-mono text-[12px] text-ink-2 ring-1 ring-inset ring-line-strong tabular">
           {pad2(WORKSPACE_SECTIONS.findIndex((s) => s.id === tab) + 1)}/{pad2(WORKSPACE_SECTIONS.length)}
         </span>
         <div className="min-w-0 flex-1">
@@ -706,3 +706,4 @@ export function BuildSection() {
     </section>
   );
 }
+

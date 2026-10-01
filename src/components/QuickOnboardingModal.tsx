@@ -274,7 +274,7 @@ export default function QuickOnboardingModal({
               {selectedSkills.map((s) => (
                 <span
                   key={s}
-                  className="inline-flex h-9 items-center gap-1 rounded-[4px] bg-accent-soft pl-2 pr-0.5 font-mono text-[11.5px] text-accent-ink ring-1 ring-inset ring-accent/35 md:h-7"
+                  className="inline-flex h-9 items-center gap-1 rounded-[4px] bg-accent-soft pl-2 pr-0.5 font-mono text-[12.5px] text-accent-ink ring-1 ring-inset ring-accent/35 md:h-7"
                 >
                   <span className="max-w-[16ch] truncate">{s}</span>
                   <button
@@ -318,3 +318,4 @@ export default function QuickOnboardingModal({
     </Dialog>
   );
 }
+

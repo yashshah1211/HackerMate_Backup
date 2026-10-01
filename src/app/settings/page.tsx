@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
+import { useShell } from "@/components/shell/ShellContext";
 import { COLLEGES, normalizeCollege } from "@/lib/colleges";
 import { cn } from "@/lib/utils";
 import {
@@ -682,7 +683,7 @@ function SettingsContent() {
           <Section
             title="Skills"
             id="settings-skills"
-            action={<span className="font-mono text-[11.5px] text-ink-3 tabular">{selectedSkills.length}/15</span>}
+            action={<span className="font-mono text-[12.5px] text-ink-3 tabular">{selectedSkills.length}/15</span>}
             description="Tap a selected skill to remove it."
           >
             <div className="space-y-4">
@@ -960,6 +961,14 @@ function SettingsContent() {
             </dl>
           </Section>
 
+          <Section title="Appearance" id="settings-appearance" boxed>
+            <SettingRow
+              title="Theme"
+              description="Choose how HackerMate looks to you."
+              control={<ThemeSegmentedControl />}
+            />
+          </Section>
+
           <Section title="Session" id="settings-session" boxed>
             <SettingRow
               title="Sign out on this browser"
@@ -1008,3 +1017,28 @@ export default function SettingsPage() {
     </AuthGuard>
   );
 }
+
+function ThemeSegmentedControl() {
+  const shell = useShell();
+  if (!shell) return null;
+  const { themePref, setThemePref } = shell;
+
+  return (
+    <div className="inline-flex items-center gap-1 rounded-md border border-line bg-surface p-1">
+      {(["system", "dark", "light"] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          onClick={() => setThemePref?.(t)}
+          className={cn(
+            "px-3 py-1.5 text-[13px] font-medium rounded-sm transition-colors capitalize",
+            themePref === t ? "bg-raised text-ink shadow-sm ring-1 ring-inset ring-line" : "text-ink-3 hover:text-ink-2"
+          )}
+        >
+          {t}
+        </button>
+      ))}
+    </div>
+  );
+}
+

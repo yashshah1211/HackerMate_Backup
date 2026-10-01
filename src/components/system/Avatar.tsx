@@ -17,8 +17,8 @@ export function hueFor(seed: string | null | undefined): number {
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 
 const sizeMap: Record<AvatarSize, { box: string; text: string; dot: string }> = {
-  xs: { box: "size-5", text: "text-[9px]", dot: "size-1.5" },
-  sm: { box: "size-7", text: "text-[10.5px]", dot: "size-2" },
+  xs: { box: "size-5", text: "text-[12px]", dot: "size-1.5" },
+  sm: { box: "size-7", text: "text-[12.5px]", dot: "size-2" },
   md: { box: "size-9", text: "text-[12px]", dot: "size-2.5" },
   lg: { box: "size-12", text: "text-[15px]", dot: "size-3" },
   xl: { box: "size-16", text: "text-[20px]", dot: "size-3.5" },
@@ -111,7 +111,7 @@ export function AvatarStack({
           className={cn(
             "-ml-1.5 inline-flex items-center justify-center rounded-full bg-selected text-ink-2 font-mono ring-2 ring-canvas",
             sizeMap[size].box,
-            "text-[10px]",
+            "text-[12.5px]",
           )}
         >
           +{extra}
@@ -122,7 +122,7 @@ export function AvatarStack({
 }
 
 const markSize = {
-  sm: "size-7 rounded-[6px] text-[11px]",
+  sm: "size-7 rounded-[6px] text-[12px]",
   md: "size-9 rounded-[7px] text-[13px]",
   lg: "size-12 rounded-[9px] text-[17px]",
   xl: "size-16 rounded-[11px] text-[22px]",
@@ -161,3 +161,4 @@ export function TeamMark({
     </span>
   );
 }
+

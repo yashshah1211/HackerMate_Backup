@@ -26,7 +26,7 @@ export default function DeletedLogsTab({
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                 Deleted User Audit Logs (Account Exits)
               </h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                 Automatic DB trigger captures user email, name, and college upon account deletion.
               </p>
             </div>
@@ -34,7 +34,7 @@ export default function DeletedLogsTab({
           <button
             onClick={onRefreshDeletedLogs}
             disabled={loadingDeletedLogs}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 cursor-pointer transition font-semibold flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 cursor-pointer transition font-semibold flex items-center gap-1.5"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingDeletedLogs ? "animate-spin" : ""}`} />
             <span>{loadingDeletedLogs ? "Refreshing..." : "Refresh Audit Log"}</span>
@@ -55,7 +55,7 @@ export default function DeletedLogsTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono uppercase tracking-wider text-[10px]">
+                <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-medium text-[12.5px]">
                   <th className="p-3.5 font-semibold">User Details</th>
                   <th className="p-3.5 font-semibold">College / Institution</th>
                   <th className="p-3.5 font-semibold">Deleted Timestamp</th>
@@ -88,3 +88,4 @@ export default function DeletedLogsTab({
     </div>
   );
 }
+

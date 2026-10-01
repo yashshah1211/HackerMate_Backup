@@ -196,7 +196,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
         className="space-y-4"
       >
         <div>
-          <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 font-medium mb-1">
             Target Hackathon ID
           </label>
           <input
@@ -207,14 +207,14 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
             className="w-full rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:border-[#B4F461] focus:ring-1 focus:ring-[#B4F461] outline-none transition"
             required
           />
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono mt-1 block">
+          <span className="text-[12px] text-zinc-400 dark:text-zinc-500 font-mono mt-1 block">
             Default pre-filled ID corresponds to <strong>All India Hackathon</strong>.
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 font-medium mb-1">
               Badge Name
             </label>
             <input
@@ -228,7 +228,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 font-medium mb-1">
               Issuer Name
             </label>
             <input
@@ -244,7 +244,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 font-medium mb-1">
               Badge Type
             </label>
             <select
@@ -260,7 +260,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 font-medium mb-1">
               Rank Title (Badge Chip)
             </label>
             <input
@@ -275,7 +275,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
         </div>
 
         <div>
-          <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-mono text-zinc-600 dark:text-zinc-400 font-medium mb-1">
             Winner User Emails (One per line or comma-separated)
           </label>
           <textarea
@@ -300,7 +300,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>{badgeIssuerResult.missingEmails.length} email(s) not registered on HackerMate yet:</span>
                 </div>
-                <p className="text-[11px] font-mono mt-1 text-zinc-500 dark:text-zinc-400 break-all">
+                <p className="text-[12px] font-mono mt-1 text-zinc-500 dark:text-zinc-400 break-all">
                   {badgeIssuerResult.missingEmails.join(", ")}
                 </p>
               </div>
@@ -312,7 +312,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
           <button
             type="submit"
             disabled={submittingBadges || !badgeFormEmails.trim()}
-            className="px-6 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
+            className="px-6 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs font-medium flex items-center gap-2 transition cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
           >
             <Award className="w-4 h-4" />
             <span>{submittingBadges ? "Granting Badges..." : "Bulk Issue Badges"}</span>
@@ -326,7 +326,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
           <div>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <span>Issued Badges & Certificate Directory</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
+              <span className="text-[12.5px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
                 {issuedBadges.length} total
               </span>
             </h3>
@@ -339,7 +339,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
             type="button"
             onClick={fetchIssuedBadges}
             disabled={loadingBadges}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium transition cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium transition cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingBadges ? "animate-spin" : ""}`} />
             <span>Refresh</span>
@@ -358,7 +358,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-950/40 border-b border-zinc-200 dark:border-zinc-800/80">
+                <thead className="text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium bg-zinc-50/50 dark:bg-zinc-950/40 border-b border-zinc-200 dark:border-zinc-800/80">
                   <tr>
                     <th className="p-3.5 font-semibold">Recipient</th>
                     <th className="p-3.5 font-semibold">Badge Title & Rank</th>
@@ -378,19 +378,19 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
                       <tr key={b.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                         <td className="p-3.5">
                           <div className="font-semibold text-zinc-900 dark:text-zinc-100">{recipientName}</div>
-                          <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">{recipientEmail}</div>
+                          <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">{recipientEmail}</div>
                         </td>
                         <td className="p-3.5">
                           <div className="flex items-center gap-1.5">
                             <Award className="w-3.5 h-3.5 text-[#B4F461] shrink-0" />
                             <span className="font-semibold text-zinc-900 dark:text-zinc-100">{b.rank_title || b.badge_name}</span>
                           </div>
-                          <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">{b.badge_name}</div>
+                          <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">{b.badge_name}</div>
                         </td>
                         <td className="p-3.5">
                           <span className="text-zinc-700 dark:text-zinc-300">{b.hackathons?.name || "All India Hackathon"}</span>
                         </td>
-                        <td className="p-3.5 font-mono text-[11px]">
+                        <td className="p-3.5 font-mono text-[12px]">
                           <Link
                             href={`/api/certificates/verify/${certId}`}
                             target="_blank"
@@ -400,7 +400,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
                             <ExternalLink className="w-3 h-3 text-zinc-400" />
                           </Link>
                         </td>
-                        <td className="p-3.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                        <td className="p-3.5 text-[12px] text-zinc-500 dark:text-zinc-400 font-mono">
                           {new Date(b.issued_at).toLocaleDateString()}
                         </td>
                         <td className="p-3.5 text-right">
@@ -408,7 +408,7 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
                             type="button"
                             onClick={() => handleRevokeBadge(b)}
                             disabled={revokingBadgeId === b.id}
-                            className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white transition cursor-pointer font-semibold"
+                            className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white transition cursor-pointer font-semibold"
                           >
                             {revokingBadgeId === b.id ? "Revoking..." : "Revoke"}
                           </button>
@@ -425,3 +425,4 @@ export default function BadgesTab({ partnerConfigsMap = {} }: BadgesTabProps) {
     </div>
   );
 }
+

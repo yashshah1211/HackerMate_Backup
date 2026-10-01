@@ -76,7 +76,7 @@ export default function TeamsTab({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono uppercase tracking-wider text-[10px]">
+              <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-medium text-[12.5px]">
                 <th className="p-4 font-semibold">Team Details</th>
                 <th className="p-4 font-semibold">Created</th>
                 <th className="p-4 font-semibold">Owner</th>
@@ -104,14 +104,14 @@ export default function TeamsTab({
                         {t.name}
                       </Link>
                       {t.description && (
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 max-w-xs truncate">
+                        <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5 max-w-xs truncate">
                           {t.description}
                         </p>
                       )}
                     </td>
 
                     {/* Created Date */}
-                    <td className="p-4 text-zinc-500 dark:text-zinc-400 font-mono text-[10px]">
+                    <td className="p-4 text-zinc-500 dark:text-zinc-400 font-mono text-[12.5px]">
                       {new Date(t.created_at).toLocaleDateString()}
                     </td>
 
@@ -123,7 +123,7 @@ export default function TeamsTab({
                       >
                         {t.ownerName}
                       </Link>
-                      <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
+                      <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
                         {t.ownerEmail}
                       </div>
                     </td>
@@ -136,18 +136,18 @@ export default function TeamsTab({
                     {/* Affiliation */}
                     <td className="p-4 space-y-1">
                       {t.college && (
-                        <div className="text-[11px] text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                        <div className="text-[12px] text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                           <Building2 className="w-3 h-3 text-zinc-400 shrink-0" />
                           <span>{t.college.split(" (")[0] || t.college}</span>
                         </div>
                       )}
                       {t.team_hackathons?.map((th) => th.hackathons?.name).filter(Boolean).join(", ") ? (
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
+                        <div className="text-[12px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
                           <Award className="w-3 h-3 text-[#B4F461] shrink-0" />
                           <span>{t.team_hackathons?.map((th) => th.hackathons?.name).filter(Boolean).join(", ")}</span>
                         </div>
                       ) : t.hackathon_name ? (
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
+                        <div className="text-[12px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
                           <Award className="w-3 h-3 text-[#B4F461] shrink-0" />
                           <span>{t.hackathon_name}</span>
                         </div>
@@ -158,7 +158,7 @@ export default function TeamsTab({
                     <td className="p-4 text-right">
                       <button
                         onClick={() => handleDeleteTeam(t.id, t.name)}
-                        className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white transition cursor-pointer font-semibold"
+                        className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white transition cursor-pointer font-semibold"
                       >
                         Delete
                       </button>
@@ -173,3 +173,4 @@ export default function TeamsTab({
     </div>
   );
 }
+

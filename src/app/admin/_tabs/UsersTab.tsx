@@ -130,7 +130,7 @@ export default function UsersTab({
           <div className="flex bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-1 select-none shrink-0">
             <button
               onClick={() => setOnboardingFilter("all")}
-              className={`px-3 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-[12.5px] font-medium transition cursor-pointer ${
                 onboardingFilter === "all"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                   : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -140,7 +140,7 @@ export default function UsersTab({
             </button>
             <button
               onClick={() => setOnboardingFilter("incomplete")}
-              className={`px-3 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider transition cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-[12.5px] font-medium transition cursor-pointer ${
                 onboardingFilter === "incomplete"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                   : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -152,7 +152,7 @@ export default function UsersTab({
 
           <button
             onClick={onNavigateToDeletedLogs}
-            className="px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-wider bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 transition flex items-center gap-1.5 cursor-pointer shrink-0 font-medium"
+            className="px-3 py-2 rounded-xl text-xs font-medium bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 transition flex items-center gap-1.5 cursor-pointer shrink-0 font-medium"
             title="View historical user account deletion audit log"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-zinc-400" />
@@ -176,7 +176,7 @@ export default function UsersTab({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono uppercase tracking-wider text-[10px]">
+              <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-medium text-[12.5px]">
                 <th className="p-4 font-semibold">User Details</th>
                 <th className="p-4 font-semibold">Registered</th>
                 <th className="p-4 font-semibold">Source</th>
@@ -211,13 +211,13 @@ export default function UsersTab({
                       >
                         {u.full_name || "Unnamed"}
                       </Link>
-                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
+                      <div className="text-[12px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
                         {u.email}
                       </div>
                     </td>
 
                     {/* Registered date */}
-                    <td className="p-4 text-zinc-500 dark:text-zinc-400 font-mono text-[10px]">
+                    <td className="p-4 text-zinc-500 dark:text-zinc-400 font-mono text-[12.5px]">
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
 
@@ -260,7 +260,7 @@ export default function UsersTab({
                           <button
                             onClick={() => handleNudgeUser(u.id, u.full_name || u.email)}
                             disabled={nudgingUserId === u.id}
-                            className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                            className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                             title="Send manual email onboarding nudge"
                           >
                             <Mail className="w-3 h-3" />
@@ -270,21 +270,21 @@ export default function UsersTab({
 
                         <button
                           onClick={() => onToggleRole(u.id, u.role, u.full_name || "User")}
-                          className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
+                          className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
                         >
                           {u.role === "admin" ? "Demote" : "Promote"}
                         </button>
 
                         <button
                           onClick={() => onOpenWarningModal(u.id, u.full_name || "User")}
-                          className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer font-semibold"
+                          className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer font-semibold"
                         >
                           Warn
                         </button>
 
                         <button
                           onClick={() => onToggleBan(u.id, u.is_banned, u.full_name || "User")}
-                          className={`text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border font-semibold transition cursor-pointer ${
+                          className={`text-[12.5px] font-medium py-1 px-2.5 rounded-lg border font-semibold transition cursor-pointer ${
                             u.is_banned
                               ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                               : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
@@ -295,7 +295,7 @@ export default function UsersTab({
 
                         <button
                           onClick={() => onDeleteUser(u.id, u.full_name || "User")}
-                          className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white transition cursor-pointer font-semibold"
+                          className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white transition cursor-pointer font-semibold"
                         >
                           Delete
                         </button>
@@ -320,7 +320,7 @@ export default function UsersTab({
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                 Deleted User Audit Logs (Account Exits)
               </h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
                 DB audit captures user email, name, and college upon account deletion.
               </p>
             </div>
@@ -328,7 +328,7 @@ export default function UsersTab({
           <button
             onClick={onRefreshDeletedLogs}
             disabled={loadingDeletedLogs}
-            className="px-3 py-1.5 rounded-xl text-[10px] font-mono uppercase tracking-wider bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 cursor-pointer flex items-center gap-1.5 font-semibold transition"
+            className="px-3 py-1.5 rounded-xl text-[12.5px] font-medium bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 cursor-pointer flex items-center gap-1.5 font-semibold transition"
           >
             <RefreshCw className={`w-3 h-3 ${loadingDeletedLogs ? "animate-spin" : ""}`} />
             <span>{loadingDeletedLogs ? "Refreshing..." : "Refresh"}</span>
@@ -343,7 +343,7 @@ export default function UsersTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono uppercase tracking-wider text-[10px]">
+                <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-medium text-[12.5px]">
                   <th className="p-3 font-semibold">User Details</th>
                   <th className="p-3 font-semibold">College / Institution</th>
                   <th className="p-3 font-semibold">Deleted Timestamp</th>
@@ -356,12 +356,12 @@ export default function UsersTab({
                       <div className="font-semibold text-zinc-900 dark:text-zinc-100">
                         {log.full_name || "Unnamed Builder"}
                       </div>
-                      <div className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">{log.email || "No Email"}</div>
+                      <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">{log.email || "No Email"}</div>
                     </td>
-                    <td className="p-3 text-zinc-600 dark:text-zinc-300 text-[11px]">
+                    <td className="p-3 text-zinc-600 dark:text-zinc-300 text-[12px]">
                       {log.college || "Unspecified"}
                     </td>
-                    <td className="p-3 text-zinc-500 dark:text-zinc-400 text-[10px]">
+                    <td className="p-3 text-zinc-500 dark:text-zinc-400 text-[12.5px]">
                       {new Date(log.deleted_at).toLocaleString()}
                     </td>
                   </tr>
@@ -374,3 +374,4 @@ export default function UsersTab({
     </div>
   );
 }
+

@@ -114,16 +114,16 @@ export function ChallengeLeaderboard({
                     #{entry.challengeNumber} · {entry.challengeTitle}
                   </p>
                 </div>
-                <div className="hidden shrink-0 items-center gap-3 font-mono text-[11.5px] text-ink-3 tabular md:flex">
+                <div className="hidden shrink-0 items-center gap-3 font-mono text-[12.5px] text-ink-3 tabular md:flex">
                   <span>Arch {entry.scores.architecture}/30</span>
                   <span>Problem {entry.scores.problem}/25</span>
                 </div>
                 <div className="w-16 shrink-0 text-right">
                   <div className="font-display text-[18px] font-semibold leading-none text-ink tabular">
                     {entry.totalScore}
-                    <span className="text-[11px] font-normal text-ink-3">/100</span>
+                    <span className="text-[12px] font-normal text-ink-3">/100</span>
                   </div>
-                  <div className="mt-1 font-mono text-[11px] text-ink-3">{entry.grade}</div>
+                  <div className="mt-1 font-mono text-[12px] text-ink-3">{entry.grade}</div>
                 </div>
               </li>
             );
@@ -133,3 +133,4 @@ export function ChallengeLeaderboard({
     </Section>
   );
 }
+

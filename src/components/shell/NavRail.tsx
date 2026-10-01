@@ -2,17 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { Bell, ChevronDown, Flame, LogIn, Plus } from "lucide-react";
-import { CountBadge, TeamMark } from "@/components/system";
+import { Bell, ChevronDown, LogIn } from "lucide-react";
+import { CountBadge } from "@/components/system";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/Logo";
 import { NAV_ITEMS, type NavSection } from "./navConfig";
 import { AccountMenu } from "./AccountMenu";
-import type { ShellSession, ShellTeam } from "./useShellSession";
-
-const MAX_RAIL_TEAMS = 5;
+import type { ShellSession } from "./useShellSession";
 
 // Short viewports (1080p laptops at 125% OS scaling, 768px screens, landscape
 // tablets) get slightly tighter spacing via height media variants
@@ -45,8 +42,6 @@ export function NavRail({
 }) {
   const signedIn = Boolean(session.viewerId);
   const showSkeleton = !signedIn && (session.authLoading || session.hasSession);
-  const teams = session.teams.slice(0, MAX_RAIL_TEAMS);
-  const extraTeams = session.teams.length - teams.length;
 
   // Scroll affordance for the middle zone.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -65,15 +60,7 @@ export function NavRail({
     ro.observe(el);
     if (el.firstElementChild) ro.observe(el.firstElementChild);
     return () => ro.disconnect();
-  }, [updateEdges, teams.length, signedIn]);
-
-  // Team tooltips render in a portal so the scrolling middle zone can't clip them.
-  const [tip, setTip] = useState<{ team: ShellTeam; y: number; x: number } | null>(null);
-  const showTip = (team: ShellTeam, el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    setTip({ team, y: r.top + r.height / 2, x: r.right });
-  };
-  const hideTip = () => setTip(null);
+  }, [updateEdges, signedIn]);
 
   return (
     <aside
@@ -93,10 +80,7 @@ export function NavRail({
         <div
           ref={scrollRef}
           data-rail-scroll
-          onScroll={() => {
-            updateEdges();
-            if (tip) hideTip();
-          }}
+          onScroll={updateEdges}
           className="h-full overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-none"
         >
           <div className="flex flex-col items-center pb-3">
@@ -114,75 +98,26 @@ export function NavRail({
                     {active && (
                       <motion.span
                         layoutId="rail-edge"
-                        className="absolute left-0 top-2 h-8 w-[3px] rounded-r-[2px] bg-signal [@media(max-height:820px)]:top-1 [@media(max-height:700px)]:h-7"
+                        className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-r-[2px] bg-signal"
                         transition={{ type: "spring", stiffness: 520, damping: 42 }}
                       />
                     )}
                     <span
                       className={cn(
-                        "relative flex h-8 w-11 items-center justify-center rounded-[9px] transition-colors [&_svg]:size-[19px] [@media(max-height:700px)]:h-7",
-                        active ? "text-ink" : "text-ink-3 group-hover:bg-hover group-hover:text-ink",
+                        "relative flex h-8 w-full items-center justify-center transition-colors [&_svg]:size-[19px] [@media(max-height:700px)]:h-7",
+                        active ? "text-ink" : "text-ink-3 group-hover:text-ink",
                       )}
                     >
-                      {active && (
-                        <motion.span
-                          layoutId="rail-capsule"
-                          className="absolute inset-0 rounded-[9px] bg-selected ring-1 ring-inset ring-line-strong"
-                          transition={{ type: "spring", stiffness: 520, damping: 42 }}
-                        />
-                      )}
                       <span className="relative">{item.icon}</span>
                       {badge > 0 && <CountBadge value={badge} className="absolute -right-1 -top-1" />}
                     </span>
-                    <span className={cn("text-[10.5px] font-medium leading-none", active ? "text-ink" : "text-ink-3 group-hover:text-ink-2")}>
+                    <span className={cn("text-[12.5px] font-medium leading-none", active ? "text-ink" : "text-ink-3 group-hover:text-ink-2")}>
                       {item.label}
                     </span>
                   </Link>
                 );
               })}
             </nav>
-
-            {signedIn && (
-              <div className="mt-3 flex w-full flex-col items-center gap-1.5 border-t border-line pt-3 [@media(max-height:820px)]:mt-2 [@media(max-height:820px)]:pt-2.5">
-                <span className="mb-0.5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-ink-4">Teams</span>
-                {teams.map((t) => {
-                  const active = pathname.startsWith(`/teams/${t.id}`);
-                  return (
-                    <Link
-                      key={t.id}
-                      href={`/teams/${t.id}/workspace`}
-                      aria-label={`${t.name} — open workspace`}
-                      aria-current={active ? "page" : undefined}
-                      onMouseEnter={(e) => showTip(t, e.currentTarget)}
-                      onMouseLeave={hideTip}
-                      onFocus={(e) => showTip(t, e.currentTarget)}
-                      onBlur={hideTip}
-                      className="group relative rounded-[8px]"
-                    >
-                      <TeamMark
-                        name={t.name}
-                        tone={t.tone}
-                        size="md"
-                        className={cn("transition-shadow", active ? "ring-2 ring-signal ring-offset-2 ring-offset-raised" : "group-hover:ring-ink-4")}
-                      />
-                    </Link>
-                  );
-                })}
-                {extraTeams > 0 && (
-                  <Link href="/my-teams" className="font-mono text-[11px] text-ink-3 hover:text-ink" aria-label={`${extraTeams} more teams`}>
-                    +{extraTeams}
-                  </Link>
-                )}
-                <Link
-                  href="/teams/create"
-                  aria-label="Create a team"
-                  title="Create a team"
-                  className="flex size-9 items-center justify-center rounded-[7px] border border-dashed border-line-strong text-ink-3 transition-colors hover:border-ink-4 hover:text-ink"
-                >
-                  <Plus className="size-4" />
-                </Link>
-              </div>
-            )}
           </div>
         </div>
 
@@ -206,17 +141,7 @@ export function NavRail({
       </div>
 
       {/* Bottom: always visible */}
-      <div className="flex shrink-0 flex-col items-center gap-2 border-t border-line pb-3 pt-2.5 [@media(max-height:700px)]:gap-1.5 [@media(max-height:700px)]:pb-2 [@media(max-height:700px)]:pt-2">
-        {signedIn && session.currentStreak > 0 && (
-          <span
-            className="inline-flex items-center gap-0.5 font-mono text-[11px] font-semibold text-warn"
-            title={`${session.currentStreak}-day visit streak`}
-            aria-label={`Current visit streak: ${session.currentStreak} days`}
-          >
-            <Flame className="size-3.5" aria-hidden />
-            {session.currentStreak}
-          </span>
-        )}
+      <div className="flex shrink-0 flex-col items-center gap-2 pb-3 pt-3 [@media(max-height:700px)]:gap-1.5 [@media(max-height:700px)]:pb-2 [@media(max-height:700px)]:pt-2">
         {signedIn ? (
           <>
             <button
@@ -244,23 +169,11 @@ export function NavRail({
             <span className="flex h-8 w-11 items-center justify-center rounded-[9px] bg-accent text-on-accent">
               <LogIn className="size-[18px]" />
             </span>
-            <span className="text-[10.5px] font-medium leading-none">Sign in</span>
+            <span className="text-[12.5px] font-medium leading-none">Sign in</span>
           </Link>
         )}
       </div>
-
-      {tip &&
-        createPortal(
-          <span
-            role="tooltip"
-            style={{ top: tip.y, left: tip.x + 12 }}
-            className="pointer-events-none fixed z-[60] -translate-y-1/2 whitespace-nowrap rounded-md border border-line bg-overlay px-2.5 py-1.5 text-[12.5px] text-ink shadow-pop animate-hm-fade"
-          >
-            <span className="font-medium">{tip.team.name}</span>
-            <span className="ml-2 text-ink-3">{tip.team.isOwner ? "Owner" : "Member"}</span>
-          </span>,
-          document.body,
-        )}
     </aside>
   );
 }
+

@@ -267,6 +267,7 @@ export function Menu({
   side = "bottom",
   className,
   header,
+  scrollableItems,
 }: {
   trigger: (props: { open: boolean; toggle: () => void; ref: React.Ref<HTMLButtonElement> }) => ReactNode;
   items: MenuItem[];
@@ -274,6 +275,7 @@ export function Menu({
   side?: "bottom" | "top" | "right";
   className?: string;
   header?: ReactNode;
+  scrollableItems?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -338,40 +340,43 @@ export function Menu({
             )}
           >
             {header}
-            {items.map((item, i) => {
-              if (item.type === "separator") return <div key={i} className="my-1 h-px bg-line" />;
-              if (item.type === "label")
+            <div className={scrollableItems ? "max-h-[50dvh] overflow-y-auto overscroll-contain scrollbar-none" : undefined}>
+              {items.map((item, i) => {
+                if (item.type === "separator") return <div key={i} className="my-1 h-px bg-line" />;
+                if (item.type === "label")
+                  return (
+                    <div key={i} className="px-2.5 pb-1 pt-2 caps-label text-ink-4">
+                      {item.label}
+                    </div>
+                  );
                 return (
-                  <div key={i} className="px-2.5 pb-1 pt-2 caps-label text-ink-4">
-                    {item.label}
-                  </div>
+                  <button
+                    key={i}
+                    role="menuitem"
+                    type="button"
+                    disabled={item.disabled}
+                    onClick={() => {
+                      close();
+                      item.onSelect();
+                    }}
+                    className={cn(
+                      "flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] outline-none transition-colors disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+                      item.tone === "danger"
+                        ? "text-bad hover:bg-bad-soft focus-visible:bg-bad-soft"
+                        : "text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink",
+                    )}
+                  >
+                    {item.icon && <span className="text-ink-3">{item.icon}</span>}
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.hint && <span className="text-[12px] text-ink-4">{item.hint}</span>}
+                  </button>
                 );
-              return (
-                <button
-                  key={i}
-                  role="menuitem"
-                  type="button"
-                  disabled={item.disabled}
-                  onClick={() => {
-                    close();
-                    item.onSelect();
-                  }}
-                  className={cn(
-                    "flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] outline-none transition-colors disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
-                    item.tone === "danger"
-                      ? "text-bad hover:bg-bad-soft focus-visible:bg-bad-soft"
-                      : "text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink",
-                  )}
-                >
-                  {item.icon && <span className="text-ink-3">{item.icon}</span>}
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {item.hint && <span className="text-[11px] text-ink-4">{item.hint}</span>}
-                </button>
-              );
-            })}
+              })}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
+

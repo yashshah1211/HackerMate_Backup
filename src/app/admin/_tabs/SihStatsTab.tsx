@@ -86,7 +86,7 @@ export default function SihStatsTab() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
-            <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">
+            <span className="text-[12px] font-medium tracking-widest text-zinc-500 font-semibold">
               National Team Building Telemetry
             </span>
           </div>
@@ -184,7 +184,7 @@ export default function SihStatsTab() {
               <button
                 type="button"
                 onClick={() => setSihCollegeFilter("all")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
                   sihCollegeFilter === "all"
                     ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                     : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -195,14 +195,14 @@ export default function SihStatsTab() {
               <button
                 type="button"
                 onClick={() => setSihCollegeFilter("zero_teams")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
                   sihCollegeFilter === "zero_teams"
                     ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                     : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
                 }`}
               >
                 <span>Conversion Bottlenecks</span>
-                <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/25">
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[12.5px] font-bold border border-amber-500/25">
                   {sihStatsData.summary.highPotentialZeroTeamColleges}
                 </span>
               </button>
@@ -249,7 +249,7 @@ export default function SihStatsTab() {
                       {/* Metrics Badges & Toggle */}
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
-                          <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                          <div className="text-[12.5px] font-mono text-zinc-400 font-medium">
                             Builders
                           </div>
                           <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono">
@@ -258,7 +258,7 @@ export default function SihStatsTab() {
                         </div>
 
                         <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
-                          <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                          <div className="text-[12.5px] font-mono text-zinc-400 font-medium">
                             Searching
                           </div>
                           <div className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
@@ -267,7 +267,7 @@ export default function SihStatsTab() {
                         </div>
 
                         <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
-                          <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                          <div className="text-[12.5px] font-mono text-zinc-400 font-medium">
                             Teams
                           </div>
                           <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono">
@@ -276,7 +276,7 @@ export default function SihStatsTab() {
                         </div>
 
                         <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
-                          <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                          <div className="text-[12.5px] font-mono text-zinc-400 font-medium">
                             Avg Size
                           </div>
                           <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono">
@@ -306,7 +306,7 @@ export default function SihStatsTab() {
                       <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Builders List */}
                         <div className="space-y-2">
-                          <h4 className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                          <h4 className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 font-medium">
                             Registered Builders ({c.builders.length})
                           </h4>
                           <div className="space-y-1.5">
@@ -319,7 +319,7 @@ export default function SihStatsTab() {
                                   <div className="font-semibold text-zinc-900 dark:text-zinc-100">
                                     {b.full_name || "Anonymous Builder"}
                                   </div>
-                                  <div className="text-[10px] text-zinc-400 font-mono">
+                                  <div className="text-[12.5px] text-zinc-400 font-mono">
                                     {b.email}
                                   </div>
                                 </div>
@@ -333,7 +333,7 @@ export default function SihStatsTab() {
 
                         {/* Teams List */}
                         <div className="space-y-2">
-                          <h4 className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                          <h4 className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 font-medium">
                             Teams Created ({c.teams.length})
                           </h4>
                           {c.teams.length === 0 ? (
@@ -349,11 +349,11 @@ export default function SihStatsTab() {
                                 >
                                   <div className="flex items-center justify-between font-semibold text-zinc-900 dark:text-zinc-100">
                                     <span>{t.name}</span>
-                                    <span className="text-[10px] font-mono text-zinc-500">
+                                    <span className="text-[12.5px] font-mono text-zinc-500">
                                       {(t.team_members || []).length} / {t.max_members || 6} members
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                                  <p className="text-[12px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
                                     {t.description || "No description"}
                                   </p>
                                 </div>
@@ -372,3 +372,4 @@ export default function SihStatsTab() {
     </div>
   );
 }
+

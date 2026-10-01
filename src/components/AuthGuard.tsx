@@ -225,7 +225,7 @@ function GuardNotice({
         </h1>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">{body}</p>
         {code && (
-          <p className="mt-5 rounded-md bg-sunken px-3 py-2 font-mono text-[11.5px] text-ink-3 ring-1 ring-inset ring-line">
+          <p className="mt-5 rounded-md bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink-3 ring-1 ring-inset ring-line">
             Error code: {code}
           </p>
         )}
@@ -234,3 +234,4 @@ function GuardNotice({
     </main>
   );
 }
+

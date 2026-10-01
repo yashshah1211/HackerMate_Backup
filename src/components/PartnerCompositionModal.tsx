@@ -52,10 +52,10 @@ export default function PartnerCompositionModal({
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-900 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+              <span className="text-[12.5px] font-semibold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
                 Partner Analytics
               </span>
-              <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+              <span className="text-[12.5px] font-mono text-zinc-400 dark:text-zinc-500">
                 Slug: /partners/{partnerConfig.slug}
               </span>
             </div>
@@ -81,7 +81,7 @@ export default function PartnerCompositionModal({
         <div className="flex items-center gap-1.5 pt-4 shrink-0 overflow-x-auto select-none">
           <button
             onClick={() => setActiveSubTab("analytics")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
               activeSubTab === "analytics"
                 ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold shadow-xs"
                 : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
@@ -92,7 +92,7 @@ export default function PartnerCompositionModal({
           </button>
           <button
             onClick={() => setActiveSubTab("participants")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
               activeSubTab === "participants"
                 ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold shadow-xs"
                 : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
@@ -103,7 +103,7 @@ export default function PartnerCompositionModal({
           </button>
           <button
             onClick={() => setActiveSubTab("teams")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
               activeSubTab === "teams"
                 ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold shadow-xs"
                 : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
@@ -114,7 +114,7 @@ export default function PartnerCompositionModal({
           </button>
           <button
             onClick={() => setActiveSubTab("broadcast")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
               activeSubTab === "broadcast"
                 ? "bg-[#B4F461] text-zinc-950 font-bold shadow-xs"
                 : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
@@ -141,27 +141,27 @@ export default function PartnerCompositionModal({
               {/* STATS OVERVIEW CARDS */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
-                  <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Builders</div>
+                  <div className="text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium">Total Builders</div>
                   <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1 font-mono">{analyticsData.stats.totalRegistrations}</div>
-                  <div className="text-[10px] text-zinc-400 mt-0.5">Registered for event</div>
+                  <div className="text-[12.5px] text-zinc-400 mt-0.5">Registered for event</div>
                 </div>
 
                 <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
-                  <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Looking for Team</div>
+                  <div className="text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium">Looking for Team</div>
                   <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1 font-mono">{analyticsData.stats.lookingForTeamCount}</div>
-                  <div className="text-[10px] text-zinc-400 mt-0.5">Active searchers</div>
+                  <div className="text-[12.5px] text-zinc-400 mt-0.5">Active searchers</div>
                 </div>
 
                 <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
-                  <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Teams Formed</div>
+                  <div className="text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium">Teams Formed</div>
                   <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1 font-mono">{analyticsData.stats.totalTeams}</div>
-                  <div className="text-[10px] text-zinc-400 mt-0.5">Linked teams</div>
+                  <div className="text-[12.5px] text-zinc-400 mt-0.5">Linked teams</div>
                 </div>
 
                 <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
-                  <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Broadcasts Sent</div>
+                  <div className="text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium">Broadcasts Sent</div>
                   <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1 font-mono">{analyticsData.announcements.length}</div>
-                  <div className="text-[10px] text-zinc-400 mt-0.5">Official updates</div>
+                  <div className="text-[12.5px] text-zinc-400 mt-0.5">Official updates</div>
                 </div>
               </div>
 
@@ -175,7 +175,7 @@ export default function PartnerCompositionModal({
                         <Layers className="w-4 h-4 text-zinc-400" />
                         <span>Top Builder Skills</span>
                       </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
+                      <span className="text-[12.5px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
                         {analyticsData.topSkills.length} skills
                       </span>
                     </h3>
@@ -212,7 +212,7 @@ export default function PartnerCompositionModal({
                         <Building2 className="w-4 h-4 text-zinc-400" />
                         <span>Colleges & Institutions</span>
                       </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
+                      <span className="text-[12.5px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
                         {analyticsData.topColleges.length} colleges
                       </span>
                     </h3>
@@ -239,7 +239,7 @@ export default function PartnerCompositionModal({
                 <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-950/40 border-b border-zinc-200 dark:border-zinc-800/80">
+                      <thead className="text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium bg-zinc-50/50 dark:bg-zinc-950/40 border-b border-zinc-200 dark:border-zinc-800/80">
                         <tr>
                           <th className="p-3 font-semibold">Builder</th>
                           <th className="p-3 font-semibold">College</th>
@@ -256,7 +256,7 @@ export default function PartnerCompositionModal({
                             <tr key={reg.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition">
                               <td className="p-3">
                                 <div className="font-semibold text-zinc-900 dark:text-zinc-100">{p.full_name || "Anonymous Builder"}</div>
-                                <div className="text-[10px] text-zinc-400 font-mono">{p.email}</div>
+                                <div className="text-[12.5px] text-zinc-400 font-mono">{p.email}</div>
                               </td>
                               <td className="p-3 text-zinc-600 dark:text-zinc-300 max-w-[180px] truncate" title={p.college || "Unspecified"}>
                                 {p.college || "Unspecified"}
@@ -264,27 +264,27 @@ export default function PartnerCompositionModal({
                               <td className="p-3">
                                 <div className="flex flex-wrap gap-1">
                                   {(p.skills || []).slice(0, 3).map((s: string) => (
-                                    <span key={s} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                                    <span key={s} className="px-1.5 py-0.5 rounded text-[12px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                                       {s}
                                     </span>
                                   ))}
                                   {(p.skills || []).length > 3 && (
-                                    <span className="text-[9px] text-zinc-400 font-mono">+{p.skills.length - 3}</span>
+                                    <span className="text-[12px] text-zinc-400 font-mono">+{p.skills.length - 3}</span>
                                   )}
                                 </div>
                               </td>
                               <td className="p-3">
                                 {reg.looking_for_team ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                  <span className="px-2 py-0.5 rounded text-[12.5px] font-mono font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                                     Searching
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                                  <span className="px-2 py-0.5 rounded text-[12.5px] font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
                                     Registered
                                   </span>
                                 )}
                               </td>
-                              <td className="p-3 text-right text-[10px] font-mono text-zinc-400">
+                              <td className="p-3 text-right text-[12.5px] font-mono text-zinc-400">
                                 {new Date(reg.created_at).toLocaleDateString()}
                               </td>
                             </tr>
@@ -312,20 +312,20 @@ export default function PartnerCompositionModal({
                               <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t.name}</h4>
                               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-2">{t.description || "No description"}</p>
                             </div>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
+                            <span className="text-[12.5px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
                               {(t.team_members || []).length} / {t.max_members}
                             </span>
                           </div>
 
                           {/* Member roster */}
                           <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1.5">
-                            <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Team Roster</div>
+                            <div className="text-[12.5px] font-mono text-zinc-400 font-medium">Team Roster</div>
                             {(t.team_members || []).map((m: any) => {
                               const mp = m.profiles;
                               return (
                                 <div key={m.id} className="flex items-center justify-between text-xs text-zinc-700 dark:text-zinc-300">
                                   <span>{mp?.full_name || mp?.email || "Teammate"}</span>
-                                  <span className="text-[10px] font-mono text-zinc-400">{mp?.college || ""}</span>
+                                  <span className="text-[12.5px] font-mono text-zinc-400">{mp?.college || ""}</span>
                                 </div>
                               );
                             })}
@@ -345,7 +345,7 @@ export default function PartnerCompositionModal({
                       <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         <Send className="w-4 h-4 text-zinc-500" />
                         <span>Broadcast Partner Announcement</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
+                        <span className="text-[12.5px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-semibold">
                           To {analyticsData.stats.totalRegistrations} Builder(s)
                         </span>
                       </h3>
@@ -355,7 +355,7 @@ export default function PartnerCompositionModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-mono text-zinc-500 dark:text-zinc-400 font-medium mb-1">
                         Announcement Title
                       </label>
                       <input
@@ -369,7 +369,7 @@ export default function PartnerCompositionModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-mono text-zinc-500 dark:text-zinc-400 font-medium mb-1">
                         Announcement Message
                       </label>
                       <textarea
@@ -386,7 +386,7 @@ export default function PartnerCompositionModal({
                       <button
                         type="submit"
                         disabled={sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim()}
-                        className="px-6 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
+                        className="px-6 py-2.5 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs font-medium flex items-center gap-2 transition cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
                       >
                         {sendingBroadcast ? (
                           <>
@@ -402,7 +402,7 @@ export default function PartnerCompositionModal({
 
                   {/* Broadcast History */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    <h4 className="text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400 font-medium">
                       Broadcast History ({analyticsData.announcements.length})
                     </h4>
                     {analyticsData.announcements.length === 0 ? (
@@ -415,7 +415,7 @@ export default function PartnerCompositionModal({
                           <div key={ann.id} className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 text-xs space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-zinc-900 dark:text-zinc-100">{ann.title}</span>
-                              <span className="text-[10px] font-mono text-zinc-400">
+                              <span className="text-[12.5px] font-mono text-zinc-400">
                                 {ann.sent_at ? new Date(ann.sent_at).toLocaleString() : "Pending"}
                               </span>
                             </div>
@@ -434,3 +434,4 @@ export default function PartnerCompositionModal({
     </div>
   );
 }
+

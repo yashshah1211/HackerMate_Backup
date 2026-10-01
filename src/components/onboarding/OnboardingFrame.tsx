@@ -73,7 +73,7 @@ export function FormStep({
     <section aria-labelledby={`${id}-title`} className="grid grid-cols-1 gap-4 border-t border-line py-7 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8">
       <div className="min-w-0">
         <div className="flex items-center gap-2.5">
-          <span className="font-mono text-[11.5px] text-ink-3 tabular">
+          <span className="font-mono text-[12.5px] text-ink-3 tabular">
             {pad(n)}/{pad(total)}
           </span>
           <span className="caps-label text-ink-3">{label}</span>
@@ -104,7 +104,8 @@ export function OnboardingLabel({
   return (
     <label id={id} htmlFor={htmlFor} className="mb-1.5 flex items-baseline justify-between gap-2">
       <span className="caps-label text-ink-3">{children}</span>
-      <span className={cn("text-[11.5px]", required ? "text-accent-ink" : "text-ink-3")}>{required ? "Required" : "Optional"}</span>
+      <span className={cn("text-[12.5px]", required ? "text-accent-ink" : "text-ink-3")}>{required ? "Required" : "Optional"}</span>
     </label>
   );
 }
+

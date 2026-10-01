@@ -1496,7 +1496,7 @@ export default function TeamWorkspaceView({
               type="date"
               value={task.due_date ? task.due_date.split("T")[0] : ""}
               onChange={(e) => handleUpdateTaskDueDate(task.id, e.target.value || null)}
-              className={cn(miniSelect, "h-7 w-[124px] px-1.5 font-mono text-[11.5px] dark:[color-scheme:dark]", overdue && "text-bad")}
+              className={cn(miniSelect, "h-7 w-[124px] px-1.5 font-mono text-[12.5px] dark:[color-scheme:dark]", overdue && "text-bad")}
             />
           </label>
         </div>
@@ -1556,7 +1556,7 @@ export default function TeamWorkspaceView({
         <div className="mb-2 flex items-center gap-2 text-ink-3 [&_svg]:size-3.5">
           {cat.icon}
           <h3 className="text-[13px] font-semibold text-ink">{cat.label}</h3>
-          <span className="font-mono text-[11.5px] text-ink-3 tabular">{catLinks.length}</span>
+          <span className="font-mono text-[12.5px] text-ink-3 tabular">{catLinks.length}</span>
         </div>
         <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
           {catLinks.map((link) => (
@@ -1572,7 +1572,7 @@ export default function TeamWorkspaceView({
                   <ExternalLink className="size-3 shrink-0 text-ink-3" aria-hidden />
                 </a>
                 <span className="mt-0.5 flex items-center gap-2">
-                  <span className="truncate font-mono text-[11.5px] text-ink-3">{linkHost(link.url)}</span>
+                  <span className="truncate font-mono text-[12.5px] text-ink-3">{linkHost(link.url)}</span>
                   {link.hackathon_id ? <Tape tone="info">This event</Tape> : <Tape>All events</Tape>}
                 </span>
               </span>
@@ -1797,7 +1797,7 @@ export default function TeamWorkspaceView({
                                 <Avatar name={m.profiles.full_name} src={m.profiles.avatar_url} size="xs" />
                                 <span className="truncate">{m.profiles.full_name.split(" ")[0]}</span>
                               </span>
-                              <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+                              <span className="shrink-0 font-mono text-[12.5px] text-ink-3 tabular">
                                 {assigned.length - done} open · {done} done
                               </span>
                             </div>
@@ -1860,7 +1860,7 @@ export default function TeamWorkspaceView({
                         <div className="mb-2 flex items-center gap-2 px-0.5">
                           <span className={cn("size-2 rounded-full", col === "todo" ? "bg-ink-4" : col === "in_progress" ? "bg-warn" : "bg-ok")} aria-hidden />
                           <h3 className="text-[13px] font-semibold text-ink">{STATUS_LABEL[col]}</h3>
-                          <span className="font-mono text-[11.5px] text-ink-3 tabular">{colTasks.length}</span>
+                          <span className="font-mono text-[12.5px] text-ink-3 tabular">{colTasks.length}</span>
                         </div>
                         <ul
                           onDragOver={(e) => e.preventDefault()}
@@ -2193,7 +2193,7 @@ export default function TeamWorkspaceView({
                 <Panel className="min-w-0">
                   <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
                     <h3 className="text-[13.5px] font-semibold text-ink">
-                      Recent commits <span className="ml-1 font-mono text-[11.5px] font-normal text-ink-3 tabular">{commits.length}</span>
+                      Recent commits <span className="ml-1 font-mono text-[12.5px] font-normal text-ink-3 tabular">{commits.length}</span>
                     </h3>
                     <Button size="sm" variant="ghost" icon={<RefreshCw className={loadingCommits ? "animate-spin" : undefined} />} disabled={loadingCommits} onClick={fetchCommits}>
                       Refresh
@@ -2228,11 +2228,11 @@ export default function TeamWorkspaceView({
                             </div>
                             <div className="flex shrink-0 items-center gap-0.5">
                               {c.html_url ? (
-                                <a href={c.html_url} target="_blank" rel="noreferrer" className="rounded px-1.5 py-1 font-mono text-[11.5px] text-ink-2 ring-1 ring-inset ring-line-strong hover:text-ink">
+                                <a href={c.html_url} target="_blank" rel="noreferrer" className="rounded px-1.5 py-1 font-mono text-[12.5px] text-ink-2 ring-1 ring-inset ring-line-strong hover:text-ink">
                                   {sha}
                                 </a>
                               ) : (
-                                <span className="font-mono text-[11.5px] text-ink-3">{sha}</span>
+                                <span className="font-mono text-[12.5px] text-ink-3">{sha}</span>
                               )}
                               <IconButton
                                 label="Copy commit hash"
@@ -2288,7 +2288,7 @@ export default function TeamWorkspaceView({
                                   <Avatar name={name} src={info.avatar} size="xs" />
                                   <span className="truncate">{name}</span>
                                 </span>
-                                <span className="font-mono text-[11.5px] text-ink-3 tabular">{info.count}</span>
+                                <span className="font-mono text-[12.5px] text-ink-3 tabular">{info.count}</span>
                               </li>
                             ));
                         })()}
@@ -2379,7 +2379,7 @@ export default function TeamWorkspaceView({
                                 </>
                               )}
                             </span>
-                            {state.status === "online" && state.latency ? <span className="font-mono text-[11.5px] text-ink-3 tabular">{state.latency}ms</span> : null}
+                            {state.status === "online" && state.latency ? <span className="font-mono text-[12.5px] text-ink-3 tabular">{state.latency}ms</span> : null}
                           </div>
                         </li>
                       );
@@ -2432,7 +2432,7 @@ export default function TeamWorkspaceView({
                           <p className="mt-0.5 break-words text-[12.5px] text-ink-2">{event.description}</p>
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span className="font-mono text-[11.5px] text-ink-3 tabular">{relativeTime(event.timestamp)}</span>
+                          <span className="font-mono text-[12.5px] text-ink-3 tabular">{relativeTime(event.timestamp)}</span>
                           {event.user && (
                             <span className="flex items-center gap-1 text-[12px] text-ink-3">
                               <Avatar name={event.user.name} src={event.user.avatarUrl} size="xs" />
@@ -2535,7 +2535,7 @@ export default function TeamWorkspaceView({
                             <div className="min-w-0 flex-1">
                               <p className="text-[12.5px]">
                                 <span className="font-semibold text-ink">{who?.full_name || "Teammate"}</span>{" "}
-                                <span className="font-mono text-[11.5px] text-ink-3">{relativeTime(comment.created_at)}</span>
+                                <span className="font-mono text-[12.5px] text-ink-3">{relativeTime(comment.created_at)}</span>
                               </p>
                               <p className="mt-0.5 whitespace-pre-line break-words text-[13.5px] leading-relaxed text-ink-2">{comment.content}</p>
                             </div>
@@ -2772,3 +2772,4 @@ export default function TeamWorkspaceView({
     </WorkspaceFrame>
   );
 }
+

@@ -38,7 +38,7 @@ export function StatusBadge({
 }: StatusBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold border ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[12.5px] font-medium font-semibold border ${VARIANT_CLASSES[variant]} ${className}`}
     >
       {dot && (
         <span
@@ -58,3 +58,4 @@ export function StatusBadge({
     </span>
   );
 }
+

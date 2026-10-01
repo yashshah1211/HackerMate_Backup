@@ -86,7 +86,7 @@ export default function ConnectPitchModal({ isOpen, onClose, onSend, targetProfi
             <label htmlFor="pitch-note" className="caps-label text-ink-3">
               Your note
             </label>
-            <span className={cn("font-mono text-[11px] tabular", pitch.length > LIMIT ? "text-bad" : "text-ink-4")}>
+            <span className={cn("font-mono text-[12px] tabular", pitch.length > LIMIT ? "text-bad" : "text-ink-4")}>
               {pitch.length}/{LIMIT}
             </span>
           </div>
@@ -132,3 +132,4 @@ export default function ConnectPitchModal({ isOpen, onClose, onSend, targetProfi
     </Dialog>
   );
 }
+

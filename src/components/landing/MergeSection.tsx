@@ -58,7 +58,7 @@ function TeamPreview() {
             <div className="mb-2.5 flex items-baseline justify-between gap-3">
               <p className="text-[13.5px] font-semibold text-ink">
                 Roster{" "}
-                <span className="ml-1 font-mono text-[11.5px] font-normal text-ink-3 tabular">
+                <span className="ml-1 font-mono text-[12.5px] font-normal text-ink-3 tabular">
                   {roster.length}/{EXAMPLE_TEAM.maxMembers}
                 </span>
               </p>
@@ -193,7 +193,7 @@ function TeamPreview() {
               <dl className="divide-y divide-line rounded-lg border border-line text-[12.5px]">
                 <div className="flex items-center justify-between gap-2 px-3 py-2">
                   <dt className="caps-label text-ink-3">Seats</dt>
-                  <dd className="font-mono text-[11.5px] text-ink-2 tabular">
+                  <dd className="font-mono text-[12.5px] text-ink-2 tabular">
                     {roster.length}/{EXAMPLE_TEAM.maxMembers}
                   </dd>
                 </div>
@@ -257,3 +257,4 @@ export function MergeSection() {
     </section>
   );
 }
+

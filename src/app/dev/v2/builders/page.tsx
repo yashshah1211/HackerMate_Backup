@@ -33,12 +33,13 @@ const BUILDERS: Builder[] = [
 
 export default function DevBuilders() {
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"fit" | "active" | "new">("fit");
   return (
     <DevShell pathname="/developers">
       <DevelopersView
         builders={BUILDERS}
         viewer={{ id: "dev-viewer", full_name: "Ananya Rao", college: "NIT Trichy", bio: null, avatar_url: null, skills: ["React", "Python"] }}
-        recs={Object.fromEntries(DEV_BUILDERS.map((b) => [b.id, { compatibility: b.compatibility, reasons: b.reasons }]))}
+        recs={Object.fromEntries(DEV_BUILDERS.map((b) => [b.id, { compatibility: b.compatibility, reasons: b.reasons, matchEngine: "v3" }]))}
         relationships={{ "dev-b-3": "connected", "dev-b-4": "request_sent" }}
         ownedTeams={[{ id: "dev-team-1", name: "Null Pointers", owner_id: "dev-viewer" }]}
         loading={false}
@@ -46,6 +47,8 @@ export default function DevBuilders() {
         onRetry={() => {}}
         search={search}
         onSearch={setSearch}
+        sort={sort}
+        onSort={setSort}
         onSendInvite={async () => true}
         inviteBusy={false}
       />

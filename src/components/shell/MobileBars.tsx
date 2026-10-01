@@ -104,10 +104,11 @@ export function MobileTabBar({ session, section }: { session: ShellSession; sect
               {item.icon}
               {badge > 0 && <CountBadge value={badge} className="absolute -right-2.5 -top-1.5" />}
             </span>
-            <span className={cn("text-[10.5px] font-medium leading-none", active ? "text-ink" : "text-ink-3")}>{item.label}</span>
+            <span className={cn("text-[12.5px] font-medium leading-none", active ? "text-ink" : "text-ink-3")}>{item.label}</span>
           </Link>
         );
       })}
     </nav>
   );
 }
+

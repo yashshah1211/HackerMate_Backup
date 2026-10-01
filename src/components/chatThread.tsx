@@ -267,7 +267,7 @@ function CodeBlockCard({ code, lang }: { code: string; lang?: string }) {
           onClick={handleCopy}
           aria-label={copied ? "Copied" : "Copy code"}
           className={cn(
-            "-mr-1.5 inline-flex h-8 items-center gap-1 rounded-[5px] px-1.5 text-[11.5px] transition-colors [&_svg]:size-3.5",
+            "-mr-1.5 inline-flex h-8 items-center gap-1 rounded-[5px] px-1.5 text-[12.5px] transition-colors [&_svg]:size-3.5",
             copied ? "text-ok" : "text-ink-3 hover:bg-hover hover:text-ink",
           )}
         >
@@ -1503,7 +1503,7 @@ export default function ChatThread({
           isMine ? "bg-canvas/60" : "bg-sunken",
         )}
       >
-        <span className="flex max-w-full items-center gap-1 text-[11.5px] font-semibold text-ink-2">
+        <span className="flex max-w-full items-center gap-1 text-[12.5px] font-semibold text-ink-2">
           <CornerUpLeft className="size-3 shrink-0 text-ink-3" aria-hidden />
           <span className="min-w-0 flex-1 truncate">
             {parentSender?.full_name || (parentMsg ? "User" : "Replied message")}
@@ -1923,7 +1923,7 @@ export default function ChatThread({
                         {sender?.full_name || "Unknown"}
                       </span>
                     )}
-                    <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+                    <span className="shrink-0 font-mono text-[12.5px] text-ink-3 tabular">
                       {formatTime(msg.created_at)}
                     </span>
                     {isMine && (
@@ -1987,7 +1987,7 @@ export default function ChatThread({
                           )}
                         >
                           <span>{group.emoji}</span>
-                          <span className="font-mono text-[11px] tabular">{group.count}</span>
+                          <span className="font-mono text-[12px] tabular">{group.count}</span>
                         </button>
                       ))}
                     </div>
@@ -2064,7 +2064,7 @@ export default function ChatThread({
                 <p className="truncate text-[13px] font-medium text-ink">
                   {stagedImage.file.name}
                 </p>
-                <p className="font-mono text-[11.5px] text-ink-3 tabular">
+                <p className="font-mono text-[12.5px] text-ink-3 tabular">
                   {(stagedImage.file.size / 1024).toFixed(0)} KB · Ready to send
                 </p>
               </div>
@@ -2276,3 +2276,4 @@ export default function ChatThread({
     </div>
   );
 }
+

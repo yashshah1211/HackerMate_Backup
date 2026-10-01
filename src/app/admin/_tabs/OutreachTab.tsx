@@ -404,7 +404,7 @@ export default function OutreachTab({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
-              <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">
+              <span className="text-[12px] font-medium tracking-widest text-zinc-500 font-semibold">
                 Lead Intelligence & CRM
               </span>
             </div>
@@ -426,7 +426,7 @@ export default function OutreachTab({
               <Send className="w-3.5 h-3.5" />
               <span>Bulk Pitch</span>
               {selectedLeadIds.size > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-md bg-[#B4F461] text-zinc-950 font-mono text-[10px] font-bold">
+                <span className="ml-1 px-1.5 py-0.5 rounded-md bg-[#B4F461] text-zinc-950 font-mono text-[12.5px] font-bold">
                   {selectedLeadIds.size}
                 </span>
               )}
@@ -488,14 +488,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "all"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>All Leads</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {leads.length}
             </span>
           </button>
@@ -503,14 +503,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("new")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "new"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>New (Pitch Ready)</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {leads.filter((l) => (l.status === "new" || !l.status) && l.organizer_email).length}
             </span>
           </button>
@@ -518,14 +518,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("no_email")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "no_email"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Missing Email</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {
                 leads.filter(
                   (l) =>
@@ -539,14 +539,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("pitch_sent")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "pitch_sent"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Pitch Sent</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {
                 leads.filter(
                   (l) =>
@@ -563,14 +563,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("opened")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "opened"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Opened</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {
                 leads.filter(
                   (l) =>
@@ -583,14 +583,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("replied")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "replied"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Replied</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {leads.filter((l) => l.status === "replied").length}
             </span>
           </button>
@@ -598,14 +598,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("negotiating")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "negotiating"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Negotiating</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {leads.filter((l) => l.status === "negotiating").length}
             </span>
           </button>
@@ -613,14 +613,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("partner_live")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "partner_live"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Partner Live</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {leads.filter((l) => l.status === "partner_live").length}
             </span>
           </button>
@@ -628,14 +628,14 @@ export default function OutreachTab({
           <button
             type="button"
             onClick={() => setStatusFilter("stale")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === "stale"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
             }`}
           >
             <span>Stale Leads</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-300/40 dark:border-zinc-800">
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-200/60 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[12.5px] font-mono border border-zinc-300/40 dark:border-zinc-800">
               {
                 leads.filter((l) => {
                   const act = l.updated_at || l.opened_at || l.pitch_sent_at || l.created_at;
@@ -716,7 +716,7 @@ export default function OutreachTab({
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono text-[10px] uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800/80">
+              <thead className="bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono text-[12.5px] font-medium border-b border-zinc-200 dark:border-zinc-800/80">
                 <tr>
                   <th className="p-4 w-10 text-center">
                     <input
@@ -838,7 +838,7 @@ export default function OutreachTab({
                               <span className="line-clamp-1">{lead.title}</span>
                               <ExternalLink className="w-3 h-3 text-zinc-400 group-hover:text-[#B4F461] shrink-0" />
                             </a>
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate flex items-center gap-1">
+                            <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate flex items-center gap-1">
                               <Building2 className="w-3 h-3 text-zinc-400 shrink-0" />
                               <span>{lead.college_or_host || "Independent Host"} • {lead.event_date || "Upcoming"}</span>
                             </p>
@@ -863,7 +863,7 @@ export default function OutreachTab({
                           </td>
 
                           {/* Last Activity & Stale Warning */}
-                          <td className="p-4 font-mono text-[11px]">
+                          <td className="p-4 font-mono text-[12px]">
                             {isStale ? (
                               <StatusBadge
                                 label={`Stale (${daysSinceContact}d)`}
@@ -875,7 +875,7 @@ export default function OutreachTab({
                                 {daysSinceContact === 0 ? "Today" : `${daysSinceContact}d ago`}
                               </span>
                             )}
-                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                            <div className="text-[12.5px] text-zinc-400 dark:text-zinc-500 mt-0.5">
                               {lastActivity
                                 ? new Date(lastActivity).toLocaleDateString()
                                 : "No activity"}
@@ -883,7 +883,7 @@ export default function OutreachTab({
                           </td>
 
                           {/* Opens Count */}
-                          <td className="p-4 font-mono text-[11px]">
+                          <td className="p-4 font-mono text-[12px]">
                             {lead.open_count && lead.open_count > 0 ? (
                               <span className="text-zinc-900 dark:text-zinc-100 font-semibold flex items-center gap-1">
                                 <Eye className="w-3 h-3 text-zinc-400" />
@@ -895,7 +895,7 @@ export default function OutreachTab({
                           </td>
 
                           {/* Email & Notes */}
-                          <td className="p-4 font-mono text-[11px] max-w-xs">
+                          <td className="p-4 font-mono text-[12px] max-w-xs">
                             {lead.organizer_email ? (
                               <div className="truncate text-zinc-700 dark:text-zinc-300" title={lead.organizer_email}>
                                 {lead.organizer_email}
@@ -905,7 +905,7 @@ export default function OutreachTab({
                             )}
                             {lead.notes && (
                               <p
-                                className="text-[10px] text-zinc-500 font-sans italic mt-1 line-clamp-1 flex items-center gap-1"
+                                className="text-[12.5px] text-zinc-500 font-sans italic mt-1 line-clamp-1 flex items-center gap-1"
                                 title={lead.notes}
                               >
                                 <Edit3 className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
@@ -921,7 +921,7 @@ export default function OutreachTab({
                                 type="button"
                                 onClick={() => openEditNotesModal(lead)}
                                 title="Edit Lead Notes & Email"
-                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer font-medium"
+                                className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer font-medium"
                               >
                                 Notes
                               </button>
@@ -929,7 +929,7 @@ export default function OutreachTab({
                               <button
                                 type="button"
                                 onClick={() => openPitchModal(lead)}
-                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2.5 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold transition cursor-pointer shadow-sm shadow-[#B4F461]/10"
+                                className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold transition cursor-pointer shadow-sm shadow-[#B4F461]/10"
                               >
                                 {lead.status === "pitch_sent" || lead.status === "replied"
                                   ? "Re-pitch"
@@ -940,7 +940,7 @@ export default function OutreachTab({
                                 type="button"
                                 onClick={() => handleRemoveLead(lead.id, lead.title)}
                                 title="Remove lead"
-                                className="text-[10px] font-mono uppercase tracking-wider py-1 px-2 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                                className="text-[12.5px] font-medium py-1 px-2 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white transition cursor-pointer"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -981,7 +981,7 @@ export default function OutreachTab({
 
             <div className="space-y-3.5">
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <label className="block text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Organizer Email Address
                 </label>
                 <input
@@ -994,7 +994,7 @@ export default function OutreachTab({
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <label className="block text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Email Subject
                 </label>
                 <input
@@ -1006,7 +1006,7 @@ export default function OutreachTab({
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <label className="block text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Email Content (Markdown / Plain Text)
                 </label>
                 <textarea
@@ -1019,7 +1019,7 @@ export default function OutreachTab({
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-900">
-              <div className="text-[10px] text-zinc-400 font-mono">
+              <div className="text-[12.5px] text-zinc-400 font-mono">
                 Resend budget: 100 emails/day
               </div>
 
@@ -1072,10 +1072,10 @@ export default function OutreachTab({
             <div className="space-y-3.5">
               {/* Selected Target Summary */}
               <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">
+                <div className="text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">
                   Selected Recipient Targets ({selectedLeadIds.size}):
                 </div>
-                <div className="max-h-24 overflow-y-auto space-y-1 text-zinc-600 dark:text-zinc-300 font-mono text-[11px] pr-2">
+                <div className="max-h-24 overflow-y-auto space-y-1 text-zinc-600 dark:text-zinc-300 font-mono text-[12px] pr-2">
                   {leads
                     .filter((l) => selectedLeadIds.has(l.id))
                     .map((l) => (
@@ -1086,7 +1086,7 @@ export default function OutreachTab({
                         <span className="truncate max-w-[280px] font-sans font-medium text-zinc-900 dark:text-zinc-100">
                           {l.title}
                         </span>
-                        <span className="text-zinc-500 text-[10px]">
+                        <span className="text-zinc-500 text-[12.5px]">
                           {l.last_sent_to || l.organizer_email || "No email listed"}
                         </span>
                       </div>
@@ -1095,7 +1095,7 @@ export default function OutreachTab({
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <label className="block text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Email Subject
                 </label>
                 <input
@@ -1107,7 +1107,7 @@ export default function OutreachTab({
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <label className="block text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Email Template (Markdown / Plain Text)
                 </label>
                 <textarea
@@ -1120,7 +1120,7 @@ export default function OutreachTab({
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-900">
-              <div className="text-[10px] text-zinc-400 font-mono">
+              <div className="text-[12.5px] text-zinc-400 font-mono">
                 400ms interval rate-limiting
               </div>
 
@@ -1176,7 +1176,7 @@ export default function OutreachTab({
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-zinc-500 dark:text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                <label className="block text-zinc-500 dark:text-zinc-400 font-mono text-[12.5px] uppercase mb-1">
                   Organizer Contact Email
                 </label>
                 <input
@@ -1186,13 +1186,13 @@ export default function OutreachTab({
                   placeholder="e.g. organizer@hackathon.com"
                   className="w-full rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:border-[#B4F461] focus:ring-1 focus:ring-[#B4F461] outline-none transition"
                 />
-                <p className="text-[10px] text-zinc-400 mt-1">
+                <p className="text-[12.5px] text-zinc-400 mt-1">
                   Adding an email to a &quot;Missing Email&quot; lead automatically moves it to &quot;New Lead (Pitch Ready)&quot;.
                 </p>
               </div>
 
               <div>
-                <label className="block text-zinc-500 dark:text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                <label className="block text-zinc-500 dark:text-zinc-400 font-mono text-[12.5px] uppercase mb-1">
                   CRM Conversation Notes
                 </label>
                 <textarea
@@ -1236,3 +1236,4 @@ export default function OutreachTab({
     </>
   );
 }
+

@@ -235,7 +235,7 @@ export default function NotificationDrawer({ isOpen, onClose, onCountChange }: N
         </div>
       ) : loadError ? (
         <p className="px-5 py-10 text-center text-[13px] text-ink-3">
-          Couldn&apos;t load notifications. <span className="font-mono text-[11.5px]">{loadError}</span>
+          Couldn&apos;t load notifications. <span className="font-mono text-[12.5px]">{loadError}</span>
         </p>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center px-6 py-16 text-center">
@@ -268,7 +268,7 @@ export default function NotificationDrawer({ isOpen, onClose, onCountChange }: N
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
                         <Tape tone={meta.tone}>{meta.label}</Tape>
-                        <span className="font-mono text-[11px] text-ink-4">{relativeTime(item.created_at)}</span>
+                        <span className="font-mono text-[12px] text-ink-4">{relativeTime(item.created_at)}</span>
                       </div>
                       <p className={cn("text-[13.5px] leading-snug", item.is_read ? "text-ink-3" : "text-ink")}>{item.message}</p>
                     </div>
@@ -294,3 +294,4 @@ export default function NotificationDrawer({ isOpen, onClose, onCountChange }: N
     </Sheet>
   );
 }
+

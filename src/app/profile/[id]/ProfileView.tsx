@@ -426,7 +426,7 @@ function LinkRow({ href, icon, label, value, external = true }: { href: string; 
         <span className="text-ink-3 group-hover:text-ink">{icon}</span>
         <span className="min-w-0 flex-1">
           <span className="block text-[12.5px] font-medium text-ink">{label}</span>
-          <span className="block truncate font-mono text-[11.5px] text-ink-3">{value}</span>
+          <span className="block truncate font-mono text-[12.5px] text-ink-3">{value}</span>
         </span>
         <ArrowUpRight className="size-3.5 text-ink-4 group-hover:text-ink" aria-hidden />
       </a>
@@ -524,7 +524,7 @@ function TrackRecord({ data, loading, isOwner }: { data: TrackRecordData | null;
             const when = reg.start_date || reg.registered_at;
             return (
               <li key={reg.registration_id} className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 px-4 py-3.5 md:grid-cols-[84px_minmax(0,1fr)]">
-                <div className="pt-0.5 font-mono text-[11px] uppercase leading-tight text-ink-3 tabular">
+                <div className="pt-0.5 font-mono text-[12px] uppercase leading-tight text-ink-3 tabular">
                   {when ? new Date(when).toLocaleDateString("en-IN", { month: "short" }) : "—"}
                   <br />
                   <span className="text-ink-3">{when ? new Date(when).getFullYear() : ""}</span>
@@ -691,7 +691,7 @@ function GithubSection({ stats, syncedAt, isOwner, syncing, onSync }: { stats: G
                   <li key={lang} className="flex items-center gap-1.5 text-[12px] text-ink-2">
                     <span className="size-2 rounded-full" style={{ backgroundColor: LANG_COLORS[lang] || "#8b8880" }} aria-hidden />
                     {lang}
-                    <span className="font-mono text-[11.5px] text-ink-3">{Math.round((n / total) * 100)}%</span>
+                    <span className="font-mono text-[12.5px] text-ink-3">{Math.round((n / total) * 100)}%</span>
                   </li>
                 ))}
               </ul>
@@ -707,7 +707,7 @@ function GithubSection({ stats, syncedAt, isOwner, syncing, onSync }: { stats: G
                       <ArrowUpRight className="size-3.5 shrink-0 text-ink-4 group-hover:text-ink" aria-hidden />
                     </span>
                     {r.description && <span className="mt-1 line-clamp-2 text-[12px] text-ink-3">{r.description}</span>}
-                    <span className="mt-auto flex items-center gap-3 pt-2.5 text-[11.5px] text-ink-3">
+                    <span className="mt-auto flex items-center gap-3 pt-2.5 text-[12.5px] text-ink-3">
                       {r.language && (
                         <span className="flex items-center gap-1.5">
                           <span className="size-2 rounded-full" style={{ backgroundColor: LANG_COLORS[r.language] || "#8b8880" }} aria-hidden />

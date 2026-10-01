@@ -116,7 +116,7 @@ export function LandingHero({
                       >
                         <span className="flex flex-col items-center font-mono leading-none">
                           <span className="text-[15px] font-semibold text-ink tabular">{d.day}</span>
-                          <span className="mt-0.5 text-[10.5px] text-ink-3">{d.month}</span>
+                          <span className="mt-0.5 text-[12.5px] text-ink-3">{d.month}</span>
                         </span>
                         <span className="min-w-0">
                           <span className="block max-w-[200px] truncate text-[13.5px] font-medium text-ink group-hover:underline decoration-line-strong underline-offset-4">
@@ -143,3 +143,4 @@ export function LandingHero({
     </section>
   );
 }
+

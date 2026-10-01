@@ -2,25 +2,20 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Plus, SlidersHorizontal, Target, Users } from "lucide-react";
+import { ArrowRight, Check, Plus, SlidersHorizontal, Target, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
-  Chip,
   EmptyState,
   ErrorNotice,
   FieldLabel,
-  FilterChip,
   Page,
   PageHeader,
   SearchField,
-  SeatMeter,
-  Segmented,
   Select,
   Sheet,
   SkeletonRows,
   Tape,
-  TeamMark,
 } from "@/components/system";
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
 import { coverageLabel, teamSkillCoverage } from "@/lib/matchPresentation";
@@ -149,18 +144,28 @@ export function TeamsView({
       {facets.skills.length > 0 && (
         <div>
           <FieldLabel hint={skills.length ? "any of" : undefined}>Looking for</FieldLabel>
-          <div className="flex flex-wrap gap-1.5">
-            {facets.skills.map((s) => (
-              <FilterChip
-                key={s.name}
-                active={skills.includes(s.name)}
-                count={s.n}
-                onClick={() => setSkills((p) => (p.includes(s.name) ? p.filter((x) => x !== s.name) : [...p, s.name]))}
-              >
-                {s.name}
-              </FilterChip>
-            ))}
-          </div>
+          <ul className="mt-2 flex flex-col">
+            {facets.skills.map((s) => {
+              const active = skills.includes(s.name);
+              return (
+                <li key={s.name}>
+                  <button
+                    type="button"
+                    onClick={() => setSkills((p) => (active ? p.filter((x) => x !== s.name) : [...p, s.name]))}
+                    className="group flex w-full items-center justify-between rounded-lg py-1.5 px-2.5 -mx-2.5 hover:bg-hover transition-colors text-left"
+                  >
+                    <span className={`text-[13px] truncate pr-3 transition-colors ${active ? "font-medium text-ink-2" : "text-ink-3 group-hover:text-ink-2"}`}>
+                      {s.name}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {active && <Check className="size-3.5 text-accent" aria-hidden />}
+                      <span className={`text-[12.5px] tabular-nums transition-colors ${active ? "text-ink-3" : "text-ink-4 group-hover:text-ink-3"}`}>{s.n}</span>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       {active > 0 && (
@@ -200,20 +205,31 @@ export function TeamsView({
             </Button>
           </div>
 
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <Segmented<Scope>
-              label="Which teams"
-              size="sm"
-              value={scope}
-              onChange={(v) => {
-                setScope(v);
-                setLimit(PAGE);
-              }}
-              options={[
-                { value: "open", label: "Open to join", count: loading ? undefined : openCount },
-                { value: "all", label: "All teams", count: loading ? undefined : teams.length },
-              ]}
-            />
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex gap-6" role="tablist" aria-label="Which teams">
+              <button
+                role="tab"
+                aria-selected={scope === "open"}
+                onClick={() => { setScope("open"); setLimit(PAGE); }}
+                className={`flex items-center gap-1.5 pb-2.5 text-[14px] font-medium transition-colors border-b-2 ${
+                  scope === "open" ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink-2"
+                }`}
+              >
+                Open to join
+                {!loading && openCount !== undefined && <span className="text-[12.5px] text-ink-4 tabular-nums">{openCount}</span>}
+              </button>
+              <button
+                role="tab"
+                aria-selected={scope === "all"}
+                onClick={() => { setScope("all"); setLimit(PAGE); }}
+                className={`flex items-center gap-1.5 pb-2.5 text-[14px] font-medium transition-colors border-b-2 ${
+                  scope === "all" ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink-2"
+                }`}
+              >
+                All teams
+                {!loading && <span className="text-[12.5px] text-ink-4 tabular-nums">{teams.length}</span>}
+              </button>
+            </div>
             <p className="text-[12.5px] text-ink-3">
               <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{viewerSkills.length ? " · best skill match first" : ""}
             </p>
@@ -248,52 +264,68 @@ export function TeamsView({
                   const ppt = t.team_ppt_evaluations?.find((e) => e.status === "completed");
                   const tone = CATEGORY_TONE[info.category];
                   return (
-                    <li key={t.id} className="group relative flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-5">
-                      <div className="flex min-w-0 flex-1 items-start gap-3.5">
-                        <TeamMark name={t.name} tone={tone} size="lg" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <Link
-                              href={`/teams/${t.id}`}
-                              className="truncate text-[15px] font-semibold text-ink decoration-line-strong underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline"
-                            >
-                              {t.name}
-                            </Link>
-                            {status.full ? <Tape tone="bad">Full</Tape> : status.closed ? <Tape>Closed</Tape> : <Tape tone="accent" dot>Recruiting</Tape>}
-                            <Tape tone={tone}>{info.tag}</Tape>
-                            {coverage && (
-                              <span className="inline-flex items-center gap-1 text-[12px] text-info">
-                                <CheckCircle2 className="size-3.5" aria-hidden />
-                                {coverage}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 line-clamp-1 text-[13px] text-ink-2">{t.description || "No description yet."}</p>
-                          <p className="mt-1 truncate text-[12.5px] text-ink-3">
-                            {[events.join(", ") || "Independent project", t.college || "Multi-college"].join(" · ")}
-                          </p>
-                          {(t.skills?.length ?? 0) > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {(t.skills || []).slice(0, 5).map((s) => (
-                                <Chip key={s} active={viewerSkills.includes(s)}>
-                                  {s}
-                                </Chip>
-                              ))}
-                              {(t.skills?.length || 0) > 5 && <Chip className="text-ink-4">+{(t.skills?.length || 0) - 5}</Chip>}
-                            </div>
-                          )}
+                    <li key={t.id} className="group relative flex flex-col gap-4 py-5 px-3 sm:px-4 sm:-mx-4 rounded-xl hover:bg-hover transition-colors sm:flex-row sm:items-start sm:gap-5">
+                      <div className="flex shrink-0 sm:pt-0.5">
+                        <div className="flex size-10 items-center justify-center rounded-[40%] bg-raised border border-line text-[14px] font-semibold text-ink-2 group-hover:bg-overlay group-hover:text-ink transition-colors" aria-hidden>
+                          {(t.name.trim().split(/\s+/).length > 1 ? t.name.trim().split(/\s+/)[0][0] + t.name.trim().split(/\s+/)[1][0] : t.name.slice(0, 2)).toUpperCase()}
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center justify-between gap-4 pl-[62px] sm:w-[220px] sm:flex-col sm:items-end sm:pl-0">
-                        <SeatMeter filled={status.members} total={status.max} />
-                        {ppt && (
-                          <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-3" title="Latest pitch-deck evaluation">
-                            <Target className="size-3.5 text-proj" aria-hidden />
-                            Pitch <span className="font-mono text-ink-2">{ppt.total_score}/100</span>
-                            <Tape tone="proj">{ppt.grade}</Tape>
-                          </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                          <Link
+                            href={`/teams/${t.id}`}
+                            className="truncate text-[15.5px] font-semibold text-ink decoration-line-strong underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline"
+                          >
+                            {t.name}
+                          </Link>
+                          {status.full ? (
+                            <span className="text-[12.5px] font-medium text-ink-2"><span className="text-bad">●</span> Full</span>
+                          ) : status.closed ? (
+                            <span className="text-[12.5px] font-medium text-ink-3"><span className="text-ink-4">●</span> Closed</span>
+                          ) : (
+                            <span className="text-[12.5px] font-medium text-ink-2"><span className="text-accent">●</span> Recruiting</span>
+                          )}
+                        </div>
+                        <p className="mt-1 line-clamp-1 text-[13.5px] text-ink-2">{t.description || "No description yet."}</p>
+                        <p className="mt-1.5 truncate text-[13px] text-ink-3">
+                          {[events.join(", ") || "Independent project", t.college || "Multi-college"].join(" · ")}
+                        </p>
+                        {(t.skills?.length ?? 0) > 0 && (
+                          <p className="mt-1 truncate text-[13px] text-ink-3">
+                            {(t.skills || []).slice(0, 5).map((s, i) => (
+                              <span key={s}>
+                                <span className={viewerSkills.includes(s) ? "text-ink-2 font-medium" : ""}>{s}</span>
+                                {i < Math.min((t.skills || []).length, 5) - 1 ? " · " : ""}
+                              </span>
+                            ))}
+                            {(t.skills?.length || 0) > 5 && ` · +${(t.skills?.length || 0) - 5}`}
+                          </p>
                         )}
-                        <span className="hidden items-center gap-1 text-[12.5px] font-medium text-ink-3 group-hover:text-ink sm:inline-flex">
+                        {coverage && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3">
+                            <Check className="size-3.5 text-accent" aria-hidden />
+                            {coverage}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center justify-between gap-4 sm:w-[160px] sm:flex-col sm:items-end sm:justify-start sm:pt-0.5">
+                        <div className="flex flex-col gap-1 items-start sm:items-end">
+                          {status.open && (
+                            <span className="text-[13.5px] font-medium text-ink-2">
+                              {status.max - status.members} spot{status.max - status.members === 1 ? "" : "s"} open
+                            </span>
+                          )}
+                          <span className="text-[12.5px] text-ink-3">
+                            {status.members} of {status.max} members
+                          </span>
+                          {ppt && (
+                            <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-3 mt-1" title="Latest pitch-deck evaluation">
+                              Pitch <span className="font-mono text-ink-2">{ppt.total_score}/100</span>
+                              <Tape tone="proj">{ppt.grade}</Tape>
+                            </span>
+                          )}
+                        </div>
+                        <span className="hidden items-center gap-1 text-[13px] font-medium text-ink-3 group-hover:text-ink sm:inline-flex mt-2">
                           {status.open ? "View & apply" : "View team"}
                           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
                         </span>
@@ -306,7 +338,7 @@ export function TeamsView({
                 <div className="mt-5 flex justify-center">
                   <Button variant="secondary" onClick={() => setLimit((l) => l + PAGE)}>
                     Show more
-                    <span className="font-mono text-[11px] text-ink-4">
+                    <span className="font-mono text-[12px] text-ink-4">
                       {limit}/{results.length}
                     </span>
                   </Button>
@@ -333,3 +365,4 @@ export function TeamsView({
     </Page>
   );
 }
+

@@ -90,9 +90,9 @@ export function teamSkillCoverage(teamSkills: string[] | null | undefined, viewe
   return { matched: matched.length, total: wanted.length, skills: matched };
 }
 
-/** Short label for team cards: "You cover 3 of 4 skills" / "You cover their 2 skills". */
+/** Short label for team cards: "Matches a needed skill" / "Matches all 2 needed skills". */
 export function coverageLabel({ matched, total }: { matched: number; total: number }): string | null {
   if (!total || !matched) return null;
-  if (matched === total) return total === 1 ? "You have the skill they need" : `You have all ${total} skills they need`;
-  return `You have ${matched} of ${total} skills they need`;
+  if (matched === total) return total === 1 ? "Matches a needed skill" : `Matches all ${total} needed skills`;
+  return `Matches ${matched} needed skills`;
 }

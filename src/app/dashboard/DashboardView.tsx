@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  ArrowRight,
   ArrowUpRight,
   CircleCheck,
   GraduationCap,
@@ -38,7 +39,7 @@ import StreakWidget from "@/components/StreakWidget";
 import { CATEGORY_TONE } from "@/lib/teamCategory";
 import { fitBand, matchReason } from "@/lib/matchPresentation";
 import { dateStamp, eventTimeline, greeting, relativeTime } from "@/lib/time";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import type { ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
 import type { ConnState, DashBuilder, DashboardData, QueueItem } from "./useDashboardData";
 
@@ -77,7 +78,7 @@ export function DashboardView({
   const first = data.profile?.full_name?.trim().split(" ")[0] || "there";
   const needsCount = data.queue.length + (unreadMessages > 0 ? 1 : 0);
   const summary: ReactNode[] = [];
-  summary.push(needsCount > 0 ? `${needsCount} ${needsCount === 1 ? "thing needs" : "things need"} you` : "Nothing needs you right now");
+  if (needsCount > 0) summary.push(`${needsCount} pending ${needsCount === 1 ? "item" : "items"}`);
   if (data.stats.closingSoon > 0) summary.push(`${data.stats.closingSoon} hackathon${data.stats.closingSoon === 1 ? "" : "s"} close this week`);
 
   return (
@@ -163,14 +164,14 @@ export function DashboardView({
 function NeedsYou({ data, unreadMessages, handlers }: { data: DashboardData; unreadMessages: number; handlers: DashboardHandlers }) {
   const count = data.queue.length + (unreadMessages > 0 ? 1 : 0);
   return (
-    <Section id="needs-you" title="Needs you" count={data.loading ? undefined : count}>
+    <Section id="needs-you" title="Pending" count={data.loading ? undefined : count}>
       {data.loading ? (
         <SkeletonRows rows={2} />
       ) : count === 0 ? (
         <div className="flex items-center gap-2.5 rounded-lg border border-dashed border-line-strong px-4 py-3.5 text-[13px] text-ink-3">
           <CircleCheck className="size-4 shrink-0 text-ok" aria-hidden />
           <span>
-            <span className="font-medium text-ink-2">You&apos;re clear.</span> Team invites, join requests and connection requests show up here.
+            <span className="font-medium text-ink-2">You&apos;re all caught up.</span> Team invites, join requests, and connection requests will appear here.
           </span>
         </div>
       ) : (
@@ -348,30 +349,35 @@ function YourTeams({ data }: { data: DashboardData }) {
           }
         />
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line bg-raised" data-stagger>
+        <ul className="divide-y divide-line/50 rounded-lg border border-line/50" data-stagger>
           {data.teams.map((t) => {
             const href = `/teams/${t.id}/workspace${t.firstHackathonId ? `?hackathon_id=${t.firstHackathonId}` : ""}`;
             return (
               <li key={t.id}>
-                <Link href={href} className="group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-hover">
-                  <TeamMark name={t.name} tone={CATEGORY_TONE[t.category]} size="md" />
+                <Link href={href} className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-hover/50">
+                  <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-raised border border-line/50 text-[13px] font-semibold tracking-tight text-ink-2">
+                    {getInitials(t.name, 2)}
+                  </span>
+                  
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-[14px] font-semibold text-ink">{t.name}</span>
-                      <Tape tone={CATEGORY_TONE[t.category]}>{t.tag}</Tape>
-                      {t.isOwner && <Tape className="hidden sm:inline-flex">Owner</Tape>}
-                    </div>
-                    <div className="mt-1 flex items-center gap-3">
-                      <span className="truncate text-[12.5px] text-ink-3">{t.eventName}</span>
+                    <span className="block truncate text-[14.5px] font-semibold text-ink group-hover:underline decoration-line-strong underline-offset-4">{t.name}</span>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-ink-3">
+                      <span className="truncate">
+                        {[t.eventName || (t.tag === "PROJECT" ? null : t.tag), t.isOwner ? "Owner" : "Member"].filter(Boolean).join(" · ")}
+                      </span>
                     </div>
                   </div>
-                  <div className="hidden shrink-0 md:block">
-                    <SeatMeter filled={t.memberCount} total={t.maxMembers} />
+                  
+                  <div className="hidden shrink-0 items-center gap-1.5 text-[12.5px] font-medium text-ink-3 md:flex w-16 justify-end">
+                    <Users className="size-3.5 opacity-70" />
+                    <span>{t.memberCount} / {t.maxMembers}</span>
                   </div>
-                  <AvatarStack className="hidden shrink-0 lg:inline-flex" people={t.members} max={3} size="xs" />
-                  <span className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-ink-3 transition-colors group-hover:text-ink">
+                  
+                  <AvatarStack className="hidden shrink-0 lg:inline-flex ml-2" people={t.members} max={3} size="xs" />
+                  
+                  <span className="ml-4 inline-flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-ink-3 transition-colors group-hover:text-ink">
                     <span className="hidden sm:inline">Workspace</span>
-                    <ArrowUpRight className="size-4" aria-hidden />
+                    <ArrowRight className="size-3.5" aria-hidden />
                   </span>
                 </Link>
               </li>
@@ -395,21 +401,38 @@ function BuildersForYou({ data }: { data: DashboardData }) {
       id="builders-for-you"
       title="Builders for you"
       action={
-        <>
-          <Segmented<"fit" | "campus">
-            label="Recommendation view"
-            size="sm"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "fit", label: "Best fit" },
-              { value: "campus", label: "Your campus", count: data.loading ? undefined : data.campus.length },
-            ]}
-          />
-          <span className="hidden sm:inline">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 text-[13.5px] font-medium">
+            <button
+              type="button"
+              onClick={() => setView("fit")}
+              className={cn(
+                "inline-flex items-center pb-1 border-b-2 transition-colors",
+                view === "fit" ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink-2"
+              )}
+            >
+              Best fit
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("campus")}
+              className={cn(
+                "inline-flex items-center gap-1.5 pb-1 border-b-2 transition-colors",
+                view === "campus" ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink-2"
+              )}
+            >
+              Your campus
+              {!data.loading && typeof data.stats.campusCount === "number" && (
+                <span className={cn("text-[12px] font-medium leading-none", view === "campus" ? "text-accent" : "text-ink-4")}>
+                  {data.stats.campusCount}
+                </span>
+              )}
+            </button>
+          </div>
+          <div className="hidden sm:inline-flex items-center pb-1 border-b-2 border-transparent">
             <SectionLink href="/developers">Discover</SectionLink>
-          </span>
-        </>
+          </div>
+        </div>
       }
     >
       {data.loading ? (
@@ -444,7 +467,7 @@ function BuildersForYou({ data }: { data: DashboardData }) {
           />
         )
       ) : (
-        <ul className="divide-y divide-line" data-stagger key={view}>
+        <ul className="divide-y divide-line/40" data-stagger key={view}>
           {list.map((b) => (
             <BuilderRow key={b.id} b={b} viewerSkills={data.profile?.skills || []} state={data.connectionStates[b.id] || "not_connected"} />
           ))}
@@ -460,20 +483,24 @@ function BuilderRow({ b, state, viewerSkills }: { b: DashBuilder; state: ConnSta
   const why = matchReason({ reasons: b.reasons, builderSkills: b.skills, viewerSkills });
   const reason = why?.text;
   const isDiscovery = Boolean(why?.discovery);
-  const band = fitBand(b.compatibility, b.confidence);
 
   return (
-    <li className="group relative flex items-start gap-3 py-3.5">
-      <Avatar name={b.full_name} src={b.avatar_url} size="md" presence={b.is_available ? "online" : null} />
+    <li className="group relative flex items-start gap-4 px-2 py-4 sm:px-4 sm:-mx-2 transition-colors hover:bg-hover/40 rounded-xl">
+      <Avatar name={b.full_name} src={b.avatar_url} size="md" presence={b.is_available ? "online" : null} className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <Link
             href={`/profile/${b.id}`}
-            className="truncate text-[14px] font-semibold text-ink after:absolute after:inset-0 after:content-[''] group-hover:underline decoration-line-strong underline-offset-4"
+            className="truncate text-[14.5px] font-semibold text-ink after:absolute after:inset-0 after:content-[''] group-hover:underline decoration-line-strong underline-offset-4"
           >
             {b.full_name || "Builder"}
           </Link>
-          {b.is_available && <Tape tone="ok">Available</Tape>}
+          {b.is_available && (
+            <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-ok">
+              <span className="size-1.5 rounded-full bg-ok" aria-hidden />
+              Available
+            </span>
+          )}
         </div>
         <p className="mt-0.5 truncate text-[12.5px] text-ink-3">{[b.college, b.year_of_study].filter(Boolean).join(" · ") || "Independent builder"}</p>
         {reason && (
@@ -483,20 +510,29 @@ function BuilderRow({ b, state, viewerSkills }: { b: DashBuilder; state: ConnSta
           </p>
         )}
         {skills.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {skills.map((s) => (
-              <Chip key={s} active={shared.has(s)}>
-                {s}
-              </Chip>
+          <div className="mt-2 text-[12px] text-ink-3 leading-relaxed">
+            {skills.map((s, i) => (
+              <span key={s}>
+                <span className={shared.has(s) ? "font-medium text-ink-2" : ""}>{s}</span>
+                {i < skills.length - 1 && <span className="mx-1.5 text-line-strong">·</span>}
+              </span>
             ))}
+            {b.skills && b.skills.length > skills.length && (
+              <span className="ml-1.5 text-ink-4">+{b.skills.length - skills.length}</span>
+            )}
           </div>
         )}
       </div>
-      <div className="relative z-10 flex shrink-0 flex-col items-end gap-2">
-        {band && (
-          <Tape tone={band.tone} title={band.detail}>
-            {band.label}
-          </Tape>
+      <div className="relative z-10 flex shrink-0 flex-col items-end gap-2 pl-2">
+        {typeof b.compatibility === "number" && (
+          <span 
+            className={cn(
+              "text-[12.5px] font-medium tracking-tight",
+              b.matchEngine === "v3" ? "text-accent-ink" : "text-ink-3"
+            )}
+          >
+            {b.matchEngine === "v3" ? `${b.compatibility}% match` : (fitBand(b.compatibility)?.label || "Recommended")}
+          </span>
         )}
         <RelationshipCta id={b.id} state={state} />
       </div>
@@ -505,18 +541,24 @@ function BuilderRow({ b, state, viewerSkills }: { b: DashBuilder; state: ConnSta
 }
 
 function RelationshipCta({ id, state }: { id: string; state: ConnState }) {
-  if (state === "connected") return <Tape tone="ok">Connected</Tape>;
-  if (state === "request_sent") return <Tape>Request sent</Tape>;
+  if (state === "connected") return (
+    <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-ok">
+      <span className="size-1.5 rounded-full bg-ok" aria-hidden />
+      Connected
+    </span>
+  );
+  if (state === "request_sent") return <span className="text-[12.5px] text-ink-3">Request sent</span>;
   if (state === "request_received")
     return (
-      <ButtonLink href="#needs-you" size="sm" variant="primary">
-        Respond
-      </ButtonLink>
+      <Link href="#needs-you" className="flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
+        Respond <ArrowRight className="size-3.5" aria-hidden />
+      </Link>
     );
   return (
-    <ButtonLink href={`/profile/${id}?connect=1`} size="sm" variant="secondary" icon={<UserPlus />}>
+    <Link href={`/profile/${id}?connect=1`} className="flex items-center gap-1.5 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink">
+      <UserPlus className="size-4" />
       Connect
-    </ButtonLink>
+    </Link>
   );
 }
 
@@ -538,7 +580,7 @@ function ProfileStrength({ data, onOpenProfileSetup }: { data: DashboardData; on
                     <span className="size-1.5 rounded-full bg-ink-4" aria-hidden />
                     {m.label}
                   </span>
-                  <span className="font-mono text-[11px] text-ink-4">+20%</span>
+                  <span className="font-mono text-[12px] text-ink-4">+20%</span>
                 </Link>
               </li>
             ))}
@@ -654,7 +696,7 @@ function RecentActivity({ data, onOpenInbox }: { data: DashboardData; onOpenInbo
               <>
                 <span className="absolute -left-[20.5px] top-1.5 size-2 rounded-full bg-line-strong ring-2 ring-canvas" aria-hidden />
                 <p className="text-[12.5px] leading-snug text-ink-2">{a.message}</p>
-                <p className="mt-0.5 font-mono text-[10.5px] text-ink-4">{relativeTime(a.createdAt, { suffix: true })}</p>
+                <p className="mt-0.5 font-mono text-[12.5px] text-ink-4">{relativeTime(a.createdAt, { suffix: true })}</p>
               </>
             );
             return (
@@ -674,3 +716,4 @@ function RecentActivity({ data, onOpenInbox }: { data: DashboardData; onOpenInbo
     </Section>
   );
 }
+

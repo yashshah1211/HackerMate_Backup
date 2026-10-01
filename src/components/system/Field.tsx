@@ -12,7 +12,7 @@ const fieldBase =
 
 export const Input = forwardRef<HTMLInputElement, ComponentProps<"input"> & { leading?: ReactNode; inputSize?: "md" | "lg" }>(
   function Input({ className, leading, inputSize = "md", ...rest }, ref) {
-    const h = inputSize === "lg" ? "h-11 text-[15px]" : "h-[34px] text-[13.5px]";
+    const h = inputSize === "lg" ? "h-11 text-[15.5px]" : "h-9 text-[14.5px]";
     if (!leading) return <input ref={ref} className={cn(fieldBase, h, "px-3", className)} {...rest} />;
     return (
       <span className="relative block">
@@ -24,7 +24,7 @@ export const Input = forwardRef<HTMLInputElement, ComponentProps<"input"> & { le
 );
 
 export const Textarea = forwardRef<HTMLTextAreaElement, ComponentProps<"textarea">>(function Textarea({ className, ...rest }, ref) {
-  return <textarea ref={ref} className={cn(fieldBase, "min-h-24 px-3 py-2 text-[13.5px] leading-relaxed", className)} {...rest} />;
+  return <textarea ref={ref} className={cn(fieldBase, "min-h-24 px-3 py-2 text-[14.5px] leading-relaxed", className)} {...rest} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, ComponentProps<"select">>(function Select({ className, children, ...rest }, ref) {
@@ -33,7 +33,7 @@ export const Select = forwardRef<HTMLSelectElement, ComponentProps<"select">>(fu
       ref={ref}
       className={cn(
         fieldBase,
-        "h-[34px] appearance-none pl-3 pr-8 text-[13.5px] bg-[length:16px] bg-[right_0.5rem_center] bg-no-repeat",
+        "h-9 appearance-none pl-3 pr-8 text-[14.5px] bg-[length:16px] bg-[right_0.5rem_center] bg-no-repeat",
         "bg-[url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%238b8880' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")]",
         className,
       )}
@@ -48,7 +48,7 @@ export function FieldLabel({ children, htmlFor, hint }: { children: ReactNode; h
   return (
     <label htmlFor={htmlFor} className="mb-1.5 flex items-baseline justify-between gap-2">
       <span className="caps-label text-ink-3">{children}</span>
-      {hint && <span className="text-[11.5px] text-ink-4">{hint}</span>}
+      {hint && <span className="text-[13.5px] text-ink-4">{hint}</span>}
     </label>
   );
 }
@@ -164,8 +164,9 @@ export function FilterChip({
     >
       {children}
       {typeof count === "number" && (
-        <span className={cn("font-mono text-[10.5px] tabular", active ? "text-canvas/70" : "text-ink-4")}>{count}</span>
+        <span className={cn("font-mono text-[12.5px] tabular", active ? "text-canvas/70" : "text-ink-4")}>{count}</span>
       )}
     </button>
   );
 }
+

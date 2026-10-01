@@ -72,7 +72,7 @@ export function ShareScoreCardModal({
         <div className="rounded-lg border border-line bg-raised p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="caps-label text-ink-3">HackerMate practice</span>
-            <span className="font-mono text-[11.5px] text-ink-3 tabular">#{challengeNumber}</span>
+            <span className="font-mono text-[12.5px] text-ink-3 tabular">#{challengeNumber}</span>
           </div>
           <p className="mt-2 truncate text-[14px] font-semibold text-ink">{challengeTitle}</p>
           <p className="mt-0.5 text-[12.5px] text-ink-3">
@@ -94,14 +94,14 @@ export function ShareScoreCardModal({
             {rubric.map((r) => (
               <li key={r.label} className="flex items-center justify-between gap-2 text-[12.5px] text-ink-2">
                 <span className="truncate">{r.label}</span>
-                <span className="font-mono text-[11.5px] text-ink-3 tabular">
+                <span className="font-mono text-[12.5px] text-ink-3 tabular">
                   {r.value}/{r.max}
                 </span>
               </li>
             ))}
           </ul>
 
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-3 font-mono text-[11px] text-ink-3">
+          <div className="mt-4 flex items-center justify-between border-t border-line pt-3 font-mono text-[12px] text-ink-3">
             <span className="inline-flex items-center gap-1 text-ok">
               <ShieldCheck className="size-3.5" aria-hidden />
               Scored by AI review
@@ -138,3 +138,4 @@ export function ShareScoreCardModal({
     </Dialog>
   );
 }
+

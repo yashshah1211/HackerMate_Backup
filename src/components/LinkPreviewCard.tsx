@@ -99,7 +99,7 @@ export default function LinkPreviewCard({ url, isMine }: { url: string; isMine?:
       )}
 
       <div className="p-3">
-        <div className="mb-1 flex min-w-0 items-center gap-1.5 text-[11.5px] font-medium text-ink-3">
+        <div className="mb-1 flex min-w-0 items-center gap-1.5 text-[12.5px] font-medium text-ink-3">
           {data.favicon && (
             <img
               src={data.favicon}
@@ -125,3 +125,4 @@ export default function LinkPreviewCard({ url, isMine }: { url: string; isMine?:
     </a>
   );
 }
+

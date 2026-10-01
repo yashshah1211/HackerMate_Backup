@@ -1270,7 +1270,7 @@ function HackathonDetailContent() {
             {skill}
           </Chip>
         ))}
-        {skills.length > max && <span className="self-center font-mono text-[11px] text-ink-3">+{skills.length - max}</span>}
+        {skills.length > max && <span className="self-center font-mono text-[12px] text-ink-3">+{skills.length - max}</span>}
       </div>
     ) : (
       <p className="mt-1.5 text-[12px] text-ink-3">No skills listed</p>
@@ -1421,7 +1421,7 @@ function HackathonDetailContent() {
                   return (
                     <TimelineItem key={idx} state={state} last={idx === all.length - 1}>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-[11.5px] text-ink-3 tabular">R{rd.round_number || idx + 1}</span>
+                        <span className="font-mono text-[12.5px] text-ink-3 tabular">R{rd.round_number || idx + 1}</span>
                         <h3 className="min-w-0 break-words text-[14px] font-semibold text-ink">{rd.name || `Round ${idx + 1}`}</h3>
                         {rd.type && <Tape>{rd.type}</Tape>}
                         {state === "live" && (
@@ -1720,7 +1720,7 @@ function HackathonDetailContent() {
                                       <Tape key={role}>{role}</Tape>
                                     ))}
                                     {team.roles_needed.length > 2 && (
-                                      <span className="font-mono text-[11px] text-ink-3">+{team.roles_needed.length - 2} more</span>
+                                      <span className="font-mono text-[12px] text-ink-3">+{team.roles_needed.length - 2} more</span>
                                     )}
                                   </div>
                                 ) : null}
@@ -2242,7 +2242,7 @@ function InPageTabs<T extends string>({
           >
             {t.label}
             {typeof t.count === "number" && (
-              <span className={cn("font-mono text-[11px] tabular", active ? "text-ink-2" : "text-ink-4")}>{t.count}</span>
+              <span className={cn("font-mono text-[12px] tabular", active ? "text-ink-2" : "text-ink-4")}>{t.count}</span>
             )}
             {active && <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-signal" aria-hidden />}
           </button>

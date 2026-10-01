@@ -326,7 +326,7 @@ export default function ChallengesPage() {
                   <p className="mt-3 flex gap-2 border-t border-line pt-3 text-[12.5px] leading-relaxed text-ink-2">
                     <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-bad" aria-hidden />
                     <span className="min-w-0">
-                      <span className="font-mono text-[11.5px] text-bad">{p.penalty}</span> {p.penaltyText}
+                      <span className="font-mono text-[12.5px] text-bad">{p.penalty}</span> {p.penaltyText}
                     </span>
                   </p>
                 </Panel>
@@ -405,7 +405,7 @@ export default function ChallengesPage() {
                           <div className="mt-2 flex flex-wrap items-center gap-1.5 md:hidden">
                             <Tape>{challenge.track}</Tape>
                             <Tape tone={difficultyTone(challenge.difficulty)}>{challenge.difficulty}</Tape>
-                            <span className="font-mono text-[11.5px] text-ink-3">{tl.label}</span>
+                            <span className="font-mono text-[12.5px] text-ink-3">{tl.label}</span>
                           </div>
                         </div>
                         <div className="hidden shrink-0 items-center gap-1.5 md:flex">
@@ -413,7 +413,7 @@ export default function ChallengesPage() {
                           <Tape tone={difficultyTone(challenge.difficulty)}>{challenge.difficulty}</Tape>
                         </div>
                         <div className="hidden w-28 shrink-0 text-right md:block">
-                          <p className="font-mono text-[11.5px] text-ink-3">{tl.label}</p>
+                          <p className="font-mono text-[12.5px] text-ink-3">{tl.label}</p>
                           <p className="mt-0.5 caps-label text-ink-3">{challenge.status}</p>
                         </div>
                         <ArrowRight className="mt-0.5 size-4 shrink-0 text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-ink md:mt-0" aria-hidden />
@@ -429,3 +429,4 @@ export default function ChallengesPage() {
     </Page>
   );
 }
+

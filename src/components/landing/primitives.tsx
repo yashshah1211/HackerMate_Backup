@@ -25,7 +25,7 @@ export function StageLabel({ id, className }: { id: StageId; className?: string 
   const stage = STAGES.find((s) => s.id === id)!;
   return (
     <p className={cn("flex items-center gap-2.5", className)}>
-      <span className="inline-flex h-[22px] items-center rounded-[4px] bg-accent-soft px-1.5 font-mono text-[11.5px] font-semibold text-accent-ink ring-1 ring-inset ring-accent/40 tabular">
+      <span className="inline-flex h-[22px] items-center rounded-[4px] bg-accent-soft px-1.5 font-mono text-[12.5px] font-semibold text-accent-ink ring-1 ring-inset ring-accent/40 tabular">
         {stage.n}
       </span>
       <span className="caps-label text-ink-2">{stage.verb}</span>
@@ -88,7 +88,7 @@ export function ProductFrame({
       <div className="flex h-9 items-center justify-between gap-3 border-b border-line bg-raised px-3">
         <span className="flex min-w-0 items-center gap-2">
           <LogoMark size={16} />
-          <span className="truncate font-mono text-[11.5px] text-ink-3">
+          <span className="truncate font-mono text-[12.5px] text-ink-3">
             <span className="hidden sm:inline">hackermate.in</span>
             {route}
           </span>
@@ -119,7 +119,7 @@ export function Pin({ n, className }: { n: number; className?: string }) {
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-canvas font-mono text-[11px] font-semibold text-accent-ink ring-1 ring-accent/60",
+        "inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-canvas font-mono text-[12px] font-semibold text-accent-ink ring-1 ring-accent/60",
         className,
       )}
     >
@@ -161,3 +161,4 @@ export function useCountdown(startSeconds: number, running: boolean) {
   }, [running, startSeconds]);
   return left;
 }
+

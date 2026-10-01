@@ -26,9 +26,9 @@
 
   /* Ink */
   --hm-ink: #f2f0ea;
-  --hm-ink-2: #bab7ae;
-  --hm-ink-3: #8b8880;
-  --hm-ink-4: #615f59;
+  --hm-ink-2: #ceccc3;
+  --hm-ink-3: #a3a097;
+  --hm-ink-4: #737069;
 
   /* Brand signal (HackerMate lime) */
   --hm-accent: #b4f461;
@@ -130,9 +130,9 @@
   --hm-line-strong: #cbc8be;
 
   --hm-ink: #161614;
-  --hm-ink-2: #45433e;
-  --hm-ink-3: #6b6962;
-  --hm-ink-4: #9c9990;
+  --hm-ink-2: #3a3834;
+  --hm-ink-3: #5c5953;
+  --hm-ink-4: #87847b;
 
   --hm-accent: #b4f461;
   --hm-accent-hover: #a5ea4b;
@@ -251,10 +251,17 @@
 
 /* V2 utilities */
 @utility caps-label {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+@utility tech-label {
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  line-height: 14px;
-  letter-spacing: 0.07em;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 500;
 }
@@ -849,3 +856,5 @@ textarea.input { resize: vertical; min-height: 100px; line-height: 1.5; }
 
 /* Hide the Next.js dev badge; it overlaps the nav rail. */
 nextjs-portal { display: none !important; }
+
+

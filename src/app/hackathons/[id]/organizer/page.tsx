@@ -637,7 +637,7 @@ export default function OrganizerPortalPage() {
                                 <Chip key={idx}>{skill}</Chip>
                               ))}
                               {(reg.profiles?.skills || []).length > 3 && (
-                                <span className="self-center font-mono text-[11px] text-ink-3">+{(reg.profiles?.skills || []).length - 3}</span>
+                                <span className="self-center font-mono text-[12px] text-ink-3">+{(reg.profiles?.skills || []).length - 3}</span>
                               )}
                             </div>
                           </td>
@@ -739,7 +739,7 @@ export default function OrganizerPortalPage() {
             <div className="mt-6">
               <h3 className="mb-2.5 flex items-baseline gap-2 text-[13px] font-semibold text-ink">
                 History
-                <span className="font-mono text-[11.5px] font-normal text-ink-4 tabular">{announcements.length}</span>
+                <span className="font-mono text-[12.5px] font-normal text-ink-4 tabular">{announcements.length}</span>
               </h3>
               {announcements.length === 0 ? (
                 <p className="text-[13px] text-ink-3">No announcements sent yet.</p>
@@ -793,7 +793,7 @@ export default function OrganizerPortalPage() {
                         <IconButton label="Move up" size="sm" disabled={idx === 0} onClick={() => handleMoveStage(stg, "up")} className="disabled:opacity-30">
                           <ChevronUp />
                         </IconButton>
-                        <span className="font-mono text-[11px] text-ink-3 tabular">{idx + 1}</span>
+                        <span className="font-mono text-[12px] text-ink-3 tabular">{idx + 1}</span>
                         <IconButton
                           label="Move down"
                           size="sm"

@@ -6,6 +6,8 @@ import type { ShellSession } from "./useShellSession";
 type ShellContextValue = {
   session: ShellSession;
   theme: "dark" | "light";
+  themePref?: "dark" | "light" | "system";
+  setThemePref?: (pref: "dark" | "light" | "system") => void;
   toggleTheme: () => void;
   /** Immersive mode hides mobile chrome (tab bar + top bar) for chat/workspace. */
   setImmersive: (on: boolean) => void;

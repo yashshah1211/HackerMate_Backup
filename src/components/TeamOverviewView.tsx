@@ -729,7 +729,7 @@ export default function TeamOverviewView({
                     <Avatar name={p.full_name} src={p.avatar_url} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium text-ink">{p.full_name}</p>
-                      <p className="truncate text-[11.5px] text-ink-3">{[p.college, (p.skills || []).slice(0, 3).join(", ")].filter(Boolean).join(" · ")}</p>
+                      <p className="truncate text-[12.5px] text-ink-3">{[p.college, (p.skills || []).slice(0, 3).join(", ")].filter(Boolean).join(" · ")}</p>
                     </div>
                     <Button size="sm" variant={invited ? "ghost" : "secondary"} disabled={invited} icon={invited ? <Check /> : undefined} onClick={() => sendInviteTo(p)}>
                       {invited ? "Invited" : "Invite"}
@@ -903,3 +903,4 @@ function OverflowMenu({ items, up = false }: { items: MenuItem[]; up?: boolean }
     />
   );
 }
+

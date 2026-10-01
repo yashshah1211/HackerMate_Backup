@@ -33,7 +33,7 @@ function useAccountItems({ viewerId, profile, theme, toggleTheme, onRequestSignO
   const router = useRouter();
   const go = (href: string) => () => router.push(href);
   const items: MenuItem[] = [
-    { label: "Your profile", icon: <UserRound />, onSelect: go(`/profile/${viewerId}`) },
+    { type: "separator" },
     { label: "Edit profile", icon: <PenLine />, onSelect: go("/profile/edit") },
     { label: "Connections", icon: <Handshake />, onSelect: go("/connections") },
     { label: "Team invites", icon: <Inbox />, onSelect: go("/invites") },
@@ -50,11 +50,6 @@ function useAccountItems({ viewerId, profile, theme, toggleTheme, onRequestSignO
   items.push(
     { type: "separator" },
     { label: "Settings", icon: <Settings />, onSelect: go("/settings") },
-    {
-      label: theme === "dark" ? "Light mode" : "Dark mode",
-      icon: theme === "dark" ? <Sun /> : <Moon />,
-      onSelect: toggleTheme,
-    },
   );
   if (profile?.role === "admin") {
     items.push({ label: "Admin panel", icon: <Shield />, onSelect: go("/admin") });
@@ -63,16 +58,22 @@ function useAccountItems({ viewerId, profile, theme, toggleTheme, onRequestSignO
   return items;
 }
 
-function AccountHeader({ profile, viewerId }: { profile: ShellProfile | null; viewerId: string }) {
+function AccountHeader({ profile, viewerId, onClose }: { profile: ShellProfile | null; viewerId: string; onClose?: () => void }) {
+  const handleClick = () => {
+    onClose?.();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  };
+
   return (
     <Link
       href={`/profile/${viewerId}`}
-      className="mb-1 flex items-center gap-2.5 rounded-md border-b border-line px-2.5 pb-2.5 pt-2 hover:bg-hover"
+      onClick={handleClick}
+      className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
     >
       <Avatar name={profile?.full_name} src={profile?.avatar_url} size="md" />
       <span className="min-w-0">
         <span className="block truncate text-[13.5px] font-semibold text-ink">{profile?.full_name || "Your account"}</span>
-        <span className="block text-[12px] text-ink-3">View profile</span>
+        <span className="block text-[12px] text-ink-3 transition-colors group-hover:text-ink-2">View profile</span>
       </span>
     </Link>
   );
@@ -110,7 +111,7 @@ export function AccountSheet({ open, onClose, ...props }: AccountActions & { ope
   return (
     <Sheet open={open} onClose={onClose} label="Account">
       <div className="px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-        <AccountHeader profile={props.profile} viewerId={props.viewerId} />
+        <AccountHeader profile={props.profile} viewerId={props.viewerId} onClose={onClose} />
         {items.map((item, i) => {
           if (item.type === "separator") return <div key={i} className="mx-2 my-1.5 h-px bg-line" />;
           if (item.type === "label")

@@ -423,7 +423,7 @@ function LeaderboardContent() {
                     <RankIcon className="size-4 text-warn" aria-hidden />
                     {rankLabel(rank)}
                   </span>
-                  <span className="truncate font-mono text-[11.5px] text-ink-3">{college.cityState}</span>
+                  <span className="truncate font-mono text-[12.5px] text-ink-3">{college.cityState}</span>
                 </div>
                 <h3 className="mt-3 line-clamp-2 font-display text-[16px] font-semibold leading-snug tracking-[-0.015em] text-ink">
                   {college.shortName}
@@ -562,7 +562,7 @@ function LeaderboardContent() {
 
                       <div className="hidden shrink-0 text-right sm:block">
                         <span className="block font-mono text-[12px] text-ink-2 tabular">{college.builderCount} devs</span>
-                        <span className="block font-mono text-[11.5px] text-ink-3 tabular">{college.activeSquadCount} squads</span>
+                        <span className="block font-mono text-[12.5px] text-ink-3 tabular">{college.activeSquadCount} squads</span>
                       </div>
 
                       <div className="shrink-0 text-right">
@@ -621,7 +621,7 @@ function LeaderboardContent() {
                                     <span className="block truncate text-[13px] font-medium text-ink">
                                       {builder.full_name || "Anonymous builder"}
                                     </span>
-                                    <span className="block truncate font-mono text-[11.5px] text-ink-3">
+                                    <span className="block truncate font-mono text-[12.5px] text-ink-3">
                                       {builder.skills && builder.skills.length > 0
                                         ? builder.skills.slice(0, 2).join(", ")
                                         : "Full-stack builder"}
@@ -652,3 +652,4 @@ export default function LeaderboardPage() {
     </Suspense>
   );
 }
+

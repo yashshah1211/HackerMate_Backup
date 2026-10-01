@@ -108,7 +108,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
       <div className="p-5 rounded-2xl bg-[var(--surface-1)] border border-[var(--card-border)] space-y-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--card-border)] pb-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-mono font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[12.5px] font-semibold">
               <span>⚡ Verified Builder Track Record</span>
             </div>
             <h3 className="text-base font-bold text-[var(--foreground)] mt-1">
@@ -117,7 +117,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[11px] font-medium">
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[12px] font-medium">
             <button
               onClick={() => setFilter("all")}
               className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
@@ -140,15 +140,15 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
         {/* Quick KPI Strip */}
         <div className="grid grid-cols-3 gap-3 font-mono text-center">
           <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/80">
-            <span className="text-[10px] text-zinc-500 uppercase block">Hackathons</span>
+            <span className="text-[12.5px] text-zinc-500 uppercase block">Hackathons</span>
             <span className="text-lg font-black text-indigo-400">{totalHackathons}</span>
           </div>
           <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <span className="text-[10px] text-zinc-500 uppercase block">Teams Joined</span>
+            <span className="text-[12.5px] text-zinc-500 uppercase block">Teams Joined</span>
             <span className="text-lg font-black text-sky-400">{totalTeams}</span>
           </div>
           <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <span className="text-[10px] text-zinc-500 uppercase block">Projects Delivered</span>
+            <span className="text-[12.5px] text-zinc-500 uppercase block">Projects Delivered</span>
             <span className="text-lg font-black text-emerald-400">{totalSubmissions}</span>
           </div>
         </div>
@@ -191,24 +191,24 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                           {reg.hackathon_name}
                         </Link>
                         {reg.mode && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 uppercase">
+                          <span className="text-[12.5px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 uppercase">
                             {reg.mode}
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                      <p className="text-[12.5px] text-zinc-500 font-mono mt-0.5">
                         Registered {new Date(reg.registered_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
                       </p>
                     </div>
 
                     {/* Submission status pill */}
                     {submission ? (
-                      <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+                      <span className="text-[12.5px] font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         <span>Project Delivered</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <span className="text-[12.5px] font-mono px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                         Participated
                       </span>
                     )}
@@ -227,7 +227,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                             {matchingTeams[0].team_name}
                           </Link>
                         </span>
-                        <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                        <span className="text-[12.5px] font-mono text-zinc-400 uppercase">
                           Role: {matchingTeams[0].user_role}
                         </span>
                       </div>
@@ -235,7 +235,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                       {/* Teammates Avatar Strip */}
                       {matchingTeams[0].teammates?.length > 0 && (
                         <div className="flex items-center gap-2 pt-1">
-                          <span className="text-[10px] text-zinc-500 font-mono">Teammates:</span>
+                          <span className="text-[12.5px] text-zinc-500 font-mono">Teammates:</span>
                           <div className="flex items-center -space-x-2">
                             {matchingTeams[0].teammates.slice(0, 5).map((m) => (
                               <div key={m.user_id} title={m.full_name || "Teammate"}>
@@ -246,7 +246,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                                     className="w-6 h-6 rounded-full object-cover border-2 border-white dark:border-zinc-900"
                                   />
                                 ) : (
-                                  <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-[9px] flex items-center justify-center border-2 border-white dark:border-zinc-900">
+                                  <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-[12px] flex items-center justify-center border-2 border-white dark:border-zinc-900">
                                     {m.full_name?.charAt(0) || "U"}
                                   </div>
                                 )}
@@ -262,10 +262,10 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                   {submission && (
                     <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 space-y-2 text-left">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase tracking-wider">
+                        <span className="text-[12.5px] font-mono font-bold text-indigo-400 font-medium">
                           🚀 Project Submission
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">
+                        <span className="text-[12.5px] text-zinc-500 font-mono">
                           {new Date(submission.submitted_at).toLocaleDateString("en-IN")}
                         </span>
                       </div>
@@ -279,7 +279,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                             href={submission.demo_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer inline-flex items-center gap-1"
+                            className="text-[12px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <span>Live Demo ↗</span>
                           </a>
@@ -289,7 +289,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                             href={submission.github_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            className="text-[12px] font-bold px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <span>Code Repo ↗</span>
                           </a>
@@ -299,7 +299,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                             href={submission.slides_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            className="text-[12px] font-medium px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <span>Pitch Deck ↗</span>
                           </a>
@@ -316,3 +316,4 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
     </div>
   );
 }
+

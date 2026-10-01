@@ -107,7 +107,7 @@ function LoginContent() {
                   >
                     {i === 0 && <span className="size-1.5 rounded-full bg-on-accent" />}
                   </span>
-                  <span className="font-mono text-[11.5px] text-ink-3 tabular">{s.n}</span>
+                  <span className="font-mono text-[12.5px] text-ink-3 tabular">{s.n}</span>
                   <span className={i === 0 ? "caps-label text-ink" : "caps-label text-ink-3"}>{s.verb}</span>
                   <span className="text-[13.5px] text-ink-2">{s.line}</span>
                 </li>
@@ -142,3 +142,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+

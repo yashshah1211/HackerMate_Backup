@@ -230,7 +230,7 @@ export default function LinkedIdeaScorecard({
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="caps-label text-ink-3">Idea score</p>
             <Tape>{trackInfo.badge}</Tape>
-            <span className="font-mono text-[11.5px] text-ink-3">{formattedDate}</span>
+            <span className="font-mono text-[12.5px] text-ink-3">{formattedDate}</span>
           </div>
           <h3 className="mt-1.5 break-words text-[15px] font-semibold text-ink">{currentEval.ps_title}</h3>
         </div>
@@ -282,7 +282,7 @@ export default function LinkedIdeaScorecard({
               <span className="min-w-0 truncate text-ink-2" title={r.cat.label}>
                 {r.cat.label}
               </span>
-              <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+              <span className="shrink-0 font-mono text-[12.5px] text-ink-3 tabular">
                 {r.value}/{r.cat.maxPts}
               </span>
             </div>
@@ -385,3 +385,4 @@ export default function LinkedIdeaScorecard({
     </Panel>
   );
 }
+

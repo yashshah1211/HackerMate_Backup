@@ -148,7 +148,7 @@ export default function PartneringTab({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
-              <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">
+              <span className="text-[12px] font-medium tracking-widest text-zinc-500 font-semibold">
                 Event Partnerships
               </span>
             </div>
@@ -217,7 +217,7 @@ export default function PartneringTab({
                       </p>
                     </div>
 
-                    <div className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 space-y-1 pt-1">
+                    <div className="text-[12px] font-mono text-zinc-500 dark:text-zinc-400 space-y-1 pt-1">
                       <div className="flex items-center gap-1.5">
                         <Mail className="w-3 h-3 text-zinc-400" />
                         <span>{lead.organizer_email || "No email listed"}</span>
@@ -272,7 +272,7 @@ export default function PartneringTab({
                     <button
                       type="button"
                       onClick={() => handleRemovePartnerLead(lead)}
-                      className="text-[10px] font-mono uppercase tracking-wider text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition font-semibold"
+                      className="text-[12.5px] font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 py-1 px-2.5 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition font-semibold"
                     >
                       Remove Partner
                     </button>
@@ -286,7 +286,7 @@ export default function PartneringTab({
         {/* Active Partner Portals Section */}
         <div className="space-y-4 pt-6 border-t border-zinc-200 dark:border-zinc-800/80">
           <div>
-            <h4 className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 font-medium flex items-center gap-2">
               <span>Active Partner Portals ({partnerConfigsList.length})</span>
             </h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -309,7 +309,7 @@ export default function PartneringTab({
                     <div className="flex items-center justify-between gap-2">
                       <StatusBadge label={`/partners/${pc.slug}`} variant="neutral" />
                       <span
-                        className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 truncate max-w-[150px]"
+                        className="text-[12.5px] font-mono text-zinc-400 dark:text-zinc-500 truncate max-w-[150px]"
                         title={pc.hackathon_id}
                       >
                         ID: {pc.hackathon_id?.slice(0, 8)}...
@@ -360,3 +360,4 @@ export default function PartneringTab({
     </>
   );
 }
+

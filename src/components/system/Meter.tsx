@@ -33,7 +33,7 @@ export function SeatMeter({
         ))}
       </span>
       {showLabel && (
-        <span className="font-mono text-[11px] text-ink-3 tabular">
+        <span className="font-mono text-[12px] text-ink-3 tabular">
           {hasTotal ? `${filled}/${total}` : `${filled}`}
           {open > 0 && <span className="text-accent-ink"> · {open} open</span>}
         </span>
@@ -66,3 +66,4 @@ export function Progress({ value, className, tone = "accent" }: { value: number;
     </span>
   );
 }
+

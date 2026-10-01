@@ -85,7 +85,7 @@ export default function PresentationErrorAlert({
         {detectedUrl && (
           <div className="mt-3 flex min-w-0 items-center gap-2 rounded-md bg-sunken px-2.5 py-1.5 ring-1 ring-inset ring-line">
             <FileText className="size-3.5 shrink-0 text-ink-3" aria-hidden />
-            <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-ink-2">{detectedUrl}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-2">{detectedUrl}</span>
             <a
               href={detectedUrl}
               target="_blank"
@@ -103,7 +103,7 @@ export default function PresentationErrorAlert({
         <ol className="mt-1.5 space-y-1.5">
           {steps.map((s, i) => (
             <li key={i} className="flex items-start gap-2.5 text-[12.5px] leading-snug text-ink-2">
-              <span className="mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] bg-raised font-mono text-[11px] text-ink-3 ring-1 ring-inset ring-line-strong tabular">
+              <span className="mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] bg-raised font-mono text-[12px] text-ink-3 ring-1 ring-inset ring-line-strong tabular">
                 {i + 1}
               </span>
               <span className="min-w-0">{s}</span>
@@ -136,3 +136,4 @@ export default function PresentationErrorAlert({
     </div>
   );
 }
+

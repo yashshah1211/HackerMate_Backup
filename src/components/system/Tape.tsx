@@ -65,7 +65,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        "inline-flex items-center h-6 px-2 rounded-[4px] font-mono text-[11.5px] whitespace-nowrap",
+        "inline-flex items-center h-6 px-2 rounded-[4px] font-mono text-[12.5px] whitespace-nowrap",
         active ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-accent/35" : "bg-selected text-ink-2",
         className,
       )}
@@ -91,3 +91,4 @@ export function StatusDot({ tone = "ok", pulse = false, className, label }: { to
     </span>
   );
 }
+

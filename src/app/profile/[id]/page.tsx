@@ -190,7 +190,7 @@ export default function ProfilePage() {
               >
                 <TeamMark name={t.name} size="sm" />
                 <span className="flex-1 truncate text-[13.5px] font-medium text-ink">{t.name}</span>
-                <span className="font-mono text-[11px] text-ink-4">
+                <span className="font-mono text-[12px] text-ink-4">
                   {t.memberCount}/{t.max_members ?? "—"}
                 </span>
                 {active && <Check className="size-4" aria-hidden />}

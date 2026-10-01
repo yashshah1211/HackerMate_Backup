@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { normalizeCollege } from "@/lib/colleges";
 import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
@@ -43,6 +44,7 @@ export type DashBuilder = {
   same_college?: boolean | null;
   reasons?: string[] | null;
   confidence?: number | null;
+  matchEngine?: "v3" | "v2";
 };
 
 export type DashTeam = {
@@ -79,7 +81,7 @@ export type DashboardData = {
   connectionStates: Record<string, ConnState>;
   teams: DashTeam[];
   queue: QueueItem[];
-  stats: { builders: number; teams: number; hackathons: number; closingSoon: number };
+  stats: { builders: number; teams: number; hackathons: number; closingSoon: number; campusCount?: number };
   activity: Activity[];
   partners: PartnerEvent[];
   year: { visible: boolean; value: string; saving: boolean };
@@ -245,9 +247,32 @@ export function useDashboardData() {
       }
 
       // Kick off independent reads in parallel.
-      const matchP = profile
-        ? supabase.rpc("get_recommended_teammates", { p_user_id: user.id, p_limit: 50 })
-        : Promise.resolve({ data: [], error: null });
+      const fetchMatch = async () => {
+        if (!profile) return { data: [], error: null, matchEngine: "v3" as const };
+        const res = await supabase.rpc("get_recommended_teammates_v3", { p_user_id: user.id, p_limit: 50 });
+        if (res.error && (res.error.code === "PGRST202" || res.error.code === "42883" || res.error.message?.includes("Could not find the function") || res.error.message?.includes("function get_recommended_teammates_v3 does not exist"))) {
+          console.info("[matchmaking] V3 unavailable; using V2 compatibility fallback");
+          const v2Res = await supabase.rpc("get_recommended_teammates", { p_user_id: user.id, p_limit: 50 });
+          return { data: v2Res.data, error: v2Res.error, matchEngine: "v2" as const };
+        }
+        return { data: res.data, error: res.error, matchEngine: "v3" as const };
+      };
+      const matchP = fetchMatch();
+
+      const fetchCampusBuilders = async (normalizedCollege: string | null) => {
+        if (!normalizedCollege) return { data: [], count: 0, error: null };
+        return supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, college, bio, skills, github_url, linkedin_url, year_of_study, is_available", { count: "exact" })
+          .eq("college", normalizedCollege)
+          .neq("id", user.id)
+          .eq("is_banned", false)
+          .eq("onboarding_completed", true)
+          .order("last_active_date", { ascending: false })
+          .limit(6);
+      };
+      const campusP = fetchCampusBuilders(normalizeCollege(profile?.college));
+      
       const memberP = supabase.from("team_members").select("team_id, teams(id, name, hackathon_id, max_members, owner_id)").eq("user_id", user.id);
       const ownedP = supabase.from("teams").select("id, name, hackathon_id, max_members, owner_id").eq("owner_id", user.id);
       const today = new Date().toISOString().split("T")[0];
@@ -270,10 +295,11 @@ export function useDashboardData() {
         .from("partner_configs")
         .select("slug, partner_name, logo_url, hackathons(id, name, end_date)");
 
-      const [conn, invites, match, members, owned, counts, notifs, partnersRes] = await Promise.all([
+      const [conn, invites, match, campusRes, members, owned, counts, notifs, partnersRes] = await Promise.all([
         loadConnections(user.id),
         loadInvites(user.id),
         matchP,
+        campusP,
         memberP,
         ownedP,
         countsP,
@@ -283,8 +309,29 @@ export function useDashboardData() {
 
       // Matchmaking
       if (match.error) console.error("[dashboard] get_recommended_teammates failed:", match.error);
-      const recommended = ((match.data as DashBuilder[] | null) ?? []) as DashBuilder[];
-      const campus = recommended.filter((d) => d.same_college).slice(0, 6);
+      const recommended = ((match.data as DashBuilder[] | null) ?? []).map(r => ({ ...r, matchEngine: match.matchEngine })) as DashBuilder[];
+
+      // Campus Builders
+      if (campusRes.error) console.error("[dashboard] campus builders fetch failed:", campusRes.error);
+      const campusCount = campusRes.count || 0;
+      let finalCampus: DashBuilder[] = [];
+
+      // Take campus builders from matches first (they are already sorted by fit score)
+      const campusFromMatches = recommended.filter((d) => d.same_college);
+      const seenCampus = new Set(campusFromMatches.map((c) => c.id));
+      finalCampus.push(...campusFromMatches);
+
+      // Pad with the dedicated campus query results
+      const fetchedCampus = (campusRes.data || []) as DashBuilder[];
+      for (const builder of fetchedCampus) {
+        if (!seenCampus.has(builder.id)) {
+          finalCampus.push({ ...builder, same_college: true });
+          seenCampus.add(builder.id);
+        }
+      }
+      
+      // We limit to 6 for the dashboard display
+      const campus = finalCampus.slice(0, 6);
 
       // Teams (member or owner)
       if (members.error) console.error("[dashboard] team_members read failed:", members.error);
@@ -388,6 +435,7 @@ export function useDashboardData() {
           hackathons: liveCount.count ?? 0,
           teams: teamsCount.count ?? 0,
           closingSoon: closingCount.count ?? 0,
+          campusCount,
         },
         activity: (notifs.data || []).map((n) => ({ id: n.id, message: n.message, link: n.link, createdAt: n.created_at })),
         partners,

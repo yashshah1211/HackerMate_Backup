@@ -89,7 +89,7 @@ export function ErrorNotice({
       <TriangleAlert className="mt-0.5 size-4 shrink-0 text-bad" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-semibold text-ink">{title}</p>
-        {detail && <p className="mt-0.5 break-words font-mono text-[11.5px] text-ink-3">{detail}</p>}
+        {detail && <p className="mt-0.5 break-words font-mono text-[12.5px] text-ink-3">{detail}</p>}
       </div>
       {onRetry && (
         <button type="button" onClick={onRetry} className="shrink-0 text-[12.5px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
@@ -111,3 +111,4 @@ export function PageLoader({ label = "Loading" }: { label?: string }) {
     </div>
   );
 }
+

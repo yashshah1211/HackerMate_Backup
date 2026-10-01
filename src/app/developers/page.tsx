@@ -7,7 +7,8 @@ import { useDevelopersData } from "./useDevelopersData";
 
 function DevelopersContent() {
   const [search, setSearch] = useState("");
-  const d = useDevelopersData(search);
+  const [sort, setSort] = useState<"fit" | "active" | "new">("fit");
+  const d = useDevelopersData(search, sort);
   return (
     <DevelopersView
       builders={d.builders}
@@ -20,6 +21,8 @@ function DevelopersContent() {
       onRetry={d.retry}
       search={search}
       onSearch={setSearch}
+      sort={sort}
+      onSort={setSort}
       onSendInvite={d.sendInvite}
       inviteBusy={d.inviteBusy}
     />

@@ -158,7 +158,7 @@ export default function NativeHackathonsTab({
         <div className="flex items-center gap-1.5 overflow-x-auto select-none p-1 rounded-xl bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80">
           <button
             onClick={() => setNativeFilterStatus("all")}
-            className={`px-3 py-1 rounded-lg text-xs font-mono uppercase tracking-wider transition cursor-pointer ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
               nativeFilterStatus === "all"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -168,7 +168,7 @@ export default function NativeHackathonsTab({
           </button>
           <button
             onClick={() => setNativeFilterStatus("pending")}
-            className={`px-3 py-1 rounded-lg text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
               nativeFilterStatus === "pending"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -176,14 +176,14 @@ export default function NativeHackathonsTab({
           >
             <span>Pending</span>
             {pendingCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+              <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
                 {pendingCount}
               </span>
             )}
           </button>
           <button
             onClick={() => setNativeFilterStatus("approved")}
-            className={`px-3 py-1 rounded-lg text-xs font-mono uppercase tracking-wider transition cursor-pointer ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
               nativeFilterStatus === "approved"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -193,7 +193,7 @@ export default function NativeHackathonsTab({
           </button>
           <button
             onClick={() => setNativeFilterStatus("rejected")}
-            className={`px-3 py-1 rounded-lg text-xs font-mono uppercase tracking-wider transition cursor-pointer ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
               nativeFilterStatus === "rejected"
                 ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold"
                 : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
@@ -206,7 +206,7 @@ export default function NativeHackathonsTab({
         <button
           onClick={() => fetchNativeHackathons()}
           disabled={loadingNativeHackathons}
-          className="px-3.5 py-1.5 rounded-xl text-xs font-mono uppercase tracking-wider bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium transition cursor-pointer flex items-center gap-1.5"
+          className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-100/80 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium transition cursor-pointer flex items-center gap-1.5"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loadingNativeHackathons ? "animate-spin" : ""}`} />
           <span>Refresh</span>
@@ -230,7 +230,7 @@ export default function NativeHackathonsTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-mono uppercase tracking-wider text-[10px] border-b border-zinc-200 dark:border-zinc-800/80">
+                <tr className="bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 font-medium text-[12.5px] border-b border-zinc-200 dark:border-zinc-800/80">
                   <th className="p-4 font-semibold">Hackathon Title</th>
                   <th className="p-4 font-semibold">Organizer / Host</th>
                   <th className="p-4 font-semibold">Mode & Location</th>
@@ -246,7 +246,7 @@ export default function NativeHackathonsTab({
                     <tr key={h.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition">
                       <td className="p-4 font-bold text-zinc-900 dark:text-zinc-100 max-w-xs">
                         <div>{h.name}</div>
-                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
+                        <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
                           Type:{" "}
                           <span className="uppercase font-semibold text-zinc-700 dark:text-zinc-300">
                             {h.type || "native"}
@@ -257,13 +257,13 @@ export default function NativeHackathonsTab({
 
                       <td className="p-4">
                         <div className="font-medium text-zinc-800 dark:text-zinc-200">{h.organizerName}</div>
-                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">{h.organizerEmail}</div>
+                        <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-mono">{h.organizerEmail}</div>
                       </td>
 
                       <td className="p-4 font-mono text-xs text-zinc-600 dark:text-zinc-300">
                         <span className="capitalize">{h.mode || "Online"}</span>
                         {h.location && (
-                          <span className="text-zinc-400 text-[10px] block">{h.location}</span>
+                          <span className="text-zinc-400 text-[12.5px] block">{h.location}</span>
                         )}
                       </td>
 
@@ -324,3 +324,4 @@ export default function NativeHackathonsTab({
     </div>
   );
 }
+

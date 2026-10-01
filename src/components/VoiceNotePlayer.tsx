@@ -91,7 +91,7 @@ export default function VoiceNotePlayer({ src, duration, isMine }: VoiceNotePlay
           })}
         </div>
 
-        <div className="flex items-center justify-between font-mono text-[11px] text-ink-3 tabular">
+        <div className="flex items-center justify-between font-mono text-[12px] text-ink-3 tabular">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(totalDuration)}</span>
         </div>
@@ -99,3 +99,4 @@ export default function VoiceNotePlayer({ src, duration, isMine }: VoiceNotePlay
     </div>
   );
 }
+

@@ -386,7 +386,7 @@ function NotifRow({
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-center gap-2">
               <Tape tone={meta.tone}>{meta.label}</Tape>
-              <time dateTime={n.created_at} className="font-mono text-[11.5px] text-ink-3">
+              <time dateTime={n.created_at} className="font-mono text-[12.5px] text-ink-3">
                 {relativeTime(n.created_at)}
               </time>
             </div>
@@ -441,3 +441,4 @@ export default function NotificationsPage() {
     </AuthGuard>
   );
 }
+

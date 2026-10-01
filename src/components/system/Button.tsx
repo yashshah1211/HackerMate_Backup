@@ -25,9 +25,9 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-7 px-2.5 text-[12.5px] rounded-[5px] [&_svg]:size-3.5",
-  md: "h-[34px] px-3.5 text-[13px] rounded-md [&_svg]:size-4",
-  lg: "h-11 px-5 text-[14px] rounded-[7px] [&_svg]:size-[18px]",
+  sm: "h-8 px-3 text-[13.5px] rounded-[5px] [&_svg]:size-4",
+  md: "h-9 px-4 text-[14.5px] rounded-md [&_svg]:size-[18px]",
+  lg: "h-11 px-6 text-[15.5px] rounded-[7px] [&_svg]:size-[20px]",
 };
 
 export function buttonClass(variant: ButtonVariant = "secondary", size: ButtonSize = "md", className?: string) {
@@ -122,7 +122,7 @@ export function CountBadge({ value, className }: { value: number; className?: st
   return (
     <span
       className={cn(
-        "min-w-4 h-4 px-1 rounded-[4px] bg-accent text-on-accent font-mono text-[10px] font-semibold leading-4 text-center tabular",
+        "min-w-4 h-4 px-1 rounded-[4px] bg-accent text-on-accent font-mono text-[12.5px] font-semibold leading-4 text-center tabular",
         className,
       )}
     >
@@ -130,3 +130,4 @@ export function CountBadge({ value, className }: { value: number; className?: st
     </span>
   );
 }
+

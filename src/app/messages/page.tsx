@@ -509,7 +509,7 @@ function MessagesContent() {
             >
               Messages
             </h1>
-            <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+            <span className="shrink-0 font-mono text-[12.5px] text-ink-3 tabular">
               {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
               {totalUnread > 0 && (
                 <>
@@ -609,7 +609,7 @@ function MessagesContent() {
                             {conv.otherUser.full_name}
                           </span>
                           {conv.lastMessageAt && (
-                            <span className="shrink-0 font-mono text-[11.5px] text-ink-3 tabular">
+                            <span className="shrink-0 font-mono text-[12.5px] text-ink-3 tabular">
                               {relativeTime(conv.lastMessageAt)}
                             </span>
                           )}
@@ -703,3 +703,4 @@ export default function MessagesPage() {
     </AuthGuard>
   );
 }
+

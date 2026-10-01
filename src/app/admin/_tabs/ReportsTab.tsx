@@ -127,7 +127,7 @@ export default function ReportsTab({
                     >
                       {rep.reporterName}
                     </Link>
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                    <span className="text-[12px] text-zinc-400 dark:text-zinc-500 font-mono">
                       ({rep.reporterEmail})
                     </span>
 
@@ -140,7 +140,7 @@ export default function ReportsTab({
                     >
                       {rep.reportedName}
                     </Link>
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                    <span className="text-[12px] text-zinc-400 dark:text-zinc-500 font-mono">
                       ({rep.reportedEmail})
                     </span>
                     {rep.reportedBanned && (
@@ -159,7 +159,7 @@ export default function ReportsTab({
                   </div>
 
                   {/* Date */}
-                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+                  <div className="text-[12.5px] text-zinc-400 dark:text-zinc-500 font-mono">
                     Filed on: {new Date(rep.created_at).toLocaleString()}
                   </div>
                 </div>
@@ -170,7 +170,7 @@ export default function ReportsTab({
                     onClick={() =>
                       onToggleBan(rep.reported_id, !!rep.reportedBanned, rep.reportedName || "User")
                     }
-                    className={`text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded-xl border font-semibold transition cursor-pointer ${
+                    className={`text-[12.5px] font-medium py-1.5 px-3 rounded-xl border font-semibold transition cursor-pointer ${
                       rep.reportedBanned
                         ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                         : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
@@ -181,14 +181,14 @@ export default function ReportsTab({
 
                   <button
                     onClick={() => openWarningModal(rep.reported_id, rep.reportedName || "User")}
-                    className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer font-semibold"
+                    className="text-[12.5px] font-medium py-1.5 px-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer font-semibold"
                   >
                     Warn User
                   </button>
 
                   <button
                     onClick={() => handleDismissReport(rep.id)}
-                    className="text-[10px] font-mono uppercase tracking-wider py-1.5 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
+                    className="text-[12.5px] font-medium py-1.5 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
                   >
                     Dismiss Report
                   </button>
@@ -209,7 +209,7 @@ export default function ReportsTab({
                   <AlertOctagon className="w-4 h-4 text-amber-500" />
                   <span>Send Warning Email to {warningTargetName}</span>
                 </h3>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Sends an official behavioral warning to their registered email address.
                 </p>
               </div>
@@ -253,3 +253,4 @@ export default function ReportsTab({
     </>
   );
 }
+

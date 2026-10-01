@@ -28,7 +28,7 @@ import {
 import { isOnline, relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fitBand, matchReason } from "@/lib/matchPresentation";
-import { compatibilityFor, type Builder, type OwnedTeam, type Recommendation, type Relationship } from "./useDevelopersData";
+import { type Builder, type OwnedTeam, type Recommendation, type Relationship } from "./useDevelopersData";
 
 type Sort = "fit" | "active" | "new";
 type Experience = "any" | "competed" | "won";
@@ -56,6 +56,8 @@ export function DevelopersView({
   onRetry,
   search,
   onSearch,
+  sort,
+  onSort,
   onSendInvite,
   inviteBusy,
 }: {
@@ -69,11 +71,12 @@ export function DevelopersView({
   onRetry: () => void;
   search: string;
   onSearch: (v: string) => void;
+  sort: Sort;
+  onSort: (v: Sort) => void;
   onSendInvite: (teamId: string, builderId: string) => Promise<boolean>;
   inviteBusy: boolean;
 }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [sort, setSort] = useState<Sort>("fit");
   const [limit, setLimit] = useState(PAGE);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [inviteFor, setInviteFor] = useState<Builder | null>(null);
@@ -108,8 +111,8 @@ export function DevelopersView({
   }, [builders]);
 
   const scored = useMemo(
-    () => builders.map((b) => ({ b, fit: compatibilityFor(b, viewer, recs) })),
-    [builders, viewer, recs],
+    () => builders.map((b) => ({ b, match: recs[b.id] || null })),
+    [builders, recs],
   );
 
   const results = useMemo(() => {
@@ -133,9 +136,32 @@ export function DevelopersView({
     });
     const time = (s?: string | null) => (s ? new Date(s).getTime() : 0);
     list.sort((x, y) => {
-      if (sort === "active") return time(y.b.last_seen_at) - time(x.b.last_seen_at);
-      if (sort === "new") return time(y.b.created_at) - time(x.b.created_at);
-      return y.fit - x.fit;
+      // For "active" and "new", the server already sorted the core dataset, but we may have filtered client-side.
+      // Stable sort (by preserving original order if 0) is ideal, but JS sort is stable in modern browsers.
+      // However, we just return 0 to keep the exact server order for active/new, preserving the limit selection.
+      if (sort === "active" || sort === "new") return 0;
+      
+      const matchX = x.match;
+      const matchY = y.match;
+      
+      if (matchX && matchY) {
+         if (matchX.compatibility !== matchY.compatibility) {
+             return matchY.compatibility - matchX.compatibility;
+         }
+      } else if (matchX && !matchY) {
+         return -1;
+      } else if (!matchX && matchY) {
+         return 1;
+      }
+      
+      // Fallback for ties or unscored builders
+      const actX = time(x.b.last_seen_at);
+      const actY = time(y.b.last_seen_at);
+      if (actX !== actY) return actY - actX;
+
+      const createX = time(x.b.created_at);
+      const createY = time(y.b.created_at);
+      return createY - createX;
     });
     return list;
   }, [scored, filters, sort, search]);
@@ -153,19 +179,26 @@ export function DevelopersView({
 
   const filterPanel = (
     <div className="space-y-6">
-      <div>
-        <FieldLabel>Sort</FieldLabel>
-        <Segmented<Sort>
-          label="Sort builders"
-          size="sm"
-          value={sort}
-          onChange={setSort}
-          options={[
-            { value: "fit", label: "Best fit" },
-            { value: "active", label: "Active" },
-            { value: "new", label: "New" },
-          ]}
-        />
+      <div className="flex gap-4 border-b border-line pb-px" role="tablist" aria-label="Sort builders">
+        {(
+          [
+            ["fit", "Best fit"],
+            ["active", "Active"],
+            ["new", "New"],
+          ] as [Sort, string][]
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            role="tab"
+            aria-selected={sort === v}
+            onClick={() => onSort(v)}
+            className={`pb-2.5 text-[13px] font-medium transition-colors border-b-2 -mb-[1.5px] ${
+              sort === v ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink-2"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <label className="flex items-center justify-between gap-3">
         <span className="text-[13px] text-ink-2">Available for a team</span>
@@ -195,30 +228,56 @@ export function DevelopersView({
       </div>
       <div>
         <FieldLabel>Hackathon record</FieldLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mt-1 flex flex-col">
           {(
             [
               ["any", "Any"],
               ["competed", "Has competed"],
               ["won", "Has won"],
             ] as [Experience, string][]
-          ).map(([v, label]) => (
-            <FilterChip key={v} active={filters.experience === v} onClick={() => update({ experience: v })}>
-              {label}
-            </FilterChip>
-          ))}
+          ).map(([v, label]) => {
+            const active = filters.experience === v;
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => update({ experience: v })}
+                className="group flex w-full items-center justify-between rounded-lg py-1.5 px-2.5 -mx-2.5 hover:bg-hover transition-colors text-left"
+              >
+                <span className={`text-[13px] truncate pr-3 transition-colors ${active ? "font-medium text-ink-2" : "text-ink-3 group-hover:text-ink-2"}`}>
+                  {label}
+                </span>
+                {active && <Check className="size-3.5 text-accent" aria-hidden />}
+              </button>
+            );
+          })}
         </div>
       </div>
       {topSkills.length > 0 && (
         <div>
           <FieldLabel hint={filters.skills.length ? "any of" : undefined}>Skills</FieldLabel>
-          <div className="flex flex-wrap gap-1.5">
-            {topSkills.map((s) => (
-              <FilterChip key={s.name} active={filters.skills.includes(s.name)} onClick={() => toggleSkill(s.name)} count={s.count}>
-                {s.name}
-              </FilterChip>
-            ))}
-          </div>
+          <ul className="mt-1 flex flex-col">
+            {topSkills.map((s) => {
+              const active = filters.skills.includes(s.name);
+              return (
+                <li key={s.name}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSkill(s.name)}
+                    className="group flex w-full items-center justify-between rounded-lg py-1.5 px-2.5 -mx-2.5 hover:bg-hover transition-colors text-left"
+                  >
+                    <span className={`text-[13px] truncate pr-3 transition-colors ${active ? "font-medium text-ink-2" : "text-ink-3 group-hover:text-ink-2"}`}>
+                      {s.name}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {active && <Check className="size-3.5 text-accent" aria-hidden />}
+                      <span className={`text-[12.5px] tabular-nums transition-colors ${active ? "text-ink-3" : "text-ink-4 group-hover:text-ink-3"}`}>{s.count}</span>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       {activeFilterCount > 0 && (
@@ -252,7 +311,7 @@ export function DevelopersView({
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-10">
         <aside className="hidden lg:block">
-          <div className="sticky top-6 space-y-6">
+          <div className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto overflow-x-hidden overscroll-contain pb-6 space-y-6 -mx-3 px-3">
             <SearchField value={search} onChange={onSearch} placeholder="Name, skill or college" label="Search builders" />
             {filterPanel}
           </div>
@@ -314,12 +373,12 @@ export function DevelopersView({
           ) : (
             <>
               <ul className="divide-y divide-line border-y border-line" data-stagger>
-                {shown.map(({ b, fit }) => (
+                {shown.map(({ b, match }) => (
                   <BuilderRow
                     key={b.id}
                     b={b}
-                    fit={viewer ? fit : null}
-                    rec={recs[b.id]}
+                    fit={viewer && match ? match.compatibility : null}
+                    rec={match || undefined}
                     viewerSkills={viewer?.skills || []}
                     highlight={filters.skills}
                     relationship={relationships[b.id]}
@@ -332,7 +391,7 @@ export function DevelopersView({
                 <div className="mt-5 flex justify-center">
                   <Button variant="secondary" onClick={() => setLimit((l) => l + PAGE)}>
                     Show {Math.min(PAGE, results.length - shown.length)} more
-                    <span className="font-mono text-[11px] text-ink-4">
+                    <span className="font-mono text-[12px] text-ink-4">
                       {shown.length}/{results.length}
                     </span>
                   </Button>
@@ -411,62 +470,73 @@ function BuilderRow({
   const why = matchReason({ reasons: rec?.reasons, builderSkills: b.skills, viewerSkills });
   const reason = why?.text;
   const discovery = Boolean(why?.discovery);
-  // Engine-scored builders always get a band; the client-side Jaccard fallback
-  // only earns one when the overlap is meaningful, so the list isn't a wall of
-  // "Possible fit" labels.
-  const band = rec || (fit ?? 0) >= 40 ? fitBand(fit, rec?.confidence) : null;
 
   return (
     <li className="group relative flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:gap-4">
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <Avatar name={b.full_name} src={b.avatar_url} size="lg" presence={online ? "online" : null} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <Link
               href={`/profile/${b.id}`}
-              className="truncate text-[15px] font-semibold text-ink decoration-line-strong underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline"
+              className="truncate text-[15.5px] font-semibold text-ink decoration-line-strong underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline"
             >
               {b.full_name || "Builder"}
             </Link>
+            {b.is_available !== false && (
+              <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
+                <span className="size-1.5 rounded-full bg-ok" aria-hidden />
+                Available
+              </span>
+            )}
             {wins > 0 ? (
-              <Tape tone="warn" icon={<Trophy />}>
+              <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
+                <Trophy className="size-3.5 text-warn" />
                 {wins} win{wins === 1 ? "" : "s"}
-              </Tape>
+              </span>
             ) : competed ? (
-              <Tape>Competed</Tape>
+              <span className="text-[13px] text-ink-2">Competed</span>
             ) : null}
-            {b.is_available !== false && <Tape tone="ok">Available</Tape>}
           </div>
-          <p className="mt-0.5 truncate text-[12.5px] text-ink-3">
+          <p className="mt-1 truncate text-[13px] text-ink-3">
             {[b.college || "Independent builder", b.year_of_study, online ? "Online now" : b.last_seen_at ? `Active ${relativeTime(b.last_seen_at, { suffix: true })}` : null]
               .filter(Boolean)
               .join(" · ")}
           </p>
-          {b.bio && <p className="mt-1.5 line-clamp-1 text-[13px] text-ink-2">{b.bio}</p>}
+          {b.bio && <p className="mt-1.5 line-clamp-1 text-[13.5px] text-ink-2">{b.bio}</p>}
           {reason && (
-            <p className={cn("mt-1.5 flex items-center gap-1.5 text-[12.5px]", discovery ? "text-ink-3" : "text-ink-2")}>
-              {discovery ? <Lightbulb className="size-3.5 shrink-0 text-warn" aria-hidden /> : <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />}
+            <p className={cn("mt-2 flex items-center gap-1.5 text-[13px]", discovery ? "text-ink-3" : "text-ink-2")}>
+              {discovery ? <Lightbulb className="size-3.5 shrink-0 text-warn" aria-hidden /> : <Check className="size-3.5 shrink-0 text-accent" aria-hidden />}
               <span className="truncate">{reason}</span>
             </p>
           )}
           {visible.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {visible.map((s) => (
-                <Chip key={s} active={mine.has(s.toLowerCase().trim())}>
-                  {s}
-                </Chip>
-              ))}
-              {skills.length > visible.length && <Chip className="text-ink-4">+{skills.length - visible.length}</Chip>}
-            </div>
+            <p className="mt-1.5 truncate text-[13px] text-ink-3">
+              {visible.map((s, i) => {
+                const isMatch = mine.has(s.toLowerCase().trim());
+                return (
+                  <span key={s}>
+                    <span className={isMatch ? "font-medium text-ink-1" : ""}>{s}</span>
+                    {i < visible.length - 1 ? " · " : ""}
+                  </span>
+                );
+              })}
+              {skills.length > visible.length && <span className="ml-1 text-ink-4">+{skills.length - visible.length}</span>}
+            </p>
           )}
         </div>
       </div>
 
       <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 pl-[60px] sm:w-[190px] sm:flex-col sm:items-end sm:justify-start sm:pl-0">
-        {band && (
-          <Tape tone={band.tone} title={band.detail}>
-            {band.label}
-          </Tape>
+        {rec && typeof fit === "number" && (
+          <span
+            className={cn(
+              "text-[12.5px] font-medium tracking-tight",
+              rec.matchEngine === "v3" ? "text-accent-ink" : "text-ink-3"
+            )}
+          >
+            {rec.matchEngine === "v3" ? `${fit}% match` : (fitBand(fit)?.label || "Recommended")}
+          </span>
         )}
         <div className="flex items-center gap-1.5">
           {relationship === "connected" ? (
@@ -554,3 +624,4 @@ function InviteDialog({
     </Dialog>
   );
 }
+

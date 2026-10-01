@@ -50,7 +50,7 @@ export default function DevWorkspace() {
                 <Avatar name={m.who} size="sm" />
                 <div>
                   <p className="text-[12.5px]">
-                    <span className="font-semibold text-ink">{m.who}</span> <span className="font-mono text-[11px] text-ink-4">{m.t}</span>
+                    <span className="font-semibold text-ink">{m.who}</span> <span className="font-mono text-[12px] text-ink-4">{m.t}</span>
                   </p>
                   <p className="text-[13.5px] text-ink-2">{m.text}</p>
                 </div>
@@ -65,3 +65,4 @@ export default function DevWorkspace() {
     </DevShell>
   );
 }
+

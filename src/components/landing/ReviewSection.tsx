@@ -114,7 +114,7 @@ function ProfilePreview() {
                 <div className="inline-flex h-8 items-center rounded-md bg-sunken p-0.5 ring-1 ring-inset ring-line">
                   <span className="px-2.5 text-[12.5px] font-medium text-ink-3">Events</span>
                   <span className="rounded-[5px] bg-raised px-2.5 py-1 text-[12.5px] font-medium text-ink ring-1 ring-inset ring-line-strong">
-                    Delivered <span className="font-mono text-[10.5px] text-ink-4">3</span>
+                    Delivered <span className="font-mono text-[12.5px] text-ink-4">3</span>
                   </span>
                   <span className="px-2.5 text-[12.5px] font-medium text-ink-3">Teams</span>
                 </div>
@@ -165,7 +165,7 @@ function ProfilePreview() {
                     <li key={l.name} className="flex items-center gap-2 text-[12.5px] text-ink-2">
                       <span className={cn("size-2 rounded-full", l.cls)} />
                       {l.name}
-                      <span className="ml-auto font-mono text-[11.5px] text-ink-3 tabular">{l.pct}%</span>
+                      <span className="ml-auto font-mono text-[12.5px] text-ink-3 tabular">{l.pct}%</span>
                     </li>
                   ))}
                 </ul>
@@ -231,3 +231,4 @@ export function ReviewSection() {
     </section>
   );
 }
+

@@ -951,16 +951,16 @@ export default function ChallengeDetailPage() {
                       <span className="w-7 shrink-0 font-mono text-[12.5px] font-semibold text-ink tabular">v{sub.version}</span>
                       <div className="min-w-0 flex-1">
                         <Tape tone={sub.submission_mode === "team" ? "info" : "neutral"}>{sub.submission_mode}</Tape>
-                        <p className="mt-1 truncate font-mono text-[11.5px] text-ink-3">
+                        <p className="mt-1 truncate font-mono text-[12.5px] text-ink-3">
                           {new Date(sub.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="font-display text-[16px] font-semibold leading-none text-ink tabular">
                           {sub.total_score}
-                          <span className="text-[11px] font-normal text-ink-3">/100</span>
+                          <span className="text-[12px] font-normal text-ink-3">/100</span>
                         </p>
-                        <p className="mt-1 font-mono text-[11px] text-ink-3">{sub.grade}</p>
+                        <p className="mt-1 font-mono text-[12px] text-ink-3">{sub.grade}</p>
                       </div>
                       <ArrowRight className="size-3.5 shrink-0 text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" aria-hidden />
                     </Link>

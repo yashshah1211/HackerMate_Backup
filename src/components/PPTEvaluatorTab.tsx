@@ -102,7 +102,7 @@ function PanelHead({ icon, title, meta, action }: { icon?: ReactNode; title: Rea
       <h3 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold text-ink [&_svg]:size-4 [&_svg]:shrink-0">
         {icon}
         <span className="min-w-0 truncate">{title}</span>
-        {meta !== undefined && <span className="font-mono text-[11.5px] font-normal text-ink-3 tabular">{meta}</span>}
+        {meta !== undefined && <span className="font-mono text-[12.5px] font-normal text-ink-3 tabular">{meta}</span>}
       </h3>
       {action}
     </div>
@@ -390,7 +390,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     if (diff === null) return null;
     const tone = diff > 0 ? "text-ok" : diff < 0 ? "text-bad" : "text-ink-3";
     return (
-      <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-mono text-[11.5px] font-medium tabular", tone)}>
+      <span className={cn("inline-flex shrink-0 items-center gap-0.5 font-mono text-[12.5px] font-medium tabular", tone)}>
         {diff > 0 ? <TrendingUp className="size-3" aria-hidden /> : diff < 0 ? <TrendingDown className="size-3" aria-hidden /> : <Minus className="size-3" aria-hidden />}
         <span>{diff > 0 ? `+${diff}` : diff}</span>
         {prefix && <span className="font-normal text-ink-3">{prefix}</span>}
@@ -806,7 +806,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 const rec = selectedEval.ai_feedback?.slideRecommendations?.[slide.key];
                 return (
                   <li key={slide.key} className="flex items-start gap-3 py-3">
-                    <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[11.5px] text-ink-2 tabular">
+                    <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2 tabular">
                       {slide.slideNum}
                     </span>
                     <div className="min-w-0">
@@ -862,7 +862,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                     </Tape>
                     <span className={cn("shrink-0 font-mono text-[13px] font-semibold tabular", getScoreColor(ev.total_score))}>
                       {ev.total_score}
-                      <span className="text-[11px] font-normal text-ink-3">/100</span>
+                      <span className="text-[12px] font-normal text-ink-3">/100</span>
                     </span>
                   </button>
 
@@ -895,3 +895,4 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     </div>
   );
 }
+

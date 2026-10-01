@@ -383,7 +383,7 @@ export default function CreateHackathonPage() {
                 <li key={idx} className="space-y-3 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2 text-[13.5px] font-semibold text-ink">
-                      <span className="inline-flex size-6 items-center justify-center rounded-[5px] bg-selected font-mono text-[11.5px] text-ink-2 tabular">
+                      <span className="inline-flex size-6 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2 tabular">
                         {idx + 1}
                       </span>
                       Round {idx + 1}
@@ -707,7 +707,8 @@ function PresetButton({ selected, onSelect, label, sub }: { selected: boolean; o
       )}
     >
       <span className="text-[13.5px] font-semibold">{label}</span>
-      <span className={cn("text-[11.5px]", selected ? "text-canvas/70" : "text-ink-3")}>{sub}</span>
+      <span className={cn("text-[12.5px]", selected ? "text-canvas/70" : "text-ink-3")}>{sub}</span>
     </button>
   );
 }
+

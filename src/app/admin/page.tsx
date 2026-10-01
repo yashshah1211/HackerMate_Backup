@@ -799,7 +799,7 @@ function AdminContent() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B4F461] animate-pulse" />
-              <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">
+              <span className="text-[12px] font-medium tracking-widest text-zinc-500 font-semibold">
                 Platform Moderation
               </span>
             </div>
@@ -812,63 +812,63 @@ function AdminContent() {
           <div className="flex items-center gap-1 overflow-x-auto p-1 rounded-xl bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 select-none">
             <button
               onClick={() => setActiveTab("reports")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "reports"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
               }`}
             >
               <span>Reports</span>
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+              <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                 {reports.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("users")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "users"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
               }`}
             >
               <span>Users</span>
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+              <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                 {users.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("deleted_logs")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "deleted_logs"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
               }`}
             >
               <span>Exit Logs</span>
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+              <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                 {deletedUserLogs.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("teams")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "teams"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
               }`}
             >
               <span>Teams</span>
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+              <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                 {teams.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("badges")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer ${
                 activeTab === "badges"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
@@ -882,7 +882,7 @@ function AdminContent() {
                 setActiveTab("native_hackathons");
                 fetchNativeHackathons();
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "native_hackathons"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
@@ -890,11 +890,11 @@ function AdminContent() {
             >
               <span>Native Hackathons</span>
               {pendingNativeCount > 0 ? (
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
                   {pendingNativeCount}
                 </span>
               ) : (
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+                <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                   {nativeHackathons.length}
                 </span>
               )}
@@ -904,28 +904,28 @@ function AdminContent() {
               <>
                 <button
                   onClick={() => setActiveTab("outreach")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                     activeTab === "outreach"
                       ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
                   }`}
                 >
                   <span>Outreach</span>
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+                  <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                     {leads.length}
                   </span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab("partnering")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                     activeTab === "partnering"
                       ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
                   }`}
                 >
                   <span>Partnering</span>
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
+                  <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
                     {leads.filter((l) => l.status === "replied").length}
                   </span>
                 </button>
@@ -934,7 +934,7 @@ function AdminContent() {
 
             <button
               onClick={() => setActiveTab("sih_stats")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer ${
                 activeTab === "sih_stats"
                   ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
@@ -949,7 +949,7 @@ function AdminContent() {
                 setSearchQuery("");
                 fetchAdminChallenges();
               }}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition shrink-0 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition shrink-0 cursor-pointer ${
                 activeTab === "challenges"
                   ? "bg-lime-500 text-black shadow font-bold"
                   : "text-lime-400 hover:text-lime-300"
@@ -1013,7 +1013,7 @@ function AdminContent() {
                   {emailUsage.total_sent}{" "}
                   <span className="text-sm font-normal text-zinc-400">/ {emailUsage.limit}</span>
                 </div>
-                <div className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <div className="text-[12px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
                   {emailUsage.remaining_global} emails remaining today
                 </div>
                 {!emailUsage.is_resend_live && (
@@ -1023,7 +1023,7 @@ function AdminContent() {
                         setCustomEmailCount(emailUsage.total_sent.toString());
                         setShowSyncEmailModal(true);
                       }}
-                      className="text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
+                      className="text-[12.5px] font-mono font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
                       title="Manually calibrate today's total count to match resend.com"
                     >
                       <SlidersHorizontal className="w-3 h-3" />
@@ -1050,45 +1050,45 @@ function AdminContent() {
 
             {/* Category Breakdown Badges with Icons */}
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Radio className="w-3 h-3 text-zinc-400" />
                 <span>SIH Broadcast:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.sih_broadcast}</strong>
               </div>
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Send className="w-3 h-3 text-zinc-400" />
                 <span>Outreach Pitches:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.outreach}</strong>
               </div>
               {emailUsage.categories.test_dispatches > 0 && (
-                <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+                <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                   <FlaskConical className="w-3 h-3 text-zinc-400" />
                   <span>Sandbox Testing:</span>
                   <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.test_dispatches}</strong>
                 </div>
               )}
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Bell className="w-3 h-3 text-zinc-400" />
                 <span>Notifications & Invites:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.notifications}</strong>
               </div>
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Megaphone className="w-3 h-3 text-zinc-400" />
                 <span>Organizer Broadcasts:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.organizer_broadcasts}</strong>
               </div>
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <FileText className="w-3 h-3 text-zinc-400" />
                 <span>Admin Digests:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.admin_reports}</strong>
               </div>
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Zap className="w-3 h-3 text-zinc-400" />
                 <span>Onboarding Nudges:</span>
                 <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.onboarding_nudges}</strong>
               </div>
               {emailUsage.categories.contact_submissions > 0 && (
-                <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+                <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                   <Inbox className="w-3 h-3 text-zinc-400" />
                   <span>Contact Forms:</span>
                   <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.contact_submissions}</strong>
@@ -1119,19 +1119,19 @@ function AdminContent() {
 
               <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
                 <div className="text-center px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono uppercase">Delivery</div>
+                  <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-medium">Delivery</div>
                   <div className="text-sm font-bold font-mono text-zinc-900 dark:text-zinc-100">
                     {emailAnalytics.deliveryRate}
                   </div>
                 </div>
                 <div className="text-center px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono uppercase">Open Rate</div>
+                  <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-medium">Open Rate</div>
                   <div className="text-sm font-bold font-mono text-zinc-900 dark:text-zinc-100">
                     {emailAnalytics.openRate}
                   </div>
                 </div>
                 <div className="text-center px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
-                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono uppercase">Click Rate</div>
+                  <div className="text-[12.5px] text-zinc-500 dark:text-zinc-400 font-medium">Click Rate</div>
                   <div className="text-sm font-bold font-mono text-zinc-900 dark:text-zinc-100">
                     {emailAnalytics.clickRate}
                   </div>
@@ -1186,7 +1186,7 @@ function AdminContent() {
             {/* Recent Webhook Events Stream */}
             {recentWebhookEvents.length > 0 && (
               <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                <div className="text-[11px] font-mono font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                <div className="text-[12px] font-medium text-zinc-500 dark:text-zinc-400 mb-2">
                   Recent Email Events ({recentWebhookEvents.length})
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
@@ -1208,16 +1208,16 @@ function AdminContent() {
                               : "neutral"
                           }
                         />
-                        <span className="text-zinc-700 dark:text-zinc-200 truncate max-w-[200px] sm:max-w-xs font-mono text-[11px]">
+                        <span className="text-zinc-700 dark:text-zinc-200 truncate max-w-[200px] sm:max-w-xs font-mono text-[12px]">
                           {ev.recipient_email}
                         </span>
                         {ev.subject && (
-                          <span className="text-zinc-400 dark:text-zinc-500 truncate hidden md:inline text-[11px]">
+                          <span className="text-zinc-400 dark:text-zinc-500 truncate hidden md:inline text-[12px]">
                             — {ev.subject}
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0">
+                      <span className="text-[12.5px] text-zinc-400 dark:text-zinc-500 shrink-0">
                         {new Date(ev.created_at).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -1321,7 +1321,7 @@ function AdminContent() {
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <span>⚡ Practice & System Design Challenges</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-lime-500/10 text-lime-400 border border-lime-500/20">
+                  <span className="text-[12.5px] font-mono px-2 py-0.5 rounded bg-lime-500/10 text-lime-400 border border-lime-500/20">
                     AI Evaluated
                   </span>
                 </h2>
@@ -1368,7 +1368,7 @@ function AdminContent() {
               <div className="card card-static border-zinc-800 bg-zinc-950/60 overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-zinc-800 bg-zinc-900/60 text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                    <tr className="border-b border-zinc-800 bg-zinc-900/60 text-zinc-400 font-mono text-[12.5px] font-medium">
                       <th className="p-3">#</th>
                       <th className="p-3">Title & Track</th>
                       <th className="p-3">Difficulty</th>
@@ -1386,10 +1386,10 @@ function AdminContent() {
                         </td>
                         <td className="p-3">
                           <div className="font-bold text-white line-clamp-1">{ch.title}</div>
-                          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{ch.track}</div>
+                          <div className="text-[12.5px] text-zinc-500 font-mono mt-0.5">{ch.track}</div>
                         </td>
                         <td className="p-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-900 text-zinc-300 border border-zinc-800">
+                          <span className="px-2 py-0.5 rounded text-[12.5px] bg-zinc-900 text-zinc-300 border border-zinc-800">
                             {ch.difficulty}
                           </span>
                         </td>
@@ -1398,12 +1398,12 @@ function AdminContent() {
                             {ch.submissionCount || 0}
                           </span>
                         </td>
-                        <td className="p-3 text-[10px] text-zinc-400 font-mono whitespace-nowrap">
+                        <td className="p-3 text-[12.5px] text-zinc-400 font-mono whitespace-nowrap">
                           {new Date(ch.starts_at).toLocaleDateString()} → {new Date(ch.ends_at).toLocaleDateString()}
                         </td>
                         <td className="p-3">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold border ${
+                            className={`px-2 py-0.5 rounded text-[12.5px] font-medium font-bold border ${
                               ch.status === "active"
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                                 : ch.status === "closed"
@@ -1419,7 +1419,7 @@ function AdminContent() {
                             <Link
                               href={`/challenges/${ch.slug}`}
                               target="_blank"
-                              className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-[11px] transition"
+                              className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-[12px] transition"
                             >
                               View ↗
                             </Link>
@@ -1427,7 +1427,7 @@ function AdminContent() {
                               type="button"
                               onClick={() => handleToggleChallengeStatus(ch)}
                               disabled={togglingChallengeId === ch.id}
-                              className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition cursor-pointer ${
+                              className={`px-2.5 py-1 rounded text-[12px] font-semibold border transition cursor-pointer ${
                                 ch.status === "active"
                                   ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
                                   : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
@@ -1442,7 +1442,7 @@ function AdminContent() {
                             <button
                               type="button"
                               onClick={() => handleDeleteChallenge(ch)}
-                              className="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 text-[11px] transition cursor-pointer"
+                              className="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 text-[12px] transition cursor-pointer"
                             >
                               🗑️
                             </button>
@@ -1481,7 +1481,7 @@ function AdminContent() {
             <form onSubmit={handleCreateChallenge} className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs mt-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Challenge Title *</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Challenge Title *</label>
                   <input
                     type="text"
                     required
@@ -1492,7 +1492,7 @@ function AdminContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Number (Optional)</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Number (Optional)</label>
                   <input
                     type="number"
                     value={newChNumber}
@@ -1505,7 +1505,7 @@ function AdminContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Track</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Track</label>
                   <select
                     value={newChTrack}
                     onChange={(e) => setNewChTrack(e.target.value)}
@@ -1518,7 +1518,7 @@ function AdminContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Difficulty</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Difficulty</label>
                   <select
                     value={newChDifficulty}
                     onChange={(e) => setNewChDifficulty(e.target.value)}
@@ -1530,7 +1530,7 @@ function AdminContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Initial Status</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Initial Status</label>
                   <select
                     value={newChStatus}
                     onChange={(e) => setNewChStatus(e.target.value)}
@@ -1545,7 +1545,7 @@ function AdminContent() {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase">Short Summary (1-2 sentences) *</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase">Short Summary (1-2 sentences) *</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1557,7 +1557,7 @@ function AdminContent() {
                         showToast("Please enter a problem statement first to auto-generate summary.", "info");
                       }
                     }}
-                    className="text-[10px] font-semibold text-lime-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-[12.5px] font-semibold text-lime-400 hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>🪄 Auto-Generate Summary</span>
                   </button>
@@ -1573,7 +1573,7 @@ function AdminContent() {
               </div>
 
               <div>
-                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Problem Statement (Markdown) *</label>
+                <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Problem Statement (Markdown) *</label>
                 <textarea
                   required
                   value={newChProblem}
@@ -1591,7 +1591,7 @@ function AdminContent() {
               </div>
 
               <div>
-                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">
                   Problem Statement PDF (Optional)
                 </label>
                 <div className="space-y-2 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
@@ -1606,7 +1606,7 @@ function AdminContent() {
                       className="text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700 cursor-pointer"
                     />
                     {newChPdfFile && (
-                      <span className="text-[11px] text-lime-400 font-mono">
+                      <span className="text-[12px] text-lime-400 font-mono">
                         ✓ {newChPdfFile.name} ({(newChPdfFile.size / 1024).toFixed(0)} KB)
                       </span>
                     )}
@@ -1619,11 +1619,11 @@ function AdminContent() {
                     className="input w-full bg-zinc-900 border-zinc-800 text-white text-xs"
                   />
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">Optional: Attach an official PDF problem briefing document. Uploading extracts text and populates summary automatically.</p>
+                <p className="text-[12.5px] text-zinc-500 mt-1">Optional: Attach an official PDF problem briefing document. Uploading extracts text and populates summary automatically.</p>
               </div>
 
               <div>
-                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">
                   Additional Rules & Criteria (Optional)
                 </label>
                 <textarea
@@ -1633,11 +1633,11 @@ function AdminContent() {
                   placeholder="e.g.&#10;- Must detail cost breakdown for cloud hosting&#10;- Must support offline-first local cache fallback&#10;- Must provide latency benchmarks in Slide 3"
                   className="input w-full bg-zinc-900 border-zinc-800 text-white font-mono resize-y min-h-[70px] leading-relaxed text-xs"
                 />
-                <p className="text-[10px] text-zinc-500 mt-1">Optional: Custom challenge rules. The AI will automatically test and score submissions against these rules.</p>
+                <p className="text-[12.5px] text-zinc-500 mt-1">Optional: Custom challenge rules. The AI will automatically test and score submissions against these rules.</p>
               </div>
 
               <div>
-                <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">
                   Submission Celebration Reaction Theme (Optional)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1660,16 +1660,16 @@ function AdminContent() {
                       }`}
                     >
                       <div className="text-xs font-bold text-zinc-200">{theme.name}</div>
-                      <div className="text-[11px] mt-0.5 tracking-wider font-mono">{theme.desc}</div>
+                      <div className="text-[12px] mt-0.5 tracking-wider font-mono">{theme.desc}</div>
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">Optional: Choose the Microsoft Teams-style animated reaction pack triggered when users submit this challenge.</p>
+                <p className="text-[12.5px] text-zinc-500 mt-1">Optional: Choose the Microsoft Teams-style animated reaction pack triggered when users submit this challenge.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">Start Date (Optional)</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">Start Date (Optional)</label>
                   <input
                     type="datetime-local"
                     value={newChStartsAt}
@@ -1678,7 +1678,7 @@ function AdminContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-zinc-400 font-mono text-[10px] uppercase mb-1">End Date (Default: +14 days)</label>
+                  <label className="block text-zinc-400 font-mono text-[12.5px] uppercase mb-1">End Date (Default: +14 days)</label>
                   <input
                     type="datetime-local"
                     value={newChEndsAt}
@@ -1734,7 +1734,7 @@ function AdminContent() {
 
             <div className="space-y-4 text-xs">
               <div>
-                <label className="block text-zinc-500 dark:text-zinc-400 font-mono text-[10px] uppercase mb-1">
+                <label className="block text-zinc-500 dark:text-zinc-400 font-mono text-[12.5px] uppercase mb-1">
                   Warning Details & Guidelines Violated
                 </label>
                 <textarea
@@ -1843,3 +1843,4 @@ export default function AdminPage() {
     </AuthGuard>
   );
 }
+

@@ -205,6 +205,7 @@ export function useShellSession(): ShellSession {
     let active = true;
     let unsubNotif: (() => void) | null = null;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
+    let onVisibilityChange: (() => void) | null = null;
 
     Promise.resolve().then(async () => {
       try {
@@ -247,15 +248,22 @@ export function useShellSession(): ShellSession {
           }
         }
 
-        // Mark the viewer active immediately, then every 30s.
+        // Mark the viewer active immediately, then every 3 mins while visible.
         await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
         await Promise.all([loadUnreadCount(user.id), loadUnreadMessages(user.id), loadTeams(user.id)]);
 
+        onVisibilityChange = () => {
+          if (document.visibilityState === "visible" && active) {
+            supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
+          }
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+
         heartbeat = setInterval(async () => {
-          if (active) {
+          if (active && document.visibilityState === "visible") {
             await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
           }
-        }, 30000);
+        }, 180000);
 
         const notifChannel = supabase
           .channel(`notifications-navbar:${user.id}`)
@@ -282,6 +290,7 @@ export function useShellSession(): ShellSession {
       active = false;
       if (unsubNotif) unsubNotif();
       if (heartbeat) clearInterval(heartbeat);
+      if (onVisibilityChange) document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [loadTeams, loadUnreadCount, loadUnreadMessages, showToast]);
 

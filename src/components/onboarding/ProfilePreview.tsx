@@ -82,7 +82,7 @@ export function ProfilePreview({
                 {c.done && <span className="size-1.5 rounded-full bg-on-accent" />}
               </span>
               <span className={c.done ? "caps-label text-ink" : "caps-label text-ink-3"}>{c.label}</span>
-              <span className="ml-auto font-mono text-[11.5px] text-ink-3">{c.done ? "done" : "needed"}</span>
+              <span className="ml-auto font-mono text-[12.5px] text-ink-3">{c.done ? "done" : "needed"}</span>
             </li>
           ))}
         </ol>
@@ -91,3 +91,4 @@ export function ProfilePreview({
     </div>
   );
 }
+

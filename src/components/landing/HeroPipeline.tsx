@@ -140,7 +140,7 @@ export function HeroPipeline() {
                   className="relative flex h-[46px] w-full items-center gap-3 px-3.5 text-left transition-colors hover:bg-hover"
                 >
                   <StageNode phase={phase} />
-                  <span className="w-[22px] shrink-0 font-mono text-[11.5px] text-ink-3 tabular">{s.n}</span>
+                  <span className="w-[22px] shrink-0 font-mono text-[12.5px] text-ink-3 tabular">{s.n}</span>
                   <span className={cn("w-[62px] shrink-0 caps-label", phase === "queued" ? "text-ink-3" : "text-ink")}>{s.verb}</span>
                   <span
                     className={cn(
@@ -240,7 +240,7 @@ function FindBody({ phase }: { phase: Phase }) {
         <Search className="size-3.5 shrink-0 text-ink-3" />
         {query ? <span className="font-mono text-[12.5px] text-ink">{query}</span> : <span className="text-[12.5px] text-ink-4">Search skills, roles, colleges</span>}
         {phase === "running" && shown < 5 && <span className="-ml-1.5 h-3.5 w-px animate-pulse bg-ink-2" />}
-        {shown >= 6 && <span className="ml-auto font-mono text-[11px] text-ink-3">sorted by fit</span>}
+        {shown >= 6 && <span className="ml-auto font-mono text-[12px] text-ink-3">sorted by fit</span>}
       </div>
       <Reveal show={shown >= 6} className="min-w-0 rounded-md border border-line bg-canvas p-2.5">
         <div className="flex items-start gap-2.5">
@@ -321,7 +321,7 @@ function ReviewBody({ phase }: { phase: Phase }) {
       <div>
         <div className="mb-1 flex items-baseline justify-between">
           <span className="caps-label text-ink-3">GitHub languages</span>
-          <span className="font-mono text-[11px] text-ink-3">synced</span>
+          <span className="font-mono text-[12px] text-ink-3">synced</span>
         </div>
         <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-selected">
           {LANGS.map((l) => (
@@ -332,7 +332,7 @@ function ReviewBody({ phase }: { phase: Phase }) {
             />
           ))}
         </div>
-        <p className="mt-1.5 truncate font-mono text-[11px] text-ink-3">
+        <p className="mt-1.5 truncate font-mono text-[12px] text-ink-3">
           {LANGS.map((l) => `${l.name} ${l.pct}%`).join(" · ")}
         </p>
       </div>
@@ -416,13 +416,13 @@ function BuildBody({ phase }: { phase: Phase }) {
         <span className="truncate caps-label text-ink-3">Event · {EXAMPLE_TEAM.eventShort}</span>
         <span className="shrink-0 font-mono text-[14px] font-semibold text-ink tabular">
           {c.days}
-          <span className="text-[11px] text-ink-4">d </span>
+          <span className="text-[12px] text-ink-4">d </span>
           {pad2(c.hours)}
-          <span className="text-[11px] text-ink-4">h </span>
+          <span className="text-[12px] text-ink-4">h </span>
           {pad2(c.minutes)}
-          <span className="text-[11px] text-ink-4">m </span>
+          <span className="text-[12px] text-ink-4">m </span>
           <span className="text-ink-3">{pad2(c.seconds)}</span>
-          <span className="text-[11px] text-ink-4">s</span>
+          <span className="text-[12px] text-ink-4">s</span>
         </span>
       </div>
       <ul className="divide-y divide-line rounded-md border border-line bg-canvas">
@@ -438,14 +438,14 @@ function BuildBody({ phase }: { phase: Phase }) {
             </span>
             <span className={cn("min-w-0 flex-1 truncate text-[12.5px] transition-colors", t.done ? "text-ink-3 line-through decoration-ink-4" : "text-ink")}>{t.title}</span>
             <Avatar name={t.who} size="xs" />
-            <span className={cn("hidden w-[74px] shrink-0 text-right font-mono text-[11px] min-[400px]:inline", t.done ? "text-ok" : t.doing ? "text-warn" : "text-ink-3")}>
+            <span className={cn("hidden w-[74px] shrink-0 text-right font-mono text-[12px] min-[400px]:inline", t.done ? "text-ok" : t.doing ? "text-warn" : "text-ink-3")}>
               {t.done ? "done" : t.doing ? "in progress" : "to do"}
             </span>
           </li>
         ))}
       </ul>
       <div>
-        <div className="mb-1 flex justify-between text-[11.5px] text-ink-3">
+        <div className="mb-1 flex justify-between text-[12.5px] text-ink-3">
           <span>Tasks done</span>
           <span className="font-mono tabular">{doneCount}/12</span>
         </div>
@@ -466,7 +466,7 @@ function ShipBody({ phase }: { phase: Phase }) {
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink">{EXAMPLE_DEMO_HOST}</span>
         {shown >= 1 ? (
           <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-ok">
-            <StatusDot tone="ok" /> Reachable <span className="hidden font-mono text-[11px] text-ink-3 min-[400px]:inline">182ms</span>
+            <StatusDot tone="ok" /> Reachable <span className="hidden font-mono text-[12px] text-ink-3 min-[400px]:inline">182ms</span>
           </span>
         ) : (
           <span className="shrink-0 text-[12px] text-ink-3">Checking…</span>
@@ -475,7 +475,7 @@ function ShipBody({ phase }: { phase: Phase }) {
       <Reveal show={shown >= 2} className="flex items-center gap-2.5 rounded-md border border-line bg-canvas px-2.5 py-2">
         <Presentation className="size-4 shrink-0 text-ink-3" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">Pitch review · deck v3</span>
-        <span className="shrink-0 font-mono text-[11.5px] text-ink-2">
+        <span className="shrink-0 font-mono text-[12.5px] text-ink-2">
           3 fixes<span className="hidden min-[400px]:inline"> applied</span>
         </span>
       </Reveal>
@@ -496,3 +496,4 @@ function ShipBody({ phase }: { phase: Phase }) {
     </div>
   );
 }
+

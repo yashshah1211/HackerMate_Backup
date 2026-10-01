@@ -517,7 +517,7 @@ export default function PitchEvaluatorClient({
           user ? (
             <Button variant="secondary" icon={<History aria-hidden />} onClick={() => setShowHistoryDrawer(true)}>
               History
-              <span className="font-mono text-[11.5px] text-ink-3 tabular">{history.length}</span>
+              <span className="font-mono text-[12.5px] text-ink-3 tabular">{history.length}</span>
             </Button>
           ) : null
         }
@@ -886,7 +886,7 @@ export default function PitchEvaluatorClient({
                             <Link
                               key={sIdx}
                               href={`/developers?skills=${encodeURIComponent(sk)}`}
-                              className="inline-flex h-7 items-center rounded-[4px] bg-selected px-2 font-mono text-[11.5px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
+                              className="inline-flex h-7 items-center rounded-[4px] bg-selected px-2 font-mono text-[12.5px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
                               title={`Find builders with ${sk}`}
                             >
                               {sk}
@@ -1042,7 +1042,7 @@ export default function PitchEvaluatorClient({
         title={
           <span className="flex items-baseline gap-2">
             Evaluation history
-            <span className="font-mono text-[11.5px] font-normal text-ink-3 tabular">{history.length}</span>
+            <span className="font-mono text-[12.5px] font-normal text-ink-3 tabular">{history.length}</span>
           </span>
         }
       >
@@ -1078,14 +1078,14 @@ export default function PitchEvaluatorClient({
                     className="min-w-0 flex-1 px-4 py-3 text-left transition-colors hover:bg-hover md:px-5"
                   >
                     <span className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[11.5px] text-ink-3">{dateStr}</span>
+                      <span className="font-mono text-[12.5px] text-ink-3">{dateStr}</span>
                       <Tape>{trackInfo.badge}</Tape>
                     </span>
                     <span className="mt-1 line-clamp-2 block text-[13.5px] font-medium text-ink">{item.ps_title}</span>
                     <span className="mt-1 flex min-w-0 items-center gap-2">
                       <span className="font-display text-[15px] font-semibold text-ink tabular">
                         {item.total_score}
-                        <span className="font-mono text-[11.5px] font-normal text-ink-3">/100</span>
+                        <span className="font-mono text-[12.5px] font-normal text-ink-3">/100</span>
                       </span>
                       <span className="truncate text-[12px] text-ink-3">{gradeLabel(item.grade)}</span>
                     </span>
@@ -1107,3 +1107,4 @@ export default function PitchEvaluatorClient({
     </Page>
   );
 }
+

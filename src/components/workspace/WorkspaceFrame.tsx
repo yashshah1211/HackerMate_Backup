@@ -20,6 +20,7 @@ import {
   SquareKanban,
   Target,
   Users,
+  Search,
 } from "lucide-react";
 import { Avatar, AvatarStack, Button, ButtonLink, Menu, Progress, Sheet, Tape, TeamMark, type MenuItem } from "@/components/system";
 import { useImmersive, useShell } from "@/components/shell/ShellContext";
@@ -132,7 +133,7 @@ export function WorkspaceFrame(props: Props) {
                 <span className="relative">{s.icon}</span>
                 <span className="relative flex-1 font-medium">{s.label}</span>
                 {s.id === "tasks" && props.tasks.total > 0 && (
-                  <span className="relative font-mono text-[10.5px] text-ink-4 tabular">
+                  <span className="relative font-mono text-[12.5px] text-ink-4 tabular">
                     {props.tasks.done}/{props.tasks.total}
                   </span>
                 )}
@@ -170,7 +171,7 @@ export function WorkspaceFrame(props: Props) {
               <TeamMark name={team.name} tone={props.tone} size="sm" />
               <span className="min-w-0">
                 <span className="block truncate text-[14px] font-semibold text-ink">{team.name}</span>
-                <span className="block truncate text-[11px] text-ink-3">
+                <span className="block truncate text-[12px] text-ink-3">
                   {props.activeHackathon && !props.countdown.ended
                     ? `${props.countdown.days}d ${pad(props.countdown.hours)}h left · ${props.activeHackathon.name}`
                     : props.activeHackathon?.name || "Workspace"}
@@ -291,15 +292,23 @@ export function WorkspaceFrame(props: Props) {
 function TeamSwitcher(props: Props) {
   const shell = useShell();
   const router = useRouter();
+  const [query, setQuery] = useState("");
   const teams = shell?.session.teams || [];
+
+  const showSearch = teams.length > 5;
+  const filtered = (showSearch && query)
+    ? teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+    : teams;
+
   const items: MenuItem[] = [
     { type: "label", label: "Switch team" },
-    ...teams.map((t) => ({
+    ...filtered.map((t) => ({
       label: t.name,
       icon: <TeamMark name={t.name} tone={t.tone} size="sm" className="!size-5 !rounded-[4px] !text-[8px]" />,
       hint: t.id === props.team.id ? "current" : undefined,
       onSelect: () => router.push(`/teams/${t.id}/workspace`),
     })),
+    ...(filtered.length === 0 ? [{ type: "label" as const, label: "No matches found" }] : []),
     { type: "separator" },
     { label: "All your teams", icon: <Users />, onSelect: () => router.push("/my-teams") },
     { label: "New team", icon: <Plus />, onSelect: () => router.push("/teams/create") },
@@ -307,8 +316,26 @@ function TeamSwitcher(props: Props) {
   return (
     <Menu
       align="start"
+      scrollableItems
       items={items}
       className="w-full"
+      header={
+        showSearch ? (
+          <div className="border-b border-line px-2 pb-2 pt-2">
+            <div className="flex h-8 items-center gap-2 rounded-md bg-hover px-2 text-ink-3 focus-within:text-ink focus-within:ring-1 focus-within:ring-inset focus-within:ring-signal">
+              <Search className="size-3.5 shrink-0" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Find team..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-4"
+              />
+            </div>
+          </div>
+        ) : undefined
+      }
       trigger={({ open, toggle, ref }) => (
         <button
           ref={ref}
@@ -321,7 +348,7 @@ function TeamSwitcher(props: Props) {
           <TeamMark name={props.team.name} tone={props.tone} size="md" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[14px] font-semibold text-ink">{props.team.name}</span>
-            <span className="block truncate text-[11.5px] text-ink-3">{props.isOwner ? "You lead this team" : "Member"}</span>
+            <span className="block truncate text-[12.5px] text-ink-3">{props.isOwner ? "You lead this team" : "Member"}</span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 text-ink-4" aria-hidden />
         </button>
@@ -332,12 +359,36 @@ function TeamSwitcher(props: Props) {
 
 function SwitcherList(props: Props & { onPick: () => void }) {
   const shell = useShell();
+  const [query, setQuery] = useState("");
   const teams = shell?.session.teams || [];
   if (teams.length <= 1) return null;
+
+  const showSearch = teams.length > 5;
+  const filtered = (showSearch && query)
+    ? teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+    : teams;
+
   return (
     <div className="px-2 pt-1">
+      {showSearch && (
+        <div className="px-2 pb-2 mt-1">
+          <div className="flex h-9 items-center gap-2 rounded-md bg-hover px-2.5 text-ink-3 focus-within:text-ink focus-within:ring-1 focus-within:ring-inset focus-within:ring-signal">
+            <Search className="size-4 shrink-0" />
+            <input
+              type="text"
+              placeholder="Find team..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-4"
+            />
+          </div>
+        </div>
+      )}
       <p className="caps-label px-2 pb-1 pt-2 text-ink-4">Switch team</p>
-      {teams.map((t) => (
+      {filtered.length === 0 && (
+        <p className="px-2 py-3 text-[13px] text-ink-3">No matches found</p>
+      )}
+      {filtered.map((t) => (
         <Link
           key={t.id}
           href={`/teams/${t.id}/workspace`}
@@ -384,18 +435,18 @@ function EventBlock({ activeHackathon, listedHackathons, countdown, tasks }: Pro
       ) : (
         <p className="mt-2 font-mono text-[18px] font-semibold leading-none text-ink tabular" aria-label={`${countdown.days} days ${countdown.hours} hours left`}>
           {countdown.days}
-          <span className="text-[11px] text-ink-4">d </span>
+          <span className="text-[12px] text-ink-4">d </span>
           {pad(countdown.hours)}
-          <span className="text-[11px] text-ink-4">h </span>
+          <span className="text-[12px] text-ink-4">h </span>
           {pad(countdown.minutes)}
-          <span className="text-[11px] text-ink-4">m </span>
+          <span className="text-[12px] text-ink-4">m </span>
           <span className="text-ink-3">{pad(countdown.seconds)}</span>
-          <span className="text-[11px] text-ink-4">s</span>
+          <span className="text-[12px] text-ink-4">s</span>
         </p>
       )}
       {tasks.total > 0 && (
         <div className="mt-3">
-          <div className="mb-1 flex justify-between text-[11.5px] text-ink-3">
+          <div className="mb-1 flex justify-between text-[12.5px] text-ink-3">
             <span>Tasks done</span>
             <span className="font-mono tabular">
               {tasks.done}/{tasks.total}
@@ -420,7 +471,7 @@ function CoverageBlock({ coverage, isOwner, onFindBuilders }: Props) {
       <Progress className="mt-2" value={pct} tone={pct >= 80 ? "ok" : "warn"} />
       {coverage.missing.length > 0 ? (
         <>
-          <p className="mt-2.5 text-[11.5px] text-ink-3">Missing</p>
+          <p className="mt-2.5 text-[12.5px] text-ink-3">Missing</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {coverage.missing.map((s) => (
               <Tape key={s} tone="warn">
@@ -461,3 +512,4 @@ function PresenceBlock({ members, onlineTeammates }: Props) {
     </div>
   );
 }
+
