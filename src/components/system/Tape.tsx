@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type TapeTone = "neutral" | "accent" | "solid" | "ok" | "warn" | "bad" | "info" | "sih" | "hack" | "proj";
+export type TapeTone = "neutral" | "accent" | "solid" | "ok" | "warn" | "bad" | "info" | "hack" | "proj";
 
 const tones: Record<TapeTone, string> = {
   neutral: "text-ink-2 bg-selected ring-line-strong",
@@ -11,14 +11,14 @@ const tones: Record<TapeTone, string> = {
   warn: "text-warn bg-warn-soft ring-warn/30",
   bad: "text-bad bg-bad-soft ring-bad/30",
   info: "text-info bg-info-soft ring-info/30",
-  sih: "text-sih bg-sih-soft ring-sih/30",
+
   hack: "text-hack bg-hack-soft ring-hack/30",
   proj: "text-proj bg-proj-soft ring-proj/30",
 };
 
 /**
  * Tape: HackerMate's status label. Square-cornered, mono, uppercase — like a
- * label-maker strip. Used for states (AVAILABLE, 2 SEATS OPEN, SIH) — never
+ * label-maker strip. Used for states (AVAILABLE, 2 SEATS OPEN) — never
  * for free-form text.
  */
 export function Tape({

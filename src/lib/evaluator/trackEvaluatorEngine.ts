@@ -15,8 +15,8 @@ export async function runTrackAwareEvaluation(
   allowGeminiAi = true
 ): Promise<ProjectEvaluationResult> {
   const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  const trackId = input.trackId || "web_dev";
-  const profile = TRACK_PROFILES[trackId] || TRACK_PROFILES.web_dev;
+  const trackId = input.trackId || "generic";
+  const profile = TRACK_PROFILES[trackId] || TRACK_PROFILES.generic;
 
   let fallbackReason: ProjectEvaluationResult["fallbackReason"] = null;
   let fallbackDetails: string | null = null;
@@ -116,7 +116,7 @@ async function callGeminiForTrack(
 }
 
 /**
- * Builds the specialized prompt depending on whether the track is Web Dev, AI/GenAI, or SIH.
+ * Builds the specialized prompt depending on whether the track is Web Dev, AI/GenAI, or Generic.
  */
 function buildGeminiPromptForTrack(input: EvaluationInput, profile: any): string {
   const combinedText = `
@@ -149,14 +149,14 @@ Evaluate this AI / GenAI / Agentic system strictly on:
 4. Unit Economics & Accuracy (0-15 pts): Realistic API cost budgeting, ground truth evaluation metrics, and error mitigation.
     `;
   } else {
-    // SIH Mode
+    // Generic Mode
     trackSpecificGuidance = `
-You are a Senior Smart India Hackathon (SIH) National Grand Jury Chair.
-Evaluate this pitch strictly on the official SIH criteria:
-1. Problem Novelty & Alignment (0-25 pts): Clear alignment with government/social problem statement and innovative approach.
-2. Technical Architecture & Feasibility (0-35 pts): Feasible 36-hour execution architecture, hardware/software component pipeline, and telemetry flow.
-3. UI/UX, Impact & Research (0-25 pts): Quantified social/economic baseline metrics and IEEE/dataset research citations.
-4. Team Squad Balance & Rules (0-15 pts): Realistic team balance, slide brevity, and execution feasibility.
+You are a Senior Technical Judge at a top-tier hackathon.
+Evaluate this pitch strictly on the following general criteria:
+1. Problem Fit & Differentiation (0-25 pts): Clarity of the problem statement and how the solution differentiates from existing alternatives.
+2. Technical Credibility & Architecture (0-35 pts): Feasibility, logic of the proposed technical architecture, and implementation evidence.
+3. Feasibility & Implementation (0-25 pts): Practical execution details, realistic technical risk assessment, and UI/UX flows.
+4. Value Understanding & Impact (0-15 pts): Clear understanding of the target audience and value proposition.
     `;
   }
 
@@ -334,20 +334,7 @@ function formatRecommendedRoles(rawRoles: any, trackId: JudgingTrackId): Recomme
     ];
   }
 
-  if (trackId === "sih") {
-    return [
-      {
-        role: "Full-Stack Lead Builder",
-        reason: "To develop the end-to-end 36-hour working prototype for jury demonstrations.",
-        suggestedSkills: ["Next.js", "Supabase", "REST APIs", "Tailwind CSS"],
-      },
-      {
-        role: "UI/UX & Research Lead",
-        reason: "To polish the presentation deck, design system flowcharts, and quantify social impact.",
-        suggestedSkills: ["Figma", "UI Design", "Research & Data Analysis"],
-      },
-    ];
-  }
+
 
   return [
     {

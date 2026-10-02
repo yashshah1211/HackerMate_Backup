@@ -1185,12 +1185,7 @@ function HackathonDetailContent() {
   const stateLabel =
     timeline.state === "live" ? "Live" : timeline.state === "upcoming" ? "Upcoming" : timeline.state === "ended" ? "Ended" : "Dates TBA";
   const stateTone = timeline.state === "live" ? "ok" : timeline.state === "upcoming" ? "accent" : "neutral";
-  const isSIH =
-    getTeamCategoryInfo({
-      hackathon_id: hackathon.id,
-      hackathons: { id: hackathon.id, name: hackathon.name, type: hackathon.type, tags: hackathon.tags },
-    }).category === "sih" || /smart india hackathon|\bsih\b/i.test(hackathon.name);
-  const eventTone = isSIH ? "sih" : "hack";
+  const eventTone = "hack";
 
   const showLocation = !(
     hackathon.mode?.toLowerCase() === "online" &&
@@ -1337,7 +1332,7 @@ function HackathonDetailContent() {
               <Tape tone={stateTone} dot={timeline.state === "live"}>
                 {stateLabel}
               </Tape>
-              <Tape tone={eventTone}>{isSIH ? "SIH" : "Hackathon"}</Tape>
+              <Tape tone={eventTone}>Hackathon</Tape>
               <Tape>{isNative ? "Hosted on HackerMate" : "External event"}</Tape>
               {isRegistered && (
                 <Tape tone="ok" icon={<CheckCircle2 />}>
@@ -2259,7 +2254,7 @@ function TeamRow({
   children,
 }: {
   team: Team;
-  tone: "sih" | "hack";
+  tone: "hack";
   badge?: ReactNode;
   children?: ReactNode;
 }) {

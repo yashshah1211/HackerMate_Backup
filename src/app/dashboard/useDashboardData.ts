@@ -51,7 +51,7 @@ export type DashTeam = {
   id: string;
   name: string;
   category: TeamCategory;
-  tag: "SIH" | "PROJECT" | "HACKATHON";
+  tag: "PROJECT" | "HACKATHON";
   eventName: string;
   memberCount: number;
   maxMembers: number | null;
@@ -81,7 +81,7 @@ export type DashboardData = {
   connectionStates: Record<string, ConnState>;
   teams: DashTeam[];
   queue: QueueItem[];
-  stats: { builders: number; teams: number; hackathons: number; closingSoon: number; campusCount?: number };
+  stats: { builders: number; teams: number; hackathons: number | null; closingSoon: number | null; campusCount?: number };
   activity: Activity[];
   partners: PartnerEvent[];
   year: { visible: boolean; value: string; saving: boolean };
@@ -281,9 +281,9 @@ export function useDashboardData() {
       const in7Str = in7.toISOString().split("T")[0];
       const countsP = Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("hackathons").select("id", { count: "exact", head: true }).gte("end_date", today),
+        supabase.from("hackathons").select("id", { count: "exact", head: true }).eq("archived", false).gte("end_date", today),
         supabase.from("teams").select("id", { count: "exact", head: true }),
-        supabase.from("hackathons").select("id", { count: "exact", head: true }).gte("end_date", today).lte("end_date", in7Str),
+        supabase.from("hackathons").select("id", { count: "exact", head: true }).eq("archived", false).gte("end_date", today).lte("end_date", in7Str),
       ]);
       const notifP = supabase
         .from("notifications")
@@ -432,9 +432,9 @@ export function useDashboardData() {
         queue: [...invites, ...joinItems, ...conn.incoming],
         stats: {
           builders: buildersCount.count ?? 0,
-          hackathons: liveCount.count ?? 0,
+          hackathons: liveCount.error ? null : (liveCount.count ?? 0),
           teams: teamsCount.count ?? 0,
-          closingSoon: closingCount.count ?? 0,
+          closingSoon: closingCount.error ? null : (closingCount.count ?? 0),
           campusCount,
         },
         activity: (notifs.data || []).map((n) => ({ id: n.id, message: n.message, link: n.link, createdAt: n.created_at })),

@@ -177,7 +177,7 @@ export default function SmartGapFiller({
         // Gender balance rule match
         if (!hasFemaleBuilder && isFemale) {
           score += 25;
-          reasons.push("Satisfies SIH Female Teammate Rule");
+          reasons.push("Enhances team diversity");
         }
 
         // College synergy
@@ -189,7 +189,7 @@ export default function SmartGapFiller({
         // If team has specified required skills, ONLY show candidates who match required skills or satisfy gender deficit
         if (normalizedTargets.length > 0 && matchedSkills.length === 0) {
           if (!hasFemaleBuilder && isFemale) {
-            reasons.push("Verified Builder Available for SIH");
+            reasons.push("Verified Builder (Diversity)");
           } else {
             // Does not match required team skills; skip candidate
             return;
@@ -260,24 +260,19 @@ export default function SmartGapFiller({
     }
   }
 
-  // SIH rules as a compact checklist (presentation only; values come from the deficit analysis above).
+  // Rules as a compact checklist (presentation only; values come from the deficit analysis above).
   const checks: { ok: boolean; label: string; detail: ReactNode }[] = [
     {
       ok: memberCount >= 6,
       label: "6 members",
       detail: <SeatMeter filled={Math.min(memberCount, 6)} total={6} />,
     },
-    {
-      ok: hasFemaleBuilder,
-      label: "At least one woman on the team",
-      detail: <span className="text-[12px] text-ink-3">{hasFemaleBuilder ? "Met" : "Required for SIH"}</span>,
-    },
   ];
 
   const checklist = (
     <Panel as="section" className="min-w-0">
       <div className="border-b border-line px-4 py-3">
-        <h3 className="text-[13.5px] font-semibold text-ink">SIH checks</h3>
+        <h3 className="text-[13.5px] font-semibold text-ink">Team status</h3>
       </div>
       <List className="px-4">
         {checks.map((c) => (
@@ -323,7 +318,7 @@ export default function SmartGapFiller({
       <div className="space-y-5 text-left">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="min-w-0 text-[13px] text-ink-3">
-            {teamName} has all 6 seats filled, the most SIH and most hackathons allow.
+            {teamName} has all 6 seats filled, the maximum most hackathons allow.
           </p>
           <Tape tone="ok" icon={<CheckCircle2 />}>
             Squad complete

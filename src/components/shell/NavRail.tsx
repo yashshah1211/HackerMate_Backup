@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
 import { Bell, ChevronDown, LogIn } from "lucide-react";
 import { CountBadge } from "@/components/system";
 import { cn } from "@/lib/utils";
@@ -93,25 +92,21 @@ export function NavRail({
                     key={item.id}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className="group relative flex w-full flex-col items-center gap-1 py-1.5 [@media(max-height:820px)]:py-1 [@media(max-height:700px)]:gap-0.5"
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="rail-edge"
-                        className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-r-[2px] bg-signal"
-                        transition={{ type: "spring", stiffness: 520, damping: 42 }}
-                      />
+                    className={cn(
+                      "group relative flex w-[calc(100%-16px)] flex-col items-center gap-1 rounded-[10px] py-1.5 transition-colors [@media(max-height:820px)]:py-1 [@media(max-height:700px)]:gap-0.5",
+                      active ? "" : "hover:bg-hover"
                     )}
+                  >
                     <span
                       className={cn(
                         "relative flex h-8 w-full items-center justify-center transition-colors [&_svg]:size-[19px] [@media(max-height:700px)]:h-7",
-                        active ? "text-ink" : "text-ink-3 group-hover:text-ink",
+                        active ? "text-accent-ink" : "text-ink-3 group-hover:text-ink",
                       )}
                     >
                       <span className="relative">{item.icon}</span>
                       {badge > 0 && <CountBadge value={badge} className="absolute -right-1 -top-1" />}
                     </span>
-                    <span className={cn("text-[12.5px] font-medium leading-none", active ? "text-ink" : "text-ink-3 group-hover:text-ink-2")}>
+                    <span className={cn("text-[12.5px] leading-none transition-colors", active ? "text-ink font-semibold" : "text-ink-3 font-medium group-hover:text-ink-2")}>
                       {item.label}
                     </span>
                   </Link>

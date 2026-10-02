@@ -17,7 +17,7 @@ export interface ExtractionResult {
   errorMessage?: string;
 }
 
-export const SIH_SLIDE_CATEGORIES = [
+export const EXPECTED_SLIDE_CATEGORIES = [
   { slideNumber: 1, title: "Slide 1: Cover & Problem Statement Title", category: "Problem Statement & Overview" },
   { slideNumber: 2, title: "Slide 2: Proposed Solution & Innovation", category: "Proposed Solution & Novelty" },
   { slideNumber: 3, title: "Slide 3: Technical Approach & Architecture", category: "Technical Architecture & Stack" },
@@ -47,7 +47,7 @@ export async function extractTextFromPDF(pdfBuffer: Buffer): Promise<ExtractionR
       slideChunks = segmentSlidesFromText(fullText);
     }
 
-    const structuredSlides = mapToSihSlideStructure(slideChunks, fullText);
+    const structuredSlides = mapToSlideStructure(slideChunks, fullText);
 
     return {
       success: true,
@@ -191,7 +191,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       const res = await fetch(exportTxtUrl, {
         method: "GET",
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-SIH-Extractor/1.0",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
         },
         signal: controller.signal,
         redirect: "manual",
@@ -206,7 +206,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
         const cleaned = sanitizeExtractedText(text);
         if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentSlidesFromText(cleaned);
-          const structuredSlides = mapToSihSlideStructure(slideChunks, cleaned);
+          const structuredSlides = mapToSlideStructure(slideChunks, cleaned);
           return {
             success: true,
             totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
@@ -228,7 +228,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       const res = await fetch(directDriveUrl, {
         method: "GET",
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-SIH-Extractor/1.0",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
         },
         signal: controller.signal,
       });
@@ -256,7 +256,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
       const res = await fetch(pubUrl, {
         method: "GET",
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-SIH-Extractor/1.0",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
         },
         signal: controller.signal,
         redirect: "manual",
@@ -271,7 +271,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
         const cleaned = stripHtmlToText(html);
         if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentSlidesFromText(cleaned);
-          const structuredSlides = mapToSihSlideStructure(slideChunks, cleaned);
+          const structuredSlides = mapToSlideStructure(slideChunks, cleaned);
           return {
             success: true,
             totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
@@ -293,7 +293,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
     const res = await fetch(urlStr, {
       method: "GET",
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-SIH-Extractor/1.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
       },
       signal: controller.signal,
       redirect: "manual",
@@ -321,7 +321,7 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
         const cleaned = stripHtmlToText(raw);
         if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
           const slideChunks = segmentSlidesFromText(cleaned);
-          const structuredSlides = mapToSihSlideStructure(slideChunks, cleaned);
+          const structuredSlides = mapToSlideStructure(slideChunks, cleaned);
           return {
             success: true,
             totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
@@ -364,8 +364,8 @@ export function segmentSlidesFromText(rawText: string): string[] {
     .replace(/\r\n/g, "\n")
     .replace(/\n\s*[-=_]{3,}\s*\n/g, "\f");
 
-  // 3. Replace SIH template footer transitions with \f
-  text = text.replace(/\n+\s*(?:\d{1,2}\s*\n+)?@SIH[^\n]*\n+(?:Your Team Name[^\n]*\n+)?(?:\d{1,2}\s*\n+)?/gi, "\f");
+  // 3. Replace template footer transitions with \f
+  text = text.replace(/\n+\s*(?:\d{1,2}\s*\n+)?[^]*\n+(?:Your Team Name[^\n]*\n+)?(?:\d{1,2}\s*\n+)?/gi, "\f");
 
   // 4. Split on "Slide 1:", "Slide 1 of 6", or explicit \f
   text = text.replace(/(?=\n\s*Slide\s*\d+(?::|\.|\s+of|\s*\/|\s+[A-Z]))/gi, "\f");
@@ -386,8 +386,8 @@ export function segmentSlidesFromText(rawText: string): string[] {
   return [rawText];
 }
 
-function mapToSihSlideStructure(slideChunks: string[], fullText: string): ExtractedSlide[] {
-  return SIH_SLIDE_CATEGORIES.map((cat, idx) => {
+function mapToSlideStructure(slideChunks: string[], fullText: string): ExtractedSlide[] {
+  return EXPECTED_SLIDE_CATEGORIES.map((cat, idx) => {
     let rawText = slideChunks[idx] || "";
     if (!rawText && slideChunks.length === 1 && idx === 0) {
       rawText = fullText;

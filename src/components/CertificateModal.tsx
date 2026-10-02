@@ -57,7 +57,7 @@ export default function CertificateModal({
     setDownloading(true);
     try {
       // Loaded on first click only — keeps ~350KB of PDF-generation code out
-      // of the initial bundles for sih/, partners/[slug]/ and profile/[id]/.
+      // of the initial bundles for hackathons/[id]/, partners/[slug]/ and profile/[id]/.
       const { jsPDF } = await import("jspdf");
 
       // Create landscape A4 PDF (842 x 595 pt)

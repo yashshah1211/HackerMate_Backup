@@ -79,7 +79,7 @@ export function DashboardView({
   const needsCount = data.queue.length + (unreadMessages > 0 ? 1 : 0);
   const summary: ReactNode[] = [];
   if (needsCount > 0) summary.push(`${needsCount} pending ${needsCount === 1 ? "item" : "items"}`);
-  if (data.stats.closingSoon > 0) summary.push(`${data.stats.closingSoon} hackathon${data.stats.closingSoon === 1 ? "" : "s"} close this week`);
+  if (data.stats.closingSoon && data.stats.closingSoon > 0) summary.push(`${data.stats.closingSoon} hackathon${data.stats.closingSoon === 1 ? "" : "s"} close this week`);
 
   return (
     <Page>
@@ -149,7 +149,6 @@ export function DashboardView({
               <StreakWidget initialStreak={data.profile?.current_streak ?? 0} initialLongest={data.profile?.longest_streak ?? 0} />
             </Section>
             <Pulse data={data} />
-            <SihCallout />
             {data.partners.length > 0 && <PartnerEvents data={data} />}
             <RecentActivity data={data} onOpenInbox={handlers.onOpenInbox} />
           </div>
@@ -602,7 +601,7 @@ function ProfileStrength({ data, onOpenProfileSetup }: { data: DashboardData; on
 function Pulse({ data }: { data: DashboardData }) {
   const items = [
     { label: "Hackathons live", value: data.stats.hackathons, href: "/hackathons" },
-    { label: "Closing ≤ 7 days", value: data.stats.closingSoon, href: "/hackathons", urgent: data.stats.closingSoon > 0 },
+    { label: "Closing ≤ 7 days", value: data.stats.closingSoon, href: "/hackathons", urgent: (data.stats.closingSoon ?? 0) > 0 },
     { label: "Builders", value: data.stats.builders, href: "/developers" },
     { label: "Teams", value: data.stats.teams, href: "/teams" },
   ];
@@ -621,28 +620,12 @@ function Pulse({ data }: { data: DashboardData }) {
           >
             <div className="caps-label text-ink-3">{it.label}</div>
             <div className={cn("mt-1 font-display text-[22px] font-semibold leading-none tabular", it.urgent ? "text-warn" : "text-ink")}>
-              {data.loading ? <Skeleton className="mt-1 h-5 w-10" /> : it.value.toLocaleString("en-IN")}
+              {data.loading ? <Skeleton className="mt-1 h-5 w-10" /> : it.value === null ? <span title="Unavailable">—</span> : it.value.toLocaleString("en-IN")}
             </div>
           </Link>
         ))}
       </div>
     </Section>
-  );
-}
-
-function SihCallout() {
-  return (
-    <Link href="/hackathons/sih" className="group block rounded-lg border border-line p-4 transition-colors hover:border-line-strong hover:bg-hover">
-      <div className="flex items-center gap-2">
-        <Tape tone="sih">SIH 2026</Tape>
-        <span className="caps-label text-ink-3">Team builder</span>
-      </div>
-      <p className="mt-2 text-[14px] font-semibold text-ink">Smart India Hackathon internal round</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">Six members from your college, at least one woman on the team. Find the gaps in yours.</p>
-      <span className="mt-2.5 inline-flex items-center gap-1 text-[12.5px] font-medium text-ink-2 group-hover:text-ink">
-        Open SIH builder <ArrowUpRight className="size-3.5" aria-hidden />
-      </span>
-    </Link>
   );
 }
 

@@ -1,4 +1,4 @@
-export type JudgingTrackId = "web_dev" | "ai_genai" | "sih";
+export type JudgingTrackId = "web_dev" | "ai_genai" | "generic";
 
 export interface TrackScoreCategories {
   novelty: { label: string; maxPts: number };
@@ -130,31 +130,31 @@ export const TRACK_PROFILES: Record<JudgingTrackId, TrackProfile> = {
     ],
     recommendedRoles: ["AI/ML Engineer (PyTorch/LangChain)", "Vector DB & Data Engineer", "Full-Stack AI Integrator"],
   },
-  sih: {
-    id: "sih",
-    name: "Smart India Hackathon (SIH)",
-    badge: "SIH Format",
-    icon: "🏆",
-    tagline: "Official 6-Slide Compliance, Government & Social Impact",
-    description: "Evaluates against the official Smart India Hackathon jury rubric, 6-slide template structure, and quantified impact.",
+  generic: {
+    id: "generic",
+    name: "General Technology & Innovation",
+    badge: "General Track",
+    icon: "💡",
+    tagline: "Problem Clarity, Solution Feasibility & Execution",
+    description: "Evaluates the overall problem-solution fit, technical credibility, and execution evidence across any domain.",
     categories: {
-      novelty: { label: "Problem Novelty & Alignment", maxPts: 25 },
-      tech: { label: "Technical Architecture & Feasibility", maxPts: 35 },
-      uiUxOrFeasibility: { label: "UI/UX, Impact & Research Polish", maxPts: 25 },
-      impactOrTeam: { label: "Team Squad Balance & Rule Compliance", maxPts: 15 },
+      novelty: { label: "Problem Fit & Differentiation", maxPts: 25 },
+      tech: { label: "Technical Credibility & Architecture", maxPts: 35 },
+      uiUxOrFeasibility: { label: "Feasibility & Implementation", maxPts: 25 },
+      impactOrTeam: { label: "Value Understanding & Impact", maxPts: 15 },
     },
     primaryChecks: [
-      "Official 6-slide template structure compliance",
-      "Quantified social/economic baseline metrics (₹, %, hours saved)",
-      "Technical architecture flowchart and working prototype repository",
-      "Research citations, IEEE references, and open government datasets on Slide 6",
+      "Clarity of the problem statement and target audience",
+      "Credibility and logic of the proposed technical architecture",
+      "Evidence of actual implementation or realistic feasibility",
+      "Understanding of value proposition and differentiation",
     ],
     commonRedFlags: [
-      "Exceeding mandatory 6-slide limit",
-      "Missing baseline metrics and quantified unit economics",
-      "Generic API wrappers without technical depth",
-      "Missing research references or dataset documentation",
+      "Vague problem statement or poorly defined solution",
+      "Magical thinking in technical architecture with no practical details",
+      "Lack of evidence that the team can execute the idea",
+      "Fails to address why this solution is better than existing alternatives",
     ],
-    recommendedRoles: ["Lead Full-Stack Builder", "System Architect", "UI/UX & Research Lead"],
+    recommendedRoles: ["Product Architect", "Lead Developer", "Domain/Research Specialist"],
   },
 };

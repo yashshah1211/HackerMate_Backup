@@ -61,6 +61,7 @@ interface PPTEvaluation {
   slide_breakdown?: any[];
   ai_feedback?: {
     strengths?: string[];
+    criticalRisks?: string[];
     spocRedFlags?: string[];
     formatViolations?: string[];
     slideRecommendations?: Record<string, string>;
@@ -85,7 +86,6 @@ const ORDERED_SLIDES = [
 ] as const;
 
 const TRACK_OPTIONS: { id: JudgingTrackId; label: string; sub: string }[] = [
-  { id: "sih", label: "SIH", sub: "6 members, at least one woman, 6-slide template" },
   { id: "ai_genai", label: "AI & GenAI", sub: "Agents, retrieval, latency and hallucination control" },
   { id: "web_dev", label: "Web dev", sub: "APIs, data model, SSR and security" },
 ];
@@ -243,7 +243,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         body: JSON.stringify({
           track_id: selectedTrack,
           external_link_url: externalLink.trim(),
-          ps_title: psTitle.trim() || "SIH 2026 Problem Statement",
+          ps_title: psTitle.trim() || "Project Pitch",
           ps_category: psCategory,
         }),
       });
@@ -337,14 +337,6 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   };
 
   const getTrackBadge = (trackId: string = "web_dev") => {
-    if (trackId === "sih") {
-      return {
-        label: "SIH 2026",
-        short: "SIH",
-        tone: "sih" as TapeTone,
-        icon: <Building2 />,
-      };
-    }
     if (trackId === "ai_genai") {
       return {
         label: "AI & GenAI",
@@ -382,8 +374,8 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const teamDiff =
     selectedEval && compareEval ? selectedEval.score_team - compareEval.score_team : null;
 
-  const prevFlags = compareEval?.ai_feedback?.spocRedFlags || [];
-  const currFlags = selectedEval?.ai_feedback?.spocRedFlags || [];
+  const prevFlags = compareEval?.ai_feedback?.criticalRisks || compareEval?.ai_feedback?.spocRedFlags || [];
+  const currFlags = selectedEval?.ai_feedback?.criticalRisks || selectedEval?.ai_feedback?.spocRedFlags || [];
   const resolvedRedFlags = prevFlags.filter((rf) => !currFlags.includes(rf));
 
   const renderDiffBadge = (diff: number | null, prefix: string = "") => {
@@ -399,9 +391,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   };
 
   const trackDescription =
-    selectedTrack === "sih"
-      ? "Paste a Google Slides or Drive link. Scored 0–100 on the SIH rubric: novelty, architecture, UI/UX, a 6-member team with at least one woman, and the 6-slide limit."
-      : selectedTrack === "ai_genai"
+    selectedTrack === "ai_genai"
       ? "Paste a Google Slides or Drive link. Scored 0–100 on AI hackathon criteria: agent design, retrieval, latency, hallucination control and team roles."
       : "Paste a Google Slides or Drive link. Scored 0–100 on full-stack criteria: API design, data model, caching, security, responsive UI and team roles.";
 
@@ -439,6 +429,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       : [];
 
   const hasPushback =
+    (selectedEval?.ai_feedback?.criticalRisks && selectedEval.ai_feedback.criticalRisks.length > 0) ||
     (selectedEval?.ai_feedback?.spocRedFlags && selectedEval.ai_feedback.spocRedFlags.length > 0) ||
     (selectedEval?.ai_feedback?.formatViolations && selectedEval.ai_feedback.formatViolations.length > 0);
 
@@ -458,25 +449,9 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="text-[13.5px] font-semibold text-ink">
-              Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a SIH submission.
-            </p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">
-              Web Dev grading uses flexible team sizing and skips the SIH team rules. If you&apos;re preparing for Smart India Hackathon (SIH 2026), pick the SIH track so the 6-member and women-on-team checks are scored.
+              Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a specialized submission.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Building2 />}
-                className="h-9 md:h-7"
-                onClick={() => {
-                  setSelectedTrack("sih");
-                  setUserExplicitlySelected(true);
-                  setIsAmbiguousFallback(false);
-                }}
-              >
-                Use SIH rubric
-              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -517,7 +492,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         onEvaluationLoaded={(evaluation: LinkedEvaluationRecord | null) => {
           if (evaluation?.track_id && !userExplicitlySelected) {
             const tr = evaluation.track_id as JudgingTrackId;
-            if (["sih", "ai_genai", "web_dev"].includes(tr)) {
+            if (["ai_genai", "web_dev"].includes(tr)) {
               setSelectedTrack(tr);
               setIsAmbiguousFallback(false);
               setAutoDetectedSource(`Linked Idea Scorecard (${TRACK_PROFILES[tr]?.name || tr})`);
@@ -654,7 +629,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               <div className="min-w-0">
                 <p className="text-[13.5px] font-semibold text-ink">Scored with the Web Dev fallback rubric</p>
                 <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">
-                  {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. If this team is competing in Smart India Hackathon (SIH 2026), official squad compliance, 6-member requirements, and female teammate rules were NOT evaluated. Select the SIH 2026 track above and re-evaluate."}
+                  {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. Re-evaluate with the correct track if needed."}
                 </p>
               </div>
             </div>
@@ -762,12 +737,12 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             </Panel>
           )}
 
-          {/* SPOC / Jury Red Flags & Format Violations */}
+          {/* Critical Risks & Format Violations */}
           {hasPushback ? (
             <Panel as="section" className="min-w-0">
               <PanelHead icon={<TriangleAlert className="text-warn" />} title="What judges will push back on" />
               <ul className="space-y-2 p-4">
-                {selectedEval.ai_feedback?.spocRedFlags?.map((flag, idx) => (
+                {(selectedEval.ai_feedback?.criticalRisks || selectedEval.ai_feedback?.spocRedFlags)?.map((flag, idx) => (
                   <li key={`rf-${idx}`} className="flex items-start gap-2 text-[13px] font-medium leading-relaxed text-ink">
                     <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-warn" aria-hidden />
                     <span className="min-w-0">{flag}</span>

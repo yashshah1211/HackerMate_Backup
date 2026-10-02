@@ -6,8 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { ArrowRight, Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
-import { SIH_HACKATHON_ID } from "@/lib/constants";
+
 import { eventTimeline } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import {
@@ -201,33 +202,37 @@ function HackathonRow({
   const prizeShort = prize.length > 35 ? `${prize.slice(0, 32)}...` : prize;
   const mode = modeLabel(h.mode);
 
-  let stateTape: ReactNode;
-  if (isEventPast) stateTape = <Tape tone="neutral">Ended</Tape>;
-  else if (t.state === "live") stateTape = <Tape tone="ok" dot>Live</Tape>;
-  else if (t.state === "upcoming") stateTape = <Tape tone="accent">Upcoming</Tape>;
-  else stateTape = <Tape tone="neutral">{t.state === "unknown" ? "Dates TBA" : "Started"}</Tape>;
-
   return (
-    <li className="group relative flex gap-3.5 px-4 py-3.5 transition-colors hover:bg-hover sm:gap-4">
+    <li className="group relative flex flex-col sm:flex-row gap-4 sm:gap-5 py-5 px-3 sm:px-4 sm:-mx-4 rounded-xl transition-colors hover:bg-hover">
       {/* Date stamp */}
-      <div className="flex w-9 shrink-0 flex-col items-center pt-0.5 font-mono leading-none" aria-hidden>
-        <span className={cn("text-[17px] font-semibold tabular", isEventPast ? "text-ink-3" : "text-ink")}>{d.day}</span>
-        <span className="mt-1 text-[12.5px] text-ink-3">{d.month}</span>
+      <div className="flex w-10 shrink-0 flex-col items-center pt-0.5 font-mono leading-none" aria-hidden>
+        <span className={cn("text-[18px] font-semibold tabular", isEventPast ? "text-ink-3" : "text-ink")}>{d.day}</span>
+        <span className="mt-1 text-[11px] uppercase tracking-wider text-ink-3">{d.month}</span>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/hackathons/${h.id}`}
-              className={cn(
-                "block truncate text-[15px] font-semibold outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-accent/40",
-                isEventPast ? "text-ink-2" : "text-ink",
-              )}
-            >
-              {h.name}
-            </Link>
-            <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink-3">
+      <div className="min-w-0 flex-1 flex gap-3 sm:gap-4">
+        {/* Identity mark */}
+        {h.type === "native" && (
+          <div className="flex w-7 sm:w-8 shrink-0 items-start justify-center pt-0.5" aria-hidden>
+            <LogoMark size={28} className="opacity-90 transition-opacity group-hover:opacity-100" />
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Link
+                href={`/hackathons/${h.id}`}
+                className={cn(
+                  "block truncate text-[15.5px] font-semibold outline-none after:absolute after:inset-0 after:content-[''] hover:underline decoration-line-strong underline-offset-4 focus-visible:ring-2 focus-visible:ring-accent",
+                  isEventPast ? "text-ink-2" : "text-ink",
+                )}
+              >
+                {h.name}
+              </Link>
+            </div>
+            <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13px] text-ink-3">
               <span>{platformLabel(h)}</span>
               {mode && (
                 <>
@@ -235,12 +240,16 @@ function HackathonRow({
                   <span>{mode}</span>
                 </>
               )}
-              <MetaDot />
-              <span className="max-w-full truncate">{h.location || "Location TBA"}</span>
+              {h.location && (
+                <>
+                  <MetaDot />
+                  <span className="truncate max-w-[200px]">{h.location}</span>
+                </>
+              )}
               {h.college && (
                 <>
                   <MetaDot />
-                  <span className="max-w-full truncate">{h.college}</span>
+                  <span className="truncate max-w-[200px]">{h.college}</span>
                 </>
               )}
             </p>
@@ -249,38 +258,59 @@ function HackathonRow({
             label={saved ? "Remove from saved" : "Save hackathon"}
             aria-pressed={saved}
             onClick={(e) => onToggleSave(e, h.id)}
-            className={cn("relative z-10 -mr-1.5 -mt-1.5", saved && "text-accent-ink hover:text-accent-ink")}
+            className={cn("relative z-10 shrink-0 -mr-2 -mt-1.5 transition-colors", saved ? "text-accent-ink hover:text-accent-ink" : "text-ink-3 hover:text-ink")}
           >
-            <Bookmark className={saved ? "fill-current" : undefined} />
+            <Bookmark className={saved ? "fill-current" : undefined} size={18} />
           </IconButton>
         </div>
 
-        <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-ink-2 md:line-clamp-1">{getPlainPreview(h.description)}</p>
+        <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-relaxed text-ink-2 sm:line-clamp-1">{getPlainPreview(h.description)}</p>
 
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-          {stateTape}
-          {h.id === SIH_HACKATHON_ID && <Tape tone="sih">SIH</Tape>}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
+          {/* Status */}
+          {isEventPast ? (
+            <span className="font-medium text-ink-3">Ended</span>
+          ) : t.state === "live" ? (
+            <span className="font-medium text-ink-2"><span className="text-ok">●</span> Live</span>
+          ) : t.state === "upcoming" ? (
+            <span className="font-medium text-ink-2">Upcoming</span>
+          ) : (
+            <span className="font-medium text-ink-3">{t.state === "unknown" ? "Dates TBA" : "Started"}</span>
+          )}
+
+          <MetaDot />
+
+          {/* Deadline / Range */}
           {!isEventPast && (t.state === "live" || t.state === "upcoming") && (
-            <span className={cn("font-mono text-[12px] tabular", t.urgent ? "text-warn" : "text-ink-3")}>{t.label}</span>
+            <>
+              <span className={cn("font-medium", t.urgent ? "text-warn" : "text-ink-2")}>{t.label}</span>
+              <MetaDot />
+            </>
           )}
-          <span className="font-mono text-[12px] text-ink-3 tabular">{formatDateRange(h.start_date, h.end_date)}</span>
+          <span className="text-ink-3">{formatDateRange(h.start_date, h.end_date)}</span>
+
           {prizeShort && (
-            <span className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-[12px] text-ink-2">
-              <Trophy className="size-3.5 shrink-0 text-ink-3" aria-hidden />
-              <span className="truncate">{prizeShort}</span>
-            </span>
+            <>
+              <MetaDot />
+              <span className="inline-flex min-w-0 items-center gap-1 font-medium text-ink-2">
+                <Trophy className="size-3 shrink-0 text-ink-3" aria-hidden />
+                <span className="truncate">{prizeShort}</span>
+              </span>
+            </>
           )}
+
+          {/* Tags */}
           {h.tags && h.tags.length > 0 && (
-            <span className="flex min-w-0 flex-wrap gap-1">
-              {h.tags.slice(0, 3).map((tag) => (
-                <Chip key={tag} className="h-5 px-1.5 text-[12px]">
-                  {tag}
-                </Chip>
-              ))}
-              {h.tags.length > 3 && <Chip className="h-5 px-1.5 text-[12px]">+{h.tags.length - 3}</Chip>}
-            </span>
+            <>
+              <MetaDot />
+              <span className="text-ink-3 truncate">
+                {h.tags.filter(tag => tag.toLowerCase() !== platformLabel(h).toLowerCase()).slice(0, 3).join(" · ")}
+                {h.tags.length > 3 && ` · +${h.tags.length - 3}`}
+              </span>
+            </>
           )}
         </div>
+      </div>
       </div>
     </li>
   );
@@ -317,6 +347,7 @@ function HackathonsContent() {
     const { data: hackathonData, error: hackathonError } = await supabase
       .from("hackathons")
       .select("*")
+      .eq("archived", false)
       .order("start_date", { ascending: true });
 
     if (hackathonError) {
@@ -516,9 +547,9 @@ function HackathonsContent() {
           "Loading events…"
         ) : (
           <>
-            <span className="font-mono text-ink-2 tabular">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
-            <span className="font-mono text-ink-2 tabular">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
-            <span className="font-mono text-ink-2 tabular">{savedIds.size.toLocaleString("en-IN")}</span> saved
+            <span className="font-medium text-ink-2 tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
+            <span className="font-medium text-ink-2 tabular-nums">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
+            <span className="font-medium text-ink-2 tabular-nums">{savedIds.size.toLocaleString("en-IN")}</span> saved
           </>
         )
       }
@@ -530,66 +561,64 @@ function HackathonsContent() {
     />
   );
 
-  const sihCallout = (
-    <Link
-      href="/hackathons/sih"
-      className="group flex items-center gap-3.5 rounded-lg border border-line bg-raised px-4 py-3.5 transition-colors hover:border-line-strong hover:bg-hover"
-    >
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[7px] bg-sih-soft text-sih ring-1 ring-inset ring-sih/25" aria-hidden>
-        <Target className="size-[18px]" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <Tape tone="sih">SIH 2026</Tape>
-          <span className="caps-label text-ink-3">Internal round</span>
-        </span>
-        <span className="mt-1 block text-[14.5px] font-semibold text-ink">Find teammates for Smart India Hackathon</span>
-        <span className="mt-0.5 block text-[12.5px] text-ink-3">
-          6-member teams from your college, at least one woman, filtered by institution.
-        </span>
-      </span>
-      <span className={buttonClass("secondary", "md", "hidden shrink-0 sm:inline-flex")}>
-        Open SIH hub
-        <ArrowRight className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-      </span>
-      <ArrowRight className="size-4 shrink-0 text-ink-3 sm:hidden" aria-hidden />
-    </Link>
-  );
-
   const filterGroups = (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <FieldLabel>Mode</FieldLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mb-2"><FieldLabel>Mode</FieldLabel></div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {MODE_OPTIONS.map(([v, label]) => (
-            <FilterChip key={v || "any"} active={modeFilter === v} onClick={() => setModeFilter(v)}>
+            <button
+              key={v || "any"}
+              onClick={() => setModeFilter(v)}
+              className={cn(
+                "text-[13.5px] transition-colors relative pb-1",
+                modeFilter === v ? "text-ink font-semibold" : "text-ink-3 hover:text-ink-2"
+              )}
+            >
               {label}
-            </FilterChip>
+              {modeFilter === v && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-ink" />}
+            </button>
           ))}
         </div>
       </div>
       <div>
-        <FieldLabel>Platform</FieldLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mb-2"><FieldLabel>Platform</FieldLabel></div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {PLATFORM_OPTIONS.map(([v, label]) => (
-            <FilterChip key={v || "any"} active={platformFilter === v} onClick={() => setPlatformFilter(v)}>
+            <button
+              key={v || "any"}
+              onClick={() => setPlatformFilter(v)}
+              className={cn(
+                "text-[13.5px] transition-colors relative pb-1",
+                platformFilter === v ? "text-ink font-semibold" : "text-ink-3 hover:text-ink-2"
+              )}
+            >
               {label}
-            </FilterChip>
+              {platformFilter === v && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-ink" />}
+            </button>
           ))}
         </div>
       </div>
       <div>
-        <FieldLabel>Sort</FieldLabel>
-        <Segmented<"date" | "prize">
-          label="Sort hackathons"
-          size="sm"
-          value={sortBy === "prize" ? "prize" : "date"}
-          onChange={(v) => setSortBy(v)}
-          options={[
+        <div className="mb-2"><FieldLabel>Sort</FieldLabel></div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {[
             { value: "date", label: "Date" },
             { value: "prize", label: "Prize (highest)" },
-          ]}
-        />
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSortBy(opt.value)}
+              className={cn(
+                "text-[13.5px] transition-colors relative pb-1",
+                sortBy === opt.value ? "text-ink font-semibold" : "text-ink-3 hover:text-ink-2"
+              )}
+            >
+              {opt.label}
+              {sortBy === opt.value && <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-ink" />}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -598,7 +627,6 @@ function HackathonsContent() {
     return (
       <Page>
         {header}
-        <div className="mt-2">{sihCallout}</div>
         <SkeletonRows rows={6} avatar="square" className="mt-6" />
       </Page>
     );
@@ -619,19 +647,33 @@ function HackathonsContent() {
     <Page>
       {header}
 
-      <div className="mt-2">{sihCallout}</div>
-
-      {/* Scope + search */}
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <Segmented<Tab> label="Hackathon scope" value={activeTab} onChange={setActiveTab} options={tabOptions} className="self-start" />
-        <div className="flex min-w-0 gap-2 md:w-[340px]">
-          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch} placeholder="Hackathon or tag" label="Search hackathons" />
+      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 border-b border-line self-start sm:w-auto w-full">
+          {tabOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setActiveTab(opt.value)}
+              className={cn(
+                "relative pb-2.5 text-[14.5px] transition-colors font-medium",
+                activeTab === opt.value ? "text-ink" : "text-ink-3 hover:text-ink-2",
+              )}
+            >
+              {opt.label}
+              {opt.count !== undefined && <span className="ml-1.5 text-[12px] text-ink-4">{opt.count}</span>}
+              {activeTab === opt.value && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-ink" />
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="flex min-w-0 gap-2 lg:w-[340px]">
+          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch} placeholder="Search hackathons or tags..." label="Search hackathons" />
           <Button
             variant="secondary"
             icon={<SlidersHorizontal />}
             onClick={() => setFiltersOpen(true)}
             aria-label="Filters"
-            className="h-9 md:hidden"
+            className="h-9 lg:hidden"
           >
             {activeFilterCount > 0 ? activeFilterCount : null}
           </Button>
@@ -639,29 +681,55 @@ function HackathonsContent() {
       </div>
 
       {/* Desktop filters */}
-      <div className="mt-3 hidden flex-wrap items-center gap-x-5 gap-y-2 md:flex">
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Mode">
-          <span className="mr-1 caps-label text-ink-3">Mode</span>
-          {MODE_OPTIONS.map(([v, label]) => (
-            <FilterChip key={v || "any"} active={modeFilter === v} onClick={() => setModeFilter(v)}>
-              {label}
-            </FilterChip>
-          ))}
+      <div className="mt-4 hidden lg:flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="flex items-center gap-3">
+          <span className="text-[13px] text-ink-3">Mode:</span>
+          <div className="flex flex-wrap gap-3">
+            {MODE_OPTIONS.map(([v, label]) => (
+              <button
+                key={v || "any"}
+                onClick={() => setModeFilter(v)}
+                className={cn(
+                  "text-[13px] transition-colors relative",
+                  modeFilter === v ? "text-ink font-medium" : "text-ink-3 hover:text-ink-2"
+                )}
+              >
+                {label}
+                {modeFilter === v && <span className="absolute -bottom-1 left-0 right-0 h-[1.5px] rounded-t-full bg-ink" />}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Platform">
-          <span className="mr-1 caps-label text-ink-3">Platform</span>
-          {PLATFORM_OPTIONS.map(([v, label]) => (
-            <FilterChip key={v || "any"} active={platformFilter === v} onClick={() => setPlatformFilter(v)}>
-              {label}
-            </FilterChip>
-          ))}
+
+        <div className="flex items-center gap-3 border-l border-line pl-6">
+          <span className="text-[13px] text-ink-3">Platform:</span>
+          <div className="flex flex-wrap gap-3">
+            {PLATFORM_OPTIONS.map(([v, label]) => (
+              <button
+                key={v || "any"}
+                onClick={() => setPlatformFilter(v)}
+                className={cn(
+                  "text-[13px] transition-colors relative",
+                  platformFilter === v ? "text-ink font-medium" : "text-ink-3 hover:text-ink-2"
+                )}
+              >
+                {label}
+                {platformFilter === v && <span className="absolute -bottom-1 left-0 right-0 h-[1.5px] rounded-t-full bg-ink" />}
+              </button>
+            ))}
+          </div>
         </div>
-        <label className="ml-auto flex items-center gap-2">
-          <span className="caps-label text-ink-3">Sort</span>
-          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-7 w-auto text-[12.5px]">
+
+        <label className="ml-auto flex items-center gap-2 text-[13px] text-ink-3">
+          Sort by:
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-transparent text-ink font-medium focus:outline-none cursor-pointer"
+          >
             <option value="date">Date</option>
             <option value="prize">Prize (highest)</option>
-          </Select>
+          </select>
         </label>
       </div>
 
@@ -706,7 +774,7 @@ function HackathonsContent() {
           }
         />
       ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-raised" data-stagger>
+        <ul className="divide-y divide-line border-y border-line" data-stagger>
           {filtered.map((h) => (
             <HackathonRow key={h.id} h={h} saved={savedIds.has(h.id)} onToggleSave={toggleSave} />
           ))}

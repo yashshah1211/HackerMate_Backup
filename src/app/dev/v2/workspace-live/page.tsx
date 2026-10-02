@@ -53,7 +53,7 @@ function Harness() {
           owner_id: MEMBERS[0].profiles.id,
           max_members: 6,
           college: null,
-          hackathon_name: "Smart India Hackathon 2026",
+          hackathon_name: "Dev Hackathon 2026",
           skills: ["React", "Python", "Figma", "PostgreSQL"],
           roles_needed: ["Backend"],
           hackathon_id: FAKE_EVENT_ID,
@@ -61,7 +61,7 @@ function Harness() {
         members={MEMBERS}
         isOwner
         initialTab={tab}
-        listedHackathons={[{ id: FAKE_EVENT_ID, name: "Smart India Hackathon 2026", end_date: end }]}
+        listedHackathons={[{ id: FAKE_EVENT_ID, name: "Dev Hackathon 2026", end_date: end }]}
       />
     </DevShell>
   );

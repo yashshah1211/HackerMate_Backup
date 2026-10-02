@@ -76,7 +76,7 @@ export default function OnboardingPage() {
 
         const { data, error } = await supabase
           .from("profiles")
-          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record")
+          .select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, username, show_track_record")
 
           .eq("id", user.id)
           .single();
@@ -325,7 +325,7 @@ export default function OnboardingPage() {
                 total={3}
                 label="Campus"
                 title="Where you study"
-                description="Used for college-only events like SIH and campus team filters."
+                description="Used for college-only events and campus team filters."
               >
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,200px)]">
                   {/* College / University (searchable) */}

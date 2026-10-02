@@ -90,7 +90,6 @@ export async function checkAndReserveEmailBudget(
 export type EmailCategory =
   | "outreach"
   | "nudge"
-  | "sih_broadcast"
   | "notifications"
   | "organizer_broadcasts"
   | "admin_reports"
@@ -133,8 +132,6 @@ export async function recordEmailSendSuccess(
     case "test_dispatches":
       updates.test_dispatches_sent = (stats.test_dispatches_sent || 0) + actualSentCount;
       break;
-    case "sih_broadcast":
-      break;
   }
 
   const newTotal = (stats.total_sent || 0) + actualSentCount;
@@ -157,7 +154,6 @@ export type EmailUsageSummary = {
   usage_percent: number;
   is_resend_live?: boolean;
   categories: {
-    sih_broadcast: number;
     outreach: number;
     test_dispatches: number;
     notifications: number;
@@ -205,19 +201,12 @@ export async function getTodayEmailUsageSummary(
 
   const stats = (await getOrCreateTodayStats(supabaseAdmin)) as any;
 
-  // 1. SIH Broadcast (Query actual timestamps on profiles for live precision)
-  const { count: sihCount } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .gte("sih_broadcast_sent_at", todayStart);
-
-  // 2. Outreach Pitches (Query actual timestamps on organizer_leads for live precision)
+  // 1. Outreach Pitches (Query actual timestamps on organizer_leads for live precision)
   const { count: outreachCount } = await supabaseAdmin
     .from("organizer_leads")
     .select("id", { count: "exact", head: true })
     .gte("pitch_sent_at", todayStart);
 
-  const sih = sihCount || 0;
   const outreach = outreachCount || 0;
   const testDispatches = stats.test_dispatches_sent || 0;
   const notifications = stats.notifications_sent || 0;
@@ -228,7 +217,6 @@ export async function getTodayEmailUsageSummary(
 
   // Sum of all tracked category counts
   const sumCategories =
-    sih +
     outreach +
     testDispatches +
     notifications +
@@ -252,7 +240,6 @@ export async function getTodayEmailUsageSummary(
     usage_percent: usagePercent,
     is_resend_live: isResendLive,
     categories: {
-      sih_broadcast: sih,
       outreach,
       test_dispatches: testDispatches,
       notifications,

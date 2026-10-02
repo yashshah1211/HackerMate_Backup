@@ -63,7 +63,7 @@ export async function getLandingData(): Promise<LandingData> {
       // (dashboard "Builders", the Builders directory, analytics and the daily report). Banned
       // accounts are hidden from other users by RLS, so they are excluded here as well.
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_banned", false),
-      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }).or(PUBLICLY_LISTED),
+      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }).eq("archived", false).or(PUBLICLY_LISTED),
       // The /teams directory lists every team, including ones still recruiting their first teammate.
       supabaseAdmin.from("teams").select("id", { count: "exact", head: true }),
       supabaseAdmin
@@ -71,6 +71,7 @@ export async function getLandingData(): Promise<LandingData> {
         .select("id, name, mode, start_date, end_date")
         .or(PUBLICLY_LISTED)
         .or(HAS_EVENT_START_DATE)
+        .eq("archived", false)
         .gte("start_date", today)
         .order("start_date", { ascending: true })
         .order("name", { ascending: true })

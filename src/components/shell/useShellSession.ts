@@ -16,7 +16,7 @@ export type ShellProfile = {
 export type ShellTeam = {
   id: string;
   name: string;
-  tone: "sih" | "hack" | "proj";
+  tone: "hack" | "proj";
   isOwner: boolean;
   eventName: string;
 };

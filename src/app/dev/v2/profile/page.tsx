@@ -12,7 +12,7 @@ const PROFILE: BuilderProfile = {
   username: "kabir",
   college: "IIT Madras",
   year_of_study: "3rd Year",
-  bio: "Full-stack builder. I like realtime apps and boring, reliable backends.\nShipped four hackathon projects; looking for a design-minded teammate for SIH.",
+  bio: "Full-stack builder. I like realtime apps and boring, reliable backends.\nShipped four hackathon projects; looking for a design-minded teammate for the next hackathon.",
   github_url: "https://github.com/example",
   linkedin_url: "https://linkedin.com/in/example",
   avatar_url: null,
@@ -23,7 +23,7 @@ const PROFILE: BuilderProfile = {
     public_repos: 31,
     top_languages: { TypeScript: 14, Python: 6, Go: 3, CSS: 2 },
     repos: [
-      { name: "attendance-offline", description: "Offline-first attendance for rural schools. Built at SIH 2025.", language: "TypeScript", stars: 42, url: "#" },
+      { name: "attendance-offline", description: "Offline-first attendance for rural schools. Built at Hackathon 2025.", language: "TypeScript", stars: 42, url: "#" },
       { name: "pg-queue", description: "Tiny job queue on Postgres SKIP LOCKED.", language: "Go", stars: 18, url: "#" },
     ],
   },
@@ -52,7 +52,7 @@ const TRACK: TrackRecordData = {
     show_track_record: true,
   },
   registrations: [
-    { registration_id: "r1", hackathon_id: "h1", hackathon_name: "Smart India Hackathon 2026", mode: "hybrid", location: null, prize_pool: null, start_date: "2026-09-12", end_date: "2026-09-14", website_url: null, registration_status: "registered", looking_for_team: false, registered_at: "2026-08-20" },
+    { registration_id: "r1", hackathon_id: "h1", hackathon_name: "Hackathon 2026", mode: "hybrid", location: null, prize_pool: null, start_date: "2026-09-12", end_date: "2026-09-14", website_url: null, registration_status: "registered", looking_for_team: false, registered_at: "2026-08-20" },
     { registration_id: "r2", hackathon_id: "h2", hackathon_name: "Axcentra All India Hackathon", mode: "online", location: null, prize_pool: null, start_date: "2026-07-02", end_date: "2026-07-04", website_url: null, registration_status: "registered", looking_for_team: false, registered_at: "2026-06-11" },
     { registration_id: "r3", hackathon_id: "h3", hackathon_name: "Morrow 1.0", mode: "offline", location: null, prize_pool: null, start_date: "2026-04-18", end_date: "2026-04-19", website_url: null, registration_status: "registered", looking_for_team: true, registered_at: "2026-04-01" },
   ],

@@ -658,7 +658,7 @@ function SettingsContent() {
                       </option>
                     ))}
                   </Select>
-                  <p className="mt-1.5 text-[12px] text-ink-3">Used to check SIH team composition rules.</p>
+                  <p className="mt-1.5 text-[12px] text-ink-3">Optional. Helps organizers with diversity checks.</p>
                 </div>
               </div>
 

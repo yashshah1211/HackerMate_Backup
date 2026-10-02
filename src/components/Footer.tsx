@@ -10,7 +10,6 @@ const PRODUCT = [
   { href: "/developers", label: "Builders" },
   { href: "/teams", label: "Teams" },
   { href: "/hackathons", label: "Hackathons" },
-  { href: "/hackathons/sih", label: "SIH team builder" },
 ];
 
 const COMPANY = [

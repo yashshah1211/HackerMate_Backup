@@ -205,7 +205,7 @@ export async function handleHackathonsCommand(): Promise<DiscordInteractionRespo
           inline: false,
         }))
       : [
-          { name: "Smart India Hackathon 2026 (SIH)", value: "Official SIH track hub on HackerMate", inline: false },
+          { name: "General Hackathon Track", value: "Official General track hub on HackerMate", inline: false },
           { name: "StartupX Hackathon 2026 (Gamnexis)", value: "Turn your idea into a real startup", inline: false },
           { name: "Orvix Hackathon 2026 (NIMBLUX)", value: "National online innovation sprint", inline: false },
         ];

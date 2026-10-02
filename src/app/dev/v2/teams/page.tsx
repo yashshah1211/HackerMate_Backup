@@ -3,7 +3,7 @@
 import DevShell from "../../DevShell";
 import { TeamsView } from "@/app/teams/TeamsView";
 import type { ListTeam } from "@/app/teams/useTeamsData";
-import { SIH_HACKATHON_ID } from "@/lib/constants";
+
 
 const TEAMS: ListTeam[] = [
   {
@@ -12,12 +12,12 @@ const TEAMS: ListTeam[] = [
     description: "Offline-first attendance for rural schools. Need a designer and an ML person.",
     skills: ["Figma", "Python", "React", "PostgreSQL"],
     college: "NIT Trichy",
-    hackathon_id: SIH_HACKATHON_ID,
+    hackathon_id: "dev-hackathon-1",
     hackathon_name: null,
     max_members: 6,
     is_recruiting: true,
     team_members: [{ id: "1" }, { id: "2" }, { id: "3" }, { id: "4" }],
-    team_hackathons: [{ hackathons: { id: SIH_HACKATHON_ID, name: "Smart India Hackathon 2026", end_date: "2026-12-10", status: "active" } }],
+    team_hackathons: [{ hackathons: { id: "dev-hackathon-1", name: "Hackathon 2026", end_date: "2026-12-10", status: "active" } }],
     team_ppt_evaluations: [{ total_score: 82, grade: "A", status: "completed" }],
   },
   {

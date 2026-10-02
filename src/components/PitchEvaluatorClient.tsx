@@ -57,10 +57,10 @@ import { cn } from "@/lib/utils";
 const TRACK_ICON: Record<JudgingTrackId, LucideIcon> = {
   web_dev: Layers,
   ai_genai: Cpu,
-  sih: Target,
+  generic: Lightbulb,
 };
 
-const TRACK_ORDER: JudgingTrackId[] = ["web_dev", "ai_genai", "sih"];
+const TRACK_ORDER: JudgingTrackId[] = ["generic", "web_dev", "ai_genai"];
 
 /** Grade strings from the engine end in an emoji; strip it for display only. */
 function gradeLabel(grade: string | null | undefined): string {
@@ -236,6 +236,7 @@ export default function PitchEvaluatorClient({
           const { data: hackathonList, error: hackathonErr } = await supabase
             .from("hackathons")
             .select("id, name, description")
+            .eq("archived", false)
             .order("name", { ascending: true });
           if (hackathonErr) console.error("[PitchEvaluatorClient] hackathons load failed:", hackathonErr);
 

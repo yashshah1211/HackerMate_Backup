@@ -3,7 +3,7 @@
  * 
  * Verifies:
  * 1. Static codebase audit: Ensures 0 client-side query files contain forbidden profiles(*) or profiles(...email...).
- * 2. Runtime queries: Validates /dashboard, /profile/[id], /developers, /connections, /teams & /teams/[id] (member roster join), /hackathons/sih.
+ * 2. Runtime queries: Validates /dashboard, /profile/[id], /developers, /connections, /teams & /teams/[id] (member roster join).
  * 
  * USAGE:
  *   node scripts/smoke-test-core-pages.js
@@ -33,7 +33,7 @@ if (!url || !anonKey) {
 
 const client = createClient(url, anonKey);
 
-const SAFE_PROFILE_COLUMNS = "id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record";
+const SAFE_PROFILE_COLUMNS = "id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, username, show_track_record";
 
 const TEST_USER_IDS = [
   "99e1c41d-1794-4f4d-87f6-4018a3a754d2", // Yash Shah
@@ -202,21 +202,7 @@ async function runSmokeTests() {
     results.push({ page: "/teams/[id] Roster", status: "FAIL ❌", details: err.message });
   }
 
-  // /hackathons/sih
-  try {
-    const { data: sihRegs, error: sihErr } = await client
-      .from("hackathon_registrations")
-      .select("user_id, looking_for_team, profiles(id, full_name, avatar_url, college, skills, gender, role)")
-      .limit(5);
 
-    if (sihErr || !sihRegs || sihRegs.length === 0) {
-      results.push({ page: "/hackathons/sih", status: "FAIL ❌", details: sihErr?.message || "Loaded 0 registrations" });
-    } else {
-      results.push({ page: "/hackathons/sih", status: "PASS ✅", details: `Loaded ${sihRegs.length} SIH registrations with joined profiles` });
-    }
-  } catch (err) {
-    results.push({ page: "/hackathons/sih", status: "FAIL ❌", details: err.message });
-  }
 
   // Certificate Verification Query (/api/certificates/verify/[id])
   try {

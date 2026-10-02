@@ -7,7 +7,6 @@ export type AdminTab =
   | "outreach"
   | "badges"
   | "partnering"
-  | "sih_stats"
   | "deleted_logs"
   | "native_hackathons";
 
@@ -143,41 +142,7 @@ export interface PartnerAnalyticsResponse {
   announcements: any[];
 }
 
-export interface SihCollegeStat {
-  collegeName: string;
-  builderCount: number;
-  lookingForTeamCount: number;
-  teamCount: number;
-  totalTeamMembers: number;
-  avgTeamSize: string;
-  isHighPotentialZeroTeams: boolean;
-  builders: {
-    id: string;
-    full_name?: string;
-    email?: string;
-    looking_for_team?: boolean;
-    skills?: string[];
-  }[];
-  teams: {
-    id: string;
-    name: string;
-    description?: string;
-    team_members?: { id: string }[];
-    max_members?: number;
-  }[];
-}
 
-export interface SihStatsResponse {
-  success?: boolean;
-  summary: {
-    totalBuilders: number;
-    totalLookingForTeam: number;
-    totalTeams: number;
-    totalColleges: number;
-    highPotentialZeroTeamColleges: number;
-  };
-  collegeStats: SihCollegeStat[];
-}
 
 export interface DeletedUserLog {
   id: string;

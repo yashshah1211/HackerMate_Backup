@@ -6,8 +6,8 @@ export interface SentEmailLogItem {
   id: string;
   recipientEmail: string;
   recipientName: string;
-  category: "Team Notifications" | "Organizer Outreach" | "SIH Broadcast" | "Onboarding Nudge" | "Contact Form" | "Test Dispatches";
-  categoryKey: "notifications" | "outreach" | "sih_broadcast" | "nudges" | "contact_submissions" | "test_dispatches";
+  category: "Team Notifications" | "Organizer Outreach" | "Onboarding Nudge" | "Contact Form" | "Test Dispatches";
+  categoryKey: "notifications" | "outreach" | "nudges" | "contact_submissions" | "test_dispatches";
   subjectOrPurpose: string;
   status: "SUCCESS" | "FAILED";
   errorMessage?: string;
@@ -66,29 +66,7 @@ async function handleDailyEmailReport(req: NextRequest) {
         });
       }
 
-      // B. Fetch SIH Broadcast Emails
-      const { data: sihProfiles } = await supabaseAdmin
-        .from("profiles")
-        .select("id, full_name, email, sih_broadcast_sent_at")
-        .not("sih_broadcast_sent_at", "is", null)
-        .order("sih_broadcast_sent_at", { ascending: false });
-
-      if (sihProfiles) {
-        sihProfiles.forEach((p: any) => {
-          sentEmailLogs.push({
-            id: `sih-${p.id}`,
-            recipientEmail: p.email,
-            recipientName: p.full_name || "SIH Builder",
-            category: "SIH Broadcast",
-            categoryKey: "sih_broadcast",
-            subjectOrPurpose: "SIH 2026 Team Matching & Recruitment Broadcast",
-            status: "SUCCESS",
-            timestamp: p.sih_broadcast_sent_at,
-          });
-        });
-      }
-
-      // C. Fetch Onboarding Nudge Emails
+      // B. Fetch Onboarding Nudge Emails
       const { data: nudgeProfiles } = await supabaseAdmin
         .from("profiles")
         .select("id, full_name, email, onboarding_nudge_sent_at")
@@ -110,7 +88,7 @@ async function handleDailyEmailReport(req: NextRequest) {
         });
       }
 
-      // D. Fetch Team Invites Sent
+      // C. Fetch Team Invites Sent
       const { data: teamInvites } = await supabaseAdmin
         .from("team_invites")
         .select("id, created_at, status, team_id, teams(name), profiles!team_invites_invited_user_id_fkey(full_name, email)")
@@ -135,7 +113,7 @@ async function handleDailyEmailReport(req: NextRequest) {
         });
       }
 
-      // E. Fetch Connection Request Notifications
+      // D. Fetch Connection Request Notifications
       const { data: friendReqs } = await supabaseAdmin
         .from("friend_requests")
         .select("id, created_at, status, sender:profiles!friend_requests_sender_id_fkey(full_name), receiver:profiles!friend_requests_receiver_id_fkey(full_name, email)")
@@ -175,7 +153,6 @@ async function handleDailyEmailReport(req: NextRequest) {
     const categoryCounts = {
       notifications: activeLogs.filter((l) => l.categoryKey === "notifications").length,
       outreach: activeLogs.filter((l) => l.categoryKey === "outreach").length,
-      sih_broadcast: activeLogs.filter((l) => l.categoryKey === "sih_broadcast").length,
       nudges: activeLogs.filter((l) => l.categoryKey === "nudges").length,
       contact_submissions: activeLogs.filter((l) => l.categoryKey === "contact_submissions").length,
       test_dispatches: activeLogs.filter((l) => l.categoryKey === "test_dispatches").length,
@@ -253,7 +230,6 @@ async function handleDailyEmailReport(req: NextRequest) {
     const cards = [
       { label: "TEAM NOTIFS", count: categoryCounts.notifications },
       { label: "OUTREACH", count: categoryCounts.outreach },
-      { label: "SIH BROADCAST", count: categoryCounts.sih_broadcast },
       { label: "NUDGES", count: categoryCounts.nudges },
       { label: "CONTACT FORM", count: categoryCounts.contact_submissions },
       { label: "TOTAL LOGGED", count: totalSent24h },
@@ -438,7 +414,6 @@ async function handleDailyEmailReport(req: NextRequest) {
         <ul style="color: #CBD5E1; font-size: 13px; line-height: 1.6;">
           <li><strong>Team Notifications:</strong> ${categoryCounts.notifications}</li>
           <li><strong>Organizer Outreach:</strong> ${categoryCounts.outreach}</li>
-          <li><strong>SIH Broadcasts:</strong> ${categoryCounts.sih_broadcast}</li>
           <li><strong>Onboarding Nudges:</strong> ${categoryCounts.nudges}</li>
           <li><strong>Contact Form Replies:</strong> ${categoryCounts.contact_submissions}</li>
         </ul>

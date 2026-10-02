@@ -10,7 +10,7 @@
  * PAGES THAT SHOULD SHOW THE FOOTER:
  * - / (landing page)
  * - /leaderboard
- * - /hackathons (listing) and /hackathons/[slug] (individual event pages, except /hackathons/sih and /hackathons/create)
+ * - /hackathons (listing) and /hackathons/[slug] (individual event pages, except /hackathons/create)
  * - /partners/[slug]
  * - /profile/[id] (public Builder Track Record page)
  * - /faq
@@ -24,7 +24,6 @@
  * - /settings
  * - /onboarding
  * - /admin/* (all tabs)
- * - /hackathons/sih (SIH Team Builder — app tool)
  * - /hackathons/create
  * - /messages and any DM/chat interfaces
  * - /evaluator, /tools/pitch-evaluator (app-like evaluator tools)
@@ -43,8 +42,6 @@ export function shouldRenderFooter(pathname: string | null | undefined): boolean
   if (
     normalized === "/dashboard" ||
     normalized.startsWith("/dashboard/") ||
-    normalized === "/hackathons/sih" ||
-    normalized.startsWith("/hackathons/sih/") ||
     normalized === "/hackathons/create" ||
     normalized.startsWith("/admin") ||
     normalized.startsWith("/messages") ||

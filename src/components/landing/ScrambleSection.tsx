@@ -7,11 +7,11 @@ import { Container, Eyebrow, ExampleNote, Lede, SectionTitle, STAGES, useStoryAc
 
 // Illustrative group-chat messages. Composite, not quotes from real people.
 const NOISE = [
-  { who: "Rohan", t: "11:02", text: "anyone need a frontend dev for SIH? i know react" },
+  { who: "Rohan", t: "11:02", text: "anyone need a frontend dev for the hackathon? i know react" },
   { who: "Isha", t: "11:04", text: "team of 3, need ML + design. reply fast pls" },
   { who: "Aditya", t: "11:05", text: "is anyone doing PS 1729?? need 2 more" },
   { who: "Nikhil", t: "11:09", text: "looking for a team. can do backend, some flutter" },
-  { who: "Kavya", t: "11:12", text: "need one more woman on the team for SIH rules, DM" },
+  { who: "Kavya", t: "11:12", text: "need one more AI engineer on the team for the GenAI track, DM" },
   { who: "Varun", t: "11:15", text: "does anyone here actually ship or just join" },
   { who: "Sneha", t: "11:21", text: "registrations close tonight, still 2 short" },
   { who: "Tanvi", t: "11:26", text: "who knows figma?? anyone??" },

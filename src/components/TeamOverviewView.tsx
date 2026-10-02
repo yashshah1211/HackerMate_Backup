@@ -22,8 +22,8 @@ import { supabase } from "@/lib/supabase";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES } from "@/lib/colleges";
-import SIHExportModal from "@/components/SIHExportModal";
-import { SIH_HACKATHON_ID } from "@/lib/constants";
+
+
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
 import {
   Avatar,
@@ -158,15 +158,10 @@ export default function TeamOverviewView({
   const { showToast, confirm } = useNotification();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showSIHExportModal, setShowSIHExportModal] = useState(false);
+
   const [todayStr] = useState(() => new Date().toISOString().split("T")[0]);
 
-  const isSIHTeam = Boolean(
-    team.hackathon_id === SIH_HACKATHON_ID ||
-      team.hackathon_name?.toLowerCase().includes("sih") ||
-      team.hackathon_name?.toLowerCase().includes("smart india hackathon") ||
-      listedHackathons?.some((h) => h.id === SIH_HACKATHON_ID || h.name.toLowerCase().includes("sih") || h.name.toLowerCase().includes("smart india hackathon")),
-  );
+
 
   const signInHref = `/login?next=${encodeURIComponent(`/teams/${team.id}`)}`;
   const isEventConcluded = listedHackathons.some((h) => h.status === "archived" || (h.end_date && h.end_date < todayStr));
@@ -174,7 +169,7 @@ export default function TeamOverviewView({
   const canAccessWorkspace = isMember || isOwner;
   const workspaceHref = `/teams/${team.id}/workspace${team.hackathon_id ? `?hackathon_id=${team.hackathon_id}` : ""}`;
   const category = getTeamCategoryInfo({ hackathon_id: team.hackathon_id, team_hackathons: listedHackathons.map((h) => ({ hackathon_id: h.id, hackathons: { id: h.id, name: h.name } })) });
-  const tone = isSIHTeam ? "sih" : CATEGORY_TONE[category.category];
+  const tone = CATEGORY_TONE[category.category];
   const openSeats = Math.max((team.max_members || 0) - members.length, 0);
 
   // ── Pending invite (accept / reject) ───────────────────────────────
@@ -414,7 +409,7 @@ export default function TeamOverviewView({
   const overflow: MenuItem[] = [];
   if (canAccessWorkspace) {
     overflow.push({ label: "Share team", icon: <Share2 />, onSelect: () => setShowShareModal(true) });
-    if (isSIHTeam) overflow.push({ label: "SIH SPOC export", icon: <FileDown />, onSelect: () => setShowSIHExportModal(true) });
+
     if (selfMember) {
       overflow.push(
         { type: "separator" },
@@ -468,7 +463,7 @@ export default function TeamOverviewView({
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 {teamFull ? <Tape tone="bad">Full</Tape> : isClosed ? <Tape>{isEventConcluded ? "Archived" : "Closed"}</Tape> : <Tape tone="accent" dot>Recruiting</Tape>}
-                <Tape tone={tone}>{isSIHTeam ? "SIH" : category.tag}</Tape>
+                <Tape tone={tone}>{category.tag}</Tape>
                 {!teamFull && !isClosed && openSeats > 0 && <Tape tone="ok">{openSeats} seat{openSeats === 1 ? "" : "s"} open</Tape>}
                 {isOwner && <Tape tone="solid">You lead</Tape>}
                 {isMember && !isOwner && <Tape>Member</Tape>}
@@ -685,11 +680,7 @@ export default function TeamOverviewView({
                 <Button variant="secondary" icon={<Share2 />} onClick={() => setShowShareModal(true)}>
                   Share team
                 </Button>
-                {isSIHTeam && (
-                  <Button variant="secondary" icon={<FileDown />} onClick={() => setShowSIHExportModal(true)}>
-                    SIH SPOC export
-                  </Button>
-                )}
+
               </div>
             </Section>
           )}
@@ -839,36 +830,7 @@ export default function TeamOverviewView({
         metadata={{ teamName: team.name, hackathonName: team.hackathon_name || undefined }}
       />
 
-      <SIHExportModal
-        isOpen={showSIHExportModal}
-        onClose={() => setShowSIHExportModal(false)}
-        team={{
-          id: team.id,
-          name: team.name,
-          description: team.description || "",
-          owner_id: team.owner_id,
-          max_members: team.max_members,
-          college: team.college,
-          hackathon_name: team.hackathon_name || "Smart India Hackathon 2026",
-          skills: team.skills,
-          roles_needed: team.roles_needed,
-          github_repo_url: team.github_repo_url,
-        }}
-        members={members.map((m) => ({
-          id: m.id,
-          role: m.role,
-          project_role: m.project_role,
-          profiles: {
-            id: m.profiles?.id || m.id,
-            full_name: m.profiles?.full_name || "Member",
-            email: m.profiles?.email || "N/A",
-            avatar_url: m.profiles?.avatar_url,
-            skills: m.profiles?.skills,
-            gender: m.profiles?.gender || "Unspecified",
-            college: team.college,
-          },
-        }))}
-      />
+
     </Page>
   );
 }

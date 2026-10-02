@@ -22,7 +22,7 @@ type ConnectPitchModalProps = {
 };
 
 const QUICK_TEMPLATES = [
-  "Building a team for SIH 2026 — your skills would fill a gap we have.",
+  "Building a team for an upcoming hackathon — your skills would fill a gap we have.",
   "Liked your stack and projects. Want to team up for the next hackathon?",
   "Looking for a teammate who ships. Open to building something together?",
 ];
@@ -100,7 +100,7 @@ export default function ConnectPitchModal({ isOpen, onClose, onSend, targetProfi
               setPitch(e.target.value);
               if (errorText) setErrorText(null);
             }}
-            placeholder={`e.g. Need a backend dev for SIH — saw your Postgres work, ${first}.`}
+            placeholder={`e.g. Need a backend dev for the upcoming hackathon — saw your Postgres work, ${first}.`}
             className="w-full resize-none rounded-md bg-sunken px-3 py-2 text-[13.5px] leading-relaxed text-ink ring-1 ring-inset ring-line-strong placeholder:text-ink-4 focus:outline-none focus:ring-accent-ink focus:shadow-[0_0_0_3px_var(--hm-accent-soft)]"
           />
           {errorText && (

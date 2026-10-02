@@ -128,7 +128,7 @@ Slide 6: Research Citations, Datasets & References
     "Hardware / IoT Hybrid",
     strongSihSlideText,
     strongSihTeam,
-    "sih"
+    "web_dev"
   );
   const strongSihLatency = Date.now() - t1a;
 
@@ -141,7 +141,7 @@ Slide 6: Research Citations, Datasets & References
   console.log(`   - Team Squad & Compliance:      ${strongSihResult.scoreTeam}/15`);
   console.log("⭐ Strengths Sample:", strongSihResult.strengths.slice(0, 2));
   console.log("🚩 Format Violations:", strongSihResult.formatViolations.length === 0 ? "None (Compliant)" : strongSihResult.formatViolations);
-  console.log("⚠️ SPOC Red Flags:", strongSihResult.spocRedFlags.length === 0 ? "None (Zero SPOC Risk)" : strongSihResult.spocRedFlags);
+  console.log("⚠️ Critical Risks:", strongSihResult.criticalRisks.length === 0 ? "None (Zero Risk)" : strongSihResult.criticalRisks);
 
   // 1B. Deliberately Weak, Sparse & Non-compliant SIH Deck: AI Water Saver
   console.log("\n--- [1B] Deliberately Weak & Non-compliant SIH Submission: AI Water Saver ---");
@@ -172,7 +172,7 @@ Save water in cities using smart blockchain and AI algorithms. It will notify us
     "Software",
     weakSihSlideText,
     weakSihTeam,
-    "sih"
+    "web_dev"
   );
   const weakSihLatency = Date.now() - t1b;
 
@@ -184,7 +184,7 @@ Save water in cities using smart blockchain and AI algorithms. It will notify us
   console.log(`   - UI/UX & Research Polish:      ${weakSihResult.scoreUiUx}/25`);
   console.log(`   - Team Squad & Compliance:      ${weakSihResult.scoreTeam}/15`);
   console.log("🚩 Format Violations:", weakSihResult.formatViolations);
-  console.log("⚠️ SPOC Red Flags:", weakSihResult.spocRedFlags);
+  console.log("⚠️ Critical Risks:", weakSihResult.criticalRisks);
 
   const sihGap = strongSihResult.totalScore - weakSihResult.totalScore;
   console.log(`\n⚖️ SIH Discrimination Score Gap: +${sihGap} points (Strong: ${strongSihResult.totalScore} vs Weak: ${weakSihResult.totalScore})`);

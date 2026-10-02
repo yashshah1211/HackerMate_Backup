@@ -217,7 +217,6 @@ function TeamPreview() {
 const FACTS: [string, string][] = [
   ["Requests", "Builders ask to join. You see their profile, then accept or decline."],
   ["Invites", "Invite anyone from search or from the squad matcher in your workspace."],
-  ["SIH", "Team size and the at-least-one-woman rule are checked, and the roster exports for your college SPOC."],
 ];
 
 export function MergeSection() {

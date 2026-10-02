@@ -25,13 +25,13 @@ export default function DevWorkspace() {
     <DevShell pathname="/teams/dev-team-1/workspace">
       <WorkspaceFrame
         team={{ id: "dev-team-1", name: "Null Pointers" }}
-        tone="sih"
+        tone="hack"
         isOwner
         canShare
         tab={tab}
         onTabChange={setTab}
-        listedHackathons={[{ id: "h1", name: "Smart India Hackathon 2026" }]}
-        activeHackathon={{ id: "h1", name: "Smart India Hackathon 2026" }}
+        listedHackathons={[{ id: "h1", name: "Dev Hackathon 2026" }]}
+        activeHackathon={{ id: "h1", name: "Dev Hackathon 2026" }}
         countdown={{ days: 12, hours: 7, minutes: 41, seconds: 9, ended: false }}
         tasks={{ done: 7, total: 12, pct: 58 }}
         coverage={{ desired: ["React", "Python", "Figma", "PostgreSQL"], covered: ["React", "Python"], missing: ["Figma", "PostgreSQL"] }}

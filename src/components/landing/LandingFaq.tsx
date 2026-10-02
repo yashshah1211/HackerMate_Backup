@@ -19,10 +19,7 @@ const ITEMS: Item[] = [
     q: "What's on a builder's profile?",
     a: "Skills, college and links, plus a track record: hackathons entered and won, teams, and delivered projects with demo, code and slide links. GitHub languages can be synced. Anyone can hide their track record in Settings.",
   },
-  {
-    q: "Does it work for Smart India Hackathon?",
-    a: "Yes. SIH teams can check the 6-member limit and the at-least-one-woman rule as the roster fills, and export the roster for their college SPOC. There's also a dedicated SIH team builder.",
-  },
+
   { q: "How do I sign in?", a: "With Google or GitHub. You set up your builder profile right after, then you can start searching." },
   { q: "I'm organising a hackathon. Can I list it?", a: "Yes. Listing is free for college and community hackathons.", organizer: true },
 ];

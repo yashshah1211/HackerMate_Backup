@@ -29,7 +29,6 @@ import { COLLEGES, normalizeCollege } from "@/lib/colleges";
 import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
 import { trackEvent } from "@/lib/posthog";
-import { SIH_HACKATHON_ID } from "@/lib/constants";
 
 const SKILLS = [
   "React", "Next.js", "TypeScript", "JavaScript", "Node.js", "Express",
@@ -188,6 +187,7 @@ function CreateTeamForm() {
     let { data, error } = await supabase
       .from("hackathons")
       .select("id, name, min_team_size, max_team_size, status, end_date")
+      .eq("archived", false)
       .order("start_date", { ascending: true });
 
     if (error) {
@@ -195,6 +195,7 @@ function CreateTeamForm() {
       const fallback = await supabase
         .from("hackathons")
         .select("id, name, status, end_date")
+        .eq("archived", false)
         .order("start_date", { ascending: true });
 
       if (fallback.error) {
@@ -275,7 +276,7 @@ function CreateTeamForm() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, sih_broadcast_sent_at, username, show_track_record").eq("id", user.id).single().then(({ data }) => {
+        supabase.from("profiles").select("id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, username, show_track_record").eq("id", user.id).single().then(({ data }) => {
 
           if (data) setCurrentUserProfile(data);
         });
@@ -369,11 +370,7 @@ function CreateTeamForm() {
     }
 
     setLoading(false);
-    if (hackathonId === SIH_HACKATHON_ID) {
-      router.push("/hackathons/sih");
-    } else {
-      router.push("/teams");
-    }
+    router.push("/teams");
   }
 
   function handleCreateTeam() {
@@ -404,7 +401,7 @@ function CreateTeamForm() {
 
   // ── Presentation-only derived values ──
   const selectedHackathonInfo = hackathons.find((h) => h.id === hackathonId);
-  const previewTone = hackathonId === SIH_HACKATHON_ID ? "sih" : hackathonId ? "hack" : "proj";
+  const previewTone = hackathonId ? "hack" : "proj";
   const extraSkills = selectedSkills.filter((s) => !SKILLS.includes(s));
   const extraRoles = selectedRoles.filter((r) => !ROLES.includes(r));
   const filteredColleges = COLLEGES.filter((col) =>

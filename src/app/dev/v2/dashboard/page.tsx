@@ -35,9 +35,9 @@ const FULL: DashboardData = {
     {
       id: "dev-team-1",
       name: "Null Pointers",
-      category: "sih",
-      tag: "SIH",
-      eventName: "Smart India Hackathon 2026 (SIH internal round)",
+      category: "hackathon",
+      tag: "HACKATHON",
+      eventName: "Hackathon 2026",
       memberCount: 4,
       maxMembers: 6,
       members: DEV_BUILDERS.map((b) => ({ id: b.id, name: b.full_name, src: null })),
@@ -59,12 +59,12 @@ const FULL: DashboardData = {
   ],
   queue: [
     { kind: "invite", id: "inv-1", teamId: "dev-team-9", teamName: "Byte Brigade", teamDescription: "Building an offline-first attendance app for rural schools.", inviterName: "Rohan Das" },
-    { kind: "join", teamId: "dev-team-1", teamName: "Null Pointers", count: 2, category: "sih" },
+    { kind: "join", teamId: "dev-team-1", teamName: "Null Pointers", count: 2, category: "hackathon" },
     {
       kind: "connection",
       id: "req-1",
       user: { id: "dev-b-2", full_name: "Sara Qureshi", avatar_url: null, college: "NIT Trichy" },
-      message: "Saw you're doing SIH — I can own the CV pipeline if you need ML.",
+      message: "Saw you're doing a hackathon — I can own the CV pipeline if you need ML.",
       createdAt: iso(95),
     },
   ],

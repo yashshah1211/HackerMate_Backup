@@ -90,7 +90,7 @@ export default function SystemGallery() {
                 <Tape tone="ok" dot>Available</Tape>
                 <Tape tone="accent">2 seats open</Tape>
                 <Tape tone="solid">Owner</Tape>
-                <Tape tone="sih">SIH</Tape>
+                <Tape tone="hack">Hackathon</Tape>
                 <Tape tone="hack">Hackathon</Tape>
                 <Tape tone="proj">Project</Tape>
                 <Tape tone="warn">Ends in 2d</Tape>
@@ -165,7 +165,7 @@ export default function SystemGallery() {
             <Section title="Team identity">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <TeamMark name="Null Pointers" tone="sih" size="lg" />
+                  <TeamMark name="Null Pointers" tone="hack" size="lg" />
                   <div>
                     <div className="text-[14px] font-semibold">Null Pointers</div>
                     <SeatMeter filled={4} total={6} />

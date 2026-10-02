@@ -9,7 +9,6 @@ export interface TrackDetectionResult {
 
 // Word-boundary regular expressions preventing accidental mid-word matching
 // (e.g. "Chennai", "Kailash", "Jai", "Email", "Retail", "Html", "Xml" will NOT match)
-const SIH_REGEX = /\b(sih|smart\s*india(\s*hackathon)?)\b/i;
 const AI_GENAI_REGEX = /\b(ai|genai|ml|agentic|agents?|llm|llms|rag|gpt|nlp|deep\s*learning|machine\s*learning|data\s*science|neural)\b/i;
 const WEB_DEV_REGEX = /\b(web|web3|fullstack|full-stack|frontend|backend|react|nextjs|devops|cloud|api|saas|mobile|android|ios|flutter)\b/i;
 
@@ -22,7 +21,7 @@ export function detectJudgingTrack(
 ): TrackDetectionResult {
   if (!input) {
     return {
-      detectedTrack: "web_dev",
+      detectedTrack: "generic",
       isConfident: false,
       sourceHint: "No input provided",
     };
@@ -31,8 +30,8 @@ export function detectJudgingTrack(
   // If structured object has an explicit valid track already set
   if (typeof input === "object" && input.track) {
     const rawTrack = input.track.trim().toLowerCase();
-    if (rawTrack === "sih") {
-      return { detectedTrack: "sih", isConfident: true, sourceHint: "Explicit SIH track configured" };
+    if (rawTrack === "sih" || rawTrack === "generic") {
+      return { detectedTrack: "generic", isConfident: true, sourceHint: "Explicit Generic (or legacy) track configured" };
     }
     if (rawTrack === "ai_genai" || rawTrack === "ai" || rawTrack === "genai") {
       return { detectedTrack: "ai_genai", isConfident: true, sourceHint: "Explicit AI/GenAI track configured" };
@@ -49,24 +48,13 @@ export function detectJudgingTrack(
 
   if (!text) {
     return {
-      detectedTrack: "web_dev",
+      detectedTrack: "generic",
       isConfident: false,
       sourceHint: "Empty text",
     };
   }
 
-  // 1. Check SIH (highest specificity)
-  const sihMatch = text.match(SIH_REGEX);
-  if (sihMatch) {
-    return {
-      detectedTrack: "sih",
-      isConfident: true,
-      sourceHint: `Matched SIH token: "${sihMatch[0]}"`,
-      matchedToken: sihMatch[0],
-    };
-  }
-
-  // 2. Check AI / GenAI (word-boundary safe)
+  // 1. Check AI / GenAI (word-boundary safe)
   const aiMatch = text.match(AI_GENAI_REGEX);
   if (aiMatch) {
     return {
@@ -88,9 +76,9 @@ export function detectJudgingTrack(
     };
   }
 
-  // 4. No confident match — fallback to web_dev with isConfident: false (triggers loud UI notice)
+  // 4. No confident match — fallback to generic with isConfident: false (triggers loud UI notice)
   return {
-    detectedTrack: "web_dev",
+    detectedTrack: "generic",
     isConfident: false,
     sourceHint: "No track keywords detected",
   };

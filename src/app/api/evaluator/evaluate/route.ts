@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       repoUrl,
       demoUrl,
       slidesText,
-      trackId = "web_dev",
+      trackId = "generic",
       hackathonId,
       userId,
       forceFallback = false,
@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validTracks: JudgingTrackId[] = ["web_dev", "ai_genai", "sih"];
-    const activeTrack: JudgingTrackId = validTracks.includes(trackId) ? trackId : "web_dev";
+    const validTracks: JudgingTrackId[] = ["web_dev", "ai_genai", "generic"];
+    const activeTrack: JudgingTrackId = validTracks.includes(trackId) ? trackId : "generic";
 
     const input: EvaluationInput = {
       psTitle: psTitle.trim(),

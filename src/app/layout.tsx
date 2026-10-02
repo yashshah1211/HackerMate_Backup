@@ -114,7 +114,7 @@ export default function RootLayout({
             public routes and signed-out visitors are always dark). */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=location.pathname;var pub=["/","/login","/faq","/terms","/privacy","/contact","/partners","/onboarding"];var forced=pub.indexOf(p)>-1||p.indexOf("/partners/")===0||p.indexOf("/hackathons/sih")===0;var t="dark";if(!forced&&localStorage.getItem("hackermate_user_cache")&&localStorage.getItem("theme")==="light"){t="light"}var c=document.documentElement.classList;c.remove("dark","light");c.add(t)}catch(e){}})();`,
+            __html: `(function(){try{var p=location.pathname;var pub=["/","/login","/faq","/terms","/privacy","/contact","/partners","/onboarding"];var forced=pub.indexOf(p)>-1||p.indexOf("/partners/")===0;var t="dark";if(!forced&&localStorage.getItem("hackermate_user_cache")&&localStorage.getItem("theme")==="light"){t="light"}var c=document.documentElement.classList;c.remove("dark","light");c.add(t)}catch(e){}})();`,
           }}
         />
         <script

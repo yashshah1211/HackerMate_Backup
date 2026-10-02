@@ -92,7 +92,7 @@ export async function POST(
     // 4. Parse Presentation Link Payload & Track
     let rawTrackId: string | null = null;
     let externalLinkUrl: string | null = null;
-    let psTitle = "SIH 2026 Problem Statement";
+    let psTitle = "Project Pitch";
     let psCategory = "software";
 
     const contentType = req.headers.get("content-type") || "";
@@ -100,13 +100,13 @@ export async function POST(
       const body = await req.json().catch(() => ({}));
       rawTrackId = body.track_id?.trim() || null;
       externalLinkUrl = body.external_link_url?.trim() || null;
-      psTitle = (body.ps_title?.trim() || "SIH 2026 Problem Statement").slice(0, 200);
+      psTitle = (body.ps_title?.trim() || "Project Pitch").slice(0, 200);
       psCategory = (body.ps_category?.trim() || "software").slice(0, 50);
     } else {
       const formData = await req.formData().catch(() => new FormData());
       rawTrackId = (formData.get("track_id") as string)?.trim() || null;
       externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
-      psTitle = ((formData.get("ps_title") as string)?.trim() || "SIH 2026 Problem Statement").slice(0, 200);
+      psTitle = ((formData.get("ps_title") as string)?.trim() || "Project Pitch").slice(0, 200);
       psCategory = ((formData.get("ps_category") as string)?.trim() || "software").slice(0, 50);
     }
 
@@ -127,7 +127,7 @@ export async function POST(
     let isFallbackTrack = false;
     let trackWarning: string | null = null;
 
-    if (rawTrackId && ["sih", "ai_genai", "web_dev"].includes(rawTrackId)) {
+    if (rawTrackId && ["ai_genai", "web_dev"].includes(rawTrackId)) {
       resolvedTrackId = rawTrackId as JudgingTrackId;
     } else {
       // Auto-detect track using boundary-safe detector
@@ -145,7 +145,7 @@ export async function POST(
         // Fail loud on fallback: Never default silently into whichever grading is easiest!
         resolvedTrackId = "web_dev";
         isFallbackTrack = true;
-        trackWarning = "Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a SIH submission.";
+        trackWarning = "Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a specialized submission.";
         console.warn(`[PPT Evaluate] ${trackWarning} (Team ID: ${teamId})`);
       }
     }
@@ -235,7 +235,6 @@ export async function POST(
       {
         name: teamData?.name,
         memberCount,
-        hasFemaleMember,
         members: members.map((m: any) => ({
           name: m.profiles?.full_name,
           skills: m.profiles?.skills,
@@ -258,7 +257,7 @@ export async function POST(
         slide_breakdown: extractedSlidesList,
         ai_feedback: {
           strengths: evalResult.strengths,
-          spocRedFlags: evalResult.spocRedFlags,
+          criticalRisks: evalResult.criticalRisks,
           formatViolations: evalResult.formatViolations,
           slideRecommendations: evalResult.slideRecommendations,
           scoreDeductions: evalResult.scoreDeductions,

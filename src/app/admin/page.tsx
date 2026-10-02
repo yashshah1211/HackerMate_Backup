@@ -50,7 +50,6 @@ import BadgesTab from "./_tabs/BadgesTab";
 import NativeHackathonsTab from "./_tabs/NativeHackathonsTab";
 import OutreachTab from "./_tabs/OutreachTab";
 import PartneringTab from "./_tabs/PartneringTab";
-import SihStatsTab from "./_tabs/SihStatsTab";
 
 function AdminContent() {
   const { showToast, confirm } = useNotification();
@@ -61,7 +60,7 @@ function AdminContent() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "sih_stats" | "deleted_logs" | "native_hackathons" | "challenges">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "users" | "teams" | "outreach" | "badges" | "partnering" | "deleted_logs" | "native_hackathons" | "challenges">("reports");
 
   // Practice Challenges state
   const [adminChallenges, setAdminChallenges] = useState<any[]>([]);
@@ -128,57 +127,11 @@ function AdminContent() {
   const [nudgingUserIds, setNudgingUserIds] = useState<Set<string>>(new Set());
   const [bulkNudging, setBulkNudging] = useState(false);
 
-  // SIH 2026 College Stats State
-  const [sihStatsData, setSihStatsData] = useState<any | null>(null);
-  const [loadingSihStats, setLoadingSihStats] = useState(false);
-  const [sihCollegeFilter, setSihCollegeFilter] = useState<"all" | "zero_teams">("all");
-  const [expandedCollege, setExpandedCollege] = useState<string | null>(null);
-
   // Partner Composition & Broadcast Modal States
   const [selectedPartnerModal, setSelectedPartnerModal] = useState<any | null>(null);
   const [partnerAnalyticsData, setPartnerAnalyticsData] = useState<any | null>(null);
   const [loadingPartnerAnalytics, setLoadingPartnerAnalytics] = useState(false);
   const [sendingPartnerBroadcast, setSendingPartnerBroadcast] = useState(false);
-
-  async function loadSIHStats() {
-    setLoadingSihStats(true);
-    try {
-      const res = await fetch("/api/admin/sih-college-stats");
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSihStatsData(data);
-      } else {
-        showToast(data.error || "Failed to load SIH college stats", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "Failed to load SIH college stats", "error");
-    } finally {
-      setLoadingSihStats(false);
-    }
-  }
-
-  const [sendingSihPdf, setSendingSihPdf] = useState(false);
-
-
-  async function sendSIHPdfReport() {
-    setSendingSihPdf(true);
-    try {
-      const res = await fetch("/api/cron/sih-daily-pdf-report", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(`SIH Daily PDF Report emailed to ${data.recipient || "yashshah7117@gmail.com"}!`, "success");
-      } else {
-        showToast(data.error || "Failed to dispatch SIH PDF report email.", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "Failed to send SIH PDF report", "error");
-    } finally {
-      setSendingSihPdf(false);
-    }
-  }
-
 
 
   async function fetchAdminChallenges() {
@@ -398,9 +351,7 @@ function AdminContent() {
   }
 
   useEffect(() => {
-    if (activeTab === "sih_stats") {
-      loadSIHStats();
-    } else if (activeTab === "users" || activeTab === "deleted_logs") {
+    if (activeTab === "users" || activeTab === "deleted_logs") {
       loadDeletedUserLogs();
     } else if (activeTab === "challenges") {
       fetchAdminChallenges();
@@ -932,16 +883,7 @@ function AdminContent() {
               </>
             )}
 
-            <button
-              onClick={() => setActiveTab("sih_stats")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 cursor-pointer ${
-                activeTab === "sih_stats"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold"
-                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-900"
-              }`}
-            >
-              SIH 2026
-            </button>
+
 
             <button
               onClick={() => {
@@ -1050,11 +992,7 @@ function AdminContent() {
 
             {/* Category Breakdown Badges with Icons */}
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
-                <Radio className="w-3 h-3 text-zinc-400" />
-                <span>SIH Broadcast:</span>
-                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.sih_broadcast}</strong>
-              </div>
+
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Send className="w-3 h-3 text-zinc-400" />
                 <span>Outreach Pitches:</span>
@@ -1312,7 +1250,7 @@ function AdminContent() {
           />
         )}
 
-        {activeTab === "sih_stats" && <SihStatsTab />}
+
 
         {/* Practice Challenges Tab */}
         {activeTab === "challenges" && (

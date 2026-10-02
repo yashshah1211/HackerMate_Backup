@@ -129,7 +129,7 @@ const markSize = {
 };
 
 const markTone = {
-  sih: "bg-sih-soft text-sih ring-sih/25",
+
   hack: "bg-hack-soft text-hack ring-hack/25",
   proj: "bg-proj-soft text-proj ring-proj/25",
   neutral: "bg-selected text-ink ring-line-strong",

@@ -5,7 +5,7 @@
 import type { ShellTeam } from "@/components/shell/useShellSession";
 
 export const DEV_TEAMS: ShellTeam[] = [
-  { id: "dev-team-1", name: "Null Pointers", tone: "sih", isOwner: true, eventName: "Smart India Hackathon 2026" },
+  { id: "dev-team-1", name: "Null Pointers", tone: "hack", isOwner: true, eventName: "Hackathon 2026" },
   { id: "dev-team-2", name: "Latency Zero", tone: "hack", isOwner: false, eventName: "Axcentra All India Hackathon" },
   { id: "dev-team-3", name: "Paper Planes", tone: "proj", isOwner: false, eventName: "Independent project" },
 ];
@@ -39,7 +39,7 @@ export const DEV_BUILDERS = [
     shared_skills: ["Python"],
     same_college: true,
     reasons: ["Same verified college mapping", "Adds complementary domain evidence"],
-    bio: "ML + CV. Looking for a team for SIH.",
+    bio: "ML + CV. Looking for a team for upcoming hackathons.",
     github_url: null,
     linkedin_url: "https://linkedin.com/in/example",
   },
@@ -55,7 +55,7 @@ export const DEV_BUILDERS = [
     shared_skills: [],
     same_college: false,
     reasons: ["Shares collaboration foundations"],
-    bio: "Mobile first. Two SIH finals.",
+    bio: "Mobile first. Two national finals.",
     github_url: "https://github.com/example",
     linkedin_url: null,
   },

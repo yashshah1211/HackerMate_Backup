@@ -82,7 +82,6 @@ async function fetchPlatformAnalytics(): Promise<AnalyticsData> {
       newConns24h: dailyConns,
       topPages: [
         { path: "/dashboard", views: Math.round(estDailyViews * 0.35), pct: 35 },
-        { path: "/hackathons/sih", views: Math.round(estDailyViews * 0.25), pct: 25 },
         { path: "/teams", views: Math.round(estDailyViews * 0.20), pct: 20 },
         { path: "/developers", views: Math.round(estDailyViews * 0.12), pct: 12 },
         { path: "/tools/ppt-evaluator", views: Math.round(estDailyViews * 0.08), pct: 8 },
@@ -124,7 +123,6 @@ function getFallbackAnalytics(): AnalyticsData {
     newConns24h: 5,
     topPages: [
       { path: "/dashboard", views: 70, pct: 40 },
-      { path: "/hackathons/sih", views: 45, pct: 25 },
       { path: "/teams", views: 35, pct: 20 },
       { path: "/developers", views: 20, pct: 10 },
       { path: "/tools/ppt-evaluator", views: 10, pct: 5 },

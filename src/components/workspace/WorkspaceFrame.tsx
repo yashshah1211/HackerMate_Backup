@@ -42,7 +42,7 @@ export const WORKSPACE_SECTIONS: { id: WorkspaceTab; label: string; icon: ReactN
 
 type Props = {
   team: { id: string; name: string };
-  tone: "sih" | "hack" | "proj" | "neutral";
+  tone: "hack" | "proj" | "neutral";
   isOwner: boolean;
   canShare: boolean;
   tab: WorkspaceTab;

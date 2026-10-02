@@ -23,9 +23,9 @@ export interface EvaluationEngineResult {
   scoreUiUx: number; // 0-25
   scoreTeam: number; // 0-15
   totalScore: number; // 0-100
-  grade: "Nomination Gold 🏆" | "Nomination Ready ✅" | "Needs Iteration ⚠️" | "High SPOC Risk 🚨" | "High Risk / Incomplete 🚨" | string;
+  grade: "Strong Pitch 🏆" | "Promising ✅" | "Needs Iteration ⚠️" | "Major Concerns 🚨" | string;
   strengths: string[];
-  spocRedFlags: string[];
+  criticalRisks: string[];
   formatViolations: string[];
   slideRecommendations: SlideRecommendations;
   scoreDeductions: ScoreDeductions;
@@ -43,7 +43,6 @@ export async function runPitchDeckEvaluation(
   teamInfo?: {
     name?: string;
     memberCount?: number;
-    hasFemaleMember?: boolean;
     members?: Array<{ name?: string; skills?: string[] }>;
     githubUrl?: string | null;
     demoUrl?: string | null;
@@ -51,8 +50,7 @@ export async function runPitchDeckEvaluation(
   trackId: JudgingTrackId = "web_dev"
 ): Promise<EvaluationEngineResult> {
   const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  const memberCount = teamInfo?.memberCount || (trackId === "sih" ? 6 : 4);
-  const hasFemaleMember = teamInfo?.hasFemaleMember !== false;
+  const memberCount = teamInfo?.memberCount || 4;
 
   if (geminiKey) {
     try {
@@ -63,7 +61,6 @@ export async function runPitchDeckEvaluation(
         slideText,
         teamInfo,
         memberCount,
-        hasFemaleMember,
         trackId
       );
       return {
@@ -84,7 +81,6 @@ export async function runPitchDeckEvaluation(
     slideText,
     teamInfo,
     memberCount,
-    hasFemaleMember,
     trackId
   );
 
@@ -105,89 +101,10 @@ async function callGeminiWithCascade(
   slideText: string,
   teamInfo: any,
   memberCount: number,
-  hasFemaleMember: boolean,
   trackId: JudgingTrackId = "web_dev"
 ) {
   let promptText = "";
-
-  if (trackId === "sih") {
-    promptText = `You are an exceptionally strict, zero-tolerance Senior Smart India Hackathon (SIH) National Grand Jury Evaluator and SPOC Screening Chair. Grade this pitch submission with rigorous national-level hackathon scrutiny.
-
-OFFICIAL SIH 2026 PRESENTATION TEMPLATE STRUCTURE (MANDATORY 6 SLIDES MAX):
-1. SLIDE 1 - TITLE PAGE: PS ID, PS Title, Theme, PS Category (Software/Hardware/IoT), Team ID, Team Name, College Name.
-2. SLIDE 2 - IDEA TITLE & PROPOSED SOLUTION: Detailed explanation, how it addresses the problem, deep technical innovation & uniqueness/novelty over existing solutions.
-3. SLIDE 3 - TECHNICAL APPROACH: Concrete architecture, languages, frameworks, DBs, models/hardware (ESP32/sensors/LoRa if hardware), data ingestion & processing pipeline (flowcharts/architecture/prototype link).
-4. SLIDE 4 - FEASIBILITY AND VIABILITY: Feasibility analysis, potential challenges & technical risks, fail-safes, latency/offline mitigations, 36-hour hackathon execution roadmap.
-5. SLIDE 5 - IMPACT AND BENEFITS: Target beneficiaries, social/economic/environmental benefits, strictly quantified baseline metrics (₹, %, hours saved), unit economics/ROI.
-6. SLIDE 6 - RESEARCH AND REFERENCES: Supporting research papers, dataset sources, IEEE citations, reference links.
-
-OFFICIAL SIH FORMAT RULES & CONSTRAINTS:
-- Maximum 6 slides total (including title slide). Exceeding 6 slides is a strict format violation.
-- Template structure must NOT be altered or re-ordered.
-- Paragraphs/text walls must be penalized; bullet points, flowcharts, architecture diagrams, and infographics are expected.
-- Generic wrappers around external APIs (e.g. basic Gemini/OpenAI calls without custom pipelines) must be penalized.
-- Hardware/IoT Check: If category involves Hardware, verify microcontroller specs, telemetry protocols (MQTT/BLE/LoRa), sensor telemetry, and offline telemetry buffer.
-
-SUBMISSION METADATA:
-- PS Title: ${psTitle}
-- Category: ${psCategory} (Software / Hardware / Open Innovation)
-- GitHub Code Link: ${teamInfo?.githubUrl || "Not provided"}
-- Prototype Video Link: ${teamInfo?.demoUrl || "Not provided"}
-
-TEAM COMPOSITION:
-- Team Name: ${teamInfo?.name || "HackerMate Team"}
-- Total Members: ${memberCount} / 6
-- Mandatory Female Teammate: ${hasFemaleMember ? "YES" : "NO (CRITICAL SIH RULE DISQUALIFICATION)"}
-
-EXTRACTED PRESENTATION SLIDE CONTENT (Complete Deck):
----
-${slideText.slice(0, 35000)}
----
-
-STRICT SIH SCORING RUBRIC (Max 100 Points Total - Grade rigorously):
-1. Problem Novelty & Alignment (0 to 25 pts):
-   - Deduct 6-10 pts if novelty is merely a wrapper on existing APIs or lacks a unique moat.
-   - Deduct 4-6 pts if competitive advantage is unproven against existing market alternatives.
-2. Technical Architecture & Feasibility (0 to 35 pts):
-   - Deduct 8-12 pts if tech stack is just a buzzword list without end-to-end data flow (ingest -> process -> store -> serve).
-   - Deduct 5-8 pts if working prototype demo link or code repository is missing.
-   - Deduct 4-7 pts if edge cases, offline mode, latency bottlenecks, or security fail-safes are ignored.
-3. UI/UX, Impact & Research Polish (0 to 25 pts):
-   - Deduct 5-8 pts if slide content has text walls instead of visual diagrams/flowcharts.
-   - Deduct 4-6 pts if social/commercial impact metrics lack quantitative baseline numbers (%, ₹, hours saved).
-   - Deduct 3-5 pts if IEEE papers, open datasets, or standards are missing from Slide 6.
-4. Team Squad Balance & Rule Compliance (0 to 15 pts):
-   - Full 15 pts ONLY if exactly 6 members, mandatory female builder present, and 6-slide max limit followed.
-   - If < 6 members: cap team score at 5/15. If no female member: cap team score at 3/15. If > 6 slides: deduct 5 pts.
-
-CRITICAL INSTRUCTION:
-Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching this exact schema:
-{
-  "scoreNovelty": number (0 to 25 integer),
-  "scoreTech": number (0 to 35 integer),
-  "scoreUiUx": number (0 to 25 integer),
-  "scoreTeam": number (0 to 15 integer),
-  "totalScore": number (exact sum of scoreNovelty + scoreTech + scoreUiUx + scoreTeam, 0 to 100),
-  "grade": "Nomination Gold 🏆" | "Nomination Ready ✅" | "Needs Iteration ⚠️" | "High SPOC Risk 🚨",
-  "formatViolations": ["Format Violation: ..."],
-  "scoreDeductions": {
-    "novelty": "Specific critical explanation of why points were lost in Novelty",
-    "tech": "Specific critical explanation of why points were lost in Technical Architecture",
-    "uiUx": "Specific critical explanation of why points were lost in UI/UX & Polish",
-    "team": "Specific critical explanation of why points were lost in Team Balance & SIH Rules"
-  },
-  "strengths": ["string", "string"],
-  "spocRedFlags": ["string", "string"],
-  "slideRecommendations": {
-    "titlePage": "Slide 1 Title Page guidance...",
-    "proposedSolution": "Slide 2 Idea guidance...",
-    "technicalApproach": "Slide 3 Tech Approach guidance...",
-    "feasibilityAndRisks": "Slide 4 Feasibility & Risk guidance...",
-    "impactAndBenefits": "Slide 5 Impact guidance...",
-    "researchAndReferences": "Slide 6 References guidance..."
-  }
-}`;
-  } else if (trackId === "ai_genai") {
+  if (trackId === "ai_genai") {
     promptText = `You are a distinguished Senior AI Systems Architect and National Hackathon Grand Jury Evaluator specializing in AI, GenAI & Agentic Systems. Grade this pitch presentation with deep technical scrutiny.
 
 AI & AGENTIC SYSTEMS EVALUATION FOCUS:
@@ -227,7 +144,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
   "scoreUiUx": number (0 to 25 integer),
   "scoreTeam": number (0 to 15 integer),
   "totalScore": number (exact sum of scoreNovelty + scoreTech + scoreUiUx + scoreTeam, 0 to 100),
-  "grade": "Nomination Gold 🏆" | "Nomination Ready ✅" | "Needs Iteration ⚠️" | "High Risk / Incomplete 🚨",
+  "grade": "Strong Pitch 🏆" | "Promising ✅" | "Needs Iteration ⚠️" | "Major Concerns 🚨",
   "formatViolations": ["Format Note: ..."],
   "scoreDeductions": {
     "novelty": "Specific explanation of novelty score deductions",
@@ -236,7 +153,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
     "team": "Specific explanation of team composition deductions"
   },
   "strengths": ["string", "string"],
-  "spocRedFlags": ["string", "string"],
+  "criticalRisks": ["string", "string"],
   "slideRecommendations": {
     "titlePage": "Title slide guidance...",
     "proposedSolution": "AI solution & novelty guidance...",
@@ -287,7 +204,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
   "scoreUiUx": number (0 to 25 integer),
   "scoreTeam": number (0 to 15 integer),
   "totalScore": number (exact sum of scoreNovelty + scoreTech + scoreUiUx + scoreTeam, 0 to 100),
-  "grade": "Nomination Gold 🏆" | "Nomination Ready ✅" | "Needs Iteration ⚠️" | "High Risk / Incomplete 🚨",
+  "grade": "Strong Pitch 🏆" | "Promising ✅" | "Needs Iteration ⚠️" | "Major Concerns 🚨",
   "formatViolations": ["Format Note: ..."],
   "scoreDeductions": {
     "novelty": "Specific explanation of novelty score deductions",
@@ -296,7 +213,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
     "team": "Specific explanation of team composition deductions"
   },
   "strengths": ["string", "string"],
-  "spocRedFlags": ["string", "string"],
+  "criticalRisks": ["string", "string"],
   "slideRecommendations": {
     "titlePage": "Title slide guidance...",
     "proposedSolution": "Product solution guidance...",
@@ -323,10 +240,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
   let rawNovelty = parsed.scoreNovelty ?? 15;
   let rawTech = parsed.scoreTech ?? 20;
   let rawUiUx = parsed.scoreUiUx ?? 15;
-  let defaultTeamScore = trackId === "sih"
-    ? (hasFemaleMember && memberCount === 6 ? 14 : 6)
-    : (memberCount >= 2 ? 14 : 9);
-  let rawTeam = parsed.scoreTeam ?? defaultTeamScore;
+  let rawTeam = parsed.scoreTeam ?? 12;
 
   // Check if model returned 0-10 subscores instead of category max
   if (rawTech <= 10 && rawNovelty <= 10 && rawUiUx <= 10 && rawTeam <= 10) {
@@ -342,7 +256,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
   const scoreTeam = Math.min(15, Math.max(0, rawTeam));
   const totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
 
-  const grade = parsed.grade || computeGrade(totalScore, hasFemaleMember, memberCount, parsed.formatViolations, trackId);
+  const grade = parsed.grade || computeGrade(totalScore, memberCount, parsed.formatViolations, trackId);
 
   return {
     scoreNovelty,
@@ -352,7 +266,7 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
     totalScore,
     grade,
     strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ["Well-structured presentation"],
-    spocRedFlags: Array.isArray(parsed.spocRedFlags) ? parsed.spocRedFlags : [],
+    criticalRisks: Array.isArray(parsed.criticalRisks) ? parsed.criticalRisks : (Array.isArray(parsed.spocRedFlags) ? parsed.spocRedFlags : []),
     formatViolations: Array.isArray(parsed.formatViolations) ? parsed.formatViolations : [],
     slideRecommendations: {
       titlePage: parsed.slideRecommendations?.titlePage || "Ensure project ID, category, and team details are clearly stated.",
@@ -382,8 +296,7 @@ export function generateHeuristicEvaluation(
   psCategory: string,
   slideText: string = "",
   teamInfo?: any,
-  memberCount: number = 6,
-  hasFemaleMember: boolean = true,
+  memberCount: number = 4,
   trackId: JudgingTrackId = "web_dev"
 ) {
   const lowerText = slideText.toLowerCase();
@@ -442,9 +355,7 @@ export function generateHeuristicEvaluation(
     }
   }
 
-  if (trackId === "sih" && detectedMaxSlide > 6) {
-    formatViolations.push(`Format Violation: Exceeds mandatory 6-slide limit (${detectedMaxSlide} slides detected).`);
-  } else if (trackId !== "sih" && detectedMaxSlide > 15) {
+  if (detectedMaxSlide > 15) {
     formatViolations.push(`Pacing Note: Deck length (${detectedMaxSlide} slides) exceeds recommended 10–12 slide hackathon limit.`);
   }
 
@@ -461,7 +372,7 @@ export function generateHeuristicEvaluation(
   if (!hasSlide3Tech) { formatViolations.push("Format Note: Missing Slide 3 (Technical Approach & Architecture)."); missingSectionCount++; }
   if (!hasSlide4Feasibility) { formatViolations.push("Format Note: Missing Slide 4 (Feasibility & Risk Mitigation)."); missingSectionCount++; }
   if (!hasSlide5Impact) { formatViolations.push("Format Note: Missing Slide 5 (Impact & Beneficiaries)."); missingSectionCount++; }
-  if (!hasSlide6Research && trackId === "sih") { formatViolations.push("Format Violation: Missing Slide 6 (Research and References)."); missingSectionCount++; }
+  if (!hasSlide6Research) { formatViolations.push("Format Note: Missing Slide 6 (Research and References)."); missingSectionCount++; }
 
   // 4. Rubric Scoring (4 Criteria = 100 Pts Max)
   // Novelty & Problem Alignment (0-25)
@@ -491,67 +402,35 @@ export function generateHeuristicEvaluation(
   scoreUiUx = Math.min(25, Math.max(3, scoreUiUx));
 
   // Team Squad & Compliance (0-15) - Track Aware
-  let scoreTeam = 0;
-  if (trackId === "sih") {
-    // Strict SIH rules: 6 members + female teammate + <= 6 slides
-    if (memberCount >= 1) scoreTeam += 2;
-    if (memberCount >= 4) scoreTeam += 3;
-    if (memberCount === 6) scoreTeam += 4;
-    if (hasFemaleMember) scoreTeam += 6;
-    if (detectedMaxSlide > 6) scoreTeam = Math.max(0, scoreTeam - 6);
-    scoreTeam = Math.min(15, Math.max(1, scoreTeam));
-  } else {
-    // Non-SIH tracks (Web Dev / AI GenAI):
-    // Viable squads are 2-5+ members with complementary skills. Zero gender penalty.
-    if (memberCount >= 1) scoreTeam += 4;
-    if (memberCount >= 2) scoreTeam += 5; // Standard 2-person pair/squad
-    if (memberCount >= 3 && memberCount <= 5) scoreTeam += 4; // Ideal hackathon squad size
-    if (memberCount >= 6) scoreTeam += 3;
-    
-    // Check role / skill breadth across team members
-    const memberSkills = (teamInfo?.members || []).flatMap((m: any) => m.skills || []);
-    if (memberSkills.length >= 3 || (teamInfo?.members && teamInfo.members.length >= 2)) {
-      scoreTeam += 2;
-    }
-    scoreTeam = Math.min(15, Math.max(4, scoreTeam));
-  }
+  let scoreTeam = 6; // Base score
+
+  // Check role / skill breadth across team members
+  const memberSkills = (teamInfo?.members || []).flatMap((m: any) => m.skills || []);
+  const lowerSkills = memberSkills.map((s: string) => s.toLowerCase());
+  if (lowerSkills.length >= 3) scoreTeam += 3;
+  if (lowerSkills.some((s: string) => s.includes("react") || s.includes("frontend") || s.includes("ui"))) scoreTeam += 2;
+  if (lowerSkills.some((s: string) => s.includes("node") || s.includes("python") || s.includes("backend") || s.includes("db"))) scoreTeam += 2;
+  if (lowerSkills.some((s: string) => s.includes("ai") || s.includes("ml") || s.includes("cloud"))) scoreTeam += 2;
+
+  scoreTeam = Math.min(15, Math.max(6, scoreTeam));
 
   let totalScore = scoreNovelty + scoreTech + scoreUiUx + scoreTeam;
 
-  if (trackId === "sih") {
-    if (detectedMaxSlide > 6) {
-      totalScore = Math.min(42, totalScore);
-    } else if (missingSectionCount >= 3) {
-      totalScore = Math.min(40, totalScore);
-    }
-  }
 
-  const grade = computeGrade(totalScore, hasFemaleMember, memberCount, formatViolations, trackId);
 
-  const spocRedFlags: string[] = [];
-  if (trackId === "sih") {
-    if (memberCount < 6) spocRedFlags.push(`Incomplete Squad Size (${memberCount}/6 members). SIH guidelines mandate a full 6-member team.`);
-    if (!hasFemaleMember) spocRedFlags.push("Missing Female Teammate. At least 1 female builder is mandatory per official SIH regulations.");
-  } else {
-    if (memberCount === 1) {
-      spocRedFlags.push("Solo builder submission. Hackathon juries favor multi-disciplinary teams (Frontend + Backend + AI/UX).");
-    }
-  }
+  const grade = computeGrade(totalScore, memberCount, formatViolations, trackId);
+
+  const criticalRisks: string[] = [];
+
 
   if (wordCount < 40) {
-    spocRedFlags.push("Sparse slide text. Technical architecture requires deeper elaboration.");
+    criticalRisks.push("Sparse slide text. Technical architecture requires deeper elaboration.");
   }
 
   let teamDeductionText = "";
-  if (trackId === "sih") {
-    teamDeductionText = memberCount === 6 && hasFemaleMember && detectedMaxSlide <= 6
-      ? "Full 15/15 pts awarded for full 6-member squad, mandatory female teammate, and 6-slide template compliance."
-      : `Lost ${15 - scoreTeam} points due to incomplete squad size (${memberCount}/6), missing female teammate, or exceeding 6-slide max limit.`;
-  } else {
-    teamDeductionText = scoreTeam >= 13
-      ? `Awarded ${scoreTeam}/15 pts for viable squad size (${memberCount} builders) with complementary role coverage.`
-      : `Lost ${15 - scoreTeam} points: recommend expanding cross-functional skills (Frontend, Backend, DevOps, AI).`;
-  }
+  teamDeductionText = scoreTeam >= 13
+    ? `Awarded ${scoreTeam}/15 pts for solid cross-functional skill coverage.`
+    : `Lost ${15 - scoreTeam} points: recommend expanding cross-functional skills (Frontend, Backend, DevOps, AI).`;
 
   const deductions: ScoreDeductions = {
     novelty: `Lost ${25 - scoreNovelty} points due to missing quantitative baseline metrics or competitive differentiation.`,
@@ -565,12 +444,7 @@ export function generateHeuristicEvaluation(
   const strengths: string[] = [`Project pitch registered for ${psTitle} (${psCategory}).`];
   if (hasDataFlowPipeline || techDomainCount > 0) strengths.push("Technical stack components (databases/architecture/pipeline) defined in pitch text.");
   if (hasPercent || hasCost) strengths.push("Quantitative baseline metrics or cost efficiency figures included.");
-  if (trackId === "sih") {
-    if (memberCount === 6) strengths.push("Full 6-member team squad complete.");
-    if (hasFemaleMember) strengths.push("Mandatory female team member rule satisfied.");
-  } else {
-    if (memberCount >= 2) strengths.push(`Collaborative squad formed with ${memberCount} builders.`);
-  }
+  if (scoreTeam >= 10) strengths.push(`Team possesses complementary technical skills.`);
 
   const slideRecommendations: SlideRecommendations = {
     titlePage: hasSlide1Title
@@ -601,7 +475,7 @@ export function generateHeuristicEvaluation(
     totalScore,
     grade,
     strengths,
-    spocRedFlags,
+    criticalRisks,
     formatViolations,
     slideRecommendations,
     scoreDeductions: deductions,
@@ -611,33 +485,18 @@ export function generateHeuristicEvaluation(
 
 export function computeGrade(
   totalScore: number,
-  hasFemaleMember: boolean,
   memberCount: number,
   formatViolations: string[] = [],
   trackId: JudgingTrackId = "web_dev"
 ): string {
-  if (trackId === "sih") {
-    if (totalScore >= 88 && formatViolations.length === 0 && hasFemaleMember && memberCount === 6) {
-      return "Nomination Gold 🏆";
-    }
-    if (totalScore >= 72 && hasFemaleMember && memberCount === 6) {
-      return "Nomination Ready ✅";
-    }
-    if (totalScore < 50 || !hasFemaleMember || memberCount < 6 || formatViolations.some(f => f.includes("Exceeds mandatory"))) {
-      return "High SPOC Risk 🚨";
-    }
-    return "Needs Iteration ⚠️";
-  }
-
-  // Non-SIH Tracks (Web Dev & AI GenAI)
   if (totalScore >= 88) {
-    return "Nomination Gold 🏆";
+    return "Strong Pitch 🏆";
   }
   if (totalScore >= 72) {
-    return "Nomination Ready ✅";
+    return "Promising ✅";
   }
   if (totalScore < 50) {
-    return "High Risk / Incomplete 🚨";
+    return "Major Concerns 🚨";
   }
   return "Needs Iteration ⚠️";
 }

@@ -79,34 +79,7 @@ const mockTeamInfo = {
   ],
 };
 
-// 2A. SIH Track Evaluation
-const sihEval = generateHeuristicEvaluation(
-  "DevOrbit",
-  "software",
-  samplePitchSlideText,
-  mockTeamInfo,
-  4,
-  false,
-  "sih"
-);
 
-assert(
-  sihEval.grade === "High SPOC Risk 🚨",
-  "SIH Track: 4 members and 0 female flags 'High SPOC Risk 🚨'",
-  { grade: sihEval.grade, totalScore: sihEval.totalScore }
-);
-assert(
-  sihEval.spocRedFlags.some(f => f.includes("Incomplete Squad Size") && f.includes("4/6")),
-  "SIH Track: Red flag present for Incomplete Squad Size (4/6 members)"
-);
-assert(
-  sihEval.spocRedFlags.some(f => f.includes("Missing Female Teammate")),
-  "SIH Track: Red flag present for Missing Female Teammate"
-);
-assert(
-  sihEval.scoreTeam <= 6,
-  `SIH Track: Team score is heavily penalized (${sihEval.scoreTeam}/15)`
-);
 
 // 2B. AI / GenAI Track Evaluation
 const aiEval = generateHeuristicEvaluation(
@@ -115,20 +88,19 @@ const aiEval = generateHeuristicEvaluation(
   samplePitchSlideText,
   mockTeamInfo,
   4,
-  false,
   "ai_genai"
 );
 
 assert(
-  aiEval.grade !== "High SPOC Risk 🚨",
-  `AI/GenAI Track: Grade is NOT High SPOC Risk (Got: "${aiEval.grade}")`
+  aiEval.grade !== "Major Concerns 🚨",
+  `AI/GenAI Track: Grade is NOT Major Concerns (Got: "${aiEval.grade}")`
 );
 assert(
-  !aiEval.spocRedFlags.some(f => f.toLowerCase().includes("female")),
+  !aiEval.criticalRisks.some((f: string) => f.toLowerCase().includes("female")),
   "AI/GenAI Track: Zero female teammate red flags"
 );
 assert(
-  !aiEval.spocRedFlags.some(f => f.toLowerCase().includes("incomplete squad")),
+  !aiEval.criticalRisks.some((f: string) => f.toLowerCase().includes("incomplete squad")),
   "AI/GenAI Track: Zero incomplete squad (<6) red flags"
 );
 assert(
@@ -143,20 +115,19 @@ const webEval = generateHeuristicEvaluation(
   samplePitchSlideText,
   mockTeamInfo,
   4,
-  false,
   "web_dev"
 );
 
 assert(
-  webEval.grade !== "High SPOC Risk 🚨",
-  `Web Dev Track: Grade is NOT High SPOC Risk (Got: "${webEval.grade}")`
+  webEval.grade !== "Major Concerns 🚨",
+  `Web Dev Track: Grade is NOT Major Concerns (Got: "${webEval.grade}")`
 );
 assert(
-  !webEval.spocRedFlags.some(f => f.toLowerCase().includes("female")),
+  !webEval.criticalRisks.some((f: string) => f.toLowerCase().includes("female")),
   "Web Dev Track: Zero female teammate red flags"
 );
 assert(
-  !webEval.spocRedFlags.some(f => f.toLowerCase().includes("incomplete squad")),
+  !webEval.criticalRisks.some((f: string) => f.toLowerCase().includes("incomplete squad")),
   "Web Dev Track: Zero incomplete squad (<6) red flags"
 );
 assert(

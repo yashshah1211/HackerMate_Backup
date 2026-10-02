@@ -44,7 +44,7 @@ export function isDetailRoute(pathname: string | null): boolean {
   return (
     /^\/profile\/(?!edit)[^/]+$/.test(pathname) ||
     /^\/teams\/(?!create)[^/]+(\/requests)?$/.test(pathname) ||
-    /^\/hackathons\/(?!create|sih)[^/]+(\/organizer)?$/.test(pathname) ||
+    /^\/hackathons\/(?!create)[^/]+(\/organizer)?$/.test(pathname) ||
     /^\/challenges\/[^/]+/.test(pathname) ||
     pathname === "/settings" ||
     pathname === "/notifications" ||
@@ -82,5 +82,5 @@ export function isMarketingRoute(pathname: string | null): boolean {
 export function isForcedDarkRoute(pathname: string | null): boolean {
   if (!pathname) return true;
   const exact = ["/", "/login", "/faq", "/terms", "/privacy", "/contact", "/partners", "/onboarding"];
-  return exact.includes(pathname) || pathname.startsWith("/partners/") || pathname.startsWith("/hackathons/sih");
+  return exact.includes(pathname) || pathname.startsWith("/partners/");
 }

@@ -13,7 +13,6 @@ import { STAGES } from "@/components/landing/primitives";
 /** Human label for where sign-in will return the visitor. */
 function destinationLabel(path: string): string | null {
   if (!path || path === "/dashboard" || path === "/") return null;
-  if (path.startsWith("/hackathons/sih")) return "the SIH team builder";
   if (path.startsWith("/hackathons/")) return "that hackathon";
   if (path.startsWith("/hackathons")) return "hackathons";
   if (/^\/teams\/[^/]+\/workspace/.test(path)) return "the team workspace";
