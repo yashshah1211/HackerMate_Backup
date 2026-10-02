@@ -16,6 +16,8 @@ export async function middleware(request: NextRequest) {
     "/my-teams",
     "/admin",
     "/api/admin",
+    "/expo/judge",
+    "/expo/leaderboard",
     "/hackathons/create",
     "/settings",
   ];
@@ -80,8 +82,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Admin route server-side role check
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    const isSuperAdmin = user.email?.toLowerCase().trim() === "yashshah7117@gmail.com";
+  const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+  const isExpoAdminRoute = pathname.startsWith("/expo/judge") || pathname.startsWith("/expo/leaderboard");
+
+  if (isAdminRoute || isExpoAdminRoute) {
+    const isSuperAdmin = isAdminRoute && user.email?.toLowerCase().trim() === "yashshah7117@gmail.com";
     if (!isSuperAdmin) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -125,6 +130,8 @@ export const config = {
     "/my-teams/:path*",
     "/admin/:path*",
     "/api/admin/:path*",
+    "/expo/judge",
+    "/expo/leaderboard",
     "/settings/:path*",
   ],
 };

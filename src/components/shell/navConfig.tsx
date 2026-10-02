@@ -58,7 +58,7 @@ export function isDetailRoute(pathname: string | null): boolean {
  * (it 404s in production).
  */
 export function isBareRoute(pathname: string | null): boolean {
-  return pathname === "/login" || pathname === "/onboarding" || Boolean(pathname?.startsWith("/dev/"));
+  return pathname === "/login" || pathname === "/onboarding" || Boolean(pathname?.startsWith("/dev/")) || Boolean(pathname?.startsWith("/expo/"));
 }
 
 /** Marketing / legal routes use the public header instead of the app shell. */
@@ -81,6 +81,6 @@ export function isMarketingRoute(pathname: string | null): boolean {
 /** V1 rule kept: public/marketing surfaces always render dark. */
 export function isForcedDarkRoute(pathname: string | null): boolean {
   if (!pathname) return true;
-  const exact = ["/", "/login", "/faq", "/terms", "/privacy", "/contact", "/partners", "/onboarding"];
+  const exact = ["/", "/login", "/faq", "/terms", "/privacy", "/contact", "/partners", "/onboarding", "/expo/judge"];
   return exact.includes(pathname) || pathname.startsWith("/partners/");
 }
