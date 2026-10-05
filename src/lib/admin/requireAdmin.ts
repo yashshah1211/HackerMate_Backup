@@ -5,6 +5,8 @@ import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
 export interface AdminAuthResult {
   user: User;
   supabaseAdmin: SupabaseClient;
+  // Authenticated-only RPCs must retain the verified caller's identity.
+  supabaseUserClient: SupabaseClient;
 }
 
 export async function requireAdmin(
@@ -105,5 +107,5 @@ export async function requireAdmin(
       })
     : supabaseUserClient;
 
-  return { user, supabaseAdmin };
+  return { user, supabaseAdmin, supabaseUserClient };
 }
