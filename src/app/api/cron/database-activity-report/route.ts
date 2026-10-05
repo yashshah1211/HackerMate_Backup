@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "node:crypto";
 import {
   fetchDatabaseActivity,
   generateDatabaseActivityPdf,
@@ -111,29 +112,27 @@ function generateEmailHtml(data: DatabaseActivityData, dateStr: string): string 
 async function handleDatabaseActivityReport(req: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    const authHeader = req.headers.get("authorization") || "";
     const { searchParams } = new URL(req.url);
-    const secret = searchParams.get("secret");
     const format = searchParams.get("format");
     const forceAll = searchParams.get("force") === "true";
 
-    const isAuthorizedCron =
-      (Boolean(cronSecret) && authHeader === `Bearer ${cronSecret}`) ||
-      (Boolean(cronSecret) && secret === cronSecret);
+    // Machine credentials authorize scheduled reporting only. PDF downloads
+    // are interactive disclosures and always require human admin authorization.
+    const expectedHeader = cronSecret ? Buffer.from(`Bearer ${cronSecret}`) : null;
+    const receivedHeader = Buffer.from(authHeader);
+    const isAuthorizedCron = Boolean(
+      expectedHeader &&
+      receivedHeader.length === expectedHeader.length &&
+      timingSafeEqual(receivedHeader, expectedHeader)
+    );
 
-    let isAuthorizedAdmin = false;
-    if (!isAuthorizedCron) {
+    if (format === "pdf" || !isAuthorizedCron) {
       const adminCheck = await requireAdmin(req);
-      if (!(adminCheck instanceof NextResponse)) {
-        isAuthorizedAdmin = true;
+      if (adminCheck instanceof NextResponse) {
+        console.warn("[Database Activity Report Cron] Unauthorized trigger attempt.");
+        return adminCheck;
       }
-    }
-
-    const isLocalDev = process.env.NODE_ENV !== "production";
-
-    if (!isAuthorizedCron && !isAuthorizedAdmin && !isLocalDev) {
-      console.warn("[Database Activity Report Cron] Unauthorized trigger attempt.");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabaseAdmin = getSupabaseAdmin();

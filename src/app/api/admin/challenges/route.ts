@@ -1,110 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabaseClient(token?: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (serviceRoleKey) {
-    return createClient(url, serviceRoleKey);
-  }
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  if (token) {
-    return createClient(url, anonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-  }
-  return createClient(url, anonKey);
-}
-
-async function verifyAdminUser(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  let token: string | undefined;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.replace("Bearer ", "");
-  }
-
-  const client = getSupabaseClient(token);
-
-  // 1. Try Bearer token
-  if (token) {
-    try {
-      const { data: userData } = await client.auth.getUser(token);
-      const user = userData?.user;
-      if (user) {
-        const email = user.email?.toLowerCase().trim() || "";
-        if (email === "yashshah7117@gmail.com" || email.includes("admin")) {
-          return { user, isAdmin: true, supabaseAdmin: client };
-        }
-        const { data: profile } = await client
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profile?.role === "admin") {
-          return { user, isAdmin: true, supabaseAdmin: client };
-        }
-      }
-    } catch (tokenErr) {
-      console.warn("[Admin Challenges] Bearer token check error:", tokenErr);
-    }
-  }
-
-  // 2. Try Cookies
-  try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const { data: { user } } = await supabaseUser.auth.getUser();
-    if (user) {
-      const email = user.email?.toLowerCase().trim() || "";
-      if (email === "yashshah7117@gmail.com" || email.includes("admin")) {
-        return { user, isAdmin: true, supabaseAdmin: supabaseUser as any };
-      }
-      const { data: profile } = await supabaseUser
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profile?.role === "admin") {
-        return { user, isAdmin: true, supabaseAdmin: supabaseUser as any };
-      }
-    }
-  } catch (err) {
-    console.error("[Admin Auth Error]:", err);
-  }
-
-  return { user: null, isAdmin: false, supabaseAdmin: client };
-}
+import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 export async function GET(req: NextRequest) {
   try {
-    const { isAdmin, supabaseAdmin } = await verifyAdminUser(req);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+    const { supabaseAdmin } = authResult;
 
     let challenges: any[] = [];
     const { data: fullData, error: fullErr } = await supabaseAdmin
@@ -152,10 +57,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { user, isAdmin, supabaseAdmin } = await verifyAdminUser(req);
-    if (!isAdmin || !user) {
-      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 });
+    const authResult = await requireAdmin(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+    const { user, supabaseAdmin } = authResult;
 
     const body = await req.json();
     const {
