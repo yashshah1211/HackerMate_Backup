@@ -27,7 +27,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
-import { formatPrizeDisplay } from "@/app/hackathons/page";
+import { formatPrizeDisplay } from "@/lib/hackathons/prizeDisplay";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 import {

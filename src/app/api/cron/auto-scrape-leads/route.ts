@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { runMultiPlatformScraper } from "@/app/api/admin/scrape-unstop/route";
 import { autoSendPitchEmailsForLeads, autoRemoveUnopenedPitchedLeads } from "@/lib/admin/autoSendPitches";
-import { executeGmailInboxSync } from "@/app/api/admin/organizer-leads/sync-gmail-replies/route";
+import { executeGmailInboxSync } from "@/lib/admin/gmailInboxSync";
 
 export async function GET(req: NextRequest) {
   try {

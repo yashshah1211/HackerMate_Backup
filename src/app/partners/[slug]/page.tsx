@@ -48,7 +48,7 @@ import { Container, Eyebrow } from "@/components/landing/primitives";
 import { useNotification } from "@/context/NotificationContext";
 import CertificateModal, { UserBadge } from "@/components/CertificateModal";
 import ShareModal from "@/components/ShareModal";
-import { formatPrizeDisplay } from "@/app/hackathons/page";
+import { formatPrizeDisplay } from "@/lib/hackathons/prizeDisplay";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
 
 type PartnerConfig = {
