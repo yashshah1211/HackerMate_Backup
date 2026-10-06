@@ -168,8 +168,12 @@ export default function OrganizerPortalPage() {
         return;
       }
 
-      // Check organizer authorization
-      if (hackathonData.organizer_id !== user.id) {
+      // This existing portal manages native events. Verify the same protected
+      // identity/event boundary as the raw registration policies before loading.
+      const { data: eventAccess, error: accessError } = await supabase.rpc(
+        "can_access_partner_event", { p_hackathon_id: hackathonId }
+      );
+      if (accessError || eventAccess !== true || hackathonData.type !== "native" || hackathonData.organizer_id !== user.id) {
         showToast("Access Denied: Only the organizer can access this portal.", "error");
         router.push(`/hackathons/${hackathonId}`);
         return;

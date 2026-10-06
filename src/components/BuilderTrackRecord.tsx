@@ -12,7 +12,7 @@ type Teammate = {
 };
 
 type Registration = {
-  registration_id: string;
+  registration_id?: string;
   hackathon_id: string;
   hackathon_name: string;
   mode: string | null;
@@ -21,9 +21,9 @@ type Registration = {
   start_date: string | null;
   end_date: string | null;
   website_url: string | null;
-  registration_status: string;
-  looking_for_team: boolean;
-  registered_at: string;
+  registration_status?: string;
+  looking_for_team?: boolean;
+  registered_at?: string;
 };
 
 type Team = {
@@ -174,7 +174,7 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
             if (filter === "submitted" && !submission) return null;
 
             return (
-              <div key={reg.registration_id} className="relative group">
+              <div key={reg.hackathon_id} className="relative group">
                 {/* Timeline node icon */}
                 <div className="absolute -left-[23px] sm:-left-[31px] top-1.5 w-4 h-4 rounded-full bg-indigo-600 border-4 border-white dark:border-zinc-950 shadow-md group-hover:scale-125 transition-transform" />
 
@@ -196,9 +196,9 @@ export default function BuilderTrackRecord({ data, isOwner = false }: Props) {
                           </span>
                         )}
                       </div>
-                      <p className="text-[12.5px] text-zinc-500 font-mono mt-0.5">
+                      {reg.registered_at && <p className="text-[12.5px] text-zinc-500 font-mono mt-0.5">
                         Registered {new Date(reg.registered_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
-                      </p>
+                      </p>}
                     </div>
 
                     {/* Submission status pill */}

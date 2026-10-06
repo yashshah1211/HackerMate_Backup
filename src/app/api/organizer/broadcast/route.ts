@@ -1,10 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
+import { requireVerifiedProfile } from "@/lib/admin/requireAdmin";
 
 function escapeHtml(text: string): string {
   if (!text) return "";
@@ -22,29 +21,9 @@ function delay(ms: number) {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authorization = await requireVerifiedProfile(req);
+    if (authorization instanceof NextResponse) return authorization;
+    const { user, supabaseUserClient, isAdmin } = authorization;
 
     const body = await req.json();
     const { hackathonId, title, message, linkedStageId } = body;
@@ -56,24 +35,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Initialize Service Role client for admin queries & notifications insert
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // 1. Verify caller authorization (Native Organizer OR Admin OR Partner Hackathon)
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    const isAdmin = callerProfile?.role === "admin";
-
-    const { data: hackathon, error: hackathonErr } = await supabaseAdmin
+    // Verify the event with the caller JWT before creating the existing service
+    // client. Partner read assignments do not grant broadcast permissions.
+    const { data: hackathon, error: hackathonErr } = await supabaseUserClient
       .from("hackathons")
-      .select("id, name, organizer_id")
+      .select("id, name, type, organizer_id")
       .eq("id", hackathonId)
       .single();
 
@@ -81,20 +47,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Hackathon not found." }, { status: 404 });
     }
 
-    const { data: partnerConfig } = await supabaseAdmin
-      .from("partner_configs")
-      .select("id")
-      .eq("hackathon_id", hackathonId)
-      .maybeSingle();
-
-    const isNativeOrganizer = hackathon.organizer_id === user.id;
-
-    if (!isNativeOrganizer && !isAdmin) {
+    const { data: eventAccess, error: accessError } = await supabaseUserClient.rpc(
+      "can_access_partner_event", { p_hackathon_id: hackathonId }
+    );
+    const isNativeOrganizer = hackathon.type === "native" && hackathon.organizer_id === user.id;
+    if (accessError || eventAccess !== true || (!isNativeOrganizer && !isAdmin)) {
       return NextResponse.json(
         { error: "Forbidden: Only the hackathon organizer or admin can broadcast announcements." },
         { status: 403 }
       );
     }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: partnerConfig } = await supabaseAdmin
+      .from("partner_configs").select("id").eq("hackathon_id", hackathonId).maybeSingle();
 
     // 2. Fetch linked stage details if provided
     let linkedStageTitle: string | null = null;
@@ -103,10 +72,10 @@ export async function POST(req: NextRequest) {
         .from("hackathon_stages")
         .select("title")
         .eq("id", linkedStageId)
+        .eq("hackathon_id", hackathonId)
         .maybeSingle();
-      if (stage) {
-        linkedStageTitle = stage.title;
-      }
+      if (!stage) return NextResponse.json({ error: "Stage not found for this event." }, { status: 400 });
+      linkedStageTitle = stage.title;
     }
 
     // 3. Create hackathon_announcements record (sent_at null initially)
