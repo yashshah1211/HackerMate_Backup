@@ -124,10 +124,12 @@ export interface PartnerConfigRecord {
   logo_url?: string;
   tagline?: string;
   primary_color?: string;
-  features?: any;
+  features?: Record<string, unknown>;
   created_at?: string;
   is_active?: boolean;
 }
+
+export type { ManagedPartner, PartnerConfigFields, PartnerEventOption, EventOrganizerAccount } from "@/lib/partners/adminTypes";
 
 export interface PartnerAnalyticsResponse {
   stats: {
@@ -137,9 +139,9 @@ export interface PartnerAnalyticsResponse {
   };
   topSkills: { skill: string; count: number }[];
   topColleges: { college: string; count: number }[];
-  registrations: any[];
-  teams: any[];
-  announcements: any[];
+  registrations: unknown[];
+  teams: unknown[];
+  announcements: unknown[];
 }
 
 

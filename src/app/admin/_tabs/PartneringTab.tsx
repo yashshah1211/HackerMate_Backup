@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { StatusBadge } from "../_components/StatusBadge";
 import PartnerCompositionModal from "@/components/PartnerCompositionModal";
+import PartnerManagement from "../_components/PartnerManagement";
 import {
   Handshake,
   Building2,
@@ -15,7 +16,6 @@ import {
   ArrowRight,
   BarChart3,
   Plus,
-  Radio,
 } from "lucide-react";
 
 interface PartneringTabProps {
@@ -55,9 +55,9 @@ export default function PartneringTab({
       } else {
         showToast(data.error || "Failed to load partner composition", "error");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast(err.message || "Failed to load partner composition", "error");
+      showToast(err instanceof Error ? err.message : "Failed to load partner composition", "error");
     } finally {
       setLoadingPartnerAnalytics(false);
     }
@@ -83,9 +83,9 @@ export default function PartneringTab({
       } else {
         showToast(data.error || "Failed to send broadcast", "error");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast(err.message || "Failed to send broadcast", "error");
+      showToast(err instanceof Error ? err.message : "Failed to send broadcast", "error");
     } finally {
       setSendingPartnerBroadcast(false);
     }
@@ -106,9 +106,9 @@ export default function PartneringTab({
       } else {
         showToast(data.error || "Failed to create partner portal", "error");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast(err.message || "Failed to create partner portal", "error");
+      showToast(err instanceof Error ? err.message : "Failed to create partner portal", "error");
     }
     setCreatingPortalId(null);
   }
@@ -126,13 +126,15 @@ export default function PartneringTab({
             .eq("id", lead.id);
 
           if (error) {
+            console.error("[admin/partners] Lead update failed:", error);
             showToast(error.message, "error");
           } else {
             showToast(`Removed "${lead.title}" from Partnering Organizers`, "success");
             await loadLeads();
           }
-        } catch (err: any) {
-          showToast(err.message || "Failed to remove partner lead", "error");
+        } catch (err) {
+          console.error("[admin/partners] Lead update failed:", err);
+          showToast(err instanceof Error ? err.message : "Failed to remove partner lead", "error");
         }
       },
     });
@@ -143,6 +145,7 @@ export default function PartneringTab({
   return (
     <>
       <div className="space-y-6">
+        <PartnerManagement onChanged={loadLeads} />
         {/* Header summary banner */}
         <div className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -263,7 +266,7 @@ export default function PartneringTab({
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Create Partner Portal</span>
+                            <span>Create or match event (legacy portal)</span>
                           </>
                         )}
                       </button>
@@ -300,7 +303,7 @@ export default function PartneringTab({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {partnerConfigsList.map((pc: any) => (
+              {partnerConfigsList.map((pc) => (
                 <div
                   key={pc.id}
                   className="p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 hover:border-zinc-300 dark:hover:border-zinc-700/80 transition flex flex-col justify-between space-y-4 shadow-xs"
