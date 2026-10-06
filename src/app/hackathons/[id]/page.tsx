@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -25,6 +25,8 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { EventReadError, loadEventDiscovery, loadEventRegistrationCounts, loadOwnEventParticipation, setOwnDiscoveryPreference,
+  type DiscoveryPage, type OwnParticipation, type RegistrationCounts } from "@/lib/hackathons/eventParticipation";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import { formatPrizeDisplay } from "@/lib/hackathons/prizeDisplay";
@@ -101,29 +103,6 @@ type Team = {
   hackathon_id?: string | null;
 };
 
-type Registration = {
-  id: string;
-  user_id: string;
-  team_id: string | null;
-  looking_for_team?: boolean;
-  status?: string;
-  created_at: string;
-  profiles: {
-    id: string;
-    full_name: string;
-    email: string;
-    college: string | null;
-    avatar_url: string | null;
-    skills: string[] | null;
-    is_available?: boolean;
-  };
-  teams: {
-    id: string;
-    name: string;
-  } | null;
-};
-
-
 type Resource = {
   id: string;
   hackathon_id: string;
@@ -144,19 +123,6 @@ type HackathonStage = {
   stage_type: string;
   sort_order: number;
   created_at: string;
-};
-
-type BuilderWithMatch = {
-  id: string;
-  full_name: string;
-  email: string;
-  college: string | null;
-  avatar_url: string | null;
-  skills: string[];
-  is_available?: boolean;
-  matchedSkills: string[];
-  isRegistered: boolean;
-  teamName?: string | null;
 };
 
 function formatDateRange(start: string | null, end: string | null) {
@@ -220,13 +186,20 @@ function HackathonDetailContent() {
   // Hybrid system states
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
+  const [ownParticipation, setOwnParticipation] = useState<OwnParticipation | null>(null);
+  const [participationError, setParticipationError] = useState<string | null>(null);
+  const isRegistered = ownParticipation ? Boolean(ownParticipation.registration) : null;
   const [isSaved, setIsSaved] = useState(false);
   const [userOwnedTeams, setUserOwnedTeams] = useState<{ id: string; name: string; hackathon_id: string | null; owner_id: string; active_hackathon?: { id: string; name: string; end_date: string | null } | null; is_linked_to_this_hackathon?: boolean }[]>([]);
 
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [registrationCounts, setRegistrationCounts] = useState<RegistrationCounts | null>(null);
+  const [countsError, setCountsError] = useState<string | null>(null);
+  const [discovery, setDiscovery] = useState<DiscoveryPage | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+  const discoveryRequest = useRef(0);
+  const [togglingDiscovery, setTogglingDiscovery] = useState(false);
   const [userSkills, setUserSkills] = useState<string[]>([]);
-  const [buildersList, setBuildersList] = useState<BuilderWithMatch[]>([]);
+  const buildersList = discovery?.items || [];
 
   // Tab controls
   const [activeTab, setActiveTab] = useState<"teams" | "builders" | "looking_for_teams" | "looking_for_builders" | "resources" | "organizer">("teams");
@@ -338,6 +311,25 @@ function HackathonDetailContent() {
     document.body.removeChild(link);
   };
 
+  async function loadBuilderPage(eventId: string, offset = 0) {
+    const request = ++discoveryRequest.current;
+    setDiscovery(null);
+    setDiscoveryError(null);
+    try {
+      const page = await loadEventDiscovery(supabase, eventId, offset);
+      if (request === discoveryRequest.current) setDiscovery(page);
+    } catch (err) {
+      if (request === discoveryRequest.current) setDiscoveryError(err instanceof EventReadError ? err.message : "Builder discovery is unavailable. Please retry.");
+    }
+  }
+
+  async function refreshCounts(eventId: string) {
+    setRegistrationCounts(null);
+    setCountsError(null);
+    try { setRegistrationCounts(await loadEventRegistrationCounts(supabase, eventId)); }
+    catch (err) { setCountsError(err instanceof EventReadError ? err.message : "Participation counts are unavailable. Please retry."); }
+  }
+
   async function loadData() {
     try {
       const { data: hackathonData, error: hackathonError } = await supabase
@@ -385,9 +377,17 @@ function HackathonDetailContent() {
 
       let teamsData: any[] = [];
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      setOwnParticipation(null);
+      setParticipationError(null);
+      let own: OwnParticipation | null = null;
+      try {
+        own = await loadOwnEventParticipation(supabase, hackathonId);
+        setOwnParticipation(own);
+        setCurrentUserId(own.userId);
+      } catch (err) {
+        setParticipationError(err instanceof EventReadError ? err.message : "Your participation state is unavailable. Please retry.");
+      }
+      const user = own?.userId ? { id: own.userId } : null;
 
       if (user) {
         setCurrentUserId(user.id);
@@ -404,16 +404,6 @@ function HackathonDetailContent() {
           .maybeSingle();
 
         setIsSaved(!!saveCheck);
-
-        // Check if user is registered for native hackathon
-        const { data: regCheck } = await supabase
-          .from("hackathon_registrations")
-          .select("id")
-          .eq("hackathon_id", hackathonId)
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        setIsRegistered(!!regCheck);
 
         // Load user-owned teams to support linking/registering
         const { data: ownedTeams } = await supabase
@@ -498,33 +488,7 @@ function HackathonDetailContent() {
         setTeams(teamsData);
       }
 
-      const { data: regData, error: regError } = await supabase
-        .from("hackathon_registrations")
-        .select(`
-          id,
-          user_id,
-          team_id,
-          looking_for_team,
-          status,
-          created_at,
-          profiles (
-            id,
-            full_name,
-            college,
-            avatar_url,
-            skills,
-            is_available
-          ),
-          teams (
-            id,
-            name
-          )
-        `)
-        .eq("hackathon_id", hackathonId)
-        .order("created_at", { ascending: false });
-
-      if (regError) console.error("Failed to load hackathon registrations:", regError);
-      setRegistrations((regData as unknown as Registration[]) || []);
+      await Promise.all([loadBuilderPage(hackathonId), refreshCounts(hackathonId)]);
 
       // Load resources
       const { data: resourcesData, error: resourcesError } = await supabase
@@ -536,59 +500,6 @@ function HackathonDetailContent() {
       if (resourcesError) console.error("Failed to load hackathon resources:", resourcesError);
       setResources(resourcesData || []);
 
-      // Load all builders of all registered teams for this hackathon
-      const registeredTeamIds = (teamsData || []).map((t: any) => t.id);
-      const computedBuilders: BuilderWithMatch[] = [];
-
-      if (registeredTeamIds.length > 0) {
-        const { data: teamMembersData, error: teamMembersError } = await supabase
-          .from("team_members")
-          .select(`
-            id,
-            team_id,
-            user_id,
-            project_role,
-            profiles (
-              id,
-              full_name,
-              college,
-              avatar_url,
-              skills,
-              is_available
-            )
-
-          `)
-          .in("team_id", registeredTeamIds);
-
-        if (teamMembersError) console.error("Failed to load team members for hackathon:", teamMembersError);
-        const uniqueBuildersMap = new Map();
-        if (teamMembersData) {
-          teamMembersData.forEach((tm: any) => {
-            const profile = Array.isArray(tm.profiles) ? tm.profiles[0] : tm.profiles;
-            if (profile && !uniqueBuildersMap.has(profile.id)) {
-              const reg = (regData as unknown as Registration[])?.find((r) => r.user_id === profile.id);
-              const isRegistered = !!reg;
-              const teamName = (teamsData || []).find((t: any) => t.id === tm.team_id)?.name || "";
-
-              uniqueBuildersMap.set(profile.id, {
-                id: profile.id,
-                full_name: profile.full_name,
-                email: profile.email,
-                college: profile.college,
-                avatar_url: profile.avatar_url,
-                skills: profile.skills || [],
-                is_available: profile.is_available,
-                matchedSkills: [], // Loaded team builders list is displayed directly
-                isRegistered,
-                teamName,
-              });
-            }
-          });
-        }
-        computedBuilders.push(...Array.from(uniqueBuildersMap.values()));
-      }
-
-      setBuildersList(computedBuilders);
     } catch (err) {
       console.error(err);
     }
@@ -598,34 +509,21 @@ function HackathonDetailContent() {
   const handleToggleLookingForTeam = async () => {
     if (!currentUserId || !hackathonId) return;
 
-    if (!isRegistered) {
-      showToast("Please register for the hackathon first before listing your profile.", "error");
+    if (!ownParticipation) {
+      showToast("Your participation state is unavailable. Please retry.", "error");
       return;
     }
-
-    const currentStatus = registrations.find(r => r.user_id === currentUserId)?.looking_for_team || false;
-    const newStatus = !currentStatus;
-
+    setTogglingDiscovery(true);
     try {
-      const { data, error } = await supabase
-        .from("hackathon_registrations")
-        .update({ looking_for_team: newStatus })
-        .eq("hackathon_id", hackathonId)
-        .eq("user_id", currentUserId)
-        .select();
-
-      if (error) {
-        showToast(error.message, "error");
-      } else if (!data || data.length === 0) {
-        showToast("Failed to update status. Registration not found.", "error");
-      } else {
-        showToast(newStatus ? "Profile listed under 'Looking for Teams'!" : "Stopped listing profile.", "success");
-        loadData(); // Refresh list
-      }
+      const saved = await setOwnDiscoveryPreference(supabase, hackathonId, !ownParticipation.registration?.looking_for_team, {
+        allowCreate: hackathon?.type !== "native", maxParticipants: hackathon?.max_participants,
+      });
+      setOwnParticipation(saved);
+      showToast(saved.registration?.looking_for_team ? "Teammate preference saved. Public visibility follows your privacy settings." : "Stopped listing profile. Your participation is preserved.", "success");
+      await loadData();
     } catch (err) {
-      console.error(err);
-      showToast("Failed to update status.", "error");
-    }
+      showToast(err instanceof EventReadError ? err.message : "Failed to update discovery preference.", "error");
+    } finally { setTogglingDiscovery(false); }
   };
 
   const handleToggleTeamRecruiting = async (teamId: string, currentStatus: boolean) => {
@@ -658,7 +556,7 @@ function HackathonDetailContent() {
 
   // Handle Native Registration Flow
   async function handleRegisterNatively() {
-    if (!currentUserId || !hackathon) return;
+    if (!currentUserId || !hackathon || isRegistered !== false) return;
     
     if (hackathon.end_date && new Date() > new Date(hackathon.end_date)) {
       showToast("Registration is closed. This hackathon has already ended.", "error");
@@ -667,25 +565,11 @@ function HackathonDetailContent() {
 
     setInviteLoading(true);
     try {
-      if (selectedTeam) {
-        const teamObj = userOwnedTeams.find((t) => t.id === selectedTeam);
-        if (teamObj?.active_hackathon) {
-          showToast(`This team is already registered for an active hackathon: ${teamObj.active_hackathon.name}.`, "error");
-          setInviteLoading(false);
-          return;
-        }
-      }
-
       // 1. Check capacity limit & determine status
       let regStatus = "confirmed";
       if (hackathon.max_participants !== null && hackathon.max_participants !== undefined) {
-        const { count } = await supabase
-          .from("hackathon_registrations")
-          .select("id", { count: "exact", head: true })
-          .eq("hackathon_id", hackathon.id)
-          .eq("status", "confirmed");
-
-        if (count !== null && count >= hackathon.max_participants) {
+        const counts = await loadEventRegistrationCounts(supabase, hackathon.id);
+        if (counts.confirmed_count >= hackathon.max_participants) {
           regStatus = "waitlisted";
         }
       }
@@ -724,7 +608,7 @@ function HackathonDetailContent() {
       loadData();
     } catch (err) {
       console.error(err);
-      showToast("Failed to register.", "error");
+      showToast(err instanceof EventReadError ? err.message : "Failed to register.", "error");
     }
     setInviteLoading(false);
   }
@@ -737,7 +621,7 @@ function HackathonDetailContent() {
   }
 
   async function handleRegisterExternallyConfirm() {
-    if (!currentUserId || !hackathon) return;
+    if (!currentUserId || !hackathon || isRegistered !== false) return;
 
     if (hackathon.end_date && new Date() > new Date(hackathon.end_date)) {
       showToast("Registration is closed. This hackathon has already ended.", "error");
@@ -746,25 +630,11 @@ function HackathonDetailContent() {
 
     setInviteLoading(true);
     try {
-      if (selectedTeam) {
-        const teamObj = userOwnedTeams.find((t) => t.id === selectedTeam);
-        if (teamObj?.active_hackathon) {
-          showToast(`This team is already registered for an active hackathon: ${teamObj.active_hackathon.name}.`, "error");
-          setInviteLoading(false);
-          return;
-        }
-      }
-
       // 1. Check capacity limit & determine status
       let regStatus = "confirmed";
       if (hackathon.max_participants !== null && hackathon.max_participants !== undefined) {
-        const { count } = await supabase
-          .from("hackathon_registrations")
-          .select("id", { count: "exact", head: true })
-          .eq("hackathon_id", hackathon.id)
-          .eq("status", "confirmed");
-
-        if (count !== null && count >= hackathon.max_participants) {
+        const counts = await loadEventRegistrationCounts(supabase, hackathon.id);
+        if (counts.confirmed_count >= hackathon.max_participants) {
           regStatus = "waitlisted";
         }
       }
@@ -794,16 +664,16 @@ function HackathonDetailContent() {
       }
 
       if (regStatus === "waitlisted") {
-        showToast("Capacity limit reached! Added to waitlist on HackerMate.", "info");
+        showToast("Joined the HackerMate community waitlist. This does not verify official event registration.", "info");
       } else {
-        showToast("Successfully registered and confirmed on HackerMate!", "success");
+        showToast("Joined the HackerMate event community. Official registration is managed on the event site.", "success");
       }
       setShowExternalRegisterModal(false);
       setSelectedTeam("");
       loadData();
     } catch (err) {
       console.error(err);
-      showToast("Failed to confirm registration.", "error");
+      showToast(err instanceof EventReadError ? err.message : "Failed to join the event community.", "error");
     }
     setInviteLoading(false);
   }
@@ -876,29 +746,18 @@ function HackathonDetailContent() {
 
   async function performCancel() {
     try {
-      // Find team_id first to unlink if needed
-      const { data: reg } = await supabase
-        .from("hackathon_registrations")
-        .select("team_id")
-        .eq("hackathon_id", hackathon!.id)
-        .eq("user_id", currentUserId!)
-        .single();
-
-      if (reg?.team_id) {
-        await supabase
-          .from("team_hackathons")
-          .delete()
-          .eq("team_id", reg.team_id)
-          .eq("hackathon_id", hackathon!.id);
+      const own = await loadOwnEventParticipation(supabase, hackathon!.id);
+      if (!own.userId || !own.registration) throw new Error("Participation not found");
+      if (own.registration.team_id) {
+        const { error } = await supabase.from("team_hackathons").delete()
+          .eq("team_id", own.registration.team_id).eq("hackathon_id", hackathon!.id);
+        if (error) throw error;
       }
+      const { data, error } = await supabase.from("hackathon_registrations").delete()
+        .eq("hackathon_id", hackathon!.id).eq("user_id", own.userId).select("id");
+      if (error || !data || data.length !== 1) throw error || new Error("Unable to verify cancellation");
 
-      await supabase
-        .from("hackathon_registrations")
-        .delete()
-        .eq("hackathon_id", hackathon!.id)
-        .eq("user_id", currentUserId!);
-
-      showToast("Registration cancelled.", "info");
+      showToast(hackathon?.type === "native" ? "Registration cancelled." : "Left the HackerMate event community.", "info");
       loadData();
     } catch (err) {
       console.error(err);
@@ -910,10 +769,10 @@ function HackathonDetailContent() {
   async function handleCancelRegistration() {
     if (!currentUserId || !hackathon) return;
     confirm({
-      title: "Cancel Registration",
-      message: "Are you sure you want to cancel your registration?",
-      confirmText: "Cancel Registration",
-      cancelText: "Keep Registered",
+      title: hackathon.type === "native" ? "Cancel Registration" : "Leave HackerMate community",
+      message: hackathon.type === "native" ? "Are you sure you want to cancel your registration?" : "Leave this HackerMate community? Your official event registration is managed separately.",
+      confirmText: hackathon.type === "native" ? "Cancel Registration" : "Leave community",
+      cancelText: "Keep participation",
       onConfirm: () => {
         performCancel();
       }
@@ -1210,16 +1069,16 @@ function HackathonDetailContent() {
             : "Flexible";
 
   const linkedTeam = userOwnedTeams.find((t) => t.hackathon_id === hackathon?.id);
-  const myRegistration = registrations.find((r) => r.user_id === currentUserId);
-  const lookingForTeamRegs = registrations.filter((r) => r.looking_for_team === true);
+  const myRegistration = ownParticipation?.registration;
+  const lookingForTeamRegs = buildersList;
   const recruitingTeams = teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t));
   const hasDates = !!hackathon.start_date && !!hackathon.end_date;
   const isNative = hackathon.type === "native";
   // Same visibility as V1: native → modal; external → only when a website URL exists.
-  const canRegister = !isRegistered && (isNative || !!hackathon.website_url);
+  const canRegister = isRegistered === false && (isNative || !!hackathon.website_url);
   const createTeamHref = `/teams/create?hackathon=${hackathon.id}`;
 
-  const primaryAction = canRegister ? (
+  const primaryAction = ((!isNative && Boolean(hackathon.website_url)) || canRegister) ? (
     <Button
       variant="primary"
       icon={isNative ? <CheckCircle2 /> : <ExternalLink />}
@@ -1233,23 +1092,18 @@ function HackathonDetailContent() {
     </ButtonLink>
   );
 
-  const menuItems: MenuItem[] = [];
-  if (linkedTeam) {
-    menuItems.push({ label: "Remove team from listing", icon: <Link2Off />, tone: "danger", disabled: inviteLoading, onSelect: handleUnlinkTeam });
-  } else if (userOwnedTeams.length > 0) {
-    menuItems.push({ label: "Link a team you own", icon: <Link2 />, onSelect: () => setShowClaimModal(true) });
-  }
-  menuItems.push({ label: "Copy link", icon: <Link2 />, onSelect: handleCopyLink });
-  if (isRegistered) {
-    menuItems.push({ type: "separator" }, { label: "Cancel registration", icon: <UserX />, tone: "danger", onSelect: handleCancelRegistration });
-  }
-  if (isOrganizer) {
-    menuItems.push(
-      { type: "label", label: "Organizer" },
+  // Keep menu construction declarative; actions run only after selection.
+  const menuItems: MenuItem[] = [
+    ...(linkedTeam ? [{ label: "Remove team from listing", icon: <Link2Off />, tone: "danger" as const, disabled: inviteLoading, onSelect: handleUnlinkTeam }]
+      : userOwnedTeams.length > 0 ? [{ label: "Link a team you own", icon: <Link2 />, onSelect: () => setShowClaimModal(true) }] : []),
+    { label: "Copy link", icon: <Link2 />, onSelect: handleCopyLink },
+    ...(isRegistered ? [{ type: "separator" as const }, { label: isNative ? "Cancel registration" : "Leave HackerMate community", icon: <UserX />, tone: "danger" as const, onSelect: handleCancelRegistration }] : []),
+    ...(isOrganizer ? [
+      { type: "label" as const, label: "Organizer" },
       { label: "Open organizer portal", icon: <Building2 />, onSelect: () => router.push(`/hackathons/${hackathon.id}/organizer`) },
-      { label: "Delete hackathon", icon: <Trash2 />, tone: "danger", onSelect: handleDeleteHackathon },
-    );
-  }
+      { label: "Delete hackathon", icon: <Trash2 />, tone: "danger" as const, onSelect: handleDeleteHackathon },
+    ] : []),
+  ];
   // Mobile bar only shows the primary action + save, so surface "Create a team" in its menu.
   const mobileMenuItems: MenuItem[] = canRegister
     ? [{ label: "Create a team", icon: <Plus />, onSelect: () => router.push(createTeamHref) }, ...menuItems]
@@ -1285,6 +1139,9 @@ function HackathonDetailContent() {
         </span>
         <span className="hidden min-w-0 truncate text-ink-2 md:inline">{hackathon.name}</span>
       </nav>
+
+      {countsError && <ErrorNotice detail={countsError} onRetry={() => refreshCounts(hackathonId)} />}
+      {participationError && <ErrorNotice detail={participationError} onRetry={loadData} />}
 
       {/* Official partner event */}
       {partnerConfig && (
@@ -1336,7 +1193,7 @@ function HackathonDetailContent() {
               <Tape>{isNative ? "Hosted on HackerMate" : "External event"}</Tape>
               {isRegistered && (
                 <Tape tone="ok" icon={<CheckCircle2 />}>
-                  Registered
+                  {isNative ? "Registered" : "Community member"}
                 </Tape>
               )}
             </div>
@@ -1382,8 +1239,8 @@ function HackathonDetailContent() {
 
         <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-line py-5 sm:grid-cols-4">
           <Stat label="Teams" value={teams.length} />
-          <Stat label="Registered" value={registrations.length} />
-          <Stat label="Looking for team" value={lookingForTeamRegs.length} />
+          <Stat label={isNative ? "Registered" : "Community participants"} value={registrationCounts?.registration_count ?? (countsError ? "Unavailable" : "Loading")} />
+          <Stat label="Discoverable builders" value={discovery?.total ?? (discoveryError ? "Unavailable" : "Loading")} />
           <Stat label="Recruiting" value={recruitingTeams.length} />
         </div>
       </header>
@@ -1505,8 +1362,8 @@ function HackathonDetailContent() {
               onChange={setActiveTab}
               tabs={[
                 { value: "teams", label: "Teams", count: teams.length },
-                { value: "builders", label: "Builders", count: buildersList.length },
-                { value: "looking_for_teams", label: "Looking for teams", count: lookingForTeamRegs.length },
+                { value: "builders", label: "Builders", count: discovery?.total },
+                { value: "looking_for_teams", label: "Looking for teams", count: discovery?.total },
                 { value: "looking_for_builders", label: "Looking for builders", count: recruitingTeams.length },
                 { value: "resources", label: "Resources" },
               ]}
@@ -1552,12 +1409,13 @@ function HackathonDetailContent() {
 
               {/* Builders */}
               {activeTab === "builders" &&
-                (buildersList.length === 0 ? (
-                  <EmptyState icon={<Users />} title="No builders yet" body="Builders appear here once their team is listed for this hackathon." />
+                (discoveryError ? <ErrorNotice detail={discoveryError} onRetry={() => loadBuilderPage(hackathonId)} /> : !discovery ? <PageLoader label="Loading builders" /> : buildersList.length === 0 ? (
+                  <EmptyState icon={<Users />} title="No builders yet" body="Only builders who opt into teammate discovery with a visible public profile appear here." />
                 ) : (
                   <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
                     {buildersList.map((builder) => {
-                      const matchedLower = builder.matchedSkills.map((s) => s.toLowerCase());
+                      const matchedSkills = builder.skills.filter((skill) => userSkillsLower.includes(skill.toLowerCase()));
+                      const matchedLower = matchedSkills.map((s) => s.toLowerCase());
                       return (
                         <li key={builder.id}>
                           <Link href={`/profile/${builder.id}`} className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-hover">
@@ -1566,23 +1424,16 @@ function HackathonDetailContent() {
                               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                                 <span className="min-w-0 truncate text-[14px] font-semibold text-ink">{builder.full_name}</span>
                                 <VerifiedBuilderBadge profile={builder} />
-                                {builder.matchedSkills.length > 0 && (
+                                {matchedSkills.length > 0 && (
                                   <Tape tone="accent" icon={<Target />}>
-                                    {builder.matchedSkills.length} match{builder.matchedSkills.length !== 1 ? "es" : ""}
+                                    {matchedSkills.length} match{matchedSkills.length !== 1 ? "es" : ""}
                                   </Tape>
                                 )}
                               </div>
                               <p className="truncate text-[12.5px] text-ink-3">{builder.college || "Independent builder"}</p>
                               {renderSkills(builder.skills, 4, (s) => matchedLower.includes(s.toLowerCase()))}
                               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                                {builder.isRegistered && <Tape tone="ok">Registered</Tape>}
-                                {builder.teamName ? (
-                                  <span className="min-w-0 truncate text-[12px] text-ink-3">
-                                    In team <span className="text-ink-2">{builder.teamName}</span>
-                                  </span>
-                                ) : (
-                                  <Tape tone="accent">Looking for team</Tape>
-                                )}
+                                <Tape tone="accent">Looking for team</Tape>
                               </div>
                             </div>
                           </Link>
@@ -1601,14 +1452,15 @@ function HackathonDetailContent() {
                         <p className="text-[13.5px] font-semibold text-ink">List yourself as looking for a team</p>
                         <p className="mt-0.5 text-[12.5px] text-ink-3">Teams in this hackathon can find you and reach out.</p>
                       </div>
-                      {!isRegistered ? (
-                        <span className="shrink-0 text-[12.5px] text-ink-3">Register first to list your profile</span>
+                      {isRegistered === null || (isNative && !isRegistered) ? (
+                        <span className="shrink-0 text-[12.5px] text-ink-3">{isRegistered === null ? "Participation state unavailable" : "Register first to list your profile"}</span>
                       ) : (
                         <Button
                           size="sm"
                           variant={myRegistration?.looking_for_team ? "secondary" : "inverse"}
                           icon={myRegistration?.looking_for_team ? undefined : <Search />}
                           className="shrink-0 self-start sm:self-auto"
+                          loading={togglingDiscovery}
                           onClick={handleToggleLookingForTeam}
                         >
                           {myRegistration?.looking_for_team ? "Stop listing profile" : "List my profile"}
@@ -1617,35 +1469,33 @@ function HackathonDetailContent() {
                     </div>
                   )}
 
-                  {lookingForTeamRegs.length === 0 ? (
-                    <EmptyState icon={<Search />} title="Nobody is looking for a team yet" body="Registered builders can list themselves here." />
+                  {discoveryError ? <ErrorNotice detail={discoveryError} onRetry={() => loadBuilderPage(hackathonId)} /> : !discovery ? <PageLoader label="Loading builders" /> : lookingForTeamRegs.length === 0 ? (
+                    <EmptyState icon={<Search />} title="Nobody is looking for a team yet" body="Builders appear after opting into teammate discovery with a visible public profile." />
                   ) : (
                     <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
-                      {registrations
-                        .filter((reg) => reg.looking_for_team === true)
-                        .map((reg) => {
+                      {buildersList.map((builder) => {
                           // Match score based on user skills vs participant skills
                           const sharedSkills =
-                            reg.profiles.skills?.filter((s) => userSkills.map((sk) => sk.toLowerCase()).includes(s.toLowerCase())) || [];
-                          const matchScore = reg.profiles.skills?.length
+                            builder.skills?.filter((s) => userSkills.map((sk) => sk.toLowerCase()).includes(s.toLowerCase())) || [];
+                          const matchScore = builder.skills?.length
                             ? Math.min(Math.round((sharedSkills.length / Math.max(userSkills.length, 1)) * 100) + 30, 98)
                             : 0;
 
                           return (
-                            <li key={reg.id}>
-                              <Link href={`/profile/${reg.profiles.id}`} className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-hover">
-                                <Avatar name={reg.profiles.full_name} src={reg.profiles.avatar_url} size="md" />
+                            <li key={builder.id}>
+                              <Link href={`/profile/${builder.id}`} className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-hover">
+                                <Avatar name={builder.full_name} src={builder.avatar_url} size="md" />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                                    <span className="min-w-0 truncate text-[14px] font-semibold text-ink">{reg.profiles.full_name}</span>
+                                    <span className="min-w-0 truncate text-[14px] font-semibold text-ink">{builder.full_name}</span>
                                     {matchScore > 0 && (
                                       <Tape tone="accent" icon={<Target />}>
                                         {matchScore}% match
                                       </Tape>
                                     )}
                                   </div>
-                                  <p className="truncate text-[12.5px] text-ink-3">{reg.profiles.college || "Independent builder"}</p>
-                                  {renderSkills(reg.profiles.skills, 3, (s) => userSkillsLower.includes(s.toLowerCase()))}
+                                  <p className="truncate text-[12.5px] text-ink-3">{builder.college || "Independent builder"}</p>
+                                  {renderSkills(builder.skills, 3, (s) => userSkillsLower.includes(s.toLowerCase()))}
                                 </div>
                                 <Tape tone="ok" className="hidden shrink-0 sm:inline-flex">
                                   Looking to join
@@ -1657,6 +1507,14 @@ function HackathonDetailContent() {
                     </ul>
                   )}
                 </>
+              )}
+
+              {(activeTab === "builders" || activeTab === "looking_for_teams") && discovery && discovery.total > discovery.limit && (
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <Button variant="secondary" disabled={discovery.offset === 0} onClick={() => loadBuilderPage(hackathonId, Math.max(0, discovery.offset - discovery.limit))}>Previous</Button>
+                  <span className="text-[13px] text-ink-3">Page {Math.floor(discovery.offset / discovery.limit) + 1} · {discovery.total} discoverable builders</span>
+                  <Button variant="secondary" disabled={discovery.offset + discovery.limit >= discovery.total} onClick={() => loadBuilderPage(hackathonId, discovery.offset + discovery.limit)}>Next</Button>
+                </div>
               )}
 
               {/* Looking for builders */}
@@ -1807,7 +1665,7 @@ function HackathonDetailContent() {
               )}
               <Fact
                 label={isNative ? "Builders joined" : "Teams joined"}
-                value={<span className="font-mono tabular">{isNative ? registrations.length : teams.length}</span>}
+                value={<span className="font-mono tabular">{isNative ? registrationCounts?.registration_count ?? (countsError ? "Unavailable" : "Loading") : teams.length}</span>}
               />
             </dl>
           </Section>
@@ -1819,7 +1677,7 @@ function HackathonDetailContent() {
                   <>
                     <span className="inline-flex min-w-0 items-center gap-2 text-[13px] font-medium text-ink">
                       <CheckCircle2 className="size-4 shrink-0 text-ok" aria-hidden />
-                      {isNative ? "Registered" : "Registered externally"}
+                      {isNative ? "Registered" : "Joined HackerMate community"}
                     </span>
                     <Button size="sm" variant="ghost" className="text-bad hover:text-bad" onClick={handleCancelRegistration}>
                       Cancel
@@ -1827,7 +1685,7 @@ function HackathonDetailContent() {
                   </>
                 ) : (
                   <span className="text-[13px] text-ink-3">
-                    {canRegister ? "You haven't registered yet." : "Registration isn't available here."}
+                    {isRegistered === null ? "Your participation state is unavailable." : isNative ? "You have not registered on HackerMate." : "You have not joined the HackerMate event community."}
                   </span>
                 )}
               </div>
@@ -2062,7 +1920,7 @@ function HackathonDetailContent() {
             <Button variant="ghost" onClick={() => setShowRegisterModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" loading={inviteLoading} onClick={handleRegisterNatively}>
+            <Button variant="primary" disabled={isRegistered !== false} loading={inviteLoading} onClick={handleRegisterNatively}>
               Confirm
             </Button>
           </>
@@ -2089,7 +1947,7 @@ function HackathonDetailContent() {
         onClose={() => setShowClaimModal(false)}
         size="sm"
         title="Link team to hackathon"
-        description={`Registered externally? Link your HackerMate team to ${hackathon.name} to recruit builders and collaborate.`}
+        description={`Link your HackerMate team to ${hackathon.name} to recruit builders and collaborate. Linking does not register its members individually.`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setShowClaimModal(false)}>
@@ -2122,11 +1980,11 @@ function HackathonDetailContent() {
           setSelectedTeam("");
         }}
         size="sm"
-        title="Confirm external registration"
+        title="Join the HackerMate event community"
         description={
           <>
             We opened the registration page for <span className="font-semibold text-ink">{hackathon.name}</span> in a new tab. Finish
-            registering there, then confirm here to log it on HackerMate.
+            registering there. Joining this community on HackerMate does not verify official event registration.
           </>
         }
         footer={
@@ -2140,8 +1998,8 @@ function HackathonDetailContent() {
             >
               Cancel
             </Button>
-            <Button variant="primary" loading={inviteLoading} onClick={handleRegisterExternallyConfirm}>
-              I have registered
+            <Button variant="primary" disabled={isRegistered !== false} loading={inviteLoading} onClick={handleRegisterExternallyConfirm}>
+              {isRegistered ? "Already joined" : "Join community"}
             </Button>
           </>
         }

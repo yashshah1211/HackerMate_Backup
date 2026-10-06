@@ -69,7 +69,7 @@ type Props = {
   badges: UserBadge[];
   trackRecord: TrackRecordData | null;
   trackRecordLoading: boolean;
-  stats: { connections: number; teams: number; practice: number; registrations: number };
+  stats: { connections: number; teams: number; practice: number; registrations?: number };
   canInvite: boolean;
   alreadyInvited: boolean;
   busy: string | null;
@@ -99,13 +99,15 @@ export function ProfileView(props: Props) {
   const complete = calculateProfileCompleteness(profile).score === 100;
   const streak = streakValue(profile);
   const wins = profile.hackathon_wins ?? 0;
-  const hackathons = trackRecord?.registrations?.length ?? (stats.registrations || profile.hackathon_participations || 0);
   const isPrivate = profile.show_track_record === false;
   const hideRecord = isPrivate && !isOwnProfile;
+  // Complete, privacy-filtered JSON history from the existing public profile
+  // RPC. A failed history load must not fall back to a raw registration count.
+  const hackathons = hideRecord ? "Private" : trackRecord?.registrations?.length ?? (props.trackRecordLoading ? "Loading" : "Unavailable");
   const online = isOnline(profile.last_seen_at);
 
   const facts = [
-    { label: "Hackathons", value: hackathons },
+    { label: "Visible event communities", value: hackathons },
     { label: "Wins", value: wins, tone: wins > 0 ? "text-warn" : undefined },
     { label: "Teams", value: stats.teams },
     { label: "Connections", value: stats.connections },

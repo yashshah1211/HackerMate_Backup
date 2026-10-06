@@ -72,7 +72,7 @@ export function useProfileData(id: string) {
   const [badges, setBadges] = useState<UserBadge[]>([]);
   const [trackRecord, setTrackRecord] = useState<TrackRecordData | null>(null);
   const [trackRecordLoading, setTrackRecordLoading] = useState(true);
-  const [stats, setStats] = useState({ connections: 0, teams: 0, practice: 0, registrations: 0 });
+  const [stats, setStats] = useState({ connections: 0, teams: 0, practice: 0 });
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -152,7 +152,6 @@ export function useProfileData(id: string) {
       supabase.auth.getUser(),
       Promise.all([
         supabase.from("team_members").select("id", { count: "exact", head: true }).eq("user_id", data.id),
-        supabase.from("hackathon_registrations").select("id", { count: "exact", head: true }).eq("user_id", data.id),
         supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("user_id", data.id),
       ]),
     ]);
@@ -166,8 +165,7 @@ export function useProfileData(id: string) {
     setStats({
       connections: s.connections_count || 0,
       teams: s.teams_count || counts[0].count || 0,
-      registrations: counts[1].count || 0,
-      practice: counts[2].count || 0,
+      practice: counts[1].count || 0,
     });
     setBadges((badgesRes.data as unknown as UserBadge[]) || []);
 

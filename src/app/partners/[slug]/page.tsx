@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -28,6 +28,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { EventReadError, loadEventDiscovery, loadOwnEventParticipation, setOwnDiscoveryPreference,
+  type DiscoveryPage, type OwnParticipation } from "@/lib/hackathons/eventParticipation";
 import { cn } from "@/lib/utils";
 import {
   Avatar,
@@ -36,6 +38,7 @@ import {
   Chip,
   Dialog,
   EmptyState,
+  ErrorNotice,
   PageLoader,
   Segmented,
   Select,
@@ -79,6 +82,7 @@ type Hackathon = {
   tags: string[] | null;
   college?: string | null;
   max_participants?: number | null;
+  type: string | null;
 };
 
 type Team = {
@@ -186,17 +190,6 @@ function TrackOption({
   );
 }
 
-type RegisteredBuilder = {
-  id: string;
-  full_name: string;
-  email: string;
-  college: string | null;
-  avatar_url: string | null;
-  skills: string[] | null;
-  is_available?: boolean;
-  metadata?: any;
-};
-
 function PartnerPageContent() {
   const { showToast, confirm } = useNotification();
   const params = useParams();
@@ -209,13 +202,18 @@ function PartnerPageContent() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [builders, setBuilders] = useState<RegisteredBuilder[]>([]);
+  const [discovery, setDiscovery] = useState<DiscoveryPage | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+  const discoveryRequest = useRef(0);
+  const [ownParticipation, setOwnParticipation] = useState<OwnParticipation | null>(null);
+  const [participationError, setParticipationError] = useState<string | null>(null);
+  const builders = discovery?.items || [];
   const [userWinnerBadge, setUserWinnerBadge] = useState<UserBadge | null>(null);
   const [userName, setUserName] = useState("");
   const [shareTeamForModal, setShareTeamForModal] = useState<Team | null>(null);
   const [showCertModal, setShowCertModal] = useState(false);
   const [showPartnerShareModal, setShowPartnerShareModal] = useState(false);
-  const [isUserLookingForTeam, setIsUserLookingForTeam] = useState(false);
+  const isUserLookingForTeam = ownParticipation?.registration?.looking_for_team === true;
   const [togglingStatus, setTogglingStatus] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"teams" | "builders">("teams");
@@ -276,6 +274,10 @@ function PartnerPageContent() {
   }
 
   async function handleToggleLookingForTeam(explicitTrackId?: string) {
+    if (!ownParticipation || !hackathon) {
+      showToast("Your participation state is unavailable. Please retry.", "error");
+      return;
+    }
     if (!currentUserId) {
       router.push(`/?next=${encodeURIComponent(`/partners/${slug}`)}&auth=true`);
       return;
@@ -294,79 +296,37 @@ function PartnerPageContent() {
 
     setTogglingStatus(true);
     try {
-      if (isUserLookingForTeam && !explicitTrackId) {
-        const { error } = await supabase
-          .from("hackathon_registrations")
-          .delete()
-          .eq("user_id", currentUserId)
-          .eq("hackathon_id", partner.hackathon_id);
-
-        if (error) {
-          showToast(error.message, "error");
-        } else {
-          setIsUserLookingForTeam(false);
-          setShowTrackPickerModal(false);
-          showToast("Removed yourself from builders looking for teams.", "info");
-          loadPartnerData();
-        }
-      } else {
-        let regStatus = "confirmed";
-        if (hackathon?.max_participants !== null && hackathon?.max_participants !== undefined) {
-          const { count } = await supabase
-            .from("hackathon_registrations")
-            .select("id", { count: "exact", head: true })
-            .eq("hackathon_id", partner.hackathon_id)
-            .eq("status", "confirmed");
-
-          if (count !== null && count >= hackathon.max_participants) {
-            regStatus = "waitlisted";
-          }
-        }
-
-        const selectedEvtObj = partner.features?.events?.find((e: any) => e.id === targetTrackId);
-        const metaPayload = targetTrackId
-          ? {
-              event_track: targetTrackId,
-              event_name: selectedEvtObj?.name || targetTrackId,
-            }
-          : {};
-
-        const { error } = await supabase
-          .from("hackathon_registrations")
-          .upsert(
-            {
-              user_id: currentUserId,
-              hackathon_id: partner.hackathon_id,
-              looking_for_team: true,
-              status: regStatus,
-              metadata: metaPayload,
-            },
-            { onConflict: "user_id,hackathon_id" }
-          );
-
-        if (error) {
-          showToast(error.message, "error");
-        } else {
-          setIsUserLookingForTeam(true);
-          setShowTrackPickerModal(false);
-          const trackLabel = selectedEvtObj?.name ? ` for track '${selectedEvtObj.name}'` : "";
-          if (regStatus === "waitlisted") {
-            showToast(`Added to waitlist${trackLabel}! Capacity limit reached for this event.`, "info");
-          } else {
-            showToast(`Listed${trackLabel}! Other builders can now find you for this event track.`, "success");
-          }
-          if (targetTrackId) {
-            setSelectedEventTrack(targetTrackId);
-            setActiveTab("builders");
-          }
-          loadPartnerData();
-        }
+      const enabled = !isUserLookingForTeam || Boolean(explicitTrackId);
+      const selectedEvtObj = partner.features?.events?.find((e: any) => e.id === targetTrackId);
+      const saved = await setOwnDiscoveryPreference(supabase, partner.hackathon_id, enabled, {
+        allowCreate: hackathon?.type !== "native",
+        maxParticipants: hackathon?.max_participants,
+        ...(enabled && targetTrackId ? { metadataPatch: { event_track: targetTrackId, event_name: selectedEvtObj?.name || targetTrackId } } : {}),
+      });
+      setOwnParticipation(saved);
+      setShowTrackPickerModal(false);
+      showToast(enabled ? "Teammate preference saved for the HackerMate community. Public visibility follows your privacy settings." : "Teammate discovery disabled. Your event participation is preserved.", "success");
+      if (enabled && targetTrackId) {
+        setSelectedEventTrack(targetTrackId);
+        setActiveTab("builders");
       }
+      await loadPartnerData();
     } catch (err) {
-      console.error(err);
-      showToast("Failed to update status.", "error");
+      showToast(err instanceof EventReadError ? err.message : "Failed to update discovery preference.", "error");
     } finally {
       setTogglingStatus(false);
+    }
+  }
+
+  async function loadBuilderPage(eventId: string, offset = 0) {
+    const request = ++discoveryRequest.current;
+    setDiscovery(null);
+    setDiscoveryError(null);
+    try {
+      const page = await loadEventDiscovery(supabase, eventId, offset);
+      if (request === discoveryRequest.current) setDiscovery(page);
+    } catch (err) {
+      if (request === discoveryRequest.current) setDiscoveryError(err instanceof EventReadError ? err.message : "Builder discovery is unavailable. Please retry.");
     }
   }
 
@@ -412,30 +372,21 @@ function PartnerPageContent() {
         .filter(Boolean);
       setTeams(parsedTeams);
 
-      // 4. Fetch Builders who are actively looking for a team for this hackathon
-      const { data: regData, error: regErr } = await supabase
-        .from("hackathon_registrations")
-        .select("user_id, looking_for_team, metadata, profiles(id, full_name, college, avatar_url, skills, is_available)")
-
-        .eq("hackathon_id", partnerData.hackathon_id)
-        .eq("looking_for_team", true);
-      if (regErr) console.error("[partners] hackathon_registrations load failed:", regErr);
-
-      const parsedBuilders = (regData || [])
-        .map((r: any) => ({
-          ...(r.profiles || {}),
-          metadata: r.metadata,
-        }))
-        .filter((b: any) => b && b.id);
-      setBuilders(parsedBuilders);
-
-      // 5. Check if logged in user has won a badge for this hackathon and checking registration status
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      // SQL defines event-scoped public visibility; never fall back to raw rows.
+      await loadBuilderPage(partnerData.hackathon_id);
+      setOwnParticipation(null);
+      setParticipationError(null);
+      let own: OwnParticipation;
+      try {
+        own = await loadOwnEventParticipation(supabase, partnerData.hackathon_id);
+        setOwnParticipation(own);
+        setCurrentUserId(own.userId);
+      } catch (err) {
+        setParticipationError(err instanceof EventReadError ? err.message : "Your participation state is unavailable. Please retry.");
+        return;
+      }
+      const user = own.userId ? { id: own.userId } : null;
       if (user) {
-        setCurrentUserId(user.id);
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name")
@@ -454,14 +405,7 @@ function PartnerPageContent() {
           setUserWinnerBadge(badgeData as UserBadge);
         }
 
-        const { data: userReg } = await supabase
-          .from("hackathon_registrations")
-          .select("id, looking_for_team")
-          .eq("user_id", user.id)
-          .eq("hackathon_id", partnerData.hackathon_id)
-          .maybeSingle();
 
-        setIsUserLookingForTeam(!!(userReg?.looking_for_team));
       }
     } catch (err) {
       console.error(err);
@@ -547,20 +491,7 @@ function PartnerPageContent() {
     return keywords.some((kw) => text.includes(kw));
   }).length;
 
-  const buildersTabCount = builders.filter((b) => {
-    if (selectedEventTrack === "all") return true;
-    const searchTerms: Record<string, string[]> = {
-      "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
-      "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
-      "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
-      "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
-      "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
-      "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
-    };
-    const keywords = searchTerms[selectedEventTrack] || [selectedEventTrack.replace(/-/g, " ")];
-    const text = (b.skills || []).join(" ").toLowerCase();
-    return keywords.some((kw) => text.includes(kw));
-  }).length;
+  const buildersTabCount = discovery?.total;
 
   const lookingButtonLabel = isUserLookingForTeam ? "Looking for team" : "List myself as looking for team";
 
@@ -763,6 +694,7 @@ function PartnerPageContent() {
                 icon={isUserLookingForTeam ? <CheckCircle2 aria-hidden /> : <UserPlus aria-hidden />}
                 aria-pressed={isUserLookingForTeam}
                 loading={togglingStatus}
+                disabled={!ownParticipation}
                 onClick={() => handleToggleLookingForTeam()}
               >
                 {lookingButtonLabel}
@@ -897,19 +829,6 @@ function PartnerPageContent() {
                   return keywords.some((kw) => text.includes(kw));
                 }).length;
 
-                const trackBuildersCount = builders.filter((b) => {
-                  const searchTerms: Record<string, string[]> = {
-                    "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
-                    "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
-                    "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
-                    "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
-                    "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
-                    "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
-                  };
-                  const keywords = searchTerms[evt.id] || [evt.id.replace(/-/g, " ")];
-                  const text = (b.skills || []).join(" ").toLowerCase();
-                  return keywords.some((kw) => text.includes(kw));
-                }).length;
 
                 return (
                   <div
@@ -970,7 +889,7 @@ function PartnerPageContent() {
                         )}
                       >
                         <Users className="size-3.5" aria-hidden />
-                        <span className="font-mono tabular">{trackBuildersCount}</span> Builders
+                        Event builders
                       </button>
                     </div>
                   </div>
@@ -979,6 +898,8 @@ function PartnerPageContent() {
             </div>
           </section>
         )}
+
+        {participationError && <ErrorNotice detail={participationError} onRetry={loadPartnerData} />}
 
         {/* ---------- Matching hub ---------- */}
         <section aria-labelledby="partner-hub-title" className="mt-10">
@@ -990,7 +911,7 @@ function PartnerPageContent() {
               </h2>
               <p className="mt-1 text-[13px] text-ink-3">
                 {selectedEventTrack !== "all"
-                  ? `Showing teams and builders matching track '${selectedTrackName}'.`
+                  ? `Showing teams matching track '${selectedTrackName}'. Builder discovery is event-wide.`
                   : `Find compatible teammates or join recruiting teams specifically for ${partner.partner_name}.`}
               </p>
             </div>
@@ -1029,6 +950,7 @@ function PartnerPageContent() {
                   icon={isUserLookingForTeam ? <CheckCircle2 aria-hidden /> : <UserPlus aria-hidden />}
                   aria-pressed={isUserLookingForTeam}
                   loading={togglingStatus}
+                  disabled={!ownParticipation}
                   onClick={() => handleToggleLookingForTeam()}
                 >
                   {lookingButtonLabel}
@@ -1075,11 +997,7 @@ function PartnerPageContent() {
                       align="center"
                       icon={<Users />}
                       title={selectedEventTrack !== "all" ? "No teams on this track yet" : "No recruiting teams yet"}
-                      body={
-                        selectedEventTrack !== "all"
-                          ? `No teams listed for track '${selectedTrackName}' yet.`
-                          : "Be the first to create a team and start recruiting for this event."
-                      }
+                      body="Builders appear after opting into teammate discovery with a visible public profile."
                       action={
                         !isEventConcluded && (
                           <Button
@@ -1166,20 +1084,10 @@ function PartnerPageContent() {
           {activeTab === "builders" && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {(() => {
-                const filteredBuilders = builders.filter((b) => {
-                  if (selectedEventTrack === "all") return true;
-                  const searchTerms: Record<string, string[]> = {
-                    "web-forge": ["web", "frontend", "html", "react", "website", "css", "forge"],
-                    "multiverse-breach": ["ctf", "security", "cyber", "breach", "multiverse", "hack"],
-                    "spider-sense": ["quiz", "sense", "algo", "python", "cs", "trivia"],
-                    "across-spiderverse": ["hunt", "treasure", "across", "clue", "spiderverse"],
-                    "beyond-the-web": ["paper", "research", "presentation", "beyond", "doc"],
-                    "spider-sprint": ["speed", "sprint", "code", "coding", "cpp", "java", "dsa"]
-                  };
-                  const keywords = searchTerms[selectedEventTrack] || [selectedEventTrack.replace(/-/g, " ")];
-                  const text = (b.skills || []).join(" ").toLowerCase();
-                  return keywords.some((kw) => text.includes(kw));
-                });
+                const filteredBuilders = builders;
+
+                if (discoveryError) return <ErrorNotice detail={discoveryError} onRetry={() => loadBuilderPage(partner.hackathon_id)} />;
+                if (!discovery) return <PageLoader label="Loading builders" />;
 
                 if (filteredBuilders.length === 0) {
                   return (
@@ -1187,14 +1095,14 @@ function PartnerPageContent() {
                       className="sm:col-span-2 lg:col-span-3"
                       align="center"
                       icon={<UserPlus />}
-                      title={selectedEventTrack !== "all" ? "No builders on this track yet" : "No builders listed yet"}
+                      title="No discoverable builders listed yet"
                       body={
                         selectedEventTrack !== "all"
                           ? `No builders listed for track '${selectedTrackName}' yet.`
                           : "Be the first to list yourself as looking for a team and get discovered."
                       }
                       action={
-                        <Button variant="secondary" className={TAP} icon={<UserPlus aria-hidden />} onClick={() => handleToggleLookingForTeam()}>
+                        <Button variant="secondary" className={TAP} disabled={!ownParticipation} icon={<UserPlus aria-hidden />} onClick={() => handleToggleLookingForTeam()}>
                           List myself as looking for a team
                         </Button>
                       }
@@ -1235,6 +1143,13 @@ function PartnerPageContent() {
               })()}
             </div>
           )}
+          {activeTab === "builders" && discovery && discovery.total > discovery.limit && (
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <Button variant="secondary" disabled={discovery.offset === 0} onClick={() => loadBuilderPage(partner.hackathon_id, Math.max(0, discovery.offset - discovery.limit))}>Previous</Button>
+              <span className="text-[13px] text-ink-3">Page {Math.floor(discovery.offset / discovery.limit) + 1} · {discovery.total} discoverable builders</span>
+              <Button variant="secondary" disabled={discovery.offset + discovery.limit >= discovery.total} onClick={() => loadBuilderPage(partner.hackathon_id, discovery.offset + discovery.limit)}>Next</Button>
+            </div>
+          )}
         </section>
       </Container>
 
@@ -1263,7 +1178,7 @@ function PartnerPageContent() {
               variant="primary"
               className={cn("max-w-full", TAP)}
               loading={togglingStatus}
-              disabled={togglingStatus || !selectedTrackForModal}
+              disabled={togglingStatus || !selectedTrackForModal || !ownParticipation}
               onClick={() => handleToggleLookingForTeam(selectedTrackForModal)}
               iconRight={<ArrowRight aria-hidden />}
             >
