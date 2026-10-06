@@ -126,7 +126,7 @@ async function pageHarness(kind, options = {}) {
   };
   const system = new Proxy({}, { get: (_, name) => name === '__esModule' ? false : name === 'buttonClass' ? () => '' : component(name) });
   const icons = new Proxy({}, { get: (_, name) => name === '__esModule' ? false : () => React.createElement('svg') });
-  const page = loadModule(kind === 'partner' ? 'src/app/partners/[slug]/page.tsx' : 'src/app/hackathons/[id]/page.tsx', {
+  const page = loadModule(kind === 'partner' ? 'src/components/partners/LegacyPartnerPage.tsx' : 'src/app/hackathons/[id]/page.tsx', {
     react: hooks, 'next/navigation': { useParams: () => ({ slug: fixtureData.partner.slug, id: EVENT }), useRouter: () => ({ push(url) { fixtureData.state.navigation = url; } }) },
     'react/jsx-runtime': { ...jsxRuntime,
       jsx(type, props, key) { if (type === 'button' && props.role === 'tab') controls.push({ ...props, text: plain(props.children) }); return jsxRuntime.jsx(type, props, key); },
@@ -336,11 +336,11 @@ test('external CTA stays external even after joining community; no verified exte
   const page = await pageHarness('event');
   assert(page.controls.some(control => control.text === 'Register on event site'));
   assert(page.html.includes('Joined HackerMate community')); assert(!page.html.includes('Registered externally'));
-  const partnerSource = fs.readFileSync(path.join(ROOT,'src/app/partners/[slug]/page.tsx'),'utf8');
+  const partnerSource = fs.readFileSync(path.join(ROOT,'src/components/partners/LegacyPartnerPage.tsx'),'utf8');
   assert(partnerSource.includes('hackathon.website_url')); // Existing external link remains.
 });
 test('public source audit: no broad registration discovery/count fallback or team-member inference', () => {
-  const partner = fs.readFileSync(path.join(ROOT,'src/app/partners/[slug]/page.tsx'),'utf8');
+  const partner = fs.readFileSync(path.join(ROOT,'src/components/partners/LegacyPartnerPage.tsx'),'utf8');
   const event = fs.readFileSync(path.join(ROOT,'src/app/hackathons/[id]/page.tsx'),'utf8');
   const profile = fs.readFileSync(path.join(ROOT,'src/app/profile/[id]/useProfileData.ts'),'utf8');
   assert(!partner.includes('.from("hackathon_registrations")'));
