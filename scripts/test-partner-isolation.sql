@@ -118,6 +118,8 @@ INSERT INTO public.team_members SELECT public.fixture_id(20004), public.fixture_
 \ir ../supabase/migrations/202610060003_partner_read_projections.sql
 INSERT INTO public.event_organizers(hackathon_id,user_id,created_by)
 SELECT public.fixture_id(n),public.fixture_id(1),public.fixture_id(2) FROM generate_series(10001,10004) AS n;
+INSERT INTO public.event_organizers(hackathon_id,user_id,created_by)
+VALUES(public.fixture_id(10008),public.fixture_id(1),public.fixture_id(2));
 
 CREATE FUNCTION public.fixture_assert(value boolean, label text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -144,6 +146,14 @@ SELECT public.fixture_assert((SELECT registration_count = 5 AND confirmed_count 
   AND looking_for_team_count = 3 AND looking_without_team_count = 2
   FROM public.get_partner_organizer_overview(public.fixture_id(10001))), '5-row overview: distinct event members, unrelated/legacy links ignored');
 SELECT public.fixture_assert((SELECT registration_count = 20 FROM public.get_partner_organizer_overview(public.fixture_id(10002))), '20 registrations');
+SELECT public.fixture_assert((SELECT registration_count = 500 AND confirmed_count = 500
+  AND participants_in_team = 0 AND participants_without_team = 500 AND looking_without_team_count = 500
+  FROM public.get_partner_organizer_overview(public.fixture_id(10008))), '500-row overview: linked team members are not inferred registrations');
+SELECT public.fixture_assert((public.list_partner_organizer_participants(public.fixture_id(10008),450,100)->>'total')::int = 500
+  AND jsonb_array_length(public.list_partner_organizer_participants(public.fixture_id(10008),450,100)->'items') = 50,
+  '500-row last page retains authoritative total');
+SELECT public.fixture_assert((public.list_partner_organizer_participants(public.fixture_id(10008),p_limit=>1,p_skill=>' REACT ')->>'total')::int = 500,
+  '500-row normalized skill filter total independent of page');
 SELECT public.fixture_assert((SELECT registration_count = 1005 FROM public.get_partner_organizer_overview(public.fixture_id(10003))), '1005 registrations beyond REST row cap');
 SELECT public.fixture_assert((SELECT registration_count = 0 AND team_count = 0 AND participants_without_team = 0 FROM public.get_partner_organizer_overview(public.fixture_id(10004))), 'zero registrations is a real aggregate');
 SELECT public.fixture_assert((public.list_partner_organizer_participants(public.fixture_id(10003))->>'total')::int = 1005
@@ -334,6 +344,8 @@ UPDATE public.profiles SET is_banned = NULL WHERE id = public.fixture_id(205);
 UPDATE public.profiles SET show_track_record = NULL WHERE id = public.fixture_id(206);
 UPDATE public.hackathon_registrations SET is_hidden = NULL WHERE user_id = public.fixture_id(207);
 SET ROLE anon;
+SELECT public.fixture_assert((SELECT registration_count = 500 FROM public.get_hackathon_registration_counts(public.fixture_id(10008))),
+  '500-row public count is an aggregate, not fetched-list length');
 SELECT public.fixture_assert((public.list_event_discovery_builders(public.fixture_id(10001))->>'total')::int = 2, 'public only opted-in builders with profiles, including looking member already in team');
 SELECT public.fixture_assert((public.list_event_discovery_builders(public.fixture_id(10002))->>'total')::int = 13, 'hidden/non-looking/private/banned/unknown builders excluded');
 SELECT public.fixture_assert((public.list_event_discovery_builders(public.fixture_id(10002),p_limit=>1)->>'total')::int = 13, 'public pagination preserves eligible total');

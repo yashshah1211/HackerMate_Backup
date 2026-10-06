@@ -1,15 +1,11 @@
-# Supabase setup
+# Supabase changes
 
-The app depends on the security policies and transactional functions in
-`migrations/202607020001_core_security.sql`.
+Historical migrations in this repository do not all represent the production
+ledger. Never apply this directory as a backlog. Confirm the target project,
+effective schema, ledger and recoverable backup, then execute only individually
+reviewed migrations in their documented order.
 
-Link the local folder to the existing Supabase project and apply it:
-
-```bash
-supabase link --project-ref <project-ref>
-supabase db push
-```
-
-Back up the database before applying the migration. It intentionally replaces
-legacy policies on HackerMate application tables so permissive policies cannot
-remain active alongside the hardened policies.
+For NexHack, use [the release evidence and runbook](../docs/architecture/nexhack-release.md).
+Only `202610060002`, `202610060003`, and `202610060004` belong to this release.
+Deploy compatible frontend reads between 003 and restrictive 004. The existing
+`202610060001` admin deletion repair belongs to the production baseline.

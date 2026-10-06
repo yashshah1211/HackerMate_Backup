@@ -434,3 +434,26 @@ SET ROLE anon;
 SELECT set_config('request.jwt.claim.sub','',false);
 SELECT public.fixture_assert(jsonb_array_length(public.get_public_builder_profile(public.fixture_id(18)::text)->'registrations')=0,'unknown row visibility excludes public history');
 RESET ROLE;
+
+-- Caller-role matrix: safe projections do not confer caller authority and are
+-- intentionally usable even when the caller cannot access private event data.
+-- Auth-invalid transport still fails at the API; these exercise database roles.
+SET ROLE authenticated;
+DO $$
+DECLARE actor integer; discovery jsonb;
+BEGIN
+  FOREACH actor IN ARRAY ARRAY[1,4,5,6,7,8,9,10,12,13,999] LOOP
+    PERFORM set_config('request.jwt.claim.sub',public.fixture_id(actor)::text,false);
+    PERFORM public.fixture_assert((SELECT registration_count >= 0
+      AND confirmed_count + waitlisted_count <= registration_count
+      FROM public.get_hackathon_registration_counts(public.fixture_id(101))),
+      format('safe count actor %s: public aggregate independent of caller authority',actor));
+    discovery := public.list_event_discovery_builders(public.fixture_id(101));
+    PERFORM public.fixture_assert(NOT EXISTS (
+      SELECT 1 FROM jsonb_array_elements(discovery->'items') item, jsonb_object_keys(item) k
+      WHERE k NOT IN ('user_id','full_name','college','avatar_url','skills')),
+      format('safe discovery actor %s: approved public fields only',actor));
+  END LOOP;
+END;
+$$;
+RESET ROLE;
