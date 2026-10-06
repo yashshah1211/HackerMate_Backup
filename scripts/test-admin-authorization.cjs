@@ -144,6 +144,8 @@ const denied = [
   ['role lookup error', { profile: { role: 'admin' }, lookupError: { message: 'fixture database failure' } }],
   ['role lookup exception', { lookupThrows: true }],
   ['missing profile', { profile: null }],
+  ['unknown admin ban state', { profile: { role: 'admin', is_banned: null } }],
+  ['missing admin ban state', { profile: { role: 'admin', is_banned: undefined } }],
   ['near-match founder suffix', { user: { email: `${FOUNDER}.attacker.example` } }],
   ['near-match founder prefix', { user: { email: `not${FOUNDER}` } }],
   ['founder plus alias', { user: { email: 'yashshah7117+alias@gmail.com' } }],

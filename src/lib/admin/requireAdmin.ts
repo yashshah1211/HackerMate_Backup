@@ -9,9 +9,16 @@ export interface AdminAuthResult {
   supabaseUserClient: SupabaseClient;
 }
 
-export async function requireAdmin(
+export interface VerifiedProfileAuthResult {
+  user: User;
+  supabaseUserClient: SupabaseClient;
+  isAdmin: boolean;
+}
+
+// Shared identity/profile boundary. This never creates a service-role client.
+export async function requireVerifiedProfile(
   req?: NextRequest
-): Promise<AdminAuthResult | NextResponse> {
+): Promise<VerifiedProfileAuthResult | NextResponse> {
   const authHeader = req?.headers?.get("Authorization");
   let token: string | undefined;
   if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -22,7 +29,6 @@ export async function requireAdmin(
   let supabaseUserClient: SupabaseClient | null = null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   // 1. Try Bearer token if provided
   if (token) {
@@ -67,7 +73,7 @@ export async function requireAdmin(
 
   if (!user || !user.email || !supabaseUserClient) {
     return NextResponse.json(
-      { error: "Forbidden: Access restricted to logged-in administrators." },
+      { error: "Forbidden: Unable to verify access." },
       { status: 403 }
     );
   }
@@ -86,20 +92,36 @@ export async function requireAdmin(
       return NextResponse.json({ error: "Forbidden: Unable to verify administrator access." }, { status: 403 });
     }
 
-    // Preserve the intentional exact founder exception already used by the
-    // admin middleware. It requires authenticated identity and a non-banned
-    // profile; email fragments, aliases and client metadata confer no privilege.
-    const isFounder = user.email.toLowerCase().trim() === "yashshah7117@gmail.com";
-    if (!profile || profile.is_banned || (profile.role !== "admin" && !isFounder)) {
-      return NextResponse.json(
-        { error: "Forbidden: Access restricted to authorized administrators." },
-        { status: 403 }
-      );
+    // Unknown ban state cannot authorize either an organizer or administrator.
+    if (!profile || profile.is_banned !== false) {
+      return NextResponse.json({ error: "Forbidden: Unable to verify access." }, { status: 403 });
     }
+
+    // Preserve the existing exact founder semantics in this shared boundary.
+    // Only getUser's authenticated identity and the protected profile count.
+    const isFounder = user.email.toLowerCase().trim() === "yashshah7117@gmail.com";
+    return { user, supabaseUserClient, isAdmin: profile.role === "admin" || isFounder };
   } catch (e) {
     console.error("[requireAdmin] Admin profile lookup error:", e);
     return NextResponse.json({ error: "Forbidden: Unable to verify administrator access." }, { status: 403 });
   }
+}
+
+export async function requireAdmin(
+  req?: NextRequest
+): Promise<AdminAuthResult | NextResponse> {
+  const authorization = await requireVerifiedProfile(req);
+  if (authorization instanceof NextResponse) return authorization;
+  if (!authorization.isAdmin) {
+    return NextResponse.json(
+      { error: "Forbidden: Access restricted to authorized administrators." },
+      { status: 403 }
+    );
+  }
+
+  const { user, supabaseUserClient } = authorization;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   const supabaseAdmin = serviceKey
     ? createClient(url, serviceKey, {
