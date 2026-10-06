@@ -17,7 +17,8 @@ export interface VerifiedProfileAuthResult {
 
 // Shared identity/profile boundary. This never creates a service-role client.
 export async function requireVerifiedProfile(
-  req?: NextRequest
+  req?: NextRequest,
+  options: { unauthenticatedStatus?: 401; lookupFailureStatus?: 500 } = {}
 ): Promise<VerifiedProfileAuthResult | NextResponse> {
   const authHeader = req?.headers?.get("Authorization");
   let token: string | undefined;
@@ -37,13 +38,13 @@ export async function requireVerifiedProfile(
         global: { headers: { Authorization: `Bearer ${token}` } },
       });
       const { data: userData, error: authError } = await tokenClient.auth.getUser(token);
-      if (authError) console.error("[requireAdmin] Token authentication failed:", authError);
+      if (authError) console.error("[requireAdmin] Token authentication failed:", options.unauthenticatedStatus ? { code: authError.code, status: authError.status } : authError);
       if (!authError && userData?.user) {
         user = userData.user;
         supabaseUserClient = tokenClient;
       }
     } catch (e) {
-      console.error("[requireAdmin] Token auth error:", e);
+      console.error("[requireAdmin] Token auth error:", options.unauthenticatedStatus ? "Authentication exception" : e);
     }
   }
 
@@ -62,19 +63,19 @@ export async function requireVerifiedProfile(
 
     try {
       const { data: userData, error: authError } = await supabaseUserClient.auth.getUser();
-      if (authError) console.error("[requireAdmin] Cookie authentication failed:", authError);
+      if (authError) console.error("[requireAdmin] Cookie authentication failed:", options.unauthenticatedStatus ? { code: authError.code, status: authError.status } : authError);
       if (!authError && userData?.user) {
         user = userData.user;
       }
     } catch (e) {
-      console.error("[requireAdmin] Cookie auth error:", e);
+      console.error("[requireAdmin] Cookie auth error:", options.unauthenticatedStatus ? "Authentication exception" : e);
     }
   }
 
   if (!user || !user.email || !supabaseUserClient) {
     return NextResponse.json(
-      { error: "Forbidden: Unable to verify access." },
-      { status: 403 }
+      { error: !user && options.unauthenticatedStatus ? "Authentication required." : "Forbidden: Unable to verify access." },
+      { status: !user && options.unauthenticatedStatus ? options.unauthenticatedStatus : 403 }
     );
   }
 
@@ -88,8 +89,8 @@ export async function requireVerifiedProfile(
       .maybeSingle();
 
     if (profileError) {
-      console.error("[requireAdmin] Admin profile lookup failed:", profileError);
-      return NextResponse.json({ error: "Forbidden: Unable to verify administrator access." }, { status: 403 });
+      console.error("[requireAdmin] Admin profile lookup failed:", options.lookupFailureStatus ? { code: profileError.code } : profileError);
+      return NextResponse.json({ error: options.lookupFailureStatus ? "Unable to verify access." : "Forbidden: Unable to verify administrator access." }, { status: options.lookupFailureStatus ?? 403 });
     }
 
     // Unknown ban state cannot authorize either an organizer or administrator.
@@ -102,8 +103,8 @@ export async function requireVerifiedProfile(
     const isFounder = user.email.toLowerCase().trim() === "yashshah7117@gmail.com";
     return { user, supabaseUserClient, isAdmin: profile.role === "admin" || isFounder };
   } catch (e) {
-    console.error("[requireAdmin] Admin profile lookup error:", e);
-    return NextResponse.json({ error: "Forbidden: Unable to verify administrator access." }, { status: 403 });
+    console.error("[requireAdmin] Admin profile lookup error:", options.lookupFailureStatus ? "Lookup exception" : e);
+    return NextResponse.json({ error: options.lookupFailureStatus ? "Unable to verify access." : "Forbidden: Unable to verify administrator access." }, { status: options.lookupFailureStatus ?? 403 });
   }
 }
 
