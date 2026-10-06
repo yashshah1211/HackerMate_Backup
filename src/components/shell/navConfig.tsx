@@ -58,12 +58,19 @@ export function isDetailRoute(pathname: string | null): boolean {
  * (it 404s in production).
  */
 export function isBareRoute(pathname: string | null): boolean {
-  return pathname === "/login" || pathname === "/onboarding" || Boolean(pathname?.startsWith("/dev/")) || Boolean(pathname?.startsWith("/expo/"));
+  return pathname === "/login" || pathname === "/onboarding" || Boolean(pathname?.startsWith("/dev/")) || Boolean(pathname?.startsWith("/expo/"))
+    || isPartnerOrganizerRoute(pathname);
+}
+
+/** Dedicated operational page; no builder rail, public header, or organizer sidebar. */
+export function isPartnerOrganizerRoute(pathname: string | null): boolean {
+  return Boolean(pathname && /^\/partners\/[^/]+\/organizer\/?$/.test(pathname));
 }
 
 /** Marketing / legal routes use the public header instead of the app shell. */
 export function isMarketingRoute(pathname: string | null): boolean {
   if (!pathname) return true;
+  if (isPartnerOrganizerRoute(pathname)) return false;
   return (
     pathname === "/" ||
     pathname === "/terms" ||

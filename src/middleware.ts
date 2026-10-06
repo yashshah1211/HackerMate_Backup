@@ -4,6 +4,13 @@ import type { NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isPartnerOrganizerPage = /^\/partners\/[^/]+\/organizer\/?$/.test(pathname);
+  const isPartnerOrganizerApi = /^\/api\/partners\/[^/]+\/organizer(?:\/export)?\/?$/.test(pathname);
+  // These APIs already verify bearer identities and event authority themselves.
+  // Cookie refresh middleware must not reject their existing token transport.
+  if (isPartnerOrganizerApi && request.headers.get("Authorization")?.startsWith("Bearer ")) {
+    return NextResponse.next();
+  }
 
   const protectedRoutes = [
     "/dashboard",
@@ -23,6 +30,7 @@ export async function middleware(request: NextRequest) {
   ];
 
   const isProtected =
+    isPartnerOrganizerPage || isPartnerOrganizerApi ||
     protectedRoutes.some((route) => pathname.startsWith(route)) ||
     pathname === "/teams/create" ||
     (pathname.startsWith("/teams/") && (pathname.endsWith("/dashboard") || pathname.endsWith("/requests")));
@@ -64,7 +72,10 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     if (isApiRoute) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const response = NextResponse.json({ error: "Unauthorized" }, { status: 401,
+        ...(isPartnerOrganizerApi ? { headers: { "Cache-Control": "private, no-store" } } : {}) });
+      if (isPartnerOrganizerApi) supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie.name, cookie.value));
+      return response;
     }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -118,6 +129,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/partners/:slug/organizer",
+    "/api/partners/:slug/organizer/:path*",
     "/dashboard/:path*",
     "/developers/:path*",
     "/teams/:path*",
