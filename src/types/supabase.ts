@@ -114,6 +114,43 @@ export type Database = {
           },
         ]
       }
+      // Narrow manual addition for the unapplied organizer foundation.
+      event_organizers: {
+        Row: {
+          hackathon_id: string
+          user_id: string
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          hackathon_id: string
+          user_id: string
+          created_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          hackathon_id?: string
+          user_id?: string
+          created_at?: string
+          created_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_organizers_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            isOneToOne: false
+            referencedRelation: "hackathons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_organizers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback: {
         Row: {
           created_at: string
@@ -1022,6 +1059,70 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Manually matched to the intended additive migrations, not regenerated
+      // from production (where these migrations have intentionally not run).
+      can_access_partner_event: {
+        Args: { p_hackathon_id: string }
+        Returns: boolean
+      }
+      has_partner_admin_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      get_partner_organizer_overview: {
+        Args: { p_hackathon_id: string }
+        Returns: {
+          registration_count: number
+          confirmed_count: number
+          waitlisted_count: number
+          team_count: number
+          participants_in_team: number
+          participants_without_team: number
+          looking_for_team_count: number
+          looking_without_team_count: number
+        }[]
+      }
+      list_partner_organizer_participants: {
+        Args: {
+          p_hackathon_id: string
+          p_offset?: number
+          p_limit?: number
+          p_search?: string | null
+          p_college?: string | null
+          p_skill?: string | null
+          p_status?: string | null
+          p_team_state?: string
+          p_looking_for_team?: boolean | null
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      list_partner_organizer_teams: {
+        Args: {
+          p_hackathon_id: string
+          p_offset?: number
+          p_limit?: number
+          p_search?: string | null
+          p_recruiting?: boolean | null
+          p_min_members?: number | null
+          p_max_members?: number | null
+          p_size_state?: string
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      list_event_discovery_builders: {
+        Args: { p_hackathon_id: string; p_offset?: number; p_limit?: number }
+        Returns: Json
+      }
+      get_hackathon_registration_counts: {
+        Args: { p_hackathon_id: string }
+        Returns: {
+          registration_count: number
+          confirmed_count: number
+          waitlisted_count: number
+        }[]
+      }
       accept_connection_request: {
         Args: { p_request_id: string }
         Returns: string
