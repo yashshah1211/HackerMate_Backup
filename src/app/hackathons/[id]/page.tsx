@@ -617,7 +617,6 @@ function HackathonDetailContent() {
   function handleRegisterExternally() {
     if (!hackathon || !hackathon.website_url) return;
     window.open(hackathon.website_url, "_blank", "noopener,noreferrer");
-    setShowExternalRegisterModal(true);
   }
 
   async function handleRegisterExternallyConfirm() {
@@ -1690,6 +1689,12 @@ function HackathonDetailContent() {
                 )}
               </div>
 
+              {!isNative && currentUserId && isRegistered === false && (
+                <Button variant="primary" className="w-full" onClick={() => setShowExternalRegisterModal(true)}>
+                  Join community
+                </Button>
+              )}
+
               {linkedTeam ? (
                 <div className="rounded-lg border border-line px-3.5 py-3">
                   <p className="break-words text-[13px] text-ink-2">
@@ -1972,7 +1977,7 @@ function HackathonDetailContent() {
         </Select>
       </Dialog>
 
-      {/* ── Confirm external registration ────────────────────────── */}
+      {/* ── Join external event community ────────────────────────── */}
       <Dialog
         open={showExternalRegisterModal}
         onClose={() => {
@@ -1983,8 +1988,8 @@ function HackathonDetailContent() {
         title="Join the HackerMate event community"
         description={
           <>
-            We opened the registration page for <span className="font-semibold text-ink">{hackathon.name}</span> in a new tab. Finish
-            registering there. Joining this community on HackerMate does not verify official event registration.
+            Join the HackerMate community for <span className="font-semibold text-ink">{hackathon.name}</span> to connect with other
+            builders. Official registration is managed on the event site. Joining this community on HackerMate does not verify official event registration.
           </>
         }
         footer={

@@ -19,7 +19,7 @@ function fixture(options = {}) {
   const state = { user: { id: USER }, authError: null, registration: { ...defaultRegistration },
     rpcError: null, selfError: null, mutationError: null, discoveryRows: [builder], total: 1,
     counts: { registration_count: 1005, confirmed_count: 900, waitlisted_count: 105 },
-    queries: [], rpcs: [], ...options };
+    queries: [], rpcs: [], toasts: [], ...options };
   const hackathon = { id: EVENT, name: 'Legacy Event', description: 'Build together', type: 'external',
     start_date: '2028-01-01', end_date: '2028-01-03', website_url: 'https://example.invalid/register',
     tags: [], min_team_size: 1, max_team_size: 4, max_participants: null, location: null, mode: 'online',
@@ -66,12 +66,15 @@ function fixture(options = {}) {
             return { data: null, error };
           }
           if (record.operation === 'update' && state.registration) Object.assign(state.registration, record.payload);
-          if (record.operation === 'insert') state.registration = { id: 'created-registration', team_id: null, metadata: null, looking_for_team: false, ...record.payload };
+          if (record.operation === 'insert') {
+            if (state.registration) return { data: null, error: { code: '23505', message: 'Already joined' } };
+            state.registration = { id: 'created-registration', team_id: null, metadata: null, looking_for_team: false, ...record.payload };
+          }
           if (record.operation === 'delete') { const removed = state.registration; state.registration = null; return { data: removed ? [{ id: removed.id }] : [], error: null }; }
           return { data: state.registration, error: null };
         }
         const rows = { hackathons: [hackathon], partner_configs: [partner], profiles: [{ full_name: 'Current Builder', skills: ['react'] }],
-          teams: [team], team_hackathons: record.columns.includes('teams') ? [{ team_id: team.id, teams: team }] : [{ team_id: team.id, hackathon_id: EVENT }],
+          teams: [team], team_hackathons: options.unlinkedTeam ? [] : record.columns.includes('teams') ? [{ team_id: team.id, teams: team }] : [{ team_id: team.id, hackathon_id: EVENT }],
           user_badges: [], saved_hackathons: [], hackathon_resources: [], hackathon_stages: [] }[table];
         assert(rows, 'Unexpected table: ' + table);
         return { data: single ? rows[0] || null : rows, error: null };
@@ -116,7 +119,7 @@ async function pageHarness(kind, options = {}) {
   };
   const component = name => function Stub(props) {
     if (name === 'Dialog' && !props.open) return null;
-    if (name === 'Button' || name === 'Segmented') controls.push({ name, ...props, text: plain(props.children) });
+    if (name === 'Button' || name === 'Segmented' || name === 'Select') controls.push({ name, ...props, text: plain(props.children) });
     const tag = name === 'Button' ? 'button' : name === 'ButtonLink' || name === 'Link' ? 'a' : 'div';
     return React.createElement(tag, { href: props.href, disabled: props.disabled, 'data-component': name },
       props.children, props.title, props.body, props.detail, props.name, props.label,
@@ -135,7 +138,7 @@ async function pageHarness(kind, options = {}) {
     'next/link': component('Link'), 'lucide-react': icons, '@/lib/supabase': { supabase: fixtureData.client },
     '@/lib/hackathons/eventParticipation': api, '@/lib/utils': { cn: () => '' },
     '@/components/system': system, '@/components/landing/primitives': { Container: component('Container'), Eyebrow: component('Eyebrow') },
-    '@/context/NotificationContext': { useNotification: () => ({ showToast() {}, confirm() {} }) },
+    '@/context/NotificationContext': { useNotification: () => ({ showToast(text, tone) { fixtureData.state.toasts.push({ text, tone }); }, confirm(value) { fixtureData.state.confirmation = value; } }) },
     '@/components/AuthGuard': props => props.children,
     '@/components/CertificateModal': () => null, '@/components/ShareModal': () => null, '@/components/VerifiedBuilderBadge': () => null,
     '@/components/StructuredHackathonDescription': () => null, '@/lib/hackathons/prizeDisplay': { formatPrizeDisplay: () => null },
@@ -143,10 +146,14 @@ async function pageHarness(kind, options = {}) {
   }, { window: { location: { origin: 'https://app.example.invalid' }, open(url) { fixtureData.state.externalURL = url; } } });
   function render() { index = 0; controls.length = 0; return renderToStaticMarkup(React.createElement(page.default)); }
   let html = render();
+  const initialHtml = html;
   for (const effect of effects.splice(0)) effect();
   await new Promise(resolve => setImmediate(resolve));
   html = render();
-  return { ...fixtureData, get html() { return html; }, controls,
+  return { ...fixtureData, initialHtml, get html() { return html; }, controls,
+    async clickExact(text) { const control = controls.findLast(control => control.name === 'Button' && control.text === text); assert(control, 'Missing button ' + text); assert(!control.disabled && !control.loading); await control.onClick(); await new Promise(resolve => setImmediate(resolve)); html = render(); },
+    choose(id, value) { const control = controls.find(control => control.name === 'Select' && control.id === id); assert(control, 'Missing select ' + id); control.onChange({ target: { value } }); html = render(); },
+    async confirm() { assert(fixtureData.state.confirmation); fixtureData.state.confirmation.onConfirm(); await new Promise(resolve => setImmediate(resolve)); html = render(); },
     async tab(value) {
       const segmented = controls.find(control => control.name === 'Segmented');
       if (segmented) segmented.onChange(value);
@@ -310,13 +317,110 @@ test('native count failure blocks registration instead of assuming zero capacity
   assert.equal(page.state.registration, null);
   assert(page.state.queries.every(query => query.operation !== 'insert'));
 });
-test('external CTA opens the official URL and community join does not verify official registration', async () => {
+test('external registration opens only the official URL; direct community CTA opens the existing dialog', async () => {
   const page = await pageHarness('event', { registration: null });
+  assert(page.controls.some(control => control.text === 'Join community'));
+  assert(!page.html.includes('Join the HackerMate event community'));
   await page.click('Register on event site'); assert.equal(page.state.externalURL, 'https://example.invalid/register');
+  assert(!page.html.includes('Join the HackerMate event community'));
+  assert.equal(page.state.registration, null);
+  page.state.externalURL = undefined;
+  await page.clickExact('Join community');
+  assert.equal(page.state.externalURL, undefined);
+  assert(page.html.includes('Join the HackerMate event community'));
   assert(page.html.includes('does not verify official event registration'));
-  await page.click('Join community'); assert.equal(page.state.registration.user_id, USER);
+  assert(!page.html.includes('We opened the registration page'));
+  assert(page.html.includes('No team (Individual)'));
+  await page.clickExact('Join community'); assert.equal(page.state.registration.user_id, USER);
   assert.equal(page.state.registration.looking_for_team, false); assert(!page.html.includes('Registered externally'));
+  assert.equal(page.state.registration.team_id, null);
+  assert(page.html.includes('Joined HackerMate community'));
+  assert(!page.controls.some(control => control.text === 'Join community'));
   assert(page.controls.some(control => control.text === 'Register on event site'));
+});
+
+test('community CTA is absent while loading, signed out, lookup/auth failed, native, or already joined', async () => {
+  for (const options of [{ user: null, registration: null }, { registration: null, selfError: { code: '42501' } },
+    { registration: null, authError: { name: 'AuthError' } }, { registration: null, hackathon: { type: 'native' } }, { hackathon: { type: 'native' } }, {}]) {
+    const page = await pageHarness('event', options);
+    assert(!page.initialHtml.includes('Join community'));
+    assert(!page.controls.some(control => control.text === 'Join community'));
+    assert(page.state.queries.every(query => query.operation === 'read'));
+  }
+});
+
+test('community join is independent of external website availability', async () => {
+  const page = await pageHarness('event', { registration: null, hackathon: { website_url: null } });
+  await page.clickExact('Join community');
+  await page.clickExact('Join community');
+  assert.equal(page.state.registration.user_id, USER);
+  assert.equal(page.state.externalURL, undefined);
+});
+
+test('existing community join handler retains capacity, team selection and expired-event/error guards', async () => {
+  const full = await pageHarness('event', { registration: null, unlinkedTeam: true, hackathon: { max_participants: 900 } });
+  await full.clickExact('Join community');
+  assert(full.controls.find(control => control.id === 'external-team').text.includes('Linked Team'));
+  full.choose('external-team', 'team-one');
+  await full.clickExact('Join community');
+  assert.equal(full.state.registration.status, 'waitlisted');
+  assert.equal(full.state.registration.team_id, 'team-one');
+  const link = full.state.queries.find(query => query.table === 'teams' && query.operation === 'update');
+  assert.deepEqual(JSON.parse(JSON.stringify(link.filters)), [['id', 'team-one']]);
+  assert.equal(link.payload.hackathon_id, EVENT);
+  for (const options of [{ hackathon: { end_date: '2000-01-01' } },
+    { mutationError: { code: '42501', message: 'Denied' } }, { hackathon: { max_participants: 1 }, rpcError: { code: 'XX000' } }]) {
+    const page = await pageHarness('event', { registration: null, ...options });
+    await page.clickExact('Join community'); await page.clickExact('Join community');
+    assert.equal(page.state.registration, null);
+    assert(page.state.toasts.some(toast => toast.tone === 'error'));
+    assert(page.html.includes('Join the HackerMate event community'));
+  }
+});
+
+test('community join prevents repeat registration and handles a concurrent duplicate without overwriting membership', async () => {
+  const page = await pageHarness('event', { registration: null });
+  await page.clickExact('Join community'); await page.clickExact('Join community');
+  await page.click('Register on event site');
+  assert(!page.controls.some(control => control.text === 'Join community'));
+  assert.equal(page.state.queries.filter(query => query.operation === 'insert').length, 1);
+  const concurrent = await pageHarness('event', { registration: null });
+  await concurrent.clickExact('Join community');
+  concurrent.state.registration = { ...defaultRegistration };
+  await concurrent.clickExact('Join community');
+  assert.equal(concurrent.state.registration.id, defaultRegistration.id);
+  assert(concurrent.state.toasts.some(toast => toast.text === 'Already joined' && toast.tone === 'error'));
+});
+
+test('native registration still uses its existing dialog and never opens an external site', async () => {
+  const page = await pageHarness('event', { registration: null, hackathon: { type: 'native' } });
+  await page.clickExact('Register'); await page.click('Confirm');
+  assert.equal(page.state.registration.user_id, USER);
+  assert.equal(page.state.registration.status, 'confirmed');
+  assert.equal(page.state.externalURL, undefined);
+  assert(!page.controls.some(control => control.text === 'Join community'));
+});
+
+test('direct community join persists, discovery ON/OFF preserves membership, and existing leave still works', async () => {
+  let page = await pageHarness('event', { registration: null });
+  await page.clickExact('Join community'); await page.clickExact('Join community');
+  const registrationId = page.state.registration.id;
+  page = await pageHarness('event', { registration: { ...page.state.registration } });
+  assert(page.html.includes('Joined HackerMate community'));
+  await page.tab('looking_for_teams'); await page.click('List my profile');
+  assert.equal(page.state.registration.looking_for_team, true);
+  page = await pageHarness('event', { registration: { ...page.state.registration } });
+  await page.tab('looking_for_teams'); await page.click('Stop listing profile');
+  assert.equal(page.state.registration.looking_for_team, false);
+  assert.equal(page.state.registration.id, registrationId);
+  assert.equal(page.state.registration.status, 'confirmed');
+  assert(page.html.includes('Joined HackerMate community'));
+  await page.clickExact('Cancel');
+  assert.equal(page.state.confirmation.confirmText, 'Leave community');
+  await page.confirm();
+  assert.equal(page.state.registration, null);
+  assert(page.html.includes('You have not joined the HackerMate event community'));
+  assert(page.controls.some(control => control.text === 'Join community'));
 });
 for (const kind of ['partner', 'event']) {
   test(kind + ' discovery pagination retains RPC total, without full raw-row loading', async () => {
