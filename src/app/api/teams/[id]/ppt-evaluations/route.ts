@@ -58,8 +58,8 @@ export async function GET(
     // Migration 20260905210000 (track_id) is not applied on every environment.
     // Postgres reports the missing column as 42703; retry without it so the
     // list still loads. The client already falls back to ai_feedback.track_id.
-    if (error && error.code === "42703") {
-      console.warn("[PPT Evaluations List] track_id column missing; retrying without it:", error.message);
+    if (error && (error.code === "42703" || error.code === "PGRST204") && error.message?.includes("track_id")) {
+      console.warn("[PPT Evaluations List] track_id column missing or schema stale; retrying without it:", error.message);
       const retry = await supabaseAdmin
         .from("team_ppt_evaluations")
         .select(BASE_COLUMNS)

@@ -211,10 +211,10 @@ export async function POST(
       .select("id")
       .single();
 
-    // Environments without migration 20260905210000 have no track_id column
-    // (42703). Retry without it; the track is still persisted in ai_feedback.track_id.
-    if (insertErr && insertErr.code === "42703") {
-      console.warn("[PPT Evaluate] track_id column missing; inserting without it:", insertErr.message);
+    // Environments without migration 20260905210000 or with stale schema cache
+    // have no track_id column (42703 or PGRST204). Retry without it.
+    if (insertErr && (insertErr.code === "42703" || insertErr.code === "PGRST204") && insertErr.message?.includes("track_id")) {
+      console.warn("[PPT Evaluate] track_id column missing or schema stale; inserting without it:", insertErr.message);
       const retry = await supabaseAdmin.from("team_ppt_evaluations").insert(initialPayload).select("id").single();
       initialRecord = retry.data;
       insertErr = retry.error;
