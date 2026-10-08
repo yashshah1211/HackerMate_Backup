@@ -102,37 +102,21 @@ export async function POST(req: NextRequest) {
       reviewed_by: user.id,
     };
 
-    // Update both ai_feedback JSONB and status column if available
-    let updatedHackathon: any = null;
-    const { data: fbResult, error: fbErr } = await supabaseAdmin
+    // Persist the public status and review metadata atomically. The hackathons
+    // schema has no updated_at column; reviewed_at belongs in ai_feedback.
+    const { data: updatedHackathon, error: updateError } = await supabaseAdmin
       .from("hackathons")
       .update({
         ai_feedback: updatedFeedback,
-        updated_at: new Date().toISOString(),
+        status: newStatus,
       })
       .eq("id", hackathonId)
       .select()
       .single();
 
-    if (fbErr) {
-      console.error("[Admin Update Hackathon Status Error]:", fbErr);
+    if (updateError) {
+      console.error("[Admin Update Hackathon Status Error]:", updateError);
       return NextResponse.json({ error: "Failed to update hackathon status." }, { status: 500 });
-    }
-
-    updatedHackathon = fbResult;
-
-    // Try updating status column directly if present
-    try {
-      const { data: colResult } = await supabaseAdmin
-        .from("hackathons")
-        .update({ status: newStatus })
-        .eq("id", hackathonId)
-        .select()
-        .single();
-
-      if (colResult) updatedHackathon = colResult;
-    } catch {
-      // Ignore if status column is absent
     }
 
     return NextResponse.json({
