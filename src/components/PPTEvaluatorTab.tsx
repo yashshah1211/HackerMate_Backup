@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
+import PitchAnalysisBadge from "@/components/PitchAnalysisBadge";
+import { getAnalysisDisplay, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
 import { supabase } from "@/lib/supabase";
 import LinkedIdeaScorecard, { LinkedEvaluationRecord } from "@/components/LinkedIdeaScorecard";
 import PresentationErrorAlert from "@/components/ui/PresentationErrorAlert";
@@ -22,7 +24,6 @@ import {
   Building2,
   Bot,
   Globe,
-  Cpu,
   Presentation,
   Target,
 } from "lucide-react";
@@ -68,6 +69,8 @@ interface PPTEvaluation {
     slideRecommendations?: Record<string, string>;
     scoreDeductions?: Record<string, string>;
     usedAiFallback?: boolean;
+    analysis?: AnalysisMetadata;
+    slideFeedback?: SlideFeedback[];
     evaluatedAt?: string;
     track_id?: string;
     isFallbackTrack?: boolean;
@@ -122,9 +125,15 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Track Auto-Detection & Fallback States
-  const [selectedTrack, setSelectedTrack] = useState<JudgingTrackId>("web_dev");
+  const [selectedTrack, setSelectedTrack] = useState<JudgingTrackId>("generic");
   const [isAmbiguousFallback, setIsAmbiguousFallback] = useState(false);
-  const [userExplicitlySelected, setUserExplicitlySelected] = useState(false);
+  const [userExplicitlySelected, setUserExplicitlySelectedState] = useState(false);
+  const explicitTrack = useRef(false);
+  const confidentTrack = useRef(false);
+  function setUserExplicitlySelected(value: boolean) {
+    explicitTrack.current = value;
+    setUserExplicitlySelectedState(value);
+  }
   const [autoDetectedSource, setAutoDetectedSource] = useState<string | null>(null);
 
   // Form State
@@ -152,7 +161,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
       if (teamErr) console.error("[PPTEvaluatorTab] Team track context query failed:", teamErr);
 
-      if (teamData) {
+      if (teamData && !explicitTrack.current) {
         const hackathonObj = (teamData.team_hackathons as any)?.[0]?.hackathons;
         const detection = detectJudgingTrack({
           name: teamData.hackathon_name || hackathonObj?.name,
@@ -162,12 +171,13 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         });
 
         if (detection.isConfident) {
+          confidentTrack.current = true;
           setSelectedTrack(detection.detectedTrack);
           setIsAmbiguousFallback(false);
           setAutoDetectedSource(detection.sourceHint || "Team hackathon context");
-        } else {
+        } else if (!confidentTrack.current) {
           // Track not confidently detected — fail loud on fallback!
-          setSelectedTrack("web_dev");
+          setSelectedTrack("generic");
           setIsAmbiguousFallback(true);
           setAutoDetectedSource(null);
         }
@@ -341,7 +351,10 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     return "text-bad";
   };
 
-  const getTrackBadge = (trackId: string = "web_dev") => {
+  const getTrackBadge = (trackId: string = "generic") => {
+    if (trackId === "generic" || trackId === "specific") {
+      return { label: trackId === "specific" ? "Specific Hackathon" : "General Hackathon", short: trackId === "specific" ? "Custom" : "General", tone: "neutral" as TapeTone, icon: trackId === "specific" ? <Target /> : <Lightbulb /> };
+    }
     if (trackId === "ai_genai") {
       return {
         label: "AI & GenAI",
@@ -398,7 +411,11 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const trackDescription =
     selectedTrack === "ai_genai"
       ? "Paste a Google Slides or Drive link. Scored 0–100 on AI hackathon criteria: agent design, retrieval, latency, hallucination control and team roles."
-      : "Paste a Google Slides or Drive link. Scored 0–100 on full-stack criteria: API design, data model, caching, security, responsive UI and team roles.";
+      : selectedTrack === "web_dev"
+        ? "Paste a Google Slides or Drive link. Scored 0–100 on full-stack criteria: API design, data model, caching, security, responsive UI and team roles."
+        : selectedTrack === "specific"
+          ? "Share a presentation and the organizer rubric for a tailored hackathon review."
+          : "Share a Google Slides or Drive presentation. Reviewed for problem clarity, innovation, feasibility, impact and pitch quality.";
 
   if (loading) {
     return (
@@ -412,13 +429,15 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const selectedTrackInfo = selectedEval
     ? getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev")
     : null;
+  const selectedProfile = TRACK_PROFILES[(selectedEval?.track_id || selectedEval?.ai_feedback?.track_id || "web_dev") as JudgingTrackId] || TRACK_PROFILES.generic;
+  const analysisDisplay = getAnalysisDisplay(selectedEval?.ai_feedback);
 
   const rubric = selectedEval
     ? [
-        { key: "novelty", label: "Novelty & alignment", value: selectedEval.score_novelty, max: 25, note: selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives." },
-        { key: "tech", label: "Tech architecture", value: selectedEval.score_tech, max: 35, note: selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes." },
-        { key: "uiux", label: "UI/UX & polish", value: selectedEval.score_ui_ux, max: 25, note: selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates mockups, visual flowcharts, and slide clarity." },
-        { key: "team", label: "Team & squad balance", value: selectedEval.score_team, max: 15, note: selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates squad completeness and rules." },
+        { key: "novelty", label: selectedProfile.categories.novelty.label, value: selectedEval.score_novelty, max: selectedProfile.categories.novelty.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives." },
+        { key: "tech", label: selectedProfile.categories.tech.label, value: selectedEval.score_tech, max: selectedProfile.categories.tech.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes." },
+        { key: "uiux", label: selectedProfile.categories.uiUxOrFeasibility.label, value: selectedEval.score_ui_ux, max: selectedProfile.categories.uiUxOrFeasibility.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates the selected rubric criterion." },
+        { key: "team", label: selectedProfile.categories.impactOrTeam.label, value: selectedEval.score_team, max: selectedProfile.categories.impactOrTeam.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates the selected rubric criterion." },
       ]
     : [];
 
@@ -454,7 +473,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="text-[13.5px] font-semibold text-ink">
-              Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a specialized submission.
+              Track not detected — defaulting to General Hackathon. Select the correct track for a specialized submission.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -479,7 +498,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                   setIsAmbiguousFallback(false);
                 }}
               >
-                Keep Web Dev
+                Keep General
               </Button>
             </div>
           </div>
@@ -495,9 +514,10 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           }
         }}
         onEvaluationLoaded={(evaluation: LinkedEvaluationRecord | null) => {
-          if (evaluation?.track_id && !userExplicitlySelected) {
+          if (evaluation?.track_id && !explicitTrack.current) {
             const tr = evaluation.track_id as JudgingTrackId;
             if (["ai_genai", "web_dev"].includes(tr)) {
+              confidentTrack.current = true;
               setSelectedTrack(tr);
               setIsAmbiguousFallback(false);
               setAutoDetectedSource(`Linked Idea Scorecard (${TRACK_PROFILES[tr]?.name || tr})`);
@@ -627,15 +647,10 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               <Tape tone={selectedTrackInfo.tone} icon={selectedTrackInfo.icon}>
                 {selectedTrackInfo.label}
               </Tape>
-              {selectedEval.ai_feedback?.usedAiFallback ? (
-                <Tape tone="warn" icon={<TriangleAlert />} title="The AI reviewer was unavailable; scored with heuristics">
-                  Heuristic fallback
-                </Tape>
-              ) : (
-                <Tape icon={<Cpu />}>Gemini review</Tape>
-              )}
+              <PitchAnalysisBadge feedback={selectedEval.ai_feedback} />
             </div>
             <h3 className="mt-2 break-words text-[16px] font-semibold text-ink">{selectedEval.ps_title}</h3>
+            <p className="mt-1 text-[12.5px] text-ink-3">{analysisDisplay.description}</p>
             <p className="mt-0.5 break-words text-[12.5px] text-ink-3">
               {new Date(selectedEval.created_at).toLocaleDateString()} at {new Date(selectedEval.created_at).toLocaleTimeString()} ·{" "}
               <span className="font-mono text-[12px]">{selectedEval.file_name}</span>
@@ -647,7 +662,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             <div role="alert" className="flex items-start gap-3 rounded-lg bg-warn-soft p-4 ring-1 ring-inset ring-warn/30">
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
               <div className="min-w-0">
-                <p className="text-[13.5px] font-semibold text-ink">Scored with the Web Dev fallback rubric</p>
+                <p className="text-[13.5px] font-semibold text-ink">Scored with the {selectedTrackInfo.label} fallback rubric</p>
                 <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">
                   {selectedEval.ai_feedback.trackWarning || "Track was not detected at evaluation time. Re-evaluate with the correct track if needed."}
                 </p>
@@ -807,17 +822,26 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           <Panel as="section" className="min-w-0">
             <PanelHead icon={<Lightbulb className="text-ink-3" />} title="Slide by slide" />
             <List className="px-4">
-              {ORDERED_SLIDES.map((slide) => {
+              {selectedEval.ai_feedback?.slideFeedback?.length ? selectedEval.ai_feedback.slideFeedback.map((slide, index) => (
+                <li key={`${slide.slideNumber}-${index}`} className="flex items-start gap-3 py-3">
+                  <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2">{slide.slideNumber}</span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-ink">Slide {slide.slideNumber}: {slide.title}</p>
+                    <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-2">{slide.observation}</p>
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{slide.recommendation}</p>
+                  </div>
+                </li>
+              )) : ORDERED_SLIDES.map((slide) => {
                 const rec = selectedEval.ai_feedback?.slideRecommendations?.[slide.key];
                 return (
                   <li key={slide.key} className="flex items-start gap-3 py-3">
                     <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2 tabular">
-                      {slide.slideNum}
+                      {selectedEval.ai_feedback?.analysis ? "·" : slide.slideNum}
                     </span>
                     <div className="min-w-0">
                       <p className="text-[13px] font-semibold text-ink">{slide.label.replace(/^Slide \d+:\s*/, "")}</p>
                       <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-3">
-                        {rec || "Ensure standard template format is maintained."}
+                        {rec || "No additional recommendation recorded for this topic."}
                       </p>
                     </div>
                   </li>
@@ -858,6 +882,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                       <span className="block truncate text-[13px] font-medium text-ink">{ev.ps_title}</span>
                       <span className="block truncate text-[12px] text-ink-3">
                         {new Date(ev.created_at).toLocaleDateString()} · {evTrackInfo.short}
+                        {ev.status === "completed" && ` · ${getAnalysisDisplay(ev.ai_feedback).label}`}
                         {ev.status !== "completed" && ` · ${ev.status}`}
                         <span className="hidden sm:inline"> · {ev.file_name}</span>
                       </span>

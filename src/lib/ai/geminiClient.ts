@@ -13,6 +13,8 @@
  * fallbacks never exceed Vercel function limits (e.g. 60s maxDuration).
  */
 
+import { PRESENTATION_LIMITS } from "../ppt/analysisMetadata";
+
 export interface GeminiCallOptions {
   temperature?: number;
   maxOutputTokens?: number;
@@ -20,6 +22,7 @@ export interface GeminiCallOptions {
   perModelTimeoutMs?: number;
   totalTimeoutMs?: number;
   timeoutMs?: number; // Backward compatibility alias
+  maxAttempts?: number;
 }
 
 export interface GeminiCallResult {
@@ -88,7 +91,7 @@ export async function callGeminiText(
 
   let lastError: Error | null = null;
 
-  for (const model of GEMINI_CASCADE_MODELS) {
+  for (const model of GEMINI_CASCADE_MODELS.slice(0, options.maxAttempts ?? GEMINI_CASCADE_MODELS.length)) {
     const elapsedSoFar = Date.now() - cascadeStartTime;
     const remainingTotalMs = totalTimeoutMs - elapsedSoFar;
 
@@ -124,9 +127,9 @@ export async function callGeminiText(
       const modelLatencyMs = Date.now() - modelStartTime;
 
       if (!res.ok) {
-        const errText = await res.text();
-        console.warn(`[Gemini Gateway] Model ${model} returned HTTP ${res.status} in ${modelLatencyMs}ms: ${errText.slice(0, 150)}`);
-        lastError = new Error(`Gemini ${model} HTTP ${res.status}: ${errText.slice(0, 120)}`);
+        await res.body?.cancel();
+        console.warn(`[Gemini Gateway] Model ${model} returned HTTP ${res.status} in ${modelLatencyMs}ms.`);
+        lastError = new Error(`Gemini ${model} HTTP ${res.status}`);
         continue;
       }
 
@@ -152,7 +155,7 @@ export async function callGeminiText(
       };
     } catch (err: any) {
       const modelLatencyMs = Date.now() - modelStartTime;
-      console.warn(`[Gemini Gateway] Model ${model} failed after ${modelLatencyMs}ms: ${err?.message || err}`);
+      console.warn(`[Gemini Gateway] Model ${model} request failed after ${modelLatencyMs}ms.`);
       lastError = err;
     }
   }
@@ -264,3 +267,60 @@ export async function callGeminiVision(
   throw lastError || new Error(`All Gemini Vision cascade models failed or total cascade budget (${totalTimeoutMs}ms) exhausted.`);
 }
 
+
+/** Native PDF document understanding. Separate model/budget path leaves image callers intact.
+ * Uses inline PDF bytes in generateContent; no persistent remote file upload or per-page calls.
+ */
+export async function callGeminiDocument(
+  prompt: string,
+  pdfBuffer: Buffer,
+  options: GeminiCallOptions = {},
+): Promise<GeminiCallResult> {
+  if (!pdfBuffer.length || pdfBuffer.length > PRESENTATION_LIMITS.pdfBytes || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    throw new Error("Invalid or oversized PDF input.");
+  }
+  const apiKey = getApiKey();
+  const started = Date.now();
+  const totalTimeoutMs = options.totalTimeoutMs ?? 20_000;
+  const models = ["gemini-3.6-flash", "gemini-flash-latest"].slice(0, options.maxAttempts ?? 2);
+  const body = JSON.stringify({
+    contents: [{ parts: [
+      { inlineData: { mimeType: "application/pdf", data: pdfBuffer.toString("base64") } },
+      { text: prompt },
+    ] }],
+    generationConfig: {
+      temperature: options.temperature ?? 0.1,
+      maxOutputTokens: options.maxOutputTokens ?? 6500,
+      responseMimeType: options.responseMimeType ?? "application/json",
+    },
+  });
+  for (const model of models) {
+    const remaining = totalTimeoutMs - (Date.now() - started);
+    if (remaining < 2000) break;
+    const modelStarted = Date.now();
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body,
+        signal: AbortSignal.timeout(Math.min(options.perModelTimeoutMs ?? 12_000, remaining)),
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        // Never log error bodies: provider messages can include supplied content.
+        console.warn(`[Gemini Document] ${model} HTTP ${response.status}.`);
+        // Invalid PDF / project-wide auth or quota issues should not resend the PDF.
+        if ([400, 401, 403, 429].includes(response.status)) break;
+        continue;
+      }
+      const data = await response.json();
+      const candidate = data?.candidates?.[0];
+      const text = candidate?.content?.parts?.filter((part: { text?: string; thought?: boolean }) => !part.thought && typeof part.text === "string").map((part: { text: string }) => part.text).join("");
+      if (!text || (candidate.finishReason && candidate.finishReason !== "STOP")) continue;
+      return { text, modelUsed: model, modelVersion: data.modelVersion || model, latencyMs: Date.now() - modelStarted, totalCascadeTimeMs: Date.now() - started };
+    } catch {
+      console.warn(`[Gemini Document] ${model} request failed.`);
+    }
+  }
+  throw new Error("PDF document analysis unavailable.");
+}

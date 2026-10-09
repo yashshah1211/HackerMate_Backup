@@ -7,6 +7,7 @@ import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
 
 // Ensure Vercel allocates up to 60s execution budget for comprehensive AI evaluations
 export const maxDuration = 60;
+export const runtime = "nodejs";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,6 +22,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const deadline = Date.now() + 55_000; // Leave room for the final database write.
   try {
     const { id: teamId } = await params;
     const supabaseAdmin = getSupabaseAdmin();
@@ -43,7 +45,7 @@ export async function POST(
     const [{ data: teamData }, { data: memberData }, { data: profileData }] = await Promise.all([
       supabaseAdmin
         .from("teams")
-        .select("id, name, owner_id, track, hackathon_name, team_hackathons(hackathons(id, name, tag, description)), team_members(id, role, project_role, profiles(id, full_name, gender, skills))")
+        .select("id, name, owner_id, hackathon_name, team_hackathons(hackathons(id, name, description)), team_members(id, role, project_role, profiles(id, full_name, gender, skills))")
         .eq("id", teamId)
         .maybeSingle(),
       supabaseAdmin.from("team_members").select("id").eq("team_id", teamId).eq("user_id", userId).maybeSingle(),
@@ -139,7 +141,6 @@ export async function POST(
         name: teamData?.hackathon_name || hackathonObj?.name,
         tag: hackathonObj?.tag,
         description: hackathonObj?.description,
-        track: teamData?.track,
       });
 
       if (detection.isConfident) {
@@ -163,20 +164,20 @@ export async function POST(
 
     const currentVersion = (versionRows?.[0]?.version || 0) + 1;
 
-    let pptStorageUrl = externalLinkUrl;
-    let fileName = "Google_Slides_Presentation.gslides";
-    let submissionType = "external_link";
+    const pptStorageUrl = externalLinkUrl;
+    let fileName = "Linked_Presentation";
+    const submissionType = "external_link";
     let extractedDocText = "";
     let extractedSlidesList: any[] = [];
 
-    // 6. Extract Text from Presentation Link
+    // 6. Obtain bounded PDF bytes and supplemental page text (or text-only fallback).
     const extraction = await extractPresentationFromUrl(externalLinkUrl);
     if (!extraction.success || extraction.slides.length === 0) {
       return NextResponse.json(
         {
           error:
             extraction.errorMessage ||
-            "Failed to extract text from presentation link. Please make sure the link sharing permissions are set to 'Anyone with the link can view'.",
+            "Could not read the presentation. Please enable 'Anyone with the link can view'.",
         },
         { status: 422 }
       );
@@ -184,16 +185,11 @@ export async function POST(
 
     extractedDocText = extraction.rawDocumentText;
     extractedSlidesList = extraction.slides;
+    if (extraction.pdf) fileName = "Pitch_Deck.pdf";
 
     // 7. Team Composition Metadata
     const members = teamData?.team_members || [];
     const memberCount = members.length;
-    const hasFemaleMember = members.some(
-      (m: any) =>
-        m.profiles?.gender?.toLowerCase() === "female" ||
-        m.profiles?.gender?.toLowerCase() === "f"
-    );
-
     // 8. Insert initial record with real track_id column (No conditional guessing)
     const initialPayload = {
       team_id: teamId,
@@ -244,7 +240,9 @@ export async function POST(
         })),
       },
       resolvedTrackId,
-      customRubric || undefined
+      customRubric || undefined,
+      extraction.pdf,
+      Math.max(0, Math.min(30_000, deadline - Date.now() - 5000)),
     );
 
     // 10. Persist Completed Evaluation
@@ -266,8 +264,11 @@ export async function POST(
           slideRecommendations: evalResult.slideRecommendations,
           scoreDeductions: evalResult.scoreDeductions,
           usedAiFallback: evalResult.usedAiFallback,
+          analysis: evalResult.analysis,
+          slideFeedback: evalResult.slideFeedback,
           evaluatedAt: new Date().toISOString(),
           track_id: resolvedTrackId,
+          ...(resolvedTrackId === "specific" ? { customRubric: customRubric || null } : {}),
           isFallbackTrack,
           trackWarning,
         },

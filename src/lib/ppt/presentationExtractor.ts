@@ -1,4 +1,7 @@
-import { extractText } from "unpdf";
+import { getDocumentProxy } from "unpdf";
+import { PRESENTATION_LIMITS, type AnalysisMetadata } from "./analysisMetadata";
+import { downloadPresentation, PresentationLimitError, validatePresentationUrl } from "./presentationDownload";
+export { validatePresentationUrl, ALLOWED_PRESENTATION_DOMAINS } from "./presentationDownload";
 
 export interface ExtractedSlide {
   slideNumber: number;
@@ -8,340 +11,145 @@ export interface ExtractedSlide {
   charCount: number;
   wordCount: number;
 }
-
+export interface PresentationPdf {
+  bytes: Buffer;
+  pageCount: number;
+  source: NonNullable<AnalysisMetadata["source"]>;
+}
 export interface ExtractionResult {
   success: boolean;
   totalSlidesDetected: number;
   slides: ExtractedSlide[];
   rawDocumentText: string;
+  /** Ephemeral server-side bytes; never serialize to the database/client. */
+  pdf?: PresentationPdf;
   errorMessage?: string;
 }
 
-export const EXPECTED_SLIDE_CATEGORIES = [
-  { slideNumber: 1, title: "Slide 1: Cover & Problem Statement Title", category: "Problem Statement & Overview" },
-  { slideNumber: 2, title: "Slide 2: Proposed Solution & Innovation", category: "Proposed Solution & Novelty" },
-  { slideNumber: 3, title: "Slide 3: Technical Approach & Architecture", category: "Technical Architecture & Stack" },
-  { slideNumber: 4, title: "Slide 4: Feasibility, Viability & Risk Mitigation", category: "Feasibility & Technical Risks" },
-  { slideNumber: 5, title: "Slide 5: Impact, Beneficiaries & Commercials", category: "Impact & Beneficiaries" },
-  { slideNumber: 6, title: "Slide 6: Research, References & Team Squad", category: "Research & Team Squad" },
-];
-
-/**
- * Extracts plain text from an uploaded PDF binary buffer using unpdf (Next.js / serverless compatible).
- */
-export async function extractTextFromPDF(pdfBuffer: Buffer): Promise<ExtractionResult> {
-  try {
-    const uint8Data = new Uint8Array(pdfBuffer);
-    const textResult = await extractText(uint8Data, { mergePages: false });
-
-    const pages = (textResult?.text || []).map((p) => sanitizeExtractedText(p || ""));
-    const fullText = pages.join("\n\n").trim();
-
-    let slideChunks: string[] = [];
-
-    if (pages.length >= 2) {
-      slideChunks = pages.filter((s) => s.length > 5);
-    }
-
-    if (slideChunks.length === 0 && fullText.length > 20) {
-      slideChunks = segmentSlidesFromText(fullText);
-    }
-
-    const structuredSlides = mapToSlideStructure(slideChunks, fullText);
-
-    return {
-      success: true,
-      totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
-      slides: structuredSlides,
-      rawDocumentText: fullText,
-    };
-  } catch (err: any) {
-    console.error("[PDF Extractor] Error parsing PDF document:", err);
-    return {
-      success: false,
-      totalSlidesDetected: 0,
-      slides: [],
-      rawDocumentText: "",
-      errorMessage: `PDF Text Extraction failed: ${err.message || "Unknown error"}`,
-    };
-  }
+function failed(errorMessage: string): ExtractionResult {
+  return { success: false, totalSlidesDetected: 0, slides: [], rawDocumentText: "", errorMessage };
 }
 
-export const ALLOWED_PRESENTATION_DOMAINS = [
-  "docs.google.com",
-  "drive.google.com",
-  "slides.google.com",
-  "canva.com",
-  "www.canva.com",
-];
-
-function isPrivateIpOrHost(hostname: string): boolean {
-  const lower = hostname.toLowerCase().trim();
-  if (
-    lower === "localhost" ||
-    lower === "127.0.0.1" ||
-    lower === "0.0.0.0" ||
-    lower === "::1" ||
-    lower.endsWith(".local") ||
-    lower.endsWith(".internal")
-  ) {
-    return true;
-  }
-
-  // IPv4 range checks
-  const ipv4Match = lower.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipv4Match) {
-    const octets = ipv4Match.slice(1, 5).map(Number);
-    if (octets.some((o) => o > 255)) return true; // invalid IP
-    const [o1, o2] = octets;
-    if (o1 === 127) return true; // 127.0.0.0/8 (Loopback)
-    if (o1 === 10) return true; // 10.0.0.0/8 (Private)
-    if (o1 === 172 && o2 >= 16 && o2 <= 31) return true; // 172.16.0.0/12 (Private)
-    if (o1 === 192 && o2 === 168) return true; // 192.168.0.0/16 (Private)
-    if (o1 === 169 && o2 === 254) return true; // 169.254.0.0/16 (Link-local / Cloud metadata)
-    if (o1 === 0) return true;
-  }
-
-  return false;
-}
-
-export function validatePresentationUrl(urlStr: string): { valid: boolean; error?: string; url?: URL } {
-  if (!urlStr || !urlStr.trim()) {
-    return { valid: false, error: "Presentation URL is required." };
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(urlStr.trim());
-  } catch {
-    return { valid: false, error: "Invalid presentation URL format. Please provide a valid HTTPS link." };
-  }
-
-  // Enforce HTTPS only
-  if (parsed.protocol !== "https:") {
-    return { valid: false, error: "Invalid protocol. Only HTTPS presentation links are allowed." };
-  }
-
-  const hostname = parsed.hostname.toLowerCase();
-
-  // Explicitly block private/internal IP ranges and local hostnames
-  if (isPrivateIpOrHost(hostname)) {
-    return {
-      valid: false,
-      error: "Security violation: Access to local or private network addresses is forbidden.",
-    };
-  }
-
-  // Strict domain allowlist check
-  const isAllowedDomain = ALLOWED_PRESENTATION_DOMAINS.some(
-    (allowed) => hostname === allowed || hostname.endsWith(`.${allowed}`)
-  );
-
-  if (!isAllowedDomain) {
-    return {
-      valid: false,
-      error: `Unsupported presentation link domain '${hostname}'. Only Google Slides (docs.google.com, slides.google.com, drive.google.com) and Canva (canva.com) links are permitted.`,
-    };
-  }
-
-  return { valid: true, url: parsed };
-}
-
-/**
- * Extracts plain text from Google Slides or Google Drive presentation link.
- */
-export async function extractPresentationFromUrl(pptUrl: string): Promise<ExtractionResult> {
-  if (!pptUrl || !pptUrl.trim()) {
-    return {
-      success: false,
-      totalSlidesDetected: 0,
-      slides: [],
-      rawDocumentText: "",
-      errorMessage: "No presentation link provided.",
-    };
-  }
-
-  const urlValidation = validatePresentationUrl(pptUrl);
-  if (!urlValidation.valid) {
-    return {
-      success: false,
-      totalSlidesDetected: 0,
-      slides: [],
-      rawDocumentText: "",
-      errorMessage: urlValidation.error,
-    };
-  }
-
-  const urlStr = pptUrl.trim();
-  console.log(`[Presentation Extractor] Fetching text from URL: ${urlStr}`);
-
-  // 1. Google Slides / Google Drive Presentation link handling
-  const googleSlidesMatch =
-    urlStr.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/) ||
-    urlStr.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-
-  if (googleSlidesMatch && googleSlidesMatch[1]) {
-    const presentationId = googleSlidesMatch[1];
-    const exportTxtUrl = `https://docs.google.com/presentation/d/${presentationId}/export/txt`;
-
+/** Retains physical page numbers, including image-only/blank pages. No rendering pipeline. */
+export async function extractTextFromPDF(
+  pdfBuffer: Buffer,
+  source: PresentationPdf["source"] = "linked_pdf",
+  timeoutMs: number = PRESENTATION_LIMITS.parseMs,
+): Promise<ExtractionResult> {
+  if (pdfBuffer.length > PRESENTATION_LIMITS.pdfBytes) return failed("PDF exceeds the 8 MB limit.");
+  if (pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") return failed("Invalid PDF document.");
+  let document: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
+  let expired = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const parse = async (): Promise<ExtractionResult> => {
+    document = await getDocumentProxy(new Uint8Array(pdfBuffer), { useSystemFonts: false, enableXfa: false, verbosity: 0, stopAtErrors: true });
+    if (expired) { await document.loadingTask.destroy(); return failed("PDF parsing timed out."); }
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
-
-      const res = await fetch(exportTxtUrl, {
-        method: "GET",
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
-        },
-        signal: controller.signal,
-        redirect: "manual",
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.status >= 300 && res.status < 400) {
-        console.warn("[Presentation Extractor] Blocked redirect from export/txt endpoint");
-      } else if (res.ok) {
-        const text = await res.text();
-        const cleaned = sanitizeExtractedText(text);
-        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
-          const slideChunks = segmentSlidesFromText(cleaned);
-          const structuredSlides = mapToSlideStructure(slideChunks, cleaned);
-          return {
-            success: true,
-            totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
-            slides: structuredSlides,
-            rawDocumentText: cleaned,
-          };
-        }
+      if (document.numPages < 1 || document.numPages > PRESENTATION_LIMITS.pages) return failed("PDF must contain 1–60 pages.");
+      const pages: string[] = [];
+      let chars = 0;
+      for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber++) {
+        if (expired) return failed("PDF parsing timed out.");
+        const page = await document.getPage(pageNumber);
+        const reader = page.streamTextContent().getReader();
+        let raw = "";
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (expired) return failed("PDF parsing timed out.");
+            for (const item of value.items) {
+              if (!("str" in item)) continue;
+              chars += item.str.length + 1;
+              if (chars > PRESENTATION_LIMITS.textChars) return failed("PDF text exceeds the extraction limit.");
+              raw += item.str + (item.hasEOL ? "\n" : " ");
+            }
+          }
+        } finally { reader.releaseLock(); }
+        const text = sanitizeExtractedText(raw);
+        pages.push(text);
+        page.cleanup();
       }
-    } catch (err: any) {
-      console.warn("[Presentation Extractor] Google Slides export/txt fetch failed:", err.message);
-    }
-
-    // Secondary attempt: Direct Google Drive file download
-    const directDriveUrl = `https://drive.google.com/uc?export=download&id=${presentationId}`;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-      const res = await fetch(directDriveUrl, {
-        method: "GET",
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const arrBuf = await res.arrayBuffer();
-        const buffer = Buffer.from(arrBuf);
-        if (buffer.length > 100 && (buffer.toString("utf8", 0, 10).includes("%PDF") || (res.headers.get("content-type") || "").includes("application/pdf"))) {
-          console.log("[Presentation Extractor] Successfully fetched PDF binary from Google Drive direct link");
-          return extractTextFromPDF(buffer);
-        }
-      }
-    } catch (err: any) {
-      console.warn("[Presentation Extractor] Direct Google Drive file download failed:", err.message);
-    }
-
-    // Tertiary attempt: HTML pub view
-    const pubUrl = `https://docs.google.com/presentation/d/${presentationId}/pub`;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const res = await fetch(pubUrl, {
-        method: "GET",
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
-        },
-        signal: controller.signal,
-        redirect: "manual",
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.status >= 300 && res.status < 400) {
-        console.warn("[Presentation Extractor] Blocked redirect from pub endpoint");
-      } else if (res.ok) {
-        const html = await res.text();
-        const cleaned = stripHtmlToText(html);
-        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
-          const slideChunks = segmentSlidesFromText(cleaned);
-          const structuredSlides = mapToSlideStructure(slideChunks, cleaned);
-          return {
-            success: true,
-            totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
-            slides: structuredSlides,
-            rawDocumentText: cleaned,
-          };
-        }
-      }
-    } catch (err: any) {
-      console.warn("[Presentation Extractor] Google Slides pub fetch failed:", err.message);
-    }
-  }
-
-  // 2. Generic Allowlisted Presentation Link (e.g. Canva or Public PDF)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const res = await fetch(urlStr, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HackerMate-PPT-Extractor/1.0",
-      },
-      signal: controller.signal,
-      redirect: "manual",
-    });
-
-    clearTimeout(timeoutId);
-
-    if (res.status >= 300 && res.status < 400) {
+      const slides = mapToSlideStructure(pages, pages.join("\n\n"));
       return {
-        success: false,
-        totalSlidesDetected: 0,
-        slides: [],
-        rawDocumentText: "",
-        errorMessage: "Redirect responses from presentation links are not supported for security reasons.",
+        success: true, totalSlidesDetected: document.numPages, slides,
+        rawDocumentText: slides.map(slide => `[Slide ${slide.slideNumber}]\n${slide.rawText}`).join("\n\n"),
+        pdf: { bytes: pdfBuffer, pageCount: document.numPages, source },
       };
-    }
+    } finally { await document.loadingTask.destroy(); }
+  };
+  try {
+    return await Promise.race([parse(), new Promise<ExtractionResult>(resolve => {
+      timer = setTimeout(() => { expired = true; void document?.loadingTask.destroy().catch(() => {}); resolve(failed("PDF parsing timed out.")); }, Math.max(1, timeoutMs));
+    })]);
+  } catch {
+    // Do not log parser errors: they may include document data.
+    return failed("PDF parsing failed. Check that the document is valid and not password protected.");
+  } finally { clearTimeout(timer); }
+}
 
-    if (res.ok) {
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("application/pdf")) {
-        const arrBuf = await res.arrayBuffer();
-        return extractTextFromPDF(Buffer.from(arrBuf));
-      } else if (contentType.includes("text/html") || contentType.includes("text/plain")) {
-        const raw = await res.text();
-        const cleaned = stripHtmlToText(raw);
-        if (cleaned.length > 50 && !isGoogleAuthOrBlockedHtml(cleaned)) {
-          const slideChunks = segmentSlidesFromText(cleaned);
-          const structuredSlides = mapToSlideStructure(slideChunks, cleaned);
-          return {
-            success: true,
-            totalSlidesDetected: structuredSlides.filter((s) => s.wordCount > 5).length,
-            slides: structuredSlides,
-            rawDocumentText: cleaned,
-          };
+function fromText(raw: string): ExtractionResult | undefined {
+  const text = sanitizeExtractedText(raw);
+  if (text.length < 50 || isGoogleAuthOrBlockedHtml(text)) return;
+  const chunks = segmentSlidesFromText(text);
+  if (chunks.length > PRESENTATION_LIMITS.pages || text.length > PRESENTATION_LIMITS.textChars) throw new PresentationLimitError("Presentation exceeds the page or text limit.");
+  const slides = mapToSlideStructure(chunks, text);
+  return { success: true, totalSlidesDetected: slides.length, slides, rawDocumentText: slides.map(slide => `[Slide ${slide.slideNumber}]\n${slide.rawText}`).join("\n\n") };
+}
+
+export async function extractPresentationFromUrl(pptUrl: string): Promise<ExtractionResult> {
+  const check = validatePresentationUrl(pptUrl);
+  if (!check.valid || !check.url) return failed(check.error || "Invalid presentation URL.");
+  const url = check.url;
+  const deadline = Date.now() + PRESENTATION_LIMITS.ingestionMs;
+  const slidesId = /^(?:docs|slides)\.google\.com$/.test(url.hostname) ? url.pathname.match(/^\/presentation\/d\/(?!e(?:\/|$))([a-zA-Z0-9_-]+)/)?.[1] : undefined;
+  const driveId = url.hostname === "drive.google.com" ? url.pathname.match(/^\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || url.searchParams.get("id") : undefined;
+  if (driveId && !/^[a-zA-Z0-9_-]+$/.test(driveId)) return failed("Invalid Google Drive file ID.");
+  const id = slidesId || driveId;
+  const pdfCandidates: Array<{ url: string; source: PresentationPdf["source"] }> = slidesId ? [
+    { url: `https://docs.google.com/presentation/d/${slidesId}/export/pdf`, source: "google_slides_pdf" },
+  ] : driveId ? [
+    { url: `https://drive.google.com/uc?export=download&id=${driveId}`, source: "google_drive_pdf" },
+    { url: `https://docs.google.com/presentation/d/${driveId}/export/pdf`, source: "google_slides_pdf" },
+  ] : [{ url: url.href, source: "linked_pdf" }];
+  let textFallback: ExtractionResult | undefined;
+  try {
+    for (const candidate of pdfCandidates) {
+      if (Date.now() >= deadline) break;
+      try {
+        const result = await downloadPresentation(candidate.url, PRESENTATION_LIMITS.pdfBytes, deadline);
+        if (result.bytes.subarray(0, 5).toString("ascii") === "%PDF-") {
+          // Parse failure/oversize/page limits must not bypass validation via a text fallback.
+          return await extractTextFromPDF(result.bytes, candidate.source, Math.min(PRESENTATION_LIMITS.parseMs, deadline - Date.now()));
         }
+        if (result.contentType.includes("application/pdf")) return failed("The link did not return a valid PDF.");
+        if (!id && /text\/(html|plain)/.test(result.contentType)) {
+          if (result.bytes.length > PRESENTATION_LIMITS.textBytes) throw new PresentationLimitError("Presentation text exceeds the download limit.");
+          const raw = result.bytes.toString("utf8");
+          textFallback = fromText(result.contentType.includes("text/html") ? stripHtmlToText(raw) : raw);
+        }
+      } catch (error) {
+        if (error instanceof PresentationLimitError) throw error;
       }
     }
-  } catch (err: any) {
-    console.warn("[Presentation Extractor] Presentation link fetch failed:", err.message);
+    if (textFallback) return textFallback;
+    // Existing Google text/pub fallbacks, now bounded and with validated redirects.
+    if (id) {
+      for (const format of ["export/txt", "pub"]) {
+        if (Date.now() >= deadline) break;
+        try {
+          const result = await downloadPresentation(`https://docs.google.com/presentation/d/${id}/${format}`, PRESENTATION_LIMITS.textBytes, deadline);
+          if (!/text\/(plain|html)/.test(result.contentType)) continue;
+          const raw = result.bytes.toString("utf8");
+          const extracted = fromText(result.contentType.includes("text/html") ? stripHtmlToText(raw) : raw);
+          if (extracted) return extracted;
+        } catch (error) { if (error instanceof PresentationLimitError) throw error; }
+      }
+    }
+  } catch (error) {
+    if (error instanceof PresentationLimitError) return failed(error.message);
   }
-
-  return {
-    success: false,
-    totalSlidesDetected: 0,
-    slides: [],
-    rawDocumentText: "",
-    errorMessage: `Could not access presentation at ${urlStr}. Please verify link sharing permissions (Anyone with link can view).`,
-  };
+  return failed("Could not access a PDF or usable presentation text. Enable 'Anyone with the link can view', or share a PDF stored in Google Drive.");
 }
 
 /**
@@ -364,9 +172,6 @@ export function segmentSlidesFromText(rawText: string): string[] {
     .replace(/\r\n/g, "\n")
     .replace(/\n\s*[-=_]{3,}\s*\n/g, "\f");
 
-  // 3. Replace template footer transitions with \f
-  text = text.replace(/\n+\s*(?:\d{1,2}\s*\n+)?[^]*\n+(?:Your Team Name[^\n]*\n+)?(?:\d{1,2}\s*\n+)?/gi, "\f");
-
   // 4. Split on "Slide 1:", "Slide 1 of 6", or explicit \f
   text = text.replace(/(?=\n\s*Slide\s*\d+(?::|\.|\s+of|\s*\/|\s+[A-Z]))/gi, "\f");
 
@@ -387,8 +192,8 @@ export function segmentSlidesFromText(rawText: string): string[] {
 }
 
 function mapToSlideStructure(slideChunks: string[], fullText: string): ExtractedSlide[] {
-  return EXPECTED_SLIDE_CATEGORIES.map((cat, idx) => {
-    let rawText = slideChunks[idx] || "";
+  return slideChunks.map((chunk, idx) => {
+    let rawText = chunk || "";
     if (!rawText && slideChunks.length === 1 && idx === 0) {
       rawText = fullText;
     }
@@ -396,9 +201,9 @@ function mapToSlideStructure(slideChunks: string[], fullText: string): Extracted
     const words = clean ? clean.split(/\s+/).filter(Boolean) : [];
 
     return {
-      slideNumber: cat.slideNumber,
-      title: cat.title,
-      expectedCategory: cat.category,
+      slideNumber: idx + 1,
+      title: clean.split("\n")[0]?.slice(0, 100) || `Slide ${idx + 1}`,
+      expectedCategory: "Presentation content",
       rawText: clean,
       charCount: clean.length,
       wordCount: words.length,
