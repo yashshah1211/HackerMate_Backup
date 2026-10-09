@@ -148,23 +148,45 @@ Evaluate this AI / GenAI / Agentic system strictly on:
 3. Hallucination Control & Latency (0-25 pts): Guardrails, prompt safety, inference latency optimization, context window management, and fallback strategies.
 4. Unit Economics & Accuracy (0-15 pts): Realistic API cost budgeting, ground truth evaluation metrics, and error mitigation.
     `;
+  } else if (input.trackId === "specific") {
+    trackSpecificGuidance = `
+You are a Senior Technical Judge at a top-tier hackathon.
+Evaluate this pitch STRICTLY based on the following custom organizer rubric:
+---
+${input.customRubric || "No custom rubric provided. Grade generally based on typical hackathon standards."}
+---
+
+CRITICAL INSTRUCTIONS FOR CUSTOM RUBRIC:
+- If the rubric is ambiguous or unsupported, explicitly state this in the 'redFlags' or 'strengths'. Do NOT invent judging rules.
+- Map your evaluation to the following 4 output categories as closely as possible (assume 25 points max per category unless the custom rubric implies otherwise, normalize to 100 total):
+1. Custom Criteria 1 (scoreNovelty)
+2. Custom Criteria 2 (scoreTech)
+3. Custom Criteria 3 (scoreUiUxOrFeasibility)
+4. Custom Criteria 4 (scoreImpactOrTeam)
+    `;
   } else {
     // Generic Mode
     trackSpecificGuidance = `
 You are a Senior Technical Judge at a top-tier hackathon.
 Evaluate this pitch strictly on the following general criteria:
-1. Problem Fit & Differentiation (0-25 pts): Clarity of the problem statement and how the solution differentiates from existing alternatives.
-2. Technical Credibility & Architecture (0-35 pts): Feasibility, logic of the proposed technical architecture, and implementation evidence.
-3. Feasibility & Implementation (0-25 pts): Practical execution details, realistic technical risk assessment, and UI/UX flows.
-4. Value Understanding & Impact (0-15 pts): Clear understanding of the target audience and value proposition.
+1. Problem Clarity & Innovation (0-25 pts): Is the problem well-defined and does the solution offer a creative, innovative approach?
+2. Feasibility & Architecture (0-25 pts): Is the solution technically feasible? Are the architecture and implementation details realistic?
+3. Impact & Viability (0-25 pts): What is the potential impact? Is there a viable path to real-world application?
+4. Presentation Quality (0-25 pts): Is the pitch clearly structured and communicated? Are the slides or text coherent?
     `;
   }
+
+  const visualNote = input.isTextOnly 
+    ? "NOTE: Only extracted text from the presentation was provided. Evaluate purely based on the text. Do NOT pretend you inspected graphics, UI mockups, or visual slide layout." 
+    : "NOTE: Visual slides were provided. You may evaluate visual diagrams and UI mockups.";
 
   return `
 ${trackSpecificGuidance}
 
+${visualNote}
+
 CRITICAL SCORING RULE:
-Do NOT penalize or deduct points for the absence of GitHub repository links or live demo URLs. Judge the proposal strictly and exclusively on the conceptual novelty, technical architecture, schema & pipeline depth, error-handling feasibility, and domain stack relevance described in the submission text.
+Do NOT penalize or deduct points for the absence of GitHub repository links or live demo URLs. Judge the proposal strictly and exclusively on the conceptual novelty, technical architecture, schema & pipeline depth, error-handling feasibility, and domain stack relevance described in the submission text. Explain deductions clearly and give useful slide-specific recommendations. NEVER invent demo results, research evidence, or missing links.
 
 SCORING INSTRUCTION:
 Grade realistically. Sparse or 1-line submissions MUST receive scores below 30. Superficial submissions without architecture MUST score between 35 and 55. High scores (75+) require concrete architecture, data flow, and tech stack justifications.
@@ -194,8 +216,10 @@ Return ONLY a valid JSON object matching this schema:
  * Guarantees: Strong (>75) > Weak (35-55) > Sparse (<30).
  */
 export function generateTrackHeuristicEvaluation(input: EvaluationInput): Omit<ProjectEvaluationResult, "usedAiEngine" | "evaluationTimestamp"> {
-  const trackId = input.trackId || "web_dev";
-  const profile = TRACK_PROFILES[trackId] || TRACK_PROFILES.web_dev;
+  const inputTrackId = input.trackId || "generic";
+  const isKnownTrack = Object.keys(TRACK_PROFILES).includes(inputTrackId);
+  const trackId = isKnownTrack ? inputTrackId : "generic";
+  const profile = TRACK_PROFILES[trackId as JudgingTrackId] || TRACK_PROFILES.generic;
 
   const rawText = [
     input.psTitle,
@@ -274,6 +298,10 @@ export function generateTrackHeuristicEvaluation(input: EvaluationInput): Omit<P
 
     architectureSuggestions.push("Consider adding automated end-to-end integration tests and load testing benchmarks.");
     architectureSuggestions.push("Document rate limiting, API token caching, and edge-function acceleration.");
+  }
+
+  if (trackId === "specific" && input.customRubric) {
+    redFlags.push("Fallback engine used: This heuristic engine cannot accurately evaluate arbitrary custom rubrics. Scores are based on generic baseline algorithms.");
   }
 
   const totalScore = scoreNovelty + scoreTech + scoreUiUxOrFeasibility + scoreImpactOrTeam;

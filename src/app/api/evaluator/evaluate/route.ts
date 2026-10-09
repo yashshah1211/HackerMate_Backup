@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       hackathonId,
       userId,
       forceFallback = false,
+      customRubric,
     } = body;
 
     if (!psTitle || !solutionDescription) {
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validTracks: JudgingTrackId[] = ["web_dev", "ai_genai", "generic"];
+    const validTracks: JudgingTrackId[] = ["web_dev", "ai_genai", "generic", "specific"];
     const activeTrack: JudgingTrackId = validTracks.includes(trackId) ? trackId : "generic";
 
     const input: EvaluationInput = {
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
       slidesText: slidesText ? slidesText.trim() : undefined,
       trackId: activeTrack,
       hackathonId,
+      customRubric: customRubric ? customRubric.trim() : undefined,
     };
 
     // 2. Execute Evaluation Engine (Gemini AI or Heuristic Fallback based on budget / forceFallback)
@@ -113,7 +115,7 @@ export async function POST(req: NextRequest) {
           .insert({
             user_id: userId,
             ps_title: input.psTitle,
-            track_id: input.trackId || "web_dev",
+            track_id: input.trackId || "generic",
             total_score: result.totalScore,
             grade: result.grade,
             used_ai_engine: result.usedAiEngine,

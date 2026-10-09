@@ -24,6 +24,7 @@ import {
   Globe,
   Cpu,
   Presentation,
+  Target,
 } from "lucide-react";
 import {
   Button,
@@ -86,8 +87,10 @@ const ORDERED_SLIDES = [
 ] as const;
 
 const TRACK_OPTIONS: { id: JudgingTrackId; label: string; sub: string }[] = [
-  { id: "ai_genai", label: "AI & GenAI", sub: "Agents, retrieval, latency and hallucination control" },
+  { id: "generic", label: "General", sub: "Standard criteria (Problem, Tech, Impact, Pitch)" },
   { id: "web_dev", label: "Web dev", sub: "APIs, data model, SSR and security" },
+  { id: "ai_genai", label: "AI & GenAI", sub: "Agents, retrieval, latency and hallucination" },
+  { id: "specific", label: "Specific", sub: "Custom organizer rubric (requires rubric input)" },
 ];
 
 /** Engine grades end with emojis; show the words only. */
@@ -128,6 +131,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [externalLink, setExternalLink] = useState("");
   const [psTitle, setPsTitle] = useState("");
   const [psCategory, setPsCategory] = useState("software");
+  const [customRubric, setCustomRubric] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -245,6 +249,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           external_link_url: externalLink.trim(),
           ps_title: psTitle.trim() || "Project Pitch",
           ps_category: psCategory,
+          customRubric: selectedTrack === "specific" ? customRubric : undefined,
         }),
       });
 
@@ -583,6 +588,21 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             </p>
           </div>
 
+          {selectedTrack === "specific" && (
+            <div className="min-w-0">
+              <FieldLabel htmlFor={`ppt-rubric-${teamId}`} hint="Required for Specific mode">Custom organizer rubric</FieldLabel>
+              <Input
+                id={`ppt-rubric-${teamId}`}
+                type="text"
+                value={customRubric}
+                onChange={(e) => setCustomRubric(e.target.value)}
+                placeholder="Paste the hackathon's specific judging criteria..."
+                className="h-10 md:h-[34px]"
+                required
+              />
+            </div>
+          )}
+
           <PresentationErrorAlert
             error={errorMsg}
             onDismiss={() => setErrorMsg(null)}
@@ -706,6 +726,16 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 <span className="font-mono text-[12px]">{selectedEval.file_name}</span> against{" "}
                 <span className="font-mono text-[12px]">{compareEval.file_name}</span>
               </p>
+              
+              {selectedEval.ai_feedback?.track_id && compareEval.ai_feedback?.track_id && selectedEval.ai_feedback.track_id !== compareEval.ai_feedback.track_id && (
+                <div role="alert" className="mx-4 mt-3 flex items-start gap-2 rounded-lg bg-warn-soft p-3 ring-1 ring-inset ring-warn/30">
+                  <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-warn" aria-hidden />
+                  <p className="text-[12.5px] leading-relaxed text-ink-2">
+                    <strong className="font-semibold text-ink">Rubric mismatch:</strong> These versions were evaluated using different tracks. Score comparisons may be misleading.
+                  </p>
+                </div>
+              )}
+
               <List className="px-4 pb-1">
                 {compareRows.map((row) => (
                   <li key={row.label} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">

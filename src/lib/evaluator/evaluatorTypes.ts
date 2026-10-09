@@ -1,4 +1,4 @@
-export type JudgingTrackId = "web_dev" | "ai_genai" | "generic";
+export type JudgingTrackId = "web_dev" | "ai_genai" | "generic" | "specific";
 
 export interface TrackScoreCategories {
   novelty: { label: string; maxPts: number };
@@ -30,6 +30,8 @@ export interface EvaluationInput {
   slidesText?: string;
   trackId: JudgingTrackId;
   hackathonId?: string;
+  customRubric?: string;
+  isTextOnly?: boolean;
   teamInfo?: {
     name?: string;
     memberCount?: number;
@@ -135,26 +137,47 @@ export const TRACK_PROFILES: Record<JudgingTrackId, TrackProfile> = {
     name: "General Technology & Innovation",
     badge: "General Track",
     icon: "💡",
-    tagline: "Problem Clarity, Solution Feasibility & Execution",
-    description: "Evaluates the overall problem-solution fit, technical credibility, and execution evidence across any domain.",
+    tagline: "Problem Clarity, Innovation, Feasibility, Impact & Presentation",
+    description: "Evaluates the overall problem-solution fit, technical feasibility, impact, and presentation quality across any domain.",
     categories: {
-      novelty: { label: "Problem Fit & Differentiation", maxPts: 25 },
-      tech: { label: "Technical Credibility & Architecture", maxPts: 35 },
-      uiUxOrFeasibility: { label: "Feasibility & Implementation", maxPts: 25 },
-      impactOrTeam: { label: "Value Understanding & Impact", maxPts: 15 },
+      novelty: { label: "Problem Clarity & Innovation", maxPts: 25 },
+      tech: { label: "Feasibility & Architecture", maxPts: 25 },
+      uiUxOrFeasibility: { label: "Impact & Viability", maxPts: 25 },
+      impactOrTeam: { label: "Presentation Quality", maxPts: 25 },
     },
     primaryChecks: [
-      "Clarity of the problem statement and target audience",
-      "Credibility and logic of the proposed technical architecture",
-      "Evidence of actual implementation or realistic feasibility",
-      "Understanding of value proposition and differentiation",
+      "Clarity of the problem statement and innovation of the solution",
+      "Technical feasibility and realism of the architecture",
+      "Potential impact and real-world viability",
+      "Overall presentation quality and structure",
     ],
     commonRedFlags: [
       "Vague problem statement or poorly defined solution",
       "Magical thinking in technical architecture with no practical details",
-      "Lack of evidence that the team can execute the idea",
-      "Fails to address why this solution is better than existing alternatives",
+      "Lack of clear impact or target audience",
+      "Disorganized presentation or confusing pitch",
     ],
     recommendedRoles: ["Product Architect", "Lead Developer", "Domain/Research Specialist"],
+  },
+  specific: {
+    id: "specific",
+    name: "Specific Hackathon (Custom)",
+    badge: "Custom Track",
+    icon: "🎯",
+    tagline: "Provide a custom organizer rubric for tailored evaluation",
+    description: "Evaluates the pitch using an organizer-provided custom rubric. Unsupported formats will be explicitly noted.",
+    categories: {
+      novelty: { label: "Custom Criteria 1", maxPts: 25 },
+      tech: { label: "Custom Criteria 2", maxPts: 25 },
+      uiUxOrFeasibility: { label: "Custom Criteria 3", maxPts: 25 },
+      impactOrTeam: { label: "Custom Criteria 4", maxPts: 25 },
+    },
+    primaryChecks: [
+      "Alignment with custom organizer rubric",
+    ],
+    commonRedFlags: [
+      "Fails to address custom rubric requirements",
+    ],
+    recommendedRoles: ["Team Lead", "Specialist"],
   },
 };

@@ -94,6 +94,7 @@ export async function POST(
     let externalLinkUrl: string | null = null;
     let psTitle = "Project Pitch";
     let psCategory = "software";
+    let customRubric: string | null = null;
 
     const contentType = req.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
@@ -102,12 +103,14 @@ export async function POST(
       externalLinkUrl = body.external_link_url?.trim() || null;
       psTitle = (body.ps_title?.trim() || "Project Pitch").slice(0, 200);
       psCategory = (body.ps_category?.trim() || "software").slice(0, 50);
+      customRubric = body.customRubric?.trim() || null;
     } else {
       const formData = await req.formData().catch(() => new FormData());
       rawTrackId = (formData.get("track_id") as string)?.trim() || null;
       externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
       psTitle = ((formData.get("ps_title") as string)?.trim() || "Project Pitch").slice(0, 200);
       psCategory = ((formData.get("ps_category") as string)?.trim() || "software").slice(0, 50);
+      customRubric = ((formData.get("customRubric") as string)?.trim() || null);
     }
 
     if (!externalLinkUrl) {
@@ -123,11 +126,11 @@ export async function POST(
     }
 
     // Resolve Track ID: Fail Loud on Fallback
-    let resolvedTrackId: JudgingTrackId = "web_dev";
+    let resolvedTrackId: JudgingTrackId = "generic";
     let isFallbackTrack = false;
     let trackWarning: string | null = null;
 
-    if (rawTrackId && ["ai_genai", "web_dev"].includes(rawTrackId)) {
+    if (rawTrackId && ["ai_genai", "web_dev", "generic", "specific"].includes(rawTrackId)) {
       resolvedTrackId = rawTrackId as JudgingTrackId;
     } else {
       // Auto-detect track using boundary-safe detector
@@ -143,9 +146,9 @@ export async function POST(
         resolvedTrackId = detection.detectedTrack;
       } else {
         // Fail loud on fallback: Never default silently into whichever grading is easiest!
-        resolvedTrackId = "web_dev";
+        resolvedTrackId = "generic";
         isFallbackTrack = true;
-        trackWarning = "Track not detected — defaulting to Web Dev rubric. Select the correct track if this is a specialized submission.";
+        trackWarning = "Track not detected — defaulting to General Hackathon rubric. Select the correct track if this is a specialized submission.";
         console.warn(`[PPT Evaluate] ${trackWarning} (Team ID: ${teamId})`);
       }
     }
@@ -240,7 +243,8 @@ export async function POST(
           skills: m.profiles?.skills,
         })),
       },
-      resolvedTrackId
+      resolvedTrackId,
+      customRubric || undefined
     );
 
     // 10. Persist Completed Evaluation

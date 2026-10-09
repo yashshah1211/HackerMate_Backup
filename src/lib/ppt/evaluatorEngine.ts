@@ -47,7 +47,8 @@ export async function runPitchDeckEvaluation(
     githubUrl?: string | null;
     demoUrl?: string | null;
   },
-  trackId: JudgingTrackId = "web_dev"
+  trackId: JudgingTrackId = "web_dev",
+  customRubric?: string
 ): Promise<EvaluationEngineResult> {
   const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   const memberCount = teamInfo?.memberCount || 4;
@@ -61,7 +62,8 @@ export async function runPitchDeckEvaluation(
         slideText,
         teamInfo,
         memberCount,
-        trackId
+        trackId,
+        customRubric
       );
       return {
         ...aiResult,
@@ -101,7 +103,8 @@ async function callGeminiWithCascade(
   slideText: string,
   teamInfo: any,
   memberCount: number,
-  trackId: JudgingTrackId = "web_dev"
+  trackId: JudgingTrackId = "web_dev",
+  customRubric?: string
 ) {
   let promptText = "";
   if (trackId === "ai_genai") {
@@ -163,8 +166,117 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
     "researchAndReferences": "Model citations & dataset guidance..."
   }
 }`;
+  } else if (trackId === "specific") {
+    promptText = `You are a Senior Technical Judge at a top-tier hackathon.
+Evaluate this pitch STRICTLY based on the following custom organizer rubric:
+---
+${customRubric || "No custom rubric provided. Grade generally based on typical hackathon standards."}
+---
+
+CRITICAL INSTRUCTIONS FOR CUSTOM RUBRIC:
+- If the rubric is ambiguous or unsupported, explicitly state this in the 'formatViolations' or 'scoreDeductions'. Do NOT invent judging rules.
+- Map your evaluation to the following 4 output categories as closely as possible (assume 25 points max per category unless the custom rubric implies otherwise, normalize to 100 total):
+1. Custom Criteria 1 (scoreNovelty)
+2. Custom Criteria 2 (scoreTech)
+3. Custom Criteria 3 (scoreUiUx)
+4. Custom Criteria 4 (scoreTeam)
+
+SUBMISSION METADATA:
+- Project Title: ${psTitle}
+- Category: ${psCategory}
+- GitHub Code Link: ${teamInfo?.githubUrl || "Not provided"}
+- Prototype Video Link: ${teamInfo?.demoUrl || "Not provided"}
+
+TEAM COMPOSITION:
+- Team Name: ${teamInfo?.name || "HackerMate Team"}
+- Total Members: ${memberCount}
+- Members: ${(teamInfo?.members || []).map((m: any) => `${m.name || "Member"} (${(m.skills || []).join(", ") || "General"})`).join("; ") || "Team details provided"}
+
+EXTRACTED PRESENTATION SLIDE CONTENT (Complete Deck):
+---
+${slideText.slice(0, 35000)}
+---
+
+CRITICAL INSTRUCTION:
+Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching this exact schema:
+{
+  "scoreNovelty": number (0 to 25 integer),
+  "scoreTech": number (0 to 25 integer),
+  "scoreUiUx": number (0 to 25 integer),
+  "scoreTeam": number (0 to 25 integer),
+  "totalScore": number (exact sum, 0 to 100),
+  "grade": "Strong Pitch 🏆" | "Promising ✅" | "Needs Iteration ⚠️" | "Major Concerns 🚨",
+  "formatViolations": ["Format Note: ..."],
+  "scoreDeductions": {
+    "novelty": "Specific explanation of deductions",
+    "tech": "Specific explanation of deductions",
+    "uiUx": "Specific explanation of deductions",
+    "team": "Specific explanation of deductions"
+  },
+  "strengths": ["string", "string"],
+  "criticalRisks": ["string", "string"],
+  "slideRecommendations": {
+    "titlePage": "Title slide guidance...",
+    "proposedSolution": "Guidance...",
+    "technicalApproach": "Guidance...",
+    "feasibilityAndRisks": "Guidance...",
+    "impactAndBenefits": "Guidance...",
+    "researchAndReferences": "Guidance..."
+  }
+}`;
+  } else if (trackId === "generic") {
+    promptText = `You are a Senior Technical Judge at a top-tier hackathon.
+Evaluate this pitch strictly on the following general criteria:
+1. Problem Clarity & Innovation (0-25 pts): Is the problem well-defined and does the solution offer a creative, innovative approach?
+2. Feasibility & Architecture (0-25 pts): Is the solution technically feasible? Are the architecture and implementation details realistic?
+3. Impact & Viability (0-25 pts): What is the potential impact? Is there a viable path to real-world application?
+4. Presentation Quality (0-25 pts): Is the pitch clearly structured and communicated? Are the slides or text coherent?
+
+SUBMISSION METADATA:
+- Project Title: ${psTitle}
+- Category: ${psCategory}
+- GitHub Code Link: ${teamInfo?.githubUrl || "Not provided"}
+- Prototype Video Link: ${teamInfo?.demoUrl || "Not provided"}
+
+TEAM COMPOSITION:
+- Team Name: ${teamInfo?.name || "HackerMate Team"}
+- Total Members: ${memberCount}
+- Members: ${(teamInfo?.members || []).map((m: any) => `${m.name || "Member"} (${(m.skills || []).join(", ") || "General"})`).join("; ") || "Team details provided"}
+
+EXTRACTED PRESENTATION SLIDE CONTENT (Complete Deck):
+---
+${slideText.slice(0, 35000)}
+---
+
+CRITICAL INSTRUCTION:
+Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching this exact schema:
+{
+  "scoreNovelty": number (0 to 25 integer),
+  "scoreTech": number (0 to 25 integer),
+  "scoreUiUx": number (0 to 25 integer),
+  "scoreTeam": number (0 to 25 integer),
+  "totalScore": number (exact sum, 0 to 100),
+  "grade": "Strong Pitch 🏆" | "Promising ✅" | "Needs Iteration ⚠️" | "Major Concerns 🚨",
+  "formatViolations": ["Format Note: ..."],
+  "scoreDeductions": {
+    "novelty": "Specific explanation of deductions",
+    "tech": "Specific explanation of deductions",
+    "uiUx": "Specific explanation of deductions",
+    "team": "Specific explanation of deductions"
+  },
+  "strengths": ["string", "string"],
+  "criticalRisks": ["string", "string"],
+  "slideRecommendations": {
+    "titlePage": "Title slide guidance...",
+    "proposedSolution": "Guidance...",
+    "technicalApproach": "Guidance...",
+    "feasibilityAndRisks": "Guidance...",
+    "impactAndBenefits": "Guidance...",
+    "researchAndReferences": "Guidance..."
+  }
+}`;
   } else {
-    // web_dev / general track
+    // web_dev track
     promptText = `You are a Principal Full-Stack Engineer and National Hackathon Grand Jury Evaluator. Grade this pitch presentation with rigorous full-stack software architecture scrutiny.
 
 FULL-STACK HACKATHON EVALUATION FOCUS:
@@ -224,6 +336,9 @@ Return ONLY a raw JSON object (no markdown, no backticks, no wrapping) matching 
   }
 }`;
   }
+
+  // Append text-only evaluation notice
+  promptText += `\n\nNOTE: Only extracted text from the presentation was provided. Evaluate purely based on the text. Do NOT pretend you inspected graphics, UI mockups, or visual slide layout. Explain deductions clearly grounded in actual presentation content. NEVER invent demo results, research evidence, or missing links.`;
 
   const { text: rawJsonText, modelUsed, modelVersion, latencyMs } = await callGeminiText(promptText, {
     responseMimeType: "application/json",
@@ -437,7 +552,7 @@ export function generateHeuristicEvaluation(
     tech: !hasDataFlowPipeline && techDomainCount === 0
       ? `Lost ${35 - scoreTech} points due to lack of defined technical architecture data flow and framework specifications.`
       : `Lost ${35 - scoreTech} points because deployment infrastructure, data pipeline flowcharts, or fail-safe specifications can be expanded.`,
-    uiUx: `Lost ${25 - scoreUiUx} points because slide visual mockups and user flow diagrams need improvement.`,
+    uiUx: `Lost ${25 - scoreUiUx} points because user flow descriptions and architecture explanations need improvement.`,
     team: teamDeductionText,
   };
 
@@ -451,7 +566,7 @@ export function generateHeuristicEvaluation(
       ? "Slide 1 (Title Page): Ensure project title, team name, and core problem theme are clearly formatted."
       : "Slide 1 (Title Page): Dedicated slide required for team name, project title, theme, and affiliations.",
     proposedSolution: hasSlide2Solution
-      ? "Slide 2 (Proposed Solution): Contrast existing solution drawbacks vs your proposed innovation using visual infographics."
+      ? "Slide 2 (Proposed Solution): Contrast existing solution drawbacks vs your proposed innovation using clear comparisons."
       : "Slide 2 (Proposed Solution): Dedicated slide required for idea title, proposed solution, and core novelty.",
     technicalApproach: hasSlide3Tech
       ? "Slide 3 (Technical Approach): Good technical stack. Include a high-level block architecture diagram and data pipeline flowchart."

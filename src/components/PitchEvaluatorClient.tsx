@@ -26,6 +26,7 @@ import {
   Trash2,
   FolderPlus,
   Lightbulb,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -58,9 +59,10 @@ const TRACK_ICON: Record<JudgingTrackId, LucideIcon> = {
   web_dev: Layers,
   ai_genai: Cpu,
   generic: Lightbulb,
+  specific: Target,
 };
 
-const TRACK_ORDER: JudgingTrackId[] = ["generic", "web_dev", "ai_genai"];
+const TRACK_ORDER: JudgingTrackId[] = ["generic", "web_dev", "ai_genai", "specific"];
 
 /** Grade strings from the engine end in an emoji; strip it for display only. */
 function gradeLabel(grade: string | null | undefined): string {
@@ -110,6 +112,7 @@ export default function PitchEvaluatorClient({
   const [description, setDescription] = useState("");
   const [techStack, setTechStack] = useState("");
   const [architecture, setArchitecture] = useState("");
+  const [customRubric, setCustomRubric] = useState("");
 
   // Logged-in user context & hackathon auto-detection
   const [user, setUser] = useState<any | null>(null);
@@ -349,6 +352,7 @@ export default function PitchEvaluatorClient({
           techStack,
           architectureDetails: architecture,
           trackId: selectedTrack,
+          customRubric: selectedTrack === "specific" ? customRubric : undefined,
           hackathonId: selectedHackathonId || undefined,
           userId: user?.id,
           forceFallback: forceHeuristic,
@@ -618,6 +622,20 @@ export default function PitchEvaluatorClient({
               </div>
               <p className="mt-1.5 text-[12.5px] text-ink-3">{currentProfile.description}</p>
             </fieldset>
+
+            {selectedTrack === "specific" && (
+              <div>
+                <FieldLabel htmlFor="ev-rubric" hint="Required for Specific mode">Custom organizer rubric</FieldLabel>
+                <Textarea
+                  id="ev-rubric"
+                  required
+                  rows={4}
+                  placeholder="Paste the hackathon's specific judging criteria, scoring rules, or focus areas here."
+                  value={customRubric}
+                  onChange={(e) => setCustomRubric(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
               <span className="caps-label text-ink-3">Your idea</span>
