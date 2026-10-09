@@ -2470,6 +2470,8 @@ export default function TeamWorkspaceView({
               teamName={team.name}
               requiredSkills={team.skills}
               rolesNeeded={team.roles_needed}
+              maxMembers={team.max_members}
+              isRecruiting={team.is_recruiting}
               members={members as any}
               isOwnerOrMember={isOwner || members.some((m) => m.profiles?.id === currentUserId || (m as any).user_id === currentUserId)}
               onInviteSent={refreshTeam}

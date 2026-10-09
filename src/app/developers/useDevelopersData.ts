@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { SAFE_PROFILE_COLUMNS } from "@/lib/profileColumns";
+import { loadTeammateRecommendations } from "@/lib/matchingClient";
 
 export type Builder = {
   id: string;
@@ -22,7 +23,7 @@ export type Builder = {
   created_at?: string | null;
 };
 
-export type Recommendation = { compatibility: number; reasons: string[]; confidence?: number; matchEngine?: "v3" | "v2" };
+export type Recommendation = { compatibility: number; reasons: string[]; confidence?: number; rank?: number; matchEngine?: "v3" | "v2" };
 export type Relationship = "connected" | "request_sent" | "request_received";
 export type OwnedTeam = { id: string; name: string; owner_id: string };
 
@@ -56,22 +57,12 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
       const blocked = new Set<string>();
 
       if (user && firstLoad.current) {
-        const fetchMatch = async () => {
-          const res = await supabase.rpc("get_recommended_teammates_v3", { p_user_id: user.id, p_limit: 100 });
-          if (res.error && (res.error.code === "PGRST202" || res.error.code === "42883" || res.error.message?.includes("Could not find the function") || res.error.message?.includes("function get_recommended_teammates_v3 does not exist"))) {
-            console.info("[matchmaking] V3 unavailable; using V2 compatibility fallback");
-            const v2Res = await supabase.rpc("get_recommended_teammates", { p_user_id: user.id, p_limit: 100 });
-            return { data: v2Res.data, error: v2Res.error, matchEngine: "v2" as const };
-          }
-          return { data: res.data, error: res.error, matchEngine: "v3" as const };
-        };
-
         const [profileRes, teamsRes, myBlocks, theirBlocks, recRes, frRes] = await Promise.all([
           supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).single(),
           supabase.from("teams").select("id, name, owner_id").eq("owner_id", user.id),
           supabase.from("blocked_users").select("blocked_id").eq("blocker_id", user.id),
           supabase.from("blocked_users").select("blocker_id").eq("blocked_id", user.id),
-          fetchMatch(),
+          loadTeammateRecommendations(supabase, user.id),
           supabase.from("friend_requests").select("sender_id, receiver_id, status").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
         ]);
         if (profileRes.error) console.error("[developers] viewer profile failed:", profileRes.error);
@@ -86,8 +77,8 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
         (myBlocks.data || []).forEach((b) => blocked.add(b.blocked_id));
         (theirBlocks.data || []).forEach((b) => blocked.add(b.blocker_id));
         const map: Record<string, Recommendation> = {};
-        ((recRes.data as { id: string; compatibility: number; reasons: string[]; confidence?: number }[] | null) || []).forEach((r) => {
-          map[r.id] = { compatibility: r.compatibility, reasons: r.reasons, confidence: r.confidence, matchEngine: recRes.matchEngine };
+        ((recRes.data as { id: string; compatibility: number; reasons: string[]; confidence?: number }[] | null) || []).forEach((r, rank) => {
+          map[r.id] = { compatibility: r.compatibility, reasons: r.reasons, confidence: r.confidence, rank, matchEngine: recRes.matchEngine };
         });
         setRecs(map);
         const rel: Record<string, Relationship> = {};

@@ -28,6 +28,7 @@ import {
 import { isOnline, relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fitBand, matchReason } from "@/lib/matchPresentation";
+import { compareRecommendationRanks } from "@/lib/matchingClient";
 import { type Builder, type OwnedTeam, type Recommendation, type Relationship } from "./useDevelopersData";
 
 type Sort = "fit" | "active" | "new";
@@ -144,15 +145,8 @@ export function DevelopersView({
       const matchX = x.match;
       const matchY = y.match;
       
-      if (matchX && matchY) {
-         if (matchX.compatibility !== matchY.compatibility) {
-             return matchY.compatibility - matchX.compatibility;
-         }
-      } else if (matchX && !matchY) {
-         return -1;
-      } else if (!matchX && matchY) {
-         return 1;
-      }
+      const recommendationOrder = compareRecommendationRanks(matchX, matchY);
+      if (recommendationOrder !== 0) return recommendationOrder;
       
       // Fallback for ties or unscored builders
       const actX = time(x.b.last_seen_at);

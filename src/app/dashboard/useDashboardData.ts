@@ -1,5 +1,7 @@
 "use client";
 
+import { loadTeammateRecommendations } from "@/lib/matchingClient";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeCollege } from "@/lib/colleges";
 import { useRouter } from "next/navigation";
@@ -247,17 +249,8 @@ export function useDashboardData() {
       }
 
       // Kick off independent reads in parallel.
-      const fetchMatch = async () => {
-        if (!profile) return { data: [], error: null, matchEngine: "v3" as const };
-        const res = await supabase.rpc("get_recommended_teammates_v3", { p_user_id: user.id, p_limit: 50 });
-        if (res.error && (res.error.code === "PGRST202" || res.error.code === "42883" || res.error.message?.includes("Could not find the function") || res.error.message?.includes("function get_recommended_teammates_v3 does not exist"))) {
-          console.info("[matchmaking] V3 unavailable; using V2 compatibility fallback");
-          const v2Res = await supabase.rpc("get_recommended_teammates", { p_user_id: user.id, p_limit: 50 });
-          return { data: v2Res.data, error: v2Res.error, matchEngine: "v2" as const };
-        }
-        return { data: res.data, error: res.error, matchEngine: "v3" as const };
-      };
-      const matchP = fetchMatch();
+      const matchP = profile ? loadTeammateRecommendations(supabase, user.id)
+        : Promise.resolve({ data: [], error: null, matchEngine: "v3" as const });
 
       const fetchCampusBuilders = async (normalizedCollege: string | null) => {
         if (!normalizedCollege) return { data: [], count: 0, error: null };

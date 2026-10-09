@@ -1128,6 +1128,14 @@ export type Database = {
         Returns: string
       }
       accept_team_invite: { Args: { p_invite_id: string }; Returns: string }
+      get_team_builder_recommendations: {
+        Args: { p_team_id: string; p_limit?: number }
+        Returns: Json
+      }
+      send_squad_invite: {
+        Args: { p_team_id: string; p_invited_user_id: string }
+        Returns: string
+      }
       accept_team_join_request: {
         Args: { p_request_id: string }
         Returns: string
