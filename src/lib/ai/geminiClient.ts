@@ -291,9 +291,9 @@ export async function callGeminiDocument(
   try { apiKey = getApiKey(); } catch { throw new DocumentAnalysisError({ stage: "request", code: "missing_api_key" }); }
   const started = Date.now();
   const totalTimeoutMs = options.totalTimeoutMs ?? 20_000;
-  // Production v11: both Flash routes returned 503, while the lite provider worked.
-  // Keep the primary unchanged; try that independent fallback with the PDF intact.
-  const models = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-flash-lite-latest"].slice(0, options.maxAttempts ?? 3);
+  // v12 exhausted the PDF budget on two overloaded Flash routes before reaching lite.
+  // Use the PDF-capable model already verified with structured slide feedback directly.
+  const models = ["gemini-flash-lite-latest"].slice(0, options.maxAttempts ?? 1);
   const attempts: Omit<DocumentFailure, "attempts">[] = [];
   const record = (failure: Omit<DocumentFailure, "attempts">) => { attempts.push(failure); console.warn("[Gemini Document]", JSON.stringify(failure)); };
   const body = JSON.stringify({
@@ -315,7 +315,7 @@ export async function callGeminiDocument(
       break;
     }
     const modelStarted = Date.now();
-    const signal = AbortSignal.timeout(Math.min(options.perModelTimeoutMs ?? 12_000, remaining));
+    const signal = AbortSignal.timeout(Math.max(1, Math.min(options.perModelTimeoutMs ?? totalTimeoutMs - 500, remaining - 500)));
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",

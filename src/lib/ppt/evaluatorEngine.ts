@@ -176,9 +176,9 @@ ${pdf ? 'Also return REQUIRED slideFeedback: an array of 1–12 objects with sli
     responseMimeType: "application/json",
     temperature: 0.1,
     maxOutputTokens: 6500,
-    perModelTimeoutMs: pdf ? 12000 : 10000,
+    perModelTimeoutMs: pdf ? Math.max(1, totalTimeoutMs - 500) : 10000,
     totalTimeoutMs,
-    maxAttempts: pdf ? 3 : 2,
+    maxAttempts: pdf ? 1 : 2,
     ...(pdf ? { responseJsonSchema: {
       type: "object",
       properties: {

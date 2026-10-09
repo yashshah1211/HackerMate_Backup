@@ -230,16 +230,19 @@ test('real evaluator UI retains legacy feedback, red flags and versions without 
   assert.match(html, /Legacy score explanation/); assert.match(html, /Versions/); assert.match(html, /v3/);
 });
 
-test('PDF overload falls through to the working lite provider before sacrificing visual input', async () => {
-  const calls = [];
-  const { load } = harness({}, { fetch: async (url, options) => {
+test('v12 overloaded Flash routes cannot consume the budget before the lite PDF request', async () => {
+  const calls = []; let now = 0; let allottedMs;
+  const { load } = harness({}, { Date: class extends Date { static now() { return now; } }, AbortSignal: { timeout(ms) { allottedMs = ms; return { aborted: false }; } }, fetch: async (url, options) => {
     calls.push({ url, body: JSON.parse(options.body) });
+    now += url.includes('gemini-flash-lite-latest') ? 15000 : 10000;
     return url.includes('gemini-flash-lite-latest') ? aiResponse() : new Response('provider detail must never be persisted', { status: 503 });
   } });
   const extraction = await load(extractorPath).extractTextFromPDF(makePitchPdf());
   const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', extraction.rawDocumentText, { memberCount: 6 }, 'generic', undefined, extraction.pdf);
   assert.equal(result.analysis.mode, 'visual_text');
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 1);
+  assert(calls[0].url.includes('gemini-flash-lite-latest'));
+  assert(allottedMs >= 15000 && allottedMs < 20000, 'Give the PDF request enough time and reserve validation time within the same 20s cap.');
   assert(calls.every(call => call.body.contents[0].parts[0].inlineData?.mimeType === 'application/pdf'));
 });
 
@@ -290,15 +293,17 @@ test('PDF diagnostics distinguish transport failure, timeout and insufficient bu
   assert.equal(calls, 0); assert.equal(result.analysis.fallbackReason.code, 'budget_exhausted');
 });
 
-test('PDF cascade retains earlier HTTP failures when the shared budget prevents another request', async () => {
+test('lite PDF failure is diagnosed once and never starts another document model', async () => {
   let now = 0, calls = 0;
-  const { load } = harness({}, { Date: class extends Date { static now() { return now; } }, fetch: async () => { calls++; now += 10000; return new Response('', { status: 503 }); } });
+  const { load } = harness({}, { Date: class extends Date { static now() { return now; } }, fetch: async url => { assert(url.includes('gemini-flash-lite-latest')); calls++; now += 10000; return new Response('', { status: 503 }); } });
   await assert.rejects(load(gatewayPath).callGeminiDocument('fixture', makePitchPdf()), error => {
-    assert.equal(error.failure.code, 'budget_exhausted');
-    assert.equal(error.failure.attempts.filter(attempt => attempt.httpStatus === 503).length, 2);
+    assert.equal(error.failure.code, 'http_error');
+    assert.equal(error.failure.model, 'gemini-flash-lite-latest');
+    assert.equal(error.failure.httpStatus, 503);
+    assert.equal(error.failure.attempts.length, 1);
     return true;
   });
-  assert.equal(calls, 2);
+  assert.equal(calls, 1);
 });
 
 test('all rubric prompts and deductions align categories and prohibit invented eligibility/AI requirements', async () => {
