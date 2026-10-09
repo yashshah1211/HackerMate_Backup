@@ -1,4 +1,19 @@
 /** Safe to import in client components. PDF bytes never belong in persisted feedback. */
+import { TRACK_PROFILES, type JudgingTrackId } from "../evaluator/evaluatorTypes";
+
+export function getPitchCategories(track: JudgingTrackId) {
+  const categories = TRACK_PROFILES[track]?.categories || TRACK_PROFILES.generic.categories;
+  return track === "ai_genai" ? { ...categories, tech: { ...categories.tech, label: "Model Pipeline & Architecture" } } : categories;
+}
+
+/** Only fixed codes and transport metadata; never provider messages or document text. */
+export interface DocumentFailure {
+  stage: "request" | "response" | "validation" | "budget";
+  code: "http_error" | "timeout" | "network_error" | "budget_exhausted" | "blocked_response" | "incomplete_response" | "empty_response" | "invalid_json" | "invalid_scores" | "invalid_deductions" | "missing_slide_feedback" | "invalid_slide_feedback" | "missing_api_key" | "invalid_input" | "document_error";
+  model?: string;
+  httpStatus?: number;
+  attempts?: Omit<DocumentFailure, "attempts">[];
+}
 export const PRESENTATION_LIMITS = {
   pdfBytes: 8 * 1024 * 1024,
   textBytes: 512 * 1024,
@@ -15,7 +30,7 @@ export interface AnalysisMetadata {
   pageCount?: number;
   pdfBytes?: number;
   source?: "google_slides_pdf" | "google_drive_pdf" | "linked_pdf" | "extracted_text";
-  fallbackReason?: "pdf_unavailable" | "document_ai_failed" | "ai_unavailable";
+  fallbackReason?: "pdf_unavailable" | "document_ai_failed" | "ai_unavailable" | DocumentFailure;
   modelUsed?: string;
   modelVersion?: string;
 }

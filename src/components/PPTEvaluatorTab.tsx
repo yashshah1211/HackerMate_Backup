@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import PitchAnalysisBadge from "@/components/PitchAnalysisBadge";
-import { getAnalysisDisplay, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
+import { getAnalysisDisplay, getPitchCategories, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
 import { supabase } from "@/lib/supabase";
 import LinkedIdeaScorecard, { LinkedEvaluationRecord } from "@/components/LinkedIdeaScorecard";
 import PresentationErrorAlert from "@/components/ui/PresentationErrorAlert";
@@ -80,13 +80,13 @@ interface PPTEvaluation {
   created_at: string;
 }
 
-const ORDERED_SLIDES = [
-  { key: "titlePage", label: "Slide 1: Title Page & Team Setup", slideNum: 1 },
-  { key: "proposedSolution", label: "Slide 2: Idea & Proposed Solution", slideNum: 2 },
-  { key: "technicalApproach", label: "Slide 3: Technical Approach & Architecture", slideNum: 3 },
-  { key: "feasibilityAndRisks", label: "Slide 4: Feasibility & Risk Mitigation", slideNum: 4 },
-  { key: "impactAndBenefits", label: "Slide 5: Impact, Benefits & Commercial ROI", slideNum: 5 },
-  { key: "researchAndReferences", label: "Slide 6: Research Papers & References", slideNum: 6 },
+const TOPIC_RECOMMENDATIONS = [
+  { key: "titlePage", label: "Title & Problem Context" },
+  { key: "proposedSolution", label: "Proposed Solution" },
+  { key: "technicalApproach", label: "Technical Approach & Architecture" },
+  { key: "feasibilityAndRisks", label: "Feasibility & Risk Mitigation" },
+  { key: "impactAndBenefits", label: "Impact & Benefits" },
+  { key: "researchAndReferences", label: "Research & References" },
 ] as const;
 
 const TRACK_OPTIONS: { id: JudgingTrackId; label: string; sub: string }[] = [
@@ -392,9 +392,6 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const teamDiff =
     selectedEval && compareEval ? selectedEval.score_team - compareEval.score_team : null;
 
-  const prevFlags = compareEval?.ai_feedback?.criticalRisks || compareEval?.ai_feedback?.spocRedFlags || [];
-  const currFlags = selectedEval?.ai_feedback?.criticalRisks || selectedEval?.ai_feedback?.spocRedFlags || [];
-  const resolvedRedFlags = prevFlags.filter((rf) => !currFlags.includes(rf));
 
   const renderDiffBadge = (diff: number | null, prefix: string = "") => {
     if (diff === null) return null;
@@ -410,9 +407,9 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
   const trackDescription =
     selectedTrack === "ai_genai"
-      ? "Paste a Google Slides or Drive link. Scored 0–100 on AI hackathon criteria: agent design, retrieval, latency, hallucination control and team roles."
+      ? "Paste a Google Slides or Drive link. Reviewed for useful AI differentiation, the project's model pipeline, error control, latency, accuracy and costs."
       : selectedTrack === "web_dev"
-        ? "Paste a Google Slides or Drive link. Scored 0–100 on full-stack criteria: API design, data model, caching, security, responsive UI and team roles."
+        ? "Paste a Google Slides or Drive link. Reviewed for problem fit, full-stack architecture, user interaction, performance and execution evidence."
         : selectedTrack === "specific"
           ? "Share a presentation and the organizer rubric for a tailored hackathon review."
           : "Share a Google Slides or Drive presentation. Reviewed for problem clarity, innovation, feasibility, impact and pitch quality.";
@@ -429,15 +426,15 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const selectedTrackInfo = selectedEval
     ? getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev")
     : null;
-  const selectedProfile = TRACK_PROFILES[(selectedEval?.track_id || selectedEval?.ai_feedback?.track_id || "web_dev") as JudgingTrackId] || TRACK_PROFILES.generic;
+  const selectedCategories = getPitchCategories((selectedEval?.track_id || selectedEval?.ai_feedback?.track_id || "web_dev") as JudgingTrackId);
   const analysisDisplay = getAnalysisDisplay(selectedEval?.ai_feedback);
 
   const rubric = selectedEval
     ? [
-        { key: "novelty", label: selectedProfile.categories.novelty.label, value: selectedEval.score_novelty, max: selectedProfile.categories.novelty.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives." },
-        { key: "tech", label: selectedProfile.categories.tech.label, value: selectedEval.score_tech, max: selectedProfile.categories.tech.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes." },
-        { key: "uiux", label: selectedProfile.categories.uiUxOrFeasibility.label, value: selectedEval.score_ui_ux, max: selectedProfile.categories.uiUxOrFeasibility.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates the selected rubric criterion." },
-        { key: "team", label: selectedProfile.categories.impactOrTeam.label, value: selectedEval.score_team, max: selectedProfile.categories.impactOrTeam.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates the selected rubric criterion." },
+        { key: "novelty", label: selectedCategories.novelty.label, value: selectedEval.score_novelty, max: selectedCategories.novelty.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives." },
+        { key: "tech", label: selectedCategories.tech.label, value: selectedEval.score_tech, max: selectedCategories.tech.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes." },
+        { key: "uiux", label: selectedCategories.uiUxOrFeasibility.label, value: selectedEval.score_ui_ux, max: selectedCategories.uiUxOrFeasibility.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.uiUx || "Evaluates the selected rubric criterion." },
+        { key: "team", label: selectedCategories.impactOrTeam.label, value: selectedEval.score_team, max: selectedCategories.impactOrTeam.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.team || "Evaluates the selected rubric criterion." },
       ]
     : [];
 
@@ -445,10 +442,10 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     selectedEval && compareEval
       ? [
           { label: "Overall", from: compareEval.total_score, to: selectedEval.total_score, diff: scoreDiff },
-          { label: "Novelty", from: compareEval.score_novelty, to: selectedEval.score_novelty, diff: noveltyDiff },
-          { label: "Tech", from: compareEval.score_tech, to: selectedEval.score_tech, diff: techDiff },
-          { label: "UI/UX", from: compareEval.score_ui_ux, to: selectedEval.score_ui_ux, diff: uiUxDiff },
-          { label: "Team", from: compareEval.score_team, to: selectedEval.score_team, diff: teamDiff },
+          { label: selectedCategories.novelty.label, from: compareEval.score_novelty, to: selectedEval.score_novelty, diff: noveltyDiff },
+          { label: selectedCategories.tech.label, from: compareEval.score_tech, to: selectedEval.score_tech, diff: techDiff },
+          { label: selectedCategories.uiUxOrFeasibility.label, from: compareEval.score_ui_ux, to: selectedEval.score_ui_ux, diff: uiUxDiff },
+          { label: selectedCategories.impactOrTeam.label, from: compareEval.score_team, to: selectedEval.score_team, diff: teamDiff },
         ]
       : [];
 
@@ -765,20 +762,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 ))}
               </List>
 
-              {/* Resolved red flags */}
-              {resolvedRedFlags.length > 0 && (
-                <div className="border-t border-line px-4 py-3">
-                  <p className="caps-label text-ink-3">Resolved since v{compareEval.version}</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {resolvedRedFlags.map((rf, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-2">
-                        <CheckCircle2 className="mt-[3px] size-3.5 shrink-0 text-ok" aria-hidden />
-                        <span className="min-w-0">{rf}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <p className="border-t border-line px-4 py-3 text-[12.5px] text-ink-3">Risk wording can change between evaluations. Omission does not establish resolution; verify mitigations against the current deck.</p>
             </Panel>
           )}
 
@@ -820,9 +804,9 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
           {/* Slide-by-slide recommendations */}
           <Panel as="section" className="min-w-0">
-            <PanelHead icon={<Lightbulb className="text-ink-3" />} title="Slide by slide" />
+            <PanelHead icon={<Lightbulb className="text-ink-3" />} title={analysisDisplay.mode === "visual_text" && selectedEval.ai_feedback?.slideFeedback?.length ? "Slide by slide" : "Topic recommendations"} />
             <List className="px-4">
-              {selectedEval.ai_feedback?.slideFeedback?.length ? selectedEval.ai_feedback.slideFeedback.map((slide, index) => (
+              {analysisDisplay.mode === "visual_text" && selectedEval.ai_feedback?.slideFeedback?.length ? selectedEval.ai_feedback.slideFeedback.map((slide, index) => (
                 <li key={`${slide.slideNumber}-${index}`} className="flex items-start gap-3 py-3">
                   <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2">{slide.slideNumber}</span>
                   <div className="min-w-0">
@@ -831,15 +815,15 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                     <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{slide.recommendation}</p>
                   </div>
                 </li>
-              )) : ORDERED_SLIDES.map((slide) => {
+              )) : TOPIC_RECOMMENDATIONS.filter(slide => selectedEval.ai_feedback?.slideRecommendations?.[slide.key]).map((slide) => {
                 const rec = selectedEval.ai_feedback?.slideRecommendations?.[slide.key];
                 return (
                   <li key={slide.key} className="flex items-start gap-3 py-3">
                     <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2 tabular">
-                      {selectedEval.ai_feedback?.analysis ? "·" : slide.slideNum}
+                      ·
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-ink">{slide.label.replace(/^Slide \d+:\s*/, "")}</p>
+                      <p className="text-[13px] font-semibold text-ink">{slide.label}</p>
                       <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-3">
                         {rec || "No additional recommendation recorded for this topic."}
                       </p>
