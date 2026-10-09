@@ -26,7 +26,6 @@ import {
   Trash2,
   FolderPlus,
   Lightbulb,
-  Target,
   type LucideIcon,
 } from "lucide-react";
 import {
