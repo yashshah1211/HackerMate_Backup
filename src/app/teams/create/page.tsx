@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, type ReactNode } from "react";
+import { useEffect, useRef, useState, Suspense, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lightbulb, Minus, Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -86,6 +86,9 @@ function CreateTeamForm() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [maxMembers, setMaxMembers] = useState(4);
   const [loading, setLoading] = useState(false);
+  const creatingRef = useRef(false);
+  const createdTeamRef = useRef<string | null>(null);
+  const [handoff, setHandoff] = useState<{ workspaceHref: string; inviteFailed: boolean } | null>(null);
   const [customCollege, setCustomCollege] = useState("");
   const [collegeSearch, setCollegeSearch] = useState("");
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
@@ -297,83 +300,116 @@ function CreateTeamForm() {
   }, [inviteUserId]);
 
   async function executeCreateTeam() {
+    // State alone cannot guard two clicks before React renders the busy button.
+    if (creatingRef.current || createdTeamRef.current) return;
+    creatingRef.current = true;
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { showToast("You must be logged in", "error"); setLoading(false); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { showToast("You must be logged in", "error"); return; }
 
-    const selectedHackathon = hackathons.find((h) => h.id === hackathonId);
+      const selectedHackathon = hackathons.find((h) => h.id === hackathonId);
 
-    let finalDesc = description.trim();
-    if (selectedTrack) {
-      finalDesc = `[Track: ${selectedTrack}] ${finalDesc}`;
-    }
-
-    const { data: teamId, error } = await supabase.rpc("create_team_with_owner", {
-      p_name: name.trim(),
-      p_description: finalDesc,
-      p_max_members: maxMembers,
-      p_college: college
-        ? normalizeCollege(college === "Other" ? customCollege.trim() : college)
-        : currentUserProfile?.college
-        ? normalizeCollege(currentUserProfile.college)
-        : null,
-
-      p_hackathon_id: hackathonId || null,
-      p_hackathon_name: selectedHackathon?.name || null,
-      p_skills: selectedSkills,
-      p_roles_needed: selectedRoles,
-    });
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      setLoading(false);
-      return;
-    }
-
-    if (teamId && hackathonId) {
-      try {
-        await supabase.from("team_hackathons").upsert(
-          { team_id: teamId, hackathon_id: hackathonId },
-          { onConflict: "team_id,hackathon_id" }
-        );
-      } catch (hErr) {
-        console.error("Failed to link team_hackathons:", hErr);
+      let finalDesc = description.trim();
+      if (selectedTrack) {
+        finalDesc = `[Track: ${selectedTrack}] ${finalDesc}`;
       }
-    }
 
-    trackEvent("team_created", {
-      team_id: teamId,
-      team_name: name.trim(),
-      hackathon_id: hackathonId || null,
-      max_members: maxMembers,
-      has_auto_invited_user: !!inviteUserId,
-    });
+      const { data: teamId, error } = await supabase.rpc("create_team_with_owner", {
+        p_name: name.trim(),
+        p_description: finalDesc,
+        p_max_members: maxMembers,
+        p_college: college
+          ? normalizeCollege(college === "Other" ? customCollege.trim() : college)
+          : currentUserProfile?.college
+          ? normalizeCollege(currentUserProfile.college)
+          : null,
 
-    // Auto-invite user from post-acceptance prompt if param present
-    if (inviteUserId && teamId) {
-      const { error: inviteErr } = await supabase.rpc("send_team_invite", {
-        p_team_id: teamId as string,
-        p_invited_user_id: inviteUserId,
+        p_hackathon_id: hackathonId || null,
+        p_hackathon_name: selectedHackathon?.name || null,
+        p_skills: selectedSkills,
+        p_roles_needed: selectedRoles,
       });
-      if (inviteErr) {
-        console.error("Auto-invite failed:", inviteErr);
-        showToast("Team created! (Invite failed — please invite from workspace)", "warning");
-      } else {
-        const label = inviteUserName || "your new connection";
-        showToast(`Team created and invite sent to ${label}!`, "success");
+
+      if (error) {
+        console.error(error);
+        showToast(error.message, "error");
+        return;
       }
 
-    } else {
-      showToast("Team created successfully!", "success");
-    }
+      // create_team_with_owner returns a scalar UUID, not a team object.
+      if (typeof teamId !== "string" || !teamId) {
+        showToast("Could not confirm the new team. Check My teams before trying again.", "error");
+        return;
+      }
+      createdTeamRef.current = teamId;
+      const workspaceHref = `/teams/${encodeURIComponent(teamId)}/workspace${hackathonId ? `?hackathon_id=${encodeURIComponent(hackathonId)}` : ""}`;
+      setHandoff({ workspaceHref, inviteFailed: false });
 
-    setLoading(false);
-    router.push("/teams");
+      if (teamId && hackathonId) {
+        try {
+          await supabase.from("team_hackathons").upsert(
+            { team_id: teamId, hackathon_id: hackathonId },
+            { onConflict: "team_id,hackathon_id" }
+          );
+        } catch (hErr) {
+          console.error("Failed to link team_hackathons:", hErr);
+        }
+      }
+
+      try {
+        trackEvent("team_created", {
+          team_id: teamId,
+          team_name: name.trim(),
+          hackathon_id: hackathonId || null,
+          max_members: maxMembers,
+          has_auto_invited_user: !!inviteUserId,
+        });
+      } catch (trackingError) {
+        // Analytics must not interrupt an already-created team's handoff.
+        console.error("Could not track team creation:", trackingError);
+      }
+
+      // Auto-invite user from post-acceptance prompt if param present
+      if (inviteUserId && teamId) {
+        try {
+          const { error: inviteErr } = await supabase.rpc("send_team_invite", {
+            p_team_id: teamId,
+            p_invited_user_id: inviteUserId,
+          });
+          if (inviteErr) {
+            console.error("Auto-invite failed:", inviteErr);
+            setHandoff({ workspaceHref, inviteFailed: true });
+            return;
+          } else {
+            const label = inviteUserName || "your new connection";
+            showToast(`Team created and invite sent to ${label}!`, "success");
+          }
+        } catch (inviteErr) {
+          console.error("Auto-invite failed:", inviteErr);
+          setHandoff({ workspaceHref, inviteFailed: true });
+          return;
+        }
+
+      } else {
+        showToast("Team created successfully!", "success");
+      }
+
+      router.replace(workspaceHref);
+    } catch (error) {
+      console.error(error);
+      if (!createdTeamRef.current) {
+        showToast("Could not create the team. Please try again.", "error");
+      }
+    } finally {
+      creatingRef.current = false;
+      setLoading(false);
+    }
   }
 
   function handleCreateTeam() {
+    if (creatingRef.current || createdTeamRef.current) return;
     if (!name.trim()) { showToast("Team name is required", "warning"); return; }
     if (!description.trim()) { showToast("Team description is required", "warning"); return; }
     if (college === "Other" && !customCollege.trim()) { showToast("Please enter your college name", "warning"); return; }
@@ -393,6 +429,7 @@ function CreateTeamForm() {
 
   const isDisabled =
     loading ||
+    handoff !== null ||
     !name.trim() ||
     !description.trim() ||
     (college === "Other" && !customCollege.trim()) ||
@@ -429,6 +466,34 @@ function CreateTeamForm() {
       {loading ? "Creating team…" : "Create team"}
     </Button>
   );
+
+  if (handoff) {
+    return (
+      <Page width="narrow">
+        <PageHeader eyebrow="Teams" title="Team created" meta="Your workspace is ready." />
+        <Panel className="mt-6 p-5">
+          <div role="status" aria-live="polite">
+            <h2 className="text-[15px] font-semibold text-ink">
+              {handoff.inviteFailed ? "Your team is ready. The invitation could not be confirmed." : "Your team is ready to use."}
+            </h2>
+            {handoff.inviteFailed && (
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
+                You can start using your workspace now. To check or resend the invitation, open the builder&apos;s profile and choose your new team.
+              </p>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ButtonLink href={handoff.workspaceHref} variant="primary">Open workspace</ButtonLink>
+            {handoff.inviteFailed && inviteUserId && (
+              <ButtonLink href={`/profile/${encodeURIComponent(inviteUserId)}`} variant="secondary" icon={<UserPlus />}>
+                View builder and invite
+              </ButtonLink>
+            )}
+          </div>
+        </Panel>
+      </Page>
+    );
+  }
 
   return (
     <Page width="narrow" className="pb-44 md:pb-16">
