@@ -346,6 +346,13 @@ function CreateTeamForm() {
       createdTeamRef.current = teamId;
       const workspaceHref = `/teams/${encodeURIComponent(teamId)}/workspace${hackathonId ? `?hackathon_id=${encodeURIComponent(hackathonId)}` : ""}`;
       setHandoff({ workspaceHref, inviteFailed: false });
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new Event("hm:teams-changed"));
+        } catch (eventError) {
+          console.error("Could not dispatch hm:teams-changed:", eventError);
+        }
+      }
 
       if (teamId && hackathonId) {
         try {
@@ -476,9 +483,13 @@ function CreateTeamForm() {
             <h2 className="text-[15px] font-semibold text-ink">
               {handoff.inviteFailed ? "Your team is ready. The invitation could not be confirmed." : "Your team is ready to use."}
             </h2>
-            {handoff.inviteFailed && (
+            {handoff.inviteFailed ? (
               <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
                 You can start using your workspace now. To check or resend the invitation, open the builder&apos;s profile and choose your new team.
+              </p>
+            ) : (
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
+                Taking you to your team workspace…
               </p>
             )}
           </div>

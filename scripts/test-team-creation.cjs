@@ -48,6 +48,7 @@ function ui(options = {}) {
   const navigations = [];
   const toasts = [];
   const events = [];
+  const dispatched = [];
   const client = {
     auth: { getUser: options.auth || (async () => ({ data: { user: { id: 'fixture-owner' } } })) },
     async rpc(name, args) {
@@ -83,7 +84,7 @@ function ui(options = {}) {
     '@/components/AuthGuard': ({ children }) => children,
     '@/components/ContextualProfileNudgeModal': () => null,
   };
-  const Page = harness(overrides).load('src/app/teams/create/page.tsx').default;
+  const Page = harness(overrides, { window: { dispatchEvent: event => dispatched.push(event.type) }, Event }).load('src/app/teams/create/page.tsx').default;
   const Form = Page().props.children.props.children.type;
   let tree;
   const render = () => { cursor = 0; refCursor = 0; tree = Form(); return tree; };
@@ -98,7 +99,7 @@ function ui(options = {}) {
   }
   render();
   return {
-    calls, navigations, toasts, events, values, render,
+    calls, navigations, toasts, events, dispatched, values, render,
     html: () => renderToStaticMarkup(render()),
     submit: () => find(tree, node => node.props?.children === 'Create team' || node.props?.children === 'Creating team…'),
     nudge: () => find(tree, node => typeof node.props?.onProceed === 'function'),
@@ -114,6 +115,7 @@ test('successful creation opens the workspace using the scalar returned UUID', a
   assert.equal(view.calls[0].args.p_name, 'Fixture team');
   assert.equal(view.events[0].name, 'team_created');
   assert.equal(view.events[0].props.team_id, TEAM);
+  assert.deepEqual(view.dispatched, ['hm:teams-changed']);
   assert(!view.html().includes('Create team</button>'));
 });
 
@@ -150,6 +152,7 @@ for (const thrown of [false, true]) test(`invitation ${thrown ? 'exception' : 'R
   assert(!html.includes('Create team</button>'));
   assert(!view.toasts.some(toast => toast.type === 'error'));
   assert.deepEqual(view.navigations, []);
+  assert.deepEqual(view.dispatched, ['hm:teams-changed']);
   oldSubmit();
   await settle();
   assert.equal(view.calls.filter(call => call.name === 'create_team_with_owner').length, 1);
@@ -179,9 +182,11 @@ test('creation RPC rejection retains the error and allows a deliberate retry', a
   assert.deepEqual(view.toasts, [{ message: 'Creation denied', type: 'error' }]);
   assert.equal(view.values.get('loading'), false);
   assert.deepEqual(view.navigations, []);
+  assert.deepEqual(view.dispatched, []);
   view.render(); view.submit().props.onClick();
   await settle();
   assert.deepEqual(view.navigations, [WORKSPACE]);
+  assert.deepEqual(view.dispatched, ['hm:teams-changed']);
 });
 
 test('creation exception clears busy state without claiming success', async () => {
