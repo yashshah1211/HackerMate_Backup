@@ -122,7 +122,7 @@ export function DevelopersView({
     const list = scored.filter(({ b }) => {
       if (filters.college && (b.college || "").toLowerCase().trim() !== filters.college.toLowerCase().trim()) return false;
       if (filters.year && (b.year_of_study || "").toLowerCase().trim() !== filters.year.toLowerCase()) return false;
-      if (filters.availableOnly && b.is_available === false) return false;
+      if (filters.availableOnly && b.is_available !== true) return false;
       if (filters.experience === "won" && !((b.hackathon_wins ?? 0) > 0 || b.has_won_hackathon)) return false;
       if (filters.experience === "competed" && !(b.has_participated_hackathon || (b.hackathon_participations ?? 0) > 0 || (b.hackathon_wins ?? 0) > 0))
         return false;
@@ -162,7 +162,7 @@ export function DevelopersView({
 
   const activeFilterCount =
     (filters.college ? 1 : 0) + (filters.year ? 1 : 0) + (filters.availableOnly ? 1 : 0) + (filters.experience !== "any" ? 1 : 0) + filters.skills.length;
-  const availableCount = builders.filter((b) => b.is_available !== false).length;
+  const availableCount = builders.filter((b) => b.is_available === true).length;
 
   const update = (p: Partial<Filters>) => {
     setFilters((f) => ({ ...f, ...p }));
@@ -291,7 +291,7 @@ export function DevelopersView({
         meta={
           loading
             ? "Loading the network…"
-            : `${builders.length.toLocaleString("en-IN")} builders · ${availableCount.toLocaleString("en-IN")} available for a team`
+            : `${builders.length.toLocaleString("en-IN")} builders loaded · ${availableCount.toLocaleString("en-IN")} available for a team`
         }
         tabs={
           <RouteTabs
@@ -477,11 +477,14 @@ function BuilderRow({
             >
               {b.full_name || "Builder"}
             </Link>
-            {b.is_available !== false && (
+            {b.is_available === true && (
               <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
                 <span className="size-1.5 rounded-full bg-ok" aria-hidden />
                 Available
               </span>
+            )}
+            {(b.is_available === null || b.is_available === undefined) && (
+              <span className="text-[13px] text-ink-3">Availability not specified</span>
             )}
             {wins > 0 ? (
               <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
