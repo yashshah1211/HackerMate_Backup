@@ -163,6 +163,15 @@ export function DevelopersView({
   const activeFilterCount =
     (filters.college ? 1 : 0) + (filters.year ? 1 : 0) + (filters.availableOnly ? 1 : 0) + (filters.experience !== "any" ? 1 : 0) + filters.skills.length;
   const availableCount = builders.filter((b) => b.is_available === true).length;
+  const hasSearch = search.trim().length > 0;
+  const hasFilters = activeFilterCount > 0;
+  const emptyState = hasSearch && hasFilters
+    ? { title: "No builders match your criteria", body: "Try another name, skill or college, or clear your filters." }
+    : hasSearch
+      ? { title: "No builders match your search", body: "Try another name, skill or college." }
+      : hasFilters
+        ? { title: "No builders match your filters", body: "Adjust or clear your filters to see more builders." }
+        : { title: "No builders yet", body: "Share HackerMate with people you'd build with." };
 
   const update = (p: Partial<Filters>) => {
     setFilters((f) => ({ ...f, ...p }));
@@ -344,13 +353,13 @@ export function DevelopersView({
 
           {loading ? (
             <SkeletonRows rows={8} />
-          ) : results.length === 0 ? (
+          ) : results.length === 0 && !error ? (
             <EmptyState
               icon={<UsersRound />}
-              title={builders.length === 0 ? "No builders yet" : "No builders match"}
-              body={builders.length === 0 ? "Share HackerMate with people you'd build with." : "Loosen a filter or try a different skill."}
+              title={emptyState.title}
+              body={emptyState.body}
               action={
-                activeFilterCount > 0 || search ? (
+                hasFilters || hasSearch ? (
                   <Button
                     size="sm"
                     variant="secondary"
@@ -364,7 +373,7 @@ export function DevelopersView({
                 ) : undefined
               }
             />
-          ) : (
+          ) : results.length > 0 ? (
             <>
               <ul className="divide-y divide-line border-y border-line" data-stagger>
                 {shown.map(({ b, match }) => (
@@ -392,7 +401,7 @@ export function DevelopersView({
                 </div>
               )}
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
