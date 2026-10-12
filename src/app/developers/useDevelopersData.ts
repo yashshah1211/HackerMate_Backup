@@ -109,34 +109,34 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
       }
       if (!isCurrent()) return;
 
-      let q = supabase.from("profiles").select(PROFILE_COLUMNS);
-      if (sortOrder === "active") {
-        q = q.order("last_seen_at", { ascending: false, nullsFirst: false });
-      } else {
-        q = q.order("created_at", { ascending: false });
-      }
-
       const t = term.trim();
-      if (t) q = q.or(`full_name.ilike.%${t}%,college.ilike.%${t}%,skills.cs.{${t}}`);
-      const primary = await q.limit(1000);
+      const queryBuilders = () => {
+        if (t) {
+          // Bound RPC arguments are data, not PostgREST filter syntax. Skills
+          // are matched per array element on the server, before the result cap.
+          return supabase.rpc("search_builder_profiles", { p_query: t, p_sort: sortOrder, p_limit: 1000 });
+        }
+        const q = supabase.from("profiles").select(PROFILE_COLUMNS);
+        return (sortOrder === "active"
+          ? q.order("last_seen_at", { ascending: false, nullsFirst: false })
+          : q.order("created_at", { ascending: false })).limit(1000);
+      };
+      const primary = await queryBuilders();
       if (!isCurrent()) return;
       let data = primary.data;
       const qErr = primary.error;
       if (qErr) {
         console.warn("[developers] primary query failed, retrying:", qErr);
-        let fb = supabase.from("profiles").select(PROFILE_COLUMNS);
-        if (sortOrder === "active") {
-          fb = fb.order("last_seen_at", { ascending: false, nullsFirst: false });
-        } else {
-          fb = fb.order("created_at", { ascending: false });
-        }
-        if (t) fb = fb.or(`full_name.ilike.%${t}%,college.ilike.%${t}%,skills.cs.{${t}}`);
-        const retry = await fb.limit(1000);
+        // Retry the same correct query; never fall back to case-sensitive array
+        // containment or a capped unfiltered list when search is unavailable.
+        const retry = await queryBuilders();
         if (!isCurrent()) return;
         data = retry.data;
         if (retry.error) {
           console.error("[developers] builder list failed:", retry.error);
-          setError(retry.error.message);
+          setError(t && (retry.error.code === "PGRST202" || retry.error.code === "42883")
+            ? "Builder search is not available yet. Please try again later."
+            : retry.error.message);
         } else {
           setError(null);
         }

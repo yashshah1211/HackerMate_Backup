@@ -95,6 +95,11 @@ function ui(options = {}) {
     async rpc(name, args) {
       rpcCalls.push({ name, args });
       if (name === 'send_team_invite') return options.inviteResponse || ok('fixture-invite');
+      if (name === 'search_builder_profiles') {
+        const gate = deferred();
+        queries.push({ rpc: name, args, order: args.p_sort === 'active' ? 'last_seen_at' : 'created_at', limit: args.p_limit, ...gate });
+        return gate.promise;
+      }
       assert.equal(name, 'get_recommended_teammates_v3');
       return ok([{ id: 'recommended', compatibility: 80, reasons: ['Fixture reason'], confidence: 0.5 }]);
     },
@@ -211,12 +216,12 @@ test('Fit/Active/New races retain the latest order and unchanged server query se
   view.change(' React ', 'active'); await view.advance();
   view.change(' React ', 'new'); await view.advance();
   assert.deepEqual(view.queries.map(query => query.order), ['created_at', 'last_seen_at', 'created_at']);
-  assert.deepEqual(JSON.parse(JSON.stringify(view.queries[1].orderOptions)), { ascending: false, nullsFirst: false });
   for (const query of view.queries) {
     assert.equal(query.limit, 1000);
-    assert.equal(query.expression, 'full_name.ilike.%React%,college.ilike.%React%,skills.cs.{React}');
-    assert(query.columns.includes('year_of_study'));
+    assert.equal(query.rpc, 'search_builder_profiles');
+    assert.equal(query.args.p_query, 'React');
   }
+  assert.deepEqual(view.queries.map(query => query.args.p_sort), ['fit', 'active', 'new']);
   await resolve(view.queries[2], ok([row('new-first'), row('new-second')]));
   await resolve(view.queries[1], ok([row('active')]));
   await resolve(view.queries[0], ok([row('fit')]));
@@ -287,11 +292,11 @@ test('superseded initialization is shared and still supplies viewer, teams, rela
   const view = ui({ initializationGate: gate }); await view.advance();
   view.change('B'); await view.advance();
   assert.equal(view.initialReads.length, 5);
-  assert.equal(view.rpcCalls.length, 1);
+  assert.equal(view.rpcCalls.filter(call => call.name === 'get_recommended_teammates_v3').length, 1);
   assert.equal(view.queries.length, 0);
   gate.resolve(); await flush();
   assert.equal(view.queries.length, 1);
-  assert.match(view.queries[0].expression, /%B%/);
+  assert.equal(view.queries[0].args.p_query, 'B');
   await resolve(view.queries[0], ok([row('viewer'), row('blocked-out'), row('blocked-in'), row('B')]));
   const state = view.read();
   assert.equal(state.viewer.id, 'viewer');
@@ -305,7 +310,7 @@ test('superseded initialization is shared and still supplies viewer, teams, rela
   view.change('C'); await view.advance();
   await resolve(view.queries[1], ok([row('C')]));
   assert.equal(view.initialReads.length, 5);
-  assert.equal(view.rpcCalls.length, 1);
+  assert.equal(view.rpcCalls.filter(call => call.name === 'get_recommended_teammates_v3').length, 1);
 });
 
 test('a setup exception does not permanently clear firstLoad; Retry can initialize successfully', async () => {
@@ -338,7 +343,7 @@ test('effect cleanup/setup replay reuses in-flight initialization and invalidate
   const view = ui({ initializationGate: gate }); await view.advance();
   view.restartEffect(); await view.advance();
   assert.equal(view.initialReads.length, 5);
-  assert.equal(view.rpcCalls.length, 1);
+  assert.equal(view.rpcCalls.filter(call => call.name === 'get_recommended_teammates_v3').length, 1);
   gate.resolve(); await flush();
   assert.equal(view.queries.length, 1);
   await resolve(view.queries[0], ok([row('ready')]));
@@ -363,7 +368,7 @@ test('rapid changes within debounce issue only the final query', async () => {
   await view.advance(100); view.change('C', 'active');
   await view.advance(299); assert.equal(view.queries.length, 0);
   await view.advance(1); assert.equal(view.queries.length, 1);
-  assert.match(view.queries[0].expression, /%C%/);
+  assert.equal(view.queries[0].args.p_query, 'C');
   await resolve(view.queries[0], ok([row('C')]));
   assert.deepEqual(ids(view), ['C']);
 });
@@ -392,4 +397,24 @@ test('invitation prechecks and existing RPC remain unchanged', async () => {
     assert(!blocked.rpcCalls.some(call => call.name === 'send_team_invite'));
     assert.equal(blocked.read().inviteBusy, false);
   }
+});
+
+test('punctuation is passed as bound search data without altering query structure', async () => {
+  const term = ' C++, C# (Node.js) {Next.js} "quotes" %_\\ ';
+  const view = ui({ search: term }); await view.advance();
+  assert.deepEqual(JSON.parse(JSON.stringify(view.queries[0].args)), { p_query: term.trim(), p_sort: 'fit', p_limit: 1000 });
+  await resolve(view.queries[0], ok([]));
+  assert.deepEqual(ids(view), []);
+  assert.equal(view.read().error, null);
+});
+
+test('missing search RPC remains an explicit error after same-RPC retry, never an unfiltered fallback', async () => {
+  const view = ui(); await view.advance();
+  const missing = { data: null, error: { code: 'PGRST202', message: 'Missing function' } };
+  await resolve(view.queries[0], missing);
+  await resolve(view.queries[1], missing);
+  assert(view.queries.every(query => query.rpc === 'search_builder_profiles'));
+  assert.equal(view.read().error, 'Builder search is not available yet. Please try again later.');
+  assert.equal(view.read().loading, false);
+  assert.deepEqual(ids(view), []);
 });
