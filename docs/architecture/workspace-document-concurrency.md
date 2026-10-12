@@ -115,7 +115,7 @@ pending/dirty work. No document content is written to browser persistent storage
 
 ## Release and recovery
 
-1. Review/approve `202610120001_team_document_revisions.sql` and test in isolated
+1. Review/approve `202610120002_team_document_revisions.sql` and test in isolated
    staging. Back up documents using the normal controlled database process.
 2. Apply the migration **before** the application release; wait for PostgREST
    schema-cache reload. It is transactional, additive and rerunnable. Existing

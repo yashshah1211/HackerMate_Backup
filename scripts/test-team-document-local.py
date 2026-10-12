@@ -98,7 +98,8 @@ INSERT INTO team_members VALUES ('{TEAM}','{B}'),('{TEAM}','{C}'),('{EMPTY_TEAM}
 INSERT INTO team_documents(id,team_id,content,updated_by,updated_at)
 VALUES ('{DOC}','{TEAM}','Existing Markdown content','{A}','2026-01-01T00:00:00Z');""")
         snapshot = sql("SELECT content,updated_by,updated_at FROM team_documents")
-        migration = ROOT / "supabase/migrations/202610120001_team_document_revisions.sql"
+        migration = ROOT / "supabase/migrations/202610120002_team_document_revisions.sql"
+        print(f"Testing migration twice in isolated PostgreSQL: {migration.name}", flush=True)
         for _ in range(2):
             fixture.run(base + ["-f", str(migration)], env=env)
         assert sql("SELECT content,updated_by,updated_at FROM team_documents") == snapshot
