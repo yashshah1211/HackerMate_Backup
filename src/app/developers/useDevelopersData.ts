@@ -48,48 +48,66 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
   const [inviteBusy, setInviteBusy] = useState(false);
   const firstLoad = useRef(true);
   const blockedRef = useRef<Set<string>>(new Set());
+  const initialization = useRef<Promise<void> | null>(null);
+  const active = useRef(false);
+  const generation = useRef(0);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (term: string, sortOrder: "fit" | "active" | "new") => {
+  const load = useCallback(async (term: string, sortOrder: "fit" | "active" | "new", request: number) => {
+    const isCurrent = () => active.current && request === generation.current;
+    if (!isCurrent()) return;
+    setLoading(true);
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      const blocked = new Set<string>();
+      if (!isCurrent()) return;
 
       if (user && firstLoad.current) {
-        const [profileRes, teamsRes, myBlocks, theirBlocks, recRes, frRes] = await Promise.all([
-          supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).single(),
-          supabase.from("teams").select("id, name, owner_id").eq("owner_id", user.id),
-          supabase.from("blocked_users").select("blocked_id").eq("blocker_id", user.id),
-          supabase.from("blocked_users").select("blocker_id").eq("blocked_id", user.id),
-          loadTeammateRecommendations(supabase, user.id),
-          supabase.from("friend_requests").select("sender_id, receiver_id, status").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
-        ]);
-        if (profileRes.error) console.error("[developers] viewer profile failed:", profileRes.error);
-        if (teamsRes.error) console.error("[developers] owned teams failed:", teamsRes.error);
-        if (myBlocks.error) console.error("[developers] blocklist (mine) failed:", myBlocks.error);
-        if (theirBlocks.error) console.error("[developers] blocklist (theirs) failed:", theirBlocks.error);
-        if (recRes.error) console.error("[developers] get_recommended_teammates failed:", recRes.error);
-        if (frRes.error) console.error("[developers] friend_requests failed:", frRes.error);
+        // Searches share setup: superseding a query must not discard blocklists
+        // or duplicate the initial viewer/team/recommendation reads.
+        if (!initialization.current) {
+          initialization.current = (async () => {
+            const blocked = new Set<string>();
+            const [profileRes, teamsRes, myBlocks, theirBlocks, recRes, frRes] = await Promise.all([
+              supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).single(),
+              supabase.from("teams").select("id, name, owner_id").eq("owner_id", user.id),
+              supabase.from("blocked_users").select("blocked_id").eq("blocker_id", user.id),
+              supabase.from("blocked_users").select("blocker_id").eq("blocked_id", user.id),
+              loadTeammateRecommendations(supabase, user.id),
+              supabase.from("friend_requests").select("sender_id, receiver_id, status").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
+            ]);
+            if (!active.current) return;
+            if (profileRes.error) console.error("[developers] viewer profile failed:", profileRes.error);
+            if (teamsRes.error) console.error("[developers] owned teams failed:", teamsRes.error);
+            if (myBlocks.error) console.error("[developers] blocklist (mine) failed:", myBlocks.error);
+            if (theirBlocks.error) console.error("[developers] blocklist (theirs) failed:", theirBlocks.error);
+            if (recRes.error) console.error("[developers] get_recommended_teammates failed:", recRes.error);
+            if (frRes.error) console.error("[developers] friend_requests failed:", frRes.error);
 
-        setViewer((profileRes.data as Builder | null) ?? null);
-        setOwnedTeams((teamsRes.data as OwnedTeam[] | null) || []);
-        (myBlocks.data || []).forEach((b) => blocked.add(b.blocked_id));
-        (theirBlocks.data || []).forEach((b) => blocked.add(b.blocker_id));
-        const map: Record<string, Recommendation> = {};
-        ((recRes.data as { id: string; compatibility: number; reasons: string[]; confidence?: number }[] | null) || []).forEach((r, rank) => {
-          map[r.id] = { compatibility: r.compatibility, reasons: r.reasons, confidence: r.confidence, rank, matchEngine: recRes.matchEngine };
-        });
-        setRecs(map);
-        const rel: Record<string, Relationship> = {};
-        (frRes.data || []).forEach((r) => {
-          const other = r.sender_id === user.id ? r.receiver_id : r.sender_id;
-          if (r.status === "accepted") rel[other] = "connected";
-          else if (r.status === "pending") rel[other] = r.sender_id === user.id ? "request_sent" : "request_received";
-        });
-        setRelationships(rel);
-        blockedRef.current = blocked;
+            setViewer((profileRes.data as Builder | null) ?? null);
+            setOwnedTeams((teamsRes.data as OwnedTeam[] | null) || []);
+            (myBlocks.data || []).forEach((b) => blocked.add(b.blocked_id));
+            (theirBlocks.data || []).forEach((b) => blocked.add(b.blocker_id));
+            const map: Record<string, Recommendation> = {};
+            ((recRes.data as { id: string; compatibility: number; reasons: string[]; confidence?: number }[] | null) || []).forEach((r, rank) => {
+              map[r.id] = { compatibility: r.compatibility, reasons: r.reasons, confidence: r.confidence, rank, matchEngine: recRes.matchEngine };
+            });
+            setRecs(map);
+            const rel: Record<string, Relationship> = {};
+            (frRes.data || []).forEach((r) => {
+              const other = r.sender_id === user.id ? r.receiver_id : r.sender_id;
+              if (r.status === "accepted") rel[other] = "connected";
+              else if (r.status === "pending") rel[other] = r.sender_id === user.id ? "request_sent" : "request_received";
+            });
+            setRelationships(rel);
+            blockedRef.current = blocked;
+            firstLoad.current = false;
+          })().finally(() => { initialization.current = null; });
+        }
+        await initialization.current;
       }
+      if (!isCurrent()) return;
 
       let q = supabase.from("profiles").select(PROFILE_COLUMNS);
       if (sortOrder === "active") {
@@ -101,6 +119,7 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
       const t = term.trim();
       if (t) q = q.or(`full_name.ilike.%${t}%,college.ilike.%${t}%,skills.cs.{${t}}`);
       const primary = await q.limit(1000);
+      if (!isCurrent()) return;
       let data = primary.data;
       const qErr = primary.error;
       if (qErr) {
@@ -113,10 +132,13 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
         }
         if (t) fb = fb.or(`full_name.ilike.%${t}%,college.ilike.%${t}%,skills.cs.{${t}}`);
         const retry = await fb.limit(1000);
+        if (!isCurrent()) return;
         data = retry.data;
         if (retry.error) {
           console.error("[developers] builder list failed:", retry.error);
           setError(retry.error.message);
+        } else {
+          setError(null);
         }
       } else {
         setError(null);
@@ -127,19 +149,39 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
         setBuilders((data as Builder[]).filter((d) => d.id !== user?.id && !skip.has(d.id)));
       }
     } catch (err) {
+      if (!isCurrent()) return;
       console.error("[developers] load failed:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      firstLoad.current = false;
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
   // Debounced server search (300ms) and sort changes.
   useEffect(() => {
-    const h = setTimeout(() => load(search, sort), 300);
-    return () => clearTimeout(h);
+    active.current = true;
+    generation.current += 1;
+    const request = generation.current;
+    debounce.current = setTimeout(() => {
+      debounce.current = null;
+      void load(search, sort, request);
+    }, 300);
+    return () => {
+      // Invalidate now, rather than when the next debounce timer fires.
+      active.current = false;
+      ++generation.current;
+      if (debounce.current !== null) clearTimeout(debounce.current);
+      debounce.current = null;
+    };
   }, [search, sort, load]);
+
+  const retry = () => {
+    if (!active.current) return;
+    // Retry replaces a queued debounce instead of issuing the same query twice.
+    if (debounce.current !== null) clearTimeout(debounce.current);
+    debounce.current = null;
+    return load(search, sort, ++generation.current);
+  };
 
   /** V1 invite flow: membership check → pending-invite check → send_team_invite RPC. */
   const sendInvite = useCallback(
@@ -187,7 +229,7 @@ export function useDevelopersData(search: string, sort: "fit" | "active" | "new"
     [showToast],
   );
 
-  return { builders, viewer, ownedTeams, recs, relationships, loading, error, inviteBusy, sendInvite, retry: () => load(search, sort) };
+  return { builders, viewer, ownedTeams, recs, relationships, loading, error, inviteBusy, sendInvite, retry };
 }
 
 
