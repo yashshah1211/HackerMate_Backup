@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
 import PPTEvaluatorTab from "@/components/PPTEvaluatorTab";
 import SmartGapFiller from "@/components/SmartGapFiller";
+import SharedTeamDocument from "@/components/workspace/SharedTeamDocument";
+import type { TeamDocument } from "@/lib/teamDocument";
 import { KanbanTasksSkeleton, CommitsTimelineSkeleton, IdeationBoardSkeleton } from "@/components/workspace/WorkspaceSkeletons";
 import { WorkspaceFrame } from "@/components/workspace/WorkspaceFrame";
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
@@ -33,7 +35,6 @@ import {
   Textarea,
 } from "@/components/system";
 import {
-  AlertTriangle,
   Bell,
   CalendarDays,
   Check,
@@ -54,7 +55,6 @@ import {
   PenTool,
   Plus,
   RefreshCw,
-  Save,
   SquareKanban,
   Trash2,
   Unlink,
@@ -357,20 +357,12 @@ export default function TeamWorkspaceView({
   const [savingTask, setSavingTask] = useState(false);
   const [onlineTeammates, setOnlineTeammates] = useState<{ id: string; name: string; avatarUrl: string | null }[]>([]);
 
-  // Brainstorm Tab State
-  const [documentContent, setDocumentContent] = useState("");
-  const [loadingDocument, setLoadingDocument] = useState(false);
-  const [savingDocument, setSavingDocument] = useState(false);
-  const [documentId, setDocumentId] = useState<string | null>(null);
-  const [documentUpdatedAt, setDocumentUpdatedAt] = useState<string | null>(null);
-  const [documentUpdatedBy, setDocumentUpdatedBy] = useState<string | null>(null);
-  const [documentConflict, setDocumentConflict] = useState<{
-    incomingContent: string;
-    incomingUpdatedAt: string | null;
-    incomingUpdatedBy: string | null;
-  } | null>(null);
-  const documentContentRef = useRef<string>("");
-  const lastSavedContentRef = useRef<string>("");
+  // Only confirmed document metadata is used by the activity feed.
+  const [workspaceDocument, setWorkspaceDocument] = useState<TeamDocument | null>(null);
+  const activeDocument = workspaceDocument?.team_id === team.id ? workspaceDocument : null;
+  const documentId = activeDocument?.id;
+  const documentUpdatedAt = activeDocument?.updated_at;
+  const documentUpdatedBy = activeDocument?.updated_by;
 
   // Workspace V2 States
   const [timeLeft, setTimeLeft] = useState("");
@@ -491,61 +483,6 @@ export default function TeamWorkspaceView({
       setTasks(data || []);
     }
     setLoadingTasks(false);
-  };
-
-  // Fetch Brainstorm Document
-  const fetchDocument = async () => {
-    setLoadingDocument(true);
-    const { data, error } = await supabase
-      .from("team_documents")
-      .select("*")
-      .eq("team_id", team.id)
-      .maybeSingle();
-    if (error) {
-      console.error("Error fetching team brainstorm document:", error);
-    } else if (data) {
-      setDocumentId(data.id);
-      setDocumentContent(data.content || "");
-      documentContentRef.current = data.content || "";
-      lastSavedContentRef.current = data.content || "";
-      setDocumentUpdatedAt(data.updated_at || null);
-      setDocumentUpdatedBy(data.updated_by || null);
-    } else {
-      const { data: newDoc, error: insertError } = await supabase
-        .from("team_documents")
-        .insert({ team_id: team.id, content: "# Brainstorm\nStart sharing ideas here..." })
-        .select()
-        .maybeSingle();
-      if (insertError) {
-        if (insertError.code === "23505") {
-          const { data: retryDoc, error: retryError } = await supabase
-            .from("team_documents")
-            .select("*")
-            .eq("team_id", team.id)
-            .maybeSingle();
-          if (retryError) {
-            console.error("Error retrying team brainstorm document fetch:", retryError);
-          } else if (retryDoc) {
-            setDocumentId(retryDoc.id);
-            setDocumentContent(retryDoc.content || "");
-            documentContentRef.current = retryDoc.content || "";
-            lastSavedContentRef.current = retryDoc.content || "";
-            setDocumentUpdatedAt(retryDoc.updated_at || null);
-            setDocumentUpdatedBy(retryDoc.updated_by || null);
-          }
-        } else {
-          console.error("Error creating default brainstorm document:", insertError);
-        }
-      } else if (newDoc) {
-        setDocumentId(newDoc.id);
-        setDocumentContent(newDoc.content || "");
-        documentContentRef.current = newDoc.content || "";
-        lastSavedContentRef.current = newDoc.content || "";
-        setDocumentUpdatedAt(newDoc.updated_at || null);
-        setDocumentUpdatedBy(newDoc.updated_by || null);
-      }
-    }
-    setLoadingDocument(false);
   };
 
   // Fetch Resources (Links)
@@ -986,32 +923,6 @@ export default function TeamWorkspaceView({
     });
   };
 
-  // Save Document
-  const handleSaveDocument = async () => {
-    if (!documentId) return;
-    setSavingDocument(true);
-    const contentToSave = documentContentRef.current;
-    const { data, error } = await supabase
-      .from("team_documents")
-      .update({ content: contentToSave, updated_by: currentUserId, updated_at: new Date().toISOString() })
-      .eq("id", documentId)
-      .select()
-      .maybeSingle();
-    if (error) {
-      console.error("Error saving team document:", error);
-      showToast(error.message, "error");
-    } else {
-      if (data) {
-        setDocumentUpdatedAt(data.updated_at || null);
-        setDocumentUpdatedBy(data.updated_by || null);
-      }
-      lastSavedContentRef.current = contentToSave;
-      setDocumentConflict(null);
-      showToast("Document saved!", "success");
-    }
-    setSavingDocument(false);
-  };
-
   // Add Link
   const [linkScope, setLinkScope] = useState<"event" | "global">("event");
 
@@ -1101,7 +1012,6 @@ export default function TeamWorkspaceView({
 
       // Fetch initial workspace data
       fetchTasks();
-      fetchDocument();
       fetchLinks();
       fetchDeployments();
       fetchBrainstormIdeas();
@@ -1134,43 +1044,6 @@ export default function TeamWorkspaceView({
             .then(({ data }) => {
               if (data) setTasks(data);
             });
-        }
-      );
-
-    const docChannel = supabase
-      .channel(`team_documents:${team.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "team_documents",
-          filter: `team_id=eq.${team.id}`,
-        },
-        (payload) => {
-          const updatedDoc = payload.new as { content: string; updated_by: string; updated_at: string };
-          supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user && updatedDoc.updated_by !== user.id) {
-              const isDirty = documentContentRef.current !== lastSavedContentRef.current;
-              const hasDifference = documentContentRef.current !== updatedDoc.content;
-
-              if (isDirty && hasDifference) {
-                setDocumentConflict({
-                  incomingContent: updatedDoc.content,
-                  incomingUpdatedAt: updatedDoc.updated_at || null,
-                  incomingUpdatedBy: updatedDoc.updated_by || null,
-                });
-                showToast("A teammate saved changes to this document while you were editing.", "warning");
-              } else {
-                setDocumentContent(updatedDoc.content);
-                documentContentRef.current = updatedDoc.content;
-                lastSavedContentRef.current = updatedDoc.content;
-                setDocumentUpdatedAt(updatedDoc.updated_at || null);
-                setDocumentUpdatedBy(updatedDoc.updated_by || null);
-                setDocumentConflict(null);
-              }
-            }
-          });
         }
       );
 
@@ -1227,19 +1100,16 @@ export default function TeamWorkspaceView({
       );
 
     const unsubTasks = subscribeWithRetry(tasksChannel);
-    const unsubDoc = subscribeWithRetry(docChannel);
     const unsubLinks = subscribeWithRetry(linksChannel);
     const unsubDeployments = subscribeWithRetry(deploymentsChannel);
     const unsubBrainstorm = subscribeWithRetry(brainstormChannel);
 
     return () => {
       unsubTasks();
-      unsubDoc();
       unsubLinks();
       unsubDeployments();
       unsubBrainstorm();
       supabase.removeChannel(tasksChannel);
-      supabase.removeChannel(docChannel);
       supabase.removeChannel(linksChannel);
       supabase.removeChannel(deploymentsChannel);
       supabase.removeChannel(brainstormChannel);
@@ -1392,7 +1262,6 @@ export default function TeamWorkspaceView({
   }, [selectedTask]);
 
   // Mobile-only pane switch for the shared doc (write / preview side by side on desktop).
-  const [docPane, setDocPane] = useState<"write" | "preview">("write");
 
   // Clock for overdue / due-soon badges; refreshed every minute so render stays pure.
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -1904,21 +1773,6 @@ export default function TeamWorkspaceView({
                   { value: "doc", label: "Shared doc" },
                 ]}
               />
-              {isBrainstormListView && (
-                <div className="flex items-center gap-3">
-                  {documentUpdatedAt && (
-                    <span className="hidden text-[12px] text-ink-3 sm:inline">
-                      Saved {relativeTime(documentUpdatedAt, { suffix: true })}
-                      {documentUpdatedBy && members.find((m) => m.profiles.id === documentUpdatedBy)
-                        ? ` by ${members.find((m) => m.profiles.id === documentUpdatedBy)!.profiles.full_name.split(" ")[0]}`
-                        : ""}
-                    </span>
-                  )}
-                  <Button variant="primary" size="sm" icon={<Save />} loading={savingDocument} disabled={loadingDocument} onClick={handleSaveDocument}>
-                    Save doc
-                  </Button>
-                </div>
-              )}
             </div>
 
             {!isBrainstormListView ? (
@@ -2013,88 +1867,20 @@ export default function TeamWorkspaceView({
                   )}
                 </div>
               </div>
-            ) : loadingDocument ? (
-              <Panel className="flex h-40 items-center justify-center">
-                <Spinner label="Loading the shared doc" />
-              </Panel>
-            ) : (
-              <div className="space-y-4">
-                {documentConflict && (
-                  <div role="alert" className="flex flex-col gap-3 rounded-lg bg-warn-soft px-4 py-3 ring-1 ring-inset ring-warn/30 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
-                      <div>
-                        <p className="text-[13px] font-semibold text-ink">A teammate saved this doc while you were editing</p>
-                        <p className="mt-0.5 text-[12.5px] text-ink-3">Loading their version discards your unsaved edits. Keeping yours overwrites theirs.</p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setDocumentContent(documentConflict.incomingContent);
-                          documentContentRef.current = documentConflict.incomingContent;
-                          lastSavedContentRef.current = documentConflict.incomingContent;
-                          setDocumentUpdatedAt(documentConflict.incomingUpdatedAt);
-                          setDocumentUpdatedBy(documentConflict.incomingUpdatedBy);
-                          setDocumentConflict(null);
-                          showToast("Loaded latest teammate version.", "info");
-                        }}
-                      >
-                        Load theirs
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="inverse"
-                        onClick={() => {
-                          handleSaveDocument();
-                          setDocumentConflict(null);
-                        }}
-                      >
-                        Keep mine
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <Segmented<"write" | "preview">
-                  label="Doc view"
-                  size="sm"
-                  className="md:hidden"
-                  value={docPane}
-                  onChange={setDocPane}
-                  options={[
-                    { value: "write", label: "Write" },
-                    { value: "preview", label: "Preview" },
-                  ]}
-                />
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className={cn("min-w-0", docPane !== "write" && "hidden md:block")}>
-                    <FieldLabel htmlFor="ws-doc" hint="Markdown">Write</FieldLabel>
-                    <Textarea
-                      id="ws-doc"
-                      value={documentContent}
-                      onChange={(e) => {
-                        setDocumentContent(e.target.value);
-                        documentContentRef.current = e.target.value;
-                      }}
-                      className="h-[52dvh] min-h-[280px] resize-none font-mono text-[13px] md:h-[420px]"
-                      placeholder={"# Our idea\n- Problem we're solving\n- Who it's for\n- **Must-have** features"}
-                    />
-                  </div>
-                  <div className={cn("min-w-0", docPane !== "preview" && "hidden md:block")}>
-                    <p className="mb-1.5 caps-label text-ink-3">Preview</p>
-                    <div className="h-[52dvh] min-h-[280px] overflow-y-auto rounded-md bg-raised p-4 ring-1 ring-inset ring-line md:h-[420px]">
-                      {renderMarkdown(documentContent) || <p className="text-[13px] text-ink-3">Nothing written yet.</p>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
         )}
+
+        {/* Keep mounted across workspace/brainstorm tabs so draft text survives. */}
+        <div hidden={workspaceTab !== "brainstorm" || !isBrainstormListView}>
+          <SharedTeamDocument
+            key={`${team.id}:${currentUserId || "signed-out"}`}
+            teamId={team.id}
+            canEdit={Boolean(currentUserId && (isOwner || members.some(m => m.profiles?.id === currentUserId)))}
+            renderMarkdown={renderMarkdown}
+            onDocument={setWorkspaceDocument}
+          />
+        </div>
 
         {/* 4. RESOURCES */}
         {workspaceTab === "resources" && (

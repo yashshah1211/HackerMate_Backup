@@ -671,6 +671,7 @@ export type Database = {
       }
       team_documents: {
         Row: {
+          revision: number
           content: string
           id: string
           team_id: string
@@ -678,6 +679,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          revision?: number
           content?: string
           id?: string
           team_id: string
@@ -685,6 +687,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          revision?: number
           content?: string
           id?: string
           team_id?: string
@@ -1059,6 +1062,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_team_document: {
+        Args: { p_team_id: string; p_document_id: string; p_expected_revision: number; p_content: string };
+        Returns: Json;
+      }
       // Manually matched to the intended additive migrations, not regenerated
       // from production (where these migrations have intentionally not run).
       can_access_partner_event: {
