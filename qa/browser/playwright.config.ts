@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 import { liveSettings } from "./support/live-settings";
 
 const live = liveSettings();
+// Suppress automatic DOM failure snapshots, including on interrupted cleanup.
+// Live reports remain private because assertion text can identify QA fixtures.
+process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
 const state = process.env.QA_STORAGE_STATE;
 const launchOptions = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
   ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {};
@@ -29,7 +32,7 @@ export default defineConfig({
     ...["desktop", "mobile"].map(kind => ({
       name: `live-${kind}`, testMatch: "live.spec.ts",
       use: { ...(kind === "mobile" ? devices["Pixel 7"] : { viewport: { width: 1440, height: 1000 } }),
-        baseURL: live.baseURL, storageState: state && existsSync(state) ? state : undefined,
+        baseURL: live.baseURL, storageState: !live.blocked && state && existsSync(state) ? state : undefined,
         // Live traces can include Authorization headers and cookies. Never capture them.
         trace: "off" as const, screenshot: "off" as const },
     })),
