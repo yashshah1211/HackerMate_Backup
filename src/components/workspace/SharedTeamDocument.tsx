@@ -26,8 +26,9 @@ export default function SharedTeamDocument({ teamId, canEdit, renderMarkdown, on
   }, [canEdit, state.latest, onDocument]);
 
   useEffect(() => {
-    if (!canEdit) return;
+    if (!canEdit) { editor.dispose(); return; }
     let active = true;
+    editor.activate();
     void editor.load();
     const channel = supabase.channel(`team_document_editor:${teamId}`).on("postgres_changes", {
       event: "*", schema: "public", table: "team_documents", filter: `team_id=eq.${teamId}`,

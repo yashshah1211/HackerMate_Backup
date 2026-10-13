@@ -150,3 +150,139 @@ test('actual UI keeps typing enabled while submitted save is pending',async()=>{
   assert.match(view.render(),/Saving submitted/);assert.equal(view.input('ws-doc').props.disabled,false);view.input('ws-doc').props.onChange({target:{value:'Later'}});
   p.resolve({status:'saved',document:row(2,'Local')});await new Promise(r=>setImmediate(r));assert.match(view.render(),/unsaved edits/);assert.equal(view.input('ws-doc').props.value,'Later');
 });
+
+// Real React DOM/effects, including StrictMode cleanup, without live network or
+// credentials. Unlike ui(), this exercises the same memoized editor on prop changes.
+async function mountDocument(t, gateway) {
+  const { JSDOM } = require('jsdom');
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost/' });
+  const globals = { window: dom.window, document: dom.window.document,
+    IS_REACT_ACT_ENVIRONMENT: true };
+  const previous = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  const { createRoot } = require('react-dom/client');
+  const root = createRoot(dom.window.document.getElementById('root'));
+  t.after(async () => {
+    try { await React.act(async () => root.unmount()); }
+    finally {
+      dom.window.close();
+      for (const [key, descriptor] of previous) {
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+        else delete globalThis[key];
+      }
+    }
+  });
+  const el = tag => ({ children, ...props }) => {
+    const safe = { ...props };
+    for (const key of ['loading', 'icon', 'size', 'variant']) delete safe[key];
+    // Dispatch a native input event through React's real event system.
+    if (tag === 'textarea' && safe.onChange) { safe.onInput = safe.onChange; delete safe.onChange; }
+    return React.createElement(tag, safe, children);
+  };
+  const system = { Button: el('button'), FieldLabel: el('label'), Panel: el('section'),
+    Segmented: () => null, Spinner: () => null, Textarea: el('textarea') };
+  const Component = harness({
+    '@/lib/supabase': { supabase: { channel: () => ({ on() { return this; } }) }, subscribeWithRetry: () => () => {} },
+    '@/lib/teamDocument': { TeamDocumentEditor, documentGateway: () => gateway },
+    '@/components/system': system,
+  }, { window: dom.window }).load('src/components/workspace/SharedTeamDocument.tsx').default;
+  const button = label => [...dom.window.document.querySelectorAll('button')].find(node => node.textContent === label);
+  const render = async canEdit => {
+    await React.act(async () => root.render(React.createElement(React.StrictMode, null,
+      React.createElement(Component, { teamId: TEAM, canEdit, renderMarkdown: text => text }))));
+  };
+  await render(true);
+  return { render, button,
+    input: () => dom.window.document.getElementById('ws-doc'),
+    text: () => dom.window.document.body.textContent,
+    async edit(text) {
+      await React.act(async () => {
+        const input = dom.window.document.getElementById('ws-doc');
+        input.value = text;
+        input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+      });
+    },
+    async click(label) {
+      const control = button(label);
+      assert(control, `Missing button: ${label}`);
+      assert.equal(control.disabled, false, `Disabled button: ${label}`);
+      await React.act(async () => control.click());
+    },
+  };
+}
+
+test('disposed editors reject stale save/load/recovery commands until permission restoration', async () => {
+  let saves = 0, loads = 0;
+  const b = await editor({ load: async () => { loads++; return row(); },
+    save: async (expected, content) => { saves++; return { status: 'saved', document: row(expected.revision + 1, content) }; } });
+  b.edit('Local recovery'); b.receive(row(2, 'Reviewed')); b.loadTheirs(b.getSnapshot().conflict);
+  b.edit('Fresh draft'); b.receive(row(3, 'New remote'));
+  const reviewed = b.getSnapshot().conflict;
+  b.dispose();
+  await b.save(reviewed); await b.load(); b.loadTheirs(reviewed); b.restoreRecovery(); b.receive(row(4, 'Inactive notification'));
+  assert.equal(saves, 0); assert.equal(loads, 1);
+  assert.equal(b.getSnapshot().draft, 'Fresh draft'); assert.equal(b.getSnapshot().recovery, 'Local recovery');
+  assert.equal(b.getSnapshot().latest.revision, 3);
+  b.activate(); await b.load(); await b.save(reviewed);
+  assert.equal(saves, 1); assert.equal(loads, 2);
+  assert.equal(b.getSnapshot().base.revision, 4); assert.equal(b.getSnapshot().draft, 'Fresh draft');
+  assert.equal(b.getSnapshot().recovery, 'Local recovery');
+});
+
+for (const outcome of ['late success', 'late failure', 'still delayed']) {
+  test(`real React permission cleanup/restoration recovers an invalidated save: ${outcome}`, async t => {
+    let server = row();
+    const old = deferred(), fresh = deferred(), calls = [];
+    const gateway = { load: async () => server, save(expected, content) {
+      calls.push({ revision: expected.revision, content });
+      if (calls.length === 1) {
+        // A committed write can lose/delay its response across permission changes.
+        if (outcome === 'late success') server = row(2, content);
+        return old.promise;
+      }
+      return fresh.promise;
+    } };
+    const view = await mountDocument(t, gateway);
+    await view.edit('Submitted'); await view.click('Save doc');
+    assert.equal(calls.length, 1);
+    // Returning to the old baseline is still a local edit relative to the
+    // outstanding submission, and must survive restoration/refetch.
+    const protectedDraft = outcome === 'late success' ? 'Original' : 'Typed after Save';
+    await view.edit(protectedDraft);
+    await view.render(false);
+    assert.equal(view.input(), null); assert.equal(view.button('Save doc'), undefined);
+    assert.equal(calls.length, 1, 'Revocation cannot start another write');
+    await view.render(true); // same mounted component and memoized controller
+    assert.equal(view.input().value, protectedDraft);
+    assert(!view.text().includes('Saving submitted version'));
+    const action = outcome === 'late success' ? 'Keep mine' : 'Save doc';
+    await view.click(action);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].revision, server.revision);
+    assert.equal(calls[1].content, protectedDraft);
+    // A second click cannot issue a duplicate request in the restored lifecycle.
+    await React.act(async () => view.button(action).click());
+    assert.equal(calls.length, 2);
+    if (outcome !== 'still delayed') {
+      await React.act(async () => {
+        if (outcome === 'late success') old.resolve({ status: 'saved', document: server });
+        else old.reject(new Error('Old request lost its response'));
+      });
+      assert.equal(view.input().value, protectedDraft);
+      assert(view.text().includes('Saving submitted version'), 'Old finally must not clear the fresh save');
+      assert(!view.text().includes('Could not confirm'), 'Old failures must not replace current status');
+    }
+    await React.act(async () => {
+      assert.equal(calls[1].revision, server.revision);
+      server = row(server.revision + 1, protectedDraft);
+      fresh.resolve({ status: 'saved', document: server });
+    });
+    assert.equal(view.input().value, protectedDraft);
+    assert(view.text().includes('Document saved.'));
+    assert(!view.text().includes('Saving submitted version'));
+    assert.equal(view.button('Save doc').disabled, true); // draft matches confirmed base
+    await view.edit('Next local edit');
+    assert.equal(view.button('Save doc').disabled, false);
+    assert.equal(calls.length, 2);
+  });
+}

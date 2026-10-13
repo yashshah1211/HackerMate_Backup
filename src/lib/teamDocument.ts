@@ -86,6 +86,8 @@ export class TeamDocumentEditor {
   private listeners = new Set<() => void>();
   private epoch = 0;
   private loadSequence = 0;
+  private active = true;
+  private interruptedSave = false;
   constructor(private gateway: DocumentGateway, private teamId: string) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
@@ -93,9 +95,18 @@ export class TeamDocumentEditor {
     this.state = { ...this.state, ...patch };
     this.listeners.forEach(listener => listener());
   }
-  dispose() { this.epoch++; this.loadSequence++; }
+  activate() { this.active = true; }
+  dispose() {
+    this.epoch++; this.loadSequence++;
+    this.active = false;
+    // The request may already have committed. Retain even a draft equal to the
+    // old base until a current revision is reviewed or a fresh save is confirmed.
+    this.interruptedSave ||= this.state.saving;
+    this.set({ saving: false, loading: false });
+  }
   edit(draft: string) { this.set({ draft, notice: null }); }
   receive(raw: unknown) {
+    if (!this.active) return;
     let row: TeamDocument;
     try { row = parseDocument(raw, this.teamId); }
     catch (error) { console.error("Team document notification:", error); return; }
@@ -106,13 +117,14 @@ export class TeamDocumentEditor {
       return;
     }
     if (latest && row.revision <= latest.revision) return;
-    if (base && (saving || draft !== base.content)) {
+    if (base && (saving || this.interruptedSave || draft !== base.content)) {
       this.set({ latest: row, conflict: row, notice: null });
     } else {
       this.set({ base: row, latest: row, draft: row.content, conflict: null });
     }
   }
   async load() {
+    if (!this.active) return;
     const epoch = this.epoch, sequence = ++this.loadSequence;
     this.set({ loading: !this.state.base, error: null });
     try {
@@ -127,18 +139,19 @@ export class TeamDocumentEditor {
     }
   }
   loadTheirs(reviewed: TeamDocument) {
-    if (this.state.saving || this.state.conflict !== reviewed) return;
+    if (!this.active || this.state.saving || this.state.conflict !== reviewed) return;
+    this.interruptedSave = false;
     this.set({ recovery: this.state.draft, base: reviewed, draft: reviewed.content,
       conflict: null, error: null, notice: "Loaded the reviewed version. Your previous edits are kept below." });
   }
   restoreRecovery() {
-    if (this.state.recovery === null || this.state.saving) return;
+    if (!this.active || this.state.recovery === null || this.state.saving) return;
     const recovery = this.state.draft;
     this.set({ draft: this.state.recovery, recovery, notice: null });
   }
   async save(reviewed?: TeamDocument) {
     const { base, conflict, draft, saving } = this.state;
-    if (!base || saving || (conflict && reviewed !== conflict) || (reviewed && reviewed !== conflict)) return;
+    if (!this.active || !base || saving || (conflict && reviewed !== conflict) || (reviewed && reviewed !== conflict)) return;
     const expected = reviewed || base;
     const epoch = this.epoch;
     this.set({ saving: true, error: null, notice: null }); // synchronous double-click guard
@@ -153,6 +166,7 @@ export class TeamDocumentEditor {
         this.set({ conflict: this.state.latest, notice: "The saved version changed. Review it before choosing Keep mine." });
       } else {
         const row = result.document;
+        this.interruptedSave = false;
         const latest = this.state.latest && this.state.latest.revision > row.revision ? this.state.latest : row;
         const typedDuringSave = this.state.draft !== draft;
         // A newer remote revision may have arrived before this save response.
