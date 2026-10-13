@@ -12,6 +12,11 @@
 
 # testing
 /coverage
+/.auth/
+/playwright-report/
+/test-results/
+/qa/browser/.cache/
+**/*.storage-state.json
 
 # next.js
 /.next/
