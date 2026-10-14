@@ -73,6 +73,7 @@ function fixture(options = {}) {
           if (record.operation === 'delete') { const removed = state.registration; state.registration = null; return { data: removed ? [{ id: removed.id }] : [], error: null }; }
           return { data: state.registration, error: null };
         }
+        if (table === 'hackathons' && options.missingEvent) return { data: null, error: { code: 'PGRST116', message: 'No event' } };
         const rows = { hackathons: [hackathon], partner_configs: [partner], profiles: [{ full_name: 'Current Builder', skills: ['react'] }],
           teams: [team], team_hackathons: options.unlinkedTeam ? [] : record.columns.includes('teams') ? [{ team_id: team.id, teams: team }] : [{ team_id: team.id, hackathon_id: EVENT }],
           user_badges: [], saved_hackathons: [], hackathon_resources: [], hackathon_stages: [] }[table];
@@ -99,6 +100,7 @@ function loadModule(relative, overrides = {}, globals = {}) {
   return exports;
 }
 const api = loadModule('src/lib/hackathons/eventParticipation.ts');
+const discoveryNavigation = loadModule('src/lib/hackathons/discoveryNavigation.ts');
 function plain(value) {
   if (value == null || typeof value === 'boolean') return '';
   if (Array.isArray(value)) return value.map(plain).join(' ');
@@ -130,13 +132,13 @@ async function pageHarness(kind, options = {}) {
   const system = new Proxy({}, { get: (_, name) => name === '__esModule' ? false : name === 'buttonClass' ? () => '' : component(name) });
   const icons = new Proxy({}, { get: (_, name) => name === '__esModule' ? false : () => React.createElement('svg') });
   const page = loadModule(kind === 'partner' ? 'src/components/partners/LegacyPartnerPage.tsx' : 'src/app/hackathons/[id]/page.tsx', {
-    react: hooks, 'next/navigation': { useParams: () => ({ slug: fixtureData.partner.slug, id: EVENT }), useRouter: () => ({ push(url) { fixtureData.state.navigation = url; } }) },
+    react: hooks, 'next/navigation': { useSearchParams: () => new URLSearchParams(options.search || ''), useParams: () => ({ slug: fixtureData.partner.slug, id: EVENT }), useRouter: () => ({ push(url) { fixtureData.state.navigation = url; } }) },
     'react/jsx-runtime': { ...jsxRuntime,
       jsx(type, props, key) { if (type === 'button' && props.role === 'tab') controls.push({ ...props, text: plain(props.children) }); return jsxRuntime.jsx(type, props, key); },
       jsxs(type, props, key) { if (type === 'button' && props.role === 'tab') controls.push({ ...props, text: plain(props.children) }); return jsxRuntime.jsxs(type, props, key); },
     },
     'next/link': component('Link'), 'lucide-react': icons, '@/lib/supabase': { supabase: fixtureData.client },
-    '@/lib/hackathons/eventParticipation': api, '@/lib/utils': { cn: () => '' },
+    '@/lib/hackathons/eventParticipation': api, '@/lib/hackathons/discoveryNavigation': discoveryNavigation, '@/lib/utils': { cn: () => '' },
     '@/components/system': system, '@/components/landing/primitives': { Container: component('Container'), Eyebrow: component('Eyebrow') },
     '@/context/NotificationContext': { useNotification: () => ({ showToast(text, tone) { fixtureData.state.toasts.push({ text, tone }); }, confirm(value) { fixtureData.state.confirmation = value; } }) },
     '@/components/AuthGuard': props => props.children,
@@ -451,4 +453,36 @@ test('public source audit: no broad registration discovery/count fallback or tea
   assert(!event.includes('registrations.length')); assert(!event.includes('regData')); assert(!event.includes('profile.email'));
   assert(!profile.includes('hackathon_registrations'));
   assert(event.includes('<AuthGuard>')); assert(partner.includes('loadEventDiscovery')); assert(event.includes('loadEventRegistrationCounts'));
+});
+
+
+for (const [tab, label] of [['teams', 'Teams'], ['builders', 'Builders'], ['looking_for_teams', 'Looking for teams'], ['looking_for_builders', 'Looking for builders']]) {
+  test(`event deep link selects only the requested discovery tab: ${tab}`, async () => {
+    const page = await pageHarness('event', { search: `tab=${tab}` });
+    assert(page.controls.some(control => control.role === 'tab' && control['aria-selected'] === true && control.text.startsWith(label)));
+    assert(page.state.queries.every(query => query.operation === 'read'));
+  });
+}
+for (const search of ['', 'tab=organizer', 'tab=resources', 'tab=javascript%3Aalert(1)', 'tab=BUILDERS', 'tab=builders&tab=teams']) {
+  test(`unsupported or ambiguous event tab retains Teams: ${search}`, async () => {
+    const page = await pageHarness('event', { search });
+    assert(page.controls.some(control => control.role === 'tab' && control['aria-selected'] === true && control.text.startsWith('Teams')));
+  });
+}
+test('missing event keeps the existing not-found state even with a discovery deep link', async () => {
+  const page = await pageHarness('event', { missingEvent: true, search: 'tab=looking_for_teams' });
+  assert(page.html.includes('Hackathon not found'));
+  assert(page.state.queries.every(query => query.operation === 'read'));
+});
+test('legacy partner links to its resolved event and keeps official registration separate', async () => {
+  const page = await pageHarness('partner', { user: null });
+  assert(page.html.includes(`href="/hackathons/${EVENT}?tab=looking_for_teams"`));
+  assert(page.html.includes('Find teammates for this event'));
+  assert(page.html.includes('href="https://example.invalid/register"'));
+  assert(page.html.includes('does not register you on the organizer'));
+  assert(page.state.queries.every(query => query.operation === 'read'));
+});
+test('legacy partner does not guess a discovery destination when the associated event is missing', async () => {
+  const page = await pageHarness('partner', { missingEvent: true });
+  assert(!page.html.includes('?tab=looking_for_teams'));
 });
