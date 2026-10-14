@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { teamSkillCoverage } from "@/lib/matchPresentation";
 
 export type ListTeam = {
   id: string;
@@ -60,11 +61,26 @@ export function useTeamsData() {
   return { teams, viewerSkills, loading, error, reload: load };
 }
 
-/** V1 match score: share of the team's wanted skills the viewer has. */
+/** Share of distinct listed team skills that the viewer lists, not a fit probability. */
 export function teamMatchScore(teamSkills: string[] | null | undefined, viewerSkills: string[]): number {
-  if (!teamSkills?.length) return 0;
-  const matched = teamSkills.filter((s) => viewerSkills.includes(s));
-  return Math.round((matched.length / teamSkills.length) * 100);
+  const { matched, total } = teamSkillCoverage(teamSkills, viewerSkills);
+  return total ? Math.round((matched / total) * 100) : 0;
+}
+
+/** Keep open teams first, then skill overlap, newest creation, and a stable ID. */
+export function compareDiscoveryTeams(
+  a: { t: Pick<ListTeam, "id" | "created_at">; status: { open: boolean }; match: number },
+  b: { t: Pick<ListTeam, "id" | "created_at">; status: { open: boolean }; match: number },
+): number {
+  if (a.status.open !== b.status.open) return a.status.open ? -1 : 1;
+  if (a.match !== b.match) return b.match - a.match;
+  const created = (value: string | null | undefined) => {
+    const time = value ? Date.parse(value) : NaN;
+    return Number.isFinite(time) ? time : -Infinity;
+  };
+  const aTime = created(a.t.created_at), bTime = created(b.t.created_at);
+  if (aTime !== bTime) return bTime - aTime;
+  return a.t.id < b.t.id ? -1 : a.t.id > b.t.id ? 1 : 0;
 }
 
 /** Recruiting state exactly as V1 derived it for the card footer. */
