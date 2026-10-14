@@ -9,6 +9,8 @@ import { Search, ShieldAlert, Zap, Mail, RefreshCw } from "lucide-react";
 
 interface UsersTabProps {
   users: UserProfile[];
+  dashboardLoading: boolean;
+  dashboardLoaded: boolean;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   currentUserId: string | null;
@@ -25,6 +27,8 @@ interface UsersTabProps {
 
 export default function UsersTab({
   users,
+  dashboardLoading,
+  dashboardLoaded,
   searchQuery,
   setSearchQuery,
   currentUserId,
@@ -99,6 +103,12 @@ export default function UsersTab({
     });
   }
 
+  if (!dashboardLoaded) {
+    return <div role="status" className="p-6 text-sm text-zinc-500">
+      {dashboardLoading ? "Loading users…" : "Users data is unavailable. Retry dashboard data above."}
+    </div>;
+  }
+
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -111,7 +121,7 @@ export default function UsersTab({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-busy={dashboardLoading}>
       {/* Search & Onboarding Filter Bar */}
       <div className="flex flex-col md:flex-row items-center gap-3">
         <div className="relative flex-1 w-full">
