@@ -14,6 +14,7 @@ import {
   Lightbulb,
   Link2,
   MessageSquare,
+  LayoutDashboard,
   Plus,
   Presentation,
   Share2,
@@ -26,9 +27,10 @@ import { Avatar, AvatarStack, Button, ButtonLink, Menu, Progress, Sheet, Tape, T
 import { useImmersive, useShell } from "@/components/shell/ShellContext";
 import { cn } from "@/lib/utils";
 
-export type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
+export type WorkspaceTab = "run" | "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 export const WORKSPACE_SECTIONS: { id: WorkspaceTab; label: string; icon: ReactNode; hint: string }[] = [
+  { id: "run", label: "Run mode", icon: <LayoutDashboard />, hint: "Execution and submission evidence" },
   { id: "chat", label: "Chat", icon: <MessageSquare />, hint: "Team thread" },
   { id: "tasks", label: "Tasks", icon: <SquareKanban />, hint: "Board and owners" },
   { id: "brainstorm", label: "Brainstorm", icon: <Lightbulb />, hint: "Ideas and votes" },
@@ -99,7 +101,7 @@ export function WorkspaceFrame(props: Props) {
       window.removeEventListener("resize", updateNavEdges);
     };
   }, [tab, updateNavEdges]);
-  const current = WORKSPACE_SECTIONS.find((s) => s.id === tab) || WORKSPACE_SECTIONS[0];
+  const current = WORKSPACE_SECTIONS.find((s) => s.id === tab) || WORKSPACE_SECTIONS.find((s) => s.id === "chat")!;
 
   return (
     <main data-v2 className="flex min-h-full w-full flex-1">

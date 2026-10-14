@@ -10,7 +10,8 @@ import SmartGapFiller from "@/components/SmartGapFiller";
 import SharedTeamDocument from "@/components/workspace/SharedTeamDocument";
 import type { TeamDocument } from "@/lib/teamDocument";
 import { KanbanTasksSkeleton, CommitsTimelineSkeleton, IdeationBoardSkeleton } from "@/components/workspace/WorkspaceSkeletons";
-import { WorkspaceFrame } from "@/components/workspace/WorkspaceFrame";
+import { WorkspaceFrame, type WorkspaceTab } from "@/components/workspace/WorkspaceFrame";
+import HackathonRunMode from "@/components/workspace/HackathonRunMode";
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
 import { relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -97,8 +98,6 @@ type InviteProfile = {
   avatar_url?: string | null;
   skills: string[] | null;
 };
-
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 type Props = {
   team: Team;
@@ -1561,6 +1560,7 @@ export default function TeamWorkspaceView({
   const totalTasksCount = tasks.length;
   const completedTasksCount = tasks.filter((t) => t.status === "completed").length;
   const taskProgressPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+  const canAccessWorkspace = isOwner || Boolean(currentUserId && members.some(m => m.profiles?.id === currentUserId));
 
   const workspaceTone = CATEGORY_TONE[
     getTeamCategoryInfo({
@@ -1574,7 +1574,7 @@ export default function TeamWorkspaceView({
       team={team}
       tone={workspaceTone}
       isOwner={isOwner}
-      canShare={isOwner || Boolean(currentUserId && members?.some((m) => m.profiles?.id === currentUserId))}
+      canShare={canAccessWorkspace}
       tab={workspaceTab}
       onTabChange={handleTabChange}
       listedHackathons={listedHackathons}
@@ -1589,6 +1589,9 @@ export default function TeamWorkspaceView({
     >
       {/* Tab contents */}
       <div className="animate-hm-fade">
+        {workspaceTab === "run" && canAccessWorkspace && (
+          <HackathonRunMode teamId={team.id} canAccess={canAccessWorkspace} onTabChange={handleTabChange} />
+        )}
         {/* 1. CHAT */}
         {workspaceTab === "chat" &&
           (chatLoading ? (

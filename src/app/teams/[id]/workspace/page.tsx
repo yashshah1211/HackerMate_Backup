@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Lock, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import TeamWorkspaceView from "@/components/TeamWorkspaceView";
+import type { WorkspaceTab } from "@/components/workspace/WorkspaceFrame";
 import { ButtonLink, EmptyState, Page, PageLoader } from "@/components/system";
 
 type Team = {
@@ -32,8 +33,6 @@ type Member = {
     avatar_url?: string | null;
   };
 };
-
-type WorkspaceTab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
 
 function TeamWorkspaceContent() {
   const router = useRouter();
