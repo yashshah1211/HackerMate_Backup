@@ -82,10 +82,22 @@ export function matchReason({
   return text ? { text, discovery } : null;
 }
 
-/** How many of a team's wanted skills the viewer already has. */
+/** Trim and deduplicate skills by case, retaining their first display spelling. */
+export function uniqueSkills(skills: readonly string[] | null | undefined): string[] {
+  const unique = new Map<string, string>();
+  for (const skill of skills || []) {
+    if (typeof skill !== "string") continue;
+    const label = skill.trim();
+    const key = norm(label);
+    if (key && !unique.has(key)) unique.set(key, label);
+  }
+  return [...unique.values()];
+}
+
+/** How many distinct listed team skills the viewer already lists. */
 export function teamSkillCoverage(teamSkills: string[] | null | undefined, viewerSkills: string[]) {
-  const wanted = (teamSkills || []).filter(Boolean);
-  const mine = new Set(viewerSkills.map(norm));
+  const wanted = uniqueSkills(teamSkills);
+  const mine = new Set(uniqueSkills(viewerSkills).map(norm));
   const matched = wanted.filter((s) => mine.has(norm(s)));
   return { matched: matched.length, total: wanted.length, skills: matched };
 }
@@ -94,5 +106,15 @@ export function teamSkillCoverage(teamSkills: string[] | null | undefined, viewe
 export function coverageLabel({ matched, total }: { matched: number; total: number }): string | null {
   if (!total || !matched) return null;
   if (matched === total) return total === 1 ? "Matches a needed skill" : `Matches all ${total} needed skills`;
-  return `Matches ${matched} needed skills`;
+  return matched === 1 ? "Matches a needed skill" : `Matches ${matched} needed skills`;
+}
+
+/** Explain overlap without treating missing evidence as incompatibility. */
+export function teamSkillExplanation(coverage: ReturnType<typeof teamSkillCoverage>, viewerSkills: string[]): string {
+  if (!coverage.total) return "This team hasn't listed skills yet.";
+  if (!uniqueSkills(viewerSkills).length) return "Add skills to your profile to compare with this team.";
+  if (!coverage.matched) return "No listed skills in common yet.";
+  const names = coverage.skills.slice(0, 2).join(", ");
+  const more = coverage.matched > 2 ? ` and ${coverage.matched - 2} more` : "";
+  return `${coverageLabel(coverage)}: ${names}${more}`;
 }

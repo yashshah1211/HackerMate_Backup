@@ -18,9 +18,9 @@ import {
   Tape,
 } from "@/components/system";
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
-import { coverageLabel, teamSkillCoverage } from "@/lib/matchPresentation";
+import { teamSkillExplanation, teamSkillCoverage, uniqueSkills } from "@/lib/matchPresentation";
 import { TeamsTabs } from "./TeamsTabs";
-import { teamMatchScore, teamStatus, type ListTeam } from "./useTeamsData";
+import { compareDiscoveryTeams, teamMatchScore, teamStatus, type ListTeam } from "./useTeamsData";
 
 type Scope = "open" | "all";
 const PAGE = 30;
@@ -63,7 +63,8 @@ export function TeamsView({
         t,
         status: teamStatus(t, today),
         match: teamMatchScore(t.skills, viewerSkills),
-        coverage: coverageLabel(teamSkillCoverage(t.skills, viewerSkills)),
+        coverage: teamSkillCoverage(t.skills, viewerSkills),
+        wantedSkills: uniqueSkills(t.skills),
         info: getTeamCategoryInfo(t),
         events: hackathonNames(t),
       })),
@@ -74,10 +75,10 @@ export function TeamsView({
     const ev = new Map<string, number>();
     const col = new Map<string, number>();
     const sk = new Map<string, { name: string; n: number }>();
-    enriched.forEach(({ t, events }) => {
+    enriched.forEach(({ t, events, wantedSkills }) => {
       events.forEach((e) => ev.set(e, (ev.get(e) || 0) + 1));
       if (t.college?.trim()) col.set(t.college.trim(), (col.get(t.college.trim()) || 0) + 1);
-      (t.skills || []).forEach((s) => {
+      wantedSkills.forEach((s) => {
         const k = s.trim().toLowerCase();
         if (!k) return;
         const e = sk.get(k);
@@ -93,20 +94,21 @@ export function TeamsView({
   }, [enriched]);
 
   const openCount = enriched.filter((e) => e.status.open).length;
+  const viewerHasSkills = uniqueSkills(viewerSkills).length > 0;
 
   const results = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const want = new Set(skills.map((s) => s.toLowerCase()));
+    const want = new Set(uniqueSkills(skills).map((s) => s.toLowerCase()));
     return enriched
-      .filter(({ t, status, events }) => {
+      .filter(({ t, status, events, wantedSkills }) => {
         if (scope === "open" && !status.open) return false;
         if (q && !t.name.toLowerCase().includes(q) && !(t.description || "").toLowerCase().includes(q)) return false;
         if (hackathon && !events.includes(hackathon)) return false;
         if (college && (t.college || "").trim() !== college) return false;
-        if (want.size && !(t.skills || []).some((s) => want.has(s.trim().toLowerCase()))) return false;
+        if (want.size && !wantedSkills.some((s) => want.has(s.toLowerCase()))) return false;
         return true;
       })
-      .sort((a, b) => b.match - a.match);
+      .sort(compareDiscoveryTeams);
   }, [enriched, scope, search, hackathon, college, skills]);
 
   const active = (hackathon ? 1 : 0) + (college ? 1 : 0) + skills.length;
@@ -231,7 +233,7 @@ export function TeamsView({
               </button>
             </div>
             <p className="text-[12.5px] text-ink-3">
-              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{viewerSkills.length ? " · best skill match first" : ""}
+              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""}{viewerHasSkills ? " · best skill overlap first" : " · newest first"}
             </p>
           </div>
 
@@ -260,7 +262,7 @@ export function TeamsView({
           ) : (
             <>
               <ul className="divide-y divide-line border-y border-line" data-stagger>
-                {results.slice(0, limit).map(({ t, status, coverage, info, events }) => {
+                {results.slice(0, limit).map(({ t, status, coverage, wantedSkills, info, events }) => {
                   const ppt = t.team_ppt_evaluations?.find((e) => e.status === "completed");
                   const tone = CATEGORY_TONE[info.category];
                   return (
@@ -290,23 +292,21 @@ export function TeamsView({
                         <p className="mt-1.5 truncate text-[13px] text-ink-3">
                           {[events.join(", ") || "Independent project", t.college || "Multi-college"].join(" · ")}
                         </p>
-                        {(t.skills?.length ?? 0) > 0 && (
+                        {wantedSkills.length > 0 && (
                           <p className="mt-1 truncate text-[13px] text-ink-3">
-                            {(t.skills || []).slice(0, 5).map((s, i) => (
+                            {wantedSkills.slice(0, 5).map((s, i) => (
                               <span key={s}>
-                                <span className={viewerSkills.includes(s) ? "text-ink-2 font-medium" : ""}>{s}</span>
-                                {i < Math.min((t.skills || []).length, 5) - 1 ? " · " : ""}
+                                <span className={coverage.skills.includes(s) ? "text-ink-2 font-medium" : ""}>{s}</span>
+                                {i < Math.min(wantedSkills.length, 5) - 1 ? " · " : ""}
                               </span>
                             ))}
-                            {(t.skills?.length || 0) > 5 && ` · +${(t.skills?.length || 0) - 5}`}
+                            {wantedSkills.length > 5 && ` · +${wantedSkills.length - 5}`}
                           </p>
                         )}
-                        {coverage && (
-                          <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3">
-                            <Check className="size-3.5 text-accent" aria-hidden />
-                            {coverage}
-                          </div>
-                        )}
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3" title="Based on listed skills, not a prediction of team fit.">
+                          {coverage.matched ? <Check className="size-3.5 text-accent" aria-hidden /> : <Target className="size-3.5" aria-hidden />}
+                          {teamSkillExplanation(coverage, viewerSkills)}
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-center justify-between gap-4 sm:w-[160px] sm:flex-col sm:items-end sm:justify-start sm:pt-0.5">
                         <div className="flex flex-col gap-1 items-start sm:items-end">
