@@ -30,6 +30,14 @@ const ACADEMIC_YEAR_OPTIONS = [
   { value: "Postgrad / Alumni", label: "Postgrad / Alumni" },
 ];
 
+// Only the legacy schema missing this optional column may omit it on retry.
+function isMissingYearColumn(error: { code: string; message: string }) {
+  return (error.code === "PGRST204"
+    && error.message === "Could not find the 'year_of_study' column of 'profiles' in the schema cache")
+    || (error.code === "42703"
+      && /^column (?:"year_of_study"(?: of relation "profiles")?|profiles\.year_of_study) does not exist$/.test(error.message));
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { showToast } = useNotification();
@@ -200,68 +208,67 @@ export default function OnboardingPage() {
     }
 
     setLoading(true);
+    let savedUserId: string;
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        showToast("User session expired or unavailable. Your entries are still here. Please sign in again and retry.", "error");
+        return;
+      }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const storedReferrer = typeof window !== 'undefined' ? localStorage.getItem('hm_referrer_source') : null;
 
-    if (!user) {
-      showToast("User session expired. Please sign in again.", "error");
-      setLoading(false);
-      return;
-    }
+      const fieldsToSave: Record<string, string | string[] | number | boolean | null> = {
+        college: finalCollege,
+        year_of_study: yearOfStudy,
+        skills: selectedSkills,
+        bio: bio.trim() || null,
+        github_url: github.trim() || null,
+        linkedin_url: linkedin.trim() || null,
+        onboarding_completed: true,
+        updated_at: new Date().toISOString(),
+      };
 
-    const storedReferrer = typeof window !== 'undefined' ? localStorage.getItem('hm_referrer_source') : null;
+      if (hasParticipated !== null) {
+        fieldsToSave.has_participated_hackathon = hasParticipated;
+        fieldsToSave.hackathon_participations = hasParticipated ? (participationsCount === "" ? 0 : Number(participationsCount)) : 0;
+        fieldsToSave.has_won_hackathon = hasParticipated && hasWon ? true : false;
+        fieldsToSave.hackathon_wins = hasParticipated && hasWon ? (winsCount === "" ? 0 : Number(winsCount)) : 0;
+      }
 
-    const fieldsToSave: any = {
-      college: finalCollege,
-      year_of_study: yearOfStudy,
-      skills: selectedSkills,
-      bio: bio.trim() || null,
-      github_url: github.trim() || null,
-      linkedin_url: linkedin.trim() || null,
-      onboarding_completed: true,
-      updated_at: new Date().toISOString(),
-    };
+      if (storedReferrer) {
+        fieldsToSave.referrer_source = storedReferrer;
+      }
 
-    if (hasParticipated !== null) {
-      fieldsToSave.has_participated_hackathon = hasParticipated;
-      fieldsToSave.hackathon_participations = hasParticipated ? (participationsCount === "" ? 0 : Number(participationsCount)) : 0;
-      fieldsToSave.has_won_hackathon = hasParticipated && hasWon ? true : false;
-      fieldsToSave.hackathon_wins = hasParticipated && hasWon ? (winsCount === "" ? 0 : Number(winsCount)) : 0;
-    }
-
-    if (storedReferrer) {
-      fieldsToSave.referrer_source = storedReferrer;
-    }
-
-    let { error } = await supabase
-      .from("profiles")
-      .update(fieldsToSave)
-      .eq("id", user.id);
-
-    if (error) {
-      delete fieldsToSave.year_of_study;
-      const { error: fbErr } = await supabase
+      const save = (fields: typeof fieldsToSave) => supabase
         .from("profiles")
-        .update(fieldsToSave)
-        .eq("id", user.id);
-      error = fbErr;
+        .update(fields)
+        .eq("id", user.id)
+        .select("id")
+        .maybeSingle();
+      let result = await save(fieldsToSave);
+      if (result.error && isMissingYearColumn(result.error)) {
+        const fallbackFields = { ...fieldsToSave };
+        delete fallbackFields.year_of_study;
+        result = await save(fallbackFields);
+      }
+      if (result.error || result.data?.id !== user.id) {
+        showToast("We couldn't save your profile. Your entries are still here. Please try again. If it keeps failing, contact support.", "error");
+        return;
+      }
+      savedUserId = user.id;
+    } catch {
+      showToast("We couldn't save your profile. Your entries are still here. Please check your connection and try again.", "error");
+      return;
+    } finally {
+      setLoading(false);
     }
 
     if (typeof window !== "undefined") {
-      localStorage.setItem(`year_confirmed_${user.id}`, "true");
+      localStorage.setItem(`year_confirmed_${savedUserId}`, "true");
     }
 
-    setLoading(false);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      return;
-    }
-
-    identifyUser(user.id, { onboarding_completed: true });
+    identifyUser(savedUserId, { onboarding_completed: true });
     trackEvent("onboarding_completed", {
       college: finalCollege,
       is_custom_college: college === "Other",
