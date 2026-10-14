@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { build } from 'esbuild';
 import postcss from 'postcss';
@@ -14,7 +14,7 @@ await build({ entryPoints: ['qa/browser/app/entry.tsx'], bundle: true, outfile: 
   plugins: [{ name: 'isolated-test-adapters', setup(builder) {
     builder.onResolve({ filter: /^(@\/|next\/)/ }, args => {
       const target = aliases[args.path] ? resolve('qa/browser/app', aliases[args.path]) : resolve('src', args.path.slice(2));
-      const file = [target, target + '.ts', target + '.tsx', target + '/index.ts'].find(candidate => existsSync(candidate) && !candidate.endsWith('/system'));
+      const file = [target, target + '.ts', target + '.tsx', target + '/index.ts'].find(candidate => existsSync(candidate) && statSync(candidate).isFile());
       return { path: file };
     });
   } }] });

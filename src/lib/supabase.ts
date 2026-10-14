@@ -81,64 +81,28 @@ const wrapWithRlsInterceptor = (client: typeof rawSupabase): typeof rawSupabase 
 export const supabase = wrapWithRlsInterceptor(rawSupabase);
 
 /**
- * Robust wrapper for Supabase Realtime channel subscriptions with exponential backoff retries.
- * Detects silent drops (TIMED_OUT or CHANNEL_ERROR) and attempts connection recovery.
+ * Subscribe once: the SDK owns socket backoff and channel rejoining. Calling
+ * subscribe again on a joined channel is unsupported. The third argument is
+ * retained for caller compatibility; retry timing belongs to the SDK.
  */
 export function subscribeWithRetry(
   channel: RealtimeChannel,
   onStatusChange?: (status: string, err?: Error) => void,
   maxRetries = 5
 ) {
-  let retryCount = 0;
+  void maxRetries;
   let isUnsubscribed = false;
-  let retryTimeout: NodeJS.Timeout | null = null;
-
-  function attemptSubscribe() {
+  channel.subscribe((status, err) => {
     if (isUnsubscribed) return;
-
-    channel.subscribe((status, err) => {
-      if (onStatusChange) onStatusChange(status, err);
-
-      if (status === "SUBSCRIBED") {
-        retryCount = 0; // Reset retries on successful connection
-      } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
-        console.warn(
-          `[Supabase Realtime] Channel connection issue (${status}) for topic: ${channel.topic}. Retry count: ${retryCount}`
-        );
-        
-        if (retryCount < maxRetries) {
-          retryCount++;
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 30000); // Exponential backoff (max 30s)
-          
-          if (retryTimeout) clearTimeout(retryTimeout);
-          
-          retryTimeout = setTimeout(() => {
-            console.log(`[Supabase Realtime] Reconnecting to channel: ${channel.topic} (Attempt ${retryCount}/${maxRetries})...`);
-            Promise.resolve(channel.unsubscribe())
-              .catch(() => {})
-              .finally(() => {
-                attemptSubscribe();
-              });
-          }, delay);
-        } else {
-          console.error(
-            `[Supabase Realtime] Channel subscription failed permanently after ${maxRetries} retries: ${channel.topic}`
-          );
-          if (onStatusChange) {
-            onStatusChange("FAILED_PERMANENTLY", err || new Error("Connection failed permanently"));
-          }
-        }
-      }
-    });
-  }
-
-  attemptSubscribe();
-
+    if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
+      console.warn(`[Supabase Realtime] Channel connection issue (${status}) for topic: ${channel.topic}`);
+    }
+    onStatusChange?.(status, err);
+  });
   return () => {
+    if (isUnsubscribed) return;
     isUnsubscribed = true;
-    if (retryTimeout) clearTimeout(retryTimeout);
-    channel.unsubscribe();
-    rawSupabase.removeChannel(channel);
+    // removeChannel also clears SDK timers and handlers.
+    void rawSupabase.removeChannel(channel).catch(error => console.error("Removing Realtime channel:", error));
   };
 }
-
