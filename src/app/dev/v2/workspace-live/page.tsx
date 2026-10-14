@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import DevShell from "../../DevShell";
 import TeamWorkspaceView from "@/components/TeamWorkspaceView";
+import type { WorkspaceTab } from "@/components/workspace/WorkspaceFrame";
 
 // Obviously fake ids (valid UUID shape so read queries return nothing instead of erroring).
 const FAKE_TEAM_ID = "00000000-0000-4000-8000-00000000d3a1";
@@ -15,15 +16,13 @@ const MEMBERS = [
   { id: "m2", role: "member", project_role: "ML", profiles: { id: "00000000-0000-4000-8000-0000000000a2", full_name: "Sara Qureshi", email: "", avatar_url: null, skills: ["Python"] } },
 ];
 
-type Tab = "chat" | "tasks" | "brainstorm" | "resources" | "github" | "activity" | "deployments" | "ppt" | "gap_filler";
-
 /**
  * Dev-only harness: the real TeamWorkspaceView with a fake team, rendered
  * signed-out. With no user the view performs no writes and loads no team
  * data, so every tab shows its real empty state. 404s in production.
  */
 function Harness() {
-  const tab = (useSearchParams().get("tab") as Tab) || "tasks";
+  const tab = (useSearchParams().get("tab") as WorkspaceTab) || "tasks";
   const [end] = useState(() => new Date(Date.now() + 5 * 86400000 + 3 * 3600000).toISOString());
   // Signed in, the view's init would call ensure_team_conversation and may
   // create a default brainstorm doc. Refuse to render with a session so this

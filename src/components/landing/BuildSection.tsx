@@ -23,11 +23,14 @@ import {
   UserPlus,
 } from "lucide-react";
 import { Avatar, AvatarStack, Chip, Progress, StatusDot, Tape, TeamMark, buttonClass } from "@/components/system";
-import { WORKSPACE_SECTIONS, type WorkspaceTab } from "@/components/workspace/WorkspaceFrame";
+import { WORKSPACE_SECTIONS as LIVE_WORKSPACE_SECTIONS, type WorkspaceTab as LiveWorkspaceTab } from "@/components/workspace/WorkspaceFrame";
 import { cn } from "@/lib/utils";
 import { EXAMPLE_COUNTDOWN_SECONDS, EXAMPLE_DEMO_HOST, EXAMPLE_TEAM, pad2, splitCountdown } from "./fixtures";
 import { Container, Lede, SectionTitle, StageLabel, useCountdown, useStoryActive } from "./primitives";
 
+// The static landing demo illustrates the existing tools, not the private live overview.
+type WorkspaceTab = Exclude<LiveWorkspaceTab, "run">;
+const WORKSPACE_SECTIONS = LIVE_WORKSPACE_SECTIONS.filter((section): section is typeof section & { id: WorkspaceTab } => section.id !== "run");
 const CAPTIONS: Record<WorkspaceTab, string> = {
   chat: "The team thread, with voice notes, images, link previews and reactions.",
   tasks: "A board with owners, priorities and due dates. Drag cards between columns.",
