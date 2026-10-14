@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
@@ -91,6 +91,10 @@ function AdminContent() {
   const [reports, setReports] = useState<Report[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const dashboardRequest = useRef(0);
   const [leads, setLeads] = useState<OrganizerLead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [allHackathons, setAllHackathons] = useState<
@@ -368,6 +372,9 @@ function AdminContent() {
     process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL || "yashshah7117@gmail.com";
 
   async function loadData() {
+    const request = ++dashboardRequest.current;
+    setDashboardLoading(true);
+    setDashboardError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = {};
@@ -375,26 +382,21 @@ function AdminContent() {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch("/api/admin/dashboard-data", { headers });
+      const res = await fetch("/api/admin/dashboard-data", { headers, signal: AbortSignal.timeout(20_000) });
+      if (request !== dashboardRequest.current) return;
       if (res.ok) {
         const data = await res.json();
-        const usersList = (data.users || []) as UserProfile[];
-        const rawTeams = (data.teams || []) as Team[];
-        const reportsData = (data.reports || []) as any[];
+        if (request !== dashboardRequest.current) return;
+        if (data?.success !== true || !Array.isArray(data.users) || !Array.isArray(data.teams) || !Array.isArray(data.reports) ||
+          [data.users, data.teams, data.reports].some((rows: unknown[]) => rows.some(row => !row || typeof row !== "object" || !("id" in row) || typeof row.id !== "string"))) {
+          throw new Error("Incomplete admin dashboard response");
+        }
+        const usersList = data.users as UserProfile[];
+        const rawTeams = data.teams as Team[];
+        const reportsData = data.reports as Report[];
 
         if (data.emailUsage) {
           setEmailUsage(data.emailUsage);
-        }
-
-        try {
-          const analyticsRes = await fetch("/api/admin/email-analytics", { headers });
-          const analyticsData = await analyticsRes.json();
-          if (analyticsRes.ok && analyticsData.success) {
-            setEmailAnalytics(analyticsData.stats);
-            setRecentWebhookEvents(analyticsData.recentEvents || []);
-          }
-        } catch (e) {
-          console.warn("Failed to fetch email analytics:", e);
         }
 
         setUsers(usersList);
@@ -430,15 +432,39 @@ function AdminContent() {
         } else {
           setReports([]);
         }
+        setDashboardLoaded(true);
+        // Optional telemetry must not keep a valid dashboard snapshot loading.
+        void (async () => {
+          try {
+            const analyticsRes = await fetch("/api/admin/email-analytics", { headers });
+            const analyticsData = await analyticsRes.json();
+            if (request === dashboardRequest.current && analyticsRes.ok && analyticsData.success) {
+              setEmailAnalytics(analyticsData.stats);
+              setRecentWebhookEvents(analyticsData.recentEvents || []);
+            }
+          } catch (e) {
+            console.warn("Failed to fetch email analytics:", e);
+          }
+        })();
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
         console.error("[Admin loadData Error]:", res.status, errData.error || "Failed to load dashboard data");
-        showToast(errData.error || `Failed to load admin data (HTTP ${res.status})`, "error");
+        if (request !== dashboardRequest.current) return;
+        if (res.status === 401 || res.status === 403) {
+          setUsers([]); setTeams([]); setReports([]); setEmailUsage(null);
+          setEmailAnalytics(null); setRecentWebhookEvents([]); setDashboardLoaded(false);
+        }
+        throw new Error(`Dashboard request failed (HTTP ${res.status})`);
       }
-    } catch (apiErr: any) {
+    } catch (apiErr) {
       console.error("[Admin loadData Exception]:", apiErr);
-      showToast(apiErr.message || "Network error loading admin dashboard data.", "error");
+      if (request !== dashboardRequest.current) return;
+      const message = "Could not load dashboard data. Please retry.";
+      setDashboardError(message);
+      showToast(message, "error");
+    } finally {
+      if (request === dashboardRequest.current) setDashboardLoading(false);
     }
   }
 
@@ -714,7 +740,8 @@ function AdminContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div role="status" className="flex items-center justify-center min-h-[60vh]">
+        <span className="sr-only">Loading admin dashboard</span>
         <div className="w-8 h-8 border-2 border-zinc-200 dark:border-zinc-800 border-t-[#B4F461] rounded-full animate-spin" />
       </div>
     );
@@ -771,7 +798,7 @@ function AdminContent() {
             >
               <span>Reports</span>
               <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
-                {reports.length}
+                {dashboardLoaded ? reports.length : "—"}
               </span>
             </button>
 
@@ -785,7 +812,7 @@ function AdminContent() {
             >
               <span>Users</span>
               <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
-                {users.length}
+                {dashboardLoaded ? users.length : "—"}
               </span>
             </button>
 
@@ -813,7 +840,7 @@ function AdminContent() {
             >
               <span>Teams</span>
               <span className="px-1.5 py-0.5 rounded-md text-[12.5px] font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-200/60 dark:bg-zinc-900 border border-zinc-300/40 dark:border-zinc-800">
-                {teams.length}
+                {dashboardLoaded ? teams.length : "—"}
               </span>
             </button>
 
@@ -900,6 +927,23 @@ function AdminContent() {
               ⚡ Practice Challenges ({adminChallenges.length})
             </button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+          {dashboardError ? (
+            <div role="alert" className="text-rose-600 dark:text-rose-400">
+              <p>{dashboardError}</p>
+              {dashboardLoaded && <p className="text-zinc-500">Showing previously loaded data.</p>}
+            </div>
+          ) : (
+            <p role="status" className="text-zinc-500">
+              {dashboardLoading ? dashboardLoaded ? "Refreshing dashboard data…" : "Loading dashboard data…" : "Dashboard data loaded."}
+            </p>
+          )}
+          <button type="button" disabled={dashboardLoading} onClick={() => void loadData()}
+            className="btn btn-secondary text-xs disabled:opacity-50">
+            {dashboardLoading ? "Loading dashboard data…" : dashboardError ? "Retry dashboard data" : "Refresh dashboard data"}
+          </button>
         </div>
 
         {/* Daily Resend Email Limit & Telemetry Widgets (Users & Outreach tabs only) */}
@@ -1172,7 +1216,7 @@ function AdminContent() {
         )}
 
         {/* Modular Active Tab Renderers */}
-        {activeTab === "reports" && (
+        {activeTab === "reports" && dashboardLoaded && (
           <ReportsTab
             reports={reports}
             currentUserId={currentUserId}
@@ -1184,6 +1228,8 @@ function AdminContent() {
         {activeTab === "users" && (
           <UsersTab
             users={users}
+            dashboardLoading={dashboardLoading}
+            dashboardLoaded={dashboardLoaded}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             currentUserId={currentUserId}
@@ -1207,7 +1253,7 @@ function AdminContent() {
           />
         )}
 
-        {activeTab === "teams" && (
+        {activeTab === "teams" && dashboardLoaded && (
           <TeamsTab
             teams={teams}
             searchQuery={searchQuery}

@@ -28,17 +28,25 @@ export async function GET(req: NextRequest) {
         .select("id, full_name, email, is_banned, role, created_at, onboarding_completed")
         .order("created_at", { ascending: false });
 
-      profilesData = fallbackData || [];
+      profilesData = fallbackData;
       profilesErr = fallbackErr;
     } else {
-      profilesData = pData || [];
+      profilesData = pData;
+    }
+    if (profilesErr || !Array.isArray(profilesData)) {
+      console.error("[Admin Dashboard API] Profiles fetch failed:", profilesErr || "Missing profiles result");
+      return NextResponse.json({ success: false, error: "Failed to load dashboard data" }, { status: 500 });
     }
 
     // 2. Fetch user reports
-    const { data: reportsData } = await supabaseAdmin
+    const { data: reportsData, error: reportsErr } = await supabaseAdmin
       .from("user_reports")
       .select("*")
       .order("created_at", { ascending: false });
+    if (reportsErr || !Array.isArray(reportsData)) {
+      console.error("[Admin Dashboard API] Reports fetch failed:", reportsErr || "Missing reports result");
+      return NextResponse.json({ success: false, error: "Failed to load dashboard data" }, { status: 500 });
+    }
 
     // 3. Fetch teams safely
     let teamsData = null;
@@ -49,13 +57,21 @@ export async function GET(req: NextRequest) {
 
     if (tErr) {
       console.warn("[Admin Dashboard API] Teams fetch warning:", tErr.message);
-      const { data: fallbackTeams } = await supabaseAdmin
+      const { data: fallbackTeams, error: fallbackErr } = await supabaseAdmin
         .from("teams")
         .select("*")
         .order("created_at", { ascending: false });
-      teamsData = fallbackTeams || [];
+      if (fallbackErr) {
+        console.error("[Admin Dashboard API] Teams fetch failed:", fallbackErr);
+        return NextResponse.json({ success: false, error: "Failed to load dashboard data" }, { status: 500 });
+      }
+      teamsData = fallbackTeams;
     } else {
-      teamsData = tData || [];
+      teamsData = tData;
+    }
+    if (!Array.isArray(teamsData)) {
+      console.error("[Admin Dashboard API] Teams fetch failed: missing teams result");
+      return NextResponse.json({ success: false, error: "Failed to load dashboard data" }, { status: 500 });
     }
 
     // 4. Fetch daily email usage summary
