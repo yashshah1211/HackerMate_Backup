@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test:ppt": "node --test scripts/test-ppt-vision.cjs",
     "test:matching": "node --test scripts/test-squad-matching.cjs",
-    "test:matching:sql": "python scripts/test-squad-matching-local.py"
+    "test:matching:sql": "python scripts/test-squad-matching-local.py",
+    "test:browser": "playwright test --config qa/browser/playwright.config.ts --project safety --project fixture-desktop --project fixture-mobile",
+    "test:browser:live": "playwright test --config qa/browser/playwright.config.ts --project live-desktop --project live-mobile"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
@@ -35,10 +37,12 @@
     "unpdf": "^1.8.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
