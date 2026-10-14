@@ -10,7 +10,7 @@ const row = (revision = 1, content = 'Original', extra = {}) => ({ id: 'document
   updated_at: '2026-10-12T00:00:00Z', updated_by: 'member', ...extra });
 const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => { resolve=a; reject=b; }); return {promise,resolve,reject}; };
 async function editor(gateway = {}) {
-  const view = new TeamDocumentEditor({ load: async () => row(), save: async (expected, content) => ({status:'saved',document:row(expected.revision+1,content)}), ...gateway }, TEAM);
+  const view = new TeamDocumentEditor({ load: async () => row(), read: gateway.read || gateway.load || (async () => row()), save: async (expected, content) => ({status:'saved',document:row(expected.revision+1,content)}), ...gateway }, TEAM);
   await view.load(); return view;
 }
 
@@ -153,7 +153,7 @@ test('actual UI keeps typing enabled while submitted save is pending',async()=>{
 
 // Real React DOM/effects, including StrictMode cleanup, without live network or
 // credentials. Unlike ui(), this exercises the same memoized editor on prop changes.
-async function mountDocument(t, gateway) {
+async function mountDocument(t, gateway, realtime) {
   const { JSDOM } = require('jsdom');
   const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost/' });
   const globals = { window: dom.window, document: dom.window.document,
@@ -182,10 +182,10 @@ async function mountDocument(t, gateway) {
   const system = { Button: el('button'), FieldLabel: el('label'), Panel: el('section'),
     Segmented: () => null, Spinner: () => null, Textarea: el('textarea') };
   const Component = harness({
-    '@/lib/supabase': { supabase: { channel: () => ({ on() { return this; } }) }, subscribeWithRetry: () => () => {} },
-    '@/lib/teamDocument': { TeamDocumentEditor, documentGateway: () => gateway },
+    '@/lib/supabase': realtime || { supabase: { channel: () => ({ on() { return this; } }) }, subscribeWithRetry: () => () => {} },
+    '@/lib/teamDocument': { TeamDocumentEditor, documentGateway: () => ({ read: gateway.load, ...gateway }) },
     '@/components/system': system,
-  }, { window: dom.window }).load('src/components/workspace/SharedTeamDocument.tsx').default;
+  }, { window: dom.window, document: dom.window.document }).load('src/components/workspace/SharedTeamDocument.tsx').default;
   const button = label => [...dom.window.document.querySelectorAll('button')].find(node => node.textContent === label);
   const render = async canEdit => {
     await React.act(async () => root.render(React.createElement(React.StrictMode, null,
@@ -210,6 +210,138 @@ async function mountDocument(t, gateway) {
     },
   };
 }
+
+test('read-only gateway verification never inserts a missing document', async () => {
+  let inserts = 0;
+  const client = { from() { return { select() { return this; }, eq() { return this; },
+    maybeSingle: async () => ({ data: null, error: null }), insert() { inserts++; throw new Error('Must not create'); } }; } };
+  assert.equal(await documentGateway(client, TEAM).read(), null);
+  assert.equal(inserts, 0);
+});
+
+test('real React deletion removes Saved status without recreating or losing draft/recovery', async t => {
+  let server = row(), creates = 0, reads = 0;
+  const channels = [];
+  const realtime = { supabase: { channel() {
+    const channel = { active: false, bindings: [], on(_event, filter, callback) { this.bindings.push({ filter, callback }); return this; } };
+    channels.push(channel); return channel;
+  } }, subscribeWithRetry(channel, callback) { channel.active = true; channel.status = callback; return () => { channel.active = false; }; } };
+  const gateway = { load: async () => { creates++; return server; }, read: async () => { reads++; return server; },
+    save: async () => { throw new Error('Deleted documents cannot save'); } };
+  const view = await mountDocument(t, gateway, realtime);
+  assert.match(view.text(), /Saved revision 1/);
+  // A filtered Postgres Changes DELETE cannot be delivered. Match by primary key.
+  const channel = channels.findLast(c => c.active);
+  const deletion = channel.bindings.find(b => b.filter.event === 'DELETE' && !b.filter.filter);
+  assert(deletion, 'DELETE must have its own unfiltered binding');
+  await React.act(async () => deletion.callback({ eventType: 'DELETE', old: { id: 'unrelated' } }));
+  assert.match(view.text(), /Saved revision 1/);
+  const beforeUnrelated = reads;
+  await React.act(async () => deletion.callback({ eventType: 'DELETE', old: { id: 'another-unrelated' } }));
+  assert.equal(reads, beforeUnrelated, 'unrelated deletion causes neither state changes nor reads');
+  await view.edit('Protected draft');
+  server = null;
+  await React.act(async () => deletion.callback({ eventType: 'DELETE', old: { id: 'document' } }));
+  assert.equal(view.input().value, 'Protected draft');
+  assert(!view.text().includes('Saved revision'));
+  assert.match(view.text(), /unavailable|deleted/);
+  assert.equal(view.button('Save doc').disabled, true);
+  const beforeRetry = creates;
+  await view.click('Retry loading latest');
+  assert.equal(creates, beforeRetry, 'retry uses read-only verification, never creation');
+  assert.equal(view.input().value, 'Protected draft');
+  server = row(1, 'Replacement', { id: 'replacement' });
+  await React.act(async () => channel.status('SUBSCRIBED'));
+  assert.equal(view.input().value, 'Protected draft');
+  assert(!view.text().includes('Saved revision'));
+  assert.equal(view.button('Save doc').disabled, true);
+});
+
+test('read-only reconnect detects missing rows and ignores stale checks after cleanup', async () => {
+  const pending = deferred(); let creates = 0;
+  const b = await editor({ load: async () => { creates++; return row(); }, read: () => pending.promise });
+  b.edit('Draft'); const check = b.verify(); b.dispose(); b.activate(); b.receive(row(2, 'Current'));
+  pending.resolve(null); await check;
+  assert.equal(b.getSnapshot().draft, 'Draft');
+  assert.equal(b.getSnapshot().unavailable, false);
+  assert.equal(creates, 1);
+});
+
+test('deletion invalidates an unresolved save and retains recovery plus newer typing', async () => {
+  const pending = deferred(); let writes = 0;
+  const b = await editor({ save: () => { writes++; return pending.promise; } });
+  b.edit('Recovery'); b.receive(row(2, 'Reviewed')); b.loadTheirs(b.getSnapshot().conflict);
+  b.edit('Submitted'); const save = b.save(); b.edit('Typed later');
+  b.receiveDeletion('document');
+  assert.equal(b.getSnapshot().saving, false);
+  assert.equal(b.getSnapshot().unavailable, true);
+  assert.equal(b.getSnapshot().recovery, 'Recovery');
+  pending.resolve({ status: 'saved', document: row(3, 'Submitted') }); await save;
+  assert.equal(b.getSnapshot().draft, 'Typed later');
+  assert.equal(b.getSnapshot().base.revision, 2);
+  assert.equal(b.getSnapshot().notice, null);
+  await b.save(); assert.equal(writes, 1);
+  b.restoreRecovery(); assert.equal(b.getSnapshot().draft, 'Recovery');
+  assert.equal(b.getSnapshot().recovery, 'Typed later');
+});
+
+test('late missing read cannot override a newer Realtime revision', async () => {
+  const pending = deferred(); const b = await editor({ read: () => pending.promise });
+  b.edit('Local'); const check = b.verify(); b.receive(row(2, 'Current'));
+  pending.resolve(null); await check;
+  assert.equal(b.getSnapshot().unavailable, false);
+  assert.equal(b.getSnapshot().conflict.revision, 2);
+  assert.equal(b.getSnapshot().draft, 'Local');
+});
+
+test('verification coalesces bursts and permission-hidden rows recover without discarding text', async () => {
+  const first = deferred(); let reads = 0, server = null;
+  const b = await editor({ read: () => { reads++; return reads === 1 ? first.promise : Promise.resolve(server); } });
+  b.edit('Protected'); const check = b.verify();
+  for (let i = 0; i < 20; i++) void b.verify();
+  first.resolve(row()); await check;
+  assert.equal(reads, 2);
+  assert.equal(b.getSnapshot().unavailable, true);
+  assert.equal(b.getSnapshot().draft, 'Protected');
+  server = row(); await b.verify();
+  assert.equal(b.getSnapshot().unavailable, false);
+  assert.equal(b.getSnapshot().draft, 'Protected');
+});
+
+test('queued Realtime rows cannot restore access after a missing read without fresh verification', async () => {
+  let server = null, writes = 0;
+  const b = await editor({ read: async () => server, save: async () => { writes++; } });
+  b.edit('Protected'); await b.verify();
+  b.receive(row()); b.receive(row(2, 'Queued remote'));
+  assert.equal(b.getSnapshot().unavailable, true);
+  assert.equal(b.getSnapshot().latest.revision, 1);
+  await b.save(); assert.equal(writes, 0);
+  server = row(2, 'Verified remote'); await b.verify();
+  assert.equal(b.getSnapshot().unavailable, false);
+  assert.equal(b.getSnapshot().conflict.revision, 2);
+  assert.equal(b.getSnapshot().draft, 'Protected');
+});
+
+test('real React focus verifies a missed deletion; cleanup removes listeners and suppresses stale callbacks', async t => {
+  let server = row(), reads = 0, creates = 0;
+  const channels = [];
+  const realtime = { supabase: { channel() { const c = { on() { return this; } }; channels.push(c); return c; } },
+    subscribeWithRetry(channel, status) { channel.status = status; return () => {}; } };
+  const view = await mountDocument(t, { load: async () => { creates++; return server; },
+    read: async () => { reads++; return server; } }, realtime);
+  await view.edit('Protected focus draft'); server = null;
+  await React.act(async () => window.dispatchEvent(new window.Event('focus')));
+  assert.equal(view.input().value, 'Protected focus draft');
+  assert(!view.text().includes('Saved revision'));
+  await view.render(false);
+  const stoppedReads = reads, stoppedCreates = creates;
+  await React.act(async () => {
+    window.dispatchEvent(new window.Event('focus'));
+    window.dispatchEvent(new window.Event('online'));
+    channels.forEach(c => c.status('SUBSCRIBED'));
+  });
+  assert.equal(reads, stoppedReads); assert.equal(creates, stoppedCreates);
+});
 
 test('disposed editors reject stale save/load/recovery commands until permission restoration', async () => {
   let saves = 0, loads = 0;

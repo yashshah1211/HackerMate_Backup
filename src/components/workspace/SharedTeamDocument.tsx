@@ -29,18 +29,31 @@ export default function SharedTeamDocument({ teamId, canEdit, renderMarkdown, on
     if (!canEdit) { editor.dispose(); return; }
     let active = true;
     editor.activate();
-    void editor.load();
-    const channel = supabase.channel(`team_document_editor:${teamId}`).on("postgres_changes", {
-      event: "*", schema: "public", table: "team_documents", filter: `team_id=eq.${teamId}`,
-    }, payload => {
-      if (!active) return;
-      if (payload.eventType === "DELETE") void editor.load();
-      else editor.receive(payload.new);
-    });
+    void editor.load().then(() => { if (active) void editor.verify(); });
+    // The SDK caches by topic until async removal finishes. A unique topic
+    // keeps StrictMode cleanup/restoration from reusing a closing instance.
+    const channel = supabase.channel(`team_document_editor:${teamId}:${window.crypto.randomUUID()}`);
+    for (const event of ["INSERT", "UPDATE"] as const) channel.on("postgres_changes", {
+      event, schema: "public", table: "team_documents", filter: `team_id=eq.${teamId}`,
+    }, payload => { if (active) editor.receive(payload.new); });
+    // DELETE cannot be filtered by team_id; RLS exposes only the old primary
+    // key. Ignore other document IDs without fetching their data.
+    channel.on("postgres_changes", { event: "DELETE", schema: "public", table: "team_documents" },
+      payload => { if (active) editor.receiveDeletion(payload.old.id); });
     const unsubscribe = subscribeWithRetry(channel, status => {
-      if (active && status === "SUBSCRIBED") void editor.load(); // close load/subscribe gaps and reconnect gaps
+      if (active && status === "SUBSCRIBED") void editor.verify();
     });
-    return () => { active = false; editor.dispose(); unsubscribe(); };
+    const verify = () => { if (active) void editor.verify(); };
+    const visible = () => { if (document.visibilityState === "visible") verify(); };
+    window.addEventListener("focus", verify);
+    window.addEventListener("online", verify);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      active = false; editor.dispose(); unsubscribe();
+      window.removeEventListener("focus", verify);
+      window.removeEventListener("online", verify);
+      document.removeEventListener("visibilitychange", visible);
+    };
   }, [editor, teamId, canEdit]);
 
   useEffect(() => {
@@ -52,16 +65,16 @@ export default function SharedTeamDocument({ teamId, canEdit, renderMarkdown, on
 
   if (!canEdit) return <Panel className="p-4 text-[13px] text-ink-3">The shared document is for team members.</Panel>;
   if (state.loading) return <Panel className="flex h-40 items-center justify-center"><Spinner label="Loading the shared doc" /></Panel>;
-  const conflict = state.conflict;
+  const conflict = state.unavailable ? null : state.conflict;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-[12px] text-ink-3" role="status">
-          {state.saving ? "Saving submitted version…" : dirty ? "Unsaved edits" : state.base ? `Saved revision ${state.base.revision}` : "Document unavailable"}
+          {state.unavailable ? "Document unavailable · local text retained" : state.saving ? "Saving submitted version…" : dirty ? "Unsaved edits" : state.base ? `Saved revision ${state.base.revision}` : "Document unavailable"}
           {state.base && <span className="ml-2 hidden sm:inline">{relativeTime(state.base.updated_at, { suffix: true })}</span>}
         </span>
         <Button variant="primary" size="sm" icon={<Save />} loading={state.saving}
-          disabled={!state.base || state.saving || !!conflict || !dirty} onClick={() => void editor.save()}>Save doc</Button>
+          disabled={!state.base || state.unavailable || state.saving || !!conflict || !dirty} onClick={() => void editor.save()}>Save doc</Button>
       </div>
       {state.error && <div role="alert" className="rounded-lg bg-warn-soft p-3 text-[13px] text-ink">
         <p>{state.error}</p>
