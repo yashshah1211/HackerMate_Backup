@@ -59,7 +59,8 @@ const FULL: DashboardData = {
   ],
   queue: [
     { kind: "invite", id: "inv-1", teamId: "dev-team-9", teamName: "Byte Brigade", teamDescription: "Building an offline-first attendance app for rural schools.", inviterName: "Rohan Das" },
-    { kind: "join", teamId: "dev-team-1", teamName: "Null Pointers", count: 2, category: "hackathon" },
+    { kind: "join", id: "join-1", teamId: "dev-team-1", teamName: "Null Pointers", user: DEV_BUILDERS[0], createdAt: iso(1800) },
+    { kind: "join", id: "join-2", teamId: "dev-team-1", teamName: "Null Pointers", user: DEV_BUILDERS[1], createdAt: iso(300) },
     {
       kind: "connection",
       id: "req-1",
@@ -77,6 +78,8 @@ const FULL: DashboardData = {
   partners: [],
   year: { visible: false, value: "3rd Year", saving: false },
   busyId: null,
+  joinBusyId: null,
+  joinError: null,
 };
 
 const EMPTY: DashboardData = {
@@ -123,6 +126,9 @@ export default function DevDashboard() {
           onDeclineInvite: noop,
           onAcceptConnection: noop,
           onDeclineConnection: noop,
+          onAcceptJoin: noop,
+          onDeclineJoin: noop,
+          onReload: noop,
           onOpenInbox: noop,
         }}
       />

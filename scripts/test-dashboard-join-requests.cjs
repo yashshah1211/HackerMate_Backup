@@ -1,0 +1,280 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Offline React lifecycle regression tests. */
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const React = require('react');
+const { JSDOM } = require('jsdom');
+const { harness } = require('./ppt-vision-harness.cjs');
+
+const OWNER = 'fixture-owner', TEAM = 'fixture-team';
+const builder = id => ({ id, full_name: `Builder ${id}`, college: 'Fixture College', year_of_study: '3rd Year', skills: ['Python', 'React'], bio: 'Builds accessible tools', avatar_url: null });
+const request = id => ({ id, team_id: TEAM, user_id: `user-${id}`, status: 'pending', created_at: new Date(Date.now() - 8 * 86400000).toISOString(), profiles: builder(`user-${id}`) });
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+async function view(t, options = {}) {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/dashboard' });
+  const keys = ['window', 'document', 'navigator', 'HTMLElement', 'IS_REACT_ACT_ENVIRONMENT'];
+  const prior = new Map(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  for (const key of keys) Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : dom.window[key] });
+  const { createRoot } = require('react-dom/client');
+  const root = createRoot(dom.window.document.getElementById('root'));
+  let mounted = true, dash;
+  t.after(async () => {
+    if (mounted) await React.act(async () => root.unmount());
+    dom.window.close();
+    for (const [key, descriptor] of prior) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  });
+  const server = {
+    user: OWNER, owner: OWNER, max: 4, members: [{ user_id: OWNER, role: 'owner', profiles: builder(OWNER) }],
+    requests: [request('a'), request('b')], joinError: null, teamError: null, ...options.server,
+  };
+  const queries = [], mutations = [], toasts = [], errors = [];
+  let nextList = null;
+  const team = () => ({ id: TEAM, name: 'Fixture Team', owner_id: server.owner, max_members: server.max, hackathon_id: null, team_members: server.members, team_hackathons: [] });
+  function from(table) {
+    const q = { table, columns: '', filters: {}, mode: 'read' };
+    const chain = {
+      select(columns, settings) { q.columns = columns; q.settings = settings; return this; },
+      eq(key, value) { q.filters[key] = value; return this; },
+      in(key, values) { q.filters[key] = values; return this; },
+      neq() { return this; }, or() { return this; }, gte() { return this; }, lte() { return this; }, limit() { return this; },
+      order(column, settings) { q.order = { column, settings }; return this; },
+      single() { q.single = true; return this; }, maybeSingle() { q.single = true; return this; },
+      delete() { q.mode = 'delete'; return this; },
+      then(resolve, reject) {
+        queries.push(q);
+        return Promise.resolve().then(async () => {
+          if (q.mode === 'delete') {
+            mutations.push(q);
+            if (options.decline) return options.decline(q);
+            const matches = server.requests.filter(r => r.id === q.filters.id && r.team_id === q.filters.team_id && r.status === q.filters.status);
+            server.requests = server.requests.filter(r => !matches.includes(r));
+            return { data: matches.map(r => ({ id: r.id })), error: null };
+          }
+          if (table === 'profiles') return { data: q.single ? { ...builder(OWNER), onboarding_completed: true } : [], error: null, count: 0 };
+          if (table === 'teams') return { data: q.settings?.head ? null : q.single ? team() : q.filters.owner_id && server.owner !== server.user ? [] : [team()], error: server.teamError, count: 1 };
+          if (table === 'team_join_requests') {
+            if (!q.single && nextList) { const response = nextList; nextList = null; return response; }
+            return { data: q.single ? server.requests.find(r => r.id === q.filters.id && r.team_id === q.filters.team_id && r.status === q.filters.status) || null : server.requests.filter(r => q.filters.team_id.includes(r.team_id)), error: server.joinError };
+          }
+          return { data: [], error: null, count: 0 };
+        }).then(resolve, reject);
+      },
+    };
+    return chain;
+  }
+  const client = {
+    auth: { getUser: async () => ({ data: { user: server.user ? { id: server.user } : null }, error: null }) },
+    from,
+    rpc: async (name, args) => {
+      mutations.push({ name, args });
+      if (options.rpc) return options.rpc(name, args);
+      const row = server.requests.find(r => r.id === args.p_request_id);
+      assert(row, 'RPC fixture expects a pending request');
+      server.members.push({ user_id: row.user_id, role: 'member', profiles: row.profiles });
+      server.requests = server.requests.filter(r => r !== row);
+      return { data: TEAM, error: null };
+    },
+    channel: () => ({ on() { return this; } }),
+  };
+  const element = tag => props => React.createElement(tag, {
+    href: props.href, id: props.id, onClick: props.onClick, disabled: props.disabled || props.loading, title: props.title,
+  }, props.children);
+  const system = new Proxy({}, { get: (_, name) => {
+    if (name === 'Section') return props => React.createElement('section', { id: props.id }, props.title, props.children);
+    if (name === 'ErrorNotice') return props => React.createElement('div', { role: 'alert' }, props.title, props.detail, React.createElement('button', { onClick: props.onRetry }, 'Retry'));
+    if (name === 'PageHeader') return props => React.createElement('header', null, props.title, props.meta);
+    if (name === 'EmptyState') return props => React.createElement('div', null, props.title, props.body, props.action);
+    return element(name === 'Button' ? 'button' : name === 'ButtonLink' ? 'a' : 'div');
+  } });
+  const router = { push() {} };
+  const showToast = (message, type) => toasts.push({ message, type });
+  const loader = harness({
+    'next/link': element('a'), 'next/navigation': { useRouter: () => router },
+    'motion/react': { AnimatePresence: ({ children }) => children, motion: { li: element('li') } },
+    '@/lib/supabase': { supabase: client, subscribeWithRetry: () => () => {} },
+    '@/lib/matchingClient': { loadTeammateRecommendations: async () => ({ data: [], error: null }) },
+    '@/context/NotificationContext': { useNotification: () => ({ showToast }) },
+    '@/lib/posthog': { trackEvent() {} }, '@/components/StreakWidget': () => null,
+    '@/components/system': system,
+  }, { window: dom.window, localStorage: dom.window.localStorage, Event: dom.window.Event, console: { error: (...args) => errors.push(args) } });
+  const { useDashboardData } = loader.load('src/app/dashboard/useDashboardData.ts');
+  const { DashboardView } = loader.load('src/app/dashboard/DashboardView.tsx');
+  function Probe() {
+    dash = useDashboardData();
+    return React.createElement(DashboardView, { data: dash.data, unreadMessages: 0, handlers: {
+      onAcceptJoin: dash.acceptJoinRequest, onDeclineJoin: dash.declineJoinRequest, onReload: dash.reload,
+      onConfirmYear() {}, onYearChange() {}, onOpenProfileSetup() {}, onOpenInbox() {},
+    } });
+  }
+  await React.act(async () => { root.render(React.createElement(Probe)); await new Promise(resolve => setImmediate(resolve)); });
+  const pending = () => dom.window.document.querySelector('#needs-you');
+  const settle = async fn => React.act(async () => { await fn?.(); await new Promise(resolve => setImmediate(resolve)); });
+  return {
+    server, queries, mutations, toasts, errors, dom, settle, data: () => dash.data,
+    pending, text: () => pending().textContent,
+    rows: () => [...pending().querySelectorAll('li')],
+    button: (label, index = 0) => [...pending().querySelectorAll('button')].filter(b => b.textContent === label)[index],
+    click: async (label, index = 0) => { const button = [...pending().querySelectorAll('button')].filter(b => b.textContent === label)[index]; assert(button, `Missing ${label}`); assert.equal(button.disabled, false); await settle(() => button.click()); },
+    reload: () => settle(() => dash.reload()),
+    startReload: () => dash.reload(),
+    action: (id = 'a', accept = true) => accept ? dash.acceptJoinRequest(id) : dash.declineJoinRequest(id),
+    holdNextList: response => { nextList = response; },
+    unmount: async () => { await React.act(async () => root.unmount()); mounted = false; },
+  };
+}
+
+test('individual owner requests show builder details, age, team and canonical review links', async t => {
+  const ui = await view(t);
+  assert.equal(ui.rows().length, 2);
+  assert.match(ui.text(), /Builder user-a/); assert.match(ui.text(), /Fixture College/);
+  assert.match(ui.text(), /Python/); assert.match(ui.text(), /Builds accessible tools/);
+  assert.match(ui.text(), /Requested \d/);
+  assert(ui.pending().querySelector('a[href="/profile/user-a"]'));
+  assert(ui.pending().querySelector(`a[href="/teams/${TEAM}/requests"]`));
+  assert.equal([...ui.pending().querySelectorAll('button')].filter(b => b.textContent === 'Accept').length, 2);
+  const query = ui.queries.find(q => q.table === 'team_join_requests' && q.mode === 'read');
+  assert(!query.columns.includes('*')); assert(!query.columns.includes('email'));
+  assert.equal(query.order.settings.ascending, true);
+});
+
+test('accept confirms RPC result, removes only that row and refreshes capacity', async t => {
+  const ui = await view(t); await ui.click('Accept');
+  assert.deepEqual(ui.mutations.map(m => JSON.parse(JSON.stringify(m))), [{ name: 'accept_team_join_request', args: { p_request_id: 'a' } }]);
+  assert.equal(ui.rows().length, 1); assert.match(ui.text(), /Builder user-b/);
+  assert.equal(ui.data().teams[0].memberCount, 2);
+  assert.equal(ui.toasts.filter(t => t.type === 'success').length, 1);
+});
+
+test('decline only deletes the pending request for its team and confirms the returned row', async t => {
+  const ui = await view(t); await ui.click('Decline');
+  assert.equal(ui.mutations.length, 1); assert.equal(ui.mutations[0].columns, 'id');
+  assert.deepEqual(ui.mutations[0].filters, { id: 'a', team_id: TEAM, status: 'pending' });
+  assert.equal(ui.rows().length, 1); assert.equal(ui.toasts[0].type, 'info');
+});
+
+test('duplicate and competing row actions are locked before React rerenders', async t => {
+  const result = deferred(); const ui = await view(t, { rpc: () => result.promise });
+  let first;
+  await ui.settle(() => { first = ui.action(); ui.action(); ui.action('b', false); });
+  assert.equal(ui.mutations.length, 1);
+  assert.equal(ui.button('Accept', 1).disabled, true); assert.equal(ui.button('Decline', 1).disabled, true);
+  await ui.settle(() => result.resolve({ data: TEAM, error: null })); await first;
+  assert.equal(ui.data().joinBusyId, null);
+});
+
+for (const response of [{ data: null, error: null }, { data: 'other-team', error: null }, { data: null, error: { message: 'This team is full' } }]) {
+  test(`unconfirmed acceptance never reports success: ${JSON.stringify(response)}`, async t => {
+    const ui = await view(t, { rpc: async () => response }); await ui.click('Accept');
+    assert.equal(ui.toasts.some(t => t.type === 'success'), false);
+    assert.equal(ui.rows().length, 2); assert.equal(ui.data().joinBusyId, null); assert(ui.errors.length);
+  });
+}
+
+test('RLS zero-row decline is not presented as a successful rejection', async t => {
+  const ui = await view(t, { decline: async () => ({ data: [], error: null }) }); await ui.click('Decline');
+  assert.equal(ui.toasts.some(t => t.type === 'info'), false); assert.equal(ui.rows().length, 2);
+});
+
+test('network rejection unlocks controls and supports a fresh retry', async t => {
+  let fail = true;
+  const ui = await view(t, { rpc: async () => { if (fail) throw new Error('Fixture network failure'); return { data: TEAM, error: null }; } });
+  await ui.click('Accept'); assert.equal(ui.button('Accept').disabled, false); assert(ui.errors.length);
+  fail = false; await ui.click('Accept'); assert.equal(ui.toasts.filter(t => t.type === 'success').length, 1);
+});
+
+test('full teams disable accept while decline remains available', async t => {
+  const ui = await view(t, { server: { max: 1 } }); assert.equal(ui.button('Accept').disabled, true);
+  assert.match(ui.text(), /Team full/); await ui.click('Decline'); assert.equal(ui.mutations[0].mode, 'delete');
+});
+
+for (const change of ['owner', 'capacity', 'membership', 'pending', 'identity']) {
+  test(`fresh preflight prevents writes after ${change} changes`, async t => {
+    const ui = await view(t);
+    if (change === 'owner') ui.server.owner = 'fixture-other-owner';
+    if (change === 'capacity') ui.server.max = 1;
+    if (change === 'membership') ui.server.members.push({ user_id: 'user-a', profiles: builder('user-a') });
+    if (change === 'pending') ui.server.requests = [];
+    if (change === 'identity') ui.server.user = 'fixture-other-user';
+    await ui.click('Accept'); assert.equal(ui.mutations.length, 0); assert.equal(ui.toasts.some(t => t.type === 'success'), false);
+  });
+}
+
+test('non-owner teams expose no request actions or request query', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner' } });
+  assert.equal(ui.rows().length, 0); assert(!ui.queries.some(q => q.table === 'team_join_requests'));
+  await ui.settle(() => ui.action()); assert.equal(ui.mutations.length, 0);
+});
+
+test('failed request refresh preserves rows, disables actions and exposes a successful Retry', async t => {
+  const ui = await view(t); ui.server.joinError = { message: 'Fixture denied' }; await ui.reload();
+  assert.equal(ui.rows().length, 2); assert.match(ui.text(), /Couldn't load join requests/);
+  assert.equal(ui.button('Accept').disabled, true); assert(!ui.text().includes('all caught up'));
+  ui.server.joinError = null; await ui.click('Retry'); assert.equal(ui.button('Accept').disabled, false);
+  assert(ui.errors.length);
+});
+
+test('initial join-read failure does not show caught-up empty state', async t => {
+  const ui = await view(t, { server: { joinError: { message: 'Fixture denied' } } });
+  assert.match(ui.text(), /Couldn't load join requests/); assert(!ui.text().includes('all caught up'));
+});
+
+test('stale reload cannot resurrect a request after acceptance', async t => {
+  const ui = await view(t); const stale = deferred(); ui.holdNextList(stale.promise);
+  let reload;
+  await ui.settle(() => { reload = ui.startReload(); });
+  await ui.click('Accept'); assert.equal(ui.rows().length, 1);
+  await ui.settle(() => stale.resolve({ data: [request('a'), request('b')], error: null })); await reload;
+  assert.equal(ui.rows().length, 1); assert(!ui.text().includes('Builder user-a'));
+});
+
+test('settling an action after unmount has no toast or follow-up reload', async t => {
+  const result = deferred(); const ui = await view(t, { rpc: () => result.promise });
+  let action; await ui.settle(() => { action = ui.action(); }); await ui.unmount();
+  const reads = ui.queries.length; result.resolve({ data: TEAM, error: null }); await action;
+  assert.equal(ui.toasts.length, 0); assert.equal(ui.queries.length, reads);
+});
+
+test('missing builder profile still retains the pending request and profile link', async t => {
+  const row = request('a'); row.profiles = null;
+  const ui = await view(t, { server: { requests: [row] } });
+  assert.match(ui.text(), /Unnamed builder/); assert.equal(ui.rows().length, 1);
+  assert(ui.pending().querySelector('a[href="/profile/user-a"]'));
+  await ui.click('Accept'); assert.equal(ui.toasts[0].type, 'success');
+});
+
+test('owner read failure disables preserved request actions until Retry verifies ownership', async t => {
+  const ui = await view(t); ui.server.teamError = { message: 'Fixture permission failure' }; await ui.reload();
+  assert.match(ui.text(), /ownership could not be verified/); assert.equal(ui.button('Decline').disabled, true);
+  await ui.settle(() => ui.action('a', false)); assert.equal(ui.mutations.length, 0);
+  ui.server.teamError = null; await ui.click('Retry'); assert.equal(ui.button('Decline').disabled, false);
+});
+
+test('permission revoked between preflight and delete never produces a success message', async t => {
+  const ui = await view(t, { decline: async () => ({ data: null, error: { message: 'Fixture denied' } }) });
+  await ui.click('Decline'); assert.equal(ui.toasts.some(t => t.type === 'info'), false);
+  assert(ui.errors.length); assert.equal(ui.button('Decline').disabled, false);
+});
+
+test('refresh after a confirmed action fails safely without restoring the acted-on request', async t => {
+  let ui;
+  ui = await view(t, { rpc: async () => { ui.server.joinError = { message: 'Fixture network failure' }; return { data: TEAM, error: null }; } });
+  await ui.click('Accept'); assert.equal(ui.rows().length, 1);
+  assert(!ui.text().includes('Builder user-a')); assert.match(ui.text(), /Couldn't load join requests/);
+  assert.equal(ui.button('Accept').disabled, true); assert.equal(ui.toasts.filter(t => t.type === 'success').length, 1);
+});
+
+test('identity change during a pending action suppresses its stale toast and preserves the new list', async t => {
+  const result = deferred(); const ui = await view(t, { rpc: () => result.promise });
+  let action; await ui.settle(() => { action = ui.action(); });
+  ui.server.user = 'fixture-other-user'; ui.server.owner = 'fixture-another-owner'; await ui.reload();
+  assert.equal(ui.rows().length, 0); assert.equal(ui.data().joinBusyId, null);
+  await ui.settle(() => result.resolve({ data: TEAM, error: null })); await action;
+  assert.equal(ui.toasts.length, 0); assert.equal(ui.rows().length, 0);
+});

@@ -31,6 +31,9 @@ function DashboardContent() {
           onDeclineInvite: dash.declineInvite,
           onAcceptConnection: dash.acceptConnection,
           onDeclineConnection: dash.declineConnection,
+          onAcceptJoin: dash.acceptJoinRequest,
+          onDeclineJoin: dash.declineJoinRequest,
+          onReload: dash.reload,
           onOpenInbox: () => shell?.openInbox(),
         }}
       />

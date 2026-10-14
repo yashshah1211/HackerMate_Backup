@@ -65,7 +65,7 @@ export type DashTeam = {
 export type QueueItem =
   | { kind: "invite"; id: string; teamId: string; teamName: string; teamDescription: string | null; inviterName: string | null }
   | { kind: "connection"; id: string; user: ConnectedUser; message: string | null; createdAt: string }
-  | { kind: "join"; teamId: string; teamName: string; count: number; category: TeamCategory };
+  | { kind: "join"; id: string; teamId: string; teamName: string; user: DashBuilder; createdAt: string };
 
 export type Activity = { id: string; message: string; link: string | null; createdAt: string };
 
@@ -88,6 +88,8 @@ export type DashboardData = {
   partners: PartnerEvent[];
   year: { visible: boolean; value: string; saving: boolean };
   busyId: string | null;
+  joinBusyId: string | null;
+  joinError: string | null;
 };
 
 type TeamMemberRow = { role: string; user_id: string; profiles: { id: string; full_name: string; avatar_url: string } | null };
@@ -138,6 +140,8 @@ export function useDashboardData() {
     partners: [],
     year: { visible: false, value: "2nd Year", saving: false },
     busyId: null,
+    joinBusyId: null,
+    joinError: null,
   });
   const [prompt, setPrompt] = useState<{ open: boolean; user: ConnectedUser | null; teams: TeamWithSlots[] }>({
     open: false,
@@ -145,6 +149,10 @@ export function useDashboardData() {
     teams: [],
   });
   const userIdRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const loadGeneration = useRef(0);
+  const joinActionRef = useRef<symbol | null>(null);
+  const invalidateLoad = useCallback(() => { ++loadGeneration.current; }, []);
   const patch = useCallback((p: Partial<DashboardData>) => setState((s) => ({ ...s, ...p })), []);
 
   /** friend_requests → per-user relationship state + incoming requests for the queue. */
@@ -224,13 +232,22 @@ export function useDashboardData() {
   }, []);
 
   const loadAll = useCallback(async () => {
+    const generation = ++loadGeneration.current;
+    const current = () => mountedRef.current && generation === loadGeneration.current;
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (!current()) return;
       if (!user) {
-        patch({ loading: false });
+        userIdRef.current = null;
+        joinActionRef.current = null;
+        patch({ loading: false, teams: [], queue: [], joinBusyId: null });
         return;
+      }
+      if (userIdRef.current && userIdRef.current !== user.id) {
+        joinActionRef.current = null;
+        patch({ teams: [], queue: [], joinBusyId: null, joinError: null });
       }
       userIdRef.current = user.id;
 
@@ -239,6 +256,7 @@ export function useDashboardData() {
         .select(`${SAFE_PROFILE_COLUMNS}, current_streak, longest_streak, last_active_date, year_of_study`)
         .eq("id", user.id)
         .single();
+      if (!current()) return;
       if (profileErr) console.error("[dashboard] profile read failed:", profileErr);
 
       const profile = (profileData as DashProfile | null) ?? null;
@@ -337,6 +355,7 @@ export function useDashboardData() {
         if (t && typeof t === "object" && "id" in t) teamIds.add((t as { id: string }).id);
       });
       let teams: DashTeam[] = [];
+      let joinError: string | null = members.error || owned.error ? "Team ownership could not be verified. Retry before reviewing requests." : null;
       if (teamIds.size) {
         const { data: batch, error: batchErr } = await supabase
           .from("teams")
@@ -345,6 +364,7 @@ export function useDashboardData() {
           )
           .in("id", Array.from(teamIds));
         if (batchErr) console.error("[dashboard] team details failed:", batchErr);
+        if (batchErr) joinError = "Team ownership could not be verified. Retry before reviewing requests.";
         teams = ((batch || []) as unknown as TeamDetailsRow[]).map((d) => {
           const info = getTeamCategoryInfo(d);
           const members = d.team_members || [];
@@ -367,21 +387,30 @@ export function useDashboardData() {
       // Join requests waiting on teams the viewer owns (same table/filters as /teams/[id]/requests).
       const ownedTeams = teams.filter((t) => t.isOwner);
       let joinItems: QueueItem[] = [];
-      if (ownedTeams.length) {
+      if (ownedTeams.length && !joinError) {
         const { data: jr, error: jrErr } = await supabase
           .from("team_join_requests")
-          .select("id, team_id")
+          .select("id, team_id, user_id, created_at, profiles(id, full_name, avatar_url, college, year_of_study, skills, bio)")
           .in(
             "team_id",
             ownedTeams.map((t) => t.id),
           )
-          .eq("status", "pending");
-        if (jrErr) console.error("[dashboard] team_join_requests failed:", jrErr);
-        const counts = new Map<string, number>();
-        (jr || []).forEach((r) => counts.set(r.team_id, (counts.get(r.team_id) || 0) + 1));
-        joinItems = ownedTeams.flatMap((t) =>
-          counts.get(t.id) ? [{ kind: "join" as const, teamId: t.id, teamName: t.name, count: counts.get(t.id) as number, category: t.category }] : [],
-        );
+          .eq("status", "pending")
+          .order("created_at", { ascending: true });
+        if (jrErr) {
+          console.error("[dashboard] team_join_requests failed:", jrErr);
+          joinError = "Pending requests could not be refreshed. Retry before taking action.";
+        } else {
+          type JoinRow = { id: string; team_id: string; user_id: string; created_at: string; profiles: DashBuilder | null };
+          const byId = new Map(ownedTeams.map(t => [t.id, t]));
+          joinItems = ((jr || []) as unknown as JoinRow[]).flatMap(r => {
+            const team = byId.get(r.team_id);
+            return team ? [{ kind: "join" as const, id: r.id, teamId: team.id, teamName: team.name,
+              user: { ...r.profiles, id: r.user_id, full_name: r.profiles?.full_name ?? null,
+                college: r.profiles?.college ?? null, avatar_url: r.profiles?.avatar_url ?? null, skills: r.profiles?.skills ?? null },
+              createdAt: r.created_at }] : [];
+          });
+        }
       }
 
       const [buildersCount, liveCount, teamsCount, closingCount] = counts;
@@ -411,6 +440,7 @@ export function useDashboardData() {
         }
       }
 
+      if (!current()) return;
       setState((s) => ({
         ...s,
         loading: false,
@@ -422,7 +452,8 @@ export function useDashboardData() {
         matchError: match.error ? (match.error as { message?: string }).message || "Matchmaking unavailable" : null,
         connectionStates: conn.states,
         teams,
-        queue: [...invites, ...joinItems, ...conn.incoming],
+        queue: [...invites, ...(joinError ? s.queue.filter(q => q.kind === "join") : joinItems), ...conn.incoming],
+        joinError,
         stats: {
           builders: buildersCount.count ?? 0,
           hackathons: liveCount.error ? null : (liveCount.count ?? 0),
@@ -436,11 +467,12 @@ export function useDashboardData() {
       }));
     } catch (err) {
       console.error("[dashboard] load failed:", err);
-      patch({ loading: false });
+      if (current()) patch({ loading: false, joinError: "Pending requests could not be refreshed. Retry before taking action." });
     }
   }, [loadConnections, loadInvites, patch, router]);
 
   useEffect(() => {
+    mountedRef.current = true;
     Promise.resolve().then(loadAll);
     // V1 behaviour: any friend_requests change refreshes relationship state.
     const channel = supabase.channel("dashboard-connections").on(
@@ -450,6 +482,7 @@ export function useDashboardData() {
         const uid = userIdRef.current;
         if (!uid) return;
         const conn = await loadConnections(uid);
+        if (!mountedRef.current || userIdRef.current !== uid) return;
         setState((s) => ({
           ...s,
           connectionStates: conn.states,
@@ -458,8 +491,13 @@ export function useDashboardData() {
       },
     );
     const unsubscribe = subscribeWithRetry(channel);
-    return () => unsubscribe();
-  }, [loadAll, loadConnections]);
+    return () => {
+      mountedRef.current = false;
+      invalidateLoad();
+      joinActionRef.current = null;
+      unsubscribe();
+    };
+  }, [loadAll, loadConnections, invalidateLoad]);
 
   // ── Actions ─────────────────────────────────────────────────────────
 
@@ -489,6 +527,65 @@ export function useDashboardData() {
     (match: (q: QueueItem) => boolean) => setState((s) => ({ ...s, queue: s.queue.filter((q) => !match(q)) })),
     [],
   );
+
+  const reviewJoinRequest = useCallback(async (requestId: string, accept: boolean) => {
+    const request = state.queue.find((q): q is Extract<QueueItem, { kind: "join" }> => q.kind === "join" && q.id === requestId);
+    const team = request && state.teams.find(t => t.id === request.teamId && t.isOwner);
+    const userId = userIdRef.current;
+    if (!mountedRef.current || joinActionRef.current || state.joinError || !request || !team || !userId) return;
+    // Lock synchronously: double clicks and a second row cannot race the same last seat.
+    const action = Symbol();
+    joinActionRef.current = action;
+    ++loadGeneration.current;
+    patch({ joinBusyId: requestId });
+    const current = () => mountedRef.current && joinActionRef.current === action && userIdRef.current === userId;
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!current()) return;
+      if (user?.id !== userId) throw new Error("Your sign-in changed. Refresh before reviewing requests.");
+      const { data: freshTeam, error: teamError } = await supabase.from("teams")
+        .select("owner_id, max_members, team_members(user_id)").eq("id", team.id).maybeSingle();
+      if (teamError) throw teamError;
+      if (!current()) return;
+      if (!freshTeam || freshTeam.owner_id !== userId) throw new Error("Only the current team owner can review requests.");
+      const { data: pending, error: requestError } = await supabase.from("team_join_requests")
+        .select("id, user_id").eq("id", requestId).eq("team_id", team.id).eq("status", "pending").maybeSingle();
+      if (requestError) throw requestError;
+      if (!current()) return;
+      if (!pending || pending.user_id !== request.user.id) throw new Error("This request is no longer pending. The list will refresh.");
+      if (accept) {
+        const members = freshTeam.team_members || [];
+        if (freshTeam.max_members !== null && members.length >= freshTeam.max_members) throw new Error("This team is full. Free up a seat before accepting.");
+        if (members.some((m: { user_id: string }) => m.user_id === pending.user_id)) throw new Error("This builder is already a team member.");
+        // The RPC remains authoritative if ownership, membership or capacity changes after these reads.
+        const { data, error } = await supabase.rpc("accept_team_join_request", { p_request_id: requestId });
+        if (error) throw error;
+        if (!current()) return;
+        if (data !== team.id) throw new Error("Acceptance could not be confirmed. Refresh before trying again.");
+      } else {
+        const { data, error } = await supabase.from("team_join_requests").delete()
+          .eq("id", requestId).eq("team_id", team.id).eq("status", "pending").select("id");
+        if (error) throw error;
+        if (!current()) return;
+        if (data?.length !== 1 || data[0].id !== requestId) throw new Error("No pending request was declined. It may have changed or your permission was removed.");
+      }
+      if (!current()) return;
+      removeQueueItem(q => q.kind === "join" && q.id === requestId);
+      showToast(accept ? `Builder accepted into ${team.name}.` : `Join request declined for ${team.name}.`, accept ? "success" : "info");
+      if (accept) window.dispatchEvent(new Event("hm:teams-changed"));
+    } catch (error) {
+      console.error("[dashboard] join request action failed:", error);
+      if (current()) showToast(error instanceof Error ? error.message : (error as { message?: string }).message || "Could not update this request.", "error");
+    } finally {
+      // Refresh even after uncertain responses; never replay the mutation automatically.
+      if (current()) await loadAll();
+      if (joinActionRef.current === action) {
+        joinActionRef.current = null;
+        if (mountedRef.current) patch({ joinBusyId: null });
+      }
+    }
+  }, [state.queue, state.teams, state.joinError, loadAll, patch, removeQueueItem, showToast]);
 
   const acceptInvite = useCallback(
     async (inviteId: string) => {
@@ -600,6 +697,8 @@ export function useDashboardData() {
     declineInvite,
     acceptConnection,
     declineConnection,
+    acceptJoinRequest: (id: string) => reviewJoinRequest(id, true),
+    declineJoinRequest: (id: string) => reviewJoinRequest(id, false),
     prompt,
     closePrompt: () => setPrompt((p) => ({ ...p, open: false })),
     inviteFromPrompt,
