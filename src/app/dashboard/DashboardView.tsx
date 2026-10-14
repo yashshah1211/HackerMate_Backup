@@ -22,6 +22,7 @@ import {
   ButtonLink,
   Chip,
   EmptyState,
+  ErrorNotice,
   Page,
   PageHeader,
   Progress,
@@ -36,12 +37,11 @@ import {
   TeamMark,
 } from "@/components/system";
 import StreakWidget from "@/components/StreakWidget";
-import { CATEGORY_TONE } from "@/lib/teamCategory";
 import { fitBand, matchReason } from "@/lib/matchPresentation";
 import { dateStamp, eventTimeline, greeting, relativeTime } from "@/lib/time";
 import { cn, getInitials } from "@/lib/utils";
 import type { ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
-import type { ConnState, DashBuilder, DashboardData, QueueItem } from "./useDashboardData";
+import type { ConnState, DashBuilder, DashTeam, DashboardData, QueueItem } from "./useDashboardData";
 
 export type DashboardHandlers = {
   onConfirmYear: () => void;
@@ -51,6 +51,9 @@ export type DashboardHandlers = {
   onDeclineInvite: (id: string) => void;
   onAcceptConnection: (id: string, user: ConnectedUser) => void;
   onDeclineConnection: (id: string, userId: string) => void;
+  onAcceptJoin: (id: string) => void;
+  onDeclineJoin: (id: string) => void;
+  onReload: () => void;
   onOpenInbox: () => void;
 };
 
@@ -161,12 +164,14 @@ export function DashboardView({
 /* ── Needs you ─────────────────────────────────────────────────────── */
 
 function NeedsYou({ data, unreadMessages, handlers }: { data: DashboardData; unreadMessages: number; handlers: DashboardHandlers }) {
-  const count = data.queue.length + (unreadMessages > 0 ? 1 : 0);
+  const queue = data.queue.filter(q => q.kind !== "join" || data.teams.some(t => t.id === q.teamId && t.isOwner));
+  const count = queue.length + (unreadMessages > 0 ? 1 : 0);
   return (
     <Section id="needs-you" title="Pending" count={data.loading ? undefined : count}>
+      {data.joinError && <ErrorNotice title="Couldn't load join requests" detail={data.joinError} onRetry={handlers.onReload} className="mb-3" />}
       {data.loading ? (
         <SkeletonRows rows={2} />
-      ) : count === 0 ? (
+      ) : count === 0 && !data.joinError ? (
         <div className="flex items-center gap-2.5 rounded-lg border border-dashed border-line-strong px-4 py-3.5 text-[13px] text-ink-3">
           <CircleCheck className="size-4 shrink-0 text-ok" aria-hidden />
           <span>
@@ -176,7 +181,7 @@ function NeedsYou({ data, unreadMessages, handlers }: { data: DashboardData; unr
       ) : (
         <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
           <AnimatePresence initial={false}>
-            {data.queue.map((item) => (
+            {queue.map((item) => (
               <motion.li
                 key={queueKey(item)}
                 layout
@@ -185,7 +190,9 @@ function NeedsYou({ data, unreadMessages, handlers }: { data: DashboardData; unr
                 exit={{ opacity: 0, x: 24, transition: { duration: 0.18 } }}
                 transition={{ type: "spring", stiffness: 480, damping: 40 }}
               >
-                <QueueRow item={item} busy={data.busyId} handlers={handlers} />
+                <QueueRow item={item} busy={data.busyId} handlers={handlers}
+                  team={item.kind === "join" ? data.teams.find(t => t.id === item.teamId) : undefined}
+                  joinBusyId={data.joinBusyId} joinError={data.joinError} />
               </motion.li>
             ))}
             {unreadMessages > 0 && (
@@ -220,7 +227,7 @@ function NeedsYou({ data, unreadMessages, handlers }: { data: DashboardData; unr
 }
 
 function queueKey(item: QueueItem) {
-  return item.kind === "join" ? `join-${item.teamId}` : `${item.kind}-${item.id}`;
+  return `${item.kind}-${item.id}`;
 }
 
 function Row({ lead, title, meta, body, actions }: { lead: ReactNode; title: ReactNode; meta?: ReactNode; body?: ReactNode; actions?: ReactNode }) {
@@ -234,12 +241,14 @@ function Row({ lead, title, meta, body, actions }: { lead: ReactNode; title: Rea
           {body && <p className="mt-1.5 line-clamp-2 border-l-2 border-line-strong pl-2.5 text-[12.5px] text-ink-2">{body}</p>}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-1.5 pl-12 sm:pl-0">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-1.5 pl-12 sm:pl-0">{actions}</div>}
     </div>
   );
 }
 
-function QueueRow({ item, busy, handlers }: { item: QueueItem; busy: string | null; handlers: DashboardHandlers }) {
+function QueueRow({ item, busy, handlers, team, joinBusyId, joinError }: {
+  item: QueueItem; busy: string | null; handlers: DashboardHandlers; team?: DashTeam; joinBusyId: string | null; joinError: string | null;
+}) {
   if (item.kind === "invite") {
     const isBusy = busy === item.id;
     return (
@@ -276,22 +285,30 @@ function QueueRow({ item, busy, handlers }: { item: QueueItem; busy: string | nu
     );
   }
   if (item.kind === "join") {
+    if (!team?.isOwner) return null;
+    const full = team.maxMembers !== null && team.memberCount >= team.maxMembers;
+    const isBusy = joinBusyId === item.id;
+    const disabled = joinBusyId !== null || !!joinError;
     return (
       <Row
-        lead={<TeamMark name={item.teamName} tone={CATEGORY_TONE[item.category]} size="md" />}
+        lead={<Avatar name={item.user.full_name || "Unnamed builder"} src={item.user.avatar_url} size="md" />}
         title={
           <>
-            <b className="font-semibold text-ink">
-              {item.count} {item.count === 1 ? "builder" : "builders"}
-            </b>{" "}
+            <Link href={`/profile/${item.user.id}`} className="font-semibold text-ink hover:underline">
+              {item.user.full_name || "Unnamed builder"}
+            </Link>{" "}
             asked to join <b className="font-semibold text-ink">{item.teamName}</b>
           </>
         }
-        meta={<Tape className="align-[1px]">Join request</Tape>}
+        meta={[item.user.college, item.user.year_of_study, `Requested ${relativeTime(item.createdAt, { suffix: true })}`, full ? "Team full" : null].filter(Boolean).join(" · ")}
+        body={<>{item.user.skills?.length ? `${item.user.skills.slice(0, 4).join(" · ")}. ` : ""}{item.user.bio || "View their profile for more details."}</>}
         actions={
-          <ButtonLink href={`/teams/${item.teamId}/requests`} size="sm" variant="secondary">
-            Review
-          </ButtonLink>
+          <>
+            <Button size="sm" variant="primary" loading={isBusy} disabled={disabled || full}
+              title={full ? "Free up a seat before accepting" : undefined} onClick={() => handlers.onAcceptJoin(item.id)}>Accept</Button>
+            <Button size="sm" variant="ghost" disabled={disabled} onClick={() => handlers.onDeclineJoin(item.id)}>Decline</Button>
+            <ButtonLink href={`/teams/${item.teamId}/requests`} size="sm" variant="secondary">Review team</ButtonLink>
+          </>
         }
       />
     );
