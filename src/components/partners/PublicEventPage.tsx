@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import type { PublicEvent, PublicPartnerConfig } from "@/lib/partners/config";
+import { eventDiscoveryHref } from "@/lib/hackathons/discoveryNavigation";
 import Logo from "@/components/Logo";
 import PartnerImage from "./PartnerImage";
 import styles from "./PublicEventPage.module.css";
@@ -28,6 +29,7 @@ export function PartnerPageState({ unavailable = false }: { unavailable?: boolea
 export default function PublicEventPage({ config, event }: { config: PublicPartnerConfig; event: PublicEvent | null }) {
   const title = event?.name || config.name;
   const introduction = config.tagline || event?.description;
+  const teammatesUrl = eventDiscoveryHref(event?.id);
   const communityUrl = event ? `/hackathons/${event.id}` : null;
   const facts: { label: string; value: ReactNode; mono?: boolean }[] = [];
   const startFormat = event?.startDate && event.endDate && event.startDate !== event.endDate
@@ -69,7 +71,7 @@ export default function PublicEventPage({ config, event }: { config: PublicPartn
         {(!event || facts.length === 0) && <p className={styles.pending}>Event information is being finalized.</p>}
         {(officialRegistration || communityUrl) && <div className={styles.actions}>
           {officialRegistration && <ExternalLink href={officialRegistration} className={styles.primary}>Official registration</ExternalLink>}
-          {communityUrl && <Link href={communityUrl} className={officialRegistration ? styles.secondary : styles.primary}>Find teammates</Link>}
+          {teammatesUrl && <Link href={teammatesUrl} className={officialRegistration ? styles.secondary : styles.primary}>Find teammates</Link>}
         </div>}
         {event?.isExternal && <p className={styles.actionNote}>{officialRegistration
           ? "Official registration opens the organizer’s site. Joining the HackerMate community is a separate step."

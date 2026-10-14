@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { EventReadError, loadEventDiscovery, loadOwnEventParticipation, setOwnDiscoveryPreference,
   type DiscoveryPage, type OwnParticipation } from "@/lib/hackathons/eventParticipation";
+import { eventDiscoveryHref } from "@/lib/hackathons/discoveryNavigation";
 import { cn } from "@/lib/utils";
 import {
   Avatar,
@@ -452,6 +453,7 @@ function PartnerPageContent() {
 
   // Partner brand colour is data; used only as a small accent swatch.
   const brandColor = partner.brand_color || null;
+  const teammatesUrl = eventDiscoveryHref(hackathon?.id);
   const displayPrize = formatPrizeDisplay(partner.override_prize_pool || hackathon?.prize_pool, hackathon?.currency) || "Prize Pool TBA";
 
   const isAethos = slug === "aethos" || slug === "aethos-day-zero";
@@ -649,6 +651,9 @@ function PartnerPageContent() {
 
           {/* Actions */}
           <div className="mt-6 flex flex-wrap items-center gap-2">
+            {teammatesUrl && <ButtonLink href={teammatesUrl} variant="secondary" className={TAP} icon={<Users aria-hidden />}>
+              Find teammates for this event
+            </ButtonLink>}
             {isEventConcluded ? (
               <ClosedNote>Team Formation Closed</ClosedNote>
             ) : (
@@ -757,6 +762,9 @@ function PartnerPageContent() {
               );
             })()}
           </div>
+          {hackathon && hackathon.type !== "native" && <p className="mt-3 text-[12.5px] text-ink-3">
+            Finding teammates or joining the HackerMate community does not register you on the organizer’s site.
+          </p>}
         </header>
 
         {/* ---------- Winner banner ---------- */}

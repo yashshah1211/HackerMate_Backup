@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { eventDiscoveryTab, type EventDiscoveryTab } from "@/lib/hackathons/discoveryNavigation";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -170,7 +171,7 @@ function isTeamFullAndRegistered(team: Team) {
   return isFull && isRegisteredForHackathon;
 }
 
-function HackathonDetailContent() {
+function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab }) {
   const { showToast, confirm } = useNotification();
   const params = useParams();
   const router = useRouter();
@@ -202,7 +203,7 @@ function HackathonDetailContent() {
   const buildersList = discovery?.items || [];
 
   // Tab controls
-  const [activeTab, setActiveTab] = useState<"teams" | "builders" | "looking_for_teams" | "looking_for_builders" | "resources" | "organizer">("teams");
+  const [activeTab, setActiveTab] = useState<"teams" | "builders" | "looking_for_teams" | "looking_for_builders" | "resources" | "organizer">(initialTab);
 
   // Modals & form states
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -2239,10 +2240,20 @@ function OverflowMenu({ items, up = false }: { items: MenuItem[]; up?: boolean }
   );
 }
 
+function HackathonDetailRoute() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const tab = eventDiscoveryTab(searchParams.getAll("tab"));
+  // A new event/tab URL starts at its requested discovery tab, including back/forward navigation.
+  return <HackathonDetailContent key={`${params.id}:${tab}`} initialTab={tab} />;
+}
+
 export default function HackathonDetailPage() {
   return (
-    <AuthGuard>
-      <HackathonDetailContent />
-    </AuthGuard>
+    <Suspense fallback={<PageLoader label="Loading event" />}>
+      <AuthGuard>
+        <HackathonDetailRoute />
+      </AuthGuard>
+    </Suspense>
   );
 }

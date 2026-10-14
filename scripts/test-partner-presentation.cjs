@@ -196,11 +196,12 @@ test('metadata uses event facts, canonical slug and only validated real artwork'
   assert.equal(metadata.title, 'Sample Build Weekend'); assert.equal(metadata.description, 'A weekend for curious builders.');
   assert.equal(metadata.alternates.canonical, '/partners/sample-event'); assert.equal(metadata.openGraph.images.length, 0);
 });
-test('legacy extraction is byte-identical to the pre-Commit-6 page', () => {
+test('legacy page retains the reviewed contextual-navigation snapshot', () => {
   const current = fs.readFileSync(path.join(ROOT, 'src/components/partners/LegacyPartnerPage.tsx'), 'utf8');
-  // SHA-256 of the LF-normalized page at 622648f; works in shallow CI checkouts.
+  // Freeze the reviewed legacy page after adding event discovery navigation.
+  // Runtime participation and official-link preservation live in test-event-compatibility.cjs.
   assert.equal(createHash('sha256').update(current.replace(/\r\n/g, '\n')).digest('hex'),
-    '70bd1ea9bab65e086ce83ee0edc5e6ac3b936d07608f619e045d2c46c4ce763d');
+    '2e4f5d1cf184b8c7122b118085c34cf49914e7315630da2a841d858a8109475a');
 });
 test('all checked-in partner seeds retain legacy unless explicitly opted in', () => {
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations')).filter(name => /partner|axcentra/.test(name));
@@ -247,4 +248,11 @@ test('malformed optional features fall back safely without changing presentation
   const normalized = configApi.normalizePartnerConfig({ features: { portal_version: 'organizer-v1',
     approved_links: [null, 1, { url: 'https://example.invalid' }], public_contact: 'private@example.invalid' } });
   assert.equal(normalized.approvedLinks.length, 0); assert.equal(normalized.publicContact, null);
+});
+
+test('Find teammates uses the resolved event discovery tab while the community overview stays available', async () => {
+  const { result } = await resolve(); const html = render(result);
+  assert(html.includes(`href="/hackathons/${EVENT}?tab=looking_for_teams"`));
+  assert(html.includes(`href="/hackathons/${EVENT}"`));
+  assert(html.includes('Official registration')); assert(html.includes('separate step'));
 });
