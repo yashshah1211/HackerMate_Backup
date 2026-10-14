@@ -1,112 +1,54 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense, type ReactNode } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
+import { Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
 
-import { eventTimeline } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { formatPrizeDisplay } from "@/lib/hackathons/prizeDisplay";
+import { discoverEvents, readDiscoverySettings, discoveryQuery, eventState, eventDate, eventFormat,
+  eventPlatform, knownLocation, eventTopics, listedTags, plainEventText, prizeLabel, discoveryReason,
+  type DiscoveryEvent as Hackathon, type DiscoverySettings, type DiscoveryTab as Tab } from "@/lib/hackathons/discovery";
 import {
   Button,
   ButtonLink,
-  Chip,
   EmptyState,
   ErrorNotice,
   FieldLabel,
-  FilterChip,
   IconButton,
   Page,
   PageHeader,
   PageLoader,
   SearchField,
-  Segmented,
   Select,
   Sheet,
   SkeletonRows,
-  Tape,
-  buttonClass,
 } from "@/components/system";
 
-type Hackathon = {
-  id: string;
-  name: string;
-  description: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  location: string | null;
-  mode: string | null;
-  prize_pool: string | null;
-  currency?: string | null;
-  website_url: string | null;
-  tags: string[] | null;
-  type: string | null;
-  organizer_id: string | null;
-  college?: string | null;
-};
-
 function formatDateRange(start: string | null, end: string | null) {
-  if (!start) return "Date TBA";
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  const startStr = new Date(start).toLocaleDateString("en-US", opts);
-  if (!end || end === start) return startStr;
-  const endStr = new Date(end).toLocaleDateString("en-US", opts);
-  return `${startStr} – ${endStr}`;
+  const label = (value: string) => new Date(eventDate(value)!).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Kolkata" });
+  const validStart = eventDate(start) !== null, validEnd = eventDate(end) !== null;
+  if (validStart && validEnd && eventDate(end, true)! <= eventDate(start)!) return "Date information inconsistent";
+  if (!validStart) return validEnd ? `Ends ${label(end!)}` : "Date TBA";
+  return !validEnd || end === start ? label(start!) : `${label(start!)} – ${label(end!)}`;
 }
 
-function getPlainPreview(html: string | null, maxLength: number = 145): string {
-  if (!html) return "No description provided.";
-  
-  const plainText = html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&mdash;/g, "—")
-    .replace(/&ndash;/g, "–")
-    .replace(/&rsquo;/g, "'")
-    .replace(/&lsquo;/g, "'")
-    .replace(/&ldquo;/g, '"')
-    .replace(/&rdquo;/g, '"')
-    .replace(/&hellip;/g, "...")
-    .replace(/&middot;/g, "·")
-    .replace(/&bull;/g, "•")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (plainText.length <= maxLength) return plainText;
-  return plainText.slice(0, maxLength).trim() + "...";
-}
-
-function parsePrizeValue(prize: string | null, currency?: string | null): number {
-  if (!prize) return 0;
-  // Strip any HTML tags first (handles legacy DB values with markup)
-  const stripped = prize.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, "").trim();
-  const isUSD = currency === "USD" || currency === "$" || stripped.includes("$") || /\bUSD\b/i.test(stripped);
-  // Remove commas and currency symbols, grab first number
-  const clean = stripped.replace(/,/g, "").split(".")[0];
-  const match = clean.match(/\d+/);
-  if (!match) return 0;
-  const value = parseInt(match[0], 10);
-  // Normalize to INR for fair cross-currency comparison (1 USD ≈ ₹83)
-  return isUSD ? value * 83 : value;
+function getPlainPreview(html: string | null, maxLength = 145): string {
+  const text = plainEventText(html) || "No description provided.";
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength).trim()}...`;
 }
 
 /* ─── Presentational helpers ─────────────────────────────────────────────── */
 
-type Tab = "recommended" | "upcoming" | "saved" | "past";
-
 /** Mono date stamp (day + 3-letter month), matching the landing's upcoming strip. */
 function dayStamp(iso: string | null) {
-  if (!iso) return { day: "--", month: "TBA" };
-  const d = new Date(iso);
+  const time = eventDate(iso);
+  if (time === null) return { day: "--", month: "TBA" };
+  const d = new Date(time);
   return {
     day: d.toLocaleDateString("en-IN", { day: "2-digit", timeZone: "Asia/Kolkata" }),
     month: d.toLocaleDateString("en-US", { month: "short", timeZone: "Asia/Kolkata" }).toUpperCase(),
@@ -114,30 +56,19 @@ function dayStamp(iso: string | null) {
 }
 
 /** Display label for where the event is hosted (mirrors the platform filter buckets). */
-function platformLabel(h: Hackathon): string {
-  if (h.type === "native") return "HackerMate";
-  if (h.website_url) {
-    const url = h.website_url.toLowerCase();
-    if (url.includes("unstop.com")) return "Unstop";
-    if (url.includes("hack2skill.com")) return "Hack2skill";
-    if (url.includes("devfolio.co")) return "Devfolio";
-  }
-  return "External";
-}
-
-function modeLabel(mode: string | null): string | null {
-  if (!mode) return null;
-  const m = mode.toLowerCase();
-  if (m.includes("person") || m.includes("offline")) return "In person";
-  if (m.includes("online")) return "Online";
-  if (m.includes("hybrid")) return "Hybrid";
-  return mode;
-}
+const PLATFORM_LABELS: Record<string, string> = { native: "HackerMate", unstop: "Unstop", hack2skill: "Hack2skill", devfolio: "Devfolio", other: "External" };
+const FORMAT_LABELS: Record<string, string> = { online: "Online", "in-person": "In person", hybrid: "Hybrid" };
+const STATE_LABELS = { upcoming: "Upcoming", ongoing: "Ongoing", ended: "Ended", unknown: "Dates unclear" };
+const SORT_OPTIONS = [
+  { value: "relevant", label: "Relevant events first" }, { value: "date", label: "Nearest start (past: latest end)" },
+  { value: "recent", label: "Recently added" }, { value: "prize-inr", label: "Cash prize: INR (highest)" }, { value: "prize-usd", label: "Cash prize: USD (highest)" },
+];
 
 const MODE_OPTIONS: [string, string][] = [
   ["", "Any"],
   ["online", "Online"],
   ["in-person", "In person"],
+  ["hybrid", "Hybrid"],
 ];
 
 const PLATFORM_OPTIONS: [string, string][] = [
@@ -161,18 +92,23 @@ function HackathonRow({
   h,
   saved,
   onToggleSave,
+  now,
+  reason,
 }: {
   h: Hackathon;
   saved: boolean;
+  now: number;
+  reason?: string;
   onToggleSave: (e: React.MouseEvent, id: string) => void;
 }) {
-  const todayStr = new Date().toISOString().split("T")[0];
-  const isEventPast = Boolean(h.end_date && h.end_date < todayStr);
+  const state = eventState(h, now);
+  const isEventPast = state === "ended";
   const d = dayStamp(h.start_date);
-  const t = eventTimeline(h.start_date, h.end_date);
-  const prize = h.prize_pool ? formatPrizeDisplay(h.prize_pool, h.currency) : "";
+  const prize = prizeLabel(h);
+  const location = knownLocation(h.location);
+  const deadline = eventDate(h.registration_end, true);
   const prizeShort = prize.length > 35 ? `${prize.slice(0, 32)}...` : prize;
-  const mode = modeLabel(h.mode);
+  const mode = FORMAT_LABELS[eventFormat(h.mode)] || "Format not specified";
 
   return (
     <li className="group relative flex flex-col sm:flex-row gap-4 sm:gap-5 py-5 px-3 sm:px-4 sm:-mx-4 rounded-xl transition-colors hover:bg-hover">
@@ -205,17 +141,17 @@ function HackathonRow({
               </Link>
             </div>
             <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13px] text-ink-3">
-              <span>{platformLabel(h)}</span>
+              <span>{PLATFORM_LABELS[eventPlatform(h)]}</span>
               {mode && (
                 <>
                   <MetaDot />
                   <span>{mode}</span>
                 </>
               )}
-              {h.location && (
+              {(location || eventFormat(h.mode) !== "online") && (
                 <>
                   <MetaDot />
-                  <span className="truncate max-w-[200px]">{h.location}</span>
+                  <span className="truncate max-w-[200px]">{location || "Location not specified"}</span>
                 </>
               )}
               {h.college && (
@@ -239,26 +175,8 @@ function HackathonRow({
         <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-relaxed text-ink-2 sm:line-clamp-1">{getPlainPreview(h.description)}</p>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
-          {/* Status */}
-          {isEventPast ? (
-            <span className="font-medium text-ink-3">Ended</span>
-          ) : t.state === "live" ? (
-            <span className="font-medium text-ink-2"><span className="text-ok">●</span> Live</span>
-          ) : t.state === "upcoming" ? (
-            <span className="font-medium text-ink-2">Upcoming</span>
-          ) : (
-            <span className="font-medium text-ink-3">{t.state === "unknown" ? "Dates TBA" : "Started"}</span>
-          )}
-
+          <span className={cn("font-medium", state === "ongoing" ? "text-ok" : "text-ink-3")}>{STATE_LABELS[state]}</span>
           <MetaDot />
-
-          {/* Deadline / Range */}
-          {!isEventPast && (t.state === "live" || t.state === "upcoming") && (
-            <>
-              <span className={cn("font-medium", t.urgent ? "text-warn" : "text-ink-2")}>{t.label}</span>
-              <MetaDot />
-            </>
-          )}
           <span className="text-ink-3">{formatDateRange(h.start_date, h.end_date)}</span>
 
           {prizeShort && (
@@ -266,22 +184,18 @@ function HackathonRow({
               <MetaDot />
               <span className="inline-flex min-w-0 items-center gap-1 font-medium text-ink-2">
                 <Trophy className="size-3 shrink-0 text-ink-3" aria-hidden />
-                <span className="truncate">{prizeShort}</span>
+                <span className="truncate" title={prize}>{prizeShort}</span>
               </span>
             </>
           )}
 
-          {/* Tags */}
-          {h.tags && h.tags.length > 0 && (
-            <>
-              <MetaDot />
-              <span className="text-ink-3 truncate">
-                {h.tags.filter(tag => tag.toLowerCase() !== platformLabel(h).toLowerCase()).slice(0, 3).join(" · ")}
-                {h.tags.length > 3 && ` · +${h.tags.length - 3}`}
-              </span>
-            </>
-          )}
+          {listedTags(h.tags).length > 0 && <>
+            <MetaDot />
+            <span className="text-ink-3 truncate">{listedTags(h.tags).slice(0, 3).join(" · ")}{listedTags(h.tags).length > 3 && ` · +${listedTags(h.tags).length - 3}`}</span>
+          </>}
         </div>
+        <p className="mt-1 text-[12.5px] text-ink-3">{deadline === null ? "Registration deadline not listed · check the organizer site" : `${now >= deadline ? "Registration deadline passed" : "Registration deadline"}: ${formatDateRange(h.registration_end!, null)}`}</p>
+        {reason && <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-3"><Target className="size-3 shrink-0" aria-hidden />{reason}</p>}
       </div>
       </div>
     </li>
@@ -294,25 +208,25 @@ function HackathonsContent() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [modeFilter, setModeFilter] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("");
-  const [sortBy, setSortBy] = useState("date");
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
-
+  const [now, setNow] = useState(() => Date.now());
   const searchParams = useSearchParams();
-
-  // Tab controller
-  const [activeTab, setActiveTab] = useState<"recommended" | "upcoming" | "saved" | "past">("recommended");
-
+  const settings = readDiscoverySettings(searchParams);
+  const { tab: activeTab, q: search, mode: modeFilter, platform: platformFilter, sort: sortBy } = settings;
+  function updateSettings(patch: Partial<DiscoverySettings>) {
+    const query = discoveryQuery(new URLSearchParams(window.location.search), patch);
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }
+  const setSearch = (q: string) => updateSettings({ q });
+  const setModeFilter = (mode: string) => updateSettings({ mode });
+  const setPlatformFilter = (platform: string) => updateSettings({ platform });
+  const setSortBy = (sort: string) => updateSettings({ sort: sort as DiscoverySettings["sort"] });
+  const setActiveTab = (tab: Tab) => updateSettings({ tab });
   useEffect(() => {
-    const tabParam = searchParams?.get("tab");
-    if (tabParam && ["recommended", "upcoming", "saved", "past"].includes(tabParam)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveTab(tabParam as "recommended" | "upcoming" | "saved" | "past");
-    }
-  }, [searchParams]);
+    const clock = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(clock);
+  }, []);
 
   async function loadHackathons() {
     // 1. Fetch hackathons
@@ -331,7 +245,7 @@ function HackathonsContent() {
         data: { user: currentUser },
       } = await supabase.auth.getUser();
 
-      const validHackathons = (hackathonData || []).filter((h: any) => {
+      const validHackathons = (hackathonData || []).filter((h: Hackathon & { status?: string; ai_feedback?: { status?: string } | null }) => {
         const fb = h.ai_feedback || {};
         const status = h.status || fb.status || (h.type === "native" ? "pending" : "approved");
         if (status === "approved" || h.type === "external" || !h.type) return true;
@@ -363,9 +277,7 @@ function HackathonsContent() {
         .eq("id", user.id)
         .single();
 
-      if (profileData?.skills) {
-        setUserSkills(profileData.skills.map((s: string) => s.toLowerCase()));
-      }
+      setUserSkills(listedTags(profileData?.skills));
     }
 
     setLoading(false);
@@ -428,85 +340,24 @@ function HackathonsContent() {
     });
   }, []);
 
-  const filtered = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    const result = hackathons.filter((h) => {
-      // 1. Tab filter
-      if (activeTab === "saved") {
-        if (!savedIds.has(h.id)) return false;
-      } else if (activeTab === "recommended") {
-        // Only upcoming hackathons with at least one tag matching user skills
-        const isPast = h.end_date && h.end_date < todayStr;
-        if (isPast) return false;
-        if (!h.tags || h.tags.length === 0) return false;
-        const hasMatch = h.tags.some((tag) =>
-          userSkills.some((skill) =>
-            tag.toLowerCase().includes(skill) || skill.includes(tag.toLowerCase())
-          )
-        );
-        if (!hasMatch) return false;
-      } else {
-        const isPast = h.end_date && h.end_date < todayStr;
-        if (activeTab === "upcoming" && isPast) return false;
-        if (activeTab === "past" && !isPast) return false;
-      }
-
-      // 2. Search query filter
-      const matchesSearch =
-        !search ||
-        h.name.toLowerCase().includes(search.toLowerCase()) ||
-        h.tags?.some((t) => t.toLowerCase().includes(search.toLowerCase()));
-
-      // 3. Mode filter
-      const matchesMode = !modeFilter || h.mode === modeFilter;
-
-      // 4. Platform filter
-      let platform = "other";
-      if (h.type === "native") {
-        platform = "native";
-      } else if (h.website_url) {
-        const url = h.website_url.toLowerCase();
-        if (url.includes("unstop.com")) platform = "unstop";
-        else if (url.includes("hack2skill.com")) platform = "hack2skill";
-        else if (url.includes("devfolio.co")) platform = "devfolio";
-      }
-      const matchesPlatform = !platformFilter || platform === platformFilter;
-
-      return matchesSearch && matchesMode && matchesPlatform;
-    });
-
-    // Apply sorting
-    if (sortBy === "prize") {
-      return result.sort((a, b) => parsePrizeValue(b.prize_pool, b.currency) - parsePrizeValue(a.prize_pool, a.currency));
-    } else {
-      // Default: sort by start date
-      return result.sort((a, b) => {
-        if (!a.start_date) return 1;
-        if (!b.start_date) return -1;
-        const timeA = new Date(a.start_date).getTime();
-        const timeB = new Date(b.start_date).getTime();
-        return activeTab === "past" ? timeB - timeA : timeA - timeB;
-      });
-    }
-    }, [hackathons, savedIds, userSkills, search, modeFilter, platformFilter, sortBy, activeTab]);
-
-  // Presentational counts for the header.
-  const todayStr = new Date().toISOString().split("T")[0];
-  const upcomingCount = hackathons.filter((h) => !(h.end_date && h.end_date < todayStr)).length;
-  const activeFilterCount = (modeFilter ? 1 : 0) + (platformFilter ? 1 : 0) + (sortBy !== "date" ? 1 : 0);
-  const hasAnyFilter = Boolean(search || modeFilter || platformFilter || sortBy !== "date");
-
+  const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
+  const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+  const upcomingCount = hackathons.filter(h => eventState(h, now) === "upcoming").length;
+  const ongoingCount = hackathons.filter(h => eventState(h, now) === "ongoing").length;
+  const unknownCount = hackathons.filter(h => eventState(h, now) === "unknown").length;
+  const defaultSort = activeTab === "recommended" ? "relevant" : "date";
+  const activeFilterCount = [search.trim(), modeFilter, platformFilter, settings.topic, settings.from, settings.to,
+    settings.participation, settings.registration, sortBy !== defaultSort ? sortBy : ""].filter(Boolean).length;
+  const hasAnyFilter = activeFilterCount > 0;
   function clearFilters() {
-    setSearch("");
-    setModeFilter("");
-    setPlatformFilter("");
-    setSortBy("date");
+    updateSettings({ q: "", mode: "", platform: "", topic: "", from: "", to: "", participation: "", registration: "", sort: defaultSort });
   }
 
   const tabOptions: { value: Tab; label: string; count?: number }[] = [
     { value: "recommended", label: "For you" },
-    { value: "upcoming", label: "Upcoming" },
+    { value: "upcoming", label: "Upcoming", count: upcomingCount },
+    { value: "ongoing", label: "Ongoing", count: ongoingCount },
     { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
     { value: "past", label: "Past" },
   ];
@@ -521,7 +372,7 @@ function HackathonsContent() {
           <>
             <span className="font-medium text-ink-2 tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
             <span className="font-medium text-ink-2 tabular-nums">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
-            <span className="font-medium text-ink-2 tabular-nums">{savedIds.size.toLocaleString("en-IN")}</span> saved
+            <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} dates unclear · {savedIds.size} saved
           </>
         )
       }
@@ -533,6 +384,23 @@ function HackathonsContent() {
     />
   );
 
+  const extraFilters = (suffix: string) => <>
+    <div><FieldLabel htmlFor={`hk-topic-${suffix}`}>Topic / domain</FieldLabel>
+      <Select id={`hk-topic-${suffix}`} value={settings.topic} onChange={e => updateSettings({ topic: e.target.value })}>
+        <option value="">Any listed topic</option>
+        {settings.topic && !topics.some(([key]) => key === settings.topic) && <option value={settings.topic}>{settings.topic} (not listed)</option>}
+        {topics.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+      </Select></div>
+    <div><FieldLabel htmlFor={`hk-from-${suffix}`}>Starts from</FieldLabel><input id={`hk-from-${suffix}`} type="date" value={settings.from} onChange={e => updateSettings({ from: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
+    <div><FieldLabel htmlFor={`hk-to-${suffix}`}>Starts by</FieldLabel><input id={`hk-to-${suffix}`} type="date" value={settings.to} onChange={e => updateSettings({ to: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
+    <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><Select id={`hk-size-${suffix}`} value={settings.participation} onChange={e => updateSettings({ participation: e.target.value })}>
+      <option value="">Any team size</option><option value="solo">Solo allowed (listed)</option><option value="team">Teams allowed (listed)</option>
+    </Select></div>
+    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><Select id={`hk-registration-${suffix}`} value={settings.registration} onChange={e => updateSettings({ registration: e.target.value })}>
+      <option value="">Any / unknown</option><option value="not-closed">Exclude known passed deadlines</option><option value="recorded">Deadline listed</option>
+    </Select></div>
+  </>;
+
   const filterGroups = (
     <div className="space-y-6">
       <div>
@@ -542,6 +410,7 @@ function HackathonsContent() {
             <button
               key={v || "any"}
               onClick={() => setModeFilter(v)}
+              aria-pressed={modeFilter === v}
               className={cn(
                 "text-[13.5px] transition-colors relative pb-1",
                 modeFilter === v ? "text-ink font-semibold" : "text-ink-3 hover:text-ink-2"
@@ -560,6 +429,7 @@ function HackathonsContent() {
             <button
               key={v || "any"}
               onClick={() => setPlatformFilter(v)}
+              aria-pressed={platformFilter === v}
               className={cn(
                 "text-[13.5px] transition-colors relative pb-1",
                 platformFilter === v ? "text-ink font-semibold" : "text-ink-3 hover:text-ink-2"
@@ -571,13 +441,11 @@ function HackathonsContent() {
           ))}
         </div>
       </div>
+      {extraFilters("mobile")}
       <div>
         <div className="mb-2"><FieldLabel>Sort</FieldLabel></div>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {[
-            { value: "date", label: "Date" },
-            { value: "prize", label: "Prize (highest)" },
-          ].map((opt) => (
+          {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setSortBy(opt.value)}
@@ -604,27 +472,25 @@ function HackathonsContent() {
     );
   }
 
-  const emptyBody =
-    activeTab === "recommended"
-      ? userSkills.length === 0
-        ? "Add skills to your profile and we'll match hackathons to them."
-        : "No upcoming hackathons match your skills right now. Check back after the next weekly refresh."
-      : activeTab === "saved"
-        ? "You haven't saved any events yet. Use the bookmark on any hackathon to keep it here."
-        : activeTab === "upcoming"
-          ? "No upcoming events match your search. Try Past."
-          : "No past events match your filters.";
+  const emptyBody = hasAnyFilter ? "No events match these settings. Clear filters to explore more events."
+    : activeTab === "saved" ? "You haven't saved any listed events yet. Use a bookmark to keep an event here."
+    : activeTab === "past" ? "No ended events are listed."
+    : activeTab === "ongoing" ? "No events with a known ongoing window are listed. Try For you for events with unclear dates."
+    : activeTab === "upcoming" ? "No events with a known future start are listed. Check Ongoing or For you."
+    : "No non-ended events are listed right now. Try Past.";
 
   return (
     <Page>
       {header}
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-x-5 gap-y-2 border-b border-line self-start sm:w-auto w-full">
+        <div role="tablist" aria-label="Hackathon discovery" className="flex flex-wrap gap-x-5 gap-y-2 border-b border-line self-start sm:w-auto w-full">
           {tabOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setActiveTab(opt.value)}
+              role="tab"
+              aria-selected={activeTab === opt.value}
               className={cn(
                 "relative pb-2.5 text-[14.5px] transition-colors font-medium",
                 activeTab === opt.value ? "text-ink" : "text-ink-3 hover:text-ink-2",
@@ -639,7 +505,7 @@ function HackathonsContent() {
           ))}
         </div>
         <div className="flex min-w-0 gap-2 lg:w-[340px]">
-          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch} placeholder="Search hackathons or tags..." label="Search hackathons" />
+          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch} placeholder="Title, topic, college or location" label="Search hackathons" />
           <Button
             variant="secondary"
             icon={<SlidersHorizontal />}
@@ -661,6 +527,7 @@ function HackathonsContent() {
               <button
                 key={v || "any"}
                 onClick={() => setModeFilter(v)}
+                aria-pressed={modeFilter === v}
                 className={cn(
                   "text-[13px] transition-colors relative",
                   modeFilter === v ? "text-ink font-medium" : "text-ink-3 hover:text-ink-2"
@@ -680,6 +547,7 @@ function HackathonsContent() {
               <button
                 key={v || "any"}
                 onClick={() => setPlatformFilter(v)}
+                aria-pressed={platformFilter === v}
                 className={cn(
                   "text-[13px] transition-colors relative",
                   platformFilter === v ? "text-ink font-medium" : "text-ink-3 hover:text-ink-2"
@@ -699,17 +567,22 @@ function HackathonsContent() {
             onChange={(e) => setSortBy(e.target.value)}
             className="bg-transparent text-ink font-medium focus:outline-none cursor-pointer"
           >
-            <option value="date">Date</option>
-            <option value="prize">Prize (highest)</option>
+            {SORT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
         </label>
       </div>
+
+      <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
+      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates.</p>
+      {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
+      {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 
       {/* Results count */}
       <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12.5px] text-ink-3">
           <span className="font-mono text-ink-2 tabular">{filtered.length}</span> event{filtered.length !== 1 ? "s" : ""}
         </p>
+        {hasAnyFilter && <span className="text-[12px] text-ink-3">{activeFilterCount} active setting{activeFilterCount === 1 ? "" : "s"}</span>}
         {hasAnyFilter && (
           <button
             type="button"
@@ -748,7 +621,7 @@ function HackathonsContent() {
       ) : (
         <ul className="divide-y divide-line border-y border-line" data-stagger>
           {filtered.map((h) => (
-            <HackathonRow key={h.id} h={h} saved={savedIds.has(h.id)} onToggleSave={toggleSave} />
+            <HackathonRow key={h.id} h={h} now={now} reason={activeTab === "recommended" || sortBy === "relevant" ? discoveryReason(h, userSkills, now) : undefined} saved={savedIds.has(h.id)} onToggleSave={toggleSave} />
           ))}
         </ul>
       )}
@@ -763,11 +636,7 @@ function HackathonsContent() {
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
-                onClick={() => {
-                  setModeFilter("");
-                  setPlatformFilter("");
-                  setSortBy("date");
-                }}
+                onClick={clearFilters}
               >
                 Reset
               </Button>
