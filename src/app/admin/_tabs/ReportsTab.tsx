@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { sendModerationWarning, WARNING_ACCEPTED, WARNING_LIMIT } from "@/lib/admin/moderationClient";
 import Link from "next/link";
 import { Report } from "../_types";
 import { supabase } from "@/lib/supabase";
@@ -13,6 +14,7 @@ interface ReportsTabProps {
   currentUserId?: string | null;
   onRefresh: () => Promise<void>;
   onToggleBan: (userId: string, currentBan: boolean, fullName: string) => void;
+  banPendingIds?: ReadonlySet<string>;
 }
 
 export default function ReportsTab({
@@ -20,6 +22,7 @@ export default function ReportsTab({
   currentUserId,
   onRefresh,
   onToggleBan,
+  banPendingIds,
 }: ReportsTabProps) {
   const { showToast, confirm } = useNotification();
 
@@ -29,6 +32,7 @@ export default function ReportsTab({
   const [warningTargetName, setWarningTargetName] = useState("");
   const [warningMessageText, setWarningMessageText] = useState("");
   const [sendingWarning, setSendingWarning] = useState(false);
+  const warningInFlight = useRef(false);
 
   function handleDismissReport(reportId: string) {
     confirm({
@@ -61,39 +65,24 @@ export default function ReportsTab({
   }
 
   async function submitWarningEmail() {
-    if (!warningTargetUserId) return;
+    if (!warningTargetUserId || warningInFlight.current) return;
+    warningInFlight.current = true;
     setSendingWarning(true);
     try {
-      const res = await fetch("/api/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          senderId: currentUserId,
-          recipientId: warningTargetUserId,
-          type: "moderation_warning",
-          warningMessage: warningMessageText.trim(),
-        }),
+      await sendModerationWarning(currentUserId, warningTargetUserId, warningMessageText);
+      showToast(WARNING_ACCEPTED, "success");
+      setWarningModalOpen(false);
+      await onRefresh().catch(error => {
+        console.error("[admin/reports] Refresh after accepted warning failed:", error);
+        showToast("Warning accepted, but dashboard refresh failed. Refresh the data before further actions.", "info");
       });
-
-      const resData = await res.json();
-      if (res.ok) {
-        showToast(
-          resData.mock
-            ? "Mock warning email printed to server terminal."
-            : "Warning email sent successfully!",
-          "success"
-        );
-        setWarningModalOpen(false);
-      } else {
-        showToast(resData.error || "Failed to dispatch warning email.", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "error", "error");
+    } catch (error) {
+      console.error("[admin/reports] Warning request failed:", error);
+      showToast(error instanceof Error ? error.message : "Warning acceptance was not confirmed.", "error");
+    } finally {
+      warningInFlight.current = false;
+      setSendingWarning(false);
     }
-    setSendingWarning(false);
   }
 
   return (
@@ -167,6 +156,7 @@ export default function ReportsTab({
                 {/* Actions */}
                 <div className="flex flex-row md:flex-col gap-2 shrink-0 md:items-end justify-start md:justify-center">
                   <button
+                    disabled={banPendingIds?.has(rep.reported_id) || rep.reported_id === currentUserId}
                     onClick={() =>
                       onToggleBan(rep.reported_id, !!rep.reportedBanned, rep.reportedName || "User")
                     }
@@ -181,6 +171,7 @@ export default function ReportsTab({
 
                   <button
                     onClick={() => openWarningModal(rep.reported_id, rep.reportedName || "User")}
+                    disabled={sendingWarning || rep.reported_id === currentUserId}
                     className="text-[12.5px] font-medium py-1.5 px-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer font-semibold"
                   >
                     Warn User
@@ -210,11 +201,12 @@ export default function ReportsTab({
                   <span>Send Warning Email to {warningTargetName}</span>
                 </h3>
                 <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Sends an official behavioral warning to their registered email address.
+                  Requests a warning to their registered email. Provider acceptance does not confirm delivery.
                 </p>
               </div>
               <button
                 onClick={() => setWarningModalOpen(false)}
+                disabled={sendingWarning}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -223,6 +215,8 @@ export default function ReportsTab({
 
             <textarea
               value={warningMessageText}
+              maxLength={WARNING_LIMIT}
+              disabled={sendingWarning}
               onChange={(e) => setWarningMessageText(e.target.value)}
               rows={4}
               placeholder="Type warning details here..."
