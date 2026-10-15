@@ -10,6 +10,7 @@ export type DailyEmailStats = {
   nudges_sent: number;
   total_sent: number;
   updated_at?: string;
+  [key: string]: number | string | undefined;
 };
 
 export type BudgetCheckResult = {
@@ -27,13 +28,21 @@ export async function getOrCreateTodayStats(
 ): Promise<DailyEmailStats> {
   const todayStr = new Date().toISOString().split("T")[0];
 
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: readError } = await supabaseAdmin
     .from("daily_email_stats")
     .select("*")
     .eq("date", todayStr)
     .maybeSingle();
 
+  if (readError) {
+    console.error("[Email Budget Guard] Cannot verify budget:", readError);
+    throw new Error("Email budget unavailable; dispatch blocked.");
+  }
+
   if (existing) {
+    for (const key of ["total_sent", "outreach_sent", "nudges_sent"]) {
+      if (!Number.isSafeInteger(existing[key]) || existing[key] < 0) throw new Error("Email budget contains invalid counters; dispatch blocked.");
+    }
     return existing as DailyEmailStats;
   }
 
@@ -45,21 +54,25 @@ export async function getOrCreateTodayStats(
     updated_at: new Date().toISOString(),
   };
 
-  const { data: inserted, error } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("daily_email_stats")
-    .upsert(newRecord, { onConflict: "date" })
-    .select()
-    .single();
-
-  if (error || !inserted) {
+    .upsert(newRecord, { onConflict: "date", ignoreDuplicates: true });
+  if (error) {
     console.error("[Email Budget Guard] Error initializing daily_email_stats:", error);
-    return newRecord;
+    throw new Error("Email budget unavailable; dispatch blocked.");
   }
-
-  return inserted as DailyEmailStats;
+  // Read the winner: never overwrite an existing row with zero counters.
+  const { data, error: verifyError } = await supabaseAdmin.from("daily_email_stats")
+    .select("*").eq("date", todayStr).single();
+  if (verifyError || !data) {
+    console.error("[Email Budget Guard] Cannot verify initialized budget:", verifyError);
+    throw new Error("Email budget unavailable; dispatch blocked.");
+  }
+  return data as DailyEmailStats;
 }
 
-export async function checkAndReserveEmailBudget(
+// Advisory check only. This does not reserve quota or serialize concurrent dispatches.
+export async function checkEmailBudget(
   supabaseAdmin: SupabaseClient,
   category: "outreach" | "nudge",
   requestedCount: number
@@ -101,153 +114,88 @@ export async function recordEmailSendSuccess(
   category: EmailCategory,
   actualSentCount: number = 1
 ) {
-  if (actualSentCount <= 0) return;
+  if (actualSentCount <= 0) return { status: "recorded" as const };
+  try {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const stats = await getOrCreateTodayStats(supabaseAdmin);
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const stats = (await getOrCreateTodayStats(supabaseAdmin)) as any;
+    const updates: Record<string, number | string> = {
+      updated_at: new Date().toISOString(),
+    };
 
-  const updates: Record<string, any> = {
-    updated_at: new Date().toISOString(),
-  };
+    switch (category) {
+      case "outreach":
+        updates.outreach_sent = (stats.outreach_sent || 0) + actualSentCount;
+        break;
+      case "nudge":
+        updates.nudges_sent = (stats.nudges_sent || 0) + actualSentCount;
+        break;
+      case "notifications":
+        updates.notifications_sent = (Number(stats.notifications_sent) || 0) + actualSentCount;
+        break;
+      case "organizer_broadcasts":
+        updates.organizer_broadcasts_sent = (Number(stats.organizer_broadcasts_sent) || 0) + actualSentCount;
+        break;
+      case "admin_reports":
+        updates.admin_reports_sent = (Number(stats.admin_reports_sent) || 0) + actualSentCount;
+        break;
+      case "contact_submissions":
+        updates.contact_submissions_sent = (Number(stats.contact_submissions_sent) || 0) + actualSentCount;
+        break;
+      case "test_dispatches":
+        updates.test_dispatches_sent = (Number(stats.test_dispatches_sent) || 0) + actualSentCount;
+        break;
+    }
 
-  switch (category) {
-    case "outreach":
-      updates.outreach_sent = (stats.outreach_sent || 0) + actualSentCount;
-      break;
-    case "nudge":
-      updates.nudges_sent = (stats.nudges_sent || 0) + actualSentCount;
-      break;
-    case "notifications":
-      updates.notifications_sent = (stats.notifications_sent || 0) + actualSentCount;
-      break;
-    case "organizer_broadcasts":
-      updates.organizer_broadcasts_sent = (stats.organizer_broadcasts_sent || 0) + actualSentCount;
-      break;
-    case "admin_reports":
-      updates.admin_reports_sent = (stats.admin_reports_sent || 0) + actualSentCount;
-      break;
-    case "contact_submissions":
-      updates.contact_submissions_sent = (stats.contact_submissions_sent || 0) + actualSentCount;
-      break;
-    case "test_dispatches":
-      updates.test_dispatches_sent = (stats.test_dispatches_sent || 0) + actualSentCount;
-      break;
-  }
+    const newTotal = (stats.total_sent || 0) + actualSentCount;
+    updates.total_sent = newTotal;
 
-  const newTotal = (stats.total_sent || 0) + actualSentCount;
-  updates.total_sent = newTotal;
+    const { data: recorded, error } = await supabaseAdmin
+      .from("daily_email_stats")
+      .update(updates)
+      .eq("date", todayStr).eq("total_sent", stats.total_sent).select("date");
 
-  const { error } = await supabaseAdmin
-    .from("daily_email_stats")
-    .update(updates)
-    .eq("date", todayStr);
-
-  if (error) {
-    console.error("[Email Budget Guard] Error recording email send success:", error);
+    if (error || recorded?.length !== 1) {
+      console.error("[Email Budget Guard] Error recording provider acceptance:", error);
+      return { status: "failed" as const };
+    }
+    return { status: "recorded" as const };
+  } catch (error) {
+    console.error("[Email Budget Guard] Acceptance accounting unavailable:", error);
+    return { status: "failed" as const };
   }
 }
 
 export type EmailUsageSummary = {
   date: string;
-  total_sent: number;
+  status: "partial" | "unavailable";
+  note: string;
+  total_sent: number | null;
   limit: number;
-  usage_percent: number;
-  is_resend_live?: boolean;
-  categories: {
-    outreach: number;
-    test_dispatches: number;
-    notifications: number;
-    organizer_broadcasts: number;
-    admin_reports: number;
-    contact_submissions: number;
-    onboarding_nudges: number;
-  };
-  remaining_global: number;
+  usage_percent: number | null;
+  is_resend_live: false;
+  categories: Record<"outreach" | "test_dispatches" | "notifications" | "organizer_broadcasts" | "admin_reports" | "contact_submissions" | "onboarding_nudges", number | null>;
+  remaining_global: number | null;
 };
 
-export async function getTodayEmailUsageSummary(
-  supabaseAdmin: SupabaseClient
-): Promise<EmailUsageSummary> {
-  const todayStr = new Date().toISOString().split("T")[0]; // UTC Midnight Boundary (matches Resend 00:00 UTC reset)
-  const todayStart = `${todayStr}T00:00:00Z`;
-
-  let liveResendCount: number | null = null;
-  let isResendLive = false;
-
-  // Try live fetch from Resend API if API key is present
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "User-Agent": "HackerMate/1.0",
-        },
-      });
-      if (res.ok) {
-        const resData = await res.json();
-        if (Array.isArray(resData?.data)) {
-          const todayEmails = resData.data.filter(
-            (e: any) => e.created_at && new Date(e.created_at) >= new Date(todayStart)
-          );
-          liveResendCount = todayEmails.length;
-          isResendLive = true;
-        }
-      }
-    } catch (err) {
-      console.warn("[Email Budget Guard] Live Resend API fetch fallback to DB:", err);
-    }
-  }
-
-  const stats = (await getOrCreateTodayStats(supabaseAdmin)) as any;
-
-  // 1. Outreach Pitches (Query actual timestamps on organizer_leads for live precision)
-  const { count: outreachCount } = await supabaseAdmin
-    .from("organizer_leads")
-    .select("id", { count: "exact", head: true })
-    .gte("pitch_sent_at", todayStart);
-
-  const outreach = outreachCount || 0;
-  const testDispatches = stats.test_dispatches_sent || 0;
-  const notifications = stats.notifications_sent || 0;
-  const organizerBroadcasts = stats.organizer_broadcasts_sent || 0;
-  const adminReports = stats.admin_reports_sent || 0;
-  const contactSubmissions = stats.contact_submissions_sent || 0;
-  const onboardingNudges = stats.nudges_sent || 0;
-
-  // Sum of all tracked category counts
-  const sumCategories =
-    outreach +
-    testDispatches +
-    notifications +
-    organizerBroadcasts +
-    adminReports +
-    contactSubmissions +
-    onboardingNudges;
-
-  const totalSent =
-    isResendLive && liveResendCount !== null
-      ? Math.max(liveResendCount, sumCategories)
-      : Math.max(stats.total_sent || 0, sumCategories);
-
-  const usagePercent = Math.min(100, Math.round((totalSent / RESEND_GLOBAL_DAILY_LIMIT) * 100));
-  const remainingGlobal = Math.max(0, RESEND_GLOBAL_DAILY_LIMIT - totalSent);
-
+export async function getTodayEmailUsageSummary(supabaseAdmin: SupabaseClient): Promise<EmailUsageSummary> {
+  const date = new Date().toISOString().split("T")[0];
+  // Reporting is read-only. Legacy counters are partial evidence, not a complete provider ledger.
+  let stats: Record<string, number> | null = null;
+  try {
+    const { data, error } = await supabaseAdmin.from("daily_email_stats").select("*").eq("date", date).maybeSingle();
+    if (error) console.error("[Email Usage] Metrics unavailable:", error);
+    else stats = data;
+  } catch (error) { console.error("[Email Usage] Metrics unavailable:", error); }
+  const value = (key: string) => stats && Number.isFinite(stats[key]) ? stats[key] : null;
   return {
-    date: todayStr,
-    total_sent: totalSent,
-    limit: RESEND_GLOBAL_DAILY_LIMIT,
-    usage_percent: usagePercent,
-    is_resend_live: isResendLive,
-    categories: {
-      outreach,
-      test_dispatches: testDispatches,
-      notifications,
-      organizer_broadcasts: organizerBroadcasts,
-      admin_reports: adminReports,
-      contact_submissions: contactSubmissions,
-      onboarding_nudges: onboardingNudges,
-    },
-    remaining_global: remainingGlobal,
+    date, status: stats ? "partial" : "unavailable", is_resend_live: false,
+    note: stats ? "Legacy counters are partial and may include historical mock outcomes. Complete provider usage and remaining quota are unverified."
+      : "Email usage unavailable. No complete quota evidence is available.",
+    total_sent: value("total_sent"), limit: RESEND_GLOBAL_DAILY_LIMIT,
+    usage_percent: null, remaining_global: null,
+    categories: { outreach: value("outreach_sent"), test_dispatches: value("test_dispatches_sent"),
+      notifications: value("notifications_sent"), organizer_broadcasts: value("organizer_broadcasts_sent"),
+      admin_reports: value("admin_reports_sent"), contact_submissions: value("contact_submissions_sent"), onboarding_nudges: value("nudges_sent") },
   };
 }

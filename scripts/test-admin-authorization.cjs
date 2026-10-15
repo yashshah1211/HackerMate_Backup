@@ -206,11 +206,11 @@ for (const method of ['GET', 'POST']) {
   });
 }
 
-test('valid header permits scheduled reporting without a human session', async () => {
+test('valid cron header permits report generation but missing provider fails closed', async () => {
   const h = harness({ user: null });
   const result = await h.load(REPORT).GET(request('api/cron/database-activity-report', { token: 'fixture-cron-secret' }));
-  assert.equal(result.status, 200);
-  assert.equal((await result.json()).mode, 'mock_logged');
+  assert.equal(result.status, 503);
+  const body = await result.json(); assert.equal(body.pdfGenerated, true); assert.equal(body.dispatch.status, 'not_dispatched'); assert.equal(body.success, false);
   assert(h.state.events.some(([event]) => event === 'report-read'));
   assert(!h.state.events.some(([event]) => event === 'authenticate'));
 });

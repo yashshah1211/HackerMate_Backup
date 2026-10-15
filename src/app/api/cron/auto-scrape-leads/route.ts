@@ -36,8 +36,12 @@ export async function GET(req: NextRequest) {
     // 5. Execute Multi-Platform Scraper Pipeline
     const scrapeResult = await runMultiPlatformScraper(supabaseAdmin);
 
-    // 6. Ensure any remaining un-pitched leads are automatically sent pitch emails
-    const pitchResult = await autoSendPitchEmailsForLeads(supabaseAdmin);
+    // 6. Process older pending leads, never retry leads selected by the scraper in this invocation.
+    const prior = "autoPitchResult" in scrapeResult ? scrapeResult.autoPitchResult : null;
+    const unsafeToRepeat = prior && (prior.blocked || prior.unknown || prior.bookkeepingFailed || prior.accounting?.status === "failed");
+    const pitchResult = unsafeToRepeat ? { attempted: 0, sent: 0, blocked: true,
+      reason: "Earlier dispatch outcomes require reconciliation; no second send pass." }
+      : await autoSendPitchEmailsForLeads(supabaseAdmin, undefined, scrapeResult.leads.map((lead: { id: string }) => lead.id));
 
     return NextResponse.json({
       cronExecuted: true,
@@ -45,11 +49,7 @@ export async function GET(req: NextRequest) {
       gmailSyncResult,
       autoRemoveResult,
       scrapeResult,
-      autoPitchResult: {
-        sent: pitchResult.sent,
-        failed: pitchResult.failed,
-        attempted: pitchResult.attempted,
-      },
+      autoPitchResult: pitchResult,
     });
   } catch (err: any) {
     console.error("[Cron Auto Scrape] Execution Error:", err);

@@ -1,3 +1,5 @@
+import { dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
@@ -9,7 +11,7 @@ export interface SentEmailLogItem {
   category: "Team Notifications" | "Organizer Outreach" | "Onboarding Nudge" | "Contact Form" | "Test Dispatches";
   categoryKey: "notifications" | "outreach" | "nudges" | "contact_submissions" | "test_dispatches";
   subjectOrPurpose: string;
-  status: "SUCCESS" | "FAILED";
+  status: "UNVERIFIED";
   errorMessage?: string;
   timestamp: string; // ISO string
 }
@@ -36,6 +38,8 @@ async function handleDailyEmailReport(req: NextRequest) {
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     const sentEmailLogs: SentEmailLogItem[] = [];
+    let incompleteEvidence = !supabaseUrl || !serviceRoleKey;
+    const sources = { outreach: false, nudges: false, invites: false, connections: false };
 
     if (supabaseUrl && serviceRoleKey) {
       const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -43,12 +47,14 @@ async function handleDailyEmailReport(req: NextRequest) {
       });
 
       // A. Fetch Organizer Outreach Leads
-      const { data: leads } = await supabaseAdmin
+      const { data: leads, error: leadsError } = await supabaseAdmin
         .from("organizer_leads")
         .select("id, title, organizer_email, last_sent_to, pitch_sent_at, status, created_at")
         .order("pitch_sent_at", { ascending: false });
 
-      if (leads) {
+      if (leadsError) { incompleteEvidence = true; console.error("[Daily Email Report] Business evidence unavailable:", leadsError); }
+      sources.outreach = !leadsError && Array.isArray(leads);
+      if (Array.isArray(leads)) {
         leads.forEach((lead: any) => {
           if (lead.pitch_sent_at || lead.last_sent_to || ["pitch_sent", "opened", "replied", "failed"].includes(lead.status)) {
             sentEmailLogs.push({
@@ -58,8 +64,8 @@ async function handleDailyEmailReport(req: NextRequest) {
               category: "Organizer Outreach",
               categoryKey: "outreach",
               subjectOrPurpose: `Outreach Pitch: ${lead.title || 'Event Partnership'}`,
-              status: lead.status === "failed" ? "FAILED" : "SUCCESS",
-              errorMessage: lead.status === "failed" ? "Mail delivery bounced or rejected" : undefined,
+              status: "UNVERIFIED",
+              errorMessage: "Business record only; email outcome is unverified.",
               timestamp: lead.pitch_sent_at || lead.created_at,
             });
           }
@@ -67,13 +73,15 @@ async function handleDailyEmailReport(req: NextRequest) {
       }
 
       // B. Fetch Onboarding Nudge Emails
-      const { data: nudgeProfiles } = await supabaseAdmin
+      const { data: nudgeProfiles, error: nudgeProfilesError } = await supabaseAdmin
         .from("profiles")
-        .select("id, full_name, email, onboarding_nudge_sent_at")
-        .not("onboarding_nudge_sent_at", "is", null)
-        .order("onboarding_nudge_sent_at", { ascending: false });
+        .select("id, full_name, email, last_onboarding_nudge_sent_at")
+        .not("last_onboarding_nudge_sent_at", "is", null)
+        .order("last_onboarding_nudge_sent_at", { ascending: false });
 
-      if (nudgeProfiles) {
+      if (nudgeProfilesError) { incompleteEvidence = true; console.error("[Daily Email Report] Business evidence unavailable:", nudgeProfilesError); }
+      sources.nudges = !nudgeProfilesError && Array.isArray(nudgeProfiles);
+      if (Array.isArray(nudgeProfiles)) {
         nudgeProfiles.forEach((p: any) => {
           sentEmailLogs.push({
             id: `nudge-${p.id}`,
@@ -82,19 +90,21 @@ async function handleDailyEmailReport(req: NextRequest) {
             category: "Onboarding Nudge",
             categoryKey: "nudges",
             subjectOrPurpose: "Complete your HackerMate profile to start matching",
-            status: "SUCCESS",
-            timestamp: p.onboarding_nudge_sent_at,
+            status: "UNVERIFIED",
+            timestamp: p.last_onboarding_nudge_sent_at,
           });
         });
       }
 
       // C. Fetch Team Invites Sent
-      const { data: teamInvites } = await supabaseAdmin
+      const { data: teamInvites, error: teamInvitesError } = await supabaseAdmin
         .from("team_invites")
         .select("id, created_at, status, team_id, teams(name), profiles!team_invites_invited_user_id_fkey(full_name, email)")
         .order("created_at", { ascending: false });
 
-      if (teamInvites) {
+      if (teamInvitesError) { incompleteEvidence = true; console.error("[Daily Email Report] Business evidence unavailable:", teamInvitesError); }
+      sources.invites = !teamInvitesError && Array.isArray(teamInvites);
+      if (Array.isArray(teamInvites)) {
         teamInvites.forEach((inv: any) => {
           const teamName = inv.teams?.name || "Hackathon Team";
           const recipientEmail = inv.profiles?.email || "Unknown User";
@@ -107,19 +117,21 @@ async function handleDailyEmailReport(req: NextRequest) {
             category: "Team Notifications",
             categoryKey: "notifications",
             subjectOrPurpose: `Team Invitation: You were invited to join ${teamName}`,
-            status: "SUCCESS",
+            status: "UNVERIFIED",
             timestamp: inv.created_at,
           });
         });
       }
 
       // D. Fetch Connection Request Notifications
-      const { data: friendReqs } = await supabaseAdmin
+      const { data: friendReqs, error: friendReqsError } = await supabaseAdmin
         .from("friend_requests")
         .select("id, created_at, status, sender:profiles!friend_requests_sender_id_fkey(full_name), receiver:profiles!friend_requests_receiver_id_fkey(full_name, email)")
         .order("created_at", { ascending: false });
 
-      if (friendReqs) {
+      if (friendReqsError) { incompleteEvidence = true; console.error("[Daily Email Report] Business evidence unavailable:", friendReqsError); }
+      sources.connections = !friendReqsError && Array.isArray(friendReqs);
+      if (Array.isArray(friendReqs)) {
         friendReqs.forEach((req: any) => {
           const senderName = req.sender?.full_name || "A builder";
           const recipientEmail = req.receiver?.email;
@@ -133,7 +145,7 @@ async function handleDailyEmailReport(req: NextRequest) {
               category: "Team Notifications",
               categoryKey: "notifications",
               subjectOrPurpose: `Connection Alert: ${senderName} sent you a connection request`,
-              status: "SUCCESS",
+              status: "UNVERIFIED",
               timestamp: req.created_at,
             });
           }
@@ -146,21 +158,19 @@ async function handleDailyEmailReport(req: NextRequest) {
 
     // Filter past 24 hours logs
     const logs24h = sentEmailLogs.filter((l) => new Date(l.timestamp) >= twentyFourHoursAgo);
-    // Use past 24h logs if available, fallback to recent overall logs if 24h is empty (e.g. testing in dev)
-    const activeLogs = logs24h.length > 0 ? logs24h : sentEmailLogs;
+    // Keep the requested window even when it contains no business records.
+    const activeLogs = logs24h;
 
     // Calculate Category Breakdown Counts (reusing Admin Panel category definitions)
     const categoryCounts = {
-      notifications: activeLogs.filter((l) => l.categoryKey === "notifications").length,
-      outreach: activeLogs.filter((l) => l.categoryKey === "outreach").length,
-      nudges: activeLogs.filter((l) => l.categoryKey === "nudges").length,
-      contact_submissions: activeLogs.filter((l) => l.categoryKey === "contact_submissions").length,
-      test_dispatches: activeLogs.filter((l) => l.categoryKey === "test_dispatches").length,
+      notifications: sources.invites && sources.connections ? activeLogs.filter((l) => l.categoryKey === "notifications").length : null,
+      outreach: sources.outreach ? activeLogs.filter((l) => l.categoryKey === "outreach").length : null,
+      nudges: sources.nudges ? activeLogs.filter((l) => l.categoryKey === "nudges").length : null,
+      contact_submissions: null,
+      test_dispatches: null,
     };
 
     const totalSent24h = activeLogs.length;
-    const failedLogs = activeLogs.filter((l) => l.status === "FAILED");
-    const totalFailed24h = failedLogs.length;
 
     const todayStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
@@ -183,42 +193,20 @@ async function handleDailyEmailReport(req: NextRequest) {
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
-    doc.text("Daily Dispatched Emails Audit Report", 40, 62);
+    doc.text("Daily Email Evidence Report", 40, 62);
 
     doc.setTextColor(148, 163, 184);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Generated: ${todayStr} | Window: Past 24 Hours | Total Emails: ${totalSent24h}`, 40, 80);
+    doc.text(`Generated: ${todayStr} | Window: Past 24 Hours | Business Records: ${totalSent24h}`, 40, 80);
 
-    // 4. Prominent Failure Callout Box
+    // Business records cannot establish attempted/accepted/delivered or failed email totals.
     let y = 110;
-    if (totalFailed24h > 0) {
-      doc.setFillColor(254, 242, 242); // Red background
-      doc.setDrawColor(239, 68, 68);   // Red border
-      doc.roundedRect(40, y, 532, 45, 6, 6, "FD");
-
-      doc.setTextColor(185, 28, 28);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(`⚠️ ATTENTION REQUIRED: ${totalFailed24h} Failed Email Send(s) Detected`, 55, y + 20);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(127, 29, 29);
-      const failedRecipients = failedLogs.map((f) => f.recipientEmail).join(", ");
-      doc.text(`Failed Recipients: ${failedRecipients.substring(0, 75)}${failedRecipients.length > 75 ? '...' : ''}`, 55, y + 35);
-      y += 58;
-    } else {
-      doc.setFillColor(240, 253, 244); // Green background
-      doc.setDrawColor(16, 185, 129);  // Green border
-      doc.roundedRect(40, y, 532, 35, 6, 6, "FD");
-
-      doc.setTextColor(4, 120, 87);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text("✅ All Email Dispatches Delivered Successfully — 0 Failures Detected", 55, y + 22);
-      y += 48;
-    }
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(9);
+    doc.text(incompleteEvidence ? "Some source queries failed. Email totals are unavailable."
+      : "Partial business evidence only. Email acceptance and delivery are unverified.", 40, y);
+    y += 30;
 
     // 5. Category Breakdown Summary Cards (6 Cards)
     doc.setTextColor(15, 23, 42);
@@ -228,10 +216,10 @@ async function handleDailyEmailReport(req: NextRequest) {
     y += 12;
 
     const cards = [
-      { label: "TEAM NOTIFS", count: categoryCounts.notifications },
-      { label: "OUTREACH", count: categoryCounts.outreach },
-      { label: "NUDGES", count: categoryCounts.nudges },
-      { label: "CONTACT FORM", count: categoryCounts.contact_submissions },
+      { label: "TEAM NOTIFS", count: categoryCounts.notifications ?? "Unavailable" },
+      { label: "OUTREACH", count: categoryCounts.outreach ?? "Unavailable" },
+      { label: "NUDGES", count: categoryCounts.nudges ?? "Unavailable" },
+      { label: "CONTACT FORM", count: "Unavailable" },
       { label: "TOTAL LOGGED", count: totalSent24h },
     ];
 
@@ -259,7 +247,7 @@ async function handleDailyEmailReport(req: NextRequest) {
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("Individual Email Dispatch Log", 40, y);
+    doc.text("Business Records - Email Outcomes Unverified", 40, y);
 
     y += 10;
     doc.setFillColor(241, 245, 249);
@@ -280,7 +268,7 @@ async function handleDailyEmailReport(req: NextRequest) {
     if (activeLogs.length === 0) {
       y += 16;
       doc.setTextColor(100, 116, 139);
-      doc.text("No outbound emails recorded in this window.", 48, y);
+      doc.text("No business evidence found in this window; email totals unavailable.", 48, y);
     } else {
       activeLogs.forEach((item) => {
         if (y > 720) {
@@ -327,16 +315,10 @@ async function handleDailyEmailReport(req: NextRequest) {
         const subjStr = item.subjectOrPurpose.length > 30 ? item.subjectOrPurpose.substring(0, 28) + "..." : item.subjectOrPurpose;
         doc.text(subjStr, 360, y);
 
-        // Column 5: Status (Bold Red if FAILED, Green if SUCCESS)
-        if (item.status === "FAILED") {
-          doc.setTextColor(220, 38, 38);
-          doc.setFont("helvetica", "bold");
-          doc.text("FAILED", 520, y);
-        } else {
-          doc.setTextColor(16, 185, 129);
-          doc.setFont("helvetica", "bold");
-          doc.text("SUCCESS", 520, y);
-        }
+        // Business state is never presented as provider acceptance or delivery.
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "bold");
+        doc.text("UNVERIFIED", 510, y);
 
         doc.setDrawColor(241, 245, 249);
         doc.line(40, y + 4, 572, y + 4);
@@ -356,111 +338,38 @@ async function handleDailyEmailReport(req: NextRequest) {
       });
     }
 
-    // 7. Dispatch Email Report via Resend Pipeline (Meta-report, does NOT increment outbound daily_email_stats counters)
-    const resendApiKey = process.env.RESEND_API_KEY;
+    // 7. Dispatch the evidence report; provider acceptance is accounted independently of report metrics.
     const adminEmail = process.env.ADMIN_CONTACT_EMAIL || process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
 
-    const subject = totalFailed24h > 0
-      ? `⚠️ [ALERT] HackerMate Daily Sent Emails Log: ${totalSent24h} sent, ${totalFailed24h} FAILED`
-      : `📋 HackerMate Daily Sent Emails Log: ${totalSent24h} emails sent (${todayStr})`;
-
-    if (!resendApiKey) {
-      console.log("==================== [DAILY SENT EMAILS AUDIT PDF LOG] ====================");
-      console.log(`To: ${adminEmail}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`Total 24h Dispatches: ${totalSent24h} | Failed: ${totalFailed24h}`);
-      console.log("PDF attachment generated: HackerMate_Daily_Email_Audit.pdf");
-      console.log("===========================================================================");
-      return NextResponse.json({
-        success: true,
-        mode: "mock_logged",
-        recipient: adminEmail,
-        totalSent24h,
-        totalFailed24h,
-        categoryCounts,
-        pdfGenerated: true
-      });
-    }
-
-    let targetEmail = adminEmail;
-    let finalSubject = subject;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
-
-    if (isSandboxMode) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
-      if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-        finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;
-        targetEmail = sandboxEmail;
-      }
-    }
-
+    const subject = `HackerMate Daily Email Evidence: ${totalSent24h} business records (${todayStr})`;
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; background-color: #0A0D12; color: #E2E8F0; padding: 24px; borderRadius: 8px;">
         <h2 style="color: #10B981; margin-bottom: 4px;">HackerMate Outbound Email Audit</h2>
-        <p style="color: #94A3B8; font-size: 14px; margin-top: 0;">Daily Sent Emails Log for ${todayStr}</p>
+        <p style="color: #94A3B8; font-size: 14px; margin-top: 0;">Partial Business Evidence for ${todayStr}</p>
         
-        ${totalFailed24h > 0 ? `
-          <div style="background-color: #7F1D1D; border: 1px solid #EF4444; color: #FECACA; padding: 12px 16px; border-radius: 6px; margin: 16px 0; font-weight: bold;">
-            ⚠️ ATTENTION: ${totalFailed24h} email dispatch(es) failed in the last 24 hours. Please review the attached PDF report.
-          </div>
-        ` : `
-          <div style="background-color: #064E3B; border: 1px solid #10B981; color: #D1FAE5; padding: 12px 16px; border-radius: 6px; margin: 16px 0;">
-            ✅ All ${totalSent24h} email dispatches delivered successfully with 0 failures.
-          </div>
-        `}
+        <p style="color: #CBD5E1">Email acceptance, delivery and failure totals are unavailable. ${totalSent24h} business records were found; source evidence is ${incompleteEvidence ? "incomplete" : "partial"}.</p>
 
         <h3 style="color: #FFFFFF; font-size: 15px; margin-top: 20px;">Category Summary</h3>
         <ul style="color: #CBD5E1; font-size: 13px; line-height: 1.6;">
-          <li><strong>Team Notifications:</strong> ${categoryCounts.notifications}</li>
-          <li><strong>Organizer Outreach:</strong> ${categoryCounts.outreach}</li>
-          <li><strong>Onboarding Nudges:</strong> ${categoryCounts.nudges}</li>
-          <li><strong>Contact Form Replies:</strong> ${categoryCounts.contact_submissions}</li>
+          <li><strong>Team Notifications:</strong> ${categoryCounts.notifications ?? "Unavailable"}</li>
+          <li><strong>Organizer Outreach:</strong> ${categoryCounts.outreach ?? "Unavailable"}</li>
+          <li><strong>Onboarding Nudges:</strong> ${categoryCounts.nudges ?? "Unavailable"}</li>
+          <li><strong>Contact Form Replies:</strong> Unavailable</li>
         </ul>
 
-        <p style="font-size: 12px; color: #64748B; margin-top: 24px;">The full itemized log (recipient, category, subject line, status) is attached as a PDF report.</p>
+        <p style="font-size: 12px; color: #64748B; margin-top: 24px;">The attached business-record sample is not a complete email ledger. Historical mocks, duplicate records and missing evidence may affect counts.</p>
       </div>
     `;
 
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: targetEmail,
-        subject: finalSubject,
-        html: htmlBody,
-        attachments: [
-          {
-            filename: `HackerMate_Daily_Email_Audit_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-            content: pdfBuffer.toString("base64"),
-          },
-        ],
-      }),
-    });
-
-    if (!resendRes.ok) {
-      const errData = await resendRes.json();
-      console.error("Resend API error sending daily email audit report PDF:", errData);
-      return NextResponse.json({ error: "Failed to send email via Resend", details: errData }, { status: 500 });
-    }
-
-    const resendResult = await resendRes.json();
-
-    return NextResponse.json({
-      success: true,
-      emailId: resendResult.id,
-      recipient: targetEmail,
-      subject: finalSubject,
-      totalSent24h,
-      totalFailed24h,
-      categoryCounts,
-      pdfAttached: true
-    });
-
+    const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: adminEmail, subject, html: htmlBody,
+      attachments: [{ filename: `HackerMate_Daily_Email_Evidence.pdf`, content: pdfBuffer.toString("base64") }] });
+    const accounting = dispatch.status === "accepted" && supabaseUrl && serviceRoleKey
+      ? await recordEmailSendSuccess(createClient(supabaseUrl, serviceRoleKey), "admin_reports", 1) : { status: "not_required" };
+    return NextResponse.json({ ...dispatchResponse(dispatch), accounting, pdfGenerated: true,
+      metricsStatus: incompleteEvidence ? "unavailable" : "partial", businessRecordCount: totalSent24h,
+      totalSent24h: null, totalFailed24h: null, categoryCounts,
+      metricsNote: "Business records do not establish email dispatch or delivery. Complete totals are unavailable.",
+    }, { status: dispatchHttpStatus(dispatch) });
   } catch (err: any) {
     console.error("Error in daily-email-report route:", err);
     return NextResponse.json({ error: "Internal Server Error", details: err.message }, { status: 500 });

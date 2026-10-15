@@ -445,9 +445,12 @@ function AdminContent() {
             if (request === dashboardRequest.current && analyticsRes.ok && analyticsData.success) {
               setEmailAnalytics(analyticsData.stats);
               setRecentWebhookEvents(analyticsData.recentEvents || []);
+            } else if (request === dashboardRequest.current) {
+              setEmailAnalytics(null); setRecentWebhookEvents([]);
             }
           } catch (e) {
-            console.warn("Failed to fetch email analytics:", e);
+            console.error("Failed to fetch email analytics:", e);
+            if (request === dashboardRequest.current) { setEmailAnalytics(null); setRecentWebhookEvents([]); }
           }
         })();
         return;
@@ -953,52 +956,38 @@ function AdminContent() {
                     Daily Resend Email Limit
                   </h2>
                   <StatusBadge
-                    label={
-                      emailUsage.usage_percent < 70
-                        ? "Normal Usage"
-                        : emailUsage.usage_percent < 90
-                        ? "High Volume Warning"
-                        : "Critical Budget Cap"
-                    }
-                    variant={
-                      emailUsage.usage_percent < 70
-                        ? "neutral"
-                        : emailUsage.usage_percent < 90
-                        ? "warning"
-                        : "danger"
-                    }
+                    label={emailUsage.status === "unavailable" ? "Metrics unavailable" : "Partial legacy counters"}
+                    variant="neutral"
                     dot
                   />
                   {emailUsage.is_resend_live && (
                     <StatusBadge
-                      label="Live Resend Sync"
+                      label="Partial evidence"
                       variant="accent"
                       dot
                     />
                   )}
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Source of truth for Email Budget Guard.{" "}
-                  {emailUsage.is_resend_live
-                    ? "Synced directly with Resend API."
-                    : "Full database audit tracking active."}{" "}
+                  Partial email accounting evidence.{" "}
+                  {emailUsage.note}{" "}
                   Resets daily at <strong className="text-zinc-700 dark:text-zinc-300 font-mono">00:00 UTC</strong>.
                 </p>
               </div>
 
               <div className="text-left sm:text-right shrink-0">
                 <div className="text-2xl font-extrabold font-mono text-zinc-900 dark:text-zinc-100 tracking-tight">
-                  {emailUsage.total_sent}{" "}
+                  {emailUsage.total_sent ?? "Unavailable"}{" "}
                   <span className="text-sm font-normal text-zinc-400">/ {emailUsage.limit}</span>
                 </div>
                 <div className="text-[12px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  {emailUsage.remaining_global} emails remaining today
+                  Remaining provider quota unavailable
                 </div>
                 {!emailUsage.is_resend_live && (
                   <div className="flex items-center gap-2 mt-1.5 sm:justify-end">
                     <button
                       onClick={() => {
-                        setCustomEmailCount(emailUsage.total_sent.toString());
+                        setCustomEmailCount(emailUsage.total_sent?.toString() || "");
                         setShowSyncEmailModal(true);
                       }}
                       className="text-[12.5px] font-mono font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
@@ -1012,60 +1001,46 @@ function AdminContent() {
               </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${
-                  emailUsage.usage_percent < 70
-                    ? "bg-[#B4F461]"
-                    : emailUsage.usage_percent < 90
-                    ? "bg-amber-500"
-                    : "bg-rose-500"
-                }`}
-                style={{ width: `${Math.min(100, Math.max(2, emailUsage.usage_percent))}%` }}
-              />
-            </div>
-
             {/* Category Breakdown Badges with Icons */}
             <div className="flex flex-wrap items-center gap-2 text-xs">
 
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Send className="w-3 h-3 text-zinc-400" />
                 <span>Outreach Pitches:</span>
-                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.outreach}</strong>
+                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.outreach ?? "Unavailable"}</strong>
               </div>
-              {emailUsage.categories.test_dispatches > 0 && (
+              {(emailUsage.categories.test_dispatches ?? 0) > 0 && (
                 <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                   <FlaskConical className="w-3 h-3 text-zinc-400" />
                   <span>Sandbox Testing:</span>
-                  <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.test_dispatches}</strong>
+                  <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.test_dispatches ?? "Unavailable"}</strong>
                 </div>
               )}
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Bell className="w-3 h-3 text-zinc-400" />
                 <span>Notifications & Invites:</span>
-                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.notifications}</strong>
+                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.notifications ?? "Unavailable"}</strong>
               </div>
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Megaphone className="w-3 h-3 text-zinc-400" />
                 <span>Organizer Broadcasts:</span>
-                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.organizer_broadcasts}</strong>
+                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.organizer_broadcasts ?? "Unavailable"}</strong>
               </div>
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <FileText className="w-3 h-3 text-zinc-400" />
                 <span>Admin Digests:</span>
-                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.admin_reports}</strong>
+                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.admin_reports ?? "Unavailable"}</strong>
               </div>
               <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                 <Zap className="w-3 h-3 text-zinc-400" />
                 <span>Onboarding Nudges:</span>
-                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.onboarding_nudges}</strong>
+                <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.onboarding_nudges ?? "Unavailable"}</strong>
               </div>
-              {emailUsage.categories.contact_submissions > 0 && (
+              {(emailUsage.categories.contact_submissions ?? 0) > 0 && (
                 <div className="px-2.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[12px]">
                   <Inbox className="w-3 h-3 text-zinc-400" />
                   <span>Contact Forms:</span>
-                  <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.contact_submissions}</strong>
+                  <strong className="text-zinc-900 dark:text-zinc-100">{emailUsage.categories.contact_submissions ?? "Unavailable"}</strong>
                 </div>
               )}
             </div>
@@ -1073,6 +1048,7 @@ function AdminContent() {
         )}
 
         {/* Email Analytics & Delivery Health Widget */}
+        {!emailAnalytics && <p className="text-sm text-zinc-500">Email delivery metrics unavailable; no delivery rate is confirmed.</p>}
         {emailAnalytics && (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1084,10 +1060,10 @@ function AdminContent() {
                   <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                     Resend Delivery & Engagement Health
                   </h2>
-                  <StatusBadge label="Live Webhooks Active" variant="neutral" dot />
+                  <StatusBadge label="Recent event sample" variant="neutral" dot />
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Real-time webhook telemetry for delivery, open rate, clicks, and bounce monitoring.
+                  Recent webhook sample only. Complete delivery and engagement rates are unavailable.
                 </p>
               </div>
 

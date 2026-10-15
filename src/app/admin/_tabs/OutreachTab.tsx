@@ -36,7 +36,6 @@ export default function OutreachTab({
   setLeads,
   loadingLeads,
   loadLeads,
-  userEmail,
   searchQuery,
   setSearchQuery,
 }: OutreachTabProps) {
@@ -73,10 +72,10 @@ export default function OutreachTab({
     try {
       const res = await fetch("/api/admin/send-outreach-summary-pdf", { method: "POST" });
       const data = await res.json();
-      if (res.ok) {
+      if (res.ok && data.dispatch?.intendedRecipientAccepted) {
         showToast(
-          `All-time outreach summary PDF (From Day 1) emailed successfully to ${userEmail || "administrator email"}!`,
-          "success"
+          data.message || "Provider accepted the summary PDF; delivery is not confirmed.",
+          data.accounting?.status === "failed" ? "warning" : "success"
         );
       } else {
         showToast(data.error || "Failed to send summary PDF email.", "error");
@@ -159,14 +158,14 @@ export default function OutreachTab({
       });
 
       const resData = await res.json();
-      if (res.ok) {
-        if (resData.dbUpdateFailed) {
+      if (res.ok && resData.dispatch?.intendedRecipientAccepted) {
+        if (resData.dbUpdateFailed || resData.accounting?.status === "failed") {
           showToast(
-            "Email sent, but failed to update status — refresh and check manually.",
+            "Provider accepted the email, but bookkeeping failed. Check manually; do not resend.",
             "warning"
           );
         } else {
-          showToast("Partnership proposal email dispatched successfully!", "success");
+          showToast("Provider accepted the proposal. Delivery is not confirmed.", "success");
         }
         setPitchModalOpen(false);
         await loadLeads();
@@ -215,6 +214,7 @@ export default function OutreachTab({
       const selectedLeads = leads.filter((l) => selectedLeadIds.has(l.id));
       let successCount = 0;
       let failCount = 0;
+      let bookkeepingWarnings = 0;
 
       for (const lead of selectedLeads) {
         const targetEmail =
@@ -247,8 +247,10 @@ export default function OutreachTab({
               contentHtml: formattedHtml,
             }),
           });
-          if (res.ok) {
+          const outcome = await res.json();
+          if (res.ok && outcome.dispatch?.intendedRecipientAccepted) {
             successCount++;
+            if (outcome.bookkeeping === "failed" || outcome.accounting?.status === "failed") bookkeepingWarnings++;
           } else {
             failCount++;
           }
@@ -259,10 +261,10 @@ export default function OutreachTab({
       }
 
       showToast(
-        `Batch dispatch complete: ${successCount} sent successfully${
-          failCount > 0 ? `, ${failCount} failed` : ""
-        }.`,
-        successCount > 0 ? "success" : "error"
+        `Batch dispatch complete: ${successCount} accepted by provider${
+          failCount > 0 ? `, ${failCount} not confirmed; check outcomes before resending` : ""
+        }${bookkeepingWarnings ? `; ${bookkeepingWarnings} bookkeeping issue(s), do not resend accepted messages` : ""}. Delivery is not confirmed.`,
+        failCount || bookkeepingWarnings ? "warning" : successCount > 0 ? "success" : "error"
       );
       setBulkPitchModalOpen(false);
       setSelectedLeadIds(new Set());
@@ -853,7 +855,8 @@ export default function OutreachTab({
                             >
                               <option value="new">New Lead</option>
                               <option value="no_email">Missing Email</option>
-                              <option value="pitch_sent">Pitch Sent</option>
+                              <option value="email_outcome_unknown" disabled>Email outcome unknown — review before resending</option>
+                              <option value="pitch_sent">Provider Accepted</option>
                               <option value="opened">Opened</option>
                               <option value="replied">Replied</option>
                               <option value="negotiating">Negotiating</option>

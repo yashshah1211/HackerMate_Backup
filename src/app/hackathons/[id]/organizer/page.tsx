@@ -283,7 +283,7 @@ export default function OrganizerPortalPage() {
       if (!res.ok || !data.success) {
         showToast(data.error || "Failed to send announcement broadcast.", "error");
       } else {
-        showToast(`Announcement broadcast sent to ${data.count} participants!`, "success");
+        showToast(data.message || "Announcement created; email outcome unavailable.", data.emailSuccess && data.accounting?.status !== "failed" && data.bookkeeping !== "failed" && data.inAppNotifications !== "failed" ? "success" : "warning");
         setBroadcastTitle("");
         setBroadcastMessage("");
         setBroadcastStageId("");

@@ -160,3 +160,23 @@ test('dashboard-data contract rejects incomplete null query results', async () =
 test('dashboard-data authorization denial still returns before collection reads', async () => {
   const h = api({}, true); assert.equal((await h.GET()).status, 403); assert.equal(h.queries.length, 0);
 });
+
+for (const status of ['partial', 'unavailable']) test(`email metrics UI: ${status} evidence cannot imply confirmed quota or delivery`, async t => {
+  const emailUsage = { date: '2026-10-15', status, note: 'Complete provider usage is unverified.', total_sent: status === 'partial' ? 4 : null,
+    limit: 100, usage_percent: null, remaining_global: null, is_resend_live: false,
+    categories: { outreach: null, test_dispatches: null, notifications: null, organizer_broadcasts: null, admin_reports: null, contact_submissions: null, onboarding_nudges: null } };
+  const ui = await view(t, Promise.resolve(reply({ ...data(), emailUsage })));
+  await ui.click("Users");
+  assert.match(ui.text(), /Remaining provider quota unavailable/);
+  assert.match(ui.text(), /Email delivery metrics unavailable/);
+  assert(!ui.text().includes('Source of truth')); assert(!ui.text().includes('Healthy Send Budget'));
+  assert(!ui.text().includes('0 emails remaining')); assert(!ui.text().includes('100.0%'));
+  if (status === 'unavailable') assert.match(ui.text(), /Metrics unavailable/);
+});
+test('email metrics UI labels webhook evidence as a sample and does not invent delivery rates', async t => {
+  const ui = await view(t, Promise.resolve(reply(data())), Promise.resolve(reply({ success: true,
+    stats: { delivered: 1, opened: 1, clicked: 0, bounced: 0, deliveryRate: 'Unavailable', openRate: 'Unavailable', clickRate: 'Unavailable' }, recentEvents: [] })));
+  await ui.click("Users");
+  assert.match(ui.text(), /Recent event sample/); assert.match(ui.text(), /Complete delivery and engagement rates are unavailable/);
+  assert(!ui.text().includes('Live Webhooks Active')); assert(!ui.text().includes('100.0%'));
+});

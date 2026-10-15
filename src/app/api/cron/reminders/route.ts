@@ -1,3 +1,5 @@
+import { recordEmailBookkeeping, dispatchEmail } from "@/lib/emailDispatch";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { renderHackerMateEmail } from "@/lib/emailTemplate";
@@ -38,13 +40,14 @@ export async function POST(req: NextRequest) {
 
     console.info(`[Cron Reminders] Processing ${reminders.length} deadline reminders...`);
 
-    const resendApiKey = process.env.RESEND_API_KEY;
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
     const proto = req.headers.get("x-forwarded-proto") || "http";
     const requestBaseUrl = host ? `${proto}://${host}` : null;
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestBaseUrl || "http://localhost:3000";
     const successfullySentIds: string[] = [];
-    const failedIds: string[] = [];
+    const outcomes: { dispatch: Awaited<ReturnType<typeof dispatchEmail>> }[] = [];
+    let accepted = 0;
+    let bookkeeping = "not_required";
 
     // 3. Loop and send each email
     for (const reminder of reminders) {
@@ -64,79 +67,28 @@ export async function POST(req: NextRequest) {
         footerNote: `You are receiving this alert because you bookmarked this hackathon on HackerMate. To adjust notification alerts, edit your builder profile.`,
       });
 
-      if (!resendApiKey) {
-        // Mock logging in development if key is missing
-        console.log("\n==================== [MOCK DEADLINE EMAIL LOG] ====================");
-        console.log(`To: ${reminder.user_email}`);
-        console.log(`Subject: ${subject}`);
-        console.log("==================================================================\n");
-        successfullySentIds.push(reminder.saved_id);
-      } else {
-        try {
-          let targetEmail = reminder.user_email;
-          let finalSubject = subject;
-          const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-          const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
-          
-          if (isSandboxMode) {
-            const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
-            if (!sandboxEmail) {
-              console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not set. Skipping reminder email.");
-              failedIds.push(reminder.saved_id);
-              continue;
-            }
-            if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-              console.log(`[Resend Sandbox Override] Redirecting email from ${targetEmail} to sandbox recipient ${sandboxEmail}`);
-              finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;
-              targetEmail = sandboxEmail;
-            }
-          }
-
-          const resendRes = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${resendApiKey}`,
-            },
-            body: JSON.stringify({
-              from: process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>",
-              to: targetEmail,
-              subject: finalSubject,
-              html: html,
-            }),
-          });
-
-          if (resendRes.ok) {
-            successfullySentIds.push(reminder.saved_id);
-          } else {
-            const errData = await resendRes.json();
-            console.error(`Resend failed to send email to ${reminder.user_email}:`, errData);
-            failedIds.push(reminder.saved_id);
-          }
-        } catch (mailErr) {
-          console.error(`Catch error sending email to ${reminder.user_email}:`, mailErr);
-          failedIds.push(reminder.saved_id);
-        }
-      }
+      const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: reminder.user_email, subject, html });
+      outcomes.push({ dispatch });
+      if (dispatch.status === "accepted") accepted++;
+      if (dispatch.intendedRecipientAccepted) successfullySentIds.push(reminder.saved_id);
     }
 
     // 4. Mark successfully sent reminders in DB (bypasses RLS via SECURITY DEFINER RPC)
     if (successfullySentIds.length > 0) {
-      const { error: updateErr } = await supabase.rpc("mark_deadline_reminder_sent", {
+      bookkeeping = await recordEmailBookkeeping(() => supabase.rpc("mark_deadline_reminder_sent", {
         p_saved_ids: successfullySentIds,
-      });
-
-      if (updateErr) {
-        console.error("Error marking reminders as sent in Supabase:", updateErr);
-      }
+      }), false);
     }
+    const accounting = accepted ? await recordEmailSendSuccess(supabase, "notifications", accepted) : { status: "not_required" };
 
     return NextResponse.json({
-      success: true,
+      success: successfullySentIds.length === reminders.length,
+      accepted, outcomes, accounting, bookkeeping, retrySafe: false,
       sentCount: successfullySentIds.length,
-      failedCount: failedIds.length,
+      failedCount: outcomes.filter(o => ["failed", "not_dispatched"].includes(o.dispatch.status)).length,
+      unknownCount: outcomes.filter(o => o.dispatch.status === "unknown").length,
       sentIds: successfullySentIds,
-      failedIds: failedIds,
+      message: "Counts represent provider acceptance, not delivery. Review unknown or persistence failures before any resend.",
     });
 
   } catch (err: any) {

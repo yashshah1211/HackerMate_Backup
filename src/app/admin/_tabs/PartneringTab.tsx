@@ -78,7 +78,7 @@ export default function PartneringTab({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast(`Announcement broadcast sent to ${data.count} participant(s)!`, "success");
+        showToast(data.message || "Announcement created; email outcome unavailable.", data.emailSuccess && data.accounting?.status !== "failed" && data.bookkeeping !== "failed" && data.inAppNotifications !== "failed" ? "success" : "warning");
         await openPartnerCompositionModal(selectedPartnerModal);
       } else {
         showToast(data.error || "Failed to send broadcast", "error");

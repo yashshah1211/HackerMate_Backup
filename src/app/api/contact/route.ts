@@ -1,3 +1,4 @@
+import { dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Honeypot check for bots
     if (bot_check) {
-      console.warn("[Honeypot Triggered] Blocked bot submission with payload:", body);
+      console.warn("[Honeypot Triggered] Blocked bot submission; no email dispatched.");
       // Silently succeed to mislead the bot
       return NextResponse.json({
         success: true,
@@ -149,13 +150,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Determine Recipient and Sender Details
-    const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-    
+
     // Recipient email configuration priority
-    let recipientEmail = process.env.ADMIN_CONTACT_EMAIL || 
-                         process.env.RESEND_SANDBOX_RECIPIENT || 
-                         process.env.RESEND_FROM_EMAIL || 
+    const recipientEmail = process.env.ADMIN_CONTACT_EMAIL ||
+                         process.env.RESEND_SANDBOX_RECIPIENT ||
+                         process.env.RESEND_FROM_EMAIL ||
                          "admin@hackermate.dev";
 
     // Escape values for safe HTML rendering
@@ -179,80 +179,9 @@ export async function POST(req: NextRequest) {
       footerNote: "This is an automated notification from the HackerMate Contact form.",
     });
 
-    // 5. Send Email or mock it
-    if (!resendApiKey) {
-      console.log("\n==================== [MOCK CONTACT EMAIL LOG] ====================");
-      console.log(`To Admin Recipient: ${recipientEmail}`);
-      console.log(`From Sender: ${fromEmail}`);
-      console.log(`Subject: ${emailSubject}`);
-      console.log(`Inquirer: ${name} <${email}>`);
-      console.log(`Body Message:\n${trimmedMsg}`);
-      console.log("==================================================================\n");
-
-      return NextResponse.json({
-        success: true,
-        mock: true,
-        message: "Inquiry logged to terminal console (no RESEND_API_KEY).",
-      });
-    }
-
-    // Handle Sandbox override if using onboarding@resend.dev
-    let finalRecipientEmail = recipientEmail;
-    let finalSubject = emailSubject;
-    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
-
-    if (isSandboxMode) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
-      if (!sandboxEmail) {
-        console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not configured in .env.local.");
-        return NextResponse.json(
-          { error: "Email service is not configured for sandbox mode. Please set RESEND_SANDBOX_RECIPIENT in .env.local to your registered Resend email address." },
-          { status: 500 }
-        );
-      }
-      if (finalRecipientEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-        console.log(`[Resend Sandbox Override] Redirecting contact notification from ${finalRecipientEmail} to sandbox recipient ${sandboxEmail}`);
-        finalSubject = `[Sandbox Admin: ${recipientEmail}] ${emailSubject}`;
-        finalRecipientEmail = sandboxEmail;
-      }
-    }
-
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: finalRecipientEmail,
-        subject: finalSubject,
-        html: html,
-        reply_to: email, // Direct replies go to the user
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error("Resend API Error during contact submit:", data);
-      return NextResponse.json(
-        { error: "Failed to dispatch email inquiry." },
-        { status: 500 }
-      );
-    }
-
-    try {
-      await recordEmailSendSuccess(supabaseAdmin, "contact_submissions", 1);
-    } catch (dbErr) {
-      console.warn("[Contact Submit API] Failed to record email stats:", dbErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Inquiry sent successfully.",
-      id: data.id,
-    });
+    const dispatch = await dispatchEmail({ from: fromEmail, to: recipientEmail, subject: emailSubject, html, reply_to: email });
+    const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "contact_submissions", 1) : { status: "not_required" };
+    return NextResponse.json({ ...dispatchResponse(dispatch), accounting }, { status: dispatchHttpStatus(dispatch) });
 
   } catch (err: any) {
     console.error("Contact API Catch-All Error:", err);

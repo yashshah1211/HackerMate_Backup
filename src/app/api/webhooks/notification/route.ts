@@ -1,3 +1,4 @@
+import { dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
@@ -22,8 +23,6 @@ export async function POST(req: NextRequest) {
     // 2. Parse the notification payload
     const body = await req.json();
     const {
-      notificationId,
-      recipientId,
       recipientEmail,
       recipientName,
       message,
@@ -107,84 +106,10 @@ export async function POST(req: NextRequest) {
       footerNote: `You are receiving this offline notification because of activity on your HackerMate account. To adjust your alert settings, edit your builder profile.`,
     });
 
-    // 5. Dispatch Email or Mock to server console
-    const resendApiKey = process.env.RESEND_API_KEY;
-
-    if (!resendApiKey) {
-      console.log("\n==================== [OFFLINE WEBHOOK EMAIL LOG] ====================");
-      console.log(`To: ${recipientEmail}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`HTML Payload:\n${html}`);
-      console.log("======================================================================\n");
-
-      return NextResponse.json({
-        success: true,
-        mock: true,
-        message: "Email logged to server terminal console. Configure RESEND_API_KEY environment variable to dispatch live emails.",
-      });
-    }
-
-    // Resend Sandbox limitation override: if using the default onboarding@resend.dev sender, redirect target to sandbox email
-    let targetEmail = recipientEmail;
-    let finalSubject = subject;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
-    
-    if (isSandboxMode) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
-      if (!sandboxEmail) {
-        console.error("[Resend Sandbox] RESEND_SANDBOX_RECIPIENT is not set. Cannot send notification email in sandbox mode.");
-        return NextResponse.json({ error: "Email service is not configured for sandbox mode." }, { status: 500 });
-      }
-      if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-        console.log(`[Resend Sandbox Override] Redirecting email from ${targetEmail} to sandbox recipient ${sandboxEmail}`);
-        finalSubject = `[Sandbox: ${targetEmail}] ${subject}`;
-        targetEmail = sandboxEmail;
-      }
-    }
-
-
-    // Call Resend REST API
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>",
-        to: targetEmail,
-        subject: finalSubject,
-        html: html,
-      }),
-    });
-
-    const resendData = await resendRes.json();
-
-    if (!resendRes.ok || !resendData?.id) {
-      console.error("Resend API Error (Webhook):", resendData);
-      return NextResponse.json(
-        { success: false, error: "Email dispatch failed via Resend API", details: resendData?.message || resendData || "Unknown Resend API error" },
-        { status: 500 }
-      );
-    }
-
-    // Record email send in database budget guard
-    try {
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-      );
-      await recordEmailSendSuccess(supabaseAdmin, "notifications", 1);
-    } catch (dbErr) {
-      console.warn("[Webhook Notification] Failed to record email stats:", dbErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Offline notification email sent successfully via Resend.",
-      data: resendData,
-    });
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+    const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: recipientEmail, subject: subject, html });
+    const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "notifications", 1) : { status: "not_required" };
+    return NextResponse.json({ ...dispatchResponse(dispatch), accounting }, { status: dispatchHttpStatus(dispatch) });
 
   } catch (err: any) {
     console.error("Offline Notification Webhook Catch-All Error:", err);

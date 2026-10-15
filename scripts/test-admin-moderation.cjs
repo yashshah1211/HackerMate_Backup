@@ -158,10 +158,10 @@ test('warning rejects spoofed actor, excessive content and unconfirmed recipient
 for (const options of [{ rate: { allowed: false, reset_time: '2030-01-01' } }, { rate: { allowed: 'true' } }, { rate: null }, { rateError: { message: 'offline' } }]) test('warning preserves fail-closed rate limiting', async () => {
   const f = setup(options); assert([429, 503].includes((await f.invoke(true)).status)); assert.equal(f.state.sends.length, 0);
 });
-test('non-warning onboarding path retains its established mock behavior', async () => {
+test('non-warning onboarding fails closed without provider configuration', async () => {
   const f = setup({ env: { RESEND_API_KEY: '' } });
   const result = await f.invoke(true, { senderId: ACTOR, recipientId: TARGET, type: 'onboarding_nudge' });
-  assert.equal(result.status, 200); assert.equal(result.body.mock, true); assert.equal(f.state.sends.length, 0);
+  assert.equal(result.status, 503); assert.equal(result.body.success, false); assert.equal(result.body.dispatch.status, "not_dispatched"); assert.equal(f.state.sends.length, 0);
 });
 test('founder can issue warnings under the existing founder authorization', async () => {
   const f = setup({ actor: { id: ACTOR, email: FOUNDER }, caller: { role: 'user', is_banned: false } });
