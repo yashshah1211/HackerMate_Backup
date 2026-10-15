@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { sendModerationWarning, WARNING_ACCEPTED, WARNING_LIMIT } from "@/lib/admin/moderationClient";
 import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import type { EmailUsageSummary } from "@/lib/admin/emailBudgetGuard";
@@ -125,6 +126,9 @@ function AdminContent() {
   const [warningTargetName, setWarningTargetName] = useState("");
   const [warningMessageText, setWarningMessageText] = useState("");
   const [sendingUserWarning, setSendingUserWarning] = useState(false);
+  const warningInFlight = useRef(false);
+  const banInFlight = useRef(new Set<string>());
+  const [banPendingIds, setBanPendingIds] = useState<ReadonlySet<string>>(new Set());
 
   // Onboarding nudge states
   const [onboardingFilter, setOnboardingFilter] = useState<"all" | "incomplete">("all");
@@ -634,43 +638,38 @@ function AdminContent() {
     }
   }
 
-  async function handleToggleBan(userId: string, currentBanStatus: boolean) {
-    try {
-      const res = await fetch("/api/admin/ban-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, is_banned: !currentBanStatus }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(data.message, "success");
-        loadData();
-      } else {
-        showToast(data.error || "Failed to update ban status.", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "An error occurred.", "error");
-    }
-  }
-
-  async function handleToggleRole(userId: string, currentRole: string) {
-    const nextRole = currentRole === "admin" ? "user" : "admin";
-    try {
-      const res = await fetch("/api/admin/set-role", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, role: nextRole }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(data.message, "success");
-        loadData();
-      } else {
-        showToast(data.error || "Failed to update role.", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "An error occurred.", "error");
-    }
+  function handleToggleBan(userId: string, currentBanStatus: boolean, fullName: string) {
+    if (banInFlight.current.has(userId)) return;
+    confirm({
+      title: currentBanStatus ? "UNBAN USER" : "BAN USER",
+      message: `${currentBanStatus ? "Remove the profile ban for" : "Set the profile ban for"} ${fullName || "this user"}? This changes the profile flag; it does not revoke active sessions or guarantee every product action is blocked.`,
+      confirmText: currentBanStatus ? "Unban" : "Ban",
+      onConfirm: async () => {
+        if (banInFlight.current.has(userId)) return;
+        banInFlight.current.add(userId);
+        setBanPendingIds(new Set(banInFlight.current));
+        try {
+          const res = await fetch("/api/admin/ban-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, is_banned: !currentBanStatus }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success === true && data.userId === userId && data.is_banned === !currentBanStatus && typeof data.changed === "boolean") {
+            showToast(data.changed ? "Profile ban status updated." : "The requested ban status was already applied.", data.changed ? "success" : "info");
+            await loadData();
+          } else {
+            showToast(data.error || "Ban status was not confirmed. Refresh before retrying.", "error");
+          }
+        } catch (error) {
+          console.error("[admin] Ban request failed:", error);
+          showToast("Ban status is unknown. Refresh before retrying.", "error");
+        } finally {
+          banInFlight.current.delete(userId);
+          setBanPendingIds(new Set(banInFlight.current));
+        }
+      },
+    });
   }
 
   function handleOpenUserWarningModal(userId: string, fullName: string) {
@@ -681,30 +680,23 @@ function AdminContent() {
   }
 
   async function handleSendUserWarning() {
-    if (!warningTargetUserId || !warningMessageText.trim()) {
+    if (warningInFlight.current) return;
+    if (!warningTargetUserId || !warningMessageText.trim() || warningMessageText.trim().length > WARNING_LIMIT) {
       showToast("Please enter a warning message.", "error");
       return;
     }
+    warningInFlight.current = true;
     setSendingUserWarning(true);
     try {
-      const res = await fetch("/api/admin/warn-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: warningTargetUserId,
-          message: warningMessageText.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(data.message || "Official warning email dispatched successfully.", "success");
-        setUserWarningModalOpen(false);
-      } else {
-        showToast(data.error || "Failed to send warning email.", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "An unexpected error occurred.", "error");
+      await sendModerationWarning(currentUserId, warningTargetUserId, warningMessageText);
+      showToast(WARNING_ACCEPTED, "success");
+      setUserWarningModalOpen(false);
+      await loadData();
+    } catch (error) {
+      console.error("[admin] Warning request failed:", error);
+      showToast(error instanceof Error ? error.message : "Warning acceptance was not confirmed.", "error");
     } finally {
+      warningInFlight.current = false;
       setSendingUserWarning(false);
     }
   }
@@ -1222,6 +1214,7 @@ function AdminContent() {
             currentUserId={currentUserId}
             onRefresh={loadData}
             onToggleBan={handleToggleBan}
+            banPendingIds={banPendingIds}
           />
         )}
 
@@ -1238,7 +1231,7 @@ function AdminContent() {
             onRefresh={loadData}
             onRefreshDeletedLogs={loadDeletedUserLogs}
             onToggleBan={handleToggleBan}
-            onToggleRole={handleToggleRole}
+            banPendingIds={banPendingIds}
             onDeleteUser={handleDeleteUser}
             onOpenWarningModal={handleOpenUserWarningModal}
             onNavigateToDeletedLogs={() => setActiveTab("deleted_logs")}
@@ -1705,11 +1698,12 @@ function AdminContent() {
                   <span>Issue Direct Moderation Warning</span>
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Send official moderation warning email to <strong>{warningTargetName}</strong>.
+                  Request a moderation warning to <strong>{warningTargetName}</strong>. Provider acceptance does not confirm delivery.
                 </p>
               </div>
               <button
                 onClick={() => setUserWarningModalOpen(false)}
+                disabled={sendingUserWarning}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1723,6 +1717,8 @@ function AdminContent() {
                 </label>
                 <textarea
                   value={warningMessageText}
+                  maxLength={WARNING_LIMIT}
+                  disabled={sendingUserWarning}
                   onChange={(e) => setWarningMessageText(e.target.value)}
                   placeholder="Explain why this warning is being issued (e.g. offensive language, fake portfolio, spamming teams)..."
                   rows={4}

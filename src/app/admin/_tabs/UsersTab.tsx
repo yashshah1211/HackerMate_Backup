@@ -19,7 +19,7 @@ interface UsersTabProps {
   onRefresh: () => Promise<void>;
   onRefreshDeletedLogs: () => Promise<void>;
   onToggleBan: (userId: string, currentBan: boolean, fullName: string) => void;
-  onToggleRole: (userId: string, currentRole: string, fullName: string) => void;
+  banPendingIds?: ReadonlySet<string>;
   onDeleteUser: (userId: string, fullName: string) => void;
   onOpenWarningModal: (reportedId: string, reportedName: string) => void;
   onNavigateToDeletedLogs: () => void;
@@ -37,7 +37,7 @@ export default function UsersTab({
   onRefresh,
   onRefreshDeletedLogs,
   onToggleBan,
-  onToggleRole,
+  banPendingIds,
   onDeleteUser,
   onOpenWarningModal,
   onNavigateToDeletedLogs,
@@ -122,6 +122,7 @@ export default function UsersTab({
 
   return (
     <div className="space-y-4" aria-busy={dashboardLoading}>
+      <p id="role-policy-note" className="text-xs text-zinc-500">Role changes are unavailable until the founder approves an administrator promotion and demotion policy.</p>
       {/* Search & Onboarding Filter Bar */}
       <div className="flex flex-col md:flex-row items-center gap-3">
         <div className="relative flex-1 w-full">
@@ -279,7 +280,9 @@ export default function UsersTab({
                         )}
 
                         <button
-                          onClick={() => onToggleRole(u.id, u.role, u.full_name || "User")}
+                          disabled
+                          aria-describedby="role-policy-note"
+                          title="Role changes require a founder-approved policy."
                           className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition cursor-pointer"
                         >
                           {u.role === "admin" ? "Demote" : "Promote"}
@@ -287,6 +290,7 @@ export default function UsersTab({
 
                         <button
                           onClick={() => onOpenWarningModal(u.id, u.full_name || "User")}
+                          disabled={u.id === currentUserId || u.role !== "user" || u.email?.trim().toLowerCase() === "yashshah7117@gmail.com"}
                           className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer font-semibold"
                         >
                           Warn
@@ -294,6 +298,7 @@ export default function UsersTab({
 
                         <button
                           onClick={() => onToggleBan(u.id, u.is_banned, u.full_name || "User")}
+                          disabled={banPendingIds?.has(u.id) || u.id === currentUserId || u.role !== "user" || u.email?.trim().toLowerCase() === "yashshah7117@gmail.com"}
                           className={`text-[12.5px] font-medium py-1 px-2.5 rounded-lg border font-semibold transition cursor-pointer ${
                             u.is_banned
                               ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700"

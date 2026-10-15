@@ -3,8 +3,12 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { renderHackerMateEmail } from "@/lib/emailTemplate";
+import { requireAdmin } from "@/lib/admin/requireAdmin";
+import { ModerationError, moderationFailure, moderationTarget } from "@/lib/admin/moderationTarget";
+import { WARNING_LIMIT } from "@/lib/admin/moderationClient";
 
 export async function POST(req: NextRequest) {
+  let isModerationWarning = false;
   try {
     // ── Auth gate & Admin client ──────────────────────────────────────────
     const supabaseAdmin = createClient(
@@ -49,6 +53,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { senderId, recipientId, type, teamId, warningMessage } = body;
+    isModerationWarning = type === "moderation_warning";
 
     if (!senderId || !recipientId || !type) {
       return NextResponse.json(
@@ -62,6 +67,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    let warningTarget: Awaited<ReturnType<typeof moderationTarget>> | null = null;
+    if (type === "moderation_warning") {
+      try {
+        const auth = await requireAdmin(req);
+        if (auth instanceof NextResponse) return auth;
+        if (auth.user.id !== authUser.id) throw new ModerationError(403, "Unable to verify administrator identity.");
+        if (typeof warningMessage !== "string" || !warningMessage.trim() || warningMessage.trim().length > WARNING_LIMIT) {
+          throw new ModerationError(400, `Warning content must contain 1–${WARNING_LIMIT} characters.`);
+        }
+        const from = process.env.RESEND_FROM_EMAIL?.trim() || "";
+        const address = from.match(/<([^<>]+)>$/)?.[1] || from;
+        if (!process.env.RESEND_API_KEY?.trim() || /[\r\n]/.test(from) || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(address) || address.toLowerCase().endsWith("@resend.dev")) {
+          throw new ModerationError(503, "Real warning email delivery is not configured. No warning was sent.");
+        }
+        warningTarget = await moderationTarget(auth.supabaseAdmin, auth.user.id, recipientId);
+        if (!warningTarget.emailConfirmed) throw new ModerationError(422, "The target account needs a confirmed email address.");
+      } catch (error) { return moderationFailure(error); }
+    }
+
     // Rate Limiter Enforcement (15 emails per hour per authenticated user)
     const { data: rateLimitData, error: rateLimitErr } = await supabaseAdmin.rpc("check_rate_limit", {
       p_ip: authUser.id,
@@ -70,7 +94,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Fail closed: if the rate limit can't be evaluated, don't send.
-    if (rateLimitErr || !rateLimitData || rateLimitData.length === 0) {
+    if (rateLimitErr || !rateLimitData || rateLimitData.length === 0 || (warningTarget && typeof rateLimitData[0]?.allowed !== "boolean")) {
       console.error(
         "[Send Email API] Rate limiter unavailable; failing closed:",
         rateLimitErr ?? "no rate-limit decision returned"
@@ -91,8 +115,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Only admins may send moderation_warning or onboarding_nudge emails.
-    if (type === "moderation_warning" || type === "onboarding_nudge") {
+    // Moderation warnings were verified above; retain the existing nudge gate.
+    if (type === "onboarding_nudge") {
       const { data: callerProfile } = await supabaseAdmin
         .from("profiles")
         .select("role")
@@ -104,7 +128,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Fetch Sender Details
-    const { data: sender, error: senderErr } = await supabaseAdmin
+    const { data: sender, error: senderErr } = warningTarget ? { data: { full_name: "Administrator" }, error: null } : await supabaseAdmin
       .from("profiles")
       .select("full_name")
       .eq("id", senderId)
@@ -116,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch Recipient Details (Querying via supabaseAdmin to safely resolve email under RLS)
-    const { data: recipient, error: recipientErr } = await supabaseAdmin
+    const { data: recipient, error: recipientErr } = warningTarget ? { data: { full_name: warningTarget.profile.full_name, email: warningTarget.email }, error: null } : await supabaseAdmin
       .from("profiles")
       .select("full_name, email")
       .eq("id", recipientId)
@@ -144,7 +168,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Fetch Team details if applicable
     let teamName = "";
-    if (teamId) {
+    if (teamId && !warningTarget) {
       const { data: team, error: teamErr } = await supabase
         .from("teams")
         .select("name")
@@ -169,7 +193,7 @@ export async function POST(req: NextRequest) {
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
     const proto = req.headers.get("x-forwarded-proto") || "http";
     const requestBaseUrl = host ? `${proto}://${host}` : null;
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestBaseUrl || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (warningTarget ? "https://www.hackermate.in" : requestBaseUrl || "http://localhost:3000");
 
     const senderName = sender.full_name || "Builder";
     const recipientName = recipient.full_name || "Builder";
@@ -257,7 +281,7 @@ export async function POST(req: NextRequest) {
       subject = `[HackerMate] Account Behavior Warning Alert`;
       title = "Moderation Warning";
       badgeText = "Security Alert";
-      introText = warningMessage || "We have received reports from other community members regarding inappropriate behavior or content on your HackerMate profile. Please review our community guidelines to avoid account suspension.";
+      introText = warningMessage.trim();
       actionLabel = "Review Profile";
       actionUrl = `${baseUrl}/profile/edit`;
     } else if (type === "onboarding_nudge") {
@@ -321,21 +345,35 @@ export async function POST(req: NextRequest) {
     }
 
     // Call Resend REST API endpoint
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: targetEmail,
-        subject: finalSubject,
-        html: html,
-      }),
-    });
+    let resendRes: Response;
+    let resendData;
+    try {
+      resendRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: targetEmail,
+          subject: finalSubject,
+          html: html,
+        }),
+        ...(warningTarget ? { signal: AbortSignal.timeout(15_000) } : {}),
+      });
 
-    const resendData = await resendRes.json();
+      resendData = await resendRes.json();
+    } catch (error) {
+      if (!warningTarget) throw error;
+      console.error("[Moderation warning] Provider response unavailable:", error);
+      return NextResponse.json({ success: false, error: "Warning outcome is unknown. Check provider records before sending again." }, { status: 502 });
+    }
+
+    if (warningTarget && (!resendRes.ok || typeof resendData?.id !== "string" || !resendData.id.trim() || resendData.mock || resendData.sandbox)) {
+      console.error("[Moderation warning] Provider acceptance not confirmed:", { status: resendRes.status });
+      return NextResponse.json({ success: false, error: "Provider did not confirm warning acceptance. Check provider records before sending again." }, { status: 502 });
+    }
 
     if (!resendRes.ok) {
       console.error("Resend API Error:", resendData);
@@ -351,6 +389,9 @@ export async function POST(req: NextRequest) {
       console.warn("[Send Email API] Failed to record email stats:", dbErr);
     }
 
+    if (warningTarget) return NextResponse.json({ success: true, status: "accepted", message: "Provider accepted the warning. Delivery is not confirmed." },
+      { headers: { "Cache-Control": "private, no-store" } });
+
     return NextResponse.json({
       success: true,
       message: "Email sent successfully via Resend.",
@@ -359,6 +400,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error("Email API Catch-All Error:", err);
+    if (isModerationWarning) return NextResponse.json({ success: false, error: "Warning acceptance was not confirmed. Check provider records before sending again." }, { status: 500 });
     return NextResponse.json({ error: "Internal Server Error", details: err.message }, { status: 500 });
   }
 }
