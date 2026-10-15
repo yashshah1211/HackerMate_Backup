@@ -8,7 +8,7 @@ const { harness } = require('./ppt-vision-harness.cjs');
 const NOW = Date.parse('2026-10-14T12:00:00Z'), USER = 'offline-user';
 const event = (id, extra = {}) => ({ id, name: `Event ${id}`, description: '<p>Build clean tools</p>', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', location: 'Venue in India', mode: 'offline', prize_pool: 'Certificate & Perks',
-  currency: null, website_url: 'https://unstop.com/event', type: 'external', organizer_id: null, ...extra });
+  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'external', organizer_id: null, ...extra });
 const text = node => node == null || typeof node === 'boolean' ? '' : Array.isArray(node) ? node.map(text).join('') : typeof node === 'object' ? text(node.props?.children) : String(node);
 async function page(options = {}) {
   let cursor = 0, html, clock = NOW, tick; const slots = [], effects = [], dependencies = [], controls = [], writes = [], toasts = [], reads = [];
@@ -16,12 +16,13 @@ async function page(options = {}) {
   const events = options.events || [event('future'), event('ongoing', { start_date: '2026-10-12' }), event('past', { start_date: '2026-10-10', end_date: '2026-10-13' }), event('unknown', { start_date: 'invalid', end_date: null })];
   const location = { pathname: '/hackathons', search: options.query ? `?${options.query}` : '', hash: '#discovery' };
   const hooks = { ...React, useMemo: fn => fn(),
+    useRef(initial) { const i = cursor++; return slots[i] ||= { current: initial }; },
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial;
       return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
     useEffect(fn, deps) { const i = cursor++; if (!dependencies[i] || deps.some((v, j) => v !== dependencies[i][j])) { dependencies[i] = deps; effects.push(fn); } },
   };
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [clock])); } static now() { return clock; } }
-  const client = { auth: { getUser: async () => ({ data: { user } }) }, from(table) {
+  const client = { auth: { getSession: async () => ({ data: { session: user ? { user } : null } }), getUser: async () => ({ data: { user } }) }, from(table) {
     assert(['hackathons', 'saved_hackathons', 'profiles'].includes(table));
     const filters = []; let operation = 'read', payload;
     const result = () => {
@@ -35,11 +36,11 @@ async function page(options = {}) {
       }
       if (table === 'hackathons') { assert(filters.some(([key, value]) => key === 'archived' && value === false)); return { data: events, error: null }; }
       assert(filters.some(([key, value]) => (key === 'user_id' || key === 'id') && value === USER));
-      return { data: table === 'profiles' ? { skills: options.skills || [] } : [...saved].map(hackathon_id => ({ hackathon_id })), error: null };
+      return { data: table === 'profiles' ? { id: USER, is_banned: false, onboarding_completed: true, skills: options.skills || [] } : [...saved].map(hackathon_id => ({ hackathon_id })), error: null };
     };
     const query = { select() { return this; }, order() { return this; }, eq(key, value) { filters.push([key, value]); return this; },
       insert(value) { operation = 'insert'; payload = value; return this; }, delete() { operation = 'delete'; return this; },
-      single: async () => result(), then: (resolve, reject) => Promise.resolve(result()).then(resolve, reject) };
+      maybeSingle: async () => result(), single: async () => result(), then: (resolve, reject) => Promise.resolve(result()).then(resolve, reject) };
     return query;
   } };
   const system = new Proxy({}, { get: (_, name) => name === '__esModule' ? false : props => {
@@ -56,7 +57,7 @@ async function page(options = {}) {
     jsxs(type, props, key) { record(type, props); return jsxRuntime.jsxs(type, props, key); },
   }, 'next/navigation': { useSearchParams: () => new URLSearchParams(location.search) },
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
-    '@/components/AuthGuard': props => props.children, '@/components/Logo': { LogoMark: () => null },
+    '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }), '@/components/Logo': { LogoMark: () => null },
     '@/components/system': system, '@/lib/supabase': { supabase: client },
     '@/context/NotificationContext': { useNotification: () => ({ showToast: (message, type) => toasts.push({ message, type }) }) },
   }, { URLSearchParams, Date: Clock, setInterval(fn) { tick = fn; return 1; }, clearInterval() {}, window: { location,

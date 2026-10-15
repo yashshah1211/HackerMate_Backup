@@ -28,7 +28,9 @@ import {
 import { supabase } from "@/lib/supabase";
 import { EventReadError, loadEventDiscovery, loadEventRegistrationCounts, loadOwnEventParticipation, setOwnDiscoveryPreference,
   type DiscoveryPage, type OwnParticipation, type RegistrationCounts } from "@/lib/hackathons/eventParticipation";
-import AuthGuard from "@/components/AuthGuard";
+import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
+import PublicHackathonDetail from "@/components/hackathons/PublicHackathonDetail";
+import { PUBLIC_EVENT_COLUMNS, isPublicEvent } from "@/lib/hackathons/publicBrowsing";
 import { useNotification } from "@/context/NotificationContext";
 import { formatPrizeDisplay } from "@/lib/hackathons/prizeDisplay";
 import VerifiedBuilderBadge from "@/components/VerifiedBuilderBadge";
@@ -335,8 +337,10 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
     try {
       const { data: hackathonData, error: hackathonError } = await supabase
         .from("hackathons")
-        .select("*")
+        .select(`${PUBLIC_EVENT_COLUMNS},organizer_id`)
         .eq("id", hackathonId)
+        .eq("status", "approved")
+        .eq("archived", false)
         .single();
 
       if (hackathonError) {
@@ -347,6 +351,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         return;
       }
 
+      if (!hackathonData || !isPublicEvent(hackathonData)) { setHackathon(null); setLoading(false); return; }
       setLoadError(null);
       setHackathon(hackathonData);
 
@@ -2251,9 +2256,8 @@ function HackathonDetailRoute() {
 export default function HackathonDetailPage() {
   return (
     <Suspense fallback={<PageLoader label="Loading event" />}>
-      <AuthGuard>
-        <HackathonDetailRoute />
-      </AuthGuard>
+      <BrowsingBoundary>{access => access.kind === "member" && access.onboarded
+        ? <HackathonDetailRoute /> : <PublicHackathonDetail onboard={access.kind === "member"} />}</BrowsingBoundary>
     </Suspense>
   );
 }

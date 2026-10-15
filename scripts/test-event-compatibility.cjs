@@ -20,7 +20,7 @@ function fixture(options = {}) {
     rpcError: null, selfError: null, mutationError: null, discoveryRows: [builder], total: 1,
     counts: { registration_count: 1005, confirmed_count: 900, waitlisted_count: 105 },
     queries: [], rpcs: [], toasts: [], ...options };
-  const hackathon = { id: EVENT, name: 'Legacy Event', description: 'Build together', type: 'external',
+  const hackathon = { status: 'approved', archived: false, id: EVENT, name: 'Legacy Event', description: 'Build together', type: 'external',
     start_date: '2028-01-01', end_date: '2028-01-03', website_url: 'https://example.invalid/register',
     tags: [], min_team_size: 1, max_team_size: 4, max_participants: null, location: null, mode: 'online',
     organizer_id: null, prize_pool: null, ...options.hackathon };
@@ -101,6 +101,7 @@ function loadModule(relative, overrides = {}, globals = {}) {
 }
 const api = loadModule('src/lib/hackathons/eventParticipation.ts');
 const discoveryNavigation = loadModule('src/lib/hackathons/discoveryNavigation.ts');
+const publicBrowsing = loadModule('src/lib/hackathons/publicBrowsing.ts');
 function plain(value) {
   if (value == null || typeof value === 'boolean') return '';
   if (Array.isArray(value)) return value.map(plain).join(' ');
@@ -141,7 +142,8 @@ async function pageHarness(kind, options = {}) {
     '@/lib/hackathons/eventParticipation': api, '@/lib/hackathons/discoveryNavigation': discoveryNavigation, '@/lib/utils': { cn: () => '' },
     '@/components/system': system, '@/components/landing/primitives': { Container: component('Container'), Eyebrow: component('Eyebrow') },
     '@/context/NotificationContext': { useNotification: () => ({ showToast(text, tone) { fixtureData.state.toasts.push({ text, tone }); }, confirm(value) { fixtureData.state.confirmation = value; } }) },
-    '@/components/AuthGuard': props => props.children,
+    '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }),
+    '@/components/hackathons/PublicHackathonDetail': () => null, '@/lib/hackathons/publicBrowsing': publicBrowsing,
     '@/components/CertificateModal': () => null, '@/components/ShareModal': () => null, '@/components/VerifiedBuilderBadge': () => null,
     '@/components/StructuredHackathonDescription': () => null, '@/lib/hackathons/prizeDisplay': { formatPrizeDisplay: () => null },
     '@/lib/time': { eventTimeline: () => ({ state: 'upcoming' }) }, '@/lib/teamCategory': { getTeamCategoryInfo: () => ({}) },
@@ -452,7 +454,7 @@ test('public source audit: no broad registration discovery/count fallback or tea
   assert(!partner.includes('.from("hackathon_registrations")'));
   assert(!event.includes('registrations.length')); assert(!event.includes('regData')); assert(!event.includes('profile.email'));
   assert(!profile.includes('hackathon_registrations'));
-  assert(event.includes('<AuthGuard>')); assert(partner.includes('loadEventDiscovery')); assert(event.includes('loadEventRegistrationCounts'));
+  assert(event.includes('<BrowsingBoundary>')); assert(!event.includes('<AuthGuard>')); assert(partner.includes('loadEventDiscovery')); assert(event.includes('loadEventRegistrationCounts'));
 });
 
 
@@ -486,3 +488,13 @@ test('legacy partner does not guess a discovery destination when the associated 
   const page = await pageHarness('partner', { missingEvent: true });
   assert(!page.html.includes('?tab=looking_for_teams'));
 });
+for (const extra of [{ status: 'pending' }, { status: 'rejected' }, { archived: true }, { status: null, type: 'external' }]) {
+  test(`ordinary authenticated event route has no owner visibility exception: ${JSON.stringify(extra)}`, async () => {
+    const page = await pageHarness('event', { hackathon: { ...extra, organizer_id: USER } });
+    assert(page.state.queries.every(query => query.table === 'hackathons'));
+    const read = page.state.queries[0];
+    assert(read.filters.some(([column, value]) => column === 'status' && value === 'approved'));
+    assert(read.filters.some(([column, value]) => column === 'archived' && value === false));
+    assert(!page.html.includes('Build together'));
+  });
+}
