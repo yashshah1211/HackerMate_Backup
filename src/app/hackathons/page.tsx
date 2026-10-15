@@ -215,6 +215,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const [personalError, setPersonalError] = useState(false);
   const alive = useRef(true);
   const loadRequest = useRef(0);
+  const loadingRequests = useRef(new Set<AbortController>());
   const saving = useRef(new Set<string>());
   const canParticipate = access.kind === "member" && access.onboarded;
   const [now, setNow] = useState(() => Date.now());
@@ -236,10 +237,13 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   }, []);
 
   async function loadHackathons() {
+    loadingRequests.current.forEach(controller => controller.abort());
+    const controller = new AbortController();
+    loadingRequests.current.add(controller);
     const request = ++loadRequest.current;
-    const current = () => alive.current && request === loadRequest.current;
+    const current = () => alive.current && request === loadRequest.current && !controller.signal.aborted;
     try {
-      const events = await loadPublicEvents(supabase);
+      const events = await loadPublicEvents(supabase, controller.signal);
       if (!current()) return;
       setHackathons(events);
       setLoadError(null);
@@ -256,9 +260,12 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         if (!profile.error) setUserSkills(listedTags(profile.data?.skills));
       }
     } catch (error) {
-      console.error("Hackathon listing failed:", error);
+      if (!controller.signal.aborted) console.error("Hackathon listing failed:", error);
       if (current()) setLoadError("Events are unavailable. Please retry.");
-    } finally { if (current()) setLoading(false); }
+    } finally {
+      loadingRequests.current.delete(controller);
+      if (current()) setLoading(false);
+    }
   }
 
   async function toggleSave(e: React.MouseEvent, hackathonId: string) {
@@ -326,9 +333,15 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
 
   useEffect(() => {
     alive.current = true;
+    const requests = loadingRequests.current;
     let cancelled = false;
     void Promise.resolve().then(() => { if (!cancelled) void loadHackathons(); });
-    return () => { cancelled = true; alive.current = false; };
+    return () => {
+      cancelled = true;
+      alive.current = false;
+      requests.forEach(controller => controller.abort());
+      requests.clear();
+    };
     // Access changes remount this subtree at the boundary.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

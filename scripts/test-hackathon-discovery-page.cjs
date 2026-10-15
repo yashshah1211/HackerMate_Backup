@@ -24,7 +24,7 @@ async function page(options = {}) {
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [clock])); } static now() { return clock; } }
   const client = { auth: { getSession: async () => ({ data: { session: user ? { user } : null } }), getUser: async () => ({ data: { user } }) }, from(table) {
     assert(['hackathons', 'saved_hackathons', 'profiles'].includes(table));
-    const filters = []; let operation = 'read', payload;
+    const filters = []; let operation = 'read', payload, cursor = null, batchSize = Infinity;
     const result = () => {
       if (operation === 'read') reads.push(table);
       if (operation !== 'read') {
@@ -34,11 +34,12 @@ async function page(options = {}) {
         else { assert(filters.some(([key, value]) => key === 'user_id' && value === USER)); saved.delete(filters.find(([key]) => key === 'hackathon_id')[1]); }
         return { error: null };
       }
-      if (table === 'hackathons') { assert(filters.some(([key, value]) => key === 'archived' && value === false)); return { data: events, error: null }; }
+      if (table === 'hackathons') { assert(filters.some(([key, value]) => key === 'archived' && value === false)); return { data: [...events].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).filter(row => cursor === null || row.id > cursor).slice(0, batchSize), error: null }; }
       assert(filters.some(([key, value]) => (key === 'user_id' || key === 'id') && value === USER));
       return { data: table === 'profiles' ? { id: USER, is_banned: false, onboarding_completed: true, skills: options.skills || [] } : [...saved].map(hackathon_id => ({ hackathon_id })), error: null };
     };
     const query = { select() { return this; }, order() { return this; }, eq(key, value) { filters.push([key, value]); return this; },
+      gt(key, value) { assert.equal(key, 'id'); cursor = value; return this; }, limit(value) { batchSize = value; return this; }, abortSignal() { return this; },
       insert(value) { operation = 'insert'; payload = value; return this; }, delete() { operation = 'delete'; return this; },
       maybeSingle: async () => result(), single: async () => result(), then: (resolve, reject) => Promise.resolve(result()).then(resolve, reject) };
     return query;
@@ -60,7 +61,7 @@ async function page(options = {}) {
     '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }), '@/components/Logo': { LogoMark: () => null },
     '@/components/system': system, '@/lib/supabase': { supabase: client },
     '@/context/NotificationContext': { useNotification: () => ({ showToast: (message, type) => toasts.push({ message, type }) }) },
-  }, { URLSearchParams, Date: Clock, setInterval(fn) { tick = fn; return 1; }, clearInterval() {}, window: { location,
+  }, { URLSearchParams, AbortController, Date: Clock, setInterval(fn) { tick = fn; return 1; }, clearInterval() {}, window: { location,
     history: { replaceState(_state, _title, path) { const url = new URL(path, 'https://offline.example'); Object.assign(location, { pathname: url.pathname, search: url.search, hash: url.hash }); } },
   } }).load('src/app/hackathons/page.tsx').default;
   const render = () => { cursor = 0; controls.length = 0; html = renderToStaticMarkup(React.createElement(Page)); };

@@ -17,20 +17,23 @@ function client(options = {}) {
     getUser: async () => ({ data: { user }, error: options.authError }),
     onAuthStateChange(fn) { listeners.add(fn); return { data: { subscription: { unsubscribe() { stopped++; listeners.delete(fn); } } } }; },
   }, from(table) {
-    const filters = []; let columns;
+    const filters = []; let columns, cursor = null, batchSize = Infinity, signal;
     const execute = async () => {
-      reads.push({ table, columns, filters: [...filters] });
-      if (options.delay) await options.delay(table);
+      reads.push({ table, columns, filters: [...filters], cursor, signal });
+      if (options.delay) await options.delay(table, { cursor, signal });
       if (table === 'profiles') return { data: options.noProfile ? null : { id: USER.id, is_banned: false, onboarding_completed: true, skills: [], ...options.profile }, error: options.profileError };
       if (table === 'saved_hackathons') return { data: [], error: options.savedError };
       assert.equal(table, 'hackathons', 'Guest must not access private relations');
       assert.equal(columns, api.PUBLIC_EVENT_COLUMNS);
-      if (options.eventError) return { data: null, error: options.eventError };
-      let rows = options.events || [event()];
+      if (options.eventError || (cursor && options.laterPageError)) return { data: null, error: options.eventError || options.laterPageError };
+      let rows = [...(options.events || [event()])].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
       if (!options.ignoreFilters) rows = rows.filter(row => filters.every(([key, value]) => row[key] === value));
+      if (cursor !== null) rows = rows.filter(row => row.id > cursor);
+      rows = rows.slice(0, Math.min(batchSize, options.responseCap || Infinity));
       return { data: filters.some(([key]) => key === 'id') ? rows[0] || null : rows, error: null };
     };
     return { select(value) { columns = value; assert(!value.includes('*')); return this; }, eq(key, value) { filters.push([key, value]); return this; }, order() { return this; },
+      gt(key, value) { assert.equal(key, 'id'); cursor = value; return this; }, limit(value) { batchSize = value; return this; }, abortSignal(value) { signal = value; return this; },
       maybeSingle: execute, single: execute, then(resolve, reject) { return execute().then(resolve, reject); },
       insert(value) { writes.push(value); throw new Error('No protected mutation expected'); }, delete() { throw new Error('No protected mutation expected'); },
     };
@@ -103,7 +106,7 @@ async function mount(options = {}) {
     'next/navigation': { useParams: () => ({ id: 'synthetic-event' }), useSearchParams: () => new URLSearchParams(dom.window.location.search) },
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {} }) }, '@/components/Logo': { LogoMark: () => null },
-  }, { window: dom.window, URLSearchParams, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
+  }, { window: dom.window, URLSearchParams, AbortController, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
   const Component = loader.load(options.detail ? 'src/app/hackathons/[id]/page.tsx' : 'src/app/hackathons/page.tsx').default;
   const root = createRoot(dom.window.document.getElementById('root'));
   const element = React.createElement(Component);
@@ -187,4 +190,39 @@ test('directory load failure and retry preserve the URL; incomplete accounts can
   const incomplete = await mount({ user: USER, profile: { onboarding_completed: false } });
   try { await incomplete.click('Save hackathon'); assert.match(incomplete.html, /Complete your profile/); assert.equal(incomplete.c.writes.length, 0); }
   finally { await incomplete.close(); }
+});
+
+test('later-page failure never renders the partial list; Retry reloads all pages with current filters', async () => {
+  const options = { events: [event('a'), event('b')], responseCap: 1, laterPageError: { message: 'offline second page' } };
+  const view = await mount({ client: client(options), query: '?q=Public&mode=hybrid' });
+  try {
+    assert.match(view.html, /Couldn.t load hackathons/); assert(!view.html.includes('Public a')); assert(!view.html.includes('Public b'));
+    const before = view.c.reads.length; options.laterPageError = null; await view.click('Retry');
+    assert.match(view.html, /Public a/); assert.match(view.html, /Public b/); assert(!view.html.includes('Couldn.t load hackathons'));
+    assert.equal(view.c.reads[before].cursor, null); assert.equal(view.dom.window.location.search, '?q=Public&mode=hybrid');
+  } finally { await view.close(); }
+});
+test('a newer Retry aborts an obsolete in-flight page and delayed completion cannot replace current results', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { eventError: { message: 'offline first attempt' }, events: [event('a'), event('b')], responseCap: 1 };
+  const view = await mount({ client: client(options) });
+  try {
+    options.eventError = null; options.delay = (table, { cursor }) => table === 'hackathons' && cursor === 'a' ? pending : undefined;
+    await view.click('Retry');
+    const obsolete = view.c.reads.find(read => read.cursor === 'a'); assert(obsolete); assert.equal(obsolete.signal.aborted, false);
+    assert(!view.html.includes('Public a'));
+    options.events = [event('z', { name: 'Fresh completed listing' })]; options.delay = null;
+    await view.click('Retry'); assert.equal(obsolete.signal.aborted, true); assert.match(view.html, /Fresh completed listing/);
+    await view.change(release); assert.match(view.html, /Fresh completed listing/); assert(!view.html.includes('Public a'));
+    assert.equal(view.c.reads.filter(read => read.signal === obsolete.signal).length, 2);
+  } finally { release(); await view.close(); }
+});
+test('unmount cancels a pending pagination request and stops traversal after delayed completion', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { events: [event('a'), event('b')], responseCap: 1, delay: (table, { cursor }) => table === 'hackathons' && cursor === 'a' ? pending : undefined };
+  const view = await mount({ client: client(options) });
+  const request = view.c.reads.find(read => read.cursor === 'a');
+  try { assert(request); assert(!view.html.includes('Public a')); }
+  finally { await view.close(); release(); await new Promise(resolve => setImmediate(resolve)); }
+  assert.equal(request.signal.aborted, true); assert.equal(view.c.reads.length, 2);
 });

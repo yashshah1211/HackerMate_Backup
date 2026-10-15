@@ -22,9 +22,9 @@ window.fixtureReads=[]; window.fixtureWrites=[];
 const row={id:'synthetic-event',name:'Public browser fixture',description:'<p>Build useful tools</p>',status:'approved',archived:false,type:'external',tags:['React'],start_date:'2028-01-01',end_date:'2028-01-03',registration_end:'2027-12-30',location:'Mumbai',mode:'hybrid',prize_pool:'INR 10000',currency:'INR',website_url:'https://example.invalid/event'};
 export const supabase={auth:{getSession:async()=>({data:{session:null},error:null}),getUser:async()=>({data:{user:null},error:{name:'AuthSessionMissingError'}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},from(table){
  if(table!=='hackathons')throw new Error('Guest private query');
- let filters=[],columns='';
- const result=()=>{window.fixtureReads.push({table,columns,filters}); if(columns.includes('*'))throw new Error('Wildcard');return {data:filters.some(([key])=>key==='id')?row:[row],error:null};};
- return {select(value){columns=value;return this;},eq(key,value){filters.push([key,value]);return this;},order(){return this;},maybeSingle:async()=>result(),then(resolve,reject){return Promise.resolve(result()).then(resolve,reject);},insert(){window.fixtureWrites.push(table);throw new Error('Guest mutation');}};
+ let filters=[],columns='',cursor=null,batchSize=Infinity;
+ const result=()=>{window.fixtureReads.push({table,columns,filters}); if(columns.includes('*'))throw new Error('Wildcard');return {data:filters.some(([key])=>key==='id')?row:[row].filter(event=>cursor===null||event.id>cursor).slice(0,batchSize),error:null};};
+ return {select(value){columns=value;return this;},eq(key,value){filters.push([key,value]);return this;},order(){return this;},gt(key,value){cursor=value;return this;},limit(value){batchSize=value;return this;},abortSignal(){return this;},maybeSingle:async()=>result(),then(resolve,reject){return Promise.resolve(result()).then(resolve,reject);},insert(){window.fixtureWrites.push(table);throw new Error('Guest mutation');}};
 }};
 `;
 const assets = (async () => {

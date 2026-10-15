@@ -14,12 +14,41 @@ export function isPublicEvent(event: { status?: unknown; archived?: unknown }): 
   return event.status === "approved" && event.archived === false;
 }
 
-export async function loadPublicEvents(client: SupabaseClient): Promise<PublicEvent[]> {
-  const { data, error } = await client.from("hackathons").select(PUBLIC_EVENT_COLUMNS)
-    .eq("status", "approved").eq("archived", false).order("start_date", { ascending: true });
-  if (error) { console.error("Public event listing failed:", error); throw new Error("Events are unavailable. Please retry."); }
-  if (!data) throw new Error("Events are unavailable. Please retry.");
-  return (data as PublicEvent[]).filter(isPublicEvent);
+const PUBLIC_EVENT_BATCH_SIZE = 250;
+// Includes the final empty request. Exceeding this bound is a failure, never a partial success.
+const PUBLIC_EVENT_REQUEST_LIMIT = 200;
+
+/** Complete keyset traversal, not a transactional snapshot of concurrent event edits. */
+export async function loadPublicEvents(client: SupabaseClient, signal?: AbortSignal): Promise<PublicEvent[]> {
+  const events: PublicEvent[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < PUBLIC_EVENT_REQUEST_LIMIT; page++) {
+    signal?.throwIfAborted();
+    let query = client.from("hackathons").select(PUBLIC_EVENT_COLUMNS)
+      .eq("status", "approved").eq("archived", false)
+      .order("id", { ascending: true }).limit(PUBLIC_EVENT_BATCH_SIZE);
+    if (cursor !== null) query = query.gt("id", cursor);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query;
+    signal?.throwIfAborted();
+    if (error) { console.error("Public event listing failed:", error); throw new Error("Events are unavailable. Please retry."); }
+    if (!Array.isArray(data) || data.length > PUBLIC_EVENT_BATCH_SIZE) {
+      console.error("Public event listing returned an invalid page.");
+      throw new Error("The complete event listing could not be loaded. Please retry.");
+    }
+    if (data.length === 0) return events;
+    // Validate every row, including excluded rows, so an invalid cursor cannot skip or repeat pages.
+    for (const row of data) {
+      if (!row || typeof row.id !== "string" || !row.id || (cursor !== null && row.id <= cursor)) {
+        console.error("Public event listing returned a duplicate or non-advancing ID.");
+        throw new Error("Event pagination did not advance. Please retry.");
+      }
+      cursor = row.id;
+      if (isPublicEvent(row)) events.push(row as PublicEvent);
+    }
+  }
+  console.error("Public event listing exceeded its request safety limit.");
+  throw new Error("Event listing exceeded its request safety limit. Please retry.");
 }
 
 export async function loadPublicEvent(client: SupabaseClient, id: string): Promise<PublicEvent | null> {
