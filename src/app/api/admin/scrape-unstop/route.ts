@@ -480,7 +480,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     .map((item) => item.hackathonRecord)
     .filter((h) => {
       if (!h.website_url) return false;
-      // Exclude ended hackathons from student hackathons tab
+      // Ingest only active/upcoming candidates; retain existing events for Past discovery.
       if (h.end_date) {
         const endDateStr = new Date(h.end_date).toISOString().split("T")[0];
         if (endDateStr < todayStr) return false;
@@ -528,33 +528,6 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     } else {
       console.log(`[Scraper] Successfully upserted ${normalizedHackathons.length} live/upcoming hackathons to main Hackathons tab.`);
     }
-  }
-
-  // 8. Automatic Purge: Clean up any existing external hackathons in public.hackathons that have ended (Excluding Partner Portals!)
-  try {
-    const [pastExternalRes, partnerConfigsRes] = await Promise.all([
-      supabaseAdmin.from("hackathons").select("id, end_date").eq("type", "external"),
-      supabaseAdmin.from("partner_configs").select("hackathon_id"),
-    ]);
-
-    const partnerHackathonIds = new Set(
-      (partnerConfigsRes.data || []).map((p) => p.hackathon_id).filter(Boolean)
-    );
-
-    const pastExternalHackathons = pastExternalRes.data || [];
-
-    if (pastExternalHackathons.length > 0) {
-      const now = new Date();
-      const closedIds = pastExternalHackathons
-        .filter((h) => h.end_date && new Date(h.end_date) < now && !partnerHackathonIds.has(h.id))
-        .map((h) => h.id);
-
-      if (closedIds.length > 0) {
-        await supabaseAdmin.from("hackathons").delete().in("id", closedIds);
-      }
-    }
-  } catch (purgeErr) {
-    console.warn("[Scraper] Non-critical error purging ended hackathons:", purgeErr);
   }
 
   return {
