@@ -1,3 +1,4 @@
+import { dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
@@ -117,12 +118,13 @@ export async function POST(req: NextRequest) {
 
     // Moderation warnings were verified above; retain the existing nudge gate.
     if (type === "onboarding_nudge") {
-      const { data: callerProfile } = await supabaseAdmin
+      const { data: callerProfile, error: callerError } = await supabaseAdmin
         .from("profiles")
         .select("role")
         .eq("id", authUser.id)
         .single();
-      if (!callerProfile || callerProfile.role !== "admin") {
+      if (callerError) console.error("[Send Email] Caller eligibility failed:", callerError);
+      if (callerError || !callerProfile || callerProfile.role !== "admin") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
       .eq("id", senderId)
       .single();
 
+    if (senderErr) console.error("[Send Email] Eligibility query failed:", senderErr);
     if (senderErr || !sender) {
       // Generic error — do not reveal whether the profile exists (prevents enumeration).
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -146,6 +149,7 @@ export async function POST(req: NextRequest) {
       .eq("id", recipientId)
       .single();
 
+    if (recipientErr) console.error("[Send Email] Eligibility query failed:", recipientErr);
     if (recipientErr || !recipient) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
@@ -175,6 +179,8 @@ export async function POST(req: NextRequest) {
         .eq("id", teamId)
         .single();
       
+      if (teamErr) console.error("[Send Email] Team lookup failed:", teamErr);
+      if (teamErr) return NextResponse.json({ error: "Team eligibility unavailable; no request sent." }, { status: 503 });
       if (!teamErr && team) {
         teamName = team.name;
       }
@@ -209,6 +215,7 @@ export async function POST(req: NextRequest) {
         .eq("status", "pending")
         .maybeSingle();
 
+      if (connErr) console.error("[Send Email] Eligibility query failed:", connErr);
       if (connErr || !connReq) {
         return NextResponse.json({ error: "Forbidden: No pending connection request exists between these users." }, { status: 403 });
       }
@@ -237,6 +244,7 @@ export async function POST(req: NextRequest) {
         .eq("status", "pending")
         .maybeSingle();
 
+      if (inviteErr) console.error("[Send Email] Eligibility query failed:", inviteErr);
       if (inviteErr || !inviteReq) {
         return NextResponse.json({ error: "Forbidden: No pending team invitation exists between these users." }, { status: 403 });
       }
@@ -255,6 +263,7 @@ export async function POST(req: NextRequest) {
         .eq("id", teamId)
         .single();
 
+      if (teamCheckErr) console.error("[Send Email] Eligibility query failed:", teamCheckErr);
       if (teamCheckErr || !teamCheck || teamCheck.owner_id !== recipientId) {
         return NextResponse.json({ error: "Forbidden: Recipient is not the owner of this team." }, { status: 403 });
       }
@@ -267,6 +276,7 @@ export async function POST(req: NextRequest) {
         .eq("user_id", senderId)
         .maybeSingle();
 
+      if (joinErr) console.error("[Send Email] Eligibility query failed:", joinErr);
       if (joinErr || !joinReq) {
         return NextResponse.json({ error: "Forbidden: No pending join request exists for this team." }, { status: 403 });
       }
@@ -308,23 +318,13 @@ export async function POST(req: NextRequest) {
       footerNote: `You are receiving this email because you registered on HackerMate. To adjust your alert settings, please edit your builder profile.`,
     });
 
-    // 6. Send Email or Fallback to console logging
-    const resendApiKey = process.env.RESEND_API_KEY;
-
-    if (!resendApiKey) {
-      console.log("\n==================== [MOCK EMAIL LOG] ====================");
-      console.log(`To: ${recipientEmail}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`HTML Payload:\n${html}`);
-      console.log("========================================================\n");
-
-      return NextResponse.json({
-        success: true,
-        mock: true,
-        message: "Email logged to server terminal console. Configure RESEND_API_KEY environment variable to dispatch live emails.",
-      });
+    if (!warningTarget) {
+      const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: recipientEmail, subject, html });
+      const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "notifications", 1) : { status: "not_required" };
+      return NextResponse.json({ ...dispatchResponse(dispatch), accounting }, { status: dispatchHttpStatus(dispatch) });
     }
-
+    // Preserve the independently validated moderation-warning authorization and acknowledgment contract.
+    const resendApiKey = process.env.RESEND_API_KEY;
     // Resend Sandbox limitation override: if using the default onboarding@resend.dev sender, redirect target to sandbox email
     let targetEmail = recipientEmail;
     let finalSubject = subject;
@@ -383,20 +383,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    try {
-      await recordEmailSendSuccess(supabaseAdmin, "notifications", 1);
-    } catch (dbErr) {
-      console.warn("[Send Email API] Failed to record email stats:", dbErr);
-    }
+    const accounting = await recordEmailSendSuccess(supabaseAdmin, "notifications", 1);
 
-    if (warningTarget) return NextResponse.json({ success: true, status: "accepted", message: "Provider accepted the warning. Delivery is not confirmed." },
+    return NextResponse.json({ success: true, status: "accepted", accounting, message: "Provider accepted the warning. Delivery is not confirmed." },
       { headers: { "Cache-Control": "private, no-store" } });
 
-    return NextResponse.json({
-      success: true,
-      message: "Email sent successfully via Resend.",
-      data: resendData,
-    });
 
   } catch (err: any) {
     console.error("Email API Catch-All Error:", err);

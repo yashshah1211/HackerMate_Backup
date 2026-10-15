@@ -1,6 +1,7 @@
+import { recordEmailBookkeeping, dispatchEmail } from "@/lib/emailDispatch";
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  checkAndReserveEmailBudget,
+  checkEmailBudget,
   recordEmailSendSuccess,
   OUTREACH_DAILY_CAP,
 } from "@/lib/admin/emailBudgetGuard";
@@ -19,40 +20,57 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function autoSendPitchEmailsForLeads(
-  supabaseAdmin: SupabaseClient,
-  leadsToPitch?: any[]
-) {
-  let leads = leadsToPitch;
+type PitchLead = { id: string; title?: string; organizer_email?: string; last_sent_to?: string; pitch_sent_at?: string | null; status?: string | null };
 
-  // 1. Fetch ALL email addresses that have EVER been pitched in history
-  const { data: pitchedRows } = await supabaseAdmin
-    .from("organizer_leads")
-    .select("organizer_email, last_sent_to")
-    .not("pitch_sent_at", "is", null);
+async function readPitchRows(client: SupabaseClient, history: boolean): Promise<PitchLead[]> {
+  const rows: PitchLead[] = [];
+  // Paginate deduplication evidence; a single default-limited result is insufficient.
+  for (let offset = 0; ; offset += 100) {
+    let query = client.from("organizer_leads")
+      .select("id, title, organizer_email, last_sent_to, pitch_sent_at, status").order("id");
+    query = history ? query.or("pitch_sent_at.not.is.null,status.eq.email_outcome_unknown")
+      : query.is("pitch_sent_at", null).not("organizer_email", "is", null);
+    const { data, error } = await query.range(offset, offset + 99);
+    if (error || !Array.isArray(data)) {
+      console.error("[Auto Pitch] Eligibility/deduplication query unavailable:", error);
+      throw new Error("Outreach eligibility could not be verified.");
+    }
+    rows.push(...data);
+    if (data.length < 100) return rows;
+  }
+}
+
+export async function autoSendPitchEmailsForLeads(supabaseAdmin: SupabaseClient, leadsToPitch?: PitchLead[], excludeLeadIds: string[] = []) {
+  let leads: PitchLead[];
+  let pitchedRows: PitchLead[];
+  if (leadsToPitch && !leadsToPitch.length) return { attempted: 0, sent: 0, failed: 0, deferred: 0, details: [] };
+  try {
+    pitchedRows = await readPitchRows(supabaseAdmin, true);
+    leads = await readPitchRows(supabaseAdmin, false);
+    if (leadsToPitch) {
+      const selected = new Set(leadsToPitch.map(lead => lead.id));
+      leads = leads.filter(lead => selected.has(lead.id));
+    }
+  } catch (error) {
+    console.error("[Auto Pitch] Cannot verify outreach eligibility:", error);
+    return { attempted: 0, sent: 0, failed: 0, deferred: leadsToPitch?.length || 0, blocked: true, details: [] };
+  }
+
+  const excluded = new Set(excludeLeadIds);
+  leads = leads.filter(lead => !excluded.has(lead.id));
 
   const pitchedEmailsSet = new Set<string>();
   (pitchedRows || []).forEach((row) => {
-    if (row.organizer_email) pitchedEmailsSet.add(row.organizer_email.trim().toLowerCase());
-    if (row.last_sent_to) pitchedEmailsSet.add(row.last_sent_to.trim().toLowerCase());
+    if (row.organizer_email) row.organizer_email.split(",").forEach(email => pitchedEmailsSet.add(email.trim().toLowerCase()));
+    if (row.last_sent_to) row.last_sent_to.split(",").forEach(email => pitchedEmailsSet.add(email.trim().toLowerCase()));
   });
 
-  // If no specific leads list passed, fetch all pending leads where pitch_sent_at is null
-  if (!leads || leads.length === 0) {
-    const { data: pendingLeads } = await supabaseAdmin
-      .from("organizer_leads")
-      .select("*")
-      .is("pitch_sent_at", null)
-      .not("organizer_email", "is", null);
-    leads = pendingLeads || [];
-  }
-
   // 2. Strict Filter: Exclude any lead whose organizer_email was ALREADY pitched in DB, or appears multiple times in this batch
-  const uniqueLeads: any[] = [];
+  const uniqueLeads: PitchLead[] = [];
   const seenEmailsInRun = new Set<string>();
 
   for (const lead of (leads || [])) {
-    if (lead.pitch_sent_at) continue;
+    if (lead.pitch_sent_at || (lead.status && lead.status !== "new")) continue;
 
     const email = lead.organizer_email?.trim().toLowerCase();
     const lastSent = lead.last_sent_to?.trim().toLowerCase();
@@ -74,12 +92,17 @@ export async function autoSendPitchEmailsForLeads(
   }
 
   // 3. Check Daily Send-Budget Guard (Category: outreach, Cap: 60/day)
-  const budgetCheck = await checkAndReserveEmailBudget(supabaseAdmin, "outreach", leads.length);
+  let budgetCheck;
+  try { budgetCheck = await checkEmailBudget(supabaseAdmin, "outreach", leads.length); }
+  catch (error) {
+    console.error("[Auto Pitch] Budget unavailable:", error);
+    return { attempted: 0, sent: 0, failed: 0, deferred: leads.length, blocked: true, details: [] };
+  }
 
   if (budgetCheck.allowedCount === 0) {
     console.warn(`[Auto Send Pitches] Daily outreach email budget depleted (${budgetCheck.todayStats.outreach_sent}/${OUTREACH_DAILY_CAP} sent today). Deferring ${leads.length} leads to next daily run.`);
     return {
-      attempted: leads.length,
+      attempted: 0,
       sent: 0,
       deferred: leads.length,
       failed: 0,
@@ -92,21 +115,23 @@ export async function autoSendPitchEmailsForLeads(
   const deferredCount = leads.length - activeLeads.length;
 
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <yash@hackermate.in>";
-  const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.hackermate.in";
 
   let sentCount = 0;
   let failedCount = 0;
-  const details: any[] = [];
+  let attempted = 0;
+  let unknown = 0;
+  let sandboxAccepted = 0;
+  let bookkeepingFailed = 0;
+  const details: ({ id: string; dispatch?: Awaited<ReturnType<typeof dispatchEmail>>; bookkeeping?: string; error?: string })[] = [];
 
   const BATCH_SIZE = 5;
   for (let i = 0; i < activeLeads.length; i += BATCH_SIZE) {
     const batch = activeLeads.slice(i, i + BATCH_SIZE);
 
     await Promise.all(
-      batch.map(async (lead: any) => {
+      batch.map(async (lead: PitchLead) => {
         // Guard 1: Double-send protection — skip if already pitched
         if (lead.pitch_sent_at) {
           return;
@@ -116,7 +141,7 @@ export async function autoSendPitchEmailsForLeads(
         const lowerEmail = rawEmail?.toLowerCase();
         if (!rawEmail || !emailRegex.test(rawEmail) || (lowerEmail && pitchedEmailsSet.has(lowerEmail))) {
           failedCount++;
-          details.push({ id: lead.id, email: rawEmail, error: "Invalid email regex format or already pitched" });
+          details.push({ id: lead.id, error: "Invalid email regex format or already pitched" });
           return;
         }
 
@@ -151,98 +176,36 @@ Founder, HackerMate`;
         `;
 
         const trackingPixel = `<img src="${siteUrl}/api/webhooks/email-open?id=${lead.id}" width="1" height="1" style="display:none; width:1px; height:1px; opacity:0;" alt="" />`;
-        const finalHtml = `${formattedHtml}\n${trackingPixel}`;
+        const finalHtml = fromEmail.toLowerCase().includes("onboarding@resend.dev") ? formattedHtml : `${formattedHtml}\n${trackingPixel}`;
 
-        let targetEmail = rawEmail;
-        let finalSubject = subject;
-
-        if (isSandboxMode) {
-          const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
-          if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-            finalSubject = `[Target: ${targetEmail}] ${subject}`;
-            targetEmail = sandboxEmail;
-          }
-        }
-
-        let resendMessageId: string | null = null;
-
-        if (resendApiKey) {
-          try {
-            const resendRes = await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${resendApiKey}`,
-              },
-              body: JSON.stringify({
-                from: fromEmail,
-                to: targetEmail,
-                reply_to: process.env.OUTREACH_REPLY_TO_EMAIL
-                  ? (process.env.OUTREACH_REPLY_TO_EMAIL.includes(",")
-                      ? process.env.OUTREACH_REPLY_TO_EMAIL.split(",").map((e) => e.trim()).filter(Boolean)
-                      : process.env.OUTREACH_REPLY_TO_EMAIL.trim())
-                  : "contacthackermate@gmail.com",
-                subject: finalSubject,
-                html: finalHtml,
-              }),
-            });
-
-            const resendData = await resendRes.json();
-
-            if (resendRes.ok && resendData?.id) {
-              resendMessageId = resendData.id;
-            } else {
-              failedCount++;
-              details.push({ id: lead.id, email: rawEmail, error: resendData?.message || "Resend API Error" });
-              return;
-            }
-          } catch (e: any) {
-            failedCount++;
-            details.push({ id: lead.id, email: rawEmail, error: e.message });
-            return;
-          }
-        } else {
-          console.log(`\n[MOCK AUTOMATED PITCH EMAIL] To: ${targetEmail} | Lead: ${hackathonTitle}`);
-          resendMessageId = "mock_pitch_id";
-        }
-
-        // Add email to pitched set to prevent parallel batch duplicates
-        if (lowerEmail) pitchedEmailsSet.add(lowerEmail);
-
-        // Update DB status ONLY AFTER confirmed successful email dispatch
-        const nowIso = new Date().toISOString();
-        const { error: dbErr } = await supabaseAdmin
-          .from("organizer_leads")
-          .update({
-            status: "pitch_sent",
-            last_sent_to: rawEmail,
-            pitch_sent_at: nowIso,
-            updated_at: nowIso,
-          })
-          .eq("id", lead.id);
-
-        if (dbErr) {
-          failedCount++;
-          details.push({ id: lead.id, email: rawEmail, error: "DB Update Failed: " + dbErr.message });
-        } else {
+        const dispatch = await dispatchEmail({ from: fromEmail, to: rawEmail, subject, html: finalHtml,
+          reply_to: process.env.OUTREACH_REPLY_TO_EMAIL?.split(",").map(e => e.trim()).filter(Boolean) || "contacthackermate@gmail.com" });
+        attempted += Number(dispatch.attempted);
+        if (dispatch.status === "accepted") {
           sentCount++;
-          details.push({ id: lead.id, email: rawEmail, status: "sent", resendId: resendMessageId });
+          sandboxAccepted += Number(dispatch.sandbox);
+        } else if (dispatch.status === "unknown") unknown++;
+        else failedCount++;
 
-          // Cascade update any other duplicate lead rows in DB with matching email so they are marked pitched
-          if (rawEmail) {
-            await supabaseAdmin
-              .from("organizer_leads")
-              .update({
-                status: "duplicate_pitched",
-                last_sent_to: rawEmail,
-                pitch_sent_at: nowIso,
-                updated_at: nowIso,
-              })
-              .ilike("organizer_email", rawEmail)
-              .neq("id", lead.id)
-              .is("pitch_sent_at", null);
+        let bookkeeping = "not_required";
+        // Unknown outcomes are held for review using the existing free-text CRM status.
+        // This is not a durable send ledger: a failed hold write still requires operator intervention.
+        if (dispatch.intendedRecipientAccepted || dispatch.status === "unknown") {
+          const nowIso = new Date().toISOString();
+          let write = supabaseAdmin.from("organizer_leads")
+            .update(dispatch.intendedRecipientAccepted ? {
+              status: "pitch_sent", last_sent_to: rawEmail, pitch_sent_at: nowIso, updated_at: nowIso,
+            } : { status: "email_outcome_unknown", updated_at: nowIso })
+            .eq("id", lead.id).is("pitch_sent_at", null);
+          write = lead.status == null ? write.is("status", null) : write.eq("status", lead.status);
+          bookkeeping = await recordEmailBookkeeping(() => write.select("id"));
+          if (bookkeeping === "failed") {
+            bookkeepingFailed++;
+            console.error("[Auto Pitch] Dispatch outcome could not be recorded; do not resend.");
           }
+          if (lowerEmail) pitchedEmailsSet.add(lowerEmail);
         }
+        details.push({ id: lead.id, dispatch, bookkeeping });
       })
     );
 
@@ -251,19 +214,12 @@ Founder, HackerMate`;
     }
   }
 
-  // Record successful outreach sends in persistent daily stats
-  if (sentCount > 0) {
-    await recordEmailSendSuccess(supabaseAdmin, "outreach", sentCount);
-  }
+  // Acceptance consumes quota even if subsequent CRM persistence fails or targets a sandbox.
+  const accounting = sentCount > 0 ? await recordEmailSendSuccess(supabaseAdmin, "outreach", sentCount) : { status: "not_required" };
+  return { attempted, sent: sentCount, accepted: sentCount, intendedAccepted: sentCount - sandboxAccepted,
+    sandboxAccepted, unknown, bookkeepingFailed, deferred: deferredCount, failed: failedCount, details,
+    accounting, budgetStats: budgetCheck, retrySafe: false };
 
-  return {
-    attempted: leads.length,
-    sent: sentCount,
-    deferred: deferredCount,
-    failed: failedCount,
-    details,
-    budgetStats: budgetCheck,
-  };
 }
 
 export async function autoRemoveUnopenedPitchedLeads(supabaseAdmin: SupabaseClient) {

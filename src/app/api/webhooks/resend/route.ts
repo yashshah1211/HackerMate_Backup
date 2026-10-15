@@ -6,7 +6,7 @@ import { Webhook } from "svix";
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       persistSession: false,
@@ -16,8 +16,8 @@ function getSupabaseAdmin() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabaseAdmin = getSupabaseAdmin();
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
     if (!webhookSecret) {
       console.error("[Resend Webhook] RESEND_WEBHOOK_SECRET is not configured on the server.");
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     const recipients = Array.isArray(data.to) ? data.to.join(", ") : (data.to || "unknown");
     const subject = data.subject || null;
 
+    // Signature verification is preserved. Durable svix-id uniqueness requires the deferred migration.
     // Log event into resend_webhook_events
     const { error: insertErr } = await supabaseAdmin.from("resend_webhook_events").insert({
       resend_email_id: emailId,
@@ -75,7 +76,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (insertErr) {
-      console.warn("[Resend Webhook API] Failed to log event to DB:", insertErr);
+      console.error("[Resend Webhook API] Failed to log event to DB:", insertErr);
+      return NextResponse.json({ success: false, error: "Webhook persistence unavailable; retry required." }, { status: 503 });
     }
 
     return NextResponse.json({

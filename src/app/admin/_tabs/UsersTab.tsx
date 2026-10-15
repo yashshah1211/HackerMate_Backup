@@ -48,7 +48,7 @@ export default function UsersTab({
   const [nudgingUserId, setNudgingUserId] = useState<string | null>(null);
   const [nudgingAll, setNudgingAll] = useState(false);
 
-  async function handleNudgeUser(targetUserId: string, userName?: string) {
+  async function handleNudgeUser(targetUserId: string) {
     setNudgingUserId(targetUserId);
     try {
       const res = await fetch("/api/admin/nudge-incomplete-onboarding", {
@@ -58,9 +58,9 @@ export default function UsersTab({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast(`Email onboarding nudge sent to ${userName || "user"}!`, "success");
+        showToast(data.message || "Provider accepted the nudge; delivery is not confirmed.", data.accounting?.status === "failed" || data.bookkeepingFailed ? "warning" : "success");
       } else {
-        showToast(data.error || "Failed to send onboarding nudge.", "error");
+        showToast(data.message || data.error || "Nudge acceptance unavailable. Check before resending.", "error");
       }
     } catch (err: any) {
       console.error(err);
@@ -87,11 +87,11 @@ export default function UsersTab({
           const data = await res.json();
           if (res.ok && data.success) {
             showToast(
-              `Onboarding nudge emails sent to ${data.count} incomplete user(s)!`,
-              "success"
+              data.message || "Provider accepted the nudges; delivery is not confirmed.",
+              data.accounting?.status === "failed" || data.bookkeepingFailed ? "warning" : "success"
             );
           } else {
-            showToast(data.error || "Failed to send batch onboarding nudges.", "error");
+            showToast(data.message || data.error || "Nudge outcomes unavailable. Check before resending.", "error");
           }
         } catch (err: any) {
           console.error(err);
@@ -269,7 +269,7 @@ export default function UsersTab({
                       <div className="flex items-center justify-end gap-1.5 flex-wrap">
                         {!u.onboarding_completed && (
                           <button
-                            onClick={() => handleNudgeUser(u.id, u.full_name || u.email)}
+                            onClick={() => handleNudgeUser(u.id)}
                             disabled={nudgingUserId === u.id}
                             className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg border border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                             title="Send manual email onboarding nudge"

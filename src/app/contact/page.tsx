@@ -88,11 +88,11 @@ export default function ContactPage() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success !== true) {
         showToast(result.error || "Failed to submit inquiry.", "error");
       } else {
         setSubmitted(true);
-        showToast("Inquiry sent successfully!", "success");
+        showToast(result.message || "Inquiry submitted; delivery is not confirmed.", result.accounting?.status === "failed" ? "warning" : "success");
         // Reset form inputs (if guests want to send another message)
         if (!isAuthenticated) {
           setName("");
@@ -103,7 +103,7 @@ export default function ContactPage() {
       }
     } catch (err) {
       console.error("Error submitting contact form:", err);
-      showToast("An unexpected error occurred. Please try again.", "error");
+      showToast("Inquiry outcome is unknown. Keep your message and check before sending again.", "error");
     } finally {
       setLoading(false);
     }
@@ -168,9 +168,9 @@ export default function ContactPage() {
                 <span className="inline-flex size-11 items-center justify-center rounded-md bg-ok-soft text-ok">
                   <CheckCircle2 className="size-5" aria-hidden />
                 </span>
-                <h2 className="mt-4 text-[17px] font-semibold text-ink">Message Sent!</h2>
+                <h2 className="mt-4 text-[17px] font-semibold text-ink">Inquiry Submitted</h2>
                 <p className="mt-2 max-w-sm text-[14px] leading-relaxed text-ink-2">
-                  Thank you for contacting us. We&apos;ve received your inquiry and our support team will get back to you shortly.
+                  Thank you for contacting HackerMate. Email delivery is not confirmed; keep a copy of your message if you need to follow up.
                 </p>
                 <Button variant="secondary" className="mt-6 h-10" onClick={() => setSubmitted(false)}>
                   Send another message

@@ -1,3 +1,5 @@
+import { recordEmailBookkeeping, dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
+import { checkEmailBudget, recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 
@@ -30,103 +32,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Dispatch Email via Resend
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "Yash from HackerMate <yash@hackermate.in>";
-    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
-
-    let targetEmail = recipientEmail;
-    let finalSubject = subject;
-
-    if (isSandboxMode) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
-      if (targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-        console.log(`[Pitch Sandbox Override] Redirecting pitch from ${targetEmail} to sandbox ${sandboxEmail}`);
-        finalSubject = `[Target: ${targetEmail}] ${subject}`;
-        targetEmail = sandboxEmail;
-      }
+    const { data: lead, error: leadError } = await supabaseAdmin.from("organizer_leads")
+      .select("id, status, pitch_sent_at").eq("id", leadId).maybeSingle();
+    if (leadError) {
+      console.error("[Send Pitch] Eligibility unavailable:", leadError);
+      return NextResponse.json({ success: false, error: "Lead eligibility unavailable; no email dispatched." }, { status: 503 });
     }
-
+    if (!lead || ["removed", "archived", "email_outcome_unknown"].includes(lead.status)) {
+      return NextResponse.json({ success: false, error: "Lead unavailable for dispatch; review its current state." }, { status: 409 });
+    }
+    const budget = await checkEmailBudget(supabaseAdmin, "outreach", 1);
+    if (!budget.allowedCount) return NextResponse.json({ success: false, error: "Outreach budget exhausted; no request sent." }, { status: 429 });
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.hackermate.in";
     const trackingPixel = `<img src="${siteUrl}/api/webhooks/email-open?id=${leadId}" width="1" height="1" style="display:none; width:1px; height:1px; opacity:0;" alt="" />`;
-    const finalHtml = `${contentHtml}\n${trackingPixel}`;
+    const finalHtml = fromEmail.toLowerCase().includes("onboarding@resend.dev") ? contentHtml : `${contentHtml}\n${trackingPixel}`;
 
-    let resendMessageId: string | null = null;
-
-    if (resendApiKey) {
-      const resendRes = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${resendApiKey}`,
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: targetEmail,
-          reply_to: process.env.OUTREACH_REPLY_TO_EMAIL
-            ? (process.env.OUTREACH_REPLY_TO_EMAIL.includes(",")
-                ? process.env.OUTREACH_REPLY_TO_EMAIL.split(",").map((e) => e.trim()).filter(Boolean)
-                : process.env.OUTREACH_REPLY_TO_EMAIL.trim())
-            : "contacthackermate@gmail.com",
-          subject: finalSubject,
-          html: finalHtml,
-        }),
-      });
-
-      const resendData = await resendRes.json();
-
-      if (!resendRes.ok || !resendData?.id) {
-        console.error("[Send Pitch] Resend API Error:", resendData);
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Failed to dispatch email via Resend API",
-            details: resendData?.message || resendData || "Unknown Resend error",
-          },
-          { status: 500 }
-        );
-      }
-
-      resendMessageId = resendData.id;
-    } else {
-      console.log("\n==================== [MOCK PITCH EMAIL LOG] ====================");
-      console.log(`To: ${targetEmail}`);
-      console.log(`Subject: ${finalSubject}`);
-      console.log(`HTML Payload:\n${contentHtml}`);
-      console.log("=================================================================\n");
-      resendMessageId = "mock_send_id";
+    const dispatch = await dispatchEmail({ from: fromEmail, to: recipientEmail.trim(), subject, html: finalHtml,
+      reply_to: process.env.OUTREACH_REPLY_TO_EMAIL?.split(",").map(e => e.trim()).filter(Boolean) || "contacthackermate@gmail.com" });
+    const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "outreach", 1) : { status: "not_required" };
+    let bookkeeping = "not_required";
+    if (dispatch.intendedRecipientAccepted || dispatch.status === "unknown") {
+      let write = supabaseAdmin.from("organizer_leads").update(dispatch.intendedRecipientAccepted ? {
+        status: "pitch_sent", last_sent_to: recipientEmail.trim(), pitch_sent_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      } : { status: "email_outcome_unknown", updated_at: new Date().toISOString() })
+        .eq("id", leadId);
+      write = lead.status == null ? write.is("status", null) : write.eq("status", lead.status);
+      bookkeeping = await recordEmailBookkeeping(() => write.select("id"));
+      if (bookkeeping === "failed") console.error("[Send Pitch] Dispatch bookkeeping failed; do not resend.");
     }
-
-    // 3. Update status in DB ONLY AFTER confirmed successful Resend API response
-    const { error: dbErr } = await supabaseAdmin
-      .from("organizer_leads")
-      .update({
-        status: "pitch_sent",
-        last_sent_to: recipientEmail.trim(),
-        pitch_sent_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", leadId);
-
-    if (dbErr) {
-      console.error("[Send Pitch] DB Update Error:", dbErr);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Email dispatched via Resend, but database update failed.",
-          resendId: resendMessageId,
-          dbError: dbErr.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      sentTo: targetEmail,
-      status: "pitch_sent",
-      resendId: resendMessageId,
-    });
+    return NextResponse.json({ ...dispatchResponse(dispatch), accounting, bookkeeping,
+      resendId: dispatch.providerId, dbUpdateFailed: bookkeeping === "failed", retrySafe: false,
+    }, { status: dispatchHttpStatus(dispatch) });
   } catch (err: any) {
     console.error("[Send Pitch] Exception:", err);
     return NextResponse.json(

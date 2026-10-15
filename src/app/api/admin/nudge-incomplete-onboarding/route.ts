@@ -1,6 +1,7 @@
+import { recordEmailBookkeeping, dispatchEmail } from "@/lib/emailDispatch";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
-import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
+import { checkEmailBudget, recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 function escapeHtml(text: string): string {
   if (!text) return "";
@@ -55,7 +56,11 @@ export async function POST(req: NextRequest) {
 
     const { data: targets, error: targetErr } = await query;
 
-    if (targetErr || !targets || targets.length === 0) {
+    if (targetErr || !targets) {
+      console.error("[Onboarding Nudge] Eligibility unavailable:", targetErr);
+      return NextResponse.json({ success: false, error: "Recipient eligibility unavailable; no request sent." }, { status: 503 });
+    }
+    if (targets.length === 0) {
       return NextResponse.json(
         {
           success: true,
@@ -68,9 +73,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resendApiKey = process.env.RESEND_API_KEY;
+    const budget = await checkEmailBudget(supabaseAdmin, "nudge", targets.length);
+    const eligibleTargets = targets.slice(0, budget.allowedCount);
     const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <yash@hackermate.in>";
-    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
     const proto = req.headers.get("x-forwarded-proto") || "http";
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : "http://localhost:3000");
@@ -79,15 +84,18 @@ export async function POST(req: NextRequest) {
 
     let successCount = 0;
     let failedCount = 0;
-    const errors: string[] = [];
+    let unknownCount = 0;
+    let sandboxAccepted = 0;
+    let bookkeepingFailed = 0;
+    const outcomes: { id: string; dispatch: Awaited<ReturnType<typeof dispatchEmail>>; bookkeeping: string }[] = [];
 
     const BATCH_SIZE = 5;
-    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
-      const batch = targets.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < eligibleTargets.length; i += BATCH_SIZE) {
+      const batch = eligibleTargets.slice(i, i + BATCH_SIZE);
 
       await Promise.all(
         batch.map(async (p: any) => {
-          if (!p.email) return;
+          if (!p.email) { failedCount++; return; }
 
           const recipientName = p.full_name?.trim() ? p.full_name.trim().split(" ")[0] : "Builder";
           const actionUrl = `${baseUrl}/onboarding`;
@@ -162,81 +170,35 @@ export async function POST(req: NextRequest) {
 </html>
 `;
 
-          if (!resendApiKey) {
-            console.log("\n==================== [ONBOARDING NUDGE MOCK LOG] ====================");
-            console.log(`To: ${p.email}`);
-            console.log(`Subject: ${emailSubject}`);
-            console.log("=====================================================================\n");
-            successCount++;
-            await supabaseAdmin
-              .from("profiles")
-              .update({ last_onboarding_nudge_sent_at: new Date().toISOString() })
-              .eq("id", p.id);
-            return;
+          const dispatch = await dispatchEmail({ from: fromEmail, to: p.email, subject: emailSubject, html: htmlBody });
+          if (dispatch.status === "accepted") { successCount++; sandboxAccepted += Number(dispatch.sandbox); }
+          else if (dispatch.status === "unknown") unknownCount++;
+          else failedCount++;
+          let bookkeeping = "not_required";
+          if (dispatch.intendedRecipientAccepted) {
+            let update = supabaseAdmin.from("profiles")
+              .update({ last_onboarding_nudge_sent_at: new Date().toISOString() }).eq("id", p.id).eq("is_banned", false);
+            update = p.last_onboarding_nudge_sent_at ? update.eq("last_onboarding_nudge_sent_at", p.last_onboarding_nudge_sent_at)
+              : update.is("last_onboarding_nudge_sent_at", null);
+            bookkeeping = await recordEmailBookkeeping(() => update.select("id"));
+            if (bookkeeping === "failed") { bookkeepingFailed++; console.error("[Nudge] Acceptance bookkeeping failed."); }
           }
-
-          try {
-            let targetEmail = p.email;
-            let finalSubject = emailSubject;
-
-            if (isSandboxMode) {
-              const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
-              if (sandboxEmail && targetEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-                finalSubject = `[Sandbox: ${targetEmail}] ${emailSubject}`;
-                targetEmail = sandboxEmail;
-              }
-            }
-
-            const resendRes = await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${resendApiKey}`,
-              },
-              body: JSON.stringify({
-                from: fromEmail,
-                to: targetEmail,
-                subject: finalSubject,
-                html: htmlBody,
-              }),
-            });
-
-            const resendData = await resendRes.json();
-
-            if (resendRes.ok && resendData?.id) {
-              successCount++;
-              await supabaseAdmin
-                .from("profiles")
-                .update({ last_onboarding_nudge_sent_at: new Date().toISOString() })
-                .eq("id", p.id);
-            } else {
-              failedCount++;
-              errors.push(`Failed for ${p.email}: ${resendData?.message || "Resend API error"}`);
-            }
-          } catch (err: any) {
-            failedCount++;
-            errors.push(`Failed for ${p.email}: ${err.message}`);
-          }
+          outcomes.push({ id: p.id, dispatch, bookkeeping });
         })
       );
 
-      if (i + BATCH_SIZE < targets.length) {
+      if (i + BATCH_SIZE < eligibleTargets.length) {
         await delay(150);
       }
     }
 
-    if (successCount > 0) {
-      await recordEmailSendSuccess(supabaseAdmin, "nudge", successCount);
-    }
-
-    return NextResponse.json({
-      success: true,
-      count: successCount,
-      total: targets.length,
-      failedCount,
-      errors: errors.length > 0 ? errors : undefined,
-      message: `Onboarding nudge email sent to ${successCount} user(s).`,
-    });
+    const accounting = successCount > 0 ? await recordEmailSendSuccess(supabaseAdmin, "nudge", successCount) : { status: "not_required" };
+    const complete = successCount === targets.length && !sandboxAccepted;
+    return NextResponse.json({ success: complete, count: successCount - sandboxAccepted, accepted: successCount,
+      total: targets.length, failedCount, unknownCount, sandboxAccepted, bookkeepingFailed, accounting, outcomes,
+      deferred: targets.length - eligibleTargets.length, retrySafe: false,
+      message: `Provider accepted ${successCount - sandboxAccepted} intended nudge(s); ${unknownCount} unknown, ${failedCount} not accepted. Delivery is not confirmed.${bookkeepingFailed || accounting.status === "failed" ? " Bookkeeping needs review; do not resend accepted messages." : ""}`,
+    }, { status: complete || successCount > 0 ? 200 : outcomes.some(o => o.dispatch.status === "unknown") ? 502 : 503 });
   } catch (err: any) {
     console.error("[Onboarding Nudge Error]:", err);
     return NextResponse.json(

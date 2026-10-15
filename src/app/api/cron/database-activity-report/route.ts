@@ -1,3 +1,5 @@
+import { recordEmailBookkeeping, dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
@@ -179,7 +181,6 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     }
 
     // 4. Dispatch Email via Resend
-    const resendApiKey = process.env.RESEND_API_KEY;
     const targetRecipient =
       process.env.ADMIN_CONTACT_EMAIL ||
       process.env.RESEND_SANDBOX_RECIPIENT ||
@@ -188,85 +189,18 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     const subject = `📊 HackerMate Daily Database Activity Report — ${todayStr} (+${activityData.summary.totalNewItems} new records)`;
     const htmlBody = generateEmailHtml(activityData, todayStr);
 
-    if (!resendApiKey) {
-      console.log("\n==================== [OFFLINE DATABASE ACTIVITY PDF REPORT] ====================");
-      console.log(`To: ${targetRecipient}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`PDF Size: ${pdfBuffer.length} bytes`);
-      console.log(`New Records: ${activityData.summary.totalNewItems}`);
-      console.log("=================================================================================\n");
+    const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: targetRecipient, subject: subject, html: htmlBody,
+      attachments: [{ filename: filename, content: pdfBuffer.toString("base64") }] });
+    const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "admin_reports", 1) : { status: "not_required" };
 
-      return NextResponse.json({
-        success: true,
-        mode: "mock_logged",
-        recipient: targetRecipient,
-        pdfSizeBytes: pdfBuffer.length,
-        summary: activityData.summary,
-        message: "PDF generated and logged. Set RESEND_API_KEY to dispatch live emails.",
-      });
+    let bookkeeping = "not_required";
+    if (dispatch.intendedRecipientAccepted) {
+      bookkeeping = await recordEmailBookkeeping(() => supabaseAdmin.from("app_settings").upsert({ key: "last_db_report_run", value: activityData.timeWindow.until }).select("key"));
+      if (bookkeeping === "failed") console.error("[Database Activity Report] Acceptance checkpoint unavailable.");
     }
+    return NextResponse.json({ ...dispatchResponse(dispatch), accounting, bookkeeping, pdfGenerated: true,
+      metricsEvidence: "Partial business-record evidence; historical provider acceptance and delivery are unverified." }, { status: dispatchHttpStatus(dispatch) });
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-    const isSandbox = fromEmail.includes("onboarding@resend.dev");
-    let finalRecipient = targetRecipient;
-    let finalSubject = subject;
-
-    if (isSandbox) {
-      const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT || targetRecipient;
-      if (finalRecipient.toLowerCase() !== sandboxEmail.toLowerCase()) {
-        finalSubject = `[Sandbox: ${targetRecipient}] ${subject}`;
-        finalRecipient = sandboxEmail;
-      }
-    }
-
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: finalRecipient,
-        subject: finalSubject,
-        html: htmlBody,
-        attachments: [
-          {
-            filename,
-            content: pdfBuffer.toString("base64"),
-          },
-        ],
-      }),
-    });
-
-    const resendData = await resendRes.json();
-
-    if (!resendRes.ok || !resendData?.id) {
-      console.error("[Database Activity Report] Resend API Error:", resendData);
-      return NextResponse.json(
-        { error: "Failed to dispatch PDF email via Resend API", details: resendData },
-        { status: 500 }
-      );
-    }
-
-    // 5. Update last_db_report_run in app_settings upon successful dispatch
-    try {
-      await supabaseAdmin.from("app_settings").upsert({
-        key: "last_db_report_run",
-        value: activityData.timeWindow.until,
-      });
-    } catch (saveErr) {
-      console.warn("[Database Activity Report] Could not update last_db_report_run setting:", saveErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      deliveredTo: finalRecipient,
-      resendId: resendData.id,
-      pdfSizeBytes: pdfBuffer.length,
-      summary: activityData.summary,
-      message: `Daily Database Activity Report PDF successfully delivered to ${finalRecipient}!`,
-    });
   } catch (err: any) {
     console.error("[Database Activity Report Cron Exception]:", err);
     return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });

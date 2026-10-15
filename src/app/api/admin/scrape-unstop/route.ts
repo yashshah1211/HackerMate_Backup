@@ -507,7 +507,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
       // Automatically dispatch pitch emails immediately for newly scraped organizer leads
       if (insertedData.length > 0) {
         autoPitchResult = await autoSendPitchEmailsForLeads(supabaseAdmin, insertedData);
-        console.log(`[Scraper Auto-Pitch] Automatically dispatched ${autoPitchResult.sent} pitch emails for ${insertedData.length} new leads.`);
+        console.log(`[Scraper Auto-Pitch] Provider accepted ${autoPitchResult.accepted || 0} emails; ${autoPitchResult.unknown || 0} unknown. Delivery is not confirmed.`);
       }
     }
   }
@@ -532,6 +532,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
   return {
     success: true,
+    autoPitchResult,
     count: insertedLeadsCount,
     leads: insertedData,
     skippedInRun: skippedInRunCount,

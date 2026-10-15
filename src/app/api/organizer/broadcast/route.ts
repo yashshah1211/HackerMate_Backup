@@ -1,3 +1,4 @@
+import { recordEmailBookkeeping, dispatchEmail } from "@/lib/emailDispatch";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       .eq("id", hackathonId)
       .single();
 
+    if (hackathonErr) console.error("[Broadcast] Event lookup failed:", hackathonErr);
     if (hackathonErr || !hackathon) {
       return NextResponse.json({ error: "Hackathon not found." }, { status: 404 });
     }
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
       "can_access_partner_event", { p_hackathon_id: hackathonId }
     );
     const isNativeOrganizer = hackathon.type === "native" && hackathon.organizer_id === user.id;
+    if (accessError) console.error("[Broadcast] Permission lookup failed:", accessError);
     if (accessError || eventAccess !== true || (!isNativeOrganizer && !isAdmin)) {
       return NextResponse.json(
         { error: "Forbidden: Only the hackathon organizer or admin can broadcast announcements." },
@@ -62,19 +65,25 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    const { data: partnerConfig } = await supabaseAdmin
+    const { data: partnerConfig, error: configError } = await supabaseAdmin
       .from("partner_configs").select("id").eq("hackathon_id", hackathonId).maybeSingle();
+
+    if (configError) {
+      console.error("[Broadcast] Partner configuration unavailable:", configError);
+      return NextResponse.json({ error: "Event configuration unavailable; no broadcast created." }, { status: 503 });
+    }
 
     // 2. Fetch linked stage details if provided
     let linkedStageTitle: string | null = null;
     if (linkedStageId) {
-      const { data: stage } = await supabaseAdmin
+      const { data: stage, error: stageError } = await supabaseAdmin
         .from("hackathon_stages")
         .select("title")
         .eq("id", linkedStageId)
         .eq("hackathon_id", hackathonId)
         .maybeSingle();
-      if (!stage) return NextResponse.json({ error: "Stage not found for this event." }, { status: 400 });
+      if (stageError) console.error("[Broadcast] Stage lookup failed:", stageError);
+      if (stageError || !stage) return NextResponse.json({ error: "Stage not found for this event." }, { status: 400 });
       linkedStageTitle = stage.title;
     }
 
@@ -92,6 +101,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
+    if (announceErr) console.error("[Broadcast] Announcement insert failed:", announceErr);
     if (announceErr || !announcement) {
       return NextResponse.json(
         { error: announceErr?.message || "Failed to create announcement record." },
@@ -105,8 +115,11 @@ export async function POST(req: NextRequest) {
       .select("user_id, profiles:user_id(id, full_name, email)")
       .eq("hackathon_id", hackathonId);
 
-    if (regErr) {
-      return NextResponse.json({ error: regErr.message }, { status: 500 });
+    if (regErr || !Array.isArray(registrations)) {
+      console.error("[Broadcast] Recipient eligibility unavailable:", regErr);
+      return NextResponse.json({ success: true, announcement, emailSuccess: false, count: 0,
+        email: { status: "not_dispatched", reason: "Recipient eligibility unavailable; no emails sent." },
+        message: "Announcement created. Email recipients could not be verified; do not recreate the announcement." });
     }
 
     const participants = (registrations || [])
@@ -114,15 +127,10 @@ export async function POST(req: NextRequest) {
       .filter((p: any) => p && p.email);
 
     if (participants.length === 0) {
-      // Mark as sent immediately if no participants
-      await supabaseAdmin
-        .from("hackathon_announcements")
-        .update({ sent_at: new Date().toISOString() })
-        .eq("id", announcement.id);
 
       return NextResponse.json({
         success: true,
-        count: 0,
+        count: 0, emailSuccess: false, email: { status: "not_dispatched", reason: "No recipients." },
         announcement,
         message: "Announcement created. No registered participants to notify.",
       });
@@ -145,9 +153,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Email Dispatch via Resend API (Batched / Rate-Limited)
-    const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-    const isSandboxMode = fromEmail.includes("onboarding@resend.dev");
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
     const proto = req.headers.get("x-forwarded-proto") || "http";
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : "http://localhost:3000");
@@ -195,117 +201,33 @@ export async function POST(req: NextRequest) {
 </html>
 `;
 
-    if (!resendApiKey) {
-      console.log(`\n==================== [BROADCAST EMAIL MOCK LOG] ====================`);
-      console.log(`Hackathon: ${hackathon.name}`);
-      console.log(`Recipients: ${participants.length} builders`);
-      console.log(`Title: ${title}`);
-      console.log(`====================================================================\n`);
-
-      // Mark sent_at timestamp
-      await supabaseAdmin
-        .from("hackathon_announcements")
-        .update({ sent_at: new Date().toISOString() })
-        .eq("id", announcement.id);
-
-      return NextResponse.json({
-        success: true,
-        mock: true,
-        count: participants.length,
-        announcement,
-        message: `Broadcast sent to ${participants.length} participants (Mock Console Log).`,
-      });
-    }
-
-    // Process Resend emails in batches of 5 with 150ms delay
+    const outcomes: Awaited<ReturnType<typeof dispatchEmail>>[] = [];
     const BATCH_SIZE = 5;
-    let failedCount = 0;
-    const errors: string[] = [];
-
     for (let i = 0; i < participants.length; i += BATCH_SIZE) {
-      const batch = participants.slice(i, i + BATCH_SIZE);
-
-      await Promise.all(
-        batch.map(async (p: any) => {
-          let recipientEmail = p.email;
-          let finalSubject = emailSubject;
-
-          if (isSandboxMode) {
-            const sandboxEmail = process.env.RESEND_SANDBOX_RECIPIENT;
-            if (sandboxEmail && recipientEmail.toLowerCase() !== sandboxEmail.toLowerCase()) {
-              finalSubject = `[Sandbox: ${recipientEmail}] ${emailSubject}`;
-              recipientEmail = sandboxEmail;
-            }
-          }
-
-          try {
-            const resendRes = await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${resendApiKey}`,
-              },
-              body: JSON.stringify({
-                from: fromEmail,
-                to: recipientEmail,
-                subject: finalSubject,
-                html: htmlBody,
-              }),
-            });
-
-            const resendData = await resendRes.json();
-
-            if (!resendRes.ok || !resendData?.id) {
-              failedCount++;
-              errors.push(`Failed for ${p.email}: ${resendData?.message || "Resend API Error"}`);
-            }
-          } catch (e: any) {
-            failedCount++;
-            errors.push(`Failed for ${p.email}: ${e.message}`);
-          }
-        })
-      );
-
-      // Throttle delay between batches
-      if (i + BATCH_SIZE < participants.length) {
-        await delay(150);
-      }
+      const batch = await Promise.all(participants.slice(i, i + BATCH_SIZE).map((p: { email: string }) =>
+        dispatchEmail({ from: fromEmail, to: p.email, subject: emailSubject, html: htmlBody })));
+      outcomes.push(...batch);
+      if (i + BATCH_SIZE < participants.length) await delay(150);
     }
-
-    if (failedCount > 0 && failedCount === participants.length) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to deliver broadcast emails to recipients.",
-          details: errors,
-        },
-        { status: 500 }
-      );
+    const accepted = outcomes.filter(o => o.status === "accepted").length;
+    const count = outcomes.filter(o => o.intendedRecipientAccepted).length;
+    const unknownCount = outcomes.filter(o => o.status === "unknown").length;
+    const accounting = accepted ? await recordEmailSendSuccess(supabaseAdmin, "organizer_broadcasts", accepted) : { status: "not_required" };
+    let bookkeeping = "not_required";
+    let sentAt: string | null = null;
+    // Existing sent_at now means all intended recipients were accepted, never verified delivery.
+    if (count === participants.length) {
+      const now = new Date().toISOString();
+      bookkeeping = await recordEmailBookkeeping(() => supabaseAdmin.from("hackathon_announcements").update({ sent_at: now })
+        .eq("id", announcement.id).is("sent_at", null).select("id"));
+      if (bookkeeping === "recorded") sentAt = now;
+      else console.error("[Broadcast] Email acceptance bookkeeping failed.");
     }
-
-    const successfulCount = participants.length - failedCount;
-    if (successfulCount > 0) {
-      try {
-        await recordEmailSendSuccess(supabaseAdmin, "organizer_broadcasts", successfulCount);
-      } catch (dbErr) {
-        console.warn("[Organizer Broadcast] Failed to record email stats:", dbErr);
-      }
-    }
-
-    // Mark sent_at timestamp upon confirmed delivery
-    const nowIso = new Date().toISOString();
-    await supabaseAdmin
-      .from("hackathon_announcements")
-      .update({ sent_at: nowIso })
-      .eq("id", announcement.id);
-
-    return NextResponse.json({
-      success: true,
-      count: participants.length - failedCount,
-      total: participants.length,
-      failedCount,
-      errors: errors.length > 0 ? errors : undefined,
-      announcement: { ...announcement, sent_at: nowIso },
+    return NextResponse.json({ success: true, emailSuccess: count === participants.length, count, accepted,
+      total: participants.length, unknownCount, failedCount: outcomes.filter(o => ["failed", "not_dispatched"].includes(o.status)).length,
+      sandboxAccepted: accepted - count, outcomes, accounting, bookkeeping, retrySafe: false,
+      inAppNotifications: notifErr ? "failed" : "created", announcement: { ...announcement, sent_at: sentAt },
+      message: `Announcement created. Provider accepted ${count}/${participants.length} intended emails; ${unknownCount} unknown. Delivery is not confirmed.${bookkeeping === "failed" || accounting.status === "failed" ? " Bookkeeping needs review." : ""} Do not recreate this announcement to retry email.`,
     });
   } catch (err: any) {
     console.error("[Broadcast API Error]:", err);

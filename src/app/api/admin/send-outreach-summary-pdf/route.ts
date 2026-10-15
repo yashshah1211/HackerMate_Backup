@@ -1,3 +1,5 @@
+import { dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
+import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 import { jsPDF } from "jspdf";
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(148, 163, 184);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`All-Time Historical Digest (From Day 1 to ${todayStr})`, 40, 84);
+    doc.text(`Partial CRM evidence - delivery unverified - ${todayStr}`, 40, 84);
 
     // KPI Metric Cards Grid
     doc.setFillColor(248, 250, 252);
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.text("PITCHES SENT", 50, 128);
+    doc.text("CRM PITCH RECORDS", 50, 128);
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(20);
     doc.text(totalPitchesSent.toString(), 50, 154);
@@ -81,7 +83,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.text("EMAILS OPENED", 185, 128);
+    doc.text("PIXEL-MARKED RECORDS", 185, 128);
     doc.setTextColor(16, 185, 129);
     doc.setFontSize(20);
     doc.text(totalOpened.toString(), 185, 154);
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.text("OPEN RATE", 320, 128);
+    doc.text("RECORDED PIXEL RATIO", 320, 128);
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(20);
     doc.text(`${openRate}%`, 320, 154);
@@ -196,33 +198,31 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = Buffer.from(arrayBuffer);
 
     // 4. Send Email via Resend
-    const resendApiKey = process.env.RESEND_API_KEY;
     const recipientEmail =
       process.env.OUTREACH_ADMIN_EMAIL ||
       process.env.NEXT_PUBLIC_OUTREACH_ADMIN_EMAIL ||
       "yashshah7117@gmail.com";
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>";
-    const subject = `📊 Organizer Outreach Summary (From Day 1): ${totalPitchesSent} Pitches, ${totalOpened} Opened (${openRate}%)`;
+    const subject = `Organizer CRM Evidence Sample: ${totalPitchesSent} pitch-marked records; delivery unverified`;
 
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0A0D12; color: #EDEFF3; padding: 32px 16px;">
         <div style="max-width: 580px; margin: 0 auto; background-color: #10141B; border: 1px solid #1E242E; border-radius: 12px; padding: 32px;">
           <div style="font-size: 15px; font-weight: 800; color: #10B981; font-family: monospace; margin-bottom: 16px;">HackerMate Outreach Engine</div>
           <h1 style="font-size: 22px; font-weight: 700; color: #FFFFFF; margin: 0 0 8px 0;">🎯 Organizer Outreach Summary (From Day 1)</h1>
-          <p style="font-size: 13px; color: #8B93A3; margin: 0 0 24px 0;">All-time historical digest generated on <strong>${todayStr}</strong>. PDF report attached below.</p>
-          
+          <p style="font-size: 13px; color: #8B93A3; margin: 0 0 24px 0;">Partial CRM evidence; provider delivery is unverified. Generated on <strong>${todayStr}</strong>. PDF report attached below.</p>
+
           <table style="width: 100%; margin-bottom: 24px; border-spacing: 8px 0; border-collapse: separate;">
             <tr>
               <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 16px; text-align: center;">
-                <div style="font-size: 10px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Pitches Sent</div>
+                <div style="font-size: 10px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">CRM Pitch Records</div>
                 <div style="font-size: 24px; font-weight: 800; color: #FFFFFF;">${totalPitchesSent}</div>
               </td>
               <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 16px; text-align: center;">
-                <div style="font-size: 10px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Emails Opened</div>
+                <div style="font-size: 10px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Pixel-marked Records</div>
                 <div style="font-size: 24px; font-weight: 800; color: #10B981;">${totalOpened}</div>
               </td>
               <td style="width: 33%; background-color: #161B23; border: 1px solid #232A36; border-radius: 8px; padding: 16px; text-align: center;">
-                <div style="font-size: 10px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Open Rate</div>
+                <div style="font-size: 10px; text-transform: uppercase; color: #8B93A3; margin-bottom: 4px;">Recorded Pixel Ratio</div>
                 <div style="font-size: 24px; font-weight: 800; color: #10B981;">${openRate}%</div>
               </td>
             </tr>
@@ -235,49 +235,14 @@ export async function POST(req: NextRequest) {
       </div>
     `;
 
-    if (!resendApiKey) {
-      console.log("[Outreach Summary PDF] Mock dispatch - Resend API key missing");
-      return NextResponse.json({
-        success: true,
-        mode: "mock_logged",
-        metrics: { totalLeads, totalPitchesSent, totalOpened, openRate },
-      });
-    }
+    const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: recipientEmail, subject: subject, html: htmlBody,
+      attachments: [{ filename: `HackerMate_Outreach_Summary_From_Day_1_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`, content: pdfBuffer.toString("base64") }] });
+    const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "admin_reports", 1) : { status: "not_required" };
 
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: recipientEmail,
-        subject: subject,
-        html: htmlBody,
-        attachments: [
-          {
-            filename: `HackerMate_Outreach_Summary_From_Day_1_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-            content: pdfBuffer.toString("base64"),
-          },
-        ],
-      }),
-    });
+    const bookkeeping = "not_required";
+    return NextResponse.json({ ...dispatchResponse(dispatch), accounting, bookkeeping, pdfGenerated: true,
+      metricsEvidence: "Partial business-record evidence; historical provider acceptance and delivery are unverified." }, { status: dispatchHttpStatus(dispatch) });
 
-    if (!resendRes.ok) {
-      const errData = await resendRes.json();
-      console.error("[Outreach Summary PDF] Resend API Error:", errData);
-      return NextResponse.json({ error: "Failed to send email via Resend", details: errData }, { status: 500 });
-    }
-
-    const resendResult = await resendRes.json();
-
-    return NextResponse.json({
-      success: true,
-      emailId: resendResult.id,
-      recipient: recipientEmail,
-      metrics: { totalLeads, totalPitchesSent, totalOpened, openRate },
-    });
   } catch (err: any) {
     console.error("[Outreach Summary PDF] Exception:", err);
     return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
