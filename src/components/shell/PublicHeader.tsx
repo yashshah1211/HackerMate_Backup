@@ -11,7 +11,7 @@ import Logo from "@/components/Logo";
  * app's mobile top bar. On the landing page it also carries the pipeline
  * stage navigation and a reading-progress line.
  */
-export function PublicHeader({ signedIn, onRequestSignOut }: { signedIn: boolean; onRequestSignOut: () => void }) {
+export function PublicHeader({ signedIn, onRequestSignOut, discovery = false }: { signedIn: boolean; onRequestSignOut: () => void; discovery?: boolean }) {
   const pathname = usePathname();
   const landing = pathname === "/";
   return (
@@ -23,7 +23,13 @@ export function PublicHeader({ signedIn, onRequestSignOut }: { signedIn: boolean
 
         {landing && <LandingStageNav className="hidden lg:flex" />}
 
-        {signedIn ? (
+        {discovery ? (
+          <nav aria-label="Public discovery" className="flex items-center gap-2 sm:gap-4">
+            <Link href="/" className="hidden rounded-md px-1 text-[13px] text-ink-3 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent sm:inline-flex">Home</Link>
+            <Link href="/hackathons" aria-current="page" className="rounded-md px-1 text-[13px] font-medium text-ink hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-accent">Hackathons</Link>
+            <ButtonLink href={`/login?next=${encodeURIComponent(pathname || "/hackathons")}`} variant="primary" size="sm">Sign in</ButtonLink>
+          </nav>
+        ) : signedIn ? (
           <div className="flex items-center gap-1">
             <ButtonLink href="/dashboard" variant="ghost" size="sm">
               Open app
