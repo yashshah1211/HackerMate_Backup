@@ -11,18 +11,25 @@ const event = (id = 'synthetic-event', extra = {}) => ({ id, name: `Public ${id}
   type: 'external', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
   prize_pool: 'INR 10000', currency: 'INR', location: 'Mumbai', mode: 'hybrid', website_url: 'https://unstop.com/synthetic', ...extra });
 function client(options = {}) {
-  const reads = [], writes = [], listeners = new Set(); let user = options.user ?? null, stopped = 0;
+  const reads = [], writes = [], listeners = new Set(), signOutCalls = []; let user = options.user ?? null, stopped = 0;
   const c = { reads, writes, listeners, get stopped() { return stopped; }, auth: {
     getSession: async () => ({ data: { session: user || options.stale ? { user: user || USER } : null }, error: options.sessionError }),
-    getUser: async () => ({ data: { user }, error: options.authError }),
+    getUser: async () => { const current = user; if (options.userDelay) await options.userDelay(); return { data: { user: current }, error: options.authError }; },
+    async signOut(settings) {
+      signOutCalls.push(settings);
+      if (options.signOutDelay) await options.signOutDelay();
+      if (options.signOutError) return { error: options.signOutError };
+      if (!options.retainSession) c.signOut();
+      return { error: null };
+    },
     onAuthStateChange(fn) { listeners.add(fn); return { data: { subscription: { unsubscribe() { stopped++; listeners.delete(fn); } } } }; },
   }, from(table) {
     const filters = []; let columns, cursor = null, batchSize = Infinity, signal;
     const execute = async () => {
       reads.push({ table, columns, filters: [...filters], cursor, signal });
       if (options.delay) await options.delay(table, { cursor, signal });
-      if (table === 'profiles') return { data: options.noProfile ? null : { id: USER.id, is_banned: false, onboarding_completed: true, skills: [], ...options.profile }, error: options.profileError };
-      if (table === 'saved_hackathons') return { data: [], error: options.savedError };
+      if (table === 'profiles') return { data: options.noProfile ? null : { id: filters.find(([key]) => key === 'id')?.[1], is_banned: false, onboarding_completed: true, skills: [], ...options.profile }, error: options.profileError };
+      if (table === 'saved_hackathons') return { data: options.savedRows?.[filters.find(([key]) => key === 'user_id')?.[1]] || [], error: options.savedError };
       assert.equal(table, 'hackathons', 'Guest must not access private relations');
       assert.equal(columns, api.PUBLIC_EVENT_COLUMNS);
       if (options.eventError || (cursor && options.laterPageError)) return { data: null, error: options.eventError || options.laterPageError };
@@ -38,7 +45,8 @@ function client(options = {}) {
       insert(value) { writes.push(value); throw new Error('No protected mutation expected'); }, delete() { throw new Error('No protected mutation expected'); },
     };
   }, signIn(nextUser = USER) { user = nextUser; listeners.forEach(fn => fn('SIGNED_IN', { user })); },
-  signOut() { user = null; listeners.forEach(fn => fn('SIGNED_OUT', null)); } };
+  signOut() { user = null; listeners.forEach(fn => fn('SIGNED_OUT', null)); },
+  emit(name, nextUser = user) { user = nextUser; listeners.forEach(fn => fn(name, user ? { user } : null)); }, signOutCalls };
   return c;
 }
 for (const [name, options, expected] of [
@@ -107,7 +115,10 @@ async function mount(options = {}) {
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {} }) }, '@/components/Logo': { LogoMark: () => null },
   }, { window: dom.window, URLSearchParams, AbortController, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
-  const Component = loader.load(options.detail ? 'src/app/hackathons/[id]/page.tsx' : 'src/app/hackathons/page.tsx').default;
+  const Boundary = options.boundary && loader.load('src/components/hackathons/BrowsingBoundary.tsx').default;
+  const Component = options.boundary ? () => React.createElement(Boundary, null, access => React.createElement('div', null,
+    access.kind === 'guest' ? 'Genuine guest subtree' : `Member subtree ${access.userId} onboarded=${access.onboarded}`))
+    : loader.load(options.detail ? 'src/app/hackathons/[id]/page.tsx' : 'src/app/hackathons/page.tsx').default;
   const root = createRoot(dom.window.document.getElementById('root'));
   const element = React.createElement(Component);
   await React.act(async () => root.render(element));
@@ -164,7 +175,8 @@ test('account transitions discard stale private renders and unsubscribe on unmou
   const view = await mount({ user: USER });
   try {
     assert(view.c.reads.some(r => r.table === 'saved_hackathons'));
-    await view.change(() => view.c.signOut()); assert.match(view.html, /Discover/);
+    await view.change(() => view.c.signOut()); assert.match(view.html, /Account verification unavailable/);
+    await view.click('Sign out and browse public events'); assert.match(view.html, /Discover/);
     assert(!view.html.includes('0 saved')); assert.equal(view.c.listeners.size, 1);
   } finally { await view.close(); }
   assert.equal(view.c.listeners.size, 0); assert.equal(view.c.stopped, 1);
@@ -176,8 +188,8 @@ test('late verification after sign-out cannot restore the previous account subtr
   const view = await mount({ user: USER, delay: table => table === 'profiles' ? pending : undefined });
   try {
     assert.match(view.html, /Checking account access/);
-    await view.change(() => view.c.signOut()); assert.match(view.html, /Discover/);
-    await view.change(release); assert.match(view.html, /Discover/); assert(!view.c.reads.some(read => read.table === 'saved_hackathons'));
+    await view.change(() => view.c.signOut()); assert.match(view.html, /Account verification unavailable/);
+    await view.change(release); assert.match(view.html, /Account verification unavailable/); assert(!view.c.reads.some(read => read.table === 'saved_hackathons'));
   } finally { release(); await view.close(); }
 });
 test('directory load failure and retry preserve the URL; incomplete accounts cannot bookmark', async () => {
@@ -225,4 +237,188 @@ test('unmount cancels a pending pagination request and stops traversal after del
   try { assert(request); assert(!view.html.includes('Public a')); }
   finally { await view.close(); release(); await new Promise(resolve => setImmediate(resolve)); }
   assert.equal(request.signal.aborted, true); assert.equal(view.c.reads.length, 2);
+});
+
+for (const [name, options] of [
+  ['suspended', { user: USER, profile: { is_banned: true } }],
+  ['missing profile', { user: USER, noProfile: true }],
+  ['null ban', { user: USER, profile: { is_banned: null } }],
+  ['verification error', { user: USER, authError: { name: 'AuthApiError' } }],
+  ['expired credentials', { stale: true, authError: { name: 'AuthSessionMissingError' } }],
+]) test(`real boundary: ${name} cannot downgrade on automatic credential removal, focus or Retry`, async () => {
+  const c = client(options), view = await mount({ client: c, boundary: true });
+  try {
+    assert.match(view.html, /Account suspended|Account verification unavailable/);
+    options.stale = false; options.authError = { name: 'AuthSessionMissingError' };
+    await view.change(() => view.c.signOut());
+    assert(!view.html.includes('Genuine guest subtree'));
+    await view.change(() => view.dom.window.dispatchEvent(new view.dom.window.Event('focus')));
+    await view.click('Retry');
+    assert.match(view.html, /Account verification unavailable/);
+    assert(!view.html.includes('Genuine guest subtree'));
+    assert(view.c.reads.every(read => read.table === 'profiles')); assert.equal(view.c.writes.length, 0);
+  } finally { await view.close(); }
+});
+
+test('real boundary: explicit local sign-out confirms guest access and never infers intent from SIGNED_OUT', async () => {
+  const view = await mount({ user: USER, profile: { is_banned: true }, boundary: true });
+  try {
+    await view.click('Sign out and browse public events');
+    assert.match(view.html, /Genuine guest subtree/);
+    assert.deepEqual(view.c.signOutCalls.map(call => call.scope), ['local']);
+    await view.change(() => view.dom.window.dispatchEvent(new view.dom.window.Event('focus')));
+    assert.match(view.html, /Genuine guest subtree/);
+    await view.change(() => view.c.emit('SIGNED_OUT', null));
+    assert.match(view.html, /Account verification unavailable/);
+    await view.click('Sign out and browse public events');
+    assert.match(view.html, /Genuine guest subtree/);
+  } finally { await view.close(); }
+});
+
+test('real boundary: fresh anonymous INITIAL_SESSION, focus and retry do not require sign-in', async () => {
+  const view = await mount({ boundary: true });
+  try {
+    assert.match(view.html, /Genuine guest subtree/);
+    await view.change(() => view.c.emit('INITIAL_SESSION', null));
+    await view.change(() => view.dom.window.dispatchEvent(new view.dom.window.Event('focus')));
+    assert.match(view.html, /Genuine guest subtree/); assert.equal(view.c.reads.length, 0);
+    assert.equal(view.c.writes.length, 0); assert.equal(view.c.signOutCalls.length, 0);
+  } finally { await view.close(); }
+});
+
+test('real boundary: pending initial verification cannot publish guest or member after automatic SIGNED_OUT', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { user: USER, boundary: true, userDelay: () => pending };
+  const view = await mount(options);
+  try {
+    assert.match(view.html, /Checking account access/);
+    await view.change(() => view.c.signOut());
+    await view.change(release);
+    assert.match(view.html, /Account verification unavailable/);
+    assert(!view.html.includes('Member subtree')); assert(!view.html.includes('Genuine guest subtree'));
+  } finally { release(); await view.close(); }
+});
+
+test('real boundary: SIGNED_IN, TOKEN_REFRESHED, focus and Retry reverify active/incomplete accounts', async () => {
+  const options = { boundary: true }, c = client(options), view = await mount({ boundary: true, client: c });
+  try {
+    await view.change(() => c.signIn(USER)); assert.match(view.html, /onboarded=true/);
+    options.profile = { onboarding_completed: false };
+    await view.change(() => c.emit('TOKEN_REFRESHED')); assert.match(view.html, /onboarded=false/);
+    options.profile = { is_banned: true };
+    await view.change(() => view.dom.window.dispatchEvent(new view.dom.window.Event('focus')));
+    assert.match(view.html, /Account suspended/);
+    options.profile = { is_banned: false, onboarding_completed: true };
+    await view.click('Retry'); assert.match(view.html, /onboarded=true/);
+    assert.equal(c.listeners.size, 1);
+  } finally { await view.close(); }
+});
+
+for (const options of [{ signOutError: new Error('offline') }, { retainSession: true }]) {
+  test(`real boundary: failed/unconfirmed intentional sign-out remains blocked ${JSON.stringify(options)}`, async () => {
+    const view = await mount({ user: USER, profile: { is_banned: true }, boundary: true, ...options });
+    try {
+      await view.click('Sign out and browse public events');
+      assert.match(view.html, /Account verification unavailable/);
+      assert(!view.html.includes('Genuine guest subtree')); assert.equal(view.c.signOutCalls.length, 1);
+      assert(view.errors.length > 0);
+    } finally { await view.close(); }
+  });
+}
+
+test('real boundary: user B supersedes delayed user A verification', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { user: USER, boundary: true, delay: (table) => table === 'profiles' ? pending : undefined };
+  const c = client(options), view = await mount({ boundary: true, client: c });
+  try {
+    options.delay = null;
+    await view.change(() => c.signIn({ id: 'synthetic-user-b' }));
+    assert.match(view.html, /Member subtree synthetic-user-b/);
+    await view.change(release);
+    assert.match(view.html, /Member subtree synthetic-user-b/); assert(!view.html.includes('Member subtree synthetic-member'));
+  } finally { release(); await view.close(); }
+});
+
+test('real directory: delayed user A bookmarks cannot appear under user B', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { user: USER, savedRows: { [USER.id]: [{ hackathon_id: 'synthetic-event' }] },
+    delay: table => table === 'saved_hackathons' ? pending : undefined };
+  const c = client(options), view = await mount({ client: c });
+  try {
+    options.delay = null;
+    await view.change(() => c.signIn({ id: 'synthetic-user-b' }));
+    assert.match(view.html, /Save hackathon/); assert(!view.html.includes('Remove from saved'));
+    await view.change(release);
+    assert(!view.html.includes('Remove from saved'));
+    assert(c.reads.some(read => read.table === 'saved_hackathons' && read.filters.some(([, value]) => value === 'synthetic-user-b')));
+    assert.equal(c.writes.length, 0);
+  } finally { release(); await view.close(); }
+});
+
+test('real boundary: account arrival invalidates pending intentional guest transition', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { user: USER, profile: { is_banned: true }, signOutDelay: () => pending };
+  const c = client(options), view = await mount({ boundary: true, client: c });
+  try {
+    await view.click('Sign out and browse public events');
+    options.profile = { is_banned: false };
+    await view.change(() => c.signIn({ id: 'synthetic-user-b' }));
+    assert.match(view.html, /Member subtree synthetic-user-b/);
+    await view.change(release);
+    assert(!view.html.includes('Genuine guest subtree'));
+    assert.match(view.html, /Account verification unavailable/);
+  } finally { release(); await view.close(); }
+});
+
+test('real boundary: unmount during verification removes listeners and ignores delayed completion', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { user: USER, userDelay: () => pending }, c = client(options);
+  const view = await mount({ client: c, boundary: true });
+  try { assert.match(view.html, /Checking account access/); }
+  finally { await view.close(); }
+  const before = c.reads.length;
+  release(); await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(c.listeners.size, 0); assert.equal(c.stopped, 1);
+  assert.equal(c.reads.length, before + 1); // Already-started verifier may finish its own profile read, never a member subtree.
+  assert.equal(c.writes.length, 0); assert.equal(view.errors.length, 0);
+});
+
+test('real boundary: refresh-triggered credential removal inside initial getSession is not a fresh guest visit', async () => {
+  const c = client({ user: USER }); let initial = true;
+  c.auth.getSession = async () => {
+    if (initial) { initial = false; c.signOut(); }
+    return { data: { session: null }, error: null };
+  };
+  const view = await mount({ boundary: true, client: c });
+  try {
+    assert.match(view.html, /Account verification unavailable/);
+    assert(!view.html.includes('Genuine guest subtree')); assert.equal(c.reads.length, 0);
+    await view.click('Sign out and browse public events'); assert.match(view.html, /Genuine guest subtree/);
+  } finally { await view.close(); }
+});
+
+test('real boundary: repeated recovery clicks issue only one local sign-out', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const c = client({ user: USER, profile: { is_banned: true }, signOutDelay: () => pending });
+  const view = await mount({ boundary: true, client: c });
+  try {
+    const button = [...view.dom.window.document.querySelectorAll('button')].find(button => button.textContent === 'Sign out and browse public events');
+    assert(button);
+    await view.change(() => { button.click(); button.click(); });
+    assert.equal(c.signOutCalls.length, 1); assert.match(view.html, /Checking account access/);
+    await view.change(release); assert.match(view.html, /Genuine guest subtree/);
+  } finally { release(); await view.close(); }
+});
+
+test('real directory: account switching during bookmark authorization cannot write as user A or B', async () => {
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const options = { user: USER }, c = client(options), view = await mount({ client: c });
+  try {
+    options.userDelay = () => pending;
+    await view.click('Save hackathon'); assert.equal(c.writes.length, 0);
+    options.userDelay = null;
+    await view.change(() => c.signIn({ id: 'synthetic-user-b' }));
+    await view.change(release);
+    assert.equal(c.writes.length, 0); assert(!view.html.includes('Remove from saved'));
+  } finally { release(); await view.close(); }
 });

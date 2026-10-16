@@ -115,3 +115,127 @@ node --test scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon
 Cloud Codex retains ownership of the separately scoped shared OAuth/login/onboarding return-path hardening and comprehensive suspension enforcement. Neither is implemented or edited by this follow-up. The previously reproduced shared return-destination defect remains pending that security work; the hackathon-specific validator is unchanged. Cloud's named pending branch was unavailable at the last read-only review, so cross-branch integration is not verified. Obtain its reviewable head/diff and reconcile verified-session, missing-profile, suspended-account and profile-permission semantics before merge. Existing broad anonymous RLS/column grants remain unchanged and require separately approved database privacy work.
 
 Recommendation: the local follow-up is ready for independent review. Only after review and separate Git authorization should a focused follow-up commit be published to PR #21. Do not merge or deploy as part of publication.
+
+## Local authentication-lifecycle follow-up (2026-10-16)
+
+Isolated branch `fix/public-browsing-auth-lifecycle`, worktree
+`public-browsing-auth-lifecycle`, based on current PR #21 head
+`22f5bdf6cd3f2c18753834991e04da0fd43b82fb`. Fetched main is
+`eed24a1384dd30dff05d13bf971f81e9ccac4f24` (merged Craft N Code PR #22).
+Main was inspected, not merged into this local patch. The published PR branch,
+partner portal and Cloud review checkout are not modified. Only local changes
+and offline tests are authorized; no staging, commits, pushes or PR updates.
+
+### Reproduced root cause
+
+The verifier correctly rejected suspended, missing-profile, null-ban and failed
+verification states on an initial request. However, the boundary treated every
+auth notification as a fresh stateless verification. After SDK credential
+removal and `SIGNED_OUT`, the same verifier could correctly see no session/user
+and return guest. That result erased the boundary's earlier blocked state.
+Generation guards prevented stale completions, but did not preserve this history.
+
+Installed `@supabase/supabase-js` and `@supabase/auth-js` are 2.108.2. Inspection
+of the installed SDK confirms `_callRefreshToken` may call `_removeSession` on
+a non-retryable refresh error after access-token expiry; `_removeSession`
+emits `SIGNED_OUT`. Such an event is not proof of deliberate logout. Official
+references: [auth-state notifications](https://supabase.com/docs/reference/javascript/auth-onauthstatechange)
+and [local-scope sign-out](https://supabase.com/docs/reference/javascript/auth-signout).
+The official changelog request was unavailable locally; docs search and installed
+SDK source were used instead. No remote authentication or database calls ran.
+
+### Implemented transitions
+
+`BrowsingBoundary` retains an in-memory, per-mounted-boundary requirement for
+explicit guest recovery. It records observed session-bearing auth events,
+`SIGNED_OUT`, and current non-guest verification results. This is UX lifecycle
+history, never an authoritative suspension record or a persisted ban flag.
+
+| Current observation / action | Result |
+| --- | --- |
+| Fresh credential-free verification, no observed account/error/loss | Guest; no profile or participant queries |
+| Verified identity + matching own profile + explicit `is_banned=false` | Member, retaining actual onboarding state |
+| Suspended or unverifiable profile/session | Blocked with Retry and explicit sign-out/public-browsing action |
+| Any unattributed `SIGNED_OUT`, including during initial verification | Invalidate old work; credential-free rechecks remain blocked |
+| Focus / Retry with credentials missing after account/error/loss | Remain blocked; absence does not erase history |
+| `SIGNED_IN`, `TOKEN_REFRESHED`, focus or Retry verifies a current active account | Member; old account subtree is discarded |
+| Explicit “Sign out and browse public events” | One `signOut({scope:'local'})`, then verify; only confirmed guest clears the recovery requirement |
+| Sign-out error, retained credentials or failed post-sign-out verification | Remain blocked; error logged; never report guest success |
+| New auth/focus generation while recovery is pending | Obsolete recovery cannot publish guest over the newer account/check |
+| Unmount | Unsubscribe, clear timers/focus listener and reject all stale completions |
+
+The boundary exposes no credentials and uses the existing verifier unchanged.
+No second active-account abstraction, auth-return validator, storage key,
+BroadcastChannel or shared-shell hook is introduced. Supabase calls remain
+deferred outside auth callbacks. The auth subscription remains stable through
+Retry. Duplicate recovery clicks share one in-flight sign-out operation.
+
+The existing keyed guest/member subtree and immediate loading state on auth
+events discard personalized state before a new verified identity is rendered.
+Actual directory tests cover late A bookmark results and pending bookmark
+authorization across an A-to-B switch; neither can update or write under B.
+Already-started verification/status reads may finish after invalidation, but
+their results cannot publish access or mount a participant subtree. No SDK
+credential mutation is rolled back by this component.
+
+### Cross-tab and shared-shell limits
+
+Supabase does not attach user-intent provenance to `SIGNED_OUT`. A mounted
+boundary therefore conservatively treats a sign-out broadcast from another tab,
+or from the shared shell, like automatic loss. The user can explicitly confirm
+public browsing locally. No intent is inferred merely from event name or a
+credential-free session. Existing shell sign-out remains untouched: it currently
+signs out and hard-navigates to `/`.
+
+The recovery requirement is not persisted across a full reload, a new tab or a
+new boundary mount. A new component with no credentials/history cannot tell a
+formerly blocked account from a genuine anonymous visitor. This patch does not
+claim cross-navigation/reload suspension enforcement or a global auth framework.
+Likewise, SDK-level sign-out races may remove a concurrently arriving session;
+the boundary prevents stale authorization/guest publication, but does not rewrite
+SDK storage or restore credentials. That case requires a fresh explicit recovery.
+
+If product requirements need intentional shell/cross-tab logout to bypass the
+extra local confirmation, the smallest future coordination point is a trusted
+shared-session **explicit sign-out operation/result** notification, distinct from
+raw SDK `SIGNED_OUT`, with identity/generation information and completion/error
+status. Any per-tab or cross-navigation provenance should be owned by that shared
+lifecycle, not persisted as an authoritative client-side ban flag. No such
+interface or Cloud/shared-shell edit is made here.
+
+The separately reviewed `useShellSession` protected work, cached identity /
+`DailyStreakTracker`, deployed `record_daily_visit()` SECURITY DEFINER ban gap,
+and notification subscription/callback issues remain unresolved by this patch.
+Database authorization and broad anonymous permissions are unchanged. This is
+not comprehensive account-suspension enforcement.
+
+### Local validation and integration handoff
+
+- Before the boundary fix, the expanded 60-case browsing suite passed 49 and
+  failed 11, including automatic guest downgrade and missing explicit recovery.
+  After the fix, all 60 passed. Three additional race regressions were then added.
+- Final combined command above: **367 tests passed, 0 failed/cancelled/skipped**
+  (349 existing tests plus 18 new lifecycle regressions). The browsing suite now
+  has 63 tests, using actual React effects, directory/detail components and
+  injected offline clients. Updated fixtures model distinct profile identities,
+  delayed users/bookmarks, real sign-out method outcomes and raw auth events.
+- Coverage includes fresh anonymous, active/incomplete, suspended, missing/null
+  profiles, verification/expiry errors, refresh-triggered initial session loss,
+  pending verification, raw/cross-tab-equivalent sign-out, explicit local recovery,
+  failure/unconfirmed sign-out, duplicate clicks, A-to-B changes, refreshed tokens,
+  focus/Retry, bookmark authorization and unmount cleanup.
+- Both existing network-isolated Chrome viewport checks passed: desktop 1440px
+  and mobile 390px. Guest listings/filters/details and bookmark sign-in handoffs
+  remain intact. No live Supabase calls, browser authentication or user writes.
+- Full TypeScript typecheck passed with incremental output disabled. Scoped
+  lint and final diff/credential/scope checks are recorded in the local handoff.
+- Exact changed files: `src/components/hackathons/BrowsingBoundary.tsx`,
+  `scripts/test-public-hackathon-browsing.cjs`, and this architecture document.
+  `publicBrowsing.ts`, pagination, shared auth/shell, partner routes, database
+  permissions, dependencies and email code remain unchanged.
+
+The local patch is ready for independent review and a controlled integration
+with Cloud's OAuth hardening. This is not merge/release approval or proof of the
+unpublished Cloud combination. Obtain Cloud's final head and verify return-path,
+verified-session/missing-profile/suspended semantics together. Preserve the
+separate shared-shell/database remediation tasks and the limitations above.
