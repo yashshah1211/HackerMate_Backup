@@ -5,6 +5,7 @@ import { Check, LoaderCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { GithubIcon } from "@/components/system";
 import { cn } from "@/lib/utils";
+import { safeAuthReturnPath } from "@/lib/auth/returnPath";
 
 type Provider = "google" | "github";
 
@@ -48,9 +49,14 @@ export function SignInPanel({
     if (!consentChecked) return;
     setError(null);
     setLoadingProvider(provider);
-    const targetUrl = nextUrl || (typeof window !== "undefined" ? window.location.href : "/dashboard");
+    const currentPath = typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : undefined;
+    const targetUrl = safeAuthReturnPath(nextUrl ?? currentPath);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "");
-    const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(targetUrl)}`;
+    const callbackUrl = new URL("/auth/callback", siteUrl);
+    callbackUrl.searchParams.set("next", targetUrl);
+    const redirectTo = callbackUrl.toString();
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,

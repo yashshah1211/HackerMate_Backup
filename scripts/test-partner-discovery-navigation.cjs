@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const React = require('react');
 const { harness } = require('./ppt-vision-harness.cjs');
-const { load } = require('./partner-presentation-harness.cjs');
 const api = harness().load('src/lib/hackathons/discoveryNavigation.ts');
 const EVENT = '00000000-0000-4000-8000-000000000006';
 const target = api.eventDiscoveryHref(EVENT);
@@ -73,13 +72,15 @@ test('the existing sign-in panel preserves the deep link in its OAuth callback w
 
 for (const completed of [true, false]) test(`existing auth callback retains the discovery destination; onboarding_completed=${completed}`, async () => {
   const response = url => ({ url, cookies: { set() {}, getAll: () => [] } });
-  const callback = load('src/app/auth/callback/route.ts', {
+  const loader = harness({
     '@supabase/ssr': { createServerClient() { return {
       auth: { exchangeCodeForSession: async () => ({ data: { user: USER }, error: null }) },
       from(table) { assert.equal(table, 'profiles'); return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { onboarding_completed: completed }, error: null }) }) }) }; },
     }; } },
     'next/server': { NextResponse: { redirect: response } },
   });
+  loader.env.NEXT_PUBLIC_SITE_URL = ORIGIN;
+  const callback = loader.load('src/app/auth/callback/route.ts');
   const result = await callback.GET({ url: `${ORIGIN}/auth/callback?code=offline-code&next=${encodeURIComponent(target)}`, cookies: { getAll: () => [] } });
   const destination = new URL(result.url);
   if (completed) assert.equal(destination.pathname + destination.search, target);

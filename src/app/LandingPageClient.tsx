@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { safeAuthReturnPath } from "@/lib/auth/returnPath";
 import type { LandingData } from "@/lib/getLandingData";
 import { ButtonLink } from "@/components/system";
 import { LandingHero } from "@/components/landing/LandingHero";
@@ -45,7 +46,7 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
           if (error) console.error("[landing] onboarding check failed:", error);
 
           const requestedPath = new URLSearchParams(window.location.search).get("next");
-          const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
+          const safePath = safeAuthReturnPath(requestedPath);
 
           if (data?.onboarding_completed) {
             router.push(safePath);
