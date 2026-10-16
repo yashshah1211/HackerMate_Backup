@@ -1,11 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { safeAuthReturnPath } from "@/lib/auth/returnPath";
+import { trustedCallbackOrigin } from "@/lib/auth/callbackOrigin";
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const origin = trustedCallbackOrigin(request.url);
+  if (!origin) {
+    return NextResponse.json({ error: "Invalid authentication callback origin.", code: "AUTH_CALLBACK_ORIGIN_INVALID" },
+      { status: 400, headers: { "Cache-Control": "private, no-store" } });
+  }
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  // if "next" is in param, use it as the redirect address
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeAuthReturnPath(searchParams.get("next"));
 
   if (code) {
     const supabase = createServerClient(
@@ -25,7 +31,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    let response = NextResponse.redirect(`${origin}${next}`);
+    const response = NextResponse.redirect(new URL(next, origin));
 
     const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && user) {
@@ -37,16 +43,16 @@ export async function GET(request: NextRequest) {
 
       if (profileError) {
         console.error("Auth callback profile fetch error:", profileError);
-        // On error, let them through to the dashboard, AuthGuard will handle it
+        // Preserve the existing handoff; destination guards still authorize access.
         return response;
       }
 
       if (!profile || !profile.onboarding_completed) {
         const redirectRes = NextResponse.redirect(
-          `${origin}/onboarding?next=${encodeURIComponent(next)}`
+          new URL(`/onboarding?next=${encodeURIComponent(next)}`, origin)
         );
         response.cookies.getAll().forEach((cookie) => {
-          redirectRes.cookies.set(cookie.name, cookie.value);
+          redirectRes.cookies.set(cookie);
         });
         return redirectRes;
       }
@@ -57,5 +63,5 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect to home page with error if exchange fails
-  return NextResponse.redirect(`${origin}/?error=AuthCallbackError`);
+  return NextResponse.redirect(new URL("/?error=AuthCallbackError", origin));
 }

@@ -173,3 +173,22 @@ test('external next destination retains existing dashboard fallback', async t =>
   const app = await ui(t, { next: '?next=%2F%2Fevil.example' }); await app.submit();
   assert.deepEqual(app.navigation, ['/dashboard']);
 });
+
+for (const next of ['@evil.invalid', '/\\evil.invalid', '/%252f%252fevil.invalid', '/%256cogin', '/onboarding?next=/invites', '/?next=@evil.invalid', '/api/protected-action']) {
+  test(`onboarding completion rejects unsafe return destination ${next}`, async t => {
+    const app = await ui(t, { next: '?next=' + encodeURIComponent(next) });
+    assert.equal(app.writes.length, 0, 'Navigation input must not submit the form');
+    await app.submit();
+    assert.equal(app.writes.length, 1);
+    assert.deepEqual(app.navigation, ['/dashboard']);
+  });
+}
+for (const next of ['/hackathons?tab=past&q=water+energy#results', '/hackathons/event-1?tab=builders#teams', '/invites?college=Offline%20Campus#pending', '/teams/create?invite=fixture-inviter&college=Offline%20Campus', '/teams/team-1?filter=a%26b%3Dc#join']) {
+  test(`onboarding preserves the encoded destination without replaying an action: ${next}`, async t => {
+    const app = await ui(t, { next: '?next=' + encodeURIComponent(next) });
+    assert.deepEqual(app.navigation, []); assert.equal(app.writes.length, 0);
+    await app.submit();
+    assert.deepEqual(app.navigation, [next]);
+    assert.equal(app.writes.length, 1, 'Only the explicit onboarding submission writes');
+  });
+}

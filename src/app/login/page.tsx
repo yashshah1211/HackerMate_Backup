@@ -9,6 +9,7 @@ import { PageLoader } from "@/components/system";
 import Logo from "@/components/Logo";
 import { SignInPanel } from "@/components/auth/SignInPanel";
 import { STAGES } from "@/components/landing/primitives";
+import { safeAuthReturnPath } from "@/lib/auth/returnPath";
 
 /** Human label for where sign-in will return the visitor. */
 function destinationLabel(path: string): string | null {
@@ -26,7 +27,7 @@ function destinationLabel(path: string): string | null {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next") ?? searchParams.get("redirect") ?? "/dashboard";
+  const nextUrl = safeAuthReturnPath(searchParams.get("next") ?? searchParams.get("redirect"));
   const collegeParam = searchParams.get("college");
   const returnTo = destinationLabel(nextUrl);
 
@@ -41,12 +42,10 @@ function LoginContent() {
         const { data: profile, error } = await supabase.from("profiles").select("onboarding_completed").eq("id", user.id).maybeSingle();
         if (error) console.error("[login] onboarding check failed:", error);
 
-        const safePath = nextUrl.startsWith("/") && !nextUrl.startsWith("//") ? nextUrl : "/dashboard";
-
         if (profile?.onboarding_completed) {
-          router.push(safePath);
+          router.push(nextUrl);
         } else {
-          const onboardingUrl = `/onboarding?next=${encodeURIComponent(safePath)}${collegeParam ? `&college=${encodeURIComponent(collegeParam)}` : ""}`;
+          const onboardingUrl = `/onboarding?next=${encodeURIComponent(nextUrl)}${collegeParam ? `&college=${encodeURIComponent(collegeParam)}` : ""}`;
           router.push(onboardingUrl);
         }
       }

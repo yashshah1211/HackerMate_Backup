@@ -11,6 +11,7 @@ import { Button, FilterChip, Input, Skeleton } from "@/components/system";
 import { FormStep, OnboardingFrame, OnboardingLabel } from "@/components/onboarding/OnboardingFrame";
 import { ProfilePreview } from "@/components/onboarding/ProfilePreview";
 import { cn } from "@/lib/utils";
+import { safeAuthReturnPath } from "@/lib/auth/returnPath";
 
 
 const SKILLS = [
@@ -108,7 +109,7 @@ export default function OnboardingPage() {
               let prefill = urlParams.get("college");
               if (!prefill && urlParams.get("next")) {
                 try {
-                  const nextParsed = new URL(urlParams.get("next")!, window.location.origin);
+                  const nextParsed = new URL(safeAuthReturnPath(urlParams.get("next")), window.location.origin);
                   prefill = nextParsed.searchParams.get("college");
                 } catch (_) {}
               }
@@ -278,11 +279,7 @@ export default function OnboardingPage() {
     showToast("Profile set up successfully! Welcome to HackerMate.", "success");
 
     const requestedPath = new URLSearchParams(window.location.search).get("next");
-    const safePath =
-      requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
-        ? requestedPath
-        : "/dashboard";
-    router.push(safePath);
+    router.push(safeAuthReturnPath(requestedPath));
   }
 
   const filteredColleges = COLLEGES.filter((col) =>
