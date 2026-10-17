@@ -22,3 +22,8 @@ export function hustleCommunityState(value: unknown): HustleCommunityState {
     || !/\bbajaj\b/i.test(row.location)) return "metadata-pending";
   return "ready";
 }
+
+/** Information-only production release. A separately reviewed code change is required to enable on-site team actions, regardless of event metadata. */
+export function hustlePublicParticipationEnabled(): boolean {
+  return false;
+}

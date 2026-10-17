@@ -10,12 +10,13 @@ const { ROOT, load, event, fixture, renderPortal } = require('./hustle-carnival-
 const { hustleCommunityState } = load('src/lib/partners/hustleCarnival.ts');
 const { resolveHustleCommunity, loadHustleCommunity } = load('src/lib/partners/hustleCarnivalPublic.ts');
 
-test('exact approved corrected event enables existing discovery with the reviewed ID', async () => {
+test('even corrected metadata cannot enable event participation in information-only release', async () => {
   const result = await renderPortal();
   const doc = new JSDOM(result.html).window.document;
   const link = doc.querySelector('a[href*="?tab="]');
-  assert.equal(link.getAttribute('href'), `/hackathons/${event.eventId}?tab=looking_for_teams`);
-  assert.equal(doc.querySelectorAll('a[href*="/hackathons/"]:not([href^="https://"])').length, 1);
+  assert.equal(link, null);
+  assert.equal(doc.querySelectorAll('a[href*="/hackathons/"]:not([href^="https://"])').length, 0);
+  assert.match(doc.body.textContent, /HackerMate team matching is not enabled for this event yet/);
   assert.equal(result.queries.length, 1);
   assert.equal(result.queries[0].columns, 'id,status,archived,type,start_date,end_date,mode,location,min_team_size,max_team_size,website_url');
   assert.deepEqual(JSON.parse(JSON.stringify(result.queries[0].filters)), [['id', event.eventId], ['status', 'approved'], ['archived', false]]);

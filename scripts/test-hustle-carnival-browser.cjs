@@ -54,7 +54,7 @@ async function main() {
       check(await page.locator(':focus').innerText() === 'Skip to event details', 'Skip link is first in tab order');
       await page.keyboard.press('Enter');
       check(await page.locator(':focus').getAttribute('id') === 'hustle-content', 'Skip target receives focus');
-      await page.getByRole('link', { name: /Find your teammate/ }).click();
+      await page.getByRole('link', { name: /Team matching status/ }).click();
       check(new URL(page.url()).hash === '#community', 'Community anchor works');
       const summary = page.getByText('Who can take part?', { exact: true });
       await summary.focus();
@@ -78,8 +78,8 @@ async function main() {
 
       options = {};
       await page.goto('http://hustle.test/partners/hustle-carnival');
-      const discovery = page.getByRole('link', { name: 'Find Hustle Carnival teammates' });
-      check(await discovery.getAttribute('href') === `/hackathons/${event.eventId}?tab=looking_for_teams`, 'Corrected metadata reuses exact event discovery');
+      check(await page.locator('a[href*="?tab="]').count() === 0, 'Corrected metadata still cannot enable participation');
+      await page.getByText('HackerMate team matching is not enabled for this event yet.').waitFor();
       await noOverflow();
       const readyA11y = await scan('ready');
       options = { error: { message: 'offline unavailable fixture' } };

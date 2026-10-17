@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowDown, ArrowUpRight, Globe2, MapPin, Monitor, Users, Zap } from "lucide-react";
 import Logo from "@/components/Logo";
 import { eventDiscoveryHref } from "@/lib/hackathons/discoveryNavigation";
-import { HUSTLE_CARNIVAL as event, type HustleCommunityState } from "@/lib/partners/hustleCarnival";
+import { HUSTLE_CARNIVAL as event, hustlePublicParticipationEnabled, type HustleCommunityState } from "@/lib/partners/hustleCarnival";
 import PartnerImage from "./PartnerImage";
 import styles from "./HustleCarnivalPage.module.css";
 
@@ -14,7 +14,8 @@ function ExternalLink({ href, children, className }: { href: string; children: R
 }
 
 export default function HustleCarnivalPage({ community }: { community: HustleCommunityState }) {
-  const discovery = community === "ready" ? eventDiscoveryHref(event.eventId) : null;
+  // Metadata correctness alone must never enable event participation in this information-only release.
+  const discovery = hustlePublicParticipationEnabled() && community === "ready" ? eventDiscoveryHref(event.eventId) : null;
   return <main className={styles.page}>
     <a href="#hustle-content" className={styles.skip}>Skip to event details</a>
     <div className={styles.container}>
@@ -36,7 +37,7 @@ export default function HustleCarnivalPage({ community }: { community: HustleCom
           <p className={styles.organizer}>Organized by <strong>Club Ellusion</strong><br />G.L. Bajaj Group of Institutions, Mathura</p>
           <div className={styles.actions}>
             <ExternalLink href={event.registrationUrl} className={styles.primary}>Register on Unstop</ExternalLink>
-            <a href="#community" className={styles.secondary}>Find your teammate <Users size={17} aria-hidden="true" /></a>
+            <a href="#community" className={styles.secondary}>Team matching status <Users size={17} aria-hidden="true" /></a>
           </div>
           <p className={styles.note}>Registration closes <time dateTime="2026-10-20">20 October 2026</time>.<br />Official registration is separate from HackerMate community participation.</p>
         </div>
@@ -74,11 +75,11 @@ export default function HustleCarnivalPage({ community }: { community: HustleCom
       </section>
 
       <section id="community" className={styles.community} aria-labelledby="community-title">
-        <div><p className={styles.eyebrow}>02 / BUILD TOGETHER</p><h2 id="community-title">Big ideas.<br /><span>The right teammate.</span></h2><p>Connect with builders interested in Hustle Carnival on HackerMate. The official event allows solo participants or teams of two.</p></div>
+        <div><p className={styles.eyebrow}>02 / BUILD TOGETHER</p><h2 id="community-title">Big ideas.<br /><span>The right teammate.</span></h2><p>HackerMate team matching for this event is not yet enabled. Official registration is open separately on Unstop, and the event allows solo participants or teams of two.</p></div>
         <div className={styles.communityAction}>
           <span className={styles.communityLabel}><Users size={20} aria-hidden="true" /> HACKERMATE COMMUNITY</span>
           {discovery ? <><Link href={discovery} prefetch={false} className={styles.primary}>Find Hustle Carnival teammates <ArrowUpRight size={17} aria-hidden="true" /></Link><p>Browse the event’s community. Sign in through HackerMate when prompted to connect or participate.</p></>
-            : <><p className={styles.communityStatus}>{community === "metadata-pending" ? "Teammate discovery is awaiting an event details update." : "Teammate discovery is temporarily unavailable."}</p><p>Official registration on Unstop is available separately. Please return here for community access.</p></>}
+            : <><p className={styles.communityStatus}>{community === "ready" ? "HackerMate team matching is not enabled for this event yet." : community === "metadata-pending" ? "Teammate discovery is awaiting an event details update." : "Teammate discovery is temporarily unavailable."}</p><p>Official registration on Unstop is available separately. Please return here for community access.</p></>}
           <p className={styles.note}>HackerMate community participation does not register you for the event or secure a finale place.</p>
         </div>
       </section>

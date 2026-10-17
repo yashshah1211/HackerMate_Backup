@@ -76,9 +76,8 @@ const stub = http.createServer((req, res) => {
       if (width === 390) {
         state = 'ready';
         await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
-        const discovery = page.getByRole('link', { name: 'Find Hustle Carnival teammates' });
-        await discovery.waitFor();
-        check(await discovery.getAttribute('href') === `/hackathons/${id}?tab=looking_for_teams`, 'Ready exact event destination');
+        check(await page.locator('a[href*="?tab="]').count() === 0, 'Corrected metadata still cannot enable participation');
+        await page.getByText('HackerMate team matching is not enabled for this event yet.').waitFor();
         await page.getByRole('heading', { name: 'Big ideas. The right teammate.' }).scrollIntoViewIfNeeded();
         await page.screenshot({ path: `${output}/next-community-ready-390.png` });
         state = 'unavailable';
