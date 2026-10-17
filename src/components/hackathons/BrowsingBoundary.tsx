@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { verifyBrowsingAccess, type BrowsingAccess } from "@/lib/hackathons/publicBrowsing";
 import { Button, ErrorNotice, Page, PageLoader } from "@/components/system";
 
-export default function BrowsingBoundary({ children }: { children: (access: Extract<BrowsingAccess, { kind: "guest" | "member" }>) => ReactNode }) {
+type ReadableAccess = Extract<BrowsingAccess, { kind: "guest" | "member" }>;
+const BrowsingAccessContext = createContext<ReadableAccess | null>(null);
+
+/** Reuse the outer trusted decision instead of mounting a second auth verifier. */
+export default function BrowsingBoundary({ children }: { children: (access: ReadableAccess) => ReactNode }) {
+  const inherited = useContext(BrowsingAccessContext);
+  if (inherited) return <>{children(inherited)}</>;
+  return <BrowsingBoundaryRoot>{children}</BrowsingBoundaryRoot>;
+}
+
+function BrowsingBoundaryRoot({ children }: { children: (access: ReadableAccess) => ReactNode }) {
   const [access, setAccess] = useState<BrowsingAccess | null>(null);
   const requiresExplicitGuest = useRef(false);
   const actions = useRef<{ retry: () => void; signOut: () => void } | null>(null);
@@ -77,5 +87,5 @@ export default function BrowsingBoundary({ children }: { children: (access: Extr
       onRetry={() => actions.current?.retry()} />
     <div className="mt-4"><Button variant="secondary" onClick={() => actions.current?.signOut()}>Sign out and browse public events</Button></div>
   </Page>;
-  return <div key={access.kind === "member" ? access.userId : "guest"}>{children(access)}</div>;
+  return <BrowsingAccessContext.Provider value={access}><div key={access.kind === "member" ? access.userId : "guest"}>{children(access)}</div></BrowsingAccessContext.Provider>;
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useCallback, useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
+import { DiscoveryDropdown } from "@/components/hackathons/DiscoveryDropdown";
 import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type BrowsingAccess } from "@/lib/hackathons/publicBrowsing";
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
@@ -25,7 +26,6 @@ import {
   PageHeader,
   PageLoader,
   SearchField,
-  Select,
   Sheet,
   SkeletonRows,
 } from "@/components/system";
@@ -211,6 +211,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
   const [actionPrompt, setActionPrompt] = useState(false);
   const [personalError, setPersonalError] = useState(false);
   const alive = useRef(true);
@@ -394,19 +395,16 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
 
   const extraFilters = (suffix: string) => <>
     <div><FieldLabel htmlFor={`hk-topic-${suffix}`}>Topic / domain</FieldLabel>
-      <Select id={`hk-topic-${suffix}`} value={settings.topic} onChange={e => updateSettings({ topic: e.target.value })}>
-        <option value="">Any listed topic</option>
-        {settings.topic && !topics.some(([key]) => key === settings.topic) && <option value={settings.topic}>{settings.topic} (not listed)</option>}
-        {topics.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-      </Select></div>
+      <DiscoveryDropdown id={`hk-topic-${suffix}`} label="Topic / domain" value={settings.topic} onChange={topic => updateSettings({ topic })}
+        options={[{ value: "", label: "Any listed topic" },
+          ...(settings.topic && !topics.some(([key]) => key === settings.topic) ? [{ value: settings.topic, label: `${settings.topic} (not listed)` }] : []),
+          ...topics.map(([value, label]) => ({ value, label }))]} /></div>
     <div><FieldLabel htmlFor={`hk-from-${suffix}`}>Starts from</FieldLabel><input id={`hk-from-${suffix}`} type="date" value={settings.from} onChange={e => updateSettings({ from: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
     <div><FieldLabel htmlFor={`hk-to-${suffix}`}>Starts by</FieldLabel><input id={`hk-to-${suffix}`} type="date" value={settings.to} onChange={e => updateSettings({ to: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
-    <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><Select id={`hk-size-${suffix}`} value={settings.participation} onChange={e => updateSettings({ participation: e.target.value })}>
-      <option value="">Any team size</option><option value="solo">Solo allowed (listed)</option><option value="team">Teams allowed (listed)</option>
-    </Select></div>
-    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><Select id={`hk-registration-${suffix}`} value={settings.registration} onChange={e => updateSettings({ registration: e.target.value })}>
-      <option value="">Any / unknown</option><option value="not-closed">Exclude known passed deadlines</option><option value="recorded">Deadline listed</option>
-    </Select></div>
+    <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><DiscoveryDropdown id={`hk-size-${suffix}`} label="Participation" value={settings.participation} onChange={participation => updateSettings({ participation })}
+        options={[{ value: "", label: "Any team size" }, { value: "solo", label: "Solo allowed (listed)" }, { value: "team", label: "Teams allowed (listed)" }]} /></div>
+    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration deadline" value={settings.registration} onChange={registration => updateSettings({ registration })}
+        options={[{ value: "", label: "Any / unknown" }, { value: "not-closed", label: "Exclude known passed deadlines" }, { value: "recorded", label: "Deadline listed" }]} /></div>
   </>;
 
   const filterGroups = (
@@ -568,16 +566,10 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           </div>
         </div>
 
-        <label className="ml-auto flex items-center gap-2 text-[13px] text-ink-3">
-          Sort by:
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="bg-transparent text-ink font-medium focus:outline-none cursor-pointer"
-          >
-            {SORT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </select>
-        </label>
+        <div className="ml-auto flex items-center gap-2 text-[13px] text-ink-3">
+          <span>Sort by:</span>
+          <DiscoveryDropdown id="hk-sort-desktop" label="Sort by" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} compact />
+        </div>
       </div>
 
       <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
@@ -638,7 +630,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
 
       <Sheet
         open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
+        onClose={closeFilters}
         title="Filter hackathons"
         label="Filter hackathons"
         footer={

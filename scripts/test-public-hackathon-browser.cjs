@@ -59,11 +59,21 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 950 }], ['mob
       if (name === 'mobile') {
         await page.getByRole('button', { name: 'Filters', exact: true }).click();
         const sheet = page.getByRole('dialog'); await sheet.waitFor();
-        await sheet.getByLabel('Topic / domain').selectOption('react');
+        await sheet.getByRole('button', { name: /^Topic \/ domain:/ }).click();
+        await page.getByRole('option', { name: 'React', exact: true }).click();
         await sheet.getByRole('button', { name: 'Show 1 event' }).click();
         await sheet.waitFor({ state: 'hidden' });
         assert.equal(new URL(page.url()).searchParams.get('topic'), 'react');
+      } else {
+        await page.getByRole('button', { name: 'Topic / domain: Any listed topic', exact: true }).click();
+        await page.getByRole('option', { name: 'React', exact: true }).click();
       }
+      // Rehydrate the real directory from its persisted filters, not component memory.
+      const filteredUrl = page.url();
+      await page.reload();
+      await page.getByRole('link', { name: 'Public browser fixture', exact: true }).waitFor();
+      assert.equal(page.url(), filteredUrl);
+      assert.equal(new URL(page.url()).searchParams.get('topic'), 'react');
       await page.getByRole('button', { name: 'Save hackathon', exact: true }).click();
       const signIn = page.getByRole('link', { name: 'Sign in', exact: true }); await signIn.waitFor();
       const destination = new URL(await signIn.getAttribute('href'), page.url()).searchParams.get('next');
