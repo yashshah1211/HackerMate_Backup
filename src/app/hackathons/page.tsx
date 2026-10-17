@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import AuthGuard from "@/components/AuthGuard";
+import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
+import { DiscoveryDropdown } from "@/components/hackathons/DiscoveryDropdown";
+import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type BrowsingAccess } from "@/lib/hackathons/publicBrowsing";
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
 
@@ -24,7 +26,6 @@ import {
   PageHeader,
   PageLoader,
   SearchField,
-  Select,
   Sheet,
   SkeletonRows,
 } from "@/components/system";
@@ -202,7 +203,7 @@ function HackathonRow({
   );
 }
 
-function HackathonsContent() {
+function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind: "guest" | "member" }> }) {
   const { showToast } = useNotification();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -210,6 +211,14 @@ function HackathonsContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
+  const [actionPrompt, setActionPrompt] = useState(false);
+  const [personalError, setPersonalError] = useState(false);
+  const alive = useRef(true);
+  const loadRequest = useRef(0);
+  const loadingRequests = useRef(new Set<AbortController>());
+  const saving = useRef(new Set<string>());
+  const canParticipate = access.kind === "member" && access.onboarded;
   const [now, setNow] = useState(() => Date.now());
   const searchParams = useSearchParams();
   const settings = readDiscoverySettings(searchParams);
@@ -229,115 +238,113 @@ function HackathonsContent() {
   }, []);
 
   async function loadHackathons() {
-    // 1. Fetch hackathons
-    const { data: hackathonData, error: hackathonError } = await supabase
-      .from("hackathons")
-      .select("*")
-      .eq("archived", false)
-      .order("start_date", { ascending: true });
-
-    if (hackathonError) {
-      console.error(hackathonError);
-      setLoadError(hackathonError.message || "Unknown error");
-    } else {
+    loadingRequests.current.forEach(controller => controller.abort());
+    const controller = new AbortController();
+    loadingRequests.current.add(controller);
+    const request = ++loadRequest.current;
+    const current = () => alive.current && request === loadRequest.current && !controller.signal.aborted;
+    try {
+      const events = await loadPublicEvents(supabase, controller.signal);
+      if (!current()) return;
+      setHackathons(events);
       setLoadError(null);
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-
-      const validHackathons = (hackathonData || []).filter((h: Hackathon & { status?: string; ai_feedback?: { status?: string } | null }) => {
-        const fb = h.ai_feedback || {};
-        const status = h.status || fb.status || (h.type === "native" ? "pending" : "approved");
-        if (status === "approved" || h.type === "external" || !h.type) return true;
-        if (currentUser && h.organizer_id === currentUser.id) return true;
-        return false;
-      });
-
-      setHackathons(validHackathons);
-    }
-
-    // 2. Fetch saved hackathons + user skills
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: savedData, error: savedError } = await supabase
-        .from("saved_hackathons")
-        .select("hackathon_id")
-        .eq("user_id", user.id);
-
-      if (savedError) {
-        console.error("Error loading saved hackathons:", savedError);
-      } else if (savedData) {
-        setSavedIds(new Set(savedData.map((s) => s.hackathon_id)));
+      if (access.kind === "member") {
+        const [saved, profile] = await Promise.all([
+          supabase.from("saved_hackathons").select("hackathon_id").eq("user_id", access.userId),
+          supabase.from("profiles").select("skills").eq("id", access.userId).single(),
+        ]);
+        if (!current()) return;
+        if (saved.error) console.error("Saved events unavailable:", saved.error);
+        if (profile.error) console.error("Recommendations unavailable:", profile.error);
+        setPersonalError(Boolean(saved.error || profile.error));
+        if (!saved.error) setSavedIds(new Set((saved.data || []).map(row => row.hackathon_id)));
+        if (!profile.error) setUserSkills(listedTags(profile.data?.skills));
       }
-
-      // Fetch user skills for recommendations
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("skills")
-        .eq("id", user.id)
-        .single();
-
-      setUserSkills(listedTags(profileData?.skills));
+    } catch (error) {
+      if (!controller.signal.aborted) console.error("Hackathon listing failed:", error);
+      if (current()) setLoadError("Events are unavailable. Please retry.");
+    } finally {
+      loadingRequests.current.delete(controller);
+      if (current()) setLoading(false);
     }
-
-    setLoading(false);
   }
 
   async function toggleSave(e: React.MouseEvent, hackathonId: string) {
     e.preventDefault();
     e.stopPropagation();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showToast("Please sign in to save hackathons.", "warning");
+    if (!canParticipate) { setActionPrompt(true); return; }
+    if (saving.current.has(hackathonId)) return;
+    saving.current.add(hackathonId);
+    const verified = await verifyBrowsingAccess(supabase);
+    if (!alive.current) { saving.current.delete(hackathonId); return; }
+    if (verified.kind !== "member" || !verified.onboarded || access.kind !== "member" || verified.userId !== access.userId) {
+      saving.current.delete(hackathonId);
+      showToast("Your account could not be authorized. Reload before saving.", "warning");
       return;
     }
+    const user = { id: verified.userId };
+    try {
+      const isSaved = savedIds.has(hackathonId);
+      if (isSaved) {
+        const { error } = await supabase
+          .from("saved_hackathons")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("hackathon_id", hackathonId);
 
-    const isSaved = savedIds.has(hackathonId);
-    if (isSaved) {
-      const { error } = await supabase
-        .from("saved_hackathons")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("hackathon_id", hackathonId);
-
-      if (error) {
-        console.error("Error removing saved hackathon:", error);
-        showToast("Failed to unsave hackathon.", "error");
+        if (!alive.current) return;
+        if (error) {
+          console.error("Error removing saved hackathon:", error);
+          showToast("Failed to unsave hackathon.", "error");
+        } else {
+          setSavedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(hackathonId);
+            return next;
+          });
+          showToast("Hackathon unsaved", "info");
+        }
       } else {
-        setSavedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(hackathonId);
-          return next;
-        });
-        showToast("Hackathon unsaved", "info");
-      }
-    } else {
-      const { error } = await supabase
-        .from("saved_hackathons")
-        .insert({
-          user_id: user.id,
-          hackathon_id: hackathonId,
-        });
+        const { error } = await supabase
+          .from("saved_hackathons")
+          .insert({
+            user_id: user.id,
+            hackathon_id: hackathonId,
+          });
 
-      if (error) {
-        console.error("Error saving hackathon:", error);
-        showToast("Failed to save hackathon.", "error");
-      } else {
-        setSavedIds((prev) => {
-          const next = new Set(prev);
-          next.add(hackathonId);
-          return next;
-        });
-        showToast("Hackathon saved successfully!", "success");
+        if (!alive.current) return;
+        if (error) {
+          console.error("Error saving hackathon:", error);
+          showToast("Failed to save hackathon.", "error");
+        } else {
+          setSavedIds((prev) => {
+            const next = new Set(prev);
+            next.add(hackathonId);
+            return next;
+          });
+          showToast("Hackathon saved successfully!", "success");
+        }
       }
-    }
+    } catch (error) {
+      console.error("Bookmark failed:", error);
+      if (alive.current) showToast("Could not update saved event.", "error");
+    } finally { saving.current.delete(hackathonId); }
   }
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      loadHackathons();
-    });
+    alive.current = true;
+    const requests = loadingRequests.current;
+    let cancelled = false;
+    void Promise.resolve().then(() => { if (!cancelled) void loadHackathons(); });
+    return () => {
+      cancelled = true;
+      alive.current = false;
+      requests.forEach(controller => controller.abort());
+      requests.clear();
+    };
+    // Access changes remount this subtree at the boundary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
@@ -355,7 +362,7 @@ function HackathonsContent() {
   }
 
   const tabOptions: { value: Tab; label: string; count?: number }[] = [
-    { value: "recommended", label: "For you" },
+    { value: "recommended", label: access.kind === "guest" ? "Discover" : "For you" },
     { value: "upcoming", label: "Upcoming", count: upcomingCount },
     { value: "ongoing", label: "Ongoing", count: ongoingCount },
     { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
@@ -368,16 +375,18 @@ function HackathonsContent() {
       meta={
         loading ? (
           "Loading events…"
+        ) : loadError && hackathons.length === 0 ? (
+          "Events unavailable"
         ) : (
           <>
             <span className="font-medium text-ink-2 tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
             <span className="font-medium text-ink-2 tabular-nums">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
-            <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} dates unclear · {savedIds.size} saved
+            <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} dates unclear{access.kind === "member" && !personalError ? ` · ${savedIds.size} saved` : ""}
           </>
         )
       }
       actions={
-        <ButtonLink href="/hackathons/create" variant="secondary" icon={<Plus />}>
+        <ButtonLink href={canParticipate ? "/hackathons/create" : browsingActionHref("/hackathons/create", access.kind === "member")} variant="secondary" icon={<Plus />}>
           Host a hackathon
         </ButtonLink>
       }
@@ -386,19 +395,16 @@ function HackathonsContent() {
 
   const extraFilters = (suffix: string) => <>
     <div><FieldLabel htmlFor={`hk-topic-${suffix}`}>Topic / domain</FieldLabel>
-      <Select id={`hk-topic-${suffix}`} value={settings.topic} onChange={e => updateSettings({ topic: e.target.value })}>
-        <option value="">Any listed topic</option>
-        {settings.topic && !topics.some(([key]) => key === settings.topic) && <option value={settings.topic}>{settings.topic} (not listed)</option>}
-        {topics.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-      </Select></div>
+      <DiscoveryDropdown id={`hk-topic-${suffix}`} label="Topic / domain" value={settings.topic} onChange={topic => updateSettings({ topic })}
+        options={[{ value: "", label: "Any listed topic" },
+          ...(settings.topic && !topics.some(([key]) => key === settings.topic) ? [{ value: settings.topic, label: `${settings.topic} (not listed)` }] : []),
+          ...topics.map(([value, label]) => ({ value, label }))]} /></div>
     <div><FieldLabel htmlFor={`hk-from-${suffix}`}>Starts from</FieldLabel><input id={`hk-from-${suffix}`} type="date" value={settings.from} onChange={e => updateSettings({ from: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
     <div><FieldLabel htmlFor={`hk-to-${suffix}`}>Starts by</FieldLabel><input id={`hk-to-${suffix}`} type="date" value={settings.to} onChange={e => updateSettings({ to: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
-    <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><Select id={`hk-size-${suffix}`} value={settings.participation} onChange={e => updateSettings({ participation: e.target.value })}>
-      <option value="">Any team size</option><option value="solo">Solo allowed (listed)</option><option value="team">Teams allowed (listed)</option>
-    </Select></div>
-    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><Select id={`hk-registration-${suffix}`} value={settings.registration} onChange={e => updateSettings({ registration: e.target.value })}>
-      <option value="">Any / unknown</option><option value="not-closed">Exclude known passed deadlines</option><option value="recorded">Deadline listed</option>
-    </Select></div>
+    <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><DiscoveryDropdown id={`hk-size-${suffix}`} label="Participation" value={settings.participation} onChange={participation => updateSettings({ participation })}
+        options={[{ value: "", label: "Any team size" }, { value: "solo", label: "Solo allowed (listed)" }, { value: "team", label: "Teams allowed (listed)" }]} /></div>
+    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration deadline" value={settings.registration} onChange={registration => updateSettings({ registration })}
+        options={[{ value: "", label: "Any / unknown" }, { value: "not-closed", label: "Exclude known passed deadlines" }, { value: "recorded", label: "Deadline listed" }]} /></div>
   </>;
 
   const filterGroups = (
@@ -560,16 +566,10 @@ function HackathonsContent() {
           </div>
         </div>
 
-        <label className="ml-auto flex items-center gap-2 text-[13px] text-ink-3">
-          Sort by:
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="bg-transparent text-ink font-medium focus:outline-none cursor-pointer"
-          >
-            {SORT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </select>
-        </label>
+        <div className="ml-auto flex items-center gap-2 text-[13px] text-ink-3">
+          <span>Sort by:</span>
+          <DiscoveryDropdown id="hk-sort-desktop" label="Sort by" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} compact />
+        </div>
       </div>
 
       <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
@@ -578,7 +578,7 @@ function HackathonsContent() {
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 
       {/* Results count */}
-      <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
+      {!(loadError && hackathons.length === 0) && <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12.5px] text-ink-3">
           <span className="font-mono text-ink-2 tabular">{filtered.length}</span> event{filtered.length !== 1 ? "s" : ""}
         </p>
@@ -592,7 +592,7 @@ function HackathonsContent() {
             Clear filters
           </button>
         )}
-      </div>
+      </div>}
 
       {loadError && (
         <ErrorNotice
@@ -605,7 +605,9 @@ function HackathonsContent() {
         />
       )}
 
-      {loadError && hackathons.length === 0 ? null : filtered.length === 0 ? (
+      {personalError && <ErrorNotice title="Personalized events unavailable" detail="Saved events or recommendations could not be verified." onRetry={() => { void loadHackathons(); }} />}
+      {(actionPrompt || (activeTab === "saved" && !canParticipate)) && <EmptyState title={access.kind === "guest" ? "Sign in to save events" : "Complete your profile to participate"} body="Browse freely. After signing in, return here and choose the action yourself." action={<ButtonLink href={browsingActionHref(`/hackathons${searchParams.toString() ? `?${searchParams}` : ""}`, access.kind === "member")}>{access.kind === "guest" ? "Sign in" : "Complete onboarding"}</ButtonLink>} />}
+      {loadError && hackathons.length === 0 || activeTab === "saved" && (!canParticipate || personalError) ? null : filtered.length === 0 ? (
         <EmptyState
           icon={<CalendarSearch />}
           title="No events found"
@@ -628,7 +630,7 @@ function HackathonsContent() {
 
       <Sheet
         open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
+        onClose={closeFilters}
         title="Filter hackathons"
         label="Filter hackathons"
         footer={
@@ -655,11 +657,9 @@ function HackathonsContent() {
 
 export default function HackathonsPage() {
   return (
-    <AuthGuard>
-      <Suspense fallback={<PageLoader label="Loading hackathons" />}>
-        <HackathonsContent />
-      </Suspense>
-    </AuthGuard>
+    <Suspense fallback={<PageLoader label="Loading hackathons" />}>
+      <BrowsingBoundary>{access => <HackathonsContent access={access} />}</BrowsingBoundary>
+    </Suspense>
   );
 }
 

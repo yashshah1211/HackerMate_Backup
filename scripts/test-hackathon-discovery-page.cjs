@@ -8,7 +8,7 @@ const { harness } = require('./ppt-vision-harness.cjs');
 const NOW = Date.parse('2026-10-14T12:00:00Z'), USER = 'offline-user';
 const event = (id, extra = {}) => ({ id, name: `Event ${id}`, description: '<p>Build clean tools</p>', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', location: 'Venue in India', mode: 'offline', prize_pool: 'Certificate & Perks',
-  currency: null, website_url: 'https://unstop.com/event', type: 'external', organizer_id: null, ...extra });
+  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'external', organizer_id: null, ...extra });
 const text = node => node == null || typeof node === 'boolean' ? '' : Array.isArray(node) ? node.map(text).join('') : typeof node === 'object' ? text(node.props?.children) : String(node);
 async function page(options = {}) {
   let cursor = 0, html, clock = NOW, tick; const slots = [], effects = [], dependencies = [], controls = [], writes = [], toasts = [], reads = [];
@@ -16,14 +16,15 @@ async function page(options = {}) {
   const events = options.events || [event('future'), event('ongoing', { start_date: '2026-10-12' }), event('past', { start_date: '2026-10-10', end_date: '2026-10-13' }), event('unknown', { start_date: 'invalid', end_date: null })];
   const location = { pathname: '/hackathons', search: options.query ? `?${options.query}` : '', hash: '#discovery' };
   const hooks = { ...React, useMemo: fn => fn(),
+    useRef(initial) { const i = cursor++; return slots[i] ||= { current: initial }; },
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial;
       return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
     useEffect(fn, deps) { const i = cursor++; if (!dependencies[i] || deps.some((v, j) => v !== dependencies[i][j])) { dependencies[i] = deps; effects.push(fn); } },
   };
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [clock])); } static now() { return clock; } }
-  const client = { auth: { getUser: async () => ({ data: { user } }) }, from(table) {
+  const client = { auth: { getSession: async () => ({ data: { session: user ? { user } : null } }), getUser: async () => ({ data: { user } }) }, from(table) {
     assert(['hackathons', 'saved_hackathons', 'profiles'].includes(table));
-    const filters = []; let operation = 'read', payload;
+    const filters = []; let operation = 'read', payload, cursor = null, batchSize = Infinity;
     const result = () => {
       if (operation === 'read') reads.push(table);
       if (operation !== 'read') {
@@ -33,13 +34,14 @@ async function page(options = {}) {
         else { assert(filters.some(([key, value]) => key === 'user_id' && value === USER)); saved.delete(filters.find(([key]) => key === 'hackathon_id')[1]); }
         return { error: null };
       }
-      if (table === 'hackathons') { assert(filters.some(([key, value]) => key === 'archived' && value === false)); return { data: events, error: null }; }
+      if (table === 'hackathons') { assert(filters.some(([key, value]) => key === 'archived' && value === false)); return { data: [...events].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).filter(row => cursor === null || row.id > cursor).slice(0, batchSize), error: null }; }
       assert(filters.some(([key, value]) => (key === 'user_id' || key === 'id') && value === USER));
-      return { data: table === 'profiles' ? { skills: options.skills || [] } : [...saved].map(hackathon_id => ({ hackathon_id })), error: null };
+      return { data: table === 'profiles' ? { id: USER, is_banned: false, onboarding_completed: true, skills: options.skills || [] } : [...saved].map(hackathon_id => ({ hackathon_id })), error: null };
     };
     const query = { select() { return this; }, order() { return this; }, eq(key, value) { filters.push([key, value]); return this; },
+      gt(key, value) { assert.equal(key, 'id'); cursor = value; return this; }, limit(value) { batchSize = value; return this; }, abortSignal() { return this; },
       insert(value) { operation = 'insert'; payload = value; return this; }, delete() { operation = 'delete'; return this; },
-      single: async () => result(), then: (resolve, reject) => Promise.resolve(result()).then(resolve, reject) };
+      maybeSingle: async () => result(), single: async () => result(), then: (resolve, reject) => Promise.resolve(result()).then(resolve, reject) };
     return query;
   } };
   const system = new Proxy({}, { get: (_, name) => name === '__esModule' ? false : props => {
@@ -56,10 +58,14 @@ async function page(options = {}) {
     jsxs(type, props, key) { record(type, props); return jsxRuntime.jsxs(type, props, key); },
   }, 'next/navigation': { useSearchParams: () => new URLSearchParams(location.search) },
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
-    '@/components/AuthGuard': props => props.children, '@/components/Logo': { LogoMark: () => null },
-    '@/components/system': system, '@/lib/supabase': { supabase: client },
+    '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }), '@/components/Logo': { LogoMark: () => null },
+    '@/components/system': system,
+    '@/components/hackathons/DiscoveryDropdown': { DiscoveryDropdown: props => {
+      controls.push({ name: 'DiscoveryDropdown', ...props });
+      return React.createElement('div', { id: props.id }, props.options.map(option => option.label).join(' '));
+    } }, '@/lib/supabase': { supabase: client },
     '@/context/NotificationContext': { useNotification: () => ({ showToast: (message, type) => toasts.push({ message, type }) }) },
-  }, { URLSearchParams, Date: Clock, setInterval(fn) { tick = fn; return 1; }, clearInterval() {}, window: { location,
+  }, { URLSearchParams, AbortController, Date: Clock, setInterval(fn) { tick = fn; return 1; }, clearInterval() {}, window: { location,
     history: { replaceState(_state, _title, path) { const url = new URL(path, 'https://offline.example'); Object.assign(location, { pathname: url.pathname, search: url.search, hash: url.hash }); } },
   } }).load('src/app/hackathons/page.tsx').default;
   const render = () => { cursor = 0; controls.length = 0; html = renderToStaticMarkup(React.createElement(Page)); };
@@ -70,7 +76,7 @@ async function page(options = {}) {
     ids: () => [...html.matchAll(/href="\/hackathons\/([^"/]+)"/g)].map(match => match[1]).filter(id => id !== 'create'),
     async click(label) { const button = control(c => ['button', 'Button'].includes(c.name) && c.text.startsWith(label)); await button.onClick(); await settle(); },
     async search(value) { control(c => c.name === 'SearchField').onChange(value); await settle(); },
-    async choose(id, value) { control(c => c.id === id).onChange({ target: { value } }); await settle(); },
+    async choose(id, value) { const selected = control(c => c.id === id); selected.onChange(selected.name === 'DiscoveryDropdown' ? value : { target: { value } }); await settle(); },
     async save(id, isSaved) { const button = controls.filter(c => c.name === 'IconButton')[this.ids().indexOf(id)]; assert(button); assert.equal(button['aria-pressed'], isSaved);
       await button.onClick({ preventDefault() {}, stopPropagation() {} }); await settle(); },
     async navigate(query) { location.search = `?${query}`; await settle(); },

@@ -13,6 +13,7 @@ import { ShellProvider } from "./ShellContext";
 import { ShellFrame } from "./ShellFrame";
 import { AccountSheet } from "./AccountMenu";
 import { PublicHeader } from "./PublicHeader";
+import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
 import { isBareRoute, isForcedDarkRoute, isMarketingRoute } from "./navConfig";
 
 function applyThemeClass(theme: "dark" | "light") {
@@ -29,9 +30,41 @@ function applyThemeClass(theme: "dark" | "light") {
  * - Content scrolls inside [data-shell-content] so full-height views (chat,
  *   workspace) can size themselves with h-full, exactly as in V1.
  */
+/** Public browsing routes only; protected creation/organizer views keep app chrome. */
+function isGuestDiscoverableEventRoute(pathname: string) {
+  if (pathname === "/hackathons") return true;
+  const match = pathname.match(/^\/hackathons\/([^/]+)\/?$/);
+  return Boolean(match && match[1] !== "create");
+}
+
+function GuestHackathonShell({ children }: { children: ReactNode }) {
+  useEffect(() => { applyThemeClass("dark"); }, []);
+  return (
+    <>
+      <PublicHeader signedIn={false} discovery onRequestSignOut={() => {}} />
+      <div data-public-discovery-shell className="flex min-h-[100dvh] flex-col bg-canvas pt-14 text-ink">
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
+    </>
+  );
+}
+
+/** A verified guest sees discovery chrome; members retain the full app shell. */
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";
-  const session = useShellSession();
+  if (!isGuestDiscoverableEventRoute(pathname)) return <AuthenticatedAppShell>{children}</AuthenticatedAppShell>;
+  return (
+    <BrowsingBoundary>
+      {access => access.kind === "guest"
+        ? <GuestHackathonShell>{children}</GuestHackathonShell>
+        : <AuthenticatedAppShell expectedUserId={access.userId}>{children}</AuthenticatedAppShell>}
+    </BrowsingBoundary>
+  );
+}
+
+function AuthenticatedAppShell({ children, expectedUserId }: { children: ReactNode; expectedUserId?: string }) {
+  const pathname = usePathname() || "/";
+  const session = useShellSession(expectedUserId);
   const [themePref, setThemePrefState] = useState<"dark" | "light" | "system">("system");
   const [sysTheme, setSysTheme] = useState<"dark" | "light">("dark");
   const [inboxOpen, setInboxOpen] = useState(false);

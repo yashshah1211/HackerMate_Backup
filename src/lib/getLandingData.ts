@@ -31,21 +31,6 @@ export type LandingData = {
 };
 
 /**
- * Mirrors the visibility rule of /hackathons (src/app/hackathons/page.tsx): a
- * listing is public when it is cross-listed (type external), has no type, or its
- * effective status is "approved" (status, else ai_feedback.status, else
- * "approved" for anything that isn't a native event). Native events still
- * waiting for admin review are never counted or advertised.
- */
-const PUBLICLY_LISTED = [
-  "type.eq.external",
-  "type.is.null",
-  "status.eq.approved",
-  "and(status.is.null,ai_feedback->>status.eq.approved)",
-  "and(status.is.null,ai_feedback->>status.is.null,type.neq.native)",
-].join(",");
-
-/**
  * The upcoming strip prints each event's start date. Unstop imports store the
  * registration-open date in start_date when Unstop gives no event start
  * (src/app/api/admin/scrape-unstop/route.ts), so their dates can't be shown as
@@ -63,13 +48,14 @@ export async function getLandingData(): Promise<LandingData> {
       // (dashboard "Builders", the Builders directory, analytics and the daily report). Banned
       // accounts are hidden from other users by RLS, so they are excluded here as well.
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_banned", false),
-      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }).eq("archived", false).or(PUBLICLY_LISTED),
+      // Match the public directory/detail contract, including when this client bypasses RLS.
+      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }).eq("status", "approved").eq("archived", false),
       // The /teams directory lists every team, including ones still recruiting their first teammate.
       supabaseAdmin.from("teams").select("id", { count: "exact", head: true }),
       supabaseAdmin
         .from("hackathons")
         .select("id, name, mode, start_date, end_date")
-        .or(PUBLICLY_LISTED)
+        .eq("status", "approved")
         .or(HAS_EVENT_START_DATE)
         .eq("archived", false)
         .gte("start_date", today)

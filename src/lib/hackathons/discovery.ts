@@ -4,7 +4,7 @@ export type DiscoveryEvent = {
   start_date: string | null; end_date: string | null; registration_end?: string | null;
   created_at?: string | null; location: string | null; mode: string | null;
   prize_pool: string | null; currency?: string | null; website_url: string | null;
-  type: string | null; organizer_id: string | null; college?: string | null;
+  type: string | null; organizer_id?: string | null; college?: string | null;
   min_team_size?: number | null; max_team_size?: number | null;
 };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
