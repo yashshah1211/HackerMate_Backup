@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useCallback, useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } from "lucide-react";
@@ -211,6 +211,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
   const [actionPrompt, setActionPrompt] = useState(false);
   const [personalError, setPersonalError] = useState(false);
   const alive = useRef(true);
@@ -629,7 +630,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
 
       <Sheet
         open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
+        onClose={closeFilters}
         title="Filter hackathons"
         label="Filter hackathons"
         footer={

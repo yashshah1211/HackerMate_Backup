@@ -59,7 +59,11 @@ async function page(options = {}) {
   }, 'next/navigation': { useSearchParams: () => new URLSearchParams(location.search) },
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
     '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }), '@/components/Logo': { LogoMark: () => null },
-    '@/components/system': system, '@/lib/supabase': { supabase: client },
+    '@/components/system': system,
+    '@/components/hackathons/DiscoveryDropdown': { DiscoveryDropdown: props => {
+      controls.push({ name: 'DiscoveryDropdown', ...props });
+      return React.createElement('div', { id: props.id }, props.options.map(option => option.label).join(' '));
+    } }, '@/lib/supabase': { supabase: client },
     '@/context/NotificationContext': { useNotification: () => ({ showToast: (message, type) => toasts.push({ message, type }) }) },
   }, { URLSearchParams, AbortController, Date: Clock, setInterval(fn) { tick = fn; return 1; }, clearInterval() {}, window: { location,
     history: { replaceState(_state, _title, path) { const url = new URL(path, 'https://offline.example'); Object.assign(location, { pathname: url.pathname, search: url.search, hash: url.hash }); } },
@@ -72,7 +76,7 @@ async function page(options = {}) {
     ids: () => [...html.matchAll(/href="\/hackathons\/([^"/]+)"/g)].map(match => match[1]).filter(id => id !== 'create'),
     async click(label) { const button = control(c => ['button', 'Button'].includes(c.name) && c.text.startsWith(label)); await button.onClick(); await settle(); },
     async search(value) { control(c => c.name === 'SearchField').onChange(value); await settle(); },
-    async choose(id, value) { control(c => c.id === id).onChange({ target: { value } }); await settle(); },
+    async choose(id, value) { const selected = control(c => c.id === id); selected.onChange(selected.name === 'DiscoveryDropdown' ? value : { target: { value } }); await settle(); },
     async save(id, isSaved) { const button = controls.filter(c => c.name === 'IconButton')[this.ids().indexOf(id)]; assert(button); assert.equal(button['aria-pressed'], isSaved);
       await button.onClick({ preventDefault() {}, stopPropagation() {} }); await settle(); },
     async navigate(query) { location.search = `?${query}`; await settle(); },

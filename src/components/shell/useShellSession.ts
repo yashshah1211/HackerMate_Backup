@@ -90,7 +90,7 @@ type TeamRow = {
  * unread DM senders, 30s last_seen_at heartbeat, realtime toasts, streak
  * events and sign-out. New in V2: the viewer's teams for the team switcher.
  */
-export function useShellSession(): ShellSession {
+export function useShellSession(expectedUserId?: string): ShellSession {
   const { showToast } = useNotification();
   const [mounted, setMounted] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -103,21 +103,28 @@ export function useShellSession(): ShellSession {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [conversationIds, setConversationIds] = useState<string[]>([]);
   const viewerRef = useRef<string | null>(null);
+  // Each bootstrap owns its continuations and callbacks, including after unmount.
+  const scopeRef = useRef<{ active: boolean; userId: string | null; dispose?: () => void } | null>(null);
 
   // Instant, network-free restore to avoid a guest flash on reload.
   useEffect(() => {
+    let active = true;
     Promise.resolve().then(() => {
+      if (!active) return;
       setMounted(true);
       const { hasSession: stored, cached } = sniffStoredSession();
       if (stored) setHasSession(true);
-      if (cached) {
+      if (cached && (!expectedUserId || cached.id === expectedUserId)) {
         setViewerId(cached.id);
         setProfile((p) => p ?? { id: cached.id, full_name: cached.full_name, avatar_url: null, role: cached.role });
       }
     });
-  }, []);
+    return () => { active = false; };
+  }, [expectedUserId]);
 
   const loadUnreadCount = useCallback(async (userId: string) => {
+    const scope = scopeRef.current;
+    if (!scope?.active || scope.userId !== userId) return;
     const { count, error } = await supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
@@ -129,10 +136,12 @@ export function useShellSession(): ShellSession {
       console.error("[shell] unread notification count failed:", error);
       return;
     }
-    setUnreadNotifications(count || 0);
+    if (scope.active) setUnreadNotifications(count || 0);
   }, []);
 
   const loadUnreadMessages = useCallback(async (userId: string) => {
+    const scope = scopeRef.current;
+    if (!scope?.active || scope.userId !== userId) return;
     const { data: participantRows, error: pErr } = await supabase
       .from("conversation_participants")
       .select("conversation_id, conversations!inner(type)")
@@ -142,6 +151,7 @@ export function useShellSession(): ShellSession {
       console.error("[shell] DM participant lookup failed:", pErr);
       return;
     }
+    if (!scope.active) return;
     const ids = participantRows?.map((row) => row.conversation_id as string) || [];
     setConversationIds((prev) => (prev.length === ids.length && prev.every((v, i) => v === ids[i]) ? prev : ids));
     if (!ids.length) {
@@ -158,16 +168,19 @@ export function useShellSession(): ShellSession {
       console.error("[shell] unread DM count failed:", mErr);
       return;
     }
-    setUnreadMessages(new Set(unreadMsgs?.map((m) => m.sender_id) || []).size);
+    if (scope.active) setUnreadMessages(new Set(unreadMsgs?.map((m) => m.sender_id) || []).size);
   }, []);
 
   const loadTeams = useCallback(async (userId: string) => {
+    const scope = scopeRef.current;
+    if (!scope?.active || scope.userId !== userId) return;
     const [{ data: memberRows, error: mErr }, { data: owned, error: oErr }] = await Promise.all([
       supabase.from("team_members").select("team_id").eq("user_id", userId),
       supabase.from("teams").select("id").eq("owner_id", userId),
     ]);
     if (mErr) console.error("[shell] team membership lookup failed:", mErr);
     if (oErr) console.error("[shell] owned team lookup failed:", oErr);
+    if (!scope.active) return;
     const ids = Array.from(
       new Set([...(owned || []).map((t) => t.id as string), ...(memberRows || []).map((m) => m.team_id as string)]),
     );
@@ -183,6 +196,7 @@ export function useShellSession(): ShellSession {
       console.error("[shell] team details failed:", error);
       return;
     }
+    if (!scope.active) return;
     const rows = (data || []) as unknown as TeamRow[];
     setTeams(
       rows
@@ -202,7 +216,8 @@ export function useShellSession(): ShellSession {
 
   // Session bootstrap, heartbeat and realtime (same cadence as V1).
   useEffect(() => {
-    let active = true;
+    const scope = { active: true, userId: null as string | null, dispose: undefined as (() => void) | undefined };
+    scopeRef.current = scope;
     let unsubNotif: (() => void) | null = null;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
     let onVisibilityChange: (() => void) | null = null;
@@ -210,9 +225,11 @@ export function useShellSession(): ShellSession {
     Promise.resolve().then(async () => {
       try {
         const {
-          data: { user },
+          data: { user }, error,
         } = await supabase.auth.getUser();
-        if (!active) return;
+        if (!scope.active) return;
+        if (error) throw error;
+        if (expectedUserId && user?.id !== expectedUserId) throw new Error("Shell identity changed during verification");
         if (!user) {
           viewerRef.current = null;
           setViewerId(null);
@@ -225,13 +242,15 @@ export function useShellSession(): ShellSession {
           return;
         }
 
+        scope.userId = user.id;
         viewerRef.current = user.id;
         setViewerId(user.id);
         setHasSession(true);
 
-        const { data, error } = await supabase.from("profiles").select(SHELL_PROFILE_COLUMNS).eq("id", user.id).single();
-        if (error) console.error("[shell] viewer profile failed:", error);
-        if (data && active) {
+        const { data, error: profileError } = await supabase.from("profiles").select(SHELL_PROFILE_COLUMNS).eq("id", user.id).single();
+        if (profileError) console.error("[shell] viewer profile failed:", profileError);
+        if (!scope.active) return;
+        if (data) {
           setProfile({ id: data.id, full_name: data.full_name, avatar_url: data.avatar_url, role: data.role });
           try {
             localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ id: user.id, full_name: data.full_name || null, role: data.role || null }));
@@ -250,17 +269,19 @@ export function useShellSession(): ShellSession {
 
         // Mark the viewer active immediately, then every 3 mins while visible.
         await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
+        if (!scope.active) return;
         await Promise.all([loadUnreadCount(user.id), loadUnreadMessages(user.id), loadTeams(user.id)]);
+        if (!scope.active) return;
 
         onVisibilityChange = () => {
-          if (document.visibilityState === "visible" && active) {
+          if (document.visibilityState === "visible" && scope.active) {
             supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
           }
         };
         document.addEventListener("visibilitychange", onVisibilityChange);
 
         heartbeat = setInterval(async () => {
-          if (active && document.visibilityState === "visible") {
+          if (scope.active && document.visibilityState === "visible") {
             await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
           }
         }, 180000);
@@ -271,6 +292,7 @@ export function useShellSession(): ShellSession {
             "postgres_changes",
             { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
             (payload) => {
+              if (!scope.active) return;
               loadUnreadCount(user.id);
               if (payload.eventType === "INSERT") {
                 const n = payload.new as { message: string };
@@ -282,27 +304,32 @@ export function useShellSession(): ShellSession {
       } catch (err) {
         console.error("[shell] session bootstrap failed:", err);
       } finally {
-        if (active) setAuthLoading(false);
+        if (scope.active) setAuthLoading(false);
       }
     });
 
-    return () => {
-      active = false;
+    const dispose = () => {
+      if (!scope.active) return;
+      scope.active = false;
+      viewerRef.current = null;
       if (unsubNotif) unsubNotif();
       if (heartbeat) clearInterval(heartbeat);
       if (onVisibilityChange) document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [loadTeams, loadUnreadCount, loadUnreadMessages, showToast]);
+    scope.dispose = dispose;
+    return dispose;
+  }, [expectedUserId, loadTeams, loadUnreadCount, loadUnreadMessages, showToast]);
 
   // Per-DM message channels keep the unread badge live (same as V1).
   useEffect(() => {
     const uid = viewerRef.current;
-    if (!uid || !conversationIds.length) return;
+    const scope = scopeRef.current;
+    if (!uid || !scope?.active || scope.userId !== uid || !conversationIds.length) return;
     const unsubs = conversationIds.map((id) => {
       const channel = supabase
         .channel(`messages-navbar:${id}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` }, () => {
-          loadUnreadMessages(uid);
+          if (scope.active) loadUnreadMessages(uid);
         });
       return subscribeWithRetry(channel);
     });
@@ -333,6 +360,7 @@ export function useShellSession(): ShellSession {
   }, [loadTeams]);
 
   const signOut = useCallback(async () => {
+    scopeRef.current?.dispose?.();
     try {
       localStorage.removeItem("theme");
       localStorage.removeItem(USER_CACHE_KEY);

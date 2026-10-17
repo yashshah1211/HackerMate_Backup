@@ -57,14 +57,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <BrowsingBoundary>
       {access => access.kind === "guest"
         ? <GuestHackathonShell>{children}</GuestHackathonShell>
-        : <AuthenticatedAppShell>{children}</AuthenticatedAppShell>}
+        : <AuthenticatedAppShell expectedUserId={access.userId}>{children}</AuthenticatedAppShell>}
     </BrowsingBoundary>
   );
 }
 
-function AuthenticatedAppShell({ children }: { children: ReactNode }) {
+function AuthenticatedAppShell({ children, expectedUserId }: { children: ReactNode; expectedUserId?: string }) {
   const pathname = usePathname() || "/";
-  const session = useShellSession();
+  const session = useShellSession(expectedUserId);
   const [themePref, setThemePrefState] = useState<"dark" | "light" | "system">("system");
   const [sysTheme, setSysTheme] = useState<"dark" | "light">("dark");
   const [inboxOpen, setInboxOpen] = useState(false);

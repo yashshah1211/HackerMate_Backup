@@ -1,10 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Suspense, useSyncExternalStore } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ButtonLink } from "@/components/system";
 import { LandingScrollProgress, LandingStageNav } from "@/components/landing/LandingStageNav";
 import Logo from "@/components/Logo";
+import { browsingActionHref } from "@/lib/hackathons/publicBrowsing";
+
+function subscribeHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  window.addEventListener("popstate", onChange);
+  return () => { window.removeEventListener("hashchange", onChange); window.removeEventListener("popstate", onChange); };
+}
+
+function DiscoverySignIn({ pathname }: { pathname: string }) {
+  const search = useSearchParams().toString();
+  const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
+  return <ButtonLink href={browsingActionHref(`${pathname}${search ? `?${search}` : ""}${hash}`)} variant="primary" size="sm">Sign in</ButtonLink>;
+}
 
 /**
  * Header for marketing and legal pages. Carries the HackerMate logo, like the
@@ -27,7 +41,9 @@ export function PublicHeader({ signedIn, onRequestSignOut, discovery = false }: 
           <nav aria-label="Public discovery" className="flex items-center gap-2 sm:gap-4">
             <Link href="/" className="hidden rounded-md px-1 text-[13px] text-ink-3 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent sm:inline-flex">Home</Link>
             <Link href="/hackathons" aria-current="page" className="rounded-md px-1 text-[13px] font-medium text-ink hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-accent">Hackathons</Link>
-            <ButtonLink href={`/login?next=${encodeURIComponent(pathname || "/hackathons")}`} variant="primary" size="sm">Sign in</ButtonLink>
+            <Suspense fallback={<ButtonLink href={browsingActionHref(pathname || "/hackathons")} variant="primary" size="sm">Sign in</ButtonLink>}>
+              <DiscoverySignIn pathname={pathname || "/hackathons"} />
+            </Suspense>
           </nav>
         ) : signedIn ? (
           <div className="flex items-center gap-1">
