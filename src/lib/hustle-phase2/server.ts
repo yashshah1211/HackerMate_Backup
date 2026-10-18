@@ -6,15 +6,23 @@ import { requirePartnerAccess } from "@/lib/partners/requirePartnerAccess";
 import { csvCell } from "@/lib/partners/csv";
 import { BASE, CLOSES, EVENT_ID, MAX_CSV_BYTES, newToken, parseCsv, previewCsv, receipt, tokenHash, verifyReceipt, type Mapping, type TeamInput } from "./core";
 
-// A production release requires a separately reviewed source change, in addition
-// to environment configuration AND explicit official shortlist activation.
-const PRODUCTION_RELEASE_APPROVED: boolean = false;
+// Two independent, server-only switches; unset means OFF. Release approval is
+// configuration only after this patch and its operational gates are approved.
+// Read both on every request, never cache approval at module initialization.
 export function enabled(): boolean {
   if (process.env.HUSTLE_PHASE2_ENABLED !== "true") return false;
-  if (PRODUCTION_RELEASE_APPROVED) return true;
-  // Only a disposable loopback fixture can exercise the feature in this PR.
+  const PRODUCTION_RELEASE_APPROVED = process.env.HUSTLE_PHASE2_RELEASE_APPROVED === "true";
   try { const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
-    return process.env.NODE_ENV !== "production" && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE === "true"
+    if (process.env.NODE_ENV === "production") {
+      return PRODUCTION_RELEASE_APPROVED && process.env.VERCEL_ENV === "production"
+        && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE !== "true"
+        && url.protocol === "https:" && /^[a-z0-9-]+\.supabase\.co$/.test(url.hostname)
+        && !url.port && !url.username && !url.password && url.pathname === "/" && !url.search && !url.hash
+        && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() && !!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    }
+    // Never allow a hosted Preview to use the disposable local fixture bypass.
+    return !process.env.VERCEL_ENV && ["development", "test"].includes(process.env.NODE_ENV || "")
+      && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE === "true"
       && url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
   } catch { return false; }
 }

@@ -1,5 +1,7 @@
 # Hustle Round 2 disabled-release and reversible launch runbook — NOT EXECUTED
 
+> Activation-preparation update (base `8f9b9cf`): use [the current release checklist](hustle-phase2-activation-preparation.md) for the two-switch gate and emergency stop. Historical PR #27 rehearsal/database instructions below remain subject to Desktop’s independent sign-off. The old source-enable proposal is retired. Nothing in this document authorizes execution.
+
 Use only after the separate approvals listed in hustle-phase2-disabled-release-candidate.md. This document authorizes no connected writes, production merge/deploy, live activation or messaging. Stop at any failed gate. The registration window is October 23, 2026, 10:00:00 IST inclusive to 23:00:00 IST exclusive; database time is authoritative after locks.
 
 Security PR #29 is already in production main dcd84634c8a8b7a098a94b692f88341384c42216. The candidate merges that baseline without rewriting PR #27 history. PR #28 is EXCLUDED from this release and is not a dependency of any step below. Expected scope is 50–75 teams / 100–130 participants; final grouping and leader designation are unresolved. No account has been provisioned by this work.
@@ -49,7 +51,7 @@ Expected: five postgres-owned RLS tables, ten postgres-owned functions. Only aut
 
 ## 3. Land disabled code and apply the ONE migration
 
-1. After explicit merge/deploy approval, land the reviewed registration/security code with the source gate STILL false and feature environment unset/false. Verify its exact production artifact is READY and record it as the disabled rollback target. Existing portal/workshops must remain healthy.
+1. After explicit merge/deploy approval, land the reviewed registration/security code with BOTH `HUSTLE_PHASE2_RELEASE_APPROVED` and `HUSTLE_PHASE2_ENABLED` unset/false. Verify its exact production artifact is READY and record it as the disabled rollback target. Existing portal/workshops must remain healthy.
 2. Obtain explicit production migration approval naming the file/version/checksum, trusted postgres executor and backup. Use the approved versioned migration runner to apply ONLY the reviewed file atomically and record its ledger entry. The file already encloses its DDL in BEGIN/COMMIT.
 3. Do NOT run a full-directory supabase db push, bootstrap script, old backlog or PR #28 design ledger. Repository migration history does not equal production history. Do not run hand-edited SQL that grants service_role access to auth.users.
 4. The database operator must establish the exact ledger-recording method BEFORE cutover. If using a raw psql file run, note that psql does not itself write Supabase migration history: runbook approval must also cover a reviewed versioned history procedure. Do not improvise a second ad-hoc ledger INSERT after the migration or assume an unrecorded file was registered.
@@ -66,30 +68,11 @@ Expected: five postgres-owned RLS tables, ten postgres-owned functions. Only aut
 - Approve the official normalized CSV mapping, expected 50–75 team rows (hard implementation cap remains 500), trusted storage, consent, recipient matching, retention and deletion owner. The proposed Sno/Name/Phone number/Gmail/College name participant sheet lacks confirmed team IDs/names, grouping and leader designation. It MUST NOT be imported as one team per row. Obtain the explicit roster/leader mapping first; see the candidate document for the exact normalized contract. Do not commit/export the real CSV or contacts to GitHub.
 - Define the approved internal/synthetic smoke identities in the integration environment. Do not contaminate the one-shot production shortlist with fake teams: there is no public delete/reset endpoint. Any production smoke invitation must refer to a separately approved legitimate shortlisted/internal sample and is a separately authorized real-data operation.
 
-## 5. Minimal production enable change — PROPOSAL ONLY
+## 5. Production activation — PREPARATION ONLY
 
-The current code cannot be enabled by environment configuration alone. The review-only proposal is docs/hustle-phase2-enable.PROPOSED.patch; git apply --check validates its applicability, but it has NOT been applied. It changes the approval constant and constrains the approved branch to NODE_ENV=production AND VERCEL_ENV=production:
+The old `PRODUCTION_RELEASE_APPROVED=false -> true` patch is retired. The reviewed preparation patch instead requires TWO server-only environment switches, a production deployment and valid hosted Supabase configuration. Both switches default OFF. See [the current release checklist](hustle-phase2-activation-preparation.md) for the exact contract, release gates, controlled activation and rollback limitations. No additional source flip is needed after that patch is approved and deployed disabled.
 
-    src/lib/hustle-phase2/server.ts
-    PRODUCTION_RELEASE_APPROVED: boolean = false
-    -> PRODUCTION_RELEASE_APPROVED: boolean = true
-    if (PRODUCTION_RELEASE_APPROVED && process.env.NODE_ENV === "production"
-      && process.env.VERCEL_ENV === "production") return true;
-
-Do NOT change hustlePublicParticipationEnabled(): false. No fee/payment configuration or communication enable change is needed.
-
-For the approved Production deployment ONLY:
-
-    HUSTLE_PHASE2_ENABLED=true
-    HUSTLE_PHASE2_LOCAL_FIXTURE unset/false
-    NEXT_PUBLIC_SUPABASE_URL = approved production project's existing URL
-    NEXT_PUBLIC_SUPABASE_ANON_KEY = matching existing public key
-    SUPABASE_SERVICE_ROLE_KEY = matching server-only secret
-    NEXT_PUBLIC_SITE_URL = approved canonical HTTPS auth origin
-
-Keep HUSTLE_PHASE2_ENABLED unset/false in Preview/Development connected environments. The proposed additional source check denies Preview even if its enable flag is accidentally copied. Do not override platform-managed VERCEL_ENV or use local-fixture flags with a connected service. Approve/test the proposal separately on an approved integration target and final Vercel artifact; no enable source change has been made here.
-
-Deploy this approved SHA while the official batch is still inactive. Record exact READY artifact, effective environment scope and rollback target. Confirm all user responses remain unavailable without an active eligible invitation and clock window. Do not relax gates merely to smoke-test with real contacts before approval.
+Do NOT change `hustlePublicParticipationEnabled(): false`. Do not activate either environment switch, deploy or distribute invitations without the separate release authorization. PR #28 is excluded.
 
 ## 6. Shortlist, activation and individual invitations
 

@@ -1,5 +1,7 @@
 # Hustle Round 2 — final disabled release candidate
 
+> Historical PR #27 evidence. The subsequent [activation-preparation patch](hustle-phase2-activation-preparation.md) supersedes the source-gate statements and `git apply` proposal below. The former proposal is retired; this document is not evidence that the new gate has been released or that Desktop’s integration rehearsal passed.
+
 Prepared 18 October 2026 for review only. No production/staging database write, migration, provisioning, registration activation, production deployment or real communication was performed. Feature-branch push and its automatic Vercel Preview were explicitly authorized; Preview evidence is recorded against the final head in PR #27.
 
 ## Candidate composition and safeguards
