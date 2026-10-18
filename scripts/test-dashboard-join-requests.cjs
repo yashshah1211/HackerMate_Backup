@@ -96,6 +96,8 @@ async function view(t, options = {}) {
   const router = { push() {} };
   const showToast = (message, type) => toasts.push({ message, type });
   const loader = harness({
+    // The new presentation-only banner imports a CSS module; this lifecycle harness does not load styles.
+    './HustlePartnershipBanner.module.css': {},
     'next/link': element('a'), 'next/navigation': { useRouter: () => router },
     'motion/react': { AnimatePresence: ({ children }) => children, motion: { li: element('li') } },
     '@/lib/supabase': { supabase: client, subscribeWithRetry: () => () => {} },

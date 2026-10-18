@@ -47,7 +47,7 @@ export default function HustleCarnivalWorkshops({ workshops = HUSTLE_WORKSHOPS }
         <aside className={styles.schedule} aria-label="Workshop schedule">
           <div className={styles.scheduleTop}><span>YOUR AFTERNOON, SORTED</span><Sparkles size={20} aria-hidden="true" /></div>
           <p className={styles.date}><time dateTime="2026-10-24">24 OCT<span>2026 · SATURDAY</span></time></p>
-          <div className={styles.time}><Clock3 size={20} aria-hidden="true" /><p><time dateTime={WORKSHOP_SCHEDULE.start}>2:20 PM</time>–<time dateTime={WORKSHOP_SCHEDULE.end}>4:00 PM</time><span>India Standard Time · IST (UTC+05:30)</span></p></div>
+          <div className={styles.time}><Clock3 size={20} aria-hidden="true" /><p><time dateTime={WORKSHOP_SCHEDULE.start}>2:00 PM</time>–<time dateTime={WORKSHOP_SCHEDULE.end}>4:00 PM</time><span>India Standard Time · IST (UTC+05:30)</span></p></div>
           <p className={styles.simultaneous}>Both workshops run simultaneously.<br />Choose the session you want to explore.</p>
           <div className={styles.scheduleBottom}><Play size={14} aria-hidden="true" /> LIVE ON YOUTUBE<span aria-hidden="true">↗</span></div>
         </aside>
@@ -63,7 +63,7 @@ export default function HustleCarnivalWorkshops({ workshops = HUSTLE_WORKSHOPS }
               <div className={styles.cardIcon}><Icon size={36} strokeWidth={1.4} aria-hidden="true" /></div>
               <h3 id={`${workshop.id}-title`}>{workshop.title}</h3>
               <p className={styles.description}>{workshop.description}</p>
-              <p className={styles.cardSchedule}><CalendarDays size={16} aria-hidden="true" />{WORKSHOP_SCHEDULE.date}<span>2:20 PM–4:00 PM IST</span></p>
+              <p className={styles.cardSchedule}><CalendarDays size={16} aria-hidden="true" />{WORKSHOP_SCHEDULE.date}<span>2:00 PM–4:00 PM IST</span></p>
               <div className={styles.actions}><WorkshopAction workshop={workshop} kind="livestream" /><WorkshopAction workshop={workshop} kind="certificate" /></div>
             </article>;
           })}
@@ -74,7 +74,7 @@ export default function HustleCarnivalWorkshops({ workshops = HUSTLE_WORKSHOPS }
         <div><p className={styles.eyebrow}>02 / GOOD TO KNOW</p><h2 id="attending-title">Just bring your curiosity.</h2><p>Watch your chosen session on an official Club Ellusion YouTube channel. Livestream links will appear above once the organizer shares them.</p></div>
         <div className={styles.faq}>
           <details><summary>Who can attend the workshops?</summary><p>Everyone. These public workshops are open to anyone, independently of buildathon participation. You do not need to sign in to HackerMate or register for a workshop.</p></details>
-          <details><summary>Can I watch both workshops live?</summary><p>Both run on 24 October 2026 from 2:20 PM to 4:00 PM IST (UTC+05:30). They take place simultaneously, so choose the session you want to join.</p></details>
+          <details><summary>Can I watch both workshops live?</summary><p>Both run on 24 October 2026 from 2:00 PM to 4:00 PM IST (UTC+05:30). They take place simultaneously, so choose the session you want to join.</p></details>
           <details><summary>How will certificates be handled?</summary><p>Club Ellusion manages certificates through organizer-provided Google Forms. Official forms and any instructions will be shared later. HackerMate does not generate certificates or collect certificate responses.</p></details>
         </div>
       </section>
