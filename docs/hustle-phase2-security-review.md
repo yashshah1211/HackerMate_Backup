@@ -1,5 +1,19 @@
 # PR A security review and dependency triage
 
+## Final disabled candidate after security PR #29
+
+Production main `dcd84634c8a8b7a098a94b692f88341384c42216` is merged into the existing PR #27 branch without rewriting published history. PR #28 is excluded. This candidate inherits Next/ESLint 16.3.8, sharp 0.35.5 (loaded librsvg 2.63.2) and source-map-js 1.2.2, with package manifests/lockfile identical to production main. A clean npm ci completed. Current npm audit: zero production findings; full audit has five high affected-package entries, all one unpatched development-only braces chain. The historical eight-entry audit below is superseded, not the current release result. No blind upgrades or fixes were performed.
+
+The migration body is unchanged. Fresh READ ONLY production metadata confirms postgres is NOSUPERUSER/BYPASSRLS, owns the existing partner predicates and can read/reference protected auth identity fields; auth.users remains owned by supabase_auth_admin. service_role still cannot read auth.users or execute the existing partner predicates; browser public schema CREATE is denied. No phase2 table/function/version is present. The exact migration and four admin mutations also pass in disposable PostgreSQL under nonsuperuser postgres ownership. Preflight/postflight source files contain READ ONLY transactions with metadata queries and ROLLBACK, not live schema changes.
+
+Neither this catalog inspection nor the local Auth adapter proves hosted OAuth/session, actual production key wiring, Data API cache/exposure, operator eligibility, backups or APM privacy. The locally installed database engine is PostgreSQL 18 versus production 17.6; security PR #29 independently reports passing PR A SQL tests on PostgreSQL 17.11, but that is attributed evidence, not a new local 17 run.
+
+The final browser rerun initially reproduced the Windows Node forced-exit abort after a successful synthetic smoke summary. Only synthetic smoke shutdown was changed to graceful exitCode handling; failure assertions are retained and a synthetic permission-denial regression verifies exit 1. Normal configured smoke behavior is unchanged. Detailed final pass counts, production hard-off probes and explicit limits are in hustle-phase2-disabled-release-candidate.md. Existing home-page hydration/full-lint findings from PR #29 were not claimed fixed or retested as a whole-application audit.
+
+The final candidate contains no enablement application code change. The proposed future patch is documentation only and additionally constrains enabling to the production deployment environment; it is not applied. Public participation remains false. Organizer grouping, leader designation, account UUID verification/provisioning, official import/activation, manual outreach and privacy/release approvals remain separate.
+
+## Earlier implementation review
+
 Reviewed on October 18, 2026 against `main` `ca87b8ac419083e2a2b6e6b99bf79797e817f3cd`, including PR #26. Original implementation commit `9cbb409` is preserved; main was merged without rewriting history. Local merge simulation had no conflicts. GitHub subsequently reported `mergeable=true`, `mergeable_state=clean`; the PR remains a draft.
 
 ## Standards
@@ -28,7 +42,7 @@ Review of other permission assumptions found no additional grant change needed: 
 
 Final compatibility-fix rerun: TypeScript and scoped ESLint passed; 492 unit/regression tests (20 Round 2 + 472 existing), 167 real SQL checks, and 47 browser/API/SQL checks passed, including synthetic core-page smoke checks and PR #26 portal/workshop compatibility. The expected old-code reproduction failed as designed; the only intermediate new test defect was CRLF parsing in its assertion, corrected before the final run. Production and Preview remain source-hard-disabled; the public participation guard still returns false. No dependency or application runtime code changed in this targeted fix.
 
-## Dependency audit
+## Historical dependency audit before PR #29 (superseded)
 
 `npm audit --json` was rerun against the unchanged lockfile. It reports **8 affected package entries: 7 high and 1 critical**. These are not eight independent vulnerabilities: five high entries describe the same development-tool dependency chain. No `npm audit fix`, downgrade or dependency upgrade was performed.
 
@@ -46,7 +60,7 @@ This triage does not claim the whole deployed application is free of these vulne
 
 1. Approve the final implementation and separately authorize release; the source and environment gates currently keep production and Preview off.
 2. Verify the dedicated migration's trusted definer ownership and protected-identity access, existing organizer predicates, and platform schema compatibility against a separately approved environment. The reported service-role auth.users privilege incompatibility is fixed without broadening identity-table access; disposable PostgreSQL tests are not a full Supabase/PostgREST integration deployment. Do not apply the migration to a connected database as part of this PR.
-3. Resolve the dependency security decision above before launch.
+3. Record the remaining unpatched development-only braces risk and trusted-input tooling restriction in final release review. The fixable production advisory chain was patched in PR #29; do not present the historical audit table as current or claim the application is vulnerability-free.
 4. Approve the official CSV mapping (leader plus optional second member; 500-team pilot cap), provision reviewed organizer accounts, import the official shortlist and explicitly activate the reviewed batch only during the separately approved release.
 5. Verify platform/APM settings do not capture request bodies or cookies containing bearer secrets. Fragment links address normal URL access-log exposure; this is not permission to record sensitive POST bodies or auth cookies. Define access and retention for shortlist PII.
 6. Separately authorize the actual invitation distribution process. This PR has no email/WhatsApp dispatch, no sent/read/delivery claims, and no automatic outreach.

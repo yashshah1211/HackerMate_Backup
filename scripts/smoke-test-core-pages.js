@@ -257,10 +257,14 @@ async function runSmokeTests() {
   console.log("\n==========================================================");
   if (hasFailed) {
     console.error("❌ SMOKE TEST FAILED: One or more audit or page query checks failed.");
-    process.exit(1);
+    // Let the offline fixture's HTTP handles drain on Windows instead of
+    // forcing process.exit while libuv is closing them. Assertions still fail.
+    if (synthetic) process.exitCode = 1;
+    else process.exit(1);
   } else {
     console.log("✅ SMOKE TEST PASSED: All static audit and page query checks passed cleanly!");
-    process.exit(0);
+    if (synthetic) process.exitCode = 0;
+    else process.exit(0);
   }
 }
 

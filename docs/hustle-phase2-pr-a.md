@@ -2,6 +2,8 @@
 
 Original base: `1b41e63f46346ff1d8cae693f4f458be22424a19`. Reconciled with `main` `ca87b8ac419083e2a2b6e6b99bf79797e817f3cd` (public workshops PR #26) by a non-rewriting merge on the existing feature branch. Implementation authorized October 18, 2026. Production/staging changes, live activation, outreach and merging remain separately gated.
 
+Current disabled candidate also merges production main `dcd84634c8a8b7a098a94b692f88341384c42216` (security PR #29) without rewriting history. Installed Next/ESLint are 16.3.8, sharp 0.35.5 and source-map-js 1.2.2; dependency manifests match production main. PR #28 is excluded. See [final candidate evidence and organizer blockers](hustle-phase2-disabled-release-candidate.md), [release/rollback sequence](hustle-phase2-release-runbook.md), read-only [preflight](sql/hustle-phase2-production-preflight.sql)/[postflight](sql/hustle-phase2-production-postflight.sql), and the unapplied [enablement proposal](hustle-phase2-enable.PROPOSED.patch).
+
 ## Design decisions
 
 - Dedicated shortlist data; no changes to generic registrations, profiles, team sizes, public browsing or the existing hard-off participation guard.
@@ -37,7 +39,9 @@ npx tsc --noEmit
 npx eslint src/lib/hustle-phase2 src/lib/admin/requireAdmin.ts src/lib/partners/requirePartnerAccess.ts src/app/api/partners/hustle-carnival/phase-2 src/app/partners/hustle-carnival/phase-2 scripts/hustle-phase2-local-db.cjs scripts/test-hustle-phase2.cjs scripts/test-hustle-phase2-sql.cjs scripts/test-hustle-phase2-browser.cjs scripts/smoke-test-core-pages.js
 node --test scripts/test-hustle-phase2.cjs
 node scripts/test-hustle-phase2-sql.cjs
+node scripts/test-hustle-phase2-ownership.cjs
 node scripts/test-hustle-phase2-browser.cjs
+node scripts/test-hustle-phase2-production.cjs
 node --test scripts/test-hustle-carnival-workshops.cjs scripts/test-hustle-carnival.cjs scripts/test-partner-authorization.cjs scripts/test-partner-csv.cjs scripts/test-partner-admin.cjs scripts/test-partner-organizer-api.cjs
 ```
 
@@ -54,7 +58,8 @@ October 18 compatibility-fix verification: TypeScript and scoped lint passed; 20
 - Bearer possession authenticates the leader; forwarding a link delegates that capability. Fragment links appear once to an authorized admin, can be revoked/reissued, and expire at the cutoff. Losing a link requires explicit revoke/reissue; there is no automatic resend.
 - A shared 300-per-minute public mutation ceiling and 12-per-token ceiling provide bounded database-backed throttling. Deliberately exhausting the shared ceiling can temporarily delay legitimate users; tune against the approved shortlist size and deployment protection before live operation.
 - The official CSV is not yet known. Explicitly map supported columns, with leader + optional second member. Extra columns must be removed in a reviewed normalized copy; the importer does not silently discard or infer them. The pilot caps total imported teams at 500.
-- `npm audit` on the unchanged lockfile reports 8 existing dependency advisories (7 high, 1 critical), including Next.js 16.3.5. No dependency versions changed in this PR. Resolve framework/dependency security advisories in a separately scoped change before production release.
+- Security PR #29's patched lockfile is now inherited unchanged from production main. Current audit: zero production findings; five high affected-package entries from one unpatched development-only braces chain. Lint only trusted repository inputs and record the residual risk in release review. No additional dependency upgrade was attempted.
+- Expected official scope is 50–75 teams / 100–130 participants. Proposed Sno/Name/Phone number/Gmail/College name headers do not establish teams or leaders. Obtain grouping, stable team IDs/names and explicit leader designation before producing the reviewed normalized shortlist. Proposed organizer addresses are not provisioned or treated as authority.
 
 ## Changed-file manifest
 
@@ -80,3 +85,5 @@ Additional changed files since the original 12-file manifest:
 13. `src/lib/admin/requireAdmin.ts` — optional SSR cookie-update callback for standalone private routes.
 14. `src/lib/partners/requirePartnerAccess.ts` — forwards the optional cookie callback while retaining exact-event authorization.
 15. `docs/hustle-phase2-security-review.md` — review findings, dependency triage, compatibility and launch gates.
+
+Final disabled-release preparation additionally includes the candidate document, release runbook, read-only preflight/postflight SQL, unapplied enablement patch, exact-migration ownership test, and production build/runtime test. The synthetic core smoke path now drains HTTP handles without forced process exit; a permission-failure regression verifies nonzero exit is preserved. No application runtime source, migration body or production flag changed in this final preparation.
