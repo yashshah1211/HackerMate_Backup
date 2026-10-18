@@ -16,7 +16,7 @@ export function enabled(): boolean {
     if (process.env.NODE_ENV === "production") {
       return PRODUCTION_RELEASE_APPROVED && process.env.VERCEL_ENV === "production"
         && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE !== "true"
-        && url.protocol === "https:" && /^[a-z0-9-]+\.supabase\.co$/.test(url.hostname)
+        && url.protocol === "https:" && url.hostname === "rhryjrbebfrrfhtyyzbs.supabase.co"
         && !url.port && !url.username && !url.password && url.pathname === "/" && !url.search && !url.hash
         && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() && !!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
     }

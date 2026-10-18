@@ -16,10 +16,11 @@ const API = '/api/partners/hustle-carnival/phase-2';
 const EVENT = '0da43cba-90dc-449c-a126-a2fc8be8a379';
 const TEAM = '00000000-0000-4000-8000-000000000011';
 const ORIGIN = 'https://synthetic.example.invalid';
+// Public hostname only; SDK factories are mocked and network access is forbidden.
 const production = {
   NODE_ENV: 'production', VERCEL_ENV: 'production',
   HUSTLE_PHASE2_ENABLED: 'true', HUSTLE_PHASE2_RELEASE_APPROVED: 'true',
-  NEXT_PUBLIC_SUPABASE_URL: 'https://synthetic-release.supabase.co',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://rhryjrbebfrrfhtyyzbs.supabase.co',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'synthetic-anon', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service',
 };
 const mutations = ['columns', 'import', 'activate', 'invite', 'revoke'];
@@ -128,12 +129,18 @@ test('approval/configuration must match exact production requirements', () => {
     { NODE_ENV: 'test' }, { NODE_ENV: undefined }, { VERCEL_ENV: 'preview' }, { VERCEL_ENV: 'development' }, { VERCEL_ENV: undefined },
     { HUSTLE_PHASE2_LOCAL_FIXTURE: 'true' }, { NEXT_PUBLIC_SUPABASE_URL: undefined },
     { NEXT_PUBLIC_SUPABASE_ANON_KEY: ' ' }, { SUPABASE_SERVICE_ROLE_KEY: '' },
-    ...['not a URL', 'http://synthetic-release.supabase.co', 'https://localhost', 'http://127.0.0.1:9999',
-      'https://synthetic-release.supabase.co.evil.invalid', 'https://synthetic-release.supabase.co:8443',
-      'https://user:password@synthetic-release.supabase.co', 'https://synthetic-release.supabase.co/rest/v1',
-      'https://synthetic-release.supabase.co/?token=bad', 'https://synthetic-release.supabase.co/#bad']
+    ...['not a URL', 'http://rhryjrbebfrrfhtyyzbs.supabase.co', 'https://localhost', 'http://127.0.0.1:9999',
+      'https://rhryjrbebfrrfhtyyzbs.supabase.co.evil.invalid', 'https://rhryjrbebfrrfhtyyzbs.supabase.co:8443',
+      'https://user:password@rhryjrbebfrrfhtyyzbs.supabase.co', 'https://rhryjrbebfrrfhtyyzbs.supabase.co/rest/v1',
+      'https://rhryjrbebfrrfhtyyzbs.supabase.co/?token=bad', 'https://rhryjrbebfrrfhtyyzbs.supabase.co/#bad']
       .map(NEXT_PUBLIC_SUPABASE_URL => ({ NEXT_PUBLIC_SUPABASE_URL })),
   ]) assert.equal(harness({ ...production, ...changes }).server.enabled(), false, JSON.stringify(changes));
+});
+
+test('another valid Supabase project is disabled before any SDK access', async () => {
+  const h = harness({ ...production, NEXT_PUBLIC_SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co' }, 'admin');
+  assert.equal(h.server.enabled(), false);
+  await allDisabled(h);
 });
 
 test('local bypass requires explicit test/development, loopback and no hosted deployment', () => {
