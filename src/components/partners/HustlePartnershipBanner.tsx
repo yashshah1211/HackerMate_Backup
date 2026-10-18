@@ -1,9 +1,38 @@
+"use client";
+
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { ArrowRight, ArrowUpRight, CalendarDays } from "lucide-react";
 import styles from "./HustlePartnershipBanner.module.css";
 
+const EXPIRES_AT = Date.parse("2026-10-25T00:00:00+05:30");
+const isBeforeExpiry = () => Date.now() < EXPIRES_AT;
+// SSR and the first hydration render agree; cached HTML never contains an expired banner.
+const serverSnapshot = () => false;
+
+function subscribeToExpiry(onChange: () => void) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const refresh = () => {
+    clearTimeout(timer);
+    onChange();
+    const remaining = EXPIRES_AT - Date.now();
+    if (remaining > 0) timer = setTimeout(refresh, Math.min(remaining, 2_147_483_647));
+  };
+  refresh();
+  document.addEventListener("visibilitychange", refresh);
+  window.addEventListener("focus", refresh);
+  return () => {
+    clearTimeout(timer);
+    document.removeEventListener("visibilitychange", refresh);
+    window.removeEventListener("focus", refresh);
+  };
+}
+
 /** Public event discovery only. Private Round 2 access stays behind its existing gates. */
 export default function HustlePartnershipBanner() {
+  const visible = useSyncExternalStore(subscribeToExpiry, isBeforeExpiry, serverSnapshot);
+  if (!visible) return null;
+
   return (
     <section className={styles.banner} aria-labelledby="hustle-partnership-title">
       <div className={styles.event}>

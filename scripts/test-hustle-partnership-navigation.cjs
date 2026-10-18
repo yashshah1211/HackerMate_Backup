@@ -7,6 +7,8 @@ const { React, load, renderPortal } = require('./hustle-carnival-harness.cjs');
 
 test('partnership discovery exposes only the two public destinations, with accurate availability copy', () => {
   const Component = load('src/components/partners/HustlePartnershipBanner.tsx', {
+    // Content fixture for the hydrated, pre-expiry view. Real hydration/boundary checks are separate.
+    react: { ...React, useSyncExternalStore: () => true },
     'next/link': ({ children, prefetch, ...props }) => {
       assert.equal(prefetch, false);
       return React.createElement('a', props, children);

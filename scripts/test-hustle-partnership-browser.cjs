@@ -63,6 +63,7 @@ async function main() {
         return route.abort();
       });
       const page = await context.newPage();
+      await page.clock.setFixedTime(new Date('2026-10-24T15:00:00+05:30'));
       page.on('pageerror', error => evidence.pageErrors.push(error.message));
       const dashboardResponse = await page.goto(origin + '/dev/v2/dashboard', { waitUntil: 'domcontentloaded', timeout: 90000 });
       check(dashboardResponse.status() === 200, 'Existing dashboard fixture route returns 200');
@@ -135,6 +136,17 @@ async function main() {
       await page.waitForURL(origin + portal + '/workshops');
       await page.getByRole('heading', { name: 'Introduction to AI Tools', exact: true }).waitFor();
       check(await page.locator('main article').count() === 2, 'Dashboard workshop link navigates directly');
+      await page.clock.setFixedTime(new Date('2026-10-25T00:00:00+05:30'));
+      await page.goto(origin + '/dev/v2/dashboard');
+      await page.locator('#needs-you').waitFor();
+      check(await banner.count() === 0, 'Banner absent at the exact IST expiry');
+      check(await page.locator('nav[aria-label="Primary"]:visible a').count() === (width >= 768 ? 6 : 5), 'App navigation remains available after banner expiry');
+      const portalAfterExpiry = await page.goto(origin + portal);
+      await nav.waitFor();
+      check(portalAfterExpiry.status() === 200, 'Public portal remains available after banner expiry');
+      await nav.getByRole('link', { name: 'Public workshops' }).click();
+      await page.getByRole('heading', { name: 'Introduction to AI Tools', exact: true }).waitFor();
+      check(await page.locator('main article').count() === 2, 'Public workshops remain available after banner expiry');
       await context.close();
     }
     // Existing real authenticated route still redirects a verified guest; no auth stubs are bypassed.

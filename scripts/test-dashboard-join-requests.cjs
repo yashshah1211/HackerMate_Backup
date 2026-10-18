@@ -105,7 +105,7 @@ async function view(t, options = {}) {
     '@/context/NotificationContext': { useNotification: () => ({ showToast }) },
     '@/lib/posthog': { trackEvent() {} }, '@/components/StreakWidget': () => null,
     '@/components/system': system,
-  }, { window: dom.window, localStorage: dom.window.localStorage, Event: dom.window.Event, console: { error: (...args) => errors.push(args) } });
+  }, { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, Event: dom.window.Event, console: { error: (...args) => errors.push(args) } });
   const { useDashboardData } = loader.load('src/app/dashboard/useDashboardData.ts');
   const { DashboardView } = loader.load('src/app/dashboard/DashboardView.tsx');
   function Probe() {
