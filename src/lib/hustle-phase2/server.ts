@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { requireVerifiedProfile } from "@/lib/admin/requireAdmin";
+import { requireVerifiedProfile, type AuthCookieUpdate } from "@/lib/admin/requireAdmin";
 import { requirePartnerAccess } from "@/lib/partners/requirePartnerAccess";
 import { csvCell } from "@/lib/partners/csv";
 import { BASE, CLOSES, EVENT_ID, MAX_CSV_BYTES, newToken, parseCsv, previewCsv, receipt, tokenHash, verifyReceipt, type Mapping, type TeamInput } from "./core";
@@ -21,6 +21,14 @@ export function enabled(): boolean {
 export const COOKIE = "hm_hustle_p2";
 export const PRIVATE_HEADERS = { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow, noarchive", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" };
 export function secure(response: Response): Response { for (const [k, v] of Object.entries(PRIVATE_HEADERS)) response.headers.set(k, v); return response; }
+export async function withAuthCookies(operation: (onCookies: (cookies: AuthCookieUpdate[]) => void) => Promise<Response>): Promise<Response> {
+  const updates = new Map<string, AuthCookieUpdate>();
+  const result = await operation(cookies => cookies.forEach(cookie => updates.set(cookie.name, cookie)));
+  if (!updates.size) return result;
+  const response = new NextResponse(result.body, { status: result.status, headers: result.headers });
+  updates.forEach(cookie => response.cookies.set(cookie.name, cookie.value, cookie.options));
+  return secure(response);
+}
 export function json(body: unknown, status = 200) { return secure(NextResponse.json(body, { status })); }
 export class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 export function database() {
@@ -40,14 +48,14 @@ export async function rpc<T>(name: string, args: Record<string, unknown> = {}): 
   if (data === null && name !== "hustle_phase2_inspect") throw new HttpError(503, "Round 2 is unavailable. Please try again later.");
   return data as T;
 }
-export async function authorize(req: NextRequest, admin: boolean) {
+export async function authorize(req: NextRequest, admin: boolean, onCookies?: (cookies: AuthCookieUpdate[]) => void) {
   if (admin) {
-    const auth = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, lookupFailureStatus: 500 });
+    const auth = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, lookupFailureStatus: 500, onCookies });
     if (auth instanceof NextResponse) throw new HttpError(auth.status, "Authorized administrator access required.");
     if (!auth.isAdmin) throw new HttpError(403, "Authorized administrator access required.");
     return { actor: auth.user.id, isAdmin: true, client: auth.supabaseUserClient };
   }
-  const auth = await requirePartnerAccess(req, { hackathonId: EVENT_ID }, { detailedErrors: true });
+  const auth = await requirePartnerAccess(req, { hackathonId: EVENT_ID }, { detailedErrors: true, onCookies });
   if (auth instanceof NextResponse) throw new HttpError(auth.status, "Authorized event organizer access required.");
   const { data, error } = await auth.supabaseUserClient.rpc("has_partner_admin_access");
   if (error) { console.error("[hustle-phase2] Admin access lookup failed", { code: error.code, message: error.message }); throw new HttpError(503, "Unable to verify access."); }
@@ -85,13 +93,16 @@ export async function snapshot(client: ReturnType<typeof database>): Promise<Sna
 async function limit(key: string, max: number) { if (!await rpc<boolean>("hustle_phase2_limit", { p_key: key, p_max: max })) throw new HttpError(429, "Too many requests. Try again in a minute."); }
 function uuid(value: unknown): string { if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new HttpError(400, "Invalid identifier."); return value; }
 
-export async function handleApi(req: NextRequest, action: string): Promise<Response> {
+export function handleApi(req: NextRequest, action: string): Promise<Response> {
+  return withAuthCookies(onCookies => handleApiRequest(req, action, onCookies));
+}
+async function handleApiRequest(req: NextRequest, action: string, onCookies: (cookies: AuthCookieUpdate[]) => void): Promise<Response> {
   try {
     if (!enabled()) return json({ error: "Round 2 registration is not available yet." }, 503);
     if (req.nextUrl.search) throw new HttpError(400, "Query parameters are not accepted.");
     if (req.method === "POST") sameOrigin(req);
     if (req.method === "GET" && ["organizer", "export"].includes(action)) {
-      const auth = await authorize(req, false); const data = await snapshot(auth.client);
+      const auth = await authorize(req, false, onCookies); const data = await snapshot(auth.client);
       if (action === "organizer") return json({ ...data, isAdmin: auth.isAdmin });
       const fields = ["Team ID", "Team", "Leader", "Leader email", "Leader WhatsApp", "Second member", "Response", "Responded at"];
       const csv = [fields, ...data.teams.map(t => [t.external_team_id, t.team_name, t.leader_name, t.leader_email, t.leader_whatsapp || "", t.second_member_name || "", t.decision, t.decided_at || ""])].map(row => row.map(csvCell).join(",")).join("\r\n");
@@ -118,7 +129,7 @@ export async function handleApi(req: NextRequest, action: string): Promise<Respo
       if (result.status !== "ok") throw new HttpError(result.status === "invalid" ? 404 : 409, result.status === "conflict" ? "A different response is already recorded. Contact the organizer." : "Registration is unavailable or outside the registration window.");
       return json(result);
     }
-    const auth = await authorize(req, true); await limit(`admin:${auth.actor}`, 30); const data = await payload(req);
+    const auth = await authorize(req, true, onCookies); await limit(`admin:${auth.actor}`, 30); const data = await payload(req);
     if (action === "columns") {
       exactKeys(data, ["csv"]);
       if (typeof data.csv !== "string") throw new HttpError(400, "CSV required.");
@@ -147,7 +158,8 @@ export async function handleApi(req: NextRequest, action: string): Promise<Respo
       exactKeys(data, ["teamId"]);
       const { token, hash } = newToken();
       await rpc("hustle_phase2_invite", { p_actor: auth.actor, p_team: uuid(data.teamId), p_hash: hash });
-      return json({ url: `${req.nextUrl.origin}${BASE}/invite/${token}`, notice: "Shown once. No message has been sent." }, 201);
+      // Fragments never travel in HTTP request URLs or normal access logs.
+      return json({ url: `${req.nextUrl.origin}${BASE}/invite#${token}`, notice: "Shown once. No message has been sent." }, 201);
     }
     if (action === "revoke") {
       exactKeys(data, ["teamId"]);

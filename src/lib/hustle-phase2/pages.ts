@@ -2,7 +2,8 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { API, BASE, escapeHtml as h, FIELDS } from "./core";
-import { authorize, COOKIE, enabled, HttpError, inspect, secure, snapshot, type Snapshot } from "./server";
+import { authorize, COOKIE, enabled, HttpError, inspect, secure, snapshot, type Snapshot, withAuthCookies } from "./server";
+import type { AuthCookieUpdate } from "@/lib/admin/requireAdmin";
 
 const style = `
 :root{color-scheme:dark;font-family:Arial,Helvetica,sans-serif;color:#f4f0e6;background:#11110f;font-size:16px}
@@ -36,13 +37,17 @@ preview.addEventListener('click',async()=>{invalidate();preview.disabled=true;tr
 commit.addEventListener('click',async()=>{if(!receipt||!confirm('Import this exact reviewed shortlist? Registration stays unavailable until separate activation.'))return;commit.disabled=true;try{await post('import',{mode:'commit',csv,mapping:getMapping(),receipt});location.reload()}catch(error){invalidate();message(error.message,true)}});}
 `; }
 
-export async function handlePage(req: NextRequest, path: string[] = []) {
+export function handlePage(req: NextRequest, path: string[] = []): Promise<Response> {
+  return withAuthCookies(onCookies => handlePageRequest(req, path, onCookies));
+}
+async function handlePageRequest(req: NextRequest, path: string[], onCookies: (cookies: AuthCookieUpdate[]) => void) {
   try {
     if (!enabled()) return shell("Round 2 registration", `<h1>Round 2 registration</h1>${schedule}<section class="panel narrow"><h2>Registration is not available yet</h2><p>Registration opens only after the official shortlist is imported and activated. Shortlisted team leaders will receive a private invitation.</p><p>No payment is required.</p></section>`);
-    if (path.length === 1 && path[0] === "organizer") { const auth = await authorize(req,false); return organizer(await snapshot(auth.client),auth.isAdmin); }
-    if (path.length === 2 && path[0] === "invite") {
-      if (!await inspect(path[1])) throw new HttpError(404,"Invitation is invalid or unavailable. Contact the organizer if you need help.");
-      return shell("Private team invitation", `<h1>Your Round 2 invitation</h1>${schedule}<section class="panel narrow"><h2>Continue to your team</h2><p>Only the invited team leader should use this link. Continuing does not confirm attendance.</p><form id="exchange" method="post" action="${API}/session"><input type="hidden" name="token" value="${h(path[1])}"><button>Continue securely</button></form><p id="notice" class="notice" role="status" tabindex="-1"></p><noscript>Enable JavaScript to continue securely.</noscript></section>`, `document.getElementById('exchange').addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('button'),notice=document.getElementById('notice');button.disabled=true;try{const response=await fetch(form.action,{method:'POST',mode:'cors',credentials:'same-origin',body:new URLSearchParams(new FormData(form))});if(!response.ok){const result=await response.json();throw Error(result.error||'Unable to open invitation.')}location.replace(${JSON.stringify(BASE)})}catch(error){notice.textContent=error.message;notice.focus();button.disabled=false}});`);
+    if (path.length === 1 && path[0] === "organizer") { const auth = await authorize(req,false,onCookies); return organizer(await snapshot(auth.client),auth.isAdmin); }
+    if (path.length === 1 && path[0] === "invite") {
+      // No bearer enters server-rendered HTML. Strip the fragment immediately,
+      // before any exchange/navigation; this page has no third-party resources.
+      return shell("Private team invitation", `<h1>Your Round 2 invitation</h1>${schedule}<section class="panel narrow"><h2>Continue to your team</h2><p>Only the invited team leader should use this link. Continuing does not confirm attendance.</p><form id="exchange" method="post" action="${API}/session"><button>Continue securely</button></form><p id="notice" class="notice" role="status" tabindex="-1"></p><noscript>Enable JavaScript to continue securely.</noscript></section>`, `const token=location.hash.slice(1);history.replaceState(null,'',${JSON.stringify(BASE + "/invite")});const form=document.getElementById('exchange'),button=form.querySelector('button'),notice=document.getElementById('notice');if(!/^[A-Za-z0-9_-]{43}$/.test(token)){button.disabled=true;notice.textContent='Invitation is invalid or unavailable. Contact the organizer if you need help.'}form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;try{const response=await fetch(form.action,{method:'POST',mode:'cors',credentials:'same-origin',body:new URLSearchParams({token})});if(!response.ok){const result=await response.json();throw Error(result.error||'Unable to open invitation.')}location.replace(${JSON.stringify(BASE)})}catch(error){notice.textContent=error.message;notice.focus();button.disabled=false}});`);
     }
     if (path.length) throw new HttpError(404,"Page not found.");
     const invitation = await inspect(req.cookies.get(COOKIE)?.value || "");

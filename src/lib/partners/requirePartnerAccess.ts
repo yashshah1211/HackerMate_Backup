@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireVerifiedProfile } from "@/lib/admin/requireAdmin";
+import { requireVerifiedProfile, type AuthCookieUpdate } from "@/lib/admin/requireAdmin";
 import type { PartnerAccessResult, PartnerAccessTarget } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,7 +14,7 @@ function denied(): NextResponse {
 export async function requirePartnerAccess(
   req: NextRequest,
   target: PartnerAccessTarget,
-  options: { detailedErrors?: boolean } = {}
+  options: { detailedErrors?: boolean; onCookies?: (cookies: AuthCookieUpdate[]) => void } = {}
 ): Promise<PartnerAccessResult | NextResponse> {
   function failure(status: 403 | 404 | 500, operation?: string, code?: string): NextResponse {
     if (operation) console.error("[requirePartnerAccess] Lookup failed", { operation, code });
@@ -25,7 +25,7 @@ export async function requirePartnerAccess(
   }
   try {
     const authorization = await requireVerifiedProfile(req, options.detailedErrors
-      ? { unauthenticatedStatus: 401, lookupFailureStatus: 500 } : {});
+      ? { unauthenticatedStatus: 401, lookupFailureStatus: 500, onCookies: options.onCookies } : { onCookies: options.onCookies });
     if (authorization instanceof NextResponse) return options.detailedErrors ? authorization : denied();
     const { user, supabaseUserClient } = authorization;
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
 
 export interface AdminAuthResult {
@@ -15,10 +15,12 @@ export interface VerifiedProfileAuthResult {
   isAdmin: boolean;
 }
 
+export type AuthCookieUpdate = { name: string; value: string; options: CookieOptions };
+
 // Shared identity/profile boundary. This never creates a service-role client.
 export async function requireVerifiedProfile(
   req?: NextRequest,
-  options: { unauthenticatedStatus?: 401; lookupFailureStatus?: 500 } = {}
+  options: { unauthenticatedStatus?: 401; lookupFailureStatus?: 500; onCookies?: (cookies: AuthCookieUpdate[]) => void } = {}
 ): Promise<VerifiedProfileAuthResult | NextResponse> {
   const authHeader = req?.headers?.get("Authorization");
   let token: string | undefined;
@@ -56,7 +58,9 @@ export async function requireVerifiedProfile(
       {
         cookies: {
           getAll: () => req?.cookies?.getAll() || [],
-          setAll: () => {},
+          // Existing callers rely on refresh middleware. Standalone route
+          // handlers may explicitly persist refreshes in their own response.
+          setAll: cookies => options.onCookies?.(cookies),
         },
       }
     );
