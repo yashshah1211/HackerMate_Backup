@@ -58,8 +58,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.hustle_phase2_limits TO service_r
 
 -- Admin identity is supplied only by the verified backend. Browser roles cannot
 -- execute this helper or the mutation functions, including with a forged actor.
+-- Narrow definer boundary: service_role cannot read auth.users in production.
+-- Returns only a boolean; fully qualified relations and an empty search path.
+-- The trusted migration owner must retain access to the protected identity rows.
 CREATE FUNCTION public.hustle_phase2_authorized(p_actor uuid, p_write boolean)
-RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT p_write IS TRUE AND EXISTS (SELECT 1 FROM public.profiles p JOIN auth.users u ON u.id = p.id
     WHERE p.id = p_actor AND p.is_banned IS FALSE AND u.email IS NOT NULL AND u.email <> ''
     AND (p.role = 'admin' OR lower(btrim(u.email)) = 'yashshah7117@gmail.com'));

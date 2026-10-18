@@ -36,7 +36,9 @@ async function createFixture() {
       GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
       CREATE TABLE public.profiles(id uuid PRIMARY KEY,role text,is_banned boolean);
       CREATE TABLE public.hackathons(id uuid PRIMARY KEY,type text,organizer_id uuid);
-      GRANT SELECT ON auth.users, public.profiles, public.hackathons TO service_role;
+      -- Production-compatible: BYPASSRLS does not confer auth.users SELECT.
+      -- Existing partner predicates are executable only by authenticated callers.
+      GRANT SELECT (id,role,is_banned) ON public.profiles TO service_role;
       INSERT INTO public.hackathons VALUES('${EVENT}','external',NULL),('10000000-0000-4000-8000-000000000099','external',NULL);
       ${Object.entries(IDS).map(([name,id])=>`INSERT INTO auth.users VALUES('${id}','${name}@example.invalid'); INSERT INTO profiles VALUES('${id}','${name==='admin'?'admin':'user'}',${name==='banned'});`).join('\n')}`);
     sql(fs.readFileSync(path.join(ROOT,'supabase/migrations/202610060002_partner_organizer_access.sql'),'utf8'));

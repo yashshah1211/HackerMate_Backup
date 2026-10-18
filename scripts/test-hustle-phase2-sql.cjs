@@ -8,6 +8,60 @@ async function main(){const db=await createFixture();try{
  const service=q=>sql(`SET ROLE service_role; ${q}`).split('\n').at(-1);
  const user=(id,q)=>sql(`SET ROLE authenticated; SET request.jwt.claim.sub=${quote(id)}; ${q}`).split('\n').at(-1);
  const denied=(q,label)=>{assert.throws(()=>sql(q),/permission denied|Access denied/,label);checks++;};
+ // Match the audited production boundary, rather than granting auth.users to
+ // service_role just to make tests pass. BYPASSRLS is not a SELECT privilege.
+ check(sql("SELECT rolbypassrls AND NOT rolsuper FROM pg_roles WHERE rolname='service_role'")==='t','realistic non-superuser service role');
+ for(const column of ['id','email']){
+  check(sql(`SELECT NOT has_column_privilege('service_role','auth.users','${column}','SELECT')`)==='t',`protected auth.users.${column}`);
+  denied(`SET ROLE service_role; SELECT ${column} FROM auth.users`,'service cannot read auth identity');
+ }
+ for(const column of ['id','role','is_banned'])check(sql(`SELECT has_column_privilege('service_role','public.profiles','${column}','SELECT')`)==='t',`existing profiles.${column} access`);
+ check(sql("SELECT NOT has_table_privilege('service_role','public.profiles','SELECT') AND NOT has_table_privilege('service_role','public.hackathons','SELECT') AND NOT has_table_privilege('service_role','public.event_organizers','SELECT')")==='t','no broad existing table grants');
+ for(const predicate of ['has_partner_admin_access()','can_access_partner_event(uuid)']){
+  check(sql(`SELECT NOT has_function_privilege('service_role','public.${predicate}','EXECUTE')`)==='t','existing predicate remains caller-only');
+ }
+ denied('SET ROLE service_role; SELECT public.has_partner_admin_access()','cannot reuse caller-only admin predicate as service');
+ denied('SET ROLE service_role; SELECT public.hustle_phase2_snapshot()','service cannot impersonate organizer projection');
+ check(sql(`SELECT prosecdef AND prorettype='boolean'::regtype AND proconfig=ARRAY['search_path=""'] AND pg_get_userbyid(proowner)='fixture_owner' FROM pg_proc WHERE oid='public.hustle_phase2_authorized(uuid,boolean)'::regprocedure`)==='t','boolean helper uses trusted owner and locked path');
+ check(sql("SELECT bool_and(NOT prosecdef) FROM pg_proc WHERE proname IN ('hustle_phase2_import','hustle_phase2_activate','hustle_phase2_invite','hustle_phase2_revoke')")==='t','mutations retain invoker permissions');
+ check(sql("SELECT NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='public.hustle_phase2_authorized(uuid,boolean)'::regprocedure AND a.grantee NOT IN (p.proowner,'service_role'::regrole::oid))")==='t','helper EXECUTE limited to owner and service role');
+ // Causal regression: transactionally restore the old invoker definition. The
+ // expected 42501 disconnect rolls back ALTER, leaving the real migration intact.
+ assert.throws(()=>sql(`\\set VERBOSITY verbose
+ BEGIN; ALTER FUNCTION public.hustle_phase2_authorized(uuid,boolean) SECURITY INVOKER;
+ SET LOCAL ROLE service_role; SELECT public.hustle_phase2_import('${IDS.admin}','${'a'.repeat(64)}','[]');`),/42501:.*permission denied for table users/);checks++;
+ const authorized=(actor=IDS.admin,write='true')=>`SELECT public.hustle_phase2_authorized(${quote(actor)},${write})`;
+ const identityCases=[
+  ['verified admin','',IDS.admin,'true',true],
+  ['organizer','',IDS.organizer,'true',false],
+  ['unrelated','',IDS.unrelated,'true',false],
+  ['banned admin',`UPDATE profiles SET is_banned=true WHERE id='${IDS.admin}'`,IDS.admin,'true',false],
+  ['unknown ban',`UPDATE profiles SET is_banned=NULL WHERE id='${IDS.admin}'`,IDS.admin,'true',false],
+  ['missing profile',`DELETE FROM profiles WHERE id='${IDS.admin}'`,IDS.admin,'true',false],
+  ['missing identity','', '00000000-0000-4000-8000-000000000099','true',false],
+  ['null actor','',null,'true',false],
+  ['write false','',IDS.admin,'false',false],
+  ['write null','',IDS.admin,'NULL',false],
+  ['admin null email',`UPDATE auth.users SET email=NULL WHERE id='${IDS.admin}'`,IDS.admin,'true',false],
+  ['admin empty email',`UPDATE auth.users SET email='' WHERE id='${IDS.admin}'`,IDS.admin,'true',false],
+  ['exact normalized founder',`UPDATE auth.users SET email=' YashShah7117@Gmail.com ' WHERE id='${IDS.unrelated}'`,IDS.unrelated,'true',true],
+  ['founder near match',`UPDATE auth.users SET email='yashshah7117@gmail.com.attacker.invalid' WHERE id='${IDS.unrelated}'`,IDS.unrelated,'true',false],
+  ['banned founder',`UPDATE auth.users SET email='yashshah7117@gmail.com' WHERE id='${IDS.unrelated}'; UPDATE profiles SET is_banned=true WHERE id='${IDS.unrelated}'`,IDS.unrelated,'true',false],
+ ];
+ for(const [label,setup,actor,write,expected] of identityCases)check(sql(`BEGIN; ${setup}; SET LOCAL ROLE service_role; ${authorized(actor,write)}; ROLLBACK;`).split(/\r?\n/).at(-2)===(expected?'t':'f'),label);
+ // Unauthorized actors must fail at authorization on EVERY admin RPC, before
+ // inspecting batch/team arguments or performing any write.
+ const mutations=actor=>[
+  `public.hustle_phase2_import(${quote(actor)},'${'a'.repeat(64)}','[]')`,
+  `public.hustle_phase2_activate(${quote(actor)},'${IDS.admin}','${'a'.repeat(64)}')`,
+  `public.hustle_phase2_invite(${quote(actor)},'${IDS.admin}','${'a'.repeat(64)}')`,
+  `public.hustle_phase2_revoke(${quote(actor)},'${IDS.admin}')`,
+ ];
+ for(const actor of [IDS.organizer,IDS.unrelated,IDS.banned,null])for(const call of mutations(actor))denied(`SET ROLE service_role; SELECT ${call}`,'unprivileged actor denied mutation');
+ for(const call of mutations(IDS.admin))denied(`BEGIN; UPDATE profiles SET is_banned=true WHERE id='${IDS.admin}'; SET LOCAL ROLE service_role; SELECT ${call}`,'banned admin denied every mutation');
+ for(const call of mutations(IDS.unrelated))denied(`BEGIN; UPDATE auth.users SET email='yashshah7117@gmail.com' WHERE id='${IDS.unrelated}'; UPDATE profiles SET is_banned=true WHERE id='${IDS.unrelated}'; SET LOCAL ROLE service_role; SELECT ${call}`,'banned founder denied every mutation');
+ for(const role of ['anon','authenticated'])for(const call of mutations(IDS.admin))denied(`SET ROLE ${role}; SELECT ${call}`,'browser cannot forge admin for any mutation');
+ for(const role of ['anon','authenticated'])denied(`SET ROLE ${role}; ${authorized()}`,'browser cannot execute definer helper');
  const tables=['batches','teams','invites','audit','limits'];
  for(const role of ['anon','authenticated'])for(const table of tables)for(const op of ['SELECT','INSERT','UPDATE','DELETE','TRUNCATE']){
   check(sql(`SELECT NOT has_table_privilege('${role}','public.hustle_phase2_${table}','${op}')`)==='t',`${role} ${table} ${op} denied`);
@@ -23,6 +77,23 @@ async function main(){const db=await createFixture();try{
  denied(`SET ROLE service_role; SELECT public.hustle_phase2_import('${IDS.admin}','${'a'.repeat(64)}','[]')`,'banned admin import');
  sql(`UPDATE profiles SET is_banned=false WHERE id='${IDS.admin}'`);
  const row=n=>({external_team_id:'SYNTH-'+n,team_name:'Synthetic team '+n,leader_name:'Fixture Leader '+n,leader_email:'leader'+n+'@example.invalid',leader_whatsapp:null,second_member_name:n%2?'Fixture Member '+n:null});
+ installClock(db);
+ // Both admin-role and exact-founder semantics traverse all four actual RPCs,
+ // including FK checks, with no SELECT on auth.users/hackathons/assignments.
+ // The founder email is a policy constant on a throwaway UUID, never a real account.
+ for(const actor of [IDS.admin,IDS.unrelated]){
+  const setup=actor===IDS.unrelated?`UPDATE auth.users SET email=' YashShah7117@Gmail.com ' WHERE id='${actor}';`:'';
+  const result=sql(`BEGIN; ${setup} SET LOCAL ROLE service_role; DO $$
+   DECLARE batch uuid; team uuid; BEGIN
+    batch := (public.hustle_phase2_import('${actor}','${'c'.repeat(64)}',${quote(JSON.stringify([row(90)]))})->>'batchId')::uuid;
+    IF public.hustle_phase2_activate('${actor}',batch,'${'c'.repeat(64)}')->>'active' <> 'true' THEN RAISE EXCEPTION 'fixture activation failed'; END IF;
+    SELECT id INTO STRICT team FROM public.hustle_phase2_teams WHERE batch_id=batch;
+    IF NOT public.hustle_phase2_invite('${actor}',team,'${'e'.repeat(64)}') THEN RAISE EXCEPTION 'fixture invite failed'; END IF;
+    IF NOT public.hustle_phase2_revoke('${actor}',team) THEN RAISE EXCEPTION 'fixture revoke failed'; END IF;
+   END $$;
+   SELECT count(*)=4 AND count(DISTINCT action)=4 AND bool_and(actor_id='${actor}') FROM public.hustle_phase2_audit; ROLLBACK;`);
+  check(result.split(/\r?\n/).at(-2)==='t','all four administrator mutations succeed with realistic permissions: '+actor);
+ }
  const imported=JSON.parse(service(`SELECT public.hustle_phase2_import('${IDS.admin}','${'a'.repeat(64)}',${quote(JSON.stringify([row(1),row(2),row(3),row(4)]))})`));
  check(imported.imported===4&&!imported.active,'import inactive 1–2 person teams');
  const teams=JSON.parse(user(IDS.admin,'SELECT public.hustle_phase2_snapshot()')).teams;
@@ -32,7 +103,6 @@ async function main(){const db=await createFixture();try{
  assert.throws(()=>sql(`UPDATE hustle_phase2_teams SET event_id='10000000-0000-4000-8000-000000000099' WHERE id='${team(1)}'`),/check constraint/);checks++;
  assert.throws(()=>service(`SELECT public.hustle_phase2_invite('${IDS.admin}','${team(1)}','${'1'.repeat(64)}')`),/Team not eligible/);checks++;
  for(const [time,state] of [['2026-10-23T04:29:59.999Z','before'],['2026-10-23T04:30:00Z','open'],['2026-10-23T17:29:59.999Z','open'],['2026-10-23T17:30:00Z','closed']])check(service(`SELECT public.hustle_phase2_window('${time}')`)===state,'IST cutoff '+time);
- installClock(db);
  assert.throws(()=>service(`SELECT public.hustle_phase2_activate('${IDS.admin}','${imported.batchId}','${'b'.repeat(64)}')`),/Batch not ready/);checks++;
  service(`SELECT public.hustle_phase2_activate('${IDS.admin}','${imported.batchId}','${'a'.repeat(64)}')`);
  service(`SELECT public.hustle_phase2_activate('${IDS.admin}','${imported.batchId}','${'a'.repeat(64)}')`);
