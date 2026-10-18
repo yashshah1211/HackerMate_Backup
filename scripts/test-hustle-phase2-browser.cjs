@@ -5,8 +5,9 @@ const BASE='/partners/hustle-carnival/phase-2',API='/api/partners/hustle-carniva
 const signatures={hustle_phase2_limit:['p_key','p_max'],hustle_phase2_import:['p_actor','p_digest','p_rows'],hustle_phase2_activate:['p_actor','p_batch','p_digest'],hustle_phase2_invite:['p_actor','p_team','p_hash'],hustle_phase2_revoke:['p_actor','p_team'],hustle_phase2_inspect:['p_hash'],hustle_phase2_respond:['p_hash','p_decision'],hustle_phase2_snapshot:[],has_partner_admin_access:[],can_access_partner_event:['p_hackathon_id']};
 const tokenFor=id=>Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:id,role:'authenticated',exp:2000000000,email:'fixture@example.invalid'})).toString('base64url')+'.synthetic-signature';
 async function childRun(args,env){return new Promise((resolve,reject)=>{const child=spawn(process.execPath,args,{cwd:ROOT,env,windowsHide:true,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',v=>output+=v);child.stderr.on('data',v=>output+=v);child.on('error',reject);child.on('exit',code=>code===0?resolve(output):reject(new Error(output)));});}
-async function main(){const db=await createFixture();let stub,next,browser;let nextLog='';const errors=[],unexpected=[],requests=[];let checks=0,missingSchema=false,refreshCount=0;
+async function main(){const db=await createFixture();let stub,next,browser;let nextLog='';const errors=[],unexpected=[],requests=[],rawTokens=[],seenUrls=[],browserLogs=[];let checks=0,missingSchema=false,refreshCount=0;
  const check=(value,label)=>{assert(value,label);checks++;};
+ const redact=value=>{let safe=String(value);for(const token of rawTokens)safe=safe.replaceAll(token,'[bearer redacted]');return safe.replace(/https?:\/\/[^\s"'<>]+/g,'[URL redacted]').replace(/[A-Za-z0-9_-]{43}/g,'[opaque value redacted]')};
  const out=path.join(ROOT,'test-results/hustle-phase2');fs.mkdirSync(out,{recursive:true});
  try{
   installClock(db);const apiPort=await freePort(),appPort=await freePort(),origin=`http://localhost:${appPort}`,dbOrigin=`http://127.0.0.1:${apiPort}`;
@@ -37,25 +38,79 @@ async function main(){const db=await createFixture();let stub,next,browser;let n
   next=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','--webpack','-H','127.0.0.1','-p',String(appPort)],{cwd:ROOT,env,windowsHide:true,stdio:['ignore','pipe','pipe']});next.stdout.on('data',v=>nextLog+=v);next.stderr.on('data',v=>nextLog+=v);
   console.log('Fixture ready; starting Next route checks.');let ready=false;for(let n=0;n<120;n++){if(next.exitCode!==null)throw new Error('Next exited: '+nextLog);try{const r=await fetch(origin+BASE);if(r.ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,500));}check(ready,'Next route ready');console.log('Next ready; checking authorization and import.');
   const edge='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:fs.existsSync(edge)?{executablePath:edge}:{})});
-  async function context(width,who){const ctx=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block',extraHTTPHeaders:who?{Authorization:'Bearer '+tokenFor(IDS[who])}:{}});await ctx.route('**/*',route=>{if(new URL(route.request().url()).origin===origin)return route.continue();unexpected.push('external browser request');return route.abort();});ctx.on('page',page=>page.on('pageerror',error=>errors.push(error.message)));return ctx;}
+  async function context(width,who){const ctx=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block',extraHTTPHeaders:who?{Authorization:'Bearer '+tokenFor(IDS[who])}:{}});await ctx.route('**/*',route=>{if(new URL(route.request().url()).origin===origin)return route.continue();unexpected.push('external browser request');return route.abort();});ctx.on('page',page=>{page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>seenUrls.push(request.url()));page.on('console',msg=>browserLogs.push(msg.text()));});return ctx;}
   const guest=await context(390);const page=await guest.newPage();
   let response=await page.goto(origin+BASE);check(response.status()===200,'guest landing');check(await page.getByRole('heading',{name:'Invitation-only registration'}).isVisible(),'no invite = no team data');
   response=await page.goto(origin+BASE+'/organizer');check([401,403].includes(response.status()),'guest organizer denied');
   response=await page.goto(origin+BASE+'/invite/'+'z'.repeat(43));check(response.status()===404,'invalid token generic');
   const admin=await context(1440,'admin'),ap=await admin.newPage();ap.on('dialog',dialog=>dialog.accept());await ap.goto(origin+BASE+'/organizer');await ap.getByRole('heading',{name:'Round 2 shortlist',exact:true}).waitFor();
-  const csv='Judge code,team_name,leader_name,leader_email,optional_second_member_name\r\nSYNTH-1,Synthetic Solo,Leader One,one@example.invalid,\r\nSYNTH-2,Synthetic Pair,Leader Two,two@example.invalid,Member Two\r\nSYNTH-3,Synthetic Pending,Leader Three,three@example.invalid,\r\n';
+  const csv='Judge code,team_name,leader_name,leader_email,leader_whatsapp,optional_second_member_name\r\nSYNTH-1,Synthetic Solo,Leader One,one@example.invalid,+12025550100,\r\nSYNTH-2,Synthetic Pair,Leader Two,two@example.invalid,,Member Two\r\nSYNTH-3,Synthetic Pending,Leader Three,three@example.invalid,,\r\n';
   await ap.locator('#csv').setInputFiles({name:'synthetic-shortlist.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});await ap.getByLabel('Judge code').selectOption('team_id');await ap.getByRole('button',{name:'Validate dry run'}).click();await ap.getByText(/3 rows reviewed; 0 validation issues/).waitFor();check(db.sql('SELECT count(*) FROM hustle_phase2_teams')==='0','dry run performs no shortlist writes');
   await ap.getByRole('button',{name:'Import reviewed shortlist'}).click();await ap.getByText('Imported, not activated',{exact:true}).waitFor();check(db.sql('SELECT count(*) FROM hustle_phase2_teams')==='3','actual Next import persists all teams');
   await ap.getByRole('button',{name:'Create private link'}).first().click();await ap.getByText(/operation conflicts with the current shortlist/).waitFor();check(db.sql('SELECT count(*) FROM hustle_phase2_invites')==='0','inactive batch cannot get links');
   await ap.getByRole('button',{name:'Activate this official shortlist'}).click();await ap.getByText('Activated',{exact:true}).waitFor();
-  async function linkFor(name){const row=ap.locator('tr').filter({has:ap.getByText(name,{exact:true})});await row.getByRole('button',{name:'Create private link'}).click();await ap.locator('#created-link').waitFor({state:'visible'});const url=await ap.locator('#link-value').inputValue();await ap.getByRole('button',{name:'Close and refresh'}).click();await ap.getByRole('heading',{name:'Round 2 shortlist',exact:true}).waitFor();return url;}
-  const solo=await linkFor('Synthetic Solo'),pair=await linkFor('Synthetic Pair'),pending=await linkFor('Synthetic Pending');const rawTokens=[solo,pair,pending].map(link=>new URL(link).hash.slice(1));check(rawTokens.every(token=>token.length===43),'fragment-only high-entropy links');
+  async function linkFor(name,expected,width=1440){
+   await ap.setViewportSize({width,height:900});
+   const row=ap.locator('tr').filter({has:ap.getByText(name,{exact:true})});
+   const beforeRequests=requests.length;
+   await row.getByRole('button',{name:'Create private link'}).click();await ap.locator('#created-link').waitFor({state:'visible'});
+   check(JSON.stringify(await ap.locator('#link-recipient dd').allTextContents())===JSON.stringify(expected),'link panel matches selected team and every destination');
+   check(await ap.getByRole('heading',{name:'Verify the recipient before sharing'}).isVisible(),'recipient verification prominent');
+   check(await ap.locator('[data-action]:not(:disabled)').count()===0,'another row cannot overwrite unresolved link');
+   check(await ap.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'recipient panel has no mobile/desktop overflow');
+   check(!requests.slice(beforeRequests).includes('hustle_phase2_snapshot'),'recipient display needs no extra roster API');
+   const url=await ap.locator('#link-value').inputValue();rawTokens.push(new URL(url).hash.slice(1));
+   await ap.getByRole('button',{name:'Close and refresh'}).click();await ap.getByRole('heading',{name:'Round 2 shortlist',exact:true}).waitFor();
+   check(await ap.locator('#link-value').inputValue()===''&&await ap.locator('#link-recipient dd').count()===0,'closing clears link and recipient context');
+   return url;
+  }
+  const solo=await linkFor('Synthetic Solo',['SYNTH-1','Synthetic Solo','Leader One','one@example.invalid','+12025550100']),pair=await linkFor('Synthetic Pair',['SYNTH-2','Synthetic Pair','Leader Two','two@example.invalid','Not provided'],390),pending=await linkFor('Synthetic Pending',['SYNTH-3','Synthetic Pending','Leader Three','three@example.invalid','Not provided']);check(rawTokens.every(token=>token.length===43),'fragment-only high-entropy links');
   check(db.sql('SELECT count(*) FROM hustle_phase2_invites')==='3','three hashed invitations persisted');console.log('Import, activation and invitation creation passed; checking team responses.');
   await ap.screenshot({path:path.join(out,'organizer-1440.png'),fullPage:true});check(await ap.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'desktop no page overflow');
-  const before=db.sql("SELECT count(*) FROM hustle_phase2_audit WHERE action IN ('confirmed','declined')");const seenUrls=[];page.on('request',request=>seenUrls.push(request.url()));response=await page.goto(solo);check(page.url()===origin+BASE+'/invite','fragment removed immediately from browser history');check(response.headers()['referrer-policy']==='no-referrer','invite no-referrer');check(response.headers()['cache-control'].includes('no-store'),'invite no-store');check(db.sql("SELECT count(*) FROM hustle_phase2_audit WHERE action IN ('confirmed','declined')")===before,'GET invite no mutation');
+  const before=db.sql("SELECT count(*) FROM hustle_phase2_audit WHERE action IN ('confirmed','declined')");response=await page.goto(solo);check(page.url()===origin+BASE+'/invite','fragment removed immediately from browser history');check(response.headers()['referrer-policy']==='no-referrer','invite no-referrer');check(response.headers()['cache-control'].includes('no-store'),'invite no-store');check(db.sql("SELECT count(*) FROM hustle_phase2_audit WHERE action IN ('confirmed','declined')")===before,'GET invite no mutation');
+  const continueButton=page.getByRole('button',{name:'Continue securely'});
+  const cleanInvite=origin+BASE+'/invite';
+  async function cleanState(p,canContinue,label){
+   await p.waitForFunction(({clean,enabled})=>location.href===clean&&document.querySelector('#exchange button').disabled===!enabled,{clean:cleanInvite,enabled:canContinue});
+   check(p.url()===cleanInvite,label+' removes fragment');
+   check(await p.getByRole('button',{name:'Continue securely'}).isEnabled()===canContinue,label+' continuation state');
+  }
+  await cleanState(page,true,'initial navigation');
+  await page.reload();await cleanState(page,false,'refresh without fragment');
+  await page.goto(solo);await cleanState(page,true,'same-tab original link reopening');
+  await page.goto(pair);await cleanState(page,true,'different token in same tab');
+  await page.goBack();await cleanState(page,false,'browser Back to clean history');
+  await page.goForward();await cleanState(page,false,'browser Forward to clean history');
+  await page.goto(cleanInvite+'#not-a-token');await cleanState(page,false,'malformed token');
+  const sessionsBefore=requests.filter(name=>name==='hustle_phase2_inspect').length;
+  await page.evaluate(()=>document.getElementById('exchange').requestSubmit());
+  check(requests.filter(name=>name==='hustle_phase2_inspect').length===sessionsBefore,'invalid/no-token submission never exchanges a stale bearer');
+  await page.goto(solo);await cleanState(page,true,'valid recovery after invalid token');
+  await page.goto(cleanInvite+'#');await cleanState(page,false,'explicit empty fragment');
+  const invalid=require('node:crypto').randomBytes(32).toString('base64url');rawTokens.push(invalid);
+  await page.goto(cleanInvite+'#'+invalid);await cleanState(page,true,'well-formed unissued token');
+  await continueButton.click();await page.getByText('Invitation is invalid or unavailable.',{exact:true}).waitFor();
+  check(page.url()===cleanInvite,'server rejects unknown token without revealing it');
+  await page.goto(solo);await cleanState(page,true,'valid token after server rejection');
+  await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));await cleanState(page,false,'restored page clears ephemeral token');
+  await page.goto(solo);await cleanState(page,true,'reopen after restored page');
+  // Hold a real exchange response while a new fragment arrives. Never persist its body/cookies.
+  let release,started;const held=new Promise(resolve=>{started=resolve});const gate=new Promise(resolve=>{release=resolve});
+  const sessionPattern=origin+API+'/session';
+  const hold=async route=>{const upstream=await route.fetch({maxRedirects:0});started();await gate;await route.fulfill({response:upstream});};
+  await page.route(sessionPattern,hold);await continueButton.click();await held;
+  await page.goto(pair);await cleanState(page,false,'replacement token during in-flight exchange');
+  release();await cleanState(page,true,'replacement waits for old exchange');await page.unroute(sessionPattern,hold);
+  check(page.url()===cleanInvite,'stale response cannot navigate to the earlier team');
+  await continueButton.click();await page.getByRole('heading',{name:'Synthetic Pair',exact:true}).waitFor();
+  check(true,'exchange uses the newest token rather than stale leader');
+  const history=await guest.newCDPSession(page);const entries=(await history.send('Page.getNavigationHistory')).entries;
+  check(entries.every(entry=>rawTokens.every(token=>!entry.url.includes(token))),'browser history retains no bearer URL');await history.detach();
+  await page.goto(solo);await cleanState(page,true,'return to original team');
   await page.getByRole('button',{name:'Continue securely'}).click();await page.getByRole('heading',{name:'Synthetic Solo',exact:true}).waitFor();check(page.url()===origin+BASE,'POST exchange redirects off token URL');const cookie=(await guest.cookies()).find(c=>c.name==='hm_hustle_p2');check(cookie.httpOnly&&cookie.sameSite==='Strict','HttpOnly Strict invitation cookie');check(!(await page.content()).includes(rawTokens[0]),'clean confirmation page contains no raw token');
+  const storage=await page.evaluate(()=>JSON.stringify({local:{...localStorage},session:{...sessionStorage},state:history.state}));check(rawTokens.every(token=>!storage.includes(token)),'no bearer in browser storage or history state');
   await page.screenshot({path:path.join(out,'leader-390.png'),fullPage:true});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile no overflow');page.on('dialog',dialog=>dialog.accept());await page.getByLabel(/I am the invited leader/).check();await page.getByRole('button',{name:'Confirm attendance'}).click();await page.getByText('Your team’s response: confirmed.').waitFor();check(db.sql("SELECT decision FROM hustle_phase2_teams WHERE external_team_id='SYNTH-1'")==='confirmed','confirm persists from browser');
-  const leader2=await context(1440),lp=await leader2.newPage();lp.on('dialog',dialog=>dialog.accept());await lp.goto(pair);await lp.getByRole('button',{name:'Continue securely'}).click();await lp.getByLabel(/I am the invited leader/).check();await lp.getByRole('button',{name:'Decline invitation'}).click();await lp.getByText('Your team’s response: declined.').waitFor();check(db.sql("SELECT decision FROM hustle_phase2_teams WHERE external_team_id='SYNTH-2'")==='declined','decline persists from browser');
+  const leader2=await context(1440),lp=await leader2.newPage();lp.on('dialog',dialog=>dialog.accept());await lp.goto(pair);await cleanState(lp,true,'desktop initial navigation');await lp.reload();await cleanState(lp,false,'desktop refresh');await lp.goto(pair);await cleanState(lp,true,'desktop same-tab reopening');await lp.getByRole('button',{name:'Continue securely'}).click();await lp.getByLabel(/I am the invited leader/).check();await lp.getByRole('button',{name:'Decline invitation'}).click();await lp.getByText('Your team’s response: declined.').waitFor();check(db.sql("SELECT decision FROM hustle_phase2_teams WHERE external_team_id='SYNTH-2'")==='declined','decline persists from browser');
   const read=await context(390,'organizer'),rp=await read.newPage();await rp.goto(origin+BASE+'/organizer');check(await rp.getByRole('button',{name:'Import reviewed shortlist'}).count()===0,'read-only organizer no import');check(await rp.getByRole('button',{name:'Create private link'}).count()===0,'read-only organizer no token controls');const stats=await read.request.get(origin+API+'/organizer');check(JSON.stringify((await stats.json()).counts)===JSON.stringify({pending:1,declined:1,confirmed:1,shortlisted:3})||((await stats.json()).counts.confirmed===1&&(await stats.json()).counts.pending===1&&(await stats.json()).counts.declined===1),'shortlist-only counts exact');await rp.screenshot({path:path.join(out,'organizer-390.png'),fullPage:true});check(await rp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile organizer no page overflow');
   const cookieOnly=await context(390),cp=await cookieOnly.newPage();const expired=tokenFor(IDS.organizer).split('.');expired[1]=Buffer.from(JSON.stringify({sub:IDS.organizer,exp:1,role:'authenticated'})).toString('base64url');const session={access_token:expired.join('.'),refresh_token:'fixture-initial-organizer',expires_in:1,expires_at:1,token_type:'bearer',user:{id:IDS.organizer,email:'organizer@example.invalid'}};const storageKey='sb-'+new URL(dbOrigin).hostname.split('.')[0]+'-auth-token';await cookieOnly.addCookies([{name:storageKey,value:'base64-'+Buffer.from(JSON.stringify(session)).toString('base64url'),url:origin}]);await cp.goto(origin+BASE+'/organizer');await cp.getByRole('heading',{name:'Round 2 shortlist',exact:true}).waitFor();check(refreshCount===1,'expired cookie session refreshed exactly once');const refreshed=(await cookieOnly.cookies()).find(c=>c.name===storageKey);check(refreshed&&JSON.parse(Buffer.from(refreshed.value.replace(/^base64-/,''),'base64url').toString()).refresh_token==='fixture-rotated-organizer','rotated auth cookie returned to browser');check((await cookieOnly.request.get(origin+API+'/organizer')).status()===200&&refreshCount===1,'cookie-only follow-up request survives refresh rotation');await cookieOnly.close();
   const csvExport=await read.request.get(origin+API+'/export');check(csvExport.status()===200&&(await csvExport.text()).includes('Synthetic Pair'),'authorized export');check((await guest.request.get(origin+API+'/export')).status()===401,'anonymous export denied');check((await read.request.post(origin+API+'/activate',{headers:{Origin:origin},data:{batchId:'forged',confirm:'ACTIVATE'}})).status()===403,'organizer mutation denied');
@@ -63,7 +118,7 @@ async function main(){const db=await createFixture();let stub,next,browser;let n
   const last=await context(390),lastPage=await last.newPage();await lastPage.goto(pending);await lastPage.getByRole('button',{name:'Continue securely'}).click();await lastPage.getByRole('heading',{name:'Synthetic Pending',exact:true}).waitFor();db.sql("UPDATE fixture_clock SET value='2026-10-23T17:30:00Z'");const late=await last.request.post(origin+API+'/respond',{headers:{Origin:origin},data:{decision:'confirmed'}});check(late.status()!==200,'deadline enforced on actual API');check(db.sql("SELECT decision FROM hustle_phase2_teams WHERE external_team_id='SYNTH-3'")==='pending','deadline leaves team pending');
   missingSchema=true;const missing=await read.request.get(origin+API+'/organizer');check(missing.status()===503,'missing migration explicit unavailable');missingSchema=false;
   const smoke=await childRun(['scripts/smoke-test-core-pages.js'],env);fs.writeFileSync(path.join(out,'smoke.txt'),smoke);check(smoke.includes('SMOKE TEST PASSED'),'core page query smoke with synthetic IDs');
-  check(rawTokens.every(token=>!nextLog.includes(token)&&seenUrls.every(url=>!url.includes(token))),'no raw invitation token in request URLs or Next access logs');
+  check(rawTokens.every(token=>!nextLog.includes(token)&&seenUrls.every(url=>!url.includes(token))),'no raw invitation token in request URLs or Next access logs');check(rawTokens.every(token=>browserLogs.every(line=>!line.includes(token))),'no token in browser console');
   check(!(await page.content()).match(/simpleanalytics|googletagmanager|sentry|<script src/),'private response has no tracking or replay scripts');
   // Public PR #26 routes retain their existing app shell; outbound analytics are
   // blocked, while only synthetic loopback database reads are allowed.
@@ -71,9 +126,10 @@ async function main(){const db=await createFixture();let stub,next,browser;let n
   check(errors.length===0,'no browser/runtime errors: '+errors.join('; '));check(unexpected.length===0,'no unexpected/outbound requests: '+unexpected.join('; '));
   fs.writeFileSync(path.join(out,'evidence.json'),JSON.stringify({checks,viewports:[390,1440],mode:'actual Next route handlers + loopback Auth/PostgREST adapter + real disposable PostgreSQL',requests,errors,unexpected},null,2));
   console.log(`PASS: ${checks} browser/API/PostgreSQL checks at 390/1440px; synthetic core-page query smoke passed. Evidence: test-results/hustle-phase2/`);
- }catch(error){fs.writeFileSync(path.join(out,'failure.json'),JSON.stringify({message:error.message,errors,unexpected,requests},null,2));throw error;}finally{
+ }catch(error){fs.writeFileSync(path.join(out,'failure.json'),JSON.stringify({message:redact(error.message),errors:errors.map(redact),unexpected:unexpected.map(redact),requests},null,2));throw new Error(redact(error.message));}finally{
   if(browser)await browser.close();if(next){if(process.platform==='win32'&&next.exitCode===null)spawnSync('taskkill',['/pid',String(next.pid),'/t','/f'],{windowsHide:true,stdio:'ignore'});else next.kill();await new Promise(resolve=>{if(next.exitCode!==null)return resolve();next.once('exit',resolve);setTimeout(resolve,5000);});}
-  if(stub)await new Promise(resolve=>stub.close(resolve));fs.writeFileSync(path.join(out,'next.log'),nextLog);await db.close();
+  if(stub)await new Promise(resolve=>stub.close(resolve));// nextLog is checked in memory only; never save server logs from an invitation fixture.
+  await db.close();
  }
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -13,7 +13,7 @@ test('IST opening inclusive, closing exclusive to the millisecond',()=>{for(cons
 test('HTML escaping prevents contact/team injection',()=>assert.equal(core.escapeHtml('<img src=x onerror="x">\''),'&lt;img src=x onerror=&quot;x&quot;&gt;&#39;'));
 const env={NODE_ENV:'test',HUSTLE_PHASE2_ENABLED:'true',HUSTLE_PHASE2_LOCAL_FIXTURE:'true',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:9999',NEXT_PUBLIC_SUPABASE_ANON_KEY:'fixture-anon',SUPABASE_SERVICE_ROLE_KEY:'fixture-service'};
 test('production and remote databases stay disabled despite environment flags',()=>{for(const patch of [{NODE_ENV:'production'},{NEXT_PUBLIC_SUPABASE_URL:'https://production.example.invalid'},{HUSTLE_PHASE2_ENABLED:'false'},{HUSTLE_PHASE2_LOCAL_FIXTURE:'false'}])assert.equal(load('src/lib/hustle-phase2/server.ts',{...env,...patch}).enabled(),false);assert.equal(load('src/lib/hustle-phase2/server.ts',env).enabled(),true);});
-function mockServer(identity='none', options={}){const calls=[];const uid='00000000-0000-4000-8000-000000000001';function client(key){return {auth:{getUser:async()=>({data:{user:identity==='none'?null:{id:uid,email:'synthetic@example.invalid'}},error:null})},from(table){const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:table==='profiles'?{role:identity==='admin'?'admin':'user',is_banned:identity==='banned'}:{id:core.EVENT_ID},error:null})};return q},rpc:async(name,args)=>{calls.push({name,args,key});if(name==='can_access_partner_event')return {data:['admin','organizer'].includes(identity),error:null};if(name==='has_partner_admin_access')return {data:identity==='admin',error:null};if(name==='hustle_phase2_limit')return {data:!options.rateLimited,error:null};if(name==='hustle_phase2_snapshot')return {data:{teams:[],batches:[],counts:{shortlisted:0,confirmed:0,declined:0,pending:0}},error:null};if(name==='hustle_phase2_inspect')return {data:options.validInvite?{team_name:'Synthetic',leader_name:'Fixture',second_member_name:null,decision:'pending',window:'open'}:null,error:null};if(name==='hustle_phase2_respond')return {data:{status:'ok',decision:args.p_decision},error:null};return {data:true,error:null};}}}
+function mockServer(identity='none', options={}){const calls=[];const uid='00000000-0000-4000-8000-000000000001';function client(key){return {auth:{getUser:async()=>({data:{user:identity==='none'?null:{id:uid,email:'synthetic@example.invalid'}},error:null})},from(table){const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:table==='profiles'?{role:identity==='admin'?'admin':'user',is_banned:identity==='banned'}:{id:core.EVENT_ID},error:null})};return q},rpc:async(name,args)=>{calls.push({name,args,key});if(name==='can_access_partner_event')return {data:['admin','organizer'].includes(identity),error:null};if(name==='has_partner_admin_access')return {data:identity==='admin',error:null};if(name==='hustle_phase2_limit')return {data:!options.rateLimited,error:null};if(name==='hustle_phase2_snapshot')return {data:options.snapshot||{teams:[],batches:[],counts:{shortlisted:0,confirmed:0,declined:0,pending:0}},error:null};if(name==='hustle_phase2_inspect')return {data:options.validInvite?{team_name:'Synthetic',leader_name:'Fixture',second_member_name:null,decision:'pending',window:'open'}:null,error:null};if(name==='hustle_phase2_respond')return {data:{status:'ok',decision:args.p_decision},error:null};return {data:true,error:null};}}}
 const overrides={'@supabase/supabase-js':{createClient:(_,key)=>client(key)},'@supabase/ssr':{createServerClient:(_url,_key,config)=>{const c=client('fixture-anon');if(options.refreshCookies){const get=c.auth.getUser;c.auth.getUser=async()=>{config.cookies.setAll([{name:'fixture-refreshed-session',value:'rotated',options:{path:'/',httpOnly:true,sameSite:'lax'}}]);return get()}}return c}}};return {server:load('src/lib/hustle-phase2/server.ts',env,overrides),pages:load('src/lib/hustle-phase2/pages.ts',env,overrides),calls};}
 function req(action,data={},headers={}){return new NextRequest('http://localhost:4000'+core.API+'/'+action,{method:'POST',headers:{origin:'http://localhost:4000','content-type':'application/json',...headers},body:JSON.stringify(data)});}
 test('anonymous, unrelated, banned and cross-event identities get no organizer data',async()=>{for(const who of ['none','unrelated','banned','foreign']){const {server,calls}=mockServer(who);const response=await server.handleApi(new NextRequest('http://localhost:4000'+core.API+'/organizer'),'organizer');assert([401,403].includes(response.status));assert(!calls.some(c=>c.name==='hustle_phase2_snapshot'));}});
@@ -35,4 +35,31 @@ test('synthetic core smoke preserves permission-failure exit with graceful shutd
  const query={select(){return this},eq(){return this},single(){return this},order(){return this},limit(){return this},then(resolve,reject){return Promise.resolve({data:null,count:null,error:{code:'42501',message:'Synthetic permission denied'}}).then(resolve,reject)}};
  await vm.runInNewContext(fs.readFileSync(path.join(root,'scripts/smoke-test-core-pages.js'),'utf8'),{__dirname:path.join(root,'scripts'),process:fixtureProcess,console:{log:(...v)=>lines.push(v.join(' ')),error:(...v)=>lines.push(v.join(' '))},require:name=>name==='@supabase/supabase-js'?{createClient:()=>({from:()=>query})}:require(name)});
  assert.equal(fixtureProcess.exitCode,1);assert.match(lines.join('\n'),/SMOKE TEST FAILED/);assert.match(lines.join('\n'),/Synthetic permission denied/);
+});
+
+
+test('admin recipient templates use only the authorized snapshot and escape every field',async()=>{
+ const {JSDOM}=require('jsdom');
+ const team={id:'00000000-0000-4000-8000-000000000011',external_team_id:'SYNTH-1',team_name:'Synthetic <img src=x onerror="bad">',leader_name:'Leader <script>bad()</script>',leader_email:'leader&test@example.invalid',leader_whatsapp:'+12025550100',second_member_name:null,decision:'pending',invite_status:'not_created'};
+ const snapshot={teams:[team],batches:[],counts:{shortlisted:1,confirmed:0,declined:0,pending:1}};
+ const {pages,calls}=mockServer('admin',{snapshot});
+ const response=await pages.handlePage(new NextRequest('http://localhost:4000'+core.BASE+'/organizer'),['organizer']);
+ const html=await response.text(),doc=new JSDOM(html).window.document;
+ const recipient=doc.querySelector('template[data-invite-recipient]').content;
+ assert.deepEqual([...recipient.querySelectorAll('dd')].map(node=>node.textContent),[team.external_team_id,team.team_name,team.leader_name,team.leader_email,team.leader_whatsapp]);
+ assert.equal(recipient.querySelectorAll('script,img,a').length,0);
+ assert.equal(doc.querySelector('#link-value').value,'');
+ assert.equal(doc.querySelector('#link-value').getAttribute('aria-describedby'),'link-recipient link-sharing-notice');
+ assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(response.headers.get('referrer-policy'),'no-referrer');
+ assert.equal(calls.filter(call=>call.name==='hustle_phase2_snapshot').length,1);
+ assert(!calls.some(call=>call.name==='hustle_phase2_invite'));
+ for(const patch of [{leader_whatsapp:null},{decision:'confirmed'},{invite_status:'ready'}]){
+  const modified=mockServer('admin',{snapshot:{...snapshot,teams:[{...team,...patch}]}});
+  const doc2=new JSDOM(await (await modified.pages.handlePage(new NextRequest('http://localhost:4000'+core.BASE+'/organizer'),['organizer'])).text()).window.document;
+  if(Object.hasOwn(patch,'leader_whatsapp'))assert.equal(doc2.querySelector('template').content.querySelector('dd:last-child').textContent,'Not provided');
+  else assert.equal(doc2.querySelector('template[data-invite-recipient]'),null);
+ }
+ const read=mockServer('organizer',{snapshot});
+ const readonly=new JSDOM(await (await read.pages.handlePage(new NextRequest('http://localhost:4000'+core.BASE+'/organizer'),['organizer'])).text()).window.document;
+ assert.equal(readonly.querySelector('template[data-invite-recipient]'),null);
 });
