@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Standalone Node smoke-test entry point. */
 /**
  * HackerMate Core Pages & Team Member Join Smoke Test Script
  * 
@@ -12,12 +13,13 @@
 const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
+const synthetic = process.env.HM_SMOKE_SYNTHETIC === "true";
 
 // Load environment variables
 const envPath = path.join(__dirname, "..", ".env.local");
 let url, anonKey;
 
-if (fs.existsSync(envPath)) {
+if (!synthetic && fs.existsSync(envPath)) {
   const env = fs.readFileSync(envPath, "utf8");
   url = env.match(/NEXT_PUBLIC_SUPABASE_URL=(.*)/)?.[1]?.trim();
   anonKey = env.match(/NEXT_PUBLIC_SUPABASE_ANON_KEY=(.*)/)?.[1]?.trim();
@@ -33,9 +35,17 @@ if (!url || !anonKey) {
 
 const client = createClient(url, anonKey);
 
+if (synthetic && (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(url) || anonKey !== "hustle-offline-fixture")) {
+  throw new Error("Synthetic smoke tests require the dedicated loopback fixture; refusing connected databases.");
+}
+
 const SAFE_PROFILE_COLUMNS = "id, full_name, college, bio, avatar_url, skills, github_url, linkedin_url, created_at, updated_at, role, is_available, onboarding_completed, is_banned, gender, has_participated_hackathon, hackathon_participations, has_won_hackathon, hackathon_wins, last_seen_at, github_stats, github_stats_updated_at, onboarding_nudge_sent_at, last_onboarding_nudge_sent_at, referrer_source, profile_nudge_count, last_nudge_sent_at, username, show_track_record";
 
-const TEST_USER_IDS = [
+const TEST_USER_IDS = synthetic ? [
+  "00000000-0000-4000-8000-000000000001",
+  "00000000-0000-4000-8000-000000000002",
+  "00000000-0000-4000-8000-000000000003",
+] : [
   "99e1c41d-1794-4f4d-87f6-4018a3a754d2", // Yash Shah
   "4a8b139f-a35d-4c5b-a052-f3ff5b20aa76", // Khushnuma
   "bb17dac9-df03-453c-8fae-2f0bf1ae3e2b"  // Vedant
@@ -143,7 +153,7 @@ async function runSmokeTests() {
     }
 
     if (successCount === TEST_USER_IDS.length) {
-      results.push({ page: "/profile/[id]", status: "PASS ✅", details: `Successfully loaded 3/3 real profiles: ${loadedNames.join(", ")}` });
+      results.push({ page: "/profile/[id]", status: "PASS ✅", details: `Successfully loaded 3/3 ${synthetic ? "synthetic" : "real"} profiles: ${loadedNames.join(", ")}` });
     } else {
       results.push({ page: "/profile/[id]", status: "FAIL ❌", details: `Loaded ${successCount}/${TEST_USER_IDS.length} profiles` });
     }
@@ -186,7 +196,7 @@ async function runSmokeTests() {
 
   // /teams/[id] (Team Member Roster Join Pattern)
   try {
-    const teamId = "4fe7e7b8-6010-436d-9954-383d9aa3c340"; // The Builders
+    const teamId = synthetic ? "00000000-0000-4000-8000-000000000099" : "4fe7e7b8-6010-436d-9954-383d9aa3c340";
     const { data: memberData, error: memberErr } = await client
       .from("team_members")
       .select(`id, role, project_role, profiles(id, full_name, avatar_url, skills, gender)`)
@@ -222,7 +232,7 @@ async function runSmokeTests() {
 
   // Team PPT Evaluations Rate Query (/api/teams/[id]/ppt-evaluate)
   try {
-    const { data: evalData, error: evalErr } = await client
+    const { error: evalErr } = await client
       .from("team_ppt_evaluations")
       .select("id, status, created_at")
       .limit(1);
@@ -247,10 +257,14 @@ async function runSmokeTests() {
   console.log("\n==========================================================");
   if (hasFailed) {
     console.error("❌ SMOKE TEST FAILED: One or more audit or page query checks failed.");
-    process.exit(1);
+    // Let the offline fixture's HTTP handles drain on Windows instead of
+    // forcing process.exit while libuv is closing them. Assertions still fail.
+    if (synthetic) process.exitCode = 1;
+    else process.exit(1);
   } else {
     console.log("✅ SMOKE TEST PASSED: All static audit and page query checks passed cleanly!");
-    process.exit(0);
+    if (synthetic) process.exitCode = 0;
+    else process.exit(0);
   }
 }
 
