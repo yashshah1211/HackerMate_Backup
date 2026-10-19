@@ -1,0 +1,45 @@
+{
+  "baseCommit": "6aaa4caaf33241c71b55f15987ec881e1f58ecfe",
+  "parserSha256": "b3079f58b5c5efbb535e378e6da67b817e8cf8460df0ddbbbe378496446e0f97",
+  "mode": "Actual Next routes and browser UI; existing synthetic Auth/PostgREST adapter; real disposable PostgreSQL; local-only SQL clock fixture",
+  "teamCount": 75,
+  "participantCount": 112,
+  "checks": 590,
+  "checkpoints": [
+    {
+      "stage": "activated-before-opening",
+      "batches": 1,
+      "teams": 75,
+      "pending": 75
+    },
+    {
+      "stage": "responses",
+      "pending": 15,
+      "declined": 15,
+      "confirmed": 45,
+      "shortlisted": 75
+    },
+    {
+      "stage": "cutoff",
+      "pending": 14,
+      "declined": 15,
+      "confirmed": 46,
+      "shortlisted": 75
+    }
+  ],
+  "generatedInitially": 75,
+  "explicitRecoveryReissues": 1,
+  "realMessagesSent": 0,
+  "simulatedHandoffs": 74,
+  "simulatedUnknownOutcomes": 1,
+  "ratePauses": 3,
+  "issuanceSeconds": 145.8,
+  "totalSeconds": 375.6,
+  "productionChanges": false,
+  "persistedBearerValues": false,
+  "limits": [
+    "No real Supabase Auth/PostgREST or production-readiness claim",
+    "No real provider delivery/receipt or sender-capacity test",
+    "Human identity and official grouping require organizer approval"
+  ]
+}
