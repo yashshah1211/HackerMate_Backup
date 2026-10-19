@@ -17,7 +17,6 @@ import {
   SkeletonRows,
   Tape,
 } from "@/components/system";
-import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
 import { teamSkillExplanation, teamSkillCoverage, uniqueSkills } from "@/lib/matchPresentation";
 import { TeamsTabs } from "./TeamsTabs";
 import { compareDiscoveryTeams, teamMatchScore, teamStatus, type ListTeam } from "./useTeamsData";
@@ -26,8 +25,8 @@ type Scope = "open" | "all";
 const PAGE = 30;
 
 function hackathonNames(t: ListTeam): string[] {
-  const linked = (t.team_hackathons || []).map((th) => th.hackathons?.name).filter(Boolean) as string[];
-  return linked.length ? linked : t.hackathon_name ? [t.hackathon_name] : [];
+  const linked = [t.hackathons?.name, ...(t.team_hackathons || []).map((th) => th.hackathons?.name)].filter(Boolean) as string[];
+  return linked.length ? [...new Set(linked)] : t.hackathon_name ? [t.hackathon_name] : [];
 }
 
 /**
@@ -39,6 +38,7 @@ export function TeamsView({
   viewerSkills,
   loading,
   error,
+  activityUnavailable = false,
   onRetry,
   today,
 }: {
@@ -46,6 +46,7 @@ export function TeamsView({
   viewerSkills: string[];
   loading: boolean;
   error: string | null;
+  activityUnavailable?: boolean;
   onRetry: () => void;
   today: string;
 }) {
@@ -65,7 +66,6 @@ export function TeamsView({
         match: teamMatchScore(t.skills, viewerSkills),
         coverage: teamSkillCoverage(t.skills, viewerSkills),
         wantedSkills: uniqueSkills(t.skills),
-        info: getTeamCategoryInfo(t),
         events: hackathonNames(t),
       })),
     [teams, viewerSkills, today],
@@ -119,11 +119,11 @@ export function TeamsView({
     setLimit(PAGE);
   };
 
-  const filterPanel = (
+  const filterPanel = (prefix: string) => (
     <div className="space-y-6">
       <div>
-        <FieldLabel htmlFor="t-event">Hackathon</FieldLabel>
-        <Select id="t-event" value={hackathon} onChange={(e) => setHackathon(e.target.value)}>
+        <FieldLabel htmlFor={`${prefix}-event`}>Hackathon</FieldLabel>
+        <Select id={`${prefix}-event`} value={hackathon} onChange={(e) => setHackathon(e.target.value)}>
           <option value="">Any event</option>
           {facets.events.map(([name, n]) => (
             <option key={name} value={name}>
@@ -133,8 +133,8 @@ export function TeamsView({
         </Select>
       </div>
       <div>
-        <FieldLabel htmlFor="t-college">College</FieldLabel>
-        <Select id="t-college" value={college} onChange={(e) => setCollege(e.target.value)}>
+        <FieldLabel htmlFor={`${prefix}-college`}>College</FieldLabel>
+        <Select id={`${prefix}-college`} value={college} onChange={(e) => setCollege(e.target.value)}>
           <option value="">Any college</option>
           {facets.colleges.map(([name, n]) => (
             <option key={name} value={name}>
@@ -195,7 +195,7 @@ export function TeamsView({
         <aside className="hidden lg:block">
           <div className="sticky top-6 space-y-6">
             <SearchField value={search} onChange={setSearch} placeholder="Team name or idea" label="Search teams" />
-            {filterPanel}
+            {filterPanel("t")}
           </div>
         </aside>
 
@@ -233,9 +233,16 @@ export function TeamsView({
               </button>
             </div>
             <p className="text-[12.5px] text-ink-3">
-              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""}{viewerHasSkills ? " · best skill overlap first" : " · newest first"}
+              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""}{viewerHasSkills ? " · skill overlap" : ""} · recent owner activity · newest
             </p>
           </div>
+
+          <p className="mb-4 max-w-prose text-[12.5px] text-ink-3">
+            Owner recently active means recorded app activity in the past 30 days. It doesn’t guarantee a response.
+          </p>
+          {activityUnavailable && (
+            <p role="status" className="mb-4 text-[12.5px] text-ink-3">Owner activity couldn’t be checked for some teams. You can still browse and apply.</p>
+          )}
 
           {error && <ErrorNotice className="mb-4" title="Couldn't load teams" detail={error} onRetry={onRetry} />}
 
@@ -245,7 +252,7 @@ export function TeamsView({
             <EmptyState
               icon={<Users />}
               title={scope === "open" ? "No open teams match" : "No teams match"}
-              body={scope === "open" ? "Try all teams, or start one and invite builders yourself." : "Loosen a filter or start your own team."}
+              body={scope === "open" ? "Try all teams or loosen your filters. You can also create your own team and discover builders to invite." : "Loosen your filters, create your own team, or discover builders to invite."}
               action={
                 <>
                   {scope === "open" && (
@@ -254,7 +261,10 @@ export function TeamsView({
                     </Button>
                   )}
                   <ButtonLink href="/teams/create" size="sm" variant="ghost" icon={<Plus />}>
-                    New team
+                    Create a team
+                  </ButtonLink>
+                  <ButtonLink href="/developers" size="sm" variant="ghost" icon={<Users />}>
+                    Discover builders
                   </ButtonLink>
                 </>
               }
@@ -262,9 +272,8 @@ export function TeamsView({
           ) : (
             <>
               <ul className="divide-y divide-line border-y border-line" data-stagger>
-                {results.slice(0, limit).map(({ t, status, coverage, wantedSkills, info, events }) => {
+                {results.slice(0, limit).map(({ t, status, coverage, wantedSkills, events }) => {
                   const ppt = t.team_ppt_evaluations?.find((e) => e.status === "completed");
-                  const tone = CATEGORY_TONE[info.category];
                   return (
                     <li key={t.id} className="group relative flex flex-col gap-4 py-5 px-3 sm:px-4 sm:-mx-4 rounded-xl hover:bg-hover transition-colors sm:flex-row sm:items-start sm:gap-5">
                       <div className="flex shrink-0 sm:pt-0.5">
@@ -288,6 +297,9 @@ export function TeamsView({
                             <span className="text-[12.5px] font-medium text-ink-2"><span className="text-accent">●</span> Recruiting</span>
                           )}
                         </div>
+                        {t.ownerRecentlyActive && (
+                          <p className="mt-1 text-[12.5px] text-ink-3">Owner recently active</p>
+                        )}
                         <p className="mt-1 line-clamp-1 text-[13.5px] text-ink-2">{t.description || "No description yet."}</p>
                         <p className="mt-1.5 truncate text-[13px] text-ink-3">
                           {[events.join(", ") || "Independent project", t.college || "Multi-college"].join(" · ")}
@@ -360,7 +372,7 @@ export function TeamsView({
           </Button>
         }
       >
-        <div className="px-4 py-4">{filterPanel}</div>
+        <div className="px-4 py-4">{filterPanel("t-mobile")}</div>
       </Sheet>
     </Page>
   );

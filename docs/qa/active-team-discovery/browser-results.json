@@ -1,0 +1,58 @@
+{
+  "base": "9c857b27e6b1d335ee381831743696103acc16ee",
+  "checks": [
+    {
+      "viewport": "desktop",
+      "width": 1440,
+      "checks": [
+        "baseline and changed order",
+        "coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves list",
+        "signed-out skips profiles",
+        "team-read error shown",
+        "zero writes or external network"
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "width": 390,
+      "checks": [
+        "baseline and changed order",
+        "coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves list",
+        "signed-out skips profiles",
+        "team-read error shown",
+        "zero writes or external network"
+      ]
+    },
+    {
+      "viewport": "narrow-mobile",
+      "width": 320,
+      "checks": [
+        "baseline and changed order",
+        "coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves list",
+        "signed-out skips profiles",
+        "team-read error shown",
+        "zero writes or external network"
+      ]
+    }
+  ],
+  "externalRequests": 0,
+  "writes": 0
+}

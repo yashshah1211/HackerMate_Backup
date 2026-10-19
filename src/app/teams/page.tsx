@@ -9,7 +9,7 @@ function TeamsContent() {
   const d = useTeamsData();
   // Computed once per mount so render stays pure.
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
-  return <TeamsView teams={d.teams} viewerSkills={d.viewerSkills} loading={d.loading} error={d.error} onRetry={d.reload} today={today} />;
+  return <TeamsView teams={d.teams} viewerSkills={d.viewerSkills} loading={d.loading} error={d.error} activityUnavailable={d.activityUnavailable} onRetry={d.reload} today={today} />;
 }
 
 export default function TeamsPage() {
