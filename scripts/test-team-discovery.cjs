@@ -153,3 +153,66 @@ test('missing team skills, missing viewer skills and zero overlap have distinct 
   assert.match(ui([team('viewer')], [' ']).html(), /Add skills to your profile/);
   assert.match(ui([team('zero', { skills: ['Rust'] })]).html(), /No listed skills in common yet/);
 });
+
+test('recent owners rank ahead of equally relevant older peers without hiding unknown activity', () => {
+  const records = [team('stale-new', { created_at: '2026-10-14' }), team('active-old', { ownerRecentlyActive: true, created_at: '2026-01-01' }),
+    team('unknown', { created_at: null }), team('active-no-match', { ownerRecentlyActive: true, skills: ['Rust'] }),
+    team('active-full', { ownerRecentlyActive: true, max_members: 1 })];
+  const expected = ['active-old', 'stale-new', 'unknown', 'active-no-match', 'active-full'];
+  assert.deepEqual(ranked(records), expected);
+  assert.deepEqual(ranked([...records].reverse()), expected);
+  const view = ui(records); assert.deepEqual(view.ids(), expected.slice(0, -1));
+  view.scope('All teams'); assert.deepEqual(view.ids(), expected);
+});
+test('activity does not reorder non-joinable peers or override skill relevance', () => {
+  assert.deepEqual(ranked([team('a', { is_recruiting: false }), team('z', { is_recruiting: false, ownerRecentlyActive: true })]), ['a', 'z']);
+  assert.deepEqual(ranked([team('weak', { ownerRecentlyActive: true, skills: ['React', 'Rust'] }), team('relevant')]), ['relevant', 'weak']);
+});
+for (const association of ['hackathons', 'team_hackathons']) {
+  for (const event of [{ archived: true }, { status: 'archived' }, { end_date: '2026-10-13' }]) {
+    test(`event closure via ${association}: ${JSON.stringify(event)}`, () => {
+      const h = { id: 'event', name: 'Primary Event', ...event };
+      const t = team('closed-event', association === 'hackathons' ? { hackathon_id: h.id, hackathons: h } : { team_hackathons: [{ hackathons: h }] });
+      assert.equal(teamStatus(t, TODAY).open, false);
+      const view = ui([t]); assert.deepEqual(view.ids(), []); view.scope('All teams'); assert.deepEqual(view.ids(), ['closed-event']);
+    });
+  }
+}
+test('primary-only event appears in facets; duplicate junction names count once', () => {
+  const h = { id: 'event', name: 'Primary Event', archived: false, end_date: TODAY };
+  const view = ui([team('primary', { hackathon_id: h.id, hackathons: h, team_hackathons: [{ hackathons: h }] })]);
+  assert.match(view.html(), /Primary Event \(1\)/); assert(!view.html().includes('Primary Event, Primary Event'));
+  view.select('t-event', h.name); assert.deepEqual(view.ids(), ['primary']);
+});
+test('missing/inaccessible event relations and malformed dates do not fabricate closure', () => {
+  for (const end_date of [null, '', 'invalid', '2026-02-30', '2026-1-1']) {
+    assert.equal(teamStatus(team('unknown', { hackathon_id: 'inaccessible', hackathons: null,
+      team_hackathons: [{ hackathons: null }, { hackathons: { id: 'event', name: 'Event', end_date } }] }), TODAY).open, true);
+  }
+});
+test('any known closed linked event still closes a multi-event team; this change does not redefine multi-event recruitment', () => {
+  assert.equal(teamStatus(team('multi', { hackathons: { id: 'primary', name: 'Future', end_date: '2027-01-01' },
+    team_hackathons: [{ hackathons: { id: 'past', name: 'Past', end_date: '2026-10-13' } }] }), TODAY).open, false);
+});
+test('activity indicator is coarse, honest, and absent on unknown teams', () => {
+  const html = ui([team('active', { ownerRecentlyActive: true })]).html();
+  assert.match(html, /<p[^>]*>Owner recently active<\/p>/);
+  assert.match(html, /past 30 days/); assert.match(html, /doesn’t guarantee a response/);
+  assert(!/online|abandoned|last seen|2026-10-/.test(html));
+  assert(!/<p[^>]*>Owner recently active<\/p>/.test(ui([team('unknown')]).html()));
+});
+test('empty results provide create-team and builder discovery paths while preserving all-teams access', () => {
+  const view = ui([team('closed', { is_recruiting: false })]);
+  const html = view.html(); assert.match(html, /Show all teams/); assert.match(html, /Create a team/);
+  assert.match(html, /href="\/developers"/); assert.match(html, /discover builders to invite/);
+  view.scope('All teams'); assert.deepEqual(view.ids(), ['closed']);
+  view.search('not present'); assert.match(view.html(), /Discover builders/);
+});
+
+test('timestamp event ends respect the existing UTC calendar-day boundary, including offsets', () => {
+  for (const [end_date, open] of [['2026-10-13T23:59:59Z', false], ['2026-10-14T00:00:00Z', true],
+    ['2026-10-14T00:30:00+05:30', false], ['2026-10-13T23:30:00-05:00', true],
+    ['2026-10-14T00:00:00.000000+00:00', true], ['2026-02-30T00:00:00Z', true]]) {
+    assert.equal(teamStatus(team('timestamp', { hackathons: { id: 'e', name: 'Event', end_date } }), TODAY).open, open, end_date);
+  }
+});
