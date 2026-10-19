@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowRight,
@@ -41,6 +41,7 @@ import HustlePartnershipBanner from "@/components/partners/HustlePartnershipBann
 import { fitBand, matchReason } from "@/lib/matchPresentation";
 import { dateStamp, eventTimeline, greeting, relativeTime } from "@/lib/time";
 import { cn, getInitials } from "@/lib/utils";
+import { trackEvent } from "@/lib/posthog";
 import type { ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
 import type { ConnState, DashBuilder, DashTeam, DashboardData, QueueItem } from "./useDashboardData";
 
@@ -137,7 +138,7 @@ export function DashboardView({
             <NeedsYou data={data} unreadMessages={unreadMessages} handlers={handlers} />
           </div>
           <div className="order-2">
-            <YourTeams data={data} />
+            <YourTeams data={data} onRetry={handlers.onReload} />
           </div>
           <div className="order-4">
             <BuildersForYou data={data} />
@@ -346,23 +347,38 @@ function QueueRow({ item, busy, handlers, team, joinBusyId, joinError }: {
 
 /* ── Your teams ────────────────────────────────────────────────────── */
 
-function YourTeams({ data }: { data: DashboardData }) {
+function YourTeams({ data, onRetry }: { data: DashboardData; onRetry: () => void }) {
+  const shownFor = useRef(new Set<string>());
+  const canStart = !data.loading && !data.teamsRefreshing && !data.redirecting && !data.joinError
+    && data.profile?.onboarding_completed === true && data.teams.length === 0;
+  const viewerId = data.profile?.id;
+
+  useEffect(() => {
+    if (!canStart || !viewerId || shownFor.current.has(viewerId)) return;
+    shownFor.current.add(viewerId);
+    trackEvent("first_team_prompt_shown", { source: "dashboard_empty_teams" });
+  }, [canStart, viewerId]);
+
   return (
     <Section id="your-teams" title="Your teams" count={data.loading ? undefined : data.teams.length} action={data.teams.length > 0 ? <SectionLink href="/my-teams">Manage</SectionLink> : undefined}>
-      {data.loading ? (
+      {data.loading || (data.teams.length === 0 && data.teamsRefreshing) ? (
         <SkeletonRows rows={2} avatar="square" />
-      ) : data.teams.length === 0 ? (
+      ) : data.teams.length === 0 && !canStart ? (
+        <ErrorNotice title="Couldn't verify your teams" detail="Retry to check your team membership." onRetry={onRetry} />
+      ) : canStart ? (
         <EmptyState
           icon={<Users />}
-          title="You're not on a team yet"
-          body="Start one for your next hackathon, or join a team that's recruiting."
+          title="Find a hackathon team"
+          body="Browse teams with open spots. Review a team, then send a join request when you're ready. Have an idea already? Start your own team."
           action={
             <>
-              <ButtonLink href="/teams/create" size="sm" variant="primary" icon={<Plus />}>
-                Create a team
+              <ButtonLink href="/teams" size="md" variant="primary" className="h-11 md:h-9" iconRight={<ArrowRight />}
+                onClick={() => trackEvent("first_team_prompt_selected", { source: "dashboard_empty_teams", path: "join" })}>
+                Find a team
               </ButtonLink>
-              <ButtonLink href="/teams" size="sm" variant="ghost">
-                Browse teams
+              <ButtonLink href="/teams/create" size="md" variant="secondary" className="h-11 md:h-9" icon={<Plus />}
+                onClick={() => trackEvent("first_team_prompt_selected", { source: "dashboard_empty_teams", path: "create" })}>
+                Create a team
               </ButtonLink>
             </>
           }

@@ -10,6 +10,7 @@ const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOStr
 
 const FULL: DashboardData = {
   loading: false,
+  teamsRefreshing: false,
   redirecting: false,
   profile: {
     id: "dev-viewer",

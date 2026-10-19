@@ -34,8 +34,8 @@ async function view(t, options = {}) {
     user: OWNER, owner: OWNER, max: 4, members: [{ user_id: OWNER, role: 'owner', profiles: builder(OWNER) }],
     requests: [request('a'), request('b')], joinError: null, teamError: null, ...options.server,
   };
-  const queries = [], mutations = [], toasts = [], errors = [];
-  let nextList = null;
+  const queries = [], mutations = [], toasts = [], errors = [], analytics = [], navigation = [];
+  let nextList = null, nextProfile = null;
   const team = () => ({ id: TEAM, name: 'Fixture Team', owner_id: server.owner, max_members: server.max, hackathon_id: null, team_members: server.members, team_hackathons: [] });
   function from(table) {
     const q = { table, columns: '', filters: {}, mode: 'read' };
@@ -57,7 +57,11 @@ async function view(t, options = {}) {
             server.requests = server.requests.filter(r => !matches.includes(r));
             return { data: matches.map(r => ({ id: r.id })), error: null };
           }
-          if (table === 'profiles') return { data: q.single ? { ...builder(OWNER), onboarding_completed: true } : [], error: null, count: 0 };
+          if (table === 'profiles') {
+            if (q.single && nextProfile) { const response = nextProfile; nextProfile = null; return response; }
+            return { data: q.single ? server.profileError ? null : { ...builder(server.user), onboarding_completed: true, ...server.profile } : [], error: server.profileError || null, count: 0 };
+          }
+          if (table === 'team_members' && q.mode === 'read') return { data: server.memberOfTeam ? [{ team_id: TEAM, teams: { id: TEAM } }] : [], error: server.membershipError || null };
           if (table === 'teams') return { data: q.settings?.head ? null : q.single ? team() : q.filters.owner_id && server.owner !== server.user ? [] : [team()], error: server.teamError, count: 1 };
           if (table === 'team_join_requests') {
             if (!q.single && nextList) { const response = nextList; nextList = null; return response; }
@@ -84,26 +88,33 @@ async function view(t, options = {}) {
     channel: () => ({ on() { return this; } }),
   };
   const element = tag => props => React.createElement(tag, {
-    href: props.href, id: props.id, onClick: props.onClick, disabled: props.disabled || props.loading, title: props.title,
+    href: props.href, id: props.id, onClick: props.onClick, disabled: props.disabled || props.loading, title: props.title, 'data-variant': props.variant,
   }, props.children);
+  const componentCache = new Map();
   const system = new Proxy({}, { get: (_, name) => {
+    if (componentCache.has(name)) return componentCache.get(name);
+    const Component = (() => {
     if (name === 'Section') return props => React.createElement('section', { id: props.id }, props.title, props.children);
     if (name === 'ErrorNotice') return props => React.createElement('div', { role: 'alert' }, props.title, props.detail, React.createElement('button', { onClick: props.onRetry }, 'Retry'));
     if (name === 'PageHeader') return props => React.createElement('header', null, props.title, props.meta);
     if (name === 'EmptyState') return props => React.createElement('div', null, props.title, props.body, props.action);
     return element(name === 'Button' ? 'button' : name === 'ButtonLink' ? 'a' : 'div');
+    })();
+    componentCache.set(name, Component);
+    return Component;
   } });
-  const router = { push() {} };
+  const router = { push(path) { navigation.push(path); } };
   const showToast = (message, type) => toasts.push({ message, type });
   const loader = harness({
     // The new presentation-only banner imports a CSS module; this lifecycle harness does not load styles.
     './HustlePartnershipBanner.module.css': {},
+    '@/components/partners/HustlePartnershipBanner': () => null,
     'next/link': element('a'), 'next/navigation': { useRouter: () => router },
     'motion/react': { AnimatePresence: ({ children }) => children, motion: { li: element('li') } },
     '@/lib/supabase': { supabase: client, subscribeWithRetry: () => () => {} },
     '@/lib/matchingClient': { loadTeammateRecommendations: async () => ({ data: [], error: null }) },
     '@/context/NotificationContext': { useNotification: () => ({ showToast }) },
-    '@/lib/posthog': { trackEvent() {} }, '@/components/StreakWidget': () => null,
+    '@/lib/posthog': { trackEvent: (name, properties) => analytics.push({ name, properties: JSON.parse(JSON.stringify(properties)) }) }, '@/components/StreakWidget': () => null,
     '@/components/system': system,
   }, { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, Event: dom.window.Event, console: { error: (...args) => errors.push(args) } });
   const { useDashboardData } = loader.load('src/app/dashboard/useDashboardData.ts');
@@ -115,11 +126,11 @@ async function view(t, options = {}) {
       onConfirmYear() {}, onYearChange() {}, onOpenProfileSetup() {}, onOpenInbox() {},
     } });
   }
-  await React.act(async () => { root.render(React.createElement(Probe)); await new Promise(resolve => setImmediate(resolve)); });
+  await React.act(async () => { root.render(options.strict ? React.createElement(React.StrictMode, null, React.createElement(Probe)) : React.createElement(Probe)); await new Promise(resolve => setImmediate(resolve)); });
   const pending = () => dom.window.document.querySelector('#needs-you');
   const settle = async fn => React.act(async () => { await fn?.(); await new Promise(resolve => setImmediate(resolve)); });
   return {
-    server, queries, mutations, toasts, errors, dom, settle, data: () => dash.data,
+    server, queries, mutations, toasts, errors, analytics, navigation, dom, settle, data: () => dash.data,
     pending, text: () => pending().textContent,
     rows: () => [...pending().querySelectorAll('li')],
     button: (label, index = 0) => [...pending().querySelectorAll('button')].filter(b => b.textContent === label)[index],
@@ -128,6 +139,7 @@ async function view(t, options = {}) {
     startReload: () => dash.reload(),
     action: (id = 'a', accept = true) => accept ? dash.acceptJoinRequest(id) : dash.declineJoinRequest(id),
     holdNextList: response => { nextList = response; },
+    holdNextProfile: response => { nextProfile = response; },
     unmount: async () => { await React.act(async () => root.unmount()); mounted = false; },
   };
 }
@@ -279,4 +291,86 @@ test('identity change during a pending action suppresses its stale toast and pre
   assert.equal(ui.rows().length, 0); assert.equal(ui.data().joinBusyId, null);
   await ui.settle(() => result.resolve({ data: TEAM, error: null })); await action;
   assert.equal(ui.toasts.length, 0); assert.equal(ui.rows().length, 0);
+});
+
+const promptEvents = ui => ui.analytics.filter(event => event.name.startsWith('first_team_prompt_'));
+const teamSection = ui => ui.dom.window.document.querySelector('#your-teams');
+
+test('verified teamless user sees a join-first path using existing routes, without any mutation', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner' } });
+  const section = teamSection(ui), links = [...section.querySelectorAll('a')];
+  assert.match(section.textContent, /Find a hackathon team/);
+  assert.match(section.textContent, /Review a team, then send a join request/);
+  assert.deepEqual(links.map(a => [a.textContent, a.getAttribute('href'), a.dataset.variant]), [
+    ['Find a team', '/teams', 'primary'], ['Create a team', '/teams/create', 'secondary'],
+  ]);
+  assert.deepEqual(ui.mutations, []);
+  assert.deepEqual(promptEvents(ui), [{ name: 'first_team_prompt_shown', properties: { source: 'dashboard_empty_teams' } }]);
+});
+
+for (const server of [{}, { owner: 'fixture-other-owner', memberOfTeam: true }]) {
+  test(`returning team owner/member retains workspace navigation (${JSON.stringify(server)})`, async t => {
+    const ui = await view(t, { server });
+    assert(teamSection(ui).querySelector(`a[href="/teams/${TEAM}/workspace"]`));
+    assert(!teamSection(ui).textContent.includes('Find a hackathon team'));
+    assert.deepEqual(promptEvents(ui), []);
+  });
+}
+
+for (const field of ['teamError', 'membershipError']) {
+  test(`failed membership read never looks like no teams; Retry restores prompt (${field})`, async t => {
+    const ui = await view(t, { server: { owner: 'fixture-other-owner', [field]: { message: 'Fixture permission denied' } } });
+    assert.match(teamSection(ui).textContent, /Couldn't verify your teams/);
+    assert.equal(teamSection(ui).querySelectorAll('a').length, 0);
+    assert.deepEqual(promptEvents(ui), []); assert(ui.errors.some(args => JSON.stringify(args).includes('Fixture permission denied')));
+    ui.server[field] = null;
+    await ui.settle(() => teamSection(ui).querySelector('button').click());
+    assert.match(teamSection(ui).textContent, /Find a hackathon team/);
+    assert.equal(promptEvents(ui).length, 1);
+  });
+}
+
+test('refresh hides stale teamless prompt until reads settle and does not duplicate its impression', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner' } });
+  const gate = deferred(); ui.holdNextProfile(gate.promise);
+  let reload; await ui.settle(() => { reload = ui.startReload(); });
+  assert.equal(ui.data().teamsRefreshing, true);
+  assert(!teamSection(ui).textContent.includes('Find a hackathon team'));
+  assert.equal(teamSection(ui).querySelectorAll('a').length, 0);
+  await ui.settle(() => gate.resolve({ data: { ...builder(OWNER), onboarding_completed: true }, error: null }));
+  await reload;
+  assert.match(teamSection(ui).textContent, /Find a hackathon team/);
+  assert.equal(promptEvents(ui).length, 1);
+});
+
+test('incomplete onboarding follows the existing onboarding route without exposure or writes', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner', profile: { onboarding_completed: false } } });
+  assert.deepEqual(ui.navigation, ['/onboarding']);
+  assert.deepEqual(promptEvents(ui), []); assert.deepEqual(ui.mutations, []);
+  assert.equal(teamSection(ui).querySelectorAll('a').length, 0);
+});
+
+test('profile errors cannot produce the first-team prompt or a false impression', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner', profileError: { message: 'Fixture profile denied' }, profile: { onboarding_completed: null } } });
+  assert.match(teamSection(ui).textContent, /Couldn't verify your teams/);
+  assert.deepEqual(promptEvents(ui), []);
+});
+
+test('each explicit path click records only its enum and source, without sending any request', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner' } });
+  for (const [label, path] of [['Find a team', 'join'], ['Create a team', 'create']]) {
+    const link = [...teamSection(ui).querySelectorAll('a')].find(a => a.textContent === label);
+    link.addEventListener('click', event => event.preventDefault());
+    await ui.settle(() => link.click());
+    assert.deepEqual(promptEvents(ui).at(-1), { name: 'first_team_prompt_selected', properties: { source: 'dashboard_empty_teams', path } });
+  }
+  assert.deepEqual(ui.mutations, []);
+  assert.equal(promptEvents(ui).filter(event => event.name === 'first_team_prompt_shown').length, 1);
+});
+
+test('React Strict Mode and subsequent reloads emit only one prompt impression per mounted viewer', async t => {
+  const ui = await view(t, { strict: true, server: { owner: 'fixture-other-owner' } });
+  assert.equal(promptEvents(ui).length, 1);
+  await ui.reload(); await ui.reload();
+  assert.equal(promptEvents(ui).length, 1); assert.deepEqual(ui.mutations, []);
 });

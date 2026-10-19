@@ -8,6 +8,7 @@ import type { User } from "@supabase/supabase-js";
 import TeamOverviewView from "@/components/TeamOverviewView";
 import { useNotification } from "@/context/NotificationContext";
 import { ButtonLink, EmptyState, Page, PageLoader } from "@/components/system";
+import { trackEvent } from "@/lib/posthog";
 
 type Team = {
   id: string;
@@ -366,6 +367,7 @@ function TeamDetailsContent() {
       return;
     }
 
+    trackEvent("team_join_request_sent", { source: "team_detail" });
     showToast("Join request sent!", "success");
     setRequestSent(true);
     setRequestLoading(false);
