@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- 75-team operations rehearsal; reuses the existing browser fixture adapter, never live Supabase. */
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const http=require('node:http');const {spawn}=require('node:child_process');const {chromium}=require('@playwright/test');
-const {createFixture,installClock,ROOT,EVENT,IDS,quote,freePort}=require('./hustle-phase2-local-db.cjs');
+const {createHash}=require('node:crypto');
+const {createFixture,installClock,ROOT,EVENT,IDS,quote,freePort,sessionFor,claimsFor,withActiveSession,migration}=require('./hustle-csv-active-session-fixture.cjs');
 const BASE='/partners/hustle-carnival/phase-2',API='/api/partners/hustle-carnival/phase-2';
-const signatures={hustle_phase2_limit:['p_key','p_max'],hustle_phase2_import:['p_actor','p_digest','p_rows'],hustle_phase2_activate:['p_actor','p_batch','p_digest'],hustle_phase2_invite:['p_actor','p_team','p_hash'],hustle_phase2_revoke:['p_actor','p_team'],hustle_phase2_inspect:['p_hash'],hustle_phase2_respond:['p_hash','p_decision'],hustle_phase2_snapshot:[],has_partner_admin_access:[],can_access_partner_event:['p_hackathon_id']};
-const tokenFor=id=>Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:id,role:'authenticated',exp:2000000000,email:'fixture@example.invalid'})).toString('base64url')+'.synthetic-signature';
-async function main(){assert(!process.env.VERCEL_ENV&&!process.env.VERCEL,'Local-only rehearsal');assert(!fs.existsSync(path.join(ROOT,'.env'))&&!fs.existsSync(path.join(ROOT,'.env.local')),'Use a clean isolated checkout');const db=await createFixture();let stub,next,browser;let nextLog='';const errors=[],unexpected=[],requests=[],rawTokens=[],seenUrls=[],browserLogs=[];let checks=0,missingSchema=false,refreshCount=0,ratePauses=0;const started=Date.now();
+const signatures={hustle_phase2_limit:['p_key','p_max'],hustle_phase2_import:['p_actor','p_digest','p_rows'],hustle_phase2_activate:['p_actor','p_batch','p_digest'],hustle_phase2_invite:['p_actor','p_team','p_hash'],hustle_phase2_revoke:['p_actor','p_team'],hustle_phase2_inspect:['p_hash'],hustle_phase2_respond:['p_hash','p_decision'],hustle_phase2_snapshot:[],hustle_phase2_has_active_session:[],has_partner_admin_access:[],can_access_partner_event:['p_hackathon_id']};
+const tokenFor=id=>Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({...claimsFor(id),exp:2000000000,email:'fixture@example.invalid'})).toString('base64url')+'.synthetic-signature';
+async function main(){assert(!process.env.VERCEL_ENV&&!process.env.VERCEL,'Local-only rehearsal');assert(!fs.existsSync(path.join(ROOT,'.env'))&&!fs.existsSync(path.join(ROOT,'.env.local')),'Use a clean isolated checkout');const db=await createFixture();let stub,next,browser;let nextLog='';const errors=[],unexpected=[],requests=[],rawTokens=[],seenUrls=[],browserLogs=[];let checks=0,missingSchema=false,missingSessionHelper=false,refreshCount=0,ratePauses=0;const started=Date.now();
  const check=(value,label)=>{assert(value,label);checks++;};
- const redact=value=>{let safe=String(value);for(const token of rawTokens)safe=safe.replaceAll(token,'[bearer redacted]');return safe.replace(/https?:\/\/[^\s"'<>]+/g,'[URL redacted]').replace(/[A-Za-z0-9_-]{43}/g,'[opaque value redacted]')};
+ const redact=value=>{let safe=String(value);for(const token of rawTokens)safe=safe.replaceAll(token,'[bearer redacted]');return safe.replace(/(authorization|cookie):[^\r\n]*/gi,'$1: [redacted]').replace(/https?:\/\/[^\s"'<>]+/g,'[URL redacted]').replace(/[A-Za-z0-9_-]{43}/g,'[opaque value redacted]')};
  const out=path.join(ROOT,'test-results/hustle-csv-rehearsal');fs.mkdirSync(out,{recursive:true});
  try{
   installClock(db,'2026-10-22T16:30:00Z');const apiPort=await freePort(),appPort=await freePort(),origin=`http://localhost:${appPort}`,dbOrigin=`http://127.0.0.1:${apiPort}`;
@@ -17,9 +18,9 @@ async function main(){assert(!process.env.VERCEL_ENV&&!process.env.VERCEL,'Local
    if(url.pathname==='/auth/v1/user'){if(!identity){res.statusCode=401;res.end(JSON.stringify({message:'Synthetic unauthorized'}));return}res.end(JSON.stringify({id:identity,email:'fixture@example.invalid',role:'authenticated',aud:'authenticated',email_confirmed_at:'2026-01-01T00:00:00Z',app_metadata:{},user_metadata:{}}));return;}
    if(url.pathname.startsWith('/rest/v1/rpc/')){
     const name=url.pathname.split('/').at(-1);requests.push(name);if(!(name in signatures)){res.statusCode=403;res.end('{}');return;}
-    if(missingSchema&&name.startsWith('hustle_phase2_')){res.statusCode=404;res.end(JSON.stringify({code:'42P01',message:'Synthetic missing migration'}));return;}
+    if((missingSchema&&name.startsWith('hustle_phase2_'))||(missingSessionHelper&&name==='hustle_phase2_has_active_session')){res.statusCode=404;res.end(JSON.stringify({code:'42P01',message:'Synthetic missing migration'}));return;}
     let raw='';for await(const chunk of req)raw+=chunk;const data=JSON.parse(raw||'{}');const args=signatures[name].map(key=>typeof data[key]==='number'?String(data[key]):quote(typeof data[key]==='object'?JSON.stringify(data[key]):data[key]??null));
-    try{const result=await db.asyncSql(`SET ROLE ${service?'service_role':identity?'authenticated':'anon'}; SET request.jwt.claim.sub=${quote(identity||'')}; SELECT coalesce(to_jsonb(public.${name}(${args.join(',')})),'null'::jsonb)::text;`);res.end(result.split('\n').at(-1));}
+    try{const result=await db.asyncSql(`SET ROLE ${service?'service_role':identity?'authenticated':'anon'}; SET request.jwt.claim.sub=${quote(identity||'')}; SET request.jwt.claims=${quote(JSON.stringify(identity&&!service?claimsFor(identity):{}))}; SELECT coalesce(to_jsonb(public.${name}(${args.join(',')})),'null'::jsonb)::text;`);res.end(result.split('\n').at(-1));}
     catch(error){res.statusCode=400;res.end(JSON.stringify({code:/permission denied|Access denied/.test(error.message)?'42501':/duplicate key/.test(error.message)?'23505':'P0001',message:'Synthetic database rejected operation'}));}return;
    }
    if(url.pathname==='/rest/v1/profiles'){
@@ -127,6 +128,50 @@ async function main(){assert(!process.env.VERCEL_ENV&&!process.env.VERCEL,'Local
   check((await snapshot(admin)).counts.pending === 75, 'activation is not a team response');
   checkpoints.push({ stage: 'activated-before-opening', ...counts(), pending: 75 });
 
+  // Regression checks through actual Next handlers and unchanged session SQL.
+  // The adapter never returns a blanket true for the active-session helper.
+  const authStart = checks;
+  if (withActiveSession) {
+  const deny = async (response, status, label) => {
+    check(response.status() === status, label + ' status');
+    const body = await response.text();
+    check(!/Synthetic Team|Synthetic Leader|leader\d+@example\.invalid|"teams"|"rows"/.test(body), label + ' no roster disclosure');
+    check(/private.*no-store/.test(response.headers()['cache-control'] || ''), label + ' private no-store');
+  };
+  for (const who of [undefined, 'unrelated', 'foreign', 'banned']) {
+    const ctx = await context(390, who);
+    await deny(await ctx.request.get(origin + API + '/organizer'), who ? 403 : 401, (who || 'anonymous') + ' snapshot');
+    await deny(await post(ctx, 'import', { mode: 'preview', csv, mapping }), who ? 403 : 401, (who || 'anonymous') + ' import');
+    await ctx.close();
+  }
+  const authRequests = requests.length;
+  db.sql(`UPDATE auth.sessions SET not_after=statement_timestamp()-interval '1 second' WHERE id=${quote(sessionFor(IDS.admin))}`);
+  for (const [action, data] of [
+    ['columns', { csv }], ['import', { mode: 'preview', csv, mapping }],
+    ['activate', { batchId: batch.id, digest: batch.source_digest, confirm: 'ACTIVATE' }],
+    ['invite', { teamId: imported.teams[0].id }], ['revoke', { teamId: imported.teams[0].id }],
+  ]) await deny(await post(admin, action, data), 403, 'expired admin ' + action);
+  await deny(await admin.request.get(origin + API + '/organizer'), 403, 'expired admin snapshot');
+  check(requests.slice(authRequests).every(name => ['hustle_phase2_has_active_session', 'can_access_partner_event'].includes(name)), 'expired admin reaches only access/session checks, no mutation/snapshot RPC');
+  db.sql(`UPDATE auth.sessions SET not_after=NULL WHERE id=${quote(sessionFor(IDS.admin))}`);
+  db.sql(`DELETE FROM auth.sessions WHERE id=${quote(sessionFor(IDS.admin))}`);
+  await deny(await post(admin, 'import', { mode: 'preview', csv, mapping }), 403, 'revoked admin import');
+  await deny(await admin.request.get(origin + API + '/organizer'), 403, 'revoked admin snapshot');
+  db.sql(`INSERT INTO auth.sessions VALUES(${quote(sessionFor(IDS.admin))},${quote(IDS.admin)},NULL)`);
+  db.sql(`DELETE FROM auth.sessions WHERE id=${quote(sessionFor(IDS.organizer))}`);
+  await deny(await organizer.request.get(origin + API + '/organizer'), 403, 'revoked organizer snapshot');
+  const revokedPage = await op.goto(origin + BASE + '/organizer');
+  check(revokedPage.status() === 403 && !(await op.content()).includes('Synthetic Team'), 'revoked organizer browser reload reveals no roster');
+  db.sql(`INSERT INTO auth.sessions VALUES(${quote(sessionFor(IDS.organizer))},${quote(IDS.organizer)},NULL)`);
+  missingSessionHelper = true;
+  await deny(await post(admin, 'import', { mode: 'preview', csv, mapping }), 503, 'missing session helper import');
+  await deny(await organizer.request.get(origin + API + '/organizer'), 503, 'missing session helper snapshot');
+  missingSessionHelper = false;
+  check((await snapshot(admin)).counts.shortlisted === 75 && (await snapshot(organizer)).counts.pending === 75, 'valid restored sessions retain administrator/organizer access');
+  check(counts().teams === 75 && counts().batches === 1 && Number(db.sql('SELECT count(*) FROM hustle_phase2_invites')) === 0, 'authorization failures did not mutate roster or issue links');
+  }
+  const authorizationChecks = checks - authStart;
+
   const issuanceStarted = Date.now(), links = [], ledger = [];
   for (let i = 1; i <= 75; i++) {
     const id = String(i).padStart(3, '0'), externalId = 'SYNTH-' + id;
@@ -217,8 +262,11 @@ async function main(){assert(!process.env.VERCEL_ENV&&!process.env.VERCEL,'Local
   check(counts().batches === 1 && counts().teams === 75, 'no accidental reimport or roster overwrite');
   check(rawTokens.every(token => !nextLog.includes(token) && seenUrls.every(url => !url.includes(token)) && browserLogs.every(line => !line.includes(token))), 'no raw bearer in HTTP URLs, retained logs or browser console');
   check(errors.length === 0 && unexpected.length === 0, 'no runtime errors, external browser calls or unexpected adapter requests');
+  const sourceSha256 = Object.fromEntries(['src/lib/hustle-phase2/server.ts', 'scripts/rehearse-hustle-csv-launch.cjs', 'scripts/hustle-csv-active-session-fixture.cjs', ...(withActiveSession ? [migration] : [])]
+    .map(file => [file, createHash('sha256').update(fs.readFileSync(path.join(ROOT, file))).digest('hex')]));
   const evidence = { baseCommit: git('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim(), parserSha256: offline.parserSha256,
-    mode: 'Actual Next routes and browser UI; existing synthetic Auth/PostgREST adapter; real disposable PostgreSQL; local-only SQL clock fixture',
+    withActiveSession, sourceSha256, authorizationChecks,
+    mode: 'Actual Next routes/UI; synthetic Auth/PostgREST adapter; real disposable PostgreSQL; local-only clock fixture' + (withActiveSession ? '; unchanged active-session SQL enforced' : '; original main without auth remediation'),
     teamCount: 75, participantCount: 112, checks, checkpoints, generatedInitially: 75, explicitRecoveryReissues: 1,
     realMessagesSent: 0, simulatedHandoffs: 74, simulatedUnknownOutcomes: 1, ratePauses, issuanceSeconds,
     totalSeconds: Number(((Date.now() - started) / 1000).toFixed(1)), productionChanges: false, persistedBearerValues: false,

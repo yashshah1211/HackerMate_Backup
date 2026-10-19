@@ -40,6 +40,35 @@ The browser rehearsal binds ephemeral loopback ports, runs the **actual Next rou
 
 Output is in ignored `test-results/hustle-csv-rehearsal/`. Only the sanitized aggregate evidence is copied into this package after a successful run. Tokens/links exist only transiently in process/browser memory; no trace, screenshot, raw browser state, credentials or raw server logs are saved. The report is not proof of real Supabase Auth/PostgREST behavior, provider deliverability, permissions/capacity or production readiness. Desktop's separate integration/security decision remains required.
 
+## Reproduce the combined PR #33 rehearsal
+
+The follow-up changes only this README and the two synthetic scripts `rehearse-hustle-csv-launch.cjs` / `hustle-csv-active-session-fixture.cjs`. With neither the session server guard nor its migration present, the same command retains the original 590-check flow. With both present, it installs the unchanged remediation **only in the new disposable cluster** and runs 651 checks, including 61 session/authorization assertions. A partial combination fails before creating a database; there is no option to suppress the session guard or accept a missing RPC.
+
+To reproduce the reviewed combination, use an isolated checkout containing the proposed PR #34 follow-up, existing lockfile dependencies and no environment files. Ensure the following exact security commit is already available locally. From that checkout:
+
+```sh
+git diff 6aaa4caaf33241c71b55f15987ec881e1f58ecfe 263104504a08df8c3cd63d2ac754c2d10e290c75 --binary --output=../pr33-local-only.patch
+git apply --check ../pr33-local-only.patch
+git apply ../pr33-local-only.patch
+node scripts/rehearse-hustle-csv-launch.cjs
+node scripts/test-hustle-csv-preflight.cjs
+node scripts/test-hustle-phase2.cjs
+node scripts/test-hustle-phase2-release.cjs
+node scripts/test-hustle-round2-auth-sql.cjs
+```
+
+Use the PostgreSQL/browser paths described above. Applying the source diff here is an **uncommitted local test overlay**, not a branch merge or permission to execute SQL on a connected database. Discard the disposable checkout afterwards; do not commit PR #33's files into PR #34 or publish this combined checkout. If another version of the security patch is proposed, rerun against that exact version instead of reusing these results.
+
+The adapter passes synthetic current-caller claims to the **real boolean session SQL**; it never returns unconditional success. Expired/revoked sessions, unauthorized identities and unavailable RPCs must fail closed. Combined acceptance requires `withActiveSession: true`, `authorizationChecks: 61` and all 651 checks passing; a 590-check baseline is not combined acceptance. The clock substitution affects only existing disposable event-window functions; the session helper's `statement_timestamp()` remains unchanged. The existing child-only synthetic release settings are unchanged, with production release approval false.
+
+Evidence reports `withActiveSession`, the checkout HEAD as `baseCommit`, parser hash and SHA256 of the actual working server, driver, fixture and (when present) security migration. It does not claim a hard-coded security commit or an index tree represents dirty working files. The exact security source for the reviewed run is the commit above; actual-source hashes remain the verification record. This is synthetic adapter/PostgreSQL coverage, not real Auth/PostgREST or production acceptance.
+
+**Final local review, October 19, 2026:** standalone **590/590** and combined **651/651** workflow checks passed, each with 75 teams/112 synthetic people and final counts 46 confirmed / 15 declined / 14 pending. Combined includes 61 authorization assertions. Both runs exited 0; their actual-source hashes matched, and no owned application/browser processes or disposable clusters remained. Zero real messages, production changes or persisted raw invitation values.
+
+Also passed: **66/66** combined preflight/core/release tests (24 + 24 + 18), **57** disposable SQL authorization checks, **10** prerequisite/hosted-environment/redaction checks, scoped ESLint, Node syntax checks, TypeScript and whitespace checks. All 12 security-PR files were verified byte-identical to the pinned security commit. Failure artifacts now fully redact authorization/cookie headers as well as URLs and known capabilities.
+
+Initial parallel cold-compilation runs hit existing 30-second browser/request timeouts. Fresh sequential reruns passed without extending those timeouts or changing application/security code. A production build was not rerun for this test/docs-only follow-up. The prior committed evidence remains the historical original-main run; new evidence is generated under ignored `test-results/`. Publication and its automatic Preview require separate approval; these results do not authorize activation.
+
 ## Release decision
 
 **GO for synthetic rehearsal and offline shortlist preparation. NO-GO for the actual launch until all real-data, operational and technical gates are explicitly accepted.** A successful parser, local SQL simulation or dry run cannot establish organizer authority, identity/contact ownership, actual grouping, current production migration/access state or permission to enable flags, activate a batch or send capabilities.
