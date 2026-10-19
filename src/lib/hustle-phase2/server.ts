@@ -56,15 +56,26 @@ export async function rpc<T>(name: string, args: Record<string, unknown> = {}): 
   if (data === null && name !== "hustle_phase2_inspect") throw new HttpError(503, "Round 2 is unavailable. Please try again later.");
   return data as T;
 }
+async function requireActiveSession(client: ReturnType<typeof database>) {
+  // Use only the verified caller's client. No session IDs/rows reach this server.
+  const { data, error } = await client.rpc("hustle_phase2_has_active_session");
+  if (error) {
+    console.error("[hustle-phase2] Session verification failed", { code: error.code });
+    throw new HttpError(503, "Unable to verify access.");
+  }
+  if (data !== true) throw new HttpError(403, "A current signed-in session is required.");
+}
 export async function authorize(req: NextRequest, admin: boolean, onCookies?: (cookies: AuthCookieUpdate[]) => void) {
   if (admin) {
     const auth = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, lookupFailureStatus: 500, onCookies });
     if (auth instanceof NextResponse) throw new HttpError(auth.status, "Authorized administrator access required.");
     if (!auth.isAdmin) throw new HttpError(403, "Authorized administrator access required.");
+    await requireActiveSession(auth.supabaseUserClient);
     return { actor: auth.user.id, isAdmin: true, client: auth.supabaseUserClient };
   }
   const auth = await requirePartnerAccess(req, { hackathonId: EVENT_ID }, { detailedErrors: true, onCookies });
   if (auth instanceof NextResponse) throw new HttpError(auth.status, "Authorized event organizer access required.");
+  await requireActiveSession(auth.supabaseUserClient);
   const { data, error } = await auth.supabaseUserClient.rpc("has_partner_admin_access");
   if (error) { console.error("[hustle-phase2] Admin access lookup failed", { code: error.code, message: error.message }); throw new HttpError(503, "Unable to verify access."); }
   return { actor: auth.userId, isAdmin: data === true, client: auth.supabaseUserClient };
