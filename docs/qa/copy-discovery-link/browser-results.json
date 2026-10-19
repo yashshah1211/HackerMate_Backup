@@ -1,0 +1,57 @@
+{
+  "base": "fb3fd3df89836cc782f3123ef296cbc5600a1768",
+  "reports": [
+    {
+      "width": 1440,
+      "passed": true,
+      "checks": [
+        "guest URL initialization",
+        "search/topic edits update URL",
+        "no filter reload/query",
+        "replaceState history length",
+        "real Next Back/Forward restoration",
+        "refresh",
+        "copied link in new page",
+        "invalid/duplicate values default",
+        "approval/archive restrictions",
+        "no overflow",
+        "single accessible Copy action",
+        "44px mobile target",
+        "real clipboard via keyboard",
+        "fresh guest copied-link restoration",
+        "personal-view conversion notice",
+        "clipboard denial/unsupported/insecure manual fallback",
+        "encoded search and context stripping",
+        "copy preserves URL/read count"
+      ],
+      "initialPublicReads": 2,
+      "offlineTelemetryResponses": 40
+    },
+    {
+      "width": 390,
+      "passed": true,
+      "checks": [
+        "guest URL initialization",
+        "search/topic edits update URL",
+        "no filter reload/query",
+        "replaceState history length",
+        "real Next Back/Forward restoration",
+        "refresh",
+        "copied link in new page",
+        "invalid/duplicate values default",
+        "approval/archive restrictions",
+        "no overflow",
+        "single accessible Copy action",
+        "44px mobile target",
+        "real clipboard via keyboard",
+        "fresh guest copied-link restoration",
+        "personal-view conversion notice",
+        "clipboard denial/unsupported/insecure manual fallback",
+        "encoded search and context stripping",
+        "copy preserves URL/read count"
+      ],
+      "initialPublicReads": 2,
+      "offlineTelemetryResponses": 40
+    }
+  ]
+}
