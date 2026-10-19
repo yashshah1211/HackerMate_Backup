@@ -7,6 +7,7 @@ import { Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } fro
 import { supabase } from "@/lib/supabase";
 import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
 import { DiscoveryDropdown } from "@/components/hackathons/DiscoveryDropdown";
+import { CopyDiscoveryLink } from "@/components/hackathons/CopyDiscoveryLink";
 import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type BrowsingAccess } from "@/lib/hackathons/publicBrowsing";
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
@@ -593,6 +594,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           </button>
         )}
       </div>}
+
+      <CopyDiscoveryLink searchParams={searchParams} />
 
       {loadError && (
         <ErrorNotice
