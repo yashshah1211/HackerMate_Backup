@@ -73,6 +73,7 @@ export type PartnerEvent = { slug: string; name: string; logoUrl: string | null;
 
 export type DashboardData = {
   loading: boolean;
+  teamsRefreshing: boolean;
   redirecting: boolean;
   profile: DashProfile | null;
   completeness: { percent: number; missing: { key: string; label: string }[] };
@@ -125,6 +126,7 @@ export function useDashboardData() {
   const { showToast } = useNotification();
   const [state, setState] = useState<DashboardData>({
     loading: true,
+    teamsRefreshing: true,
     redirecting: false,
     profile: null,
     completeness: { percent: 0, missing: [] },
@@ -234,6 +236,7 @@ export function useDashboardData() {
   const loadAll = useCallback(async () => {
     const generation = ++loadGeneration.current;
     const current = () => mountedRef.current && generation === loadGeneration.current;
+    patch({ teamsRefreshing: true });
     try {
       const {
         data: { user },
@@ -242,7 +245,7 @@ export function useDashboardData() {
       if (!user) {
         userIdRef.current = null;
         joinActionRef.current = null;
-        patch({ loading: false, teams: [], queue: [], joinBusyId: null });
+        patch({ loading: false, teamsRefreshing: false, teams: [], queue: [], joinBusyId: null });
         return;
       }
       if (userIdRef.current && userIdRef.current !== user.id) {
@@ -444,6 +447,7 @@ export function useDashboardData() {
       setState((s) => ({
         ...s,
         loading: false,
+        teamsRefreshing: false,
         profile,
         completeness: { percent: comp.score, missing: comp.missingFields },
         nextStep: nextStepFor(profile),
@@ -467,7 +471,7 @@ export function useDashboardData() {
       }));
     } catch (err) {
       console.error("[dashboard] load failed:", err);
-      if (current()) patch({ loading: false, joinError: "Pending requests could not be refreshed. Retry before taking action." });
+      if (current()) patch({ loading: false, teamsRefreshing: false, joinError: "Pending requests could not be refreshed. Retry before taking action." });
     }
   }, [loadConnections, loadInvites, patch, router]);
 

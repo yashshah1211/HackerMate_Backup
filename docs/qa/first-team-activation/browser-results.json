@@ -1,0 +1,27 @@
+{
+  "baseline": "432e76c2760946116fc298efd02efc208972e0f7",
+  "screenshots": [
+    "before-desktop.png",
+    "after-desktop.png",
+    "before-mobile.png",
+    "after-mobile.png"
+  ],
+  "checks": [
+    "desktop: keyboard activation → discovery → actual team detail → explicit synthetic request; no automatic writes or management controls",
+    "desktop: alternate create link retains route and records choice without mutation (form covered separately)",
+    "desktop: member suppresses activation prompt and analytics",
+    "desktop: incomplete suppresses activation prompt and analytics",
+    "desktop: loading suppresses activation prompt and analytics",
+    "desktop: refresh suppresses activation prompt and analytics",
+    "desktop: error suppresses activation prompt and analytics",
+    "mobile: keyboard activation → discovery → actual team detail → explicit synthetic request; no automatic writes or management controls",
+    "mobile: alternate create link retains route and records choice without mutation (form covered separately)",
+    "mobile: member suppresses activation prompt and analytics",
+    "mobile: incomplete suppresses activation prompt and analytics",
+    "mobile: loading suppresses activation prompt and analytics",
+    "mobile: refresh suppresses activation prompt and analytics",
+    "mobile: error suppresses activation prompt and analytics"
+  ],
+  "externalRequests": 0,
+  "limitations": "Real components and application CSS with synthetic adapters; no Next server, live OAuth, database or GA ingestion. Google fonts use local system fallbacks. Before uses pinned main source; unrelated dashboard widgets are excluded identically from both screenshots."
+}
