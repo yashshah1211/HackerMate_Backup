@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const http=require('node:http');const {spawn,spawnSync}=require('node:child_process');const {chromium}=require('@playwright/test');
 const {createFixture,installClock,ROOT,EVENT,IDS,quote,freePort}=require('./hustle-phase2-local-db.cjs');
 const BASE='/partners/hustle-carnival/phase-2',API='/api/partners/hustle-carnival/phase-2';
-const signatures={hustle_phase2_limit:['p_key','p_max'],hustle_phase2_import:['p_actor','p_digest','p_rows'],hustle_phase2_activate:['p_actor','p_batch','p_digest'],hustle_phase2_invite:['p_actor','p_team','p_hash'],hustle_phase2_revoke:['p_actor','p_team'],hustle_phase2_inspect:['p_hash'],hustle_phase2_respond:['p_hash','p_decision'],hustle_phase2_snapshot:[],has_partner_admin_access:[],can_access_partner_event:['p_hackathon_id']};
+const signatures={hustle_phase2_limit:['p_key','p_max'],hustle_phase2_import:['p_actor','p_digest','p_rows'],hustle_phase2_activate:['p_actor','p_batch','p_digest'],hustle_phase2_invite:['p_actor','p_team','p_hash'],hustle_phase2_revoke:['p_actor','p_team'],hustle_phase2_inspect:['p_hash'],hustle_phase2_respond:['p_hash','p_decision'],hustle_phase2_snapshot:[],hustle_phase2_has_active_session:[],has_partner_admin_access:[],can_access_partner_event:['p_hackathon_id']};
 const tokenFor=id=>Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:id,role:'authenticated',exp:2000000000,email:'fixture@example.invalid'})).toString('base64url')+'.synthetic-signature';
 async function childRun(args,env){return new Promise((resolve,reject)=>{const child=spawn(process.execPath,args,{cwd:ROOT,env,windowsHide:true,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',v=>output+=v);child.stderr.on('data',v=>output+=v);child.on('error',reject);child.on('exit',code=>code===0?resolve(output):reject(new Error(output)));});}
 async function main(){const db=await createFixture();let stub,next,browser;let nextLog='';const errors=[],unexpected=[],requests=[],rawTokens=[],seenUrls=[],browserLogs=[];let checks=0,missingSchema=false,refreshCount=0;
@@ -19,6 +19,9 @@ async function main(){const db=await createFixture();let stub,next,browser;let n
    if(url.pathname.startsWith('/rest/v1/rpc/')){
     const name=url.pathname.split('/').at(-1);requests.push(name);if(!(name in signatures)){res.statusCode=403;res.end('{}');return;}
     if(missingSchema&&name.startsWith('hustle_phase2_')){res.statusCode=404;res.end(JSON.stringify({code:'42P01',message:'Synthetic missing migration'}));return;}
+    // Legacy adapter tests route/core-page compatibility only. Real session
+    // revocation/ownership is exercised by test-hustle-round2-auth-integration.
+    if(name==='hustle_phase2_has_active_session'){res.end(JSON.stringify(Boolean(identity&&!service)));return;}
     let raw='';for await(const chunk of req)raw+=chunk;const data=JSON.parse(raw||'{}');const args=signatures[name].map(key=>typeof data[key]==='number'?String(data[key]):quote(typeof data[key]==='object'?JSON.stringify(data[key]):data[key]??null));
     try{const result=await db.asyncSql(`SET ROLE ${service?'service_role':identity?'authenticated':'anon'}; SET request.jwt.claim.sub=${quote(identity||'')}; SELECT coalesce(to_jsonb(public.${name}(${args.join(',')})),'null'::jsonb)::text;`);res.end(result.split('\n').at(-1));}
     catch(error){res.statusCode=400;res.end(JSON.stringify({code:/permission denied|Access denied/.test(error.message)?'42501':/duplicate key/.test(error.message)?'23505':'P0001',message:'Synthetic database rejected operation'}));}return;

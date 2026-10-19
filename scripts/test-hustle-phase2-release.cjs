@@ -51,6 +51,7 @@ function harness(env = {}, identity = 'none') {
           return { data: ['admin', 'organizer'].includes(identity), error: null };
         }
         if (name === 'has_partner_admin_access') return { data: identity === 'admin', error: null };
+        if (name === 'hustle_phase2_has_active_session') return { data: true, error: null };
         if (name === 'hustle_phase2_snapshot') return { data: snapshot, error: null };
         if (name === 'hustle_phase2_inspect') return { data: validHashes.has(args.p_hash) ? { team_name: 'Synthetic team', leader_name: 'Synthetic leader', second_member_name: null, decision: 'pending', window: 'open' } : null, error: null };
         if (name === 'hustle_phase2_respond') return { data: validHashes.has(args.p_hash) ? { status: 'ok', decision: args.p_decision } : { status: 'invalid' }, error: null };
