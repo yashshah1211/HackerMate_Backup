@@ -28,6 +28,10 @@ function run(args, name) {
   return { child, done };
 }
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server.address().port)));
+const publicName = 'Climate &amp; &quot;Code&quot; &lt;Launch&gt;';
+const publicDescription = '<p>**Build**&nbsp;[climate tools](https://example.com) &amp; &quot;learn&quot; &lt;together&gt;</p>';
+const hostileName = 'Escaping &amp; &quot;quotes&quot; &lt;/title&gt;&lt;script id=&quot;title-injection&quot;&gt;x&lt;/script&gt;';
+const hostileDescription = '&quot; /&gt;&lt;script id=&quot;metadata-injection&quot;&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp;';
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 (async () => {
   assert(!fs.existsSync(path.join(ROOT, '.env')) && !fs.existsSync(path.join(ROOT, '.env.local')), 'Never load real credentials');
@@ -43,7 +47,10 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
     reads.push({ id: eventId, filters: Object.fromEntries(url.searchParams), key: req.headers.apikey, authorization: req.headers.authorization });
     const n = Number(eventId?.slice(-12));
     // Deliberately return invisible rows despite filters to exercise defensive checks too.
-    const row = { id: eventId, name: n === 1 ? 'Climate & Code <Launch>' : 'PRIVATE EVENT SENTINEL', description: n === 1 ? 'Build climate tools together.' : 'PRIVATE DESCRIPTION SENTINEL', status: n === 3 ? 'rejected' : n === 5 ? 'pending' : 'approved', archived: n === 2 };
+    if (n === 7) { res.statusCode = 403; return res.end(JSON.stringify({ message: 'Public fixture unavailable' })); }
+    const row = { id: eventId, name: n === 1 ? publicName : n === 6 ? hostileName : 'PRIVATE EVENT SENTINEL',
+      description: n === 1 ? publicDescription : n === 6 ? hostileDescription : 'PRIVATE DESCRIPTION SENTINEL',
+      organizer_email: 'PRIVATE ORGANIZER SENTINEL', status: n === 3 ? 'rejected' : n === 5 ? 'pending' : 'approved', archived: n === 2 };
     res.end(JSON.stringify(n === 4 ? null : row));
   });
   let runtime;
@@ -62,8 +69,11 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
     }
     const evidence = [];
     for (const ua of ['WhatsApp/2.0', 'LinkedInBot/1.0', 'Twitterbot/1.0', 'facebookexternalhit/1.1', 'Mozilla/5.0']) {
-      for (const key of [1, 2, 3, 4, 5, 'malformed']) {
-        const route = '/hackathons/' + (typeof key === 'number' ? id(key) : key);
+      const cases = [1, 2, 3, 4, 5, 6, 7, 'malformed'].map(key => ({ key, nested: false }));
+      if (ua === 'LinkedInBot/1.0') cases.push(...[1, 2, 5, 7].map(key => ({ key, nested: true })));
+      for (const { key, nested } of cases) {
+        const eventRoute = '/hackathons/' + (typeof key === 'number' ? id(key) : key);
+        const route = eventRoute + (nested ? '/organizer' : '');
         const before = reads.length;
         const response = await fetch(origin + route + '?tab=saved', { headers: { 'user-agent': ua } });
         const html = await response.text();
@@ -72,13 +82,20 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
         const meta = name => scope.querySelector(`meta[property="${name}"],meta[name="${name}"]`)?.content;
         const canonical = scope.querySelector('link[rel="canonical"]')?.href;
         assert.equal(response.status, 200);
-        if (key === 1) {
-          assert.equal(scope.querySelector('title')?.textContent, 'Climate & Code | HackerMate');
-          assert.equal(meta('description'), 'Build climate tools together.');
-          assert.equal(meta('og:title'), 'Climate & Code | HackerMate');
+        assert(!html.includes('PRIVATE ORGANIZER SENTINEL'));
+        assert.equal(doc.querySelectorAll('#metadata-injection,#title-injection,meta[onload],img[onerror]').length, 0, 'Metadata text cannot create elements or attributes');
+        if (key === 1 || key === 6) {
+          const title = key === 1 ? 'Climate & "Code" <Launch> | HackerMate' : 'Escaping & "quotes" </title><script id="title-injection">x</script> | HackerMate';
+          const description = key === 1 ? 'Build climate tools & "learn" <together>' : '" /><script id="metadata-injection">alert("x")</script> &';
+          assert.equal(scope.querySelector('title')?.textContent, title);
+          assert.equal(meta('description'), description);
+          assert.equal(meta('og:title'), title);
+          assert(html.includes('&lt;'), 'Angle brackets remain escaped in raw HTML');
+          assert(html.includes('&quot;'), 'Quotes remain escaped in raw HTML');
+          assert(!html.includes('&amp;quot;'), 'Named entities are not double escaped');
           assert.equal(meta('twitter:title'), meta('og:title'));
           assert.equal(meta('og:description'), meta('description')); assert.equal(meta('twitter:description'), meta('description'));
-          assert.equal(meta('og:url'), 'https://hackermate.in' + route);
+          assert.equal(meta('og:url'), 'https://hackermate.in' + eventRoute);
           assert.equal(canonical, meta('og:url'));
           assert.equal(meta('og:image'), 'https://hackermate.in/og-image.png');
           assert.equal(meta('twitter:image'), meta('og:image')); assert.equal(meta('twitter:card'), 'summary_large_image');
@@ -90,8 +107,8 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
         }
         if (key === 'malformed') assert.equal(reads.length, before);
         else assert.equal(reads.length, before + 1, 'Each request checks current visibility without cached metadata');
-        fs.writeFileSync(path.join(out, `${ua.split('/')[0]}-${key}.html`), html);
-        evidence.push({ ua, key, status: response.status, metadataInHead: ua !== 'Mozilla/5.0', pass: true });
+        fs.writeFileSync(path.join(out, `${ua.split('/')[0]}-${key}${nested ? '-organizer' : ''}.html`), html);
+        evidence.push({ ua, key, nested, status: response.status, metadataInHead: ua !== 'Mozilla/5.0', pass: true });
       }
     }
     for (const read of reads) {

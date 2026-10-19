@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { loadPublicEvent } from "./publicBrowsing";
+import { plainEventText } from "./discovery";
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 function plainText(value: unknown): string {
   if (typeof value !== "string") return "";
-  return value.replace(/<[^>]*>/g, " ").replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[#*_`~>|]/g, "")
-    .replace(/[\u0000-\u001f\u007f\s]+/g, " ").trim();
+  // Clean Markdown before decoding entities so escaped angle brackets remain literal text.
+  return plainEventText(value.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/(^|\n)[ \t]{0,3}(?:#{1,6}\s+|>\s?)/g, "$1")
+    .replace(/[*_`~|]/g, "")).replace(/[\u0000-\u001f\u007f\s]+/g, " ").trim();
 }
 
 function concise(value: string, limit: number): string {
