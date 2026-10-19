@@ -15,7 +15,10 @@ async function mount(t, options = {}) {
   const events = [], writes = [], errors = [];
   let overview;
   const supabase = {
-    auth: { getUser: async () => ({ data: { user: options.visitor ? null : { id: 'fixture-viewer' } } }) },
+    auth: {
+      getUser: async () => ({ data: { user: options.visitor ? null : { id: 'fixture-viewer' } }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    },
     from(table) {
       const q = { single: false };
       return {
@@ -42,10 +45,10 @@ async function mount(t, options = {}) {
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {}, confirm() { throw new Error('Unexpected confirmation'); } }) },
     '@/components/TeamOverviewView': props => {
       overview = props;
-      return React.createElement('button', { disabled: props.requestLoading || props.requestSent || props.isMember, onClick: props.requestToJoin }, props.requestSent ? 'Request sent' : 'Request to join');
+      return React.createElement('button', { disabled: props.requestLoading || props.requestSent || props.isMember || props.requestStatus !== 'ready', onClick: props.requestToJoin }, props.requestSent ? 'Request sent' : 'Request to join');
     },
     '@/components/system': { PageLoader: () => React.createElement('p', null, 'Loading') },
-  }, { console: { error: (...args) => errors.push(args) } }).load('src/app/teams/[id]/page.tsx').default;
+  }, { window: dom.window, document: dom.window.document, console: { error: (...args) => errors.push(args) } }).load('src/app/teams/[id]/page.tsx').default;
   t.after(async () => {
     await React.act(async () => root.unmount()); dom.window.close();
     for (const [key, descriptor] of previous) {
@@ -53,6 +56,7 @@ async function mount(t, options = {}) {
     }
   });
   await React.act(async () => { root.render(React.createElement(Component)); await new Promise(resolve => setImmediate(resolve)); });
+  await React.act(async () => { await new Promise(resolve => setImmediate(resolve)); });
   return { events, writes, errors, overview: () => overview, button: () => document.querySelector('button'),
     click: async () => React.act(async () => document.querySelector('button').click()) };
 }

@@ -1,0 +1,24 @@
+{
+  "baseline": "fb3fd3df89836cc782f3123ef296cbc5600a1768",
+  "checks": [
+    "desktop: baseline reproduces enabled Request to join after failed status read",
+    "desktop: unknown status, keyboard read-only Retry, responsive error and 44px mobile retry target",
+    "desktop: removed pending row clears Request sent on focus without automatic submission",
+    "desktop: checking blocks actions; account change ignores delayed old response",
+    "desktop: explicit submission calls existing RPC once and records one content-free success event",
+    "desktop: verified membership replaces pending action after team-change event",
+    "desktop: logout clears private status and internal controls",
+    "desktop: navigation cleanup, fresh remount and reload read current fixture state",
+    "mobile: baseline reproduces enabled Request to join after failed status read",
+    "mobile: unknown status, keyboard read-only Retry, responsive error and 44px mobile retry target",
+    "mobile: removed pending row clears Request sent on focus without automatic submission",
+    "mobile: checking blocks actions; account change ignores delayed old response",
+    "mobile: explicit submission calls existing RPC once and records one content-free success event",
+    "mobile: verified membership replaces pending action after team-change event",
+    "mobile: logout clears private status and internal controls",
+    "mobile: navigation cleanup, fresh remount and reload read current fixture state"
+  ],
+  "externalRequests": 0,
+  "syntheticRequestRPCs": 2,
+  "limitations": "Real page/view/components/CSS; mocked Supabase, notification and Next navigation. System fonts replace Next fonts. No live Supabase, RLS, middleware, real OAuth or production writes."
+}
