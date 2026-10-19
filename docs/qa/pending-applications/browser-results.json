@@ -1,0 +1,24 @@
+{
+  "baseline": "9c857b27e6b1d335ee381831743696103acc16ee",
+  "checks": [
+    "desktop: separate verified membership/application totals, dates, Pending status, safe links, unavailable-team fallback and responsive layout",
+    "desktop: keyboard team navigation, cleanup away from page, fresh data on remount",
+    "desktop: failed read keeps memberships and labeled cached rows; independent Retry recovers",
+    "desktop: account switch clears old private data; delayed prior-account response cannot restore it",
+    "desktop: logout clears private rows with zero mutations",
+    "desktop: pending applications never become memberships",
+    "desktop: useful verified-empty state retains memberships",
+    "desktop: initial application failure never claims zero or hides memberships",
+    "mobile: separate verified membership/application totals, dates, Pending status, safe links, unavailable-team fallback and responsive layout",
+    "mobile: keyboard team navigation, cleanup away from page, fresh data on remount",
+    "mobile: failed read keeps memberships and labeled cached rows; independent Retry recovers",
+    "mobile: account switch clears old private data; delayed prior-account response cannot restore it",
+    "mobile: logout clears private rows with zero mutations",
+    "mobile: pending applications never become memberships",
+    "mobile: useful verified-empty state retains memberships",
+    "mobile: initial application failure never claims zero or hides memberships"
+  ],
+  "externalRequests": 0,
+  "mutations": 0,
+  "limitations": "Real page, hook, views and CSS with synthetic Supabase/navigation/AuthGuard adapters; system fonts substitute Next Google fonts. No production service, actual RLS, live OAuth or Next middleware verification."
+}
