@@ -1,0 +1,76 @@
+team_id,team_name,leader_name,leader_email,leader_whatsapp,optional_second_member_name
+SYNTH-001,Synthetic Team 001,Synthetic Leader 001,leader001@example.invalid,,
+SYNTH-002,Synthetic Team 002,Synthetic Leader 002,leader002@example.invalid,,Synthetic Member 002
+SYNTH-003,Synthetic Team 003,Synthetic Leader 003,leader003@example.invalid,,
+SYNTH-004,Synthetic Team 004,Synthetic Leader 004,leader004@example.invalid,,Synthetic Member 004
+SYNTH-005,Synthetic Team 005,Synthetic Leader 005,leader005@example.invalid,,
+SYNTH-006,Synthetic Team 006,Synthetic Leader 006,leader006@example.invalid,,Synthetic Member 006
+SYNTH-007,Synthetic Team 007,Synthetic Leader 007,leader007@example.invalid,,
+SYNTH-008,Synthetic Team 008,Synthetic Leader 008,leader008@example.invalid,,Synthetic Member 008
+SYNTH-009,Synthetic Team 009,Synthetic Leader 009,leader009@example.invalid,,
+SYNTH-010,Synthetic Team 010,Synthetic Leader 010,leader010@example.invalid,,Synthetic Member 010
+SYNTH-011,Synthetic Team 011,Synthetic Leader 011,leader011@example.invalid,,
+SYNTH-012,Synthetic Team 012,Synthetic Leader 012,leader012@example.invalid,,Synthetic Member 012
+SYNTH-013,Synthetic Team 013,Synthetic Leader 013,leader013@example.invalid,,
+SYNTH-014,Synthetic Team 014,Synthetic Leader 014,leader014@example.invalid,,Synthetic Member 014
+SYNTH-015,Synthetic Team 015,Synthetic Leader 015,leader015@example.invalid,,
+SYNTH-016,Synthetic Team 016,Synthetic Leader 016,leader016@example.invalid,,Synthetic Member 016
+SYNTH-017,Synthetic Team 017,Synthetic Leader 017,leader017@example.invalid,,
+SYNTH-018,Synthetic Team 018,Synthetic Leader 018,leader018@example.invalid,,Synthetic Member 018
+SYNTH-019,Synthetic Team 019,Synthetic Leader 019,leader019@example.invalid,,
+SYNTH-020,Synthetic Team 020,Synthetic Leader 020,leader020@example.invalid,,Synthetic Member 020
+SYNTH-021,Synthetic Team 021,Synthetic Leader 021,leader021@example.invalid,,
+SYNTH-022,Synthetic Team 022,Synthetic Leader 022,leader022@example.invalid,,Synthetic Member 022
+SYNTH-023,Synthetic Team 023,Synthetic Leader 023,leader023@example.invalid,,
+SYNTH-024,Synthetic Team 024,Synthetic Leader 024,leader024@example.invalid,,Synthetic Member 024
+SYNTH-025,Synthetic Team 025,Synthetic Leader 025,leader025@example.invalid,,
+SYNTH-026,Synthetic Team 026,Synthetic Leader 026,leader026@example.invalid,,Synthetic Member 026
+SYNTH-027,Synthetic Team 027,Synthetic Leader 027,leader027@example.invalid,,
+SYNTH-028,Synthetic Team 028,Synthetic Leader 028,leader028@example.invalid,,Synthetic Member 028
+SYNTH-029,Synthetic Team 029,Synthetic Leader 029,leader029@example.invalid,,
+SYNTH-030,Synthetic Team 030,Synthetic Leader 030,leader030@example.invalid,,Synthetic Member 030
+SYNTH-031,Synthetic Team 031,Synthetic Leader 031,leader031@example.invalid,,
+SYNTH-032,Synthetic Team 032,Synthetic Leader 032,leader032@example.invalid,,Synthetic Member 032
+SYNTH-033,Synthetic Team 033,Synthetic Leader 033,leader033@example.invalid,,
+SYNTH-034,Synthetic Team 034,Synthetic Leader 034,leader034@example.invalid,,Synthetic Member 034
+SYNTH-035,Synthetic Team 035,Synthetic Leader 035,leader035@example.invalid,,
+SYNTH-036,Synthetic Team 036,Synthetic Leader 036,leader036@example.invalid,,Synthetic Member 036
+SYNTH-037,Synthetic Team 037,Synthetic Leader 037,leader037@example.invalid,,
+SYNTH-038,Synthetic Team 038,Synthetic Leader 038,leader038@example.invalid,,Synthetic Member 038
+SYNTH-039,Synthetic Team 039,Synthetic Leader 039,leader039@example.invalid,,
+SYNTH-040,Synthetic Team 040,Synthetic Leader 040,leader040@example.invalid,,Synthetic Member 040
+SYNTH-041,Synthetic Team 041,Synthetic Leader 041,leader041@example.invalid,,
+SYNTH-042,Synthetic Team 042,Synthetic Leader 042,leader042@example.invalid,,Synthetic Member 042
+SYNTH-043,Synthetic Team 043,Synthetic Leader 043,leader043@example.invalid,,
+SYNTH-044,Synthetic Team 044,Synthetic Leader 044,leader044@example.invalid,,Synthetic Member 044
+SYNTH-045,Synthetic Team 045,Synthetic Leader 045,leader045@example.invalid,,
+SYNTH-046,Synthetic Team 046,Synthetic Leader 046,leader046@example.invalid,,Synthetic Member 046
+SYNTH-047,Synthetic Team 047,Synthetic Leader 047,leader047@example.invalid,,
+SYNTH-048,Synthetic Team 048,Synthetic Leader 048,leader048@example.invalid,,Synthetic Member 048
+SYNTH-049,Synthetic Team 049,Synthetic Leader 049,leader049@example.invalid,,
+SYNTH-050,Synthetic Team 050,Synthetic Leader 050,leader050@example.invalid,,Synthetic Member 050
+SYNTH-051,Synthetic Team 051,Synthetic Leader 051,leader051@example.invalid,,
+SYNTH-052,Synthetic Team 052,Synthetic Leader 052,leader052@example.invalid,,Synthetic Member 052
+SYNTH-053,Synthetic Team 053,Synthetic Leader 053,leader053@example.invalid,,
+SYNTH-054,Synthetic Team 054,Synthetic Leader 054,leader054@example.invalid,,Synthetic Member 054
+SYNTH-055,Synthetic Team 055,Synthetic Leader 055,leader055@example.invalid,,
+SYNTH-056,Synthetic Team 056,Synthetic Leader 056,leader056@example.invalid,,Synthetic Member 056
+SYNTH-057,Synthetic Team 057,Synthetic Leader 057,leader057@example.invalid,,
+SYNTH-058,Synthetic Team 058,Synthetic Leader 058,leader058@example.invalid,,Synthetic Member 058
+SYNTH-059,Synthetic Team 059,Synthetic Leader 059,leader059@example.invalid,,
+SYNTH-060,Synthetic Team 060,Synthetic Leader 060,leader060@example.invalid,,Synthetic Member 060
+SYNTH-061,Synthetic Team 061,Synthetic Leader 061,leader061@example.invalid,,
+SYNTH-062,Synthetic Team 062,Synthetic Leader 062,leader062@example.invalid,,Synthetic Member 062
+SYNTH-063,Synthetic Team 063,Synthetic Leader 063,leader063@example.invalid,,
+SYNTH-064,Synthetic Team 064,Synthetic Leader 064,leader064@example.invalid,,Synthetic Member 064
+SYNTH-065,Synthetic Team 065,Synthetic Leader 065,leader065@example.invalid,,
+SYNTH-066,Synthetic Team 066,Synthetic Leader 066,leader066@example.invalid,,Synthetic Member 066
+SYNTH-067,Synthetic Team 067,Synthetic Leader 067,leader067@example.invalid,,
+SYNTH-068,Synthetic Team 068,Synthetic Leader 068,leader068@example.invalid,,Synthetic Member 068
+SYNTH-069,Synthetic Team 069,Synthetic Leader 069,leader069@example.invalid,,
+SYNTH-070,Synthetic Team 070,Synthetic Leader 070,leader070@example.invalid,,Synthetic Member 070
+SYNTH-071,Synthetic Team 071,Synthetic Leader 071,leader071@example.invalid,,
+SYNTH-072,Synthetic Team 072,Synthetic Leader 072,leader072@example.invalid,,Synthetic Member 072
+SYNTH-073,Synthetic Team 073,Synthetic Leader 073,leader073@example.invalid,,
+SYNTH-074,Synthetic Team 074,Synthetic Leader 074,leader074@example.invalid,,Synthetic Member 074
+SYNTH-075,Synthetic Team 075,Synthetic Leader 075,leader075@example.invalid,,

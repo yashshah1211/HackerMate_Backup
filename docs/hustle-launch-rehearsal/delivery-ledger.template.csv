@@ -1,0 +1,4 @@
+team_id,source_version,attempt_revision,assigned_operator,independent_verifier,recipient_verified_at_ist,channel,link_state,generated_at_ist,contact_state,contact_at_ist,provider_evidence,evidence_checked_at_ist,safe_provider_reference,registration_response,response_checked_at_ist,next_action,incident_reference,real_messages_sent
+SYNTH-001,SYNTHETIC-DEMO,1,SYNTHETIC-ADMIN,SYNTHETIC-VERIFIER,,,GENERATED,,SIMULATED_HANDOFF_VERIFIED,,SIMULATED_ONLY,,,PENDING,,NONE,,0
+SYNTH-002,SYNTHETIC-DEMO,1,SYNTHETIC-ADMIN,SYNTHETIC-VERIFIER,,,GENERATED,,SIMULATED_UNKNOWN,,UNKNOWN,,,PENDING,,RECONCILE_UNKNOWN,SYNTHETIC-INCIDENT,0
+SYNTH-003,SYNTHETIC-DEMO,1,SYNTHETIC-ADMIN,SYNTHETIC-VERIFIER,,,NOT_CREATED,,NOT_ATTEMPTED,,NONE,,,PENDING,,VERIFY_DESTINATION,,0

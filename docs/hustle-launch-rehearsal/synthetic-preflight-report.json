@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "sourceSha256": "9e5c81cf9a5564b4078588b96c495bdd54314f0f6ca8ec223ca11c84e52a6b7f",
+  "parserSha256": "b3079f58b5c5efbb535e378e6da67b817e8cf8460df0ddbbbe378496446e0f97",
+  "structuralValid": true,
+  "expectedTeams": 75,
+  "totalTeams": 75,
+  "acceptedTeams": 75,
+  "participants": 112,
+  "previewDigest": "cd7f945c3e3b7d7c4a6c8cfad8e33290ff78a3f65ba053e945bad10561e25c89",
+  "issues": [],
+  "reviewFlags": [],
+  "humanApprovalRequired": true,
+  "authorization": "NONE: not an import receipt or permission to import, activate or send",
+  "result": "SYNTAX_AND_COUNT_PASS_ONLY"
+}
