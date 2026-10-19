@@ -96,6 +96,8 @@ async function view(t, options = {}) {
   const router = { push() {} };
   const showToast = (message, type) => toasts.push({ message, type });
   const loader = harness({
+    // The new presentation-only banner imports a CSS module; this lifecycle harness does not load styles.
+    './HustlePartnershipBanner.module.css': {},
     'next/link': element('a'), 'next/navigation': { useRouter: () => router },
     'motion/react': { AnimatePresence: ({ children }) => children, motion: { li: element('li') } },
     '@/lib/supabase': { supabase: client, subscribeWithRetry: () => () => {} },
@@ -103,7 +105,7 @@ async function view(t, options = {}) {
     '@/context/NotificationContext': { useNotification: () => ({ showToast }) },
     '@/lib/posthog': { trackEvent() {} }, '@/components/StreakWidget': () => null,
     '@/components/system': system,
-  }, { window: dom.window, localStorage: dom.window.localStorage, Event: dom.window.Event, console: { error: (...args) => errors.push(args) } });
+  }, { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, Event: dom.window.Event, console: { error: (...args) => errors.push(args) } });
   const { useDashboardData } = loader.load('src/app/dashboard/useDashboardData.ts');
   const { DashboardView } = loader.load('src/app/dashboard/DashboardView.tsx');
   function Probe() {

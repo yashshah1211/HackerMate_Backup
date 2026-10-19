@@ -16,7 +16,7 @@ function render(data = workshops) {
 
 test('configuration contains two public simultaneous workshops and no invented links', () => {
   assert.deepEqual(Array.from(workshops, w => w.title), ['Git & GitHub', 'Introduction to AI Tools']);
-  assert.equal(schedule.start, '2026-10-24T14:20:00+05:30');
+  assert.equal(schedule.start, '2026-10-24T14:00:00+05:30');
   assert.equal(schedule.end, '2026-10-24T16:00:00+05:30');
   for (const w of workshops) { assert.equal(w.livestream, null); assert.equal(w.certificateForm, null); }
 });

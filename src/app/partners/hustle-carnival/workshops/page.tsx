@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import HustleCarnivalWorkshops from '@/components/partners/HustleCarnivalWorkshops';
 
 const title = 'Public Workshops · Hustle Carnival 2026 × HackerMate';
-const description = 'Join Git & GitHub or Introduction to AI Tools on 24 October 2026, 2:20 PM–4:00 PM IST. Public YouTube workshops by Club Ellusion. No registration required.';
+const description = 'Join Git & GitHub or Introduction to AI Tools on 24 October 2026, 2:00 PM–4:00 PM IST. Public YouTube workshops by Club Ellusion. No registration required.';
 
 export const metadata: Metadata = {
   title: { absolute: title },

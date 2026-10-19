@@ -1,0 +1,27 @@
+.banner { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); margin-bottom: 32px; overflow: hidden; border: 1px solid #625238; border-radius: 12px; background: radial-gradient(ellipse at 0 0, #31291a, transparent 65%), #171611; color: #f4f0e6; }
+.event, .workshops { padding: 28px 30px; min-width: 0; }
+.brand, .eyebrow { margin: 0; color: #e8c580; font-size: 11px; line-height: 1.6; letter-spacing: .06em; font-weight: 600; }
+.brand span { padding: 0 8px; color: #b5afa1; }
+.event h2 { margin: 14px 0 10px; font-family: var(--font-display-face, Arial), Arial, sans-serif; font-size: clamp(26px, 3vw, 36px); font-weight: 600; line-height: 1.1; letter-spacing: -.04em; }
+.event h2 span { color: #e8c580; }
+.description { max-width: 440px; margin: 0; font-size: 13px; line-height: 1.7; color: #c4bdae; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.facts span { border: 1px solid #625238; border-radius: 4px; padding: 4px 8px; font-size: 11px; color: #e8c580; }
+.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 10px 14px; border-radius: 5px; font-size: 12px; font-weight: 600; text-decoration: none; line-height: 1.6; }
+.primary { background: #e8c580; color: #1c180f; border: 1px solid #e8c580; }
+.primary:hover { background: #f2d69e; }
+.secondary { border: 1px solid #78694d; color: #f4f0e6; }
+.secondary:hover { background: #302a1e; }
+.banner a:focus-visible { outline: 3px solid #e8c580; outline-offset: 4px; }
+.banner .note { max-width: 440px; margin: 12px 0 0; color: #b5afa1; font-size: 11px; line-height: 1.7; }
+.workshops { border-left: 1px solid #49402f; background: #e8c58006; }
+.workshops h3 { margin: 12px 0; font-size: 22px; line-height: 1.2; letter-spacing: -.025em; font-weight: 500; }
+.sessions { margin: 0 0 12px; font-size: 12px; line-height: 1.7; color: #c4bdae; }
+.schedule { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; color: #e8c580; font-size: 12px; line-height: 1.7; }
+.schedule svg { flex-shrink: 0; margin-top: 3px; }
+@media (max-width: 760px) {
+  .banner { grid-template-columns: minmax(0, 1fr); }
+  .event, .workshops { padding: 22px; }
+  .workshops { border-left: 0; border-top: 1px solid #49402f; }
+  .workshops h3 br { display: none; }
+}

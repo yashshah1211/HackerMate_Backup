@@ -10,7 +10,7 @@ export type HustleWorkshop = Readonly<{
 
 export const WORKSHOP_SCHEDULE = {
   date: '24 October 2026',
-  start: '2026-10-24T14:20:00+05:30',
+  start: '2026-10-24T14:00:00+05:30',
   end: '2026-10-24T16:00:00+05:30',
 } as const;
 

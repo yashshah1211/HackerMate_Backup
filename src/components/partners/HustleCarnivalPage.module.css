@@ -13,6 +13,7 @@
 .ellusion { color: var(--gold); font-size: 20px; letter-spacing: .14em; font-weight: 600; }
 .ellusion span { display: block; color: var(--muted); font-size: 8px; letter-spacing: .13em; margin-top: 4px; }
 .navLink { display: inline-flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; min-height: 44px; }
+.eventNav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
 .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 64px; padding: 64px 0 56px; align-items: center; }
 .eyebrow { color: var(--gold); font-family: var(--font-code, monospace), monospace; font-size: 11px; line-height: 1.6; letter-spacing: .1em; display: flex; align-items: center; gap: 9px; }
 .eyebrow > span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex: 0 0 6px; }
@@ -109,12 +110,13 @@
 }
 @media (max-width: 720px) {
   .container { padding: 0 22px; }
-  .brandBar { min-height: 90px; }
+  .brandBar { min-height: 90px; flex-wrap: wrap; gap: 8px; padding: 20px 0 8px; }
   .coBrand { gap: 17px; }
   .logo { width: 88px; }
   .ellusion { font-size: 16px; }
   .ellusion span { font-size: 6px; }
-  .navLink { display: none; }
+  .eventNav { width: 100%; gap: 8px 22px; }
+  .navLink { font-size: 12px; gap: 6px; }
   .hero { grid-template-columns: 1fr; gap: 38px; padding: 38px 0 35px; }
   .hero h1 { font-size: clamp(64px, 15vw, 92px); margin-top: 20px; }
   .hero .intro { font-size: 14px; }

@@ -2,7 +2,9 @@
 
 Route: `/partners/hustle-carnival/workshops`.
 
-An isolated, server-rendered public page for **Git & GitHub** and **Introduction to AI Tools**. Both sessions run **24 October 2026, 2:20 PM–4:00 PM IST (UTC+05:30)**, simultaneously. Anyone can attend without authentication or registration. Club Ellusion, G.L. Bajaj Group of Institutions, Mathura organizes the workshops; HackerMate is the partner.
+Navigation follow-up: the dashboard partnership banner and carnival portal now link to this page. The organizer-confirmed schedule below supersedes the original 2:20 PM start. See `hustle-partnership-navigation.md` for the navigation review and current verification; the original workshop release notes below describe its initial scope.
+
+An isolated, server-rendered public page for **Git & GitHub** and **Introduction to AI Tools**. Both sessions run **24 October 2026, 2:00 PM–4:00 PM IST (UTC+05:30)**, simultaneously. Anyone can attend without authentication or registration. Club Ellusion, G.L. Bajaj Group of Institutions, Mathura organizes the workshops; HackerMate is the partner.
 
 The page reuses the canonical HackerMate logo and existing public app shell, with its own charcoal/gold CSS module. It has no API, authentication, registration, database or certificate-generation dependency. Existing shell sign-in navigation is inherited; workshop attendance does not use it. No shared component, participation guard, registration code, dashboard, broadcast infrastructure, dependency manifest, lockfile or Supabase configuration is changed.
 
@@ -54,4 +56,4 @@ The real Next route was tested in development with the full inherited app shell 
 
 ## Follow-up integration
 
-Supply the two official livestream URLs and the applicable official Google Forms, confirm ownership and approval per link, and review the small configuration update. Adding a link from the existing carnival portal to this route is intentionally deferred to avoid concurrent changes to that portal. No merge or production deployment is included in this assignment.
+Supply the two official livestream URLs and the applicable official Google Forms, confirm ownership and approval per link, and review the small configuration update. Portal and dashboard navigation are included in the separate partnership-navigation change. No merge or production deployment is included in this assignment.

@@ -37,6 +37,7 @@ import {
   TeamMark,
 } from "@/components/system";
 import StreakWidget from "@/components/StreakWidget";
+import HustlePartnershipBanner from "@/components/partners/HustlePartnershipBanner";
 import { fitBand, matchReason } from "@/lib/matchPresentation";
 import { dateStamp, eventTimeline, greeting, relativeTime } from "@/lib/time";
 import { cn, getInitials } from "@/lib/utils";
@@ -105,6 +106,8 @@ export function DashboardView({
           </>
         }
       />
+
+      <HustlePartnershipBanner />
 
       {data.year.visible && (
         <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-raised px-4 py-2.5 animate-hm-enter">
