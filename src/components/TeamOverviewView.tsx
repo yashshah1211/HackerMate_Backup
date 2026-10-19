@@ -7,7 +7,6 @@ import {
   Check,
   DoorOpen,
   Ellipsis,
-  FileDown,
   Inbox,
   Lock,
   LogOut,
@@ -110,6 +109,8 @@ type Props = {
   teamFull: boolean;
   requestLoading: boolean;
   requestSent: boolean;
+  requestStatus?: "checking" | "ready" | "error";
+  retryRequest?: () => void;
   requestToJoin: () => void;
   removeMember: (memberId: string) => void;
   disbandTeam?: () => void;
@@ -141,6 +142,8 @@ export default function TeamOverviewView({
   teamFull,
   requestLoading,
   requestSent,
+  requestStatus = "ready",
+  retryRequest,
   requestToJoin,
   removeMember,
   disbandTeam,
@@ -396,6 +399,14 @@ export default function TeamOverviewView({
     <ButtonLink href={signInHref} variant="primary" icon={<UserPlus />}>
       Sign in to join
     </ButtonLink>
+  ) : requestStatus === "checking" ? (
+    <Button variant="secondary" disabled loading>
+      Checking request
+    </Button>
+  ) : requestStatus === "error" ? (
+    <Button variant="secondary" onClick={retryRequest} className="h-11 md:h-9">
+      Retry status check
+    </Button>
   ) : requestSent ? (
     <Button variant="secondary" disabled icon={<Check />}>
       Request sent
@@ -431,6 +442,12 @@ export default function TeamOverviewView({
         <span className="mx-1.5 text-ink-4">/</span>
         <span className="text-ink-2">{team.name}</span>
       </nav>
+
+      {!isPublicVisitor && requestStatus === "error" && (
+        <p role="alert" className="mt-4 rounded-lg bg-bad-soft px-4 py-3 text-[13.5px] text-ink ring-1 ring-inset ring-bad/25">
+          We couldn&apos;t verify your current request status. Check again before sending a request.
+        </p>
+      )}
 
       {hasPendingInvite && (
         <div className="mt-4 flex flex-col gap-3 rounded-lg bg-accent-soft px-4 py-3 ring-1 ring-inset ring-accent/30 sm:flex-row sm:items-center sm:justify-between animate-hm-enter">
