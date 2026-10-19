@@ -2,6 +2,8 @@
 
 Verified base: remote `main` at `fb3fd3df89836cc782f3123ef296cbc5600a1768`, including merged #37 and #38. Branch: `fix/team-join-request-reliability`. Local verification: October 19, 2026.
 
+Integration follow-up: [combined verification against PR #40 / main `62644c2`](integration-pr40.md). The original results below describe the pre-integration verification. Three additional synthetic invitation-error cases bring the focused suite to 33 tests; real-session verification remains **BLOCKED**.
+
 ## Confirmed issues and correction
 
 These are source/runtime fixture findings, not claims of observed production incidents or database corruption.
@@ -58,7 +60,7 @@ Use unchanged locked dependencies. The baseline probe writes only an ignored scr
 | --- | --- |
 | `src/app/teams/[id]/page.tsx` | Account/team lifetime boundary, guarded request reads/submission, explicit status, refresh triggers, preserved instant-join flow |
 | `src/components/TeamOverviewView.tsx` | Checking/error/Retry presentation; remove one pre-existing unused icon import for clean scoped lint |
-| `scripts/test-team-request-lifecycle.cjs` | Baseline reproductions and 30 focused lifecycle/security tests |
+| `scripts/test-team-request-lifecycle.cjs` | Baseline reproductions and focused lifecycle/security tests (30 original; 33 after integration) |
 | `scripts/test-team-request-browser.cjs` | Isolated desktop/mobile browser checks and screenshots |
 | `scripts/test-first-team-request-analytics.cjs` | Extend existing fixture with auth subscription/window lifecycle; retain analytics assertions |
 | `docs/plans/2026-10-19-team-request-reliability.md` | Approved scope, audit and decision record |
@@ -68,3 +70,4 @@ Use unchanged locked dependencies. The baseline probe writes only an ignored scr
 | `docs/qa/team-request-reliability/after-desktop.png` | Corrected desktop error state |
 | `docs/qa/team-request-reliability/before-mobile.png` | Pinned-baseline mobile failure evidence |
 | `docs/qa/team-request-reliability/after-mobile.png` | Corrected mobile error state |
+| `docs/qa/team-request-reliability/integration-pr40.md` | Combined release-readiness results and exact blocked/manual QA checklist |

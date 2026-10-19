@@ -227,3 +227,16 @@ test('the SDK missing-session result remains a public visitor, while other auth 
   const ui = await mount(t, { user: null, authError: { name: 'AuthSessionMissingError', message: 'Auth session missing!' } });
   assert.equal(ui.overview()?.isPublicVisitor, true); assert.equal(ui.overview()?.requestSent, false); assert.deepEqual(ui.writes, []);
 });
+
+for (const [token, message] of [['fixture-invalid-token', 'Invalid invite token signature'], ['fixture-expired-token', 'Invite token has expired'], ['', 'Invite token is required']]) {
+  test(`instant invitation failure preserves confirmation/token/status without request analytics: ${message}`, async t => {
+    const ui = await mount(t, { search: `join=true&token=${encodeURIComponent(token)}`, rpcError: { code: 'P0001', message } });
+    assert.equal(ui.confirmations.length, 1); assert.deepEqual(ui.writes, []);
+    await ui.flush(() => { void ui.confirmations[0].onConfirm(); });
+    assert.deepEqual(ui.writes, [{ name: 'join_team_instantly', args: { p_team_id: 'fixture-team', p_token: token }, user: A }]);
+    assert.equal(ui.overview().isMember, false); assert.equal(ui.overview().requestSent, true);
+    assert.equal(ui.toasts.at(-1)[0], message); assert.equal(ui.toasts.at(-1)[1], 'error');
+    assert(ui.errors.length); assert.deepEqual(ui.events, []); assert.equal(ui.confirmations.length, 1);
+    await ui.focus(); assert.equal(ui.writes.length, 1); // Refresh cannot retry an invitation or request.
+  });
+}
