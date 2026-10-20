@@ -4,5 +4,6 @@
   "leader_name": "leader_name",
   "leader_email": "leader_email",
   "leader_whatsapp": "leader_whatsapp",
-  "optional_second_member_name": "optional_second_member_name"
+  "optional_second_member_name": "optional_second_member_name",
+  "optional_second_member_email": "optional_second_member_email"
 }

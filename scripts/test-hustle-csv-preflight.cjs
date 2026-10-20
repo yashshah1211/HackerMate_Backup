@@ -7,7 +7,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { preflight, core } = require('./hustle-csv-preflight.cjs');
 const header = core.FIELDS.join(',');
-const row = 'SYNTH-1,Synthetic One,Synthetic Leader,one@example.invalid,,Synthetic Member';
+const row = 'SYNTH-1,Synthetic One,Synthetic Leader,one@example.invalid,,Synthetic Member,member@example.invalid';
 const make = rows => Buffer.from([header, ...rows].join('\r\n'));
 
 test('canonical CSV passes without claiming identity, grouping or release approval', () => {
@@ -21,7 +21,7 @@ test('canonical CSV passes without claiming identity, grouping or release approv
 
 test('UTF-8 BOM digest matches browser File.text, quoted commas and explicit aliases are supported', async () => {
   const mapping = Object.fromEntries(core.FIELDS.map((field, i) => [i ? field : 'Official team code', field]));
-  const bytes = Buffer.from('\uFEFF' + header.replace('team_id', 'Official team code') + '\r\nsynth-1,"Synthetic, One",Leader,ONE@example.invalid,,\r\n');
+  const bytes = Buffer.from('\uFEFF' + header.replace('team_id', 'Official team code') + '\r\nsynth-1,"Synthetic, One",Leader,ONE@example.invalid,,,\r\n');
   const report = preflight(bytes, { mapping, expectedTeams: 1 });
   assert.equal(report.result, 'SYNTAX_AND_COUNT_PASS_ONLY');
   assert.equal(report.previewDigest, core.previewCsv(await new Blob([bytes]).text(), mapping).digest);
@@ -30,15 +30,15 @@ test('UTF-8 BOM digest matches browser File.text, quoted commas and explicit ali
 for (const [label, bytes] of [
   ['duplicate headers', Buffer.from(header.replace('team_name', 'team_id') + '\n' + row)],
   ['unknown headers', Buffer.from(header.replace('team_id', 'Sno') + '\n' + row)],
-  ['seven-column master', Buffer.from(header + ',College\n' + row + ',Synthetic College')],
+  ['eight-column master', Buffer.from(header + ',College\n' + row + ',Synthetic College')],
   ['participant list without official grouping', Buffer.from('Sno,Name,Phone number,Gmail,College name\n1,Synthetic Leader,,one@example.invalid,Synthetic College')],
   ['missing team ID', make([row.replace('SYNTH-1', '')])],
   ['missing leader', make([row.replace('Synthetic Leader', '')])],
   ['missing required email', make([row.replace('one@example.invalid', '')])],
-  ['normalized duplicate ID', make([row, 'synth-1,Synthetic Two,Leader Two,two@example.invalid,,'])],
-  ['normalized duplicate email', make([row, 'SYNTH-2,Synthetic Two,Leader Two,ONE@example.invalid,,'])],
-  ['duplicate normalized phone', make([row.replace('invalid,,', 'invalid,+12025550100,'), 'SYNTH-2,Synthetic Two,Leader Two,two@example.invalid,+1 (202) 555-0100,'])],
-  ['same leader and second member', make([row.replace('Synthetic Member', 'synthetic leader')])],
+  ['normalized duplicate ID', make([row, 'synth-1,Synthetic Two,Leader Two,two@example.invalid,,,'])],
+  ['normalized duplicate email', make([row, 'SYNTH-2,Synthetic Two,Leader Two,ONE@example.invalid,,,'])],
+  ['duplicate normalized phone', make([row.replace('invalid,,', 'invalid,+12025550100,'), 'SYNTH-2,Synthetic Two,Leader Two,two@example.invalid,+1 (202) 555-0100,,'])],
+  ['same leader and second member email', make([row.replace('member@example.invalid', 'one@example.invalid')])],
   ['third member column', Buffer.from(header + ',third_member\n' + row + ',Third')],
   ['formula injection', make([row.replace('Synthetic One', '=SUM(1)')])],
   ['malformed quotes', make([row.replace('Synthetic One', '"Unclosed')])],
@@ -53,7 +53,7 @@ for (const [label, bytes] of [
 });
 
 test('repeated person name across teams is a human-review hold, not an invented identity match', () => {
-  const report = preflight(make([row, 'SYNTH-2,Synthetic Two,Synthetic Member,two@example.invalid,,']), { expectedTeams: 2 });
+  const report = preflight(make([row, 'SYNTH-2,Synthetic Two,Synthetic Member,two@example.invalid,,,']), { expectedTeams: 2 });
   assert.equal(report.structuralValid, true);
   assert.equal(report.result, 'HOLD_FOR_REVIEW');
   assert.equal(report.reviewFlags[0].code, 'GROUPING_REVIEW');

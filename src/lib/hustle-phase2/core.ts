@@ -7,10 +7,10 @@ export const OPENS = "2026-10-23T04:30:00.000Z";
 export const CLOSES = "2026-10-23T17:30:00.000Z";
 export const MAX_CSV_BYTES = 512 * 1024;
 export const MAX_TEAMS = 500;
-export const FIELDS = ["team_id", "team_name", "leader_name", "leader_email", "leader_whatsapp", "optional_second_member_name"] as const;
+export const FIELDS = ["team_id", "team_name", "leader_name", "leader_email", "leader_whatsapp", "optional_second_member_name", "optional_second_member_email"] as const;
 export type Field = typeof FIELDS[number];
 export type Mapping = Record<string, Field>;
-export type TeamInput = { external_team_id: string; team_name: string; leader_name: string; leader_email: string; leader_whatsapp: string | null; second_member_name: string | null };
+export type TeamInput = { external_team_id: string; team_name: string; leader_name: string; leader_email: string; leader_whatsapp: string | null; second_member_name: string | null; second_member_email: string | null };
 export type Issue = { row: number; field: string; message: string };
 export type Preview = { digest: string; rows: TeamInput[]; issues: Issue[]; total: number };
 
@@ -22,12 +22,26 @@ export function tokenHash(token: string): string | null {
 }
 export function newToken() { const token = randomBytes(32).toString("base64url"); return { token, hash: tokenHash(token)! }; }
 
+/** Short-lived, authenticated pending context. Never an authorization decision. */
+export function stageInvitation(secret: string, hash: string, now = Date.now()): string {
+  if (!/^[a-f0-9]{64}$/.test(hash)) throw new Error("Invalid invitation context.");
+  const value = `${now + 20 * 60_000}.${hash}`;
+  return `${value}.${createHmac("sha256", secret).update(`hustle-p2-account-context:${value}`).digest("hex")}`;
+}
+export function readInvitation(secret: string, value: unknown, now = Date.now()): string | null {
+  if (typeof value !== "string" || !/^\d{13}\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(value)) return null;
+  const [expires, hash, signature] = value.split(".");
+  if (Number(expires) <= now || Number(expires) > now + 20 * 60_000) return null;
+  const expected = createHmac("sha256", secret).update(`hustle-p2-account-context:${expires}.${hash}`).digest("hex");
+  return timingSafeEqual(Buffer.from(signature), Buffer.from(expected)) ? hash : null;
+}
+
 /** Strict RFC4180-style parser: quotes/CRLF supported, malformed quotes rejected. */
 export function parseCsv(source: string): string[][] {
   if (Buffer.byteLength(source, "utf8") > MAX_CSV_BYTES) throw new Error("CSV exceeds 512 KiB.");
   const input = source.replace(/^\uFEFF/, "");
   const rows: string[][] = []; let row: string[] = []; let value = ""; let quoted = false; let closed = false;
-  const cell = () => { row.push(value); value = ""; closed = false; if (row.length > 6) throw new Error("At most six columns are supported; resolve extra roster columns explicitly."); };
+  const cell = () => { row.push(value); value = ""; closed = false; if (row.length > 7) throw new Error("At most seven columns are supported; resolve extra roster columns explicitly."); };
   const line = () => { cell(); if (row.some(v => v !== "")) rows.push(row); row = []; if (rows.length > MAX_TEAMS + 1) throw new Error("At most 500 teams per file."); };
   for (let i = 0; i < input.length; i++) {
     const c = input[i];
@@ -62,18 +76,22 @@ export function previewCsv(source: string, mapping: Mapping): Preview {
       if (/[\x00-\x1f\x7f]/.test(data[field]) || (field !== "leader_whatsapp" && /^[=+@-]/.test(data[field]))) issue(field, "Unsafe control character or spreadsheet formula prefix.");
     }
     const id = data.team_id.toUpperCase(); const email = data.leader_email.toLowerCase();
+    const secondEmail = data.optional_second_member_email?.toLowerCase() || null;
     if (!/^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(id)) issue("team_id", "Use 1–64 letters, digits, hyphens or underscores.");
     for (const field of ["team_name", "leader_name"] as const) if (!data[field] || data[field].length > 120) issue(field, "Required; maximum 120 characters.");
     if (email.length > 254 || !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(email) || email.startsWith(".") || email.includes("..")) issue("leader_email", "A valid leader email is required.");
     const phone = data.leader_whatsapp?.replace(/[ ()-]/g, "") || null;
     if (phone && !/^\+[1-9][0-9]{7,14}$/.test(phone)) issue("leader_whatsapp", "Use international format, e.g. +countrycode followed by digits.");
     const second = data.optional_second_member_name || null;
-    if (second && (second.length > 120 || second.toLowerCase() === data.leader_name.toLowerCase())) issue("optional_second_member_name", "Use a distinct second member, maximum 120 characters, or leave empty.");
+    if (second && second.length > 120) issue("optional_second_member_name", "Maximum 120 characters.");
+    if (!!second !== !!secondEmail) issue("optional_second_member_email", "Provide the official second member name and email together, or leave both empty for a solo team.");
+    if (secondEmail && (secondEmail.length > 254 || !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(secondEmail) || secondEmail.startsWith(".") || secondEmail.includes(".."))) issue("optional_second_member_email", "A valid official member email is required.");
     if (ids.has(id)) issue("team_id", "Duplicate team identifier in this file.");
-    if (emails.has(email)) issue("leader_email", "Leader email belongs to multiple teams.");
+    if (emails.has(email)) issue("leader_email", "Participant email is assigned more than once.");
+    if (secondEmail && (secondEmail === email || emails.has(secondEmail))) issue("optional_second_member_email", "Each participant must have a distinct official email across the event.");
     if (phone && phones.has(phone)) issue("leader_whatsapp", "Leader phone belongs to multiple teams.");
-    ids.add(id); emails.add(email); if (phone) phones.add(phone);
-    if (issues.length === start) rows.push({ external_team_id: id, team_name: data.team_name, leader_name: data.leader_name, leader_email: email, leader_whatsapp: phone, second_member_name: second });
+    ids.add(id); emails.add(email); if (secondEmail) emails.add(secondEmail); if (phone) phones.add(phone);
+    if (issues.length === start) rows.push({ external_team_id: id, team_name: data.team_name, leader_name: data.leader_name, leader_email: email, leader_whatsapp: phone, second_member_name: second, second_member_email: secondEmail });
   });
   const digest = createHash("sha256").update(JSON.stringify({ source, mapping: headers.map(h => [h, mapping[h]]) })).digest("hex");
   return { digest, rows, issues, total: records.length };

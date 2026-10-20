@@ -23,8 +23,9 @@ const production = {
   NEXT_PUBLIC_SUPABASE_URL: 'https://rhryjrbebfrrfhtyyzbs.supabase.co',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'synthetic-anon', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service',
 };
+const local = { ...production, NODE_ENV: 'test', VERCEL_ENV: undefined, HUSTLE_PHASE2_LOCAL_FIXTURE: 'true', NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:9999' };
 const mutations = ['columns', 'import', 'activate', 'invite', 'revoke'];
-const actions = [...mutations, 'session', 'respond', 'organizer', 'export', 'unknown'];
+const actions = [...mutations, 'session', 'respond', 'claim', 'clear-context', 'organizer', 'export', 'unknown'];
 const compiled = new Map();
 function harness(env = {}, identity = 'none') {
   env = { ...env };
@@ -35,12 +36,12 @@ function harness(env = {}, identity = 'none') {
     return {
       auth: { async getUser() {
         calls.push({ kind: 'auth' });
-        return { data: { user: identity === 'none' ? null : { id: TEAM, email: 'synthetic@example.invalid' } }, error: null };
+        return { data: { user: identity === 'none' ? null : { id: TEAM, email: 'synthetic@example.invalid', is_anonymous: false, email_confirmed_at: '2026-01-01T00:00:00Z' } }, error: null };
       } },
       from(table) {
         calls.push({ kind: 'query', table });
         const q = { select() { return q; }, eq() { return q; }, async maybeSingle() {
-          return { data: table === 'profiles' ? { role: identity === 'admin' ? 'admin' : 'user', is_banned: identity === 'banned' } : { id: EVENT }, error: null };
+          return { data: table === 'profiles' ? { role: identity === 'admin' ? 'admin' : 'user', is_banned: identity === 'banned', onboarding_completed: true } : { id: EVENT }, error: null };
         } };
         return q;
       },
@@ -53,6 +54,7 @@ function harness(env = {}, identity = 'none') {
         if (name === 'has_partner_admin_access') return { data: identity === 'admin', error: null };
         if (name === 'hustle_phase2_has_active_session') return { data: true, error: null };
         if (name === 'hustle_phase2_snapshot') return { data: snapshot, error: null };
+        if (name === 'hustle_phase2_participant' || name === 'hustle_phase2_claim') return { data: { team_name: 'Synthetic team', leader_name: 'Synthetic leader', role: 'leader', own_verified: true, fully_onboarded: true, members_verified: 1, members_required: 1, can_respond: true, decision: 'pending', window: 'open' }, error: null };
         if (name === 'hustle_phase2_inspect') return { data: validHashes.has(args.p_hash) ? { team_name: 'Synthetic team', leader_name: 'Synthetic leader', second_member_name: null, decision: 'pending', window: 'open' } : null, error: null };
         if (name === 'hustle_phase2_respond') return { data: validHashes.has(args.p_hash) ? { status: 'ok', decision: args.p_decision } : { status: 'invalid' }, error: null };
         assert(['hustle_phase2_limit', 'hustle_phase2_invite', 'hustle_phase2_revoke', 'hustle_phase2_activate', 'hustle_phase2_import'].includes(name), 'Unexpected RPC');
@@ -124,7 +126,7 @@ for (const [label, changes] of [
 });
 
 test('approval/configuration must match exact production requirements', () => {
-  assert.equal(harness(production).server.enabled(), true);
+  assert.equal(harness(production).server.enabled(), false);
   for (const changes of [
     { HUSTLE_PHASE2_ENABLED: 'TRUE' }, { HUSTLE_PHASE2_RELEASE_APPROVED: ' true ' },
     { NODE_ENV: 'test' }, { NODE_ENV: undefined }, { VERCEL_ENV: 'preview' }, { VERCEL_ENV: 'development' }, { VERCEL_ENV: undefined },
@@ -155,9 +157,9 @@ test('hosted Preview cannot opt into enabled mode even with both approvals and f
   await allDisabled(harness({ ...production, VERCEL_ENV: 'preview', HUSTLE_PHASE2_LOCAL_FIXTURE: 'true' }));
 });
 
-test('enabled production gate does not authorize anonymous, unrelated, cross-event or banned identities', async () => {
+test('enabled local gate does not authorize anonymous, unrelated, cross-event or banned identities', async () => {
   for (const identity of ['none', 'unrelated', 'foreign-event', 'banned']) {
-    const h = harness(production, identity);
+    const h = harness(local, identity);
     for (const action of ['organizer', 'export', ...mutations]) {
       const r = await h.server.handleApi(request(action, mutations.includes(action) ? 'POST' : 'GET', { actorId: TEAM, isAdmin: true }), action);
       assert.equal(r.status, identity === 'none' ? 401 : 403); privateResponse(r);
@@ -171,7 +173,7 @@ test('enabled production gate does not authorize anonymous, unrelated, cross-eve
 });
 
 test('authorized organizer can view/export but cannot invoke admin mutations', async () => {
-  const h = harness(production, 'organizer');
+  const h = harness(local, 'organizer');
   for (const action of ['organizer', 'export']) {
     const r = await h.server.handleApi(request(action, 'GET'), action); assert.equal(r.status, 200); privateResponse(r);
   }
@@ -181,7 +183,7 @@ test('authorized organizer can view/export but cannot invoke admin mutations', a
 });
 
 test('enabled admin operations preserve receipt, CSRF and token secrecy boundaries', async () => {
-  const h = harness(production, 'admin');
+  const h = harness(local, 'admin');
   for (const action of actions) {
     const before = h.calls.length;
     const r = await h.server.handleApi(request(action, 'POST', {}, { origin: 'https://evil.example.invalid' }), action);
@@ -202,26 +204,27 @@ test('enabled admin operations preserve receipt, CSRF and token secrecy boundari
   assert(!JSON.stringify([h.calls, h.logs]).includes(token));
 });
 
-test('participant access remains bearer-only: absent/invalid tokens disclose no team, valid exchange uses secure cookie', async () => {
-  const h = harness(production), core = h.load('src/lib/hustle-phase2/core.ts');
+test('guest exchange stages only signed context and does not authorize participant reads or responses', async () => {
+  const h = harness(local), core = h.load('src/lib/hustle-phase2/core.ts');
   const token = core.newToken().token; h.validHashes.add(core.tokenHash(token));
   const noToken = await h.pages.handlePage(new NextRequest(ORIGIN + BASE));
-  assert.match(await noToken.text(), /Invitation-only registration/); assert.equal(h.calls.length, 0);
+  assert.equal(noToken.status, 401); assert(!((await noToken.text()).includes('Synthetic team')));
   const invalid = await h.server.handleApi(new NextRequest(ORIGIN + API + '/session', { method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/x-www-form-urlencoded' }, body: 'token=invalid' }), 'session');
   assert.equal(invalid.status, 404); privateResponse(invalid);
   const session = await h.server.handleApi(new NextRequest(ORIGIN + API + '/session', { method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token }) }), 'session');
-  assert.equal(session.status, 303); privateResponse(session);
+  assert.equal(session.status, 200); privateResponse(session);
   const cookie = session.headers.get('set-cookie');
-  for (const expected of ['HttpOnly', 'Secure', 'SameSite=strict', 'Path=/']) assert(cookie.includes(expected));
-  assert.equal(session.headers.get('location'), ORIGIN + BASE);
+  for (const expected of ['HttpOnly', 'Secure', 'SameSite=lax', 'Path=/']) assert(cookie.includes(expected));
+  assert.equal(session.headers.get('location'), null);
   const r = await h.server.handleApi(request('respond', 'POST', { decision: 'confirmed' }, { cookie: 'hm_hustle_p2=' + token }), 'respond');
-  assert.equal(r.status, 200); privateResponse(r);
+  assert.equal(r.status, 401); privateResponse(r);
+  assert(!cookie.includes(token)); assert(!h.calls.some(c=>c.name==='hustle_phase2_respond'));
   assert(!JSON.stringify([h.calls, h.logs]).includes(token));
 });
 
-for (const flag of ['HUSTLE_PHASE2_ENABLED', 'HUSTLE_PHASE2_RELEASE_APPROVED'])
+for (const flag of ['HUSTLE_PHASE2_ENABLED'])
   test('emergency removal of ' + flag + ' is observed by the same loaded handlers', async () => {
-    const h = harness(production, 'admin');
+    const h = harness(local, 'admin');
     assert.equal((await h.server.handleApi(request('organizer', 'GET'), 'organizer')).status, 200);
     h.env[flag] = 'false'; await allDisabled(h);
     // Old cookies or already-rendered forms cannot bypass a subsequent request gate.
@@ -231,12 +234,12 @@ for (const flag of ['HUSTLE_PHASE2_ENABLED', 'HUSTLE_PHASE2_RELEASE_APPROVED'])
   });
 
 test('public participation guard stays OFF with every Round 2 switch ON', () => {
-  const h = harness(production);
+  const h = harness(local);
   assert.equal(h.load('src/lib/partners/hustleCarnival.ts').hustlePublicParticipationEnabled(), false);
 });
 
 test('synthetic browser: open invitation and response form fail closed after emergency shutdown', async () => {
-  const h = harness(production), core = h.load('src/lib/hustle-phase2/core.ts');
+  const h = harness(local, 'admin'), core = h.load('src/lib/hustle-phase2/core.ts');
   const token = core.newToken().token; h.validHashes.add(core.tokenHash(token));
   const errors = [], requests = [];
   const server = http.createServer(async (incoming, outgoing) => {
@@ -267,7 +270,7 @@ test('synthetic browser: open invitation and response form fail closed after eme
       await button.click(); await page.getByRole('status').filter({ hasText: 'Round 2 registration is not available yet.' }).waitFor();
       assert.equal(h.calls.length, before);
       h.env.HUSTLE_PHASE2_ENABLED = 'true';
-      await context.addCookies([{ name: 'hm_hustle_p2', value: token, url: origin, httpOnly: true, sameSite: 'Strict' }]);
+      await context.addCookies([{ name: 'hm_hustle_p2_account', value: core.stageInvitation('synthetic-service',core.tokenHash(token)), url: origin, httpOnly: true, sameSite: 'Strict' }]);
       await page.goto(origin + BASE);
       await page.getByRole('checkbox').check();
       page.on('dialog', dialog => dialog.accept());

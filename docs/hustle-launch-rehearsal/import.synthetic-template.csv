@@ -1,4 +1,4 @@
-team_id,team_name,leader_name,leader_email,leader_whatsapp,optional_second_member_name
-SYNTH-001,SYNTHETIC Solo Team,SYNTHETIC Leader One,leader001@example.invalid,,
-SYNTH-002,SYNTHETIC Pair Two,SYNTHETIC Leader Two,leader002@example.invalid,,SYNTHETIC Member Two
-SYNTH-003,SYNTHETIC Pair Three,SYNTHETIC Leader Three,leader003@example.invalid,,SYNTHETIC Member Three
+team_id,team_name,leader_name,leader_email,leader_whatsapp,optional_second_member_name,optional_second_member_email
+SYNTH-001,SYNTHETIC Solo Team,SYNTHETIC Leader One,leader001@example.invalid,,,
+SYNTH-002,SYNTHETIC Pair Two,SYNTHETIC Leader Two,leader002@example.invalid,,SYNTHETIC Member Two,member002@example.invalid
+SYNTH-003,SYNTHETIC Pair Three,SYNTHETIC Leader Three,leader003@example.invalid,,SYNTHETIC Member Three,member003@example.invalid

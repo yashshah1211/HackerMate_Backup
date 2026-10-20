@@ -71,7 +71,7 @@ async function main() {
     const status = JSON.parse(run(CLI, ['status', '--workdir', ROOT, '-o', 'json'])); const url = status.API_URL, anon = status.ANON_KEY, service = status.SERVICE_ROLE_KEY;
     assert(url === 'http://127.0.0.1:' + ports.api && anon && service); secrets.push(anon, service);
     const accounts = {};
-    for (const name of ['admin', 'founder', 'organizer', 'unrelated', 'bannedAdmin', 'bannedOrganizer', 'foreign']) {
+    for (const name of ['admin', 'founder', 'organizer', 'unrelated', 'bannedAdmin', 'bannedOrganizer', 'foreign', 'leader', 'member', 'solo', 'decliner', 'late', 'noProfile']) {
       const email = name === 'founder' ? 'yashshah7117@gmail.com' : name.toLowerCase() + '-' + ID + '@example.invalid';
       const password = crypto.randomBytes(24).toString('base64url'); secrets.push(password);
       const created = await request(url + '/auth/v1/admin/users', { method: 'POST', headers: { apikey: service, Authorization: 'Bearer ' + service, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, email_confirm: true }) });
@@ -109,6 +109,10 @@ async function main() {
     for (const role of ['anon','authenticated','service_role']) check(sql(`SELECT NOT has_any_column_privilege('${role}','auth.sessions','SELECT')`) === 't', 'No raw Auth session reads for ' + role);
     const newLogin = await request(url + '/auth/v1/token?grant_type=password', { method:'POST',headers:{apikey:anon,'Content-Type':'application/json'},body:JSON.stringify({email:accounts.admin.email,password:accounts.admin.password}) });
     check(newLogin.status === 200, 'Fresh local admin session'); accounts.admin.token = newLogin.data.access_token; accounts.admin.refresh = newLogin.data.refresh_token; secrets.push(newLogin.data.access_token,newLogin.data.refresh_token);
+    // New participant model installed in this disposable stack before any roster.
+    sql('ALTER TABLE profiles ADD COLUMN onboarding_completed boolean DEFAULT true;GRANT SELECT(onboarding_completed) ON profiles TO authenticated;GRANT SELECT(email_confirmed_at,is_anonymous) ON auth.users TO postgres;');
+    sql(fs.readFileSync(path.join(REPO,'supabase/migrations/20261020055415_hustle_participant_accounts.sql'),'utf8'));sql("NOTIFY pgrst,'reload schema'");
+    await pause(500);
     // One synthetic private row tests data access; no activation or invitation.
     sql(`SET ROLE service_role;SELECT hustle_phase2_import('${accounts.admin.id}','${'a'.repeat(64)}','[{"external_team_id":"SYNTH-AUTH-1","team_name":"Synthetic Private Team","leader_name":"Synthetic Leader","leader_email":"synthetic-leader@example.invalid","leader_whatsapp":null,"second_member_name":null}]');`);
     fs.mkdirSync(APP); for (const name of ['src','public']) fs.cpSync(path.join(REPO,name),path.join(APP,name),{recursive:true});
@@ -118,7 +122,7 @@ async function main() {
     const appEnv={...env,NODE_ENV:'development',NEXT_TELEMETRY_DISABLED:'1',NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:anon,SUPABASE_SERVICE_ROLE_KEY:service,HUSTLE_PHASE2_ENABLED:'true',HUSTLE_PHASE2_LOCAL_FIXTURE:'true',NEXT_FONT_GOOGLE_MOCKED_RESPONSES:font};
     const origin='http://localhost:'+ports.app;
     next=cp.spawn(process.execPath,[path.join(APP,'node_modules/next/dist/bin/next'),'dev','--webpack','-H','127.0.0.1','-p',String(ports.app)],{cwd:APP,env:appEnv,windowsHide:true,stdio:['ignore','pipe','pipe']});next.stdout.on('data',c=>nextLog+=c);next.stderr.on('data',c=>nextLog+=c);
-    let appReady=false;for(let i=0;i<100;i++){if(next.exitCode!==null)throw Error('Next fixture exited');try{if((await request(origin+BASE)).status===200){appReady=true;break;}}catch{}await pause(300);}check(appReady,'Actual Next fixture ready with real local Supabase');
+    let appReady=false;for(let i=0;i<100;i++){if(next.exitCode!==null)throw Error('Next fixture exited');try{if((await request(origin+BASE)).status===401){appReady=true;break;}}catch{}await pause(300);}check(appReady,'Actual Next fixture ready with real local Supabase');
     const api=(who,action,body)=>request(origin+API+'/'+action,{method:body?'POST':'GET',headers:{...(who?{Authorization:'Bearer '+accounts[who].token}:{}),Origin:origin,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
     for(const who of ['admin','founder','organizer']){const r=await api(who,'organizer');check(r.status===200&&r.data.counts.shortlisted===1,'Actual Next shortlist allows '+who);}
     for(const who of ['unrelated','foreign','bannedAdmin','bannedOrganizer'])check((await api(who,'organizer')).status===403,'Actual Next rejects '+who);
@@ -138,6 +142,7 @@ async function main() {
     for(const ban of [true,false]){const r=await moderate('admin','unrelated',ban);runtime.moderation.push({status:r.status,success:r.data.success,changed:r.data.changed});check(r.status===200&&r.data.changed===true,'Existing admin moderation '+(ban?'ban':'unban')+' succeeds');}
     check((await moderate('admin','admin',true)).status===403,'Moderation still blocks self');check((await moderate('admin','founder',true)).status===403,'Moderation still protects founder');check((await moderate('bannedAdmin','unrelated',true)).status===403,'Banned admin cannot use moderation');
     browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{})});
+    await require('./hustle-participant-integration-cases.cjs')({sql,request,url,anon,service,accounts,origin,BASE,API,check,browser,secrets,REPO});
     for(const width of [390,1440]){const ctx=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block',extraHTTPHeaders:{Authorization:'Bearer '+accounts.organizer.token}});let external=0;await ctx.route('**/*',route=>{if(new URL(route.request().url()).origin===origin)return route.continue();external++;return route.abort();});const page=await ctx.newPage();await page.goto(origin+BASE+'/organizer');await page.getByRole('heading',{name:'Round 2 shortlist',exact:true}).waitFor();check((await page.content()).includes('Synthetic Private Team'),'Real-session browser shortlist '+width);check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Browser layout '+width);check(external===0,'No external browser requests '+width);await ctx.close();}
     const revoke=await request(url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:anon,Authorization:'Bearer '+accounts.organizer.token}});check(revoke.status===204,'Real organizer session revoked');
     check((await rpc('hustle_phase2_snapshot','organizer')).status===403,'Revoked organizer JWT cannot read direct RPC');const deniedRoute=await api('organizer','organizer');check([401,403].includes(deniedRoute.status)&&!deniedRoute.text.includes('Synthetic Private Team'),'Revoked organizer denied by actual server route');
