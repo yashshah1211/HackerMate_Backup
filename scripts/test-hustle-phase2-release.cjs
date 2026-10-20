@@ -233,6 +233,45 @@ for (const flag of ['HUSTLE_PHASE2_ENABLED'])
     assert.equal(h.calls.length, before);
   });
 
+test('recovery keeps no-referrer privacy and rejects null/cross-site Origin',async()=>{
+  const h=harness(local);
+  for(const origin of ['null','https://unrelated.example.invalid']){
+    const response=await h.server.handleApi(request('clear-context','POST',{}, {origin}),'clear-context');
+    assert.equal(response.status,403);assert.equal(response.headers.get('set-cookie'),null);
+  }
+});
+
+test('real browser clears expired handoff with CORS Origin and no private-policy relaxation',async()=>{
+  const h=harness(local,'admin'),requests=[];let browser;
+  const server=http.createServer(async(incoming,outgoing)=>{
+    try{
+      const origin='http://localhost:'+server.address().port;
+      const chunks=[];for await(const chunk of incoming)chunks.push(chunk);
+      const req=new NextRequest(origin+incoming.url,{method:incoming.method,headers:incoming.headers,...(incoming.method==='POST'?{body:Buffer.concat(chunks)}:{})});
+      if(incoming.url===API+'/clear-context')requests.push({origin:incoming.headers.origin,mode:incoming.headers['sec-fetch-mode']});
+      const response=incoming.url.startsWith(API+'/')?await h.server.handleApi(req,incoming.url.slice(API.length+1)):await h.pages.handlePage(req);
+      outgoing.writeHead(response.status,Object.fromEntries(response.headers));outgoing.end(Buffer.from(await response.arrayBuffer()));
+    }catch{outgoing.writeHead(500);outgoing.end('Synthetic harness failure')}
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{
+    const origin='http://localhost:'+server.address().port;
+    browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||'/usr/bin/chromium'});
+    const context=await browser.newContext({serviceWorkers:'block'});
+    await context.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
+    await context.addCookies([{name:'hm_hustle_p2_account',value:'invalid',url:origin,httpOnly:true,sameSite:'Lax'}]);
+    const page=await context.newPage(),response=await page.goto(origin+BASE);
+    assert.equal(response.status(),410);assert.equal(response.headers()['referrer-policy'],'no-referrer');
+    const cleared=page.waitForResponse(r=>r.url()===origin+API+'/clear-context');
+    await page.getByRole('button',{name:'Use account onboarding without an attendance link'}).click();
+    assert.equal((await cleared).status(),303);
+    await page.getByRole('heading',{name:'Round 2 team account and attendance',exact:true}).waitFor();
+    assert.deepEqual(requests,[{origin,mode:'cors'}]);
+    assert.equal((await context.cookies()).some(c=>c.name==='hm_hustle_p2_account'),false);
+    assert.equal(page.url(),origin+BASE);await context.close();
+  }finally{if(browser)await browser.close();server.closeAllConnections?.();await new Promise(resolve=>server.close(resolve));}
+});
+
 test('public participation guard stays OFF with every Round 2 switch ON', () => {
   const h = harness(local);
   assert.equal(h.load('src/lib/partners/hustleCarnival.ts').hustlePublicParticipationEnabled(), false);

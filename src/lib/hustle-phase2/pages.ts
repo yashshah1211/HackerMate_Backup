@@ -82,6 +82,20 @@ form.addEventListener('submit',async event=>{
 });
 `; }
 
+function recoveryScript() { return `
+const form=document.getElementById('clear-context'),notice=document.getElementById('recovery-notice');
+form.addEventListener('submit',async event=>{
+  event.preventDefault();const button=form.querySelector('button');button.disabled=true;
+  try{
+    // Native no-referrer form navigation sends Origin:null. CORS fetch preserves
+    // the same-origin CSRF boundary without relaxing the private-page policy.
+    const response=await fetch(form.action,{method:'POST',mode:'cors',credentials:'same-origin'});
+    if(!response.redirected||response.url!==new URL(${JSON.stringify(BASE)},location.origin).href)throw Error('Unable to clear invitation context. Please try again.');
+    location.replace(${JSON.stringify(BASE)});
+  }catch{notice.textContent='Unable to clear invitation context. Please try again.';notice.focus();button.disabled=false}
+});
+`; }
+
 export function handlePage(req: NextRequest, path: string[] = []): Promise<Response> {
   return withAuthCookies(onCookies => handlePageRequest(req, path, onCookies));
 }
@@ -105,6 +119,6 @@ async function handlePageRequest(req: NextRequest, path: string[], onCookies: (c
     if (!known) console.error("[hustle-phase2] Page failed", { type: error instanceof Error ? error.name : "unknown" });
     const status = known ? error.status : 503;
     const organizerPage = path[0] === "organizer";
-    return shell("Round 2 account verification", `<h1>${organizerPage ? "Organizer access required" : "HackerMate account verification"}</h1><p>${h(known ? error.message : "Please try again later.")}</p>${status === 401 || status === 403 ? `<a class="button" href="${organizerPage ? `/login?next=${encodeURIComponent(BASE + "/organizer")}` : PARTICIPANT_LOGIN}">Sign up / Sign in with HackerMate</a>` : ""}${status === 428 ? `<a class="button" href="${PARTICIPANT_ONBOARDING}">Complete HackerMate onboarding</a>` : ""}${!organizerPage ? `<p>If this is the wrong account, use the <a href="/dashboard">HackerMate account menu</a> to sign out, then sign in with your official roster email. Ask the organizer to reconcile changed or ambiguous addresses.</p><form method="post" action="${API}/clear-context"><button class="secondary">Use account onboarding without an attendance link</button></form>` : ""}`, "", status);
+    return shell("Round 2 account verification", `<h1>${organizerPage ? "Organizer access required" : "HackerMate account verification"}</h1><p>${h(known ? error.message : "Please try again later.")}</p>${status === 401 || status === 403 ? `<a class="button" href="${organizerPage ? `/login?next=${encodeURIComponent(BASE + "/organizer")}` : PARTICIPANT_LOGIN}">Sign up / Sign in with HackerMate</a>` : ""}${status === 428 ? `<a class="button" href="${PARTICIPANT_ONBOARDING}">Complete HackerMate onboarding</a>` : ""}${!organizerPage ? `<p>If this is the wrong account, use the <a href="/dashboard">HackerMate account menu</a> to sign out, then sign in with your official roster email. Ask the organizer to reconcile changed or ambiguous addresses.</p><form id="clear-context" method="post" action="${API}/clear-context"><button class="secondary">Use account onboarding without an attendance link</button></form><p id="recovery-notice" role="status" tabindex="-1"></p><noscript>Enable JavaScript to clear invitation context securely.</noscript>` : ""}`, organizerPage ? "" : recoveryScript(), status);
   }
 }
