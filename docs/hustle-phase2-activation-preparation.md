@@ -1,5 +1,7 @@
 # Round 2 activation preparation — NO-GO for release
 
+**Account-onboarding update:** source constant `ACCOUNT_ONBOARDING_RELEASE_APPROVED=false` now additionally blocks Production/Preview. Environment switches alone cannot enable this candidate. Follow `hustle-round2-participant-accounts.md`; historical flags-only activation instructions below are superseded.
+
 Base: `8f9b9cfcafd01c09202b518ea29e19e2b3ec0a38`. Registration window: **October 23, 2026, 10:00 AM inclusive–11:00 PM exclusive IST** (04:30–17:30 UTC), enforced by database time. This is a local review candidate, not approval to publish, deploy, migrate, activate or send. ₹0; no dependencies added. PR #28 is excluded. The completed organizer handoff is not repeated here.
 
 ## Exact code/configuration contract

@@ -4,17 +4,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireVerifiedProfile, type AuthCookieUpdate } from "@/lib/admin/requireAdmin";
 import { requirePartnerAccess } from "@/lib/partners/requirePartnerAccess";
 import { csvCell } from "@/lib/partners/csv";
-import { BASE, CLOSES, EVENT_ID, MAX_CSV_BYTES, newToken, parseCsv, previewCsv, receipt, tokenHash, verifyReceipt, type Mapping, type TeamInput } from "./core";
+import { BASE, EVENT_ID, MAX_CSV_BYTES, newToken, parseCsv, previewCsv, receipt, tokenHash, verifyReceipt, stageInvitation, readInvitation, type Mapping, type TeamInput } from "./core";
 
-// Two independent, server-only switches; unset means OFF. Release approval is
-// configuration only after this patch and its operational gates are approved.
+// Source approval remains OFF. The two server-only environment switches also
+// default OFF and cannot bypass the account-onboarding source release gate.
 // Read both on every request, never cache approval at module initialization.
 export function enabled(): boolean {
   if (process.env.HUSTLE_PHASE2_ENABLED !== "true") return false;
   const PRODUCTION_RELEASE_APPROVED = process.env.HUSTLE_PHASE2_RELEASE_APPROVED === "true";
   try { const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
     if (process.env.NODE_ENV === "production") {
-      return PRODUCTION_RELEASE_APPROVED && process.env.VERCEL_ENV === "production"
+      const ACCOUNT_ONBOARDING_RELEASE_APPROVED = false; // Separate source-release approval required.
+      return ACCOUNT_ONBOARDING_RELEASE_APPROVED && PRODUCTION_RELEASE_APPROVED && process.env.VERCEL_ENV === "production"
         && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE !== "true"
         && url.protocol === "https:" && url.hostname === "rhryjrbebfrrfhtyyzbs.supabase.co"
         && !url.port && !url.username && !url.password && url.pathname === "/" && !url.search && !url.hash
@@ -26,7 +27,7 @@ export function enabled(): boolean {
       && url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
   } catch { return false; }
 }
-export const COOKIE = "hm_hustle_p2";
+export const COOKIE = "hm_hustle_p2_account";
 export const PRIVATE_HEADERS = { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow, noarchive", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" };
 export function secure(response: Response): Response { for (const [k, v] of Object.entries(PRIVATE_HEADERS)) response.headers.set(k, v); return response; }
 export async function withAuthCookies(operation: (onCookies: (cookies: AuthCookieUpdate[]) => void) => Promise<Response>): Promise<Response> {
@@ -99,10 +100,43 @@ async function payload(req: NextRequest): Promise<Record<string, unknown>> {
   try { const data = JSON.parse(await body(req)); if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error(); return data; }
   catch (error) { if (error instanceof HttpError) throw error; throw new HttpError(400, "Invalid JSON."); }
 }
-export type Team = TeamInput & { id: string; batch_id: string; decision: "pending" | "confirmed" | "declined"; decided_at: string | null; invite_status: "not_created" | "ready" | "revoked" };
+export type Team = Omit<TeamInput, "second_member_email"> & { id: string; batch_id: string; decision: "pending" | "confirmed" | "declined"; decided_at: string | null; invite_status: "not_created" | "ready" | "revoked"; members: { role: "leader" | "member"; name: string; email: string; verified: boolean }[] };
 export type Snapshot = { teams: Team[]; batches: { id: string; source_digest: string; row_count: number; activated_at: string | null }[]; counts: { shortlisted: number; confirmed: number; declined: number; pending: number }; };
-export type Invitation = { team_name: string; leader_name: string; second_member_name: string | null; decision: string; window: "before" | "open" | "closed" };
-export async function inspect(token: string): Promise<Invitation | null> { const hash = tokenHash(token); return hash ? rpc("hustle_phase2_inspect", { p_hash: hash }) : null; }
+export type Invitation = { team_name: string; leader_name: string; second_member_name: string | null; decision: string; window: "before" | "open" | "closed"; role: "leader" | "member"; own_verified: boolean; members_required: number; members_verified: number; fully_onboarded: boolean; can_respond: boolean };
+export const PARTICIPANT_LOGIN = `/login?next=${encodeURIComponent(BASE)}`;
+export const PARTICIPANT_ONBOARDING = `/onboarding?next=${encodeURIComponent(BASE)}`;
+export function pendingHash(req: NextRequest): string | null {
+  const value = req.cookies.get(COOKIE)?.value;
+  if (!value) return null;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) throw new HttpError(503, "Unable to verify invitation context.");
+  const hash = readInvitation(secret, value);
+  if (!hash) throw new HttpError(410, "Invitation context expired. Reopen the original leader invitation or use member onboarding.");
+  return hash;
+}
+export async function authorizeParticipant(req: NextRequest, onCookies?: (cookies: AuthCookieUpdate[]) => void) {
+  const auth = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, lookupFailureStatus: 500, onCookies });
+  if (auth instanceof NextResponse) throw new HttpError(auth.status, "Sign in with your eligible HackerMate account.");
+  if (auth.user.is_anonymous !== false || !auth.user.email_confirmed_at) throw new HttpError(403, "A verified, non-anonymous HackerMate account is required.");
+  await requireActiveSession(auth.supabaseUserClient);
+  const { data, error } = await auth.supabaseUserClient.from("profiles").select("onboarding_completed").eq("id", auth.user.id).maybeSingle();
+  if (error) { console.error("[hustle-phase2] Participant profile failed", { code: error.code }); throw new HttpError(503, "Unable to verify account."); }
+  if (data?.onboarding_completed !== true) throw new HttpError(428, "Complete HackerMate onboarding before verifying your shortlist identity.");
+  return { client: auth.supabaseUserClient, actor: auth.user.id };
+}
+export async function participantRpc<T>(client: ReturnType<typeof database>, name: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await client.rpc(name, args);
+  if (error) {
+    console.error("[hustle-phase2] Participant authorization failed", { operation: name, code: error.code });
+    if (error.code === "PT429") throw new HttpError(429, "Too many requests. Please try again later.");
+    throw new HttpError(error.code === "42501" ? 403 : error.code === "23505" ? 409 : 503, "Unable to verify this account and official roster entry. Contact the organizer to reconcile your identity; do not create another account.");
+  }
+  return data as T;
+}
+export async function participantView(req: NextRequest, onCookies?: (cookies: AuthCookieUpdate[]) => void): Promise<Invitation | null> {
+  const auth = await authorizeParticipant(req, onCookies);
+  return participantRpc(auth.client, "hustle_phase2_participant", { p_hash: pendingHash(req) });
+}
 export async function snapshot(client: ReturnType<typeof database>): Promise<Snapshot> {
   const { data, error } = await client.rpc("hustle_phase2_snapshot");
   if (error) { console.error("[hustle-phase2] Snapshot failed", { code: error.code, message: error.message }); throw new HttpError(error.code === "42501" ? 403 : 503, "Unable to load the shortlist."); }
@@ -123,8 +157,8 @@ async function handleApiRequest(req: NextRequest, action: string, onCookies: (co
     if (req.method === "GET" && ["organizer", "export"].includes(action)) {
       const auth = await authorize(req, false, onCookies); const data = await snapshot(auth.client);
       if (action === "organizer") return json({ ...data, isAdmin: auth.isAdmin });
-      const fields = ["Team ID", "Team", "Leader", "Leader email", "Leader WhatsApp", "Second member", "Response", "Responded at"];
-      const csv = [fields, ...data.teams.map(t => [t.external_team_id, t.team_name, t.leader_name, t.leader_email, t.leader_whatsapp || "", t.second_member_name || "", t.decision, t.decided_at || ""])].map(row => row.map(csvCell).join(",")).join("\r\n");
+      const fields = ["Team ID", "Team", "Leader", "Leader email", "Leader WhatsApp", "Second member", "Attendance", "Responded at", "Account onboarding", "Member verification"];
+      const csv = [fields, ...data.teams.map(t => { const members = t.members || []; const verified = members.filter(m => m.verified).length; return [t.external_team_id, t.team_name, t.leader_name, t.leader_email, t.leader_whatsapp || "", t.second_member_name || "", t.decision, t.decided_at || "", verified === 0 ? "Not started" : verified === members.length ? "Fully verified" : "Partially verified", members.map(m => `${m.role}: ${m.verified ? "verified" : "pending"}`).join("; ")]; })].map(row => row.map(csvCell).join(",")).join("\r\n");
       return secure(new Response("\uFEFF" + csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="hustle-round2-shortlist.csv"' } }));
     }
     if (req.method !== "POST") throw new HttpError(405, "Method not allowed.");
@@ -132,19 +166,32 @@ async function handleApiRequest(req: NextRequest, action: string, onCookies: (co
       await limit("public", 300);
       if (!req.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded")) throw new HttpError(415, "Form required.");
       const form = new URLSearchParams(await body(req, 1024)); const token = form.get("token") || "";
-      if (!await inspect(token)) throw new HttpError(404, "Invitation is invalid or unavailable.");
-      const response = NextResponse.redirect(new URL(BASE, req.url), 303);
-      response.cookies.set(COOKIE, token, { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "strict", path: "/", maxAge: Math.max(0, Math.min(1200, Math.floor((Date.parse(CLOSES) - Date.now()) / 1000))) });
+      const hash = tokenHash(token);
+      if (!hash) throw new HttpError(404, "Invitation is invalid or unavailable.");
+      // Pending context only: no roster read or participant authority before Auth.
+      const response = NextResponse.json({ status: "pending" });
+      response.cookies.set(COOKIE, stageInvitation(process.env.SUPABASE_SERVICE_ROLE_KEY!, hash), { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "lax", path: "/", maxAge: 1200 });
       return secure(response);
     }
+    if (action === "clear-context") {
+      const response = NextResponse.redirect(new URL(BASE, req.url), 303);
+      response.cookies.set(COOKIE, "", { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "lax", path: "/", maxAge: 0 });
+      return secure(response);
+    }
+    if (action === "claim") {
+      const auth = await authorizeParticipant(req, onCookies); await limit(`participant:${auth.actor}`, 30);
+      exactKeys(await payload(req), []);
+      return json(await participantRpc(auth.client, "hustle_phase2_claim", { p_hash: pendingHash(req) }));
+    }
     if (action === "respond") {
+      const auth = await authorizeParticipant(req, onCookies);
       await limit("public", 300);
-      const hash = tokenHash(req.cookies.get(COOKIE)?.value || "");
+      const hash = pendingHash(req);
       if (!hash) throw new HttpError(404, "Invitation is invalid or unavailable.");
       await limit(hash, 12);
       const data = await payload(req);
       if (Object.keys(data).length !== 1 || !["confirmed", "declined"].includes(String(data.decision))) throw new HttpError(400, "Choose confirm or decline.");
-      const result = await rpc<{ status: string; decision?: string }>("hustle_phase2_respond", { p_hash: hash, p_decision: data.decision });
+      const result = await participantRpc<{ status: string; decision?: string }>(auth.client, "hustle_phase2_respond", { p_hash: hash, p_decision: data.decision });
       if (result.status !== "ok") throw new HttpError(result.status === "invalid" ? 404 : 409, result.status === "conflict" ? "A different response is already recorded. Contact the organizer." : "Registration is unavailable or outside the registration window.");
       return json(result);
     }
@@ -161,6 +208,8 @@ async function handleApiRequest(req: NextRequest, action: string, onCookies: (co
       let preview; try { preview = previewCsv(data.csv, data.mapping as Mapping); } catch (error) { throw new HttpError(400, error instanceof Error ? error.message : "Invalid CSV."); }
       const existing = await snapshot(auth.client);
       for (const row of preview.rows) if (existing.teams.some(t => t.external_team_id === row.external_team_id || t.leader_email === row.leader_email || (row.leader_whatsapp && t.leader_whatsapp === row.leader_whatsapp))) preview.issues.push({ row: preview.rows.indexOf(row) + 2, field: "team_id", message: "Team or leader contact already exists in the shortlist. Existing data will not be overwritten." });
+      const existingEmails = new Set(existing.teams.flatMap(t => (t.members || []).map(m => m.email)));
+      for (const row of preview.rows) if (existingEmails.has(row.leader_email) || (row.second_member_email && existingEmails.has(row.second_member_email))) preview.issues.push({ row: preview.rows.indexOf(row) + 2, field: "participant_email", message: "A participant is already assigned in the official shortlist." });
       if (existing.teams.length + preview.total > 500) preview.issues.push({ row: 0, field: "file", message: "Pilot limit is 500 shortlisted teams." });
       const secret = process.env.SUPABASE_SERVICE_ROLE_KEY!;
       if (data.mode === "preview") return json({ ...preview, receipt: preview.issues.length ? null : receipt(secret, auth.actor, preview.digest, Date.now() + 15 * 60_000) });

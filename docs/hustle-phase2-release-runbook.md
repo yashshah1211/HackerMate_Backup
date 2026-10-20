@@ -1,5 +1,7 @@
 # Hustle Round 2 disabled-release and reversible launch runbook — NOT EXECUTED
 
+**Account-policy update:** follow `hustle-round2-participant-accounts.md` for the new migration, seven-column roster, source-OFF gate and hosted identity checks. Historical baseline counts require fresh verification; never use token-only attendance instructions.
+
 > Activation-preparation update (base `8f9b9cf`): use [the current release checklist](hustle-phase2-activation-preparation.md) for the two-switch gate and emergency stop. Historical PR #27 rehearsal/database instructions below remain subject to Desktop’s independent sign-off. The old source-enable proposal is retired. Nothing in this document authorizes execution.
 
 Use only after the separate approvals listed in hustle-phase2-disabled-release-candidate.md. This document authorizes no connected writes, production merge/deploy, live activation or messaging. Stop at any failed gate. The registration window is October 23, 2026, 10:00:00 IST inclusive to 23:00:00 IST exclusive; database time is authoritative after locks.
@@ -70,7 +72,7 @@ Expected: five postgres-owned RLS tables, ten postgres-owned functions. Only aut
 
 ## 5. Production activation — PREPARATION ONLY
 
-The old `PRODUCTION_RELEASE_APPROVED=false -> true` patch is retired. The reviewed preparation patch instead requires TWO server-only environment switches, a production deployment and valid hosted Supabase configuration. Both switches default OFF. See [the current release checklist](hustle-phase2-activation-preparation.md) for the exact contract, release gates, controlled activation and rollback limitations. No additional source flip is needed after that patch is approved and deployed disabled.
+The old `PRODUCTION_RELEASE_APPROVED=false -> true` patch is retired. The reviewed preparation patch instead requires TWO server-only environment switches, a production deployment and valid hosted Supabase configuration. Both switches default OFF. See [the current release checklist](hustle-phase2-activation-preparation.md) for the exact contract, release gates, controlled activation and rollback limitations. The new account-onboarding source gate remains false; a separately reviewed source change and deployment are required before either environment flag can enable it.
 
 Do NOT change `hustlePublicParticipationEnabled(): false`. Do not activate either environment switch, deploy or distribute invitations without the separate release authorization. PR #28 is excluded.
 
@@ -83,7 +85,7 @@ Do NOT change `hustlePublicParticipationEnabled(): false`. Do not activate eithe
 5. Separately approve and click activation for that exact official batch/digest. Capture safe audit identifiers/counts, not PII or bearer material. Activation does not override the time window.
 6. Generate links one team at a time. Only a verified admin can do this; an ordinary event-organizer assignment is not enough. Keep the fragment capability opaque and deliver it immediately to the matching recorded leader through the separately approved individual channel. No automatic emails, bulk WhatsApp, public groups, link shorteners, tracking rewrite or wa.me query bearer.
 7. A dismissed/lost link is unrecoverable from hashes. Revoke and reissue while pending, ensuring the old link is invalid and the correct recipient receives the replacement. Do not blindly issue again or infer send status from ready.
-8. Leaders open the link, continue securely, attest they lead the whole team and confirm/decline once. No HackerMate signup or fee is required. A forwarded URL delegates bearer access; handle suspected sharing by revocation/support.
+8. Leaders open the link, sign in with their verified approved HackerMate account, complete onboarding and claim their official leader slot before responding once. No fee is required. A forwarded URL alone grants no access. Every second member verifies their own account via the fixed member entry; their absence must not block the leader response. Handle suspected sharing by revocation/support.
 9. Refresh the dashboard and reconcile N=confirmed+declined+pending. Manual sending, provider acceptance, delivered/read labels and team registration must never be conflated.
 
 ## 7. Monitor and close
@@ -94,7 +96,7 @@ Do NOT change `hustlePublicParticipationEnabled(): false`. Do not activate eithe
 - For 50–75 teams, links alone can occupy 2–3 fixed minute buckets at the admin ceiling, plus import/setup/reissue operations and human delivery time. Do not mistake the nominal 100/day existing email guard for verified free provider headroom. Individual organizer-operated capability delivery avoids making email automation or PR #28 launch dependencies.
 - At 22:45–22:55, remind support/organizers of the hard cutoff; do not queue all remaining link issuance/responses at the deadline. Observe pending count without publicly exposing the roster.
 - At exactly 23:00 IST (17:30 UTC), pending decisions must reject, including requests waiting on locks. There is no automatic extension or admin override in this MVP. Preserve the audit and report remaining pending separately.
-- Disable registration through the approved environment/source-off deployment after closure as operational cleanup. Keep authorized read-only reporting available only if separately approved; the current shared feature flag turns private organizer routes off too.
+- Attendance closes in SQL at 23:00. Do not turn off member account verification as routine closure: no second-member signup cutoff is approved. Keep approved onboarding/reporting available until a separately approved lifecycle decision. An emergency OFF deployment stops all Round 2 routes, including onboarding; this is incident containment, not an invented signup deadline.
 
 ## 8. Reversible stop / rollback
 
