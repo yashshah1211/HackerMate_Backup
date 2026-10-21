@@ -53,6 +53,9 @@ function harness(env = {}, identity = 'none') {
         }
         if (name === 'has_partner_admin_access') return { data: identity === 'admin', error: null };
         if (name === 'hustle_phase2_has_active_session') return { data: true, error: null };
+        // This release/UI fixture represents an already attested Google session.
+        // Missing/GitHub proof denial is tested separately, including real SQL.
+        if (name === 'hustle_phase2_google_session') return { data: true, error: null };
         if (name === 'hustle_phase2_snapshot') return { data: snapshot, error: null };
         if (name === 'hustle_phase2_participant' || name === 'hustle_phase2_claim') return { data: { team_name: 'Synthetic team', leader_name: 'Synthetic leader', role: 'leader', own_verified: true, fully_onboarded: true, members_verified: 1, members_required: 1, can_respond: true, decision: 'pending', window: 'open' }, error: null };
         if (name === 'hustle_phase2_inspect') return { data: validHashes.has(args.p_hash) ? { team_name: 'Synthetic team', leader_name: 'Synthetic leader', second_member_name: null, decision: 'pending', window: 'open' } : null, error: null };
