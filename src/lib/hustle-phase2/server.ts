@@ -119,6 +119,12 @@ export async function authorizeParticipant(req: NextRequest, onCookies?: (cookie
   if (auth instanceof NextResponse) throw new HttpError(auth.status, "Sign in with your eligible HackerMate account.");
   if (auth.user.is_anonymous !== false || !auth.user.email_confirmed_at) throw new HttpError(403, "A verified, non-anonymous HackerMate account is required.");
   await requireActiveSession(auth.supabaseUserClient);
+  const google = await auth.supabaseUserClient.rpc("hustle_phase2_google_session");
+  if (google.error) {
+    console.error("[hustle-phase2] Google session lookup failed", { code: google.error.code });
+    throw new HttpError(503, "Unable to verify Google sign-in.");
+  }
+  if (google.data !== true) throw new HttpError(403, "Round 2 requires a fresh Google sign-in using the Round 2 login link.");
   const { data, error } = await auth.supabaseUserClient.from("profiles").select("onboarding_completed").eq("id", auth.user.id).maybeSingle();
   if (error) { console.error("[hustle-phase2] Participant profile failed", { code: error.code }); throw new HttpError(503, "Unable to verify account."); }
   if (data?.onboarding_completed !== true) throw new HttpError(428, "Complete HackerMate onboarding before verifying your shortlist identity.");

@@ -31,6 +31,38 @@ async function main(){
   const source=fs.readFileSync(path.join(db.ROOT,'supabase/migrations/20261020055415_hustle_participant_accounts.sql'),'utf8');
   db.sql('SET ROLE postgres;'+source);
   db.sql(Object.entries(ids).map(([name,id])=>`INSERT INTO auth.users(id,email)VALUES('${id}','${name}@example.invalid'); INSERT INTO profiles(id,role,is_banned)VALUES('${id}','user',false); INSERT INTO auth.sessions VALUES('${sid(id)}','${id}',NULL);`).join('\n'));
+  db.sql('SET ROLE postgres;'+fs.readFileSync(path.join(db.ROOT,'supabase/migrations/20261020201500_hustle_google_sessions.sql'),'utf8'));
+  // No Google proof: GitHub, old Google sessions and unverifiable provenance
+  // all fail closed, even with forged Google account metadata in the JWT.
+  for(const fn of ["hustle_phase2_claim()","hustle_phase2_participant()","hustle_phase2_inspect('"+'a'.repeat(64)+"')","hustle_phase2_respond('"+'a'.repeat(64)+"','confirmed')"])
+   denied('leader','SELECT '+fn,'Unattested/GitHub session denied by direct RPC '+fn.split('(')[0]);
+  const forged={sub:ids.leader,role:'authenticated',session_id:sid(ids.leader),app_metadata:{provider:'google',providers:['google']},amr:[{method:'oauth',provider:'google'}]};
+  check(db.sql(`SET ROLE authenticated;SET request.jwt.claim.sub='${ids.leader}';SET request.jwt.claims=${quote(JSON.stringify(forged))};SELECT hustle_phase2_google_session()`).split(/\r?\n/).at(-1)==='f','Google metadata and oauth AMR do not manufacture proof');
+  for(const role of ['anon','authenticated']){assert.throws(()=>db.sql(`SET ROLE ${role};SELECT hustle_phase2_attest_google_session('${ids.leader}','${sid(ids.leader)}')`),/permission denied/);checks++;}
+  for(const role of ['anon','authenticated','service_role']){assert.throws(()=>db.sql(`SET ROLE ${role};SELECT * FROM hustle_phase2_google_sessions`),/permission denied/);checks++;}
+  assert.throws(()=>db.sql(`SET ROLE service_role;SELECT hustle_phase2_attest_google_session('${ids.member}','${sid(ids.leader)}')`),/active session/);checks++;
+  db.sql(`UPDATE profiles SET is_banned=true WHERE id='${ids.leader}'`);
+  assert.throws(()=>db.sql(`SET ROLE service_role;SELECT hustle_phase2_attest_google_session('${ids.leader}','${sid(ids.leader)}')`),/active session/);checks++;
+  db.sql(`UPDATE profiles SET is_banned=false WHERE id='${ids.leader}'`);
+  for(const id of Object.values(ids))check(db.sql(`SET ROLE service_role;SELECT hustle_phase2_attest_google_session('${id}','${sid(id)}')`).split(/\r?\n/).at(-1)==='t','Trusted synthetic Google verification records one session proof');
+  check(db.sql(user('leader','SELECT hustle_phase2_google_session()')).split(/\r?\n/).at(-1)==='t','Active attested Google session accepted');
+  const proofBefore=db.sql(`SELECT row_to_json(g) FROM hustle_phase2_google_sessions g WHERE session_id='${sid(ids.leader)}'`);
+  db.sql(`SET ROLE service_role;SELECT hustle_phase2_attest_google_session('${ids.leader}','${sid(ids.leader)}')`);
+  check(db.sql(`SELECT row_to_json(g) FROM hustle_phase2_google_sessions g WHERE session_id='${sid(ids.leader)}'`)===proofBefore,'Replay cannot extend proof lifetime');
+  const secondSession='72000000-0000-4000-8000-000000000001';
+  db.sql(`INSERT INTO auth.sessions VALUES('${secondSession}','${ids.leader}',NULL)`);
+  check(db.sql(user('leader','SELECT hustle_phase2_google_session()',secondSession)).split(/\r?\n/).at(-1)==='f','Another session of same Google-linked account cannot reuse proof');
+  db.sql(`UPDATE auth.sessions SET not_after=clock_timestamp()-interval '1 second' WHERE id='${secondSession}'`);
+  assert.throws(()=>db.sql(`SET ROLE service_role;SELECT hustle_phase2_attest_google_session('${ids.leader}','${secondSession}')`),/active session/);checks++;
+  check(db.sql(user('leader','SELECT hustle_phase2_google_session()',secondSession)).split(/\r?\n/).at(-1)==='f','Expired Auth session cannot attest or reuse Google proof');
+  const googleMigration=fs.readFileSync(path.join(db.ROOT,'supabase/migrations/20261020201500_hustle_google_sessions.sql'),'utf8');
+  assert.throws(()=>db.sql('SET ROLE service_role;'+googleMigration),/postgres executor/);checks++;
+  assert.throws(()=>db.sql('SET ROLE postgres;'+googleMigration),/already exists/);checks++;
+  check(db.sql(`SELECT row_to_json(g) FROM hustle_phase2_google_sessions g WHERE session_id='${sid(ids.leader)}'`)===proofBefore,'Rejected duplicate/executor transactions leave existing proof unchanged');
+  db.sql(`UPDATE hustle_phase2_google_sessions SET verified_at=clock_timestamp()-interval '25 hours',expires_at=clock_timestamp()-interval '1 hour' WHERE user_id='${ids.leader}'`);
+  denied('leader','SELECT hustle_phase2_participant()','Expired proof denies direct access');
+  db.sql(`UPDATE hustle_phase2_google_sessions SET verified_at=clock_timestamp(),expires_at=clock_timestamp()+interval '24 hours' WHERE user_id='${ids.leader}'`);
+  check(db.sql("SELECT bool_and(proowner='postgres'::regrole AND prosecdef AND proconfig=ARRAY['search_path=\"\"']) FROM pg_proc WHERE proname IN ('hustle_phase2_google_session','hustle_phase2_attest_google_session','hustle_phase2_participant_identity')")==='t','Proof functions trusted owner and locked path');
   installClock(db);
   db.sql('GRANT SELECT ON public.fixture_clock TO postgres');
   const row=(id,leader,member=null)=>({external_team_id:id,team_name:'Synthetic '+id,leader_name:'Synthetic '+leader,leader_email:leader+'@example.invalid',leader_whatsapp:null,second_member_name:member?'Synthetic '+member:null,second_member_email:member?member+'@example.invalid':null});
@@ -94,8 +126,8 @@ async function main(){
   await new Promise(r=>setTimeout(r,80));
   const waiting=await db.asyncSql(user('solo',`SELECT hustle_phase2_respond('${hashes.solo}','confirmed')`));await blocker;
   check(['invalid','closed'].includes(JSON.parse(waiting.split(/\r?\n/).at(-1)).status),'Response waiting on team lock rechecks closing time after lock');
-  check(db.sql("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'hustle_phase2_%'")==='15','Exactly fifteen Phase 2 functions after installation');
-  check(db.sql("SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind='r' AND relname LIKE 'hustle_phase2_%'")==='6','Exactly six Phase 2 tables');
+  check(db.sql("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'hustle_phase2_%'")==='17','Exactly seventeen Phase 2 functions including two Google proof helpers');
+  check(db.sql("SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind='r' AND relname LIKE 'hustle_phase2_%'")==='7','Exactly seven Phase 2 tables with isolated Google proof table');
   check(db.sql("SELECT NOT has_column_privilege('service_role','hustle_phase2_participants','user_id','INSERT') AND NOT has_column_privilege('service_role','hustle_phase2_participants','verified_at','INSERT')")==='t','Service cannot fabricate verified bindings');
   for(const role of ['anon','service_role'])check(db.sql(`SELECT NOT has_function_privilege('${role}','hustle_phase2_claim(text)','EXECUTE') AND NOT has_function_privilege('${role}','hustle_phase2_participant(text)','EXECUTE')`)==='t','Private participant functions denied to '+role);
   const before=fs.readFileSync(path.join(db.ROOT,'supabase/migrations/20261018082156_hustle_phase2_shortlist.sql'),'utf8').replace(/\r\n/g,'\n');check(require('node:crypto').createHash('sha256').update(before).digest('hex')==='4fc87a833b6e3c4687cba372a05717383cb8f35fdd60f03a7f90e166038f45e7','Historical migration immutable');
