@@ -7,7 +7,7 @@ import { PARTICIPANT_DELIVERY_AT, sha256, submitInvitation } from "./delivery-co
 import { EVENT_ID } from "./core";
 import { inspectScheduleInventory } from "./delivery-inventory";
 
-export const AUTODISPATCH_SOURCE_APPROVED = false; // Separate exact-source release approval required.
+export const AUTODISPATCH_SOURCE_APPROVED = true; // Source reviewed for launch; production still requires separate env, manifest and communication approvals.
 const START = Date.parse("2026-10-23T00:45:00Z"), END = Date.parse("2026-10-23T01:45:00Z");
 const IO_MS = 1_000, BUDGET_MS = 270_000;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
