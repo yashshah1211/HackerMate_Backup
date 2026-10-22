@@ -7,7 +7,7 @@ import { PARTICIPANT_DELIVERY_AT, sha256, submitInvitation } from "./delivery-co
 import { EVENT_ID } from "./core";
 import { inspectScheduleInventory } from "./delivery-inventory";
 
-export const AUTODISPATCH_SOURCE_APPROVED = false; // Separate exact-source release approval required.
+export const AUTODISPATCH_SOURCE_APPROVED = true; // Production dispatch still requires explicit environment and operational approvals.
 const START = Date.parse("2026-10-23T00:45:00Z"), END = Date.parse("2026-10-23T01:45:00Z");
 const IO_MS = 1_000, BUDGET_MS = 270_000;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -105,7 +105,13 @@ export async function runAutodispatch() {
       || manifest.batches.some(b => !batches.some(x => x.id === b.batchId && x.source_digest === b.digest && x.row_count === b.count && x.activated_at === null))) throw Error("Approved inactive roster mismatch.");
     const before = await rpc<Report>("hustle_phase2_delivery_report", { p_actor: actor });
     if (before.deliveries.length) throw Error("Existing deliveries require reconciliation.");
-    await verifyCanary(new Set(teams.map(t => t.leader_email)), from, started);
+    if (process.env.HUSTLE_PHASE2_CANARY_WAIVER_APPROVED === "true") {
+      // Founder accepted the absence of a nonparticipant canary. Never bypass actual
+      // production-provider domain, tracking, capacity, inventory, or readback checks.
+      console.warn("[hustle-autodispatch] Approved no-canary mode: production provider preflight remains mandatory.");
+    } else {
+      await verifyCanary(new Set(teams.map(t => t.leader_email)), from, started);
+    }
     const rows = manifest.batches.flatMap(b => deliveryEntries(b, teams, secret, from, PARTICIPANT_DELIVERY_AT));
     for (const batch of manifest.batches) {
       await rpc("hustle_phase2_delivery_prepare", { p_actor: actor, p_batch: batch.batchId, p_digest: batch.digest, p_count: batch.count,

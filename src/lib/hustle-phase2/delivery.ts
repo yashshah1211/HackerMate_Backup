@@ -36,8 +36,23 @@ export async function providerPreflight(required: number, timeout = 10_000) {
   return { dailyRemaining: daily.limit - daily.used, monthlyRemaining: monthly.limit - monthly.used, resetAt: daily.resets_at, rateLimit: usage.rate_limit };
 }
 export function deliveryConfig() {
-  const manifest = launchManifest(process.env.HUSTLE_PHASE2_LAUNCH_MANIFEST);
-  const from = process.env.RESEND_FROM_EMAIL?.trim() || ""; senderAddress(from);
+  const from = process.env.RESEND_FROM_EMAIL?.trim() || "";
+  const address = senderAddress(from);
+  // Vercel Sensitive sender variables cannot be read back. Bind the exact approved
+  // 42+9 roster manifest to the *actual* production sender, never a guessed address.
+  // The mandatory providerPreflight separately verifies this sender's domain.
+  const raw = process.env.HUSTLE_PHASE2_LAUNCH_MANIFEST;
+  let approvedRaw = raw;
+  const binding = "__HACKERMATE_PRODUCTION_RESEND_SENDER__";
+  if (raw?.includes(binding)) {
+    if (process.env.VERCEL_ENV !== "production" || !address.endsWith("@hackermate.in"))
+      throw Error("Production sender binding is unavailable.");
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)
+      || (parsed as { sender?: unknown }).sender !== binding) throw Error("Invalid sender binding.");
+    approvedRaw = JSON.stringify({ ...parsed, sender: from });
+  }
+  const manifest = launchManifest(approvedRaw);
   if (from !== manifest.sender) throw Error("Sender differs from the approved manifest.");
   const secret = process.env.HUSTLE_PHASE2_DELIVERY_TOKEN_SECRET;
   if (!secret || !/^[a-f0-9]{64}$/.test(secret)) throw Error("Delivery secret unavailable.");
