@@ -1,0 +1,5 @@
+--- a/src/lib/hustle-phase2/server.ts
++++ b/src/lib/hustle-phase2/server.ts
+@@ -19 +19 @@
+-      const ACCOUNT_ONBOARDING_RELEASE_APPROVED = false; // Separate source-release approval required.
++      const ACCOUNT_ONBOARDING_RELEASE_APPROVED = true; // Apply only with separate founder source-release approval.
