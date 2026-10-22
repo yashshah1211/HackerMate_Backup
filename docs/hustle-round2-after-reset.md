@@ -1,204 +1,254 @@
-# One-time after-reset scheduler - review only
+# One-time after-reset scheduler - PR #46 review
 
-Status: **NO-GO for live dispatch until the prerequisites below are verified and
-separately approved**. Local code, unapplied SQL and synthetic tests are not release
-authorization. PR #45 is preserved; this is a stacked follow-up.
+Keep PR #46 Draft, stacked on unchanged PR #45 head
+3b4c9a71dc6bac0c940c2df40401ffd1d8678840. This is preparation and synthetic testing;
+no production mutation, canary, participant scheduling or configuration is approved.
+Both ACCOUNT_ONBOARDING_RELEASE_APPROVED and AUTODISPATCH_SOURCE_APPROVED remain false.
+Environment variables alone cannot enable this release.
 
-## Fixed times and actual platform evidence
+## Fixed timing and explicit consent
 
-Participant message schedule: **2026-10-23T08:35:00.000Z = 14:05 IST** exactly.
-Manifest parsing, template generation, provider submission and the new SQL constraint
-all reject any other time. No immediate-send fallback. Positive fixtures and runbooks
-use this time; revoked earlier timestamps appear only as negative tests.
-SQL attendance window remains **04:30Z inclusive to 17:30Z exclusive (10 AM to 11 PM IST)**.
+All participant invitation recipient dispatch is scheduled exactly
+2026-10-23T08:35:00.000Z = **23 October 14:05 IST**. Manifest, message, provider POST
+validation and SQL constraint reject every other time. No immediate-send fallback.
+Attendance remains 04:30Z inclusive to 17:30Z exclusive = **10 AM to 11 PM IST**.
 
-Read-only local Resend credential inspection at 2026-10-22T17:25:56.245Z reported:
-51/100 daily used, 780/3000 monthly used, daily resets_at
-`2026-10-22T23:59:59.999Z` (05:29:59.999 IST tomorrow), rate limit 10/1000ms.
-Only 49 daily slots remained then. A separate GET-only inventory at
-2026-10-22T17:43:28.534Z inspected 1,000 metadata entries with zero pending Hustle
-schedules found **in that subset**, but has_more remained true. Thus account-wide
-absence of old pending schedules is UNKNOWN. The worker's 300-entry bound will
-refuse this account as observed; a separately reviewed complete inventory strategy
-within the duration budget is required before unattended GO. No contacts/bodies
-were printed or retained. This proves neither tomorrow's quota nor that
-Vercel uses the same account. Runtime verifies its actual credential/account again.
+The early cron starts between **06:15 and 07:15 IST** and may submit invitation
+contents to Resend until **07:20 IST**,
+asking it to hold recipient dispatch until 14:05 IST. A provider POST is NOT an
+email arriving in an inbox. No guarantee of exact inbox arrival or provider uptime.
+If the founder means no provider submission before 14:00, this design is NO-GO.
+A new default-OFF HUSTLE_PHASE2_EARLY_PROVIDER_SUBMISSION_APPROVED switch requires
+explicit consent to that distinction; it does not replace the other approvals.
 
-Vercel project `prj_dXTET08w44oZnkTBXh72Nu9nqACT` has resourceConfig.fluid=true.
-Hobby Fluid functions have a 300-second maximum. The route declares maxDuration=300.
-Proposed cron `45 0 23 10 *` can invoke between 00:45 and 01:45 UTC, i.e.
-06:15 to 07:15 IST. The handler and SQL claim allow only 23 October **2026**, with the
-end exclusive; future years cannot run. It must finish by about 07:20 IST, leaving
-6h45 before delivery. Hobby scheduling is imprecise and is not guaranteed delivery.
+Suggested separate live consent (NOT granted by this document):
+"I approve submitting the exact 51 approved invitation payloads to Resend during
+06:15-07:20 IST on 23 October solely for delayed recipient dispatch at 14:05 IST.
+No immediate dispatch or recipient dispatch before 14:00 is permitted. Attendance
+remains 10:00-23:00 IST. This approval applies only to the reviewed manifest,
+sender, account, source SHA and one-time job; STOP on any uncertainty."
 
-Official references: [duration](https://vercel.com/docs/functions/configuring-functions/duration),
-[Hobby cron timing](https://vercel.com/docs/cron-jobs/usage-and-pricing),
-[Resend usage](https://resend.com/docs/api-reference/usage/retrieve-usage),
-[email readback](https://resend.com/docs/api-reference/emails/retrieve-email).
+## Complete metadata inventory, not a guessed date cutoff
 
-## Implementation and replay boundary
+Resend documents after-cursor pagination from newer to older, and 30-day advance
+scheduling. It also provides an update/reschedule API, without an immutable original
+created_at cutoff guarantee. Therefore neither 30 nor 31 days is used to skip old
+messages. A historical pending message rescheduled into a later future day is still
+unsafe and must be found. Future pending schedules beyond the 14:05 target also STOP.
 
-`GET /api/cron/hustle-round2-once` authenticates CRON_SECRET (>=32 characters) with
-fixed-length SHA256 timing-safe comparison. No query/body actor, recipients, batches
-or schedule overrides. It additionally requires both source approvals, all existing
-participant/delivery approvals, production Vercel environment and exact project ID,
-exact production Supabase URL, and import mode OFF. Preview cannot dispatch.
+The worker scans the **entire API-exposed account inventory** to has_more=false,
+within **12 seconds total**, **2 seconds per GET**, and a secondary 50-page/5000-row
+resource bound. It validates UUIDs, required metadata, descending creation chronology
+across pages, duplicates/cursor loops and pagination; unknown/pending Hustle states
+STOP. It rereads the head to detect insertions during traversal. No email body is
+requested. No addresses, subject lists or IDs are written to the audit artifact.
+The page limit is not evidence of completeness: exceeding either bound is STOP.
+This is not a transactional provider snapshot. The operator must prohibit other
+campaign creation/rescheduling/cancellation during inventory and dispatch; concurrent
+edits to an old page cannot be ruled out by a stateless list API. Head stability
+alone is not that guarantee. No alternate sender may submit early campaign messages.
 
-Two server-only switches default OFF:
-`HUSTLE_PHASE2_AUTODISPATCH_ENABLED`, `HUSTLE_PHASE2_AUTODISPATCH_RELEASE_APPROVED`.
-`AUTODISPATCH_SOURCE_APPROVED=false` is an additional source gate. No source gate
-is changed by this PR. Manual prepare/dispatch is locked while auto mode is enabled.
+Read-only actual-account evidence, 22 October (existing local credential, not a
+certification that Vercel uses that same credential):
 
-A server-held `HUSTLE_PHASE2_AUTODISPATCH_ADMIN_ID` must be separately approved.
-Auth Admin GET verifies the current confirmed nonanonymous identity; existing SQL
-hustle_phase2_authorized enforces founder/admin plus current ban checks at claim and
-every mutation. This is delegated background authority, not an active user session
-or an exception to participant Google checks. No session is impersonated.
+- 18:07:24Z: strict one-second page timeout STOP after900 records; no automatic retry.
+- 18:08:56Z: separate45-second diagnostic completed1548 records/16 pages in9276ms,
+  has_more=false, pending Hustle0, unchanged head.
+- **18:12:06Z: final worker limits completed1548 records/16 pages in10860ms**,
+  has_more=false, pending Hustle0, unchanged head. Creation range
+  2026-09-24T04:09:39.992Z through2026-10-22T13:08:18.919Z.
+  Seventeen inventory requests: observed p50=415.09ms, p95/p99=max=1103.82ms.
+  These are sample order statistics, not a statistically established hosted p99.
+- Daily51/100, monthly780/3000; actual daily reset2026-10-22T23:59:59.999Z
+  = **05:29:59.999 IST on23 October**. Only49 daily slots remained at observation.
 
-The new job record is unique for the campaign, not per invocation or manifest.
-Concurrent, completed, stopped and crashed/running jobs can never be reclaimed.
-A lost claim acknowledgement is uncertain: STOP. No automatic reset, retry, lease
-expiry or repair exists. Provider and RPC POSTs are never retried. Table GET queries
-explicitly disable SDK retry/backoff. A rejected run can require a separate manual
-reconciliation even if no message was sent; safety takes priority over availability.
+The earlier guaranteed300-record failure is removed. The full observed inventory
+fits the measured scan ceiling; a slower/newer scan can still STOP. No stateful
+claim is retried after a stopped run. No paid upgrade, split quota or guessed reset.
+Metadata probes are reproducible via scripts/audit-hustle-provider-readonly.cjs
+with the existing private credential-file path and --worker-budget. It only uses
+GET /usage, /domains and paginated /emails. A separate diagnostic mode has a45-second
+ceiling; its result must not be described as passing the worker ceiling.
 
-Preparation remains atomic **per batch**, not across both batches. If preparing the
-second batch fails, the first may be active with prepared invitations but no sends;
-the consumed job prevents a restart. Do not call this an all-51 atomic transaction.
+Sources: https://resend.com/changelog/list-sent-emails-endpoint ,
+https://www.resend.com/changelog/extended-email-scheduling ,
+https://resend.com/docs/api-reference/emails/update-email .
 
-## Exact prerequisites / separate approvals
+## Canary created tonight, delivered after reset without manual early action
 
-1. Independently review PR #45 and this follow-up. Do not merge, deploy or apply SQL
-   as part of development. Approve recovery for both new migrations independently;
-   prior no-backup exceptions do not automatically apply. Apply PR #45 first, then
-   `20261022173139_hustle_round2_autodispatch.sql` using reviewed atomic versioned
-   envelopes and production pre/postflight. No historical replay. Baseline is 21
-   trusted Phase 2 functions and an **empty** delivery ledger; after both migrations
-   expected totals are **10 tables / 23 functions**. If starting from the reported
-   142 ledger baseline, two correctly recorded migrations would yield 144; reverify.
-2. Import the separately approved nine-team CSV through the existing inactive-only
-   supported workflow. Preserve the existing 42 rows. Verify both exact batch IDs,
-   source digests and counts; no identity/email overrides, including PerfectDuo.
-   Manifest must contain exactly two batches with counts 42 and 9 and 51 distinct
-   leader destinations. Obtain separate activation/invitation preparation approval.
-3. Approve exact server manifest, exact sender, dedicated token secret and delegated
-   admin identity. No contacts/secrets in Git or logs. Manifest JSON shape:
-   `{ "batches": [{"batchId":"<42-batch UUID>","digest":"<64 hex>","count":42},
-   {"batchId":"<9-batch UUID>","digest":"<64 hex>","count":9}],
-   "scheduledAt":"2026-10-23T08:35:00.000Z","sender":"<exact approved From>" }`.
-   Sender must equal RESEND_FROM_EMAIL and have verified domain/sending with open
-   and click tracking OFF. No paid/uncapped fallback; actual free limits required.
-4. Obtain separate approval for a **nonparticipant** canary identity/content and a
-   delayed schedule after the actual reset but before the cron window. No invitation
-   links, tokens or participant information. This PR does not send/schedule it.
-   Required server values: HUSTLE_PHASE2_CANARY_APPROVED=true, CANARY_ID,
-   CANARY_EMAIL, CANARY_SCHEDULED_AT (all prefixed HUSTLE_PHASE2_).
-   Its fixed subject is `HackerMate scheduling canary — no participant invitation`.
-   Readback must show created_at after reset and before scheduled_at, delivered,
-   exact sender/one recipient, empty CC/BCC. Confirm controlled inbox receipt
-   separately. This is required evidence that the actual account supports delayed
-   scheduling and exact readback formatting, not just POST acknowledgement.
-5. Set separately approved HUSTLE_PHASE2_EXPECTED_RESET_AT to the actual account's
-   observed prior reset. Runtime requires that reset passed, current daily reset is
-   in the future, sufficient rate metadata and >=52 free daily/monthly headroom.
-   This reserves a conservative extra canary slot even though its approved canary
-   is already counted in used. Prove production credentials match the reviewed
-   sender/canary account. No key decryption or provider sends occurred in development.
-6. Independently reconcile all existing Resend campaign schedules. Runtime scans up
-   to 300 account message metadata entries and refuses any pending Hustle message,
-   including a cancelled early-time proposal if still pending. Overlarge inventory,
-   unknown status or missing pagination proof => STOP; do not silently skip older
-   pages. Existing pending schedules require separately approved intervention.
-7. Verify actual hosted DB/provider latency and metadata readback semantics, budget,
-   deployment timestamp and exact cron/project binding **before source activation**.
-   One-second per-request timeouts are intentionally strict. At most 218 successful
-   external operations plus pacing fit the synthetic <270-second accounting model;
-   real network/serialization/platform behavior remains unverified. A timeout can
-   still commit SQL or accept a provider request: consumed job prevents resubmission.
-   Runtime checks 270-second internal budget and retains platform shutdown margin.
-   Synthetic tests do not prove live 51-message reliability. Without hosted latency
-   and canary proof, unattended dispatch remains NO-GO.
-8. Obtain exact source/deployment/env approvals (source participant and auto gates,
-   both participant, both delivery, both auto flags; import flags OFF), exact one-time
-   cron/activation/communication approval and a named monitoring/escalation owner.
-   The owner must inspect after 07:20 IST and reconcile 51 accepted unique provider
-   IDs with exact scheduled readbacks before leaving the campaign unattended.
-   Preview deployments have no authority to run this path and no production keys
-   are copied into local test environments.
+Proposed harmless NONPARTICIPANT canary: create before the verified reset while
+current free headroom is available; exact delayed schedule
+**2026-10-23T00:15:00.000Z = 05:45 IST**, after reset and30minutes before earliest cron.
+The worker verifies the real provider ID with its actual key, exact approved sender,
+controlled recipient absent from all51 leader emails, fixed nonparticipant subject,
+explicitly empty/null CC/BCC, created_at tonight and before reset/schedule, schedule
+exactly05:45 and after actual reset, and delivered status. Missing/malformed metadata
+STOP. A post-reset-created canary is rejected: this path requires no human to create
+an email between05:30 and06:15. Both canary and real dispatch remain unperformed.
 
-## Completion, STOP and recovery limits
+Fixed subject: HackerMate scheduling canary — no participant invitation
+Suggested reviewed body: Controlled nonparticipant scheduling check. No registration
+link, invitation token, roster information or attendance action is included.
+Required private server values: HUSTLE_PHASE2_CANARY_APPROVED, CANARY_ID, CANARY_EMAIL,
+CANARY_SCHEDULED_AT (all with HUSTLE_PHASE2_ prefix). The schedule is an exact constant,
+not arbitrary input. No test identity is invented or participant email reused.
 
-Before sends: current authorized background actor, consumed job claim, actual quota
-and reset, sender/tracking, bounded account inventory, exact inactive 42+9 batches,
-empty delivery ledger and delivered canary proof. Only then activate/prepare.
-Each team: permanent SQL claim, one scheduled POST with stable per-team key,
-GET email readback of ID/from/one recipient/subject/CC/BCC/status/schedule, terminal
-SQL finish. A valid POST ID without verified delayed schedule becomes UNKNOWN,
-never accepted; known uncertain provider ID is retained in the private job record.
+Separate approval wording:
+"I approve ONE harmless canary to [exact controlled nonparticipant inbox] from
+[exact verified sender/account], submitted before the observed reset and scheduled
+for23 October05:45 IST, using the exact reviewed non-invitation subject/body.
+Read back its ID/schedule before leaving; STOP on any error or uncertain result,
+with no retry or immediate-send fallback. This does not authorize participant emails."
 
-Completion requires **51 distinct teams, 51 unique provider IDs, 51 verified
-scheduled_at=08:35Z and matching accepted ledger**, then one completed job. This is
-scheduled-provider evidence only, never a claim of inbox delivery or attendance.
-No automatic attendance response exists. Denials and errors expose no token/contact.
+Provider delivered status proves receiving-server acceptance, not inbox placement.
+Actual inbox proof remains UNTESTED until this separately approved canary exists.
+A controlled inbox owner may inspect it later before participant delivery; that is
+not a required pre-cron creation/configuration step. If inbox proof must gate the
+cron itself, an approved automated inbox receipt verifier is additionally required;
+none is configured, and no manual attestation is fabricated in advance.
 
-Any mismatch, timeout, wrong date, unknown COMMIT or incomplete report => STOP.
-Do not refresh/retry, change digest, regenerate tokens, clear job/ledger or replace
-provider IDs. Disable approved switches only with operational authorization; retain
-ledger/evidence. Rolling back code cannot cancel already scheduled provider emails,
-unactivate batches, undo received messages or undo exposure. Provider cancellation,
-schema rollback and any manual continuation each need separate incident approval.
-Do not drop durable reservations after provider submission. Narrow migration rollback
-before use can remove the new job objects/constraint, but is not automatic and must
-be independently reviewed; after use preserve them.
+Published sources did not establish which quota day a cross-reset scheduled email
+is charged to. Do NOT claim tonight-only accounting. After separately approved canary
+creation, inspect actual usage/readback without retry; runtime independently checks
+post-reset usage after the canary is delivered and conservatively requires>=52
+remaining daily/monthly slots. This covers51 plus a safety slot even if the canary
+is charged tomorrow. Provider rejects/uncertain accounting cannot trigger an upgrade.
 
-If unattended operation is not proven safe, use a separately approved **staffed
-manual fallback at 14:05 IST or later**: verify provider/SQL state first and obtain a
-new exact future schedule >=14:05 plus reviewed source/SQL change (current invariant
-accepts only exactly14:05), sufficient free capacity and an operator for bounded
-existing UI dispatches. Never omit scheduled_at or reuse the consumed run. At/after
-14:05 the current fixed-schedule worker must not be used. If staff or a safe future
-schedule is unavailable, postpone invitations; do not promise immediate delivery.
+## Actual cron host and protected routing evidence
 
-## Local validation evidence (22 October 2026)
+Read-only Vercel project metadata confirms projectprj_dXTET08w44oZnkTBXh72Nu9nqACT,
+exposeSystemEnv=true and existing cron host
+hacker-mate-backup-j39utyqp4-yashshah1211s-projects.vercel.app, matching the current
+production deployment dpl_EFKLENSiD5PsD53mZbA1Ca1W2yeC at main74d40ee3018b43293d12489234d3b87fe136d5ac.
+The corrected guard accepts only the **exact platform VERCEL_URL** generated for this
+project/owner, HTTPS, no credentials/port. It never derives an allowlist from request
+headers, query parameters, a general *.vercel.app suffix, or a user-provided URL list.
+VERCEL_ENV=production, exact VERCEL_PROJECT_ID, source/env/CRON_SECRET, absolute date
+and unique SQL claim remain mandatory. Preview and other deployment hosts deny.
 
-Final suite results: 107 autodispatch assertions; 251 preserved delivery/SQL/mobile
-browser assertions; 89 unit/security/release tests; 57 auth SQL and 91 participant
-SQL/RLS/concurrency assertions; 51 inactive-import Next/browser assertions;
-13 production-mode local HTTP contracts. Total **659 passed, zero final failures**.
-TypeScript, scoped ESLint and default Next.js production build are separate gates.
-The final build is rerun after the last Auth-ban source change.
+Anonymous read-only GET of the new (not-installed) route on that production host
+returned302 to Vercel Authentication; www returned404 with no redirect. No protection
+was bypassed or changed. This is a **protected result**, not proof that managed cron
+is blocked or that it reaches the handler. Managed-cron ingress through protection
+remains a hosted release check on an approved **disabled** deployment. Do not create
+an automation bypass, share link or exception under this task's authorization.
 
-The 51-team worker test uses real disposable PostgreSQL but synthetic Auth/provider
-transports and a simulated absolute clock. It accounts for 218 one-second IO calls
-plus pacing: **244,125 synthetic milliseconds**, below its 270-second internal budget.
-This is budget accounting, not measured hosted throughput. Production PostgreSQL is
-17.6; the available local PostgreSQL is 18.4. Local compatibility is not production
-recovery, hosted authentication or live Resend scheduling proof.
+Source middleware does not match /api/cron; next.config.ts has no canonical host
+redirect. The local production build tests the exact host header with fake cron
+credentials:503, no Location, zero fake DB calls. Enabled synthetic worker tests use
+the production-deployment host shape and complete51 messages; www/arbitrary/other
+project/other deployment/Preview hosts deny. This separates application routing proof
+from Vercel platform reachability. Vercel does not follow cron redirects.
 
-Security review identified and fixed SDK GET retries, missing canary timestamp
-validation and malformed/active Auth-ban denial. A real installed SDK test proves
-retry(false) ignores Retry-After:300 and makes one request. Both source gates remain
-false. Tests verify unknown/malformed/429/final-team failures, lost SQL acknowledgement,
-concurrent durable claims, completed/failed replay, bad quota/reset/sender/canary,
-changed batch, source/Preview/date/secret denial and exact provider readback.
+Proposed cron45 0 23 10 * starts00:45-01:45 UTC =06:15-07:15 IST. Handler and SQL claim
+permit only23 October2026, end exclusive. Future-year annual invocations cannot mutate.
+Existing two cron definitions are unchanged. Remove this one later only with approval.
+Sources: https://vercel.com/docs/cron-jobs ,
+https://vercel.com/docs/cron-jobs/manage-cron-jobs ,
+https://vercel.com/docs/environment-variables/system-environment-variables .
 
-Initial runs included checkout CRLF integrity and browser executable/fixture failures;
-these are superseded by full passing reruns. Historical migration bytes and published
-PR #45 head remain unchanged. All disposable clusters/browsers/servers are cleaned
-up. No production/staging database calls, roster writes, real sends or canaries.
+## Duration, authority and STOP
 
-Reproduction (set PARTNER_TEST_PG_BIN and PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to
-existing local binaries; never load real .env files):
+Verified Hobby Fluid maximum300s; route maxDuration=300. Internal budget270s, with a
+five-second stop margin. Table GET retries explicitly OFF, per-mutation/provider
+IO timeout1s, inventory separately bounded12s with2s page allowance. No transport or
+provider retry after irreversible claim. The current empty-inventory synthetic run
+and conservative full-inventory accounting are recorded with final tests below.
+A capped inventory replaces one/two short GETs; it does not add an unbounded traversal.
+Windows GET observations do not measure hosted SQL/Auth/provider POST/readback p95/p99.
+Those remain UNKNOWN under this no-production-write scope. A named escalation owner
+must reconcile after about07:20 IST, well before14:05. Timeouts can still commit or
+accept a request. The permanent campaign job and per-team reservations forbid replay.
+No lease reset, token replacement, silent retry, immediate email or attendance decision.
 
-- node scripts/test-hustle-autodispatch.cjs
-- node scripts/test-hustle-delivery.cjs
-- node --test scripts/test-hustle-phase2.cjs scripts/test-hustle-google-session.cjs scripts/test-hustle-inactive-import.cjs scripts/test-hustle-phase2-release.cjs
-- node scripts/test-hustle-round2-auth-sql.cjs
-- node scripts/test-hustle-participant-sql.cjs
-- node scripts/test-hustle-inactive-import-browser.cjs
-- node scripts/test-hustle-phase2-production.cjs
-- npx tsc --noEmit
-- scoped npx eslint for the changed TypeScript/CJS files
+CRON_SECRET uses timing-safe fixed-length hashing. No request actor/manifest/recipient
+is accepted. The server-held approved admin is rechecked through current Auth and
+SQL founder/admin+ban checks, with no impersonated browser session. Import/participant
+modes remain exclusive; Google provenance, official identity, member/leader rules,
+CSRF and attendance cutoff are unchanged. Manual UI dispatch is locked in auto mode.
 
-Do not run the Next import browser build concurrently with the production build;
-both use .next. Raw test results and build logs stay under ignored test-results.
+Preparation is atomic **per batch**, not across both. A second-batch failure can leave
+the first active/prepared but unsent; a consumed job prevents automatic continuation.
+Each team requires SQL claim, one scheduled POST, exact provider schedule readback,
+then terminal SQL finish. All51 unique team/provider IDs must reconcile before completed.
+Accepted means scheduled-provider proof, not delivered/inbox/attendance proof.
+
+STOP on any error, unknown commit, incomplete inventory, provider mismatch, missing
+canary, wrong day, revoked admin, quota failure or incomplete51-team reconciliation.
+Do not retry, clear ledgers, rotate secrets, regenerate links or repair automatically.
+Code/env rollback cannot cancel queued messages or undo receipt/exposure. Separate
+incident approval is required for provider cancellation, revocation, repair or rollback;
+preserve all audit/reservations after any submission. Retain partial provider IDs.
+
+## Minimal separately authorized release order
+
+1. Review PR45 and PR46; preserve the existing42-team batch. Approve and import ONLY
+   the additional nine through supported signed dry-run/inactive workflow; reconcile
+   exact IDs/digests/counts and PerfectDuo's already confirmed official identity.
+2. Freeze production preflight and separately choose recovery. Approve/apply PR45
+   migration20261022141142, then20261022173139, each with its single ledger row in the
+   same transaction; no historical replay or blind BEGIN/COMMIT concatenation.
+   Both migrations remain UNAPPLIED here and unchanged by these fixes. From reported
+   142 versions/7 tables/17 functions, expect144/10/23 afterward, trusted ownership,
+   RLS/raw-denied new tables/service-only RPCs and unchanged roster/historical ACLs.
+   Frozen canonical migration hashes remain in the review manifest. Prior no-backup
+   exceptions do not automatically cover these migrations.
+3. Separately approve merging the dependent PRs and an exact disabled deployment.
+   Verify SHA, source gatesOFF, environment approvalsOFF, HARD-OFF503, public routes,
+   exact generated cron host and managed platform ingress with no redirects whileOFF.
+4. Separately approve and schedule the one nonparticipant05:45 canary tonight; privately
+   record exact ID/sender/account/recipient/readback and actual usage. No messages now.
+5. Freeze private exact42+9 manifest, sender, dedicated token secret, delegated admin
+   and expected reset. Approve source/env transition, importOFF, both participant,
+   delivery and auto approvals, plus explicit EARLY_PROVIDER_SUBMISSION approval.
+   No secrets or roster in Git. Exact template must include scheduledAt08:35Z and sender.
+6. Obtain distinct explicit authority for real batch activation, invitation preparation
+   and provider scheduling; name an escalation/rollback owner. Reverify tomorrow's
+   actual quota, delivered canary, complete inventory and remaining budget at runtime.
+   No real communication occurs solely because a PR is green.
+
+If early submission is disallowed or hosted capacity/ingress/proof fails, live auto
+mode is NO-GO. A staffed2PM-or-later fallback requires separately reviewed exact future
+schedule/source+SQL changes and fresh capacity/state reconciliation. Never omit
+scheduled_at or reuse a consumed job. Postpone rather than make an immediate unsafe send.
+
+## Validation
+
+Run the original659 checks plus new inventory/cron/canary cases, TypeScript, scoped
+ESLint and default production build. New tests include1501-record full history,
+ancient rescheduled future pending message, loops/order/malformed pages/head changes,
+deadline/timeout, unauthorized/pre-reset-created canary, actual cron host shape,
+null-versus-populatedCC/BCC, early-submission consent, and51-message success/final failure.
+Fixtures are synthetic disposable PostgreSQL18.4 (production17.6), with Auth/provider
+substitutes. No hosted OAuth rerun, production account/session mutation or real canary.
+Final verification: **687 passed, zero final failures**:118 worker,16 inventory,
+251 delivery/SQL/mobile-browser,89 unit/security,57 authorization SQL,91 participant
+SQL,51 inactive-import Next/browser,14 disabled production-mode HTTP contracts.
+Locked TypeScript, scoped ESLint and default Next.js16.3.8 production build passed.
+All disposable SQL/browser/server fixtures cleaned up. Local HARD-OFF instrumentation
+recorded zero Round2 requests to its fake database; this is not production telemetry.
+
+Final empty-inventory synthetic accounting:245250ms. Replacing its2250ms inventory
+with the full12000ms ceiling yields a conservative **255000ms** network/pacing model,
+15s below internal270s,10s before its265s stop margin and45s below platform300s.
+This model is not a hosted p95/p99 certificate. Source/migration integrity verified: no
+changes to PR45 or either reviewed migration. The first TypeScript attempt found
+unpacked review-source copies under test-results; only that generated directory was
+removed (original ZIP retained), then the full checks/build passed. No tsconfig or
+application workaround was added. Independent code review found one consent-window
+wording mismatch; it now covers submissions through07:20, matching the run budget.
+
+Commands: node scripts/test-hustle-inventory.cjs; node scripts/test-hustle-autodispatch.cjs;
+node scripts/test-hustle-delivery.cjs; node --test scripts/test-hustle-phase2.cjs
+scripts/test-hustle-google-session.cjs scripts/test-hustle-inactive-import.cjs
+scripts/test-hustle-phase2-release.cjs; node scripts/test-hustle-round2-auth-sql.cjs;
+node scripts/test-hustle-participant-sql.cjs; node scripts/test-hustle-inactive-import-browser.cjs;
+node scripts/test-hustle-phase2-production.cjs; local tsc --noEmit and scoped eslint.
+Never build the import fixture and production .next concurrently. Keep review ZIPs
+compressed; unpacked copied source under test-results is picked up by tsconfig globs.
+
+Private manifest shape (placeholders are not approval; replace privately):
+
+```json
+{"batches":[{"batchId":"<42-batch UUID>","digest":"<64 hex>","count":42},{"batchId":"<9-batch UUID>","digest":"<64 hex>","count":9}],"scheduledAt":"2026-10-23T08:35:00.000Z","sender":"<exact approved From>"}
+```

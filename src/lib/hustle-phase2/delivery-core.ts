@@ -63,8 +63,8 @@ export async function submitInvitation(key: string, message: ReturnType<typeof d
       if (readback.ok && proof.id === providerId && proof.last_event === "scheduled"
         && Date.parse(proof.scheduled_at) === Date.parse(PARTICIPANT_DELIVERY_AT)
         && JSON.stringify(proof.to) === JSON.stringify(message.to) && proof.from === message.from
-        && proof.subject === message.subject && Array.isArray(proof.cc) && !proof.cc.length
-        && Array.isArray(proof.bcc) && !proof.bcc.length) return { status: "accepted", providerId, code: r.status };
+        && proof.subject === message.subject && (proof.cc === null || (Array.isArray(proof.cc) && !proof.cc.length))
+        && (proof.bcc === null || (Array.isArray(proof.bcc) && !proof.bcc.length))) return { status: "accepted", providerId, code: r.status };
       return { status: "unknown", providerId, code: readback.status };
     }
     return { status: r.status >= 400 && r.status < 500 && ![408,409].includes(r.status) ? "rejected" : "unknown", providerId: null, code: r.status };

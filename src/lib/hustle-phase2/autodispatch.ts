@@ -5,6 +5,7 @@ import { enabled, json, type Team } from "./server";
 import { deliveryConfig, deliveryEnabled, deliveryEntries, providerGet, providerPreflight } from "./delivery";
 import { PARTICIPANT_DELIVERY_AT, sha256, submitInvitation } from "./delivery-core";
 import { EVENT_ID } from "./core";
+import { inspectScheduleInventory } from "./delivery-inventory";
 
 export const AUTODISPATCH_SOURCE_APPROVED = false; // Separate exact-source release approval required.
 const START = Date.parse("2026-10-23T00:45:00Z"), END = Date.parse("2026-10-23T01:45:00Z");
@@ -20,43 +21,42 @@ export function autodispatchEnabled() {
     && process.env.NODE_ENV === "production" && process.env.VERCEL_ENV === "production"
     && process.env.VERCEL_PROJECT_ID === "prj_dXTET08w44oZnkTBXh72Nu9nqACT"
     && process.env.HUSTLE_PHASE2_AUTODISPATCH_ENABLED === "true"
-    && process.env.HUSTLE_PHASE2_AUTODISPATCH_RELEASE_APPROVED === "true";
+    && process.env.HUSTLE_PHASE2_AUTODISPATCH_RELEASE_APPROVED === "true"
+    && process.env.HUSTLE_PHASE2_EARLY_PROVIDER_SUBMISSION_APPROVED === "true";
 }
 type Report = { deliveries: { team_id: string; status: string; provider_id: string | null }[] };
 type Batch = { id: string; source_digest: string; row_count: number; activated_at: string | null };
 
 /** GET metadata only. Pending participant schedules are never cancelled/repaired here. */
 export async function verifyNoOldSchedules() {
-  let after = "";
-  for (let page = 0; page < 3; page++) {
-    const result = await providerGet(`/emails?limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`, IO_MS);
-    if (!Array.isArray(result.data) || typeof result.has_more !== "boolean") throw Error("Provider inventory unavailable.");
-    for (const email of result.data) {
-      if (typeof email.id !== "string" || typeof email.subject !== "string") throw Error("Invalid provider inventory.");
-      // Includes the previous campaign subject and conservative Hustle variants.
-      if (/hustle/i.test(email.subject) && ["scheduled", "delivery_delayed"].includes(email.last_event)) throw Error("Pending campaign schedule requires independent reconciliation.");
-      if (/hustle/i.test(email.subject) && !["delivered", "bounced", "canceled", "failed", "sent", "opened", "clicked", "complained", "suppressed"].includes(email.last_event)) throw Error("Unknown campaign state.");
-    }
-    if (!result.has_more) return;
-    after = result.data.at(-1)?.id;
-    if (!after) throw Error("Invalid provider pagination.");
-  }
-  throw Error("Provider inventory exceeds bounded review; STOP.");
+  return inspectScheduleInventory((after, timeout) => providerGet(`/emails?limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`, timeout));
+}
+
+export const CANARY_DELIVERY_AT = "2026-10-23T00:15:00.000Z"; // 05:45 IST; created tonight, after-reset delivery.
+const emptyRecipients = (value: unknown) => value === null || (Array.isArray(value) && value.length === 0);
+/** Exact system-provided deployment URL, never a request-derived wildcard allowlist. */
+export function cronHostAllowed(value: string) {
+  const host = process.env.VERCEL_URL || "";
+  if (!/^hacker-mate-backup-[a-z0-9]{6,32}-yashshah1211s-projects\.vercel\.app$/.test(host)) return false;
+  try { const url = new URL(value); return url.protocol === "https:" && url.hostname === host && !url.port && !url.username && !url.password; }
+  catch { return false; }
 }
 
 /** A separately authorized, nonparticipant scheduling canary must already be delivered. */
 export async function verifyCanary(leaderEmails: Set<string>, sender: string, now: number) {
   const id = process.env.HUSTLE_PHASE2_CANARY_ID || "", email = process.env.HUSTLE_PHASE2_CANARY_EMAIL || "";
   const schedule = process.env.HUSTLE_PHASE2_CANARY_SCHEDULED_AT || "";
+  const reset = Date.parse(process.env.HUSTLE_PHASE2_EXPECTED_RESET_AT || "");
   if (process.env.HUSTLE_PHASE2_CANARY_APPROVED !== "true" || !UUID.test(id) || leaderEmails.has(email)
     || email !== email.trim().toLowerCase() || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) throw Error("Approved nonparticipant canary required.");
   const c = await providerGet(`/emails/${id}`, IO_MS);
   if (c.id !== id || c.last_event !== "delivered" || c.from !== sender || JSON.stringify(c.to) !== JSON.stringify([email])
     || c.subject !== "HackerMate scheduling canary — no participant invitation"
-    || !Array.isArray(c.cc) || c.cc.length || !Array.isArray(c.bcc) || c.bcc.length
-    || !Number.isFinite(Date.parse(schedule)) || Date.parse(schedule) !== Date.parse(c.scheduled_at)
+    || !emptyRecipients(c.cc) || !emptyRecipients(c.bcc)
+    || schedule !== CANARY_DELIVERY_AT || Date.parse(schedule) !== Date.parse(c.scheduled_at)
     || !Number.isFinite(Date.parse(c.created_at)) || Date.parse(c.created_at) >= Date.parse(schedule) || Date.parse(schedule) >= now
-    || Date.parse(c.created_at) <= Date.parse(process.env.HUSTLE_PHASE2_EXPECTED_RESET_AT || "")) throw Error("Canary scheduling proof unavailable.");
+    || Date.parse(c.created_at) < Date.parse("2026-10-22T17:00:00Z") || !Number.isFinite(reset)
+    || Date.parse(c.created_at) >= reset || Date.parse(schedule) <= reset) throw Error("Canary scheduling proof unavailable.");
 }
 
 /** One invocation only. Its durable claim is consumed by every subsequent failure. */
@@ -140,7 +140,7 @@ export async function runAutodispatch() {
 export async function handleAutodispatch(request: Request) {
   if (!cronAuthenticated(request.headers.get("authorization"))) return json({ error: "Unauthorized" }, 401);
   if (!autodispatchEnabled()) return json({ error: "Autodispatch approval is OFF" }, 503);
-  if (new URL(request.url).search || new URL(request.url).origin !== "https://www.hackermate.in"
+  if (new URL(request.url).search || !cronHostAllowed(request.url)
     || Date.now() < START || Date.now() >= END) return json({ error: "Job scope or date rejected" }, 409);
   try { return json(await runAutodispatch()); }
   catch { return json({ error: "STOP: job unavailable or consumed; no automatic retry" }, 503); }
