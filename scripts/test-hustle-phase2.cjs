@@ -38,30 +38,19 @@ test('synthetic core smoke preserves permission-failure exit with graceful shutd
 });
 
 
-test('admin recipient templates use only the authorized snapshot and escape every field',async()=>{
+test('admin roster escapes private fields and exposes no manual invitation creation',async()=>{
  const {JSDOM}=require('jsdom');
  const team={id:'00000000-0000-4000-8000-000000000011',external_team_id:'SYNTH-1',team_name:'Synthetic <img src=x onerror="bad">',leader_name:'Leader <script>bad()</script>',leader_email:'leader&test@example.invalid',leader_whatsapp:'+12025550100',second_member_name:null,decision:'pending',invite_status:'not_created'};
- const snapshot={teams:[team],batches:[],counts:{shortlisted:1,confirmed:0,declined:0,pending:1}};
- const {pages,calls}=mockServer('admin',{snapshot});
+ const {pages,calls}=mockServer('admin',{snapshot:{teams:[team],batches:[],counts:{shortlisted:1,confirmed:0,declined:0,pending:1}}});
  const response=await pages.handlePage(new NextRequest('http://localhost:4000'+core.BASE+'/organizer'),['organizer']);
- const html=await response.text(),doc=new JSDOM(html).window.document;
- const recipient=doc.querySelector('template[data-invite-recipient]').content;
- assert.deepEqual([...recipient.querySelectorAll('dd')].map(node=>node.textContent),[team.external_team_id,team.team_name,team.leader_name,team.leader_email,team.leader_whatsapp]);
- assert.equal(recipient.querySelectorAll('script,img,a').length,0);
- assert.equal(doc.querySelector('#link-value').value,'');
- assert.equal(doc.querySelector('#link-value').getAttribute('aria-describedby'),'link-recipient link-sharing-notice');
+ const doc=new JSDOM(await response.text()).window.document;
+ const row=doc.querySelector('tbody tr');assert(row.textContent.includes(team.team_name));assert(row.textContent.includes(team.leader_name));assert(row.textContent.includes(team.leader_email));
+ assert.equal(row.querySelectorAll('script,img,a').length,0);assert.equal(doc.querySelector('[data-action="invite"]'),null);
  assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(response.headers.get('referrer-policy'),'no-referrer');
- assert.equal(calls.filter(call=>call.name==='hustle_phase2_snapshot').length,1);
- assert(!calls.some(call=>call.name==='hustle_phase2_invite'));
- for(const patch of [{leader_whatsapp:null},{decision:'confirmed'},{invite_status:'ready'}]){
-  const modified=mockServer('admin',{snapshot:{...snapshot,teams:[{...team,...patch}]}});
-  const doc2=new JSDOM(await (await modified.pages.handlePage(new NextRequest('http://localhost:4000'+core.BASE+'/organizer'),['organizer'])).text()).window.document;
-  if(Object.hasOwn(patch,'leader_whatsapp'))assert.equal(doc2.querySelector('template').content.querySelector('dd:last-child').textContent,'Not provided');
-  else assert.equal(doc2.querySelector('template[data-invite-recipient]'),null);
- }
- const read=mockServer('organizer',{snapshot});
+ assert.equal(calls.filter(call=>call.name==='hustle_phase2_snapshot').length,1);assert(!calls.some(call=>call.name==='hustle_phase2_invite'));
+ const read=mockServer('organizer',{snapshot:{teams:[team],batches:[],counts:{shortlisted:1,confirmed:0,declined:0,pending:1}}});
  const readonly=new JSDOM(await (await read.pages.handlePage(new NextRequest('http://localhost:4000'+core.BASE+'/organizer'),['organizer'])).text()).window.document;
- assert.equal(readonly.querySelector('template[data-invite-recipient]'),null);
+ assert.equal(readonly.querySelector('[data-action],[data-launch],[data-dispatch],#delivery-status'),null);
 });
 
 

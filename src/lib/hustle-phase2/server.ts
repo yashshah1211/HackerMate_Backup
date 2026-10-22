@@ -10,6 +10,8 @@ import { BASE, EVENT_ID, MAX_CSV_BYTES, newToken, parseCsv, previewCsv, receipt,
 // default OFF and cannot bypass the account-onboarding source release gate.
 // Read both on every request, never cache approval at module initialization.
 export function enabled(): boolean {
+  // Preparation and participant modes must never coexist, even after source approval.
+  if (process.env.HUSTLE_PHASE2_IMPORT_ENABLED === "true" || process.env.HUSTLE_PHASE2_IMPORT_RELEASE_APPROVED === "true") return false;
   if (process.env.HUSTLE_PHASE2_ENABLED !== "true") return false;
   const PRODUCTION_RELEASE_APPROVED = process.env.HUSTLE_PHASE2_RELEASE_APPROVED === "true";
   try { const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
@@ -255,11 +257,13 @@ async function handleApiRequest(req: NextRequest, action: string, onCookies: (co
       return json(result, 201);
     }
     if (action === "activate") {
+      if (process.env.NODE_ENV === "production") throw new HttpError(409, "Use the approved batch launch workflow.");
       exactKeys(data, ["batchId", "digest", "confirm"]);
       if (data.confirm !== "ACTIVATE" || !/^[a-f0-9]{64}$/.test(String(data.digest))) throw new HttpError(400, "Explicit activation confirmation and source digest required.");
       return json(await rpc("hustle_phase2_activate", { p_actor: auth.actor, p_batch: uuid(data.batchId), p_digest: data.digest }));
     }
     if (action === "invite") {
+      if (process.env.NODE_ENV === "production") throw new HttpError(409, "Use the approved leader delivery workflow.");
       exactKeys(data, ["teamId"]);
       const { token, hash } = newToken();
       await rpc("hustle_phase2_invite", { p_actor: auth.actor, p_team: uuid(data.teamId), p_hash: hash });
@@ -269,6 +273,11 @@ async function handleApiRequest(req: NextRequest, action: string, onCookies: (co
     if (action === "revoke") {
       exactKeys(data, ["teamId"]);
       return json(await rpc("hustle_phase2_revoke", { p_actor: auth.actor, p_team: uuid(data.teamId) }));
+    }
+    if (["launch", "dispatch", "delivery-status"].includes(action)) {
+      if (process.env.NODE_ENV === "production" && req.nextUrl.origin !== "https://www.hackermate.in") throw new HttpError(403, "Canonical production origin required.");
+      const { launchOperation } = await import("./delivery");
+      return json(await launchOperation(action, data, auth.actor, (await snapshot(auth.client)).teams, rpc));
     }
     throw new HttpError(404, "Unknown operation.");
   } catch (error) {
