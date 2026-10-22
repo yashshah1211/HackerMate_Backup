@@ -245,22 +245,9 @@ export function useProfileData(id: string) {
       showToast("Connection request sent", "success");
       trackEvent("connection_request_sent", { receiver_id: profile.id, has_pitch_message: !!note });
 
-      // Non-blocking transactional email to the recipient (same payload as V1).
-      (async () => {
-        try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          await fetch("/api/send-email", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(sessionData?.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
-            },
-            body: JSON.stringify({ senderId: viewerId, recipientId: profile.id, type: "connection_request" }),
-          });
-        } catch (emailErr) {
-          console.warn("[profile] connection email dispatch error:", emailErr);
-        }
-      })();
+      // The RPC inserts an in-app notification; Supabase's offline-notification
+      // trigger owns the corresponding email. A second client-side dispatch here
+      // sent duplicate connection-request emails to offline recipients.
       setBusy(null);
       return true;
     },
