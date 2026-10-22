@@ -1,17 +1,21 @@
 import { createHash, createHmac } from "node:crypto";
-import { BASE, CLOSES, escapeHtml, tokenHash } from "./core";
+import { BASE, escapeHtml, tokenHash } from "./core";
 
 export type ApprovedBatch = { batchId: string; digest: string; count: number };
-export type LaunchManifest = { batches: ApprovedBatch[]; scheduledAt: string };
+export type LaunchManifest = { batches: ApprovedBatch[]; scheduledAt: string; sender: string };
+export const PARTICIPANT_DELIVERY_AT = "2026-10-23T08:35:00.000Z";
+export function assertDeliverySchedule(value: string) {
+  if (value !== PARTICIPANT_DELIVERY_AT) throw Error("Only 23 October 2026 at 14:05 IST is approved.");
+}
 export type DeliveryTeam = { id: string; batch_id: string; team_name: string; leader_email: string };
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 export function launchManifest(raw: string | undefined): LaunchManifest {
   const m = JSON.parse(raw || "null");
-  if (!m || Object.keys(m).sort().join() !== "batches,scheduledAt" || !Array.isArray(m.batches)
+  if (!m || Object.keys(m).sort().join() !== "batches,scheduledAt,sender" || !Array.isArray(m.batches)
     || !m.batches.length || m.batches.length > 500 || typeof m.scheduledAt !== "string"
-    || !/^2026-10-(22|23)T\d{2}:\d{2}:\d{2}\.000Z$/.test(m.scheduledAt)
-    || !Number.isFinite(Date.parse(m.scheduledAt)) || Date.parse(m.scheduledAt) >= Date.parse(CLOSES)) throw Error("Invalid launch manifest.");
+    || typeof m.sender !== "string" || m.sender !== m.sender.trim()) throw Error("Invalid launch manifest.");
+  assertDeliverySchedule(m.scheduledAt); senderAddress(m.sender);
   const seen = new Set(); let total = 0;
   for (const b of m.batches) {
     if (!b || Object.keys(b).sort().join() !== "batchId,count,digest" || !UUID.test(b.batchId)
@@ -33,6 +37,7 @@ export function senderAddress(from: string): string {
   return address;
 }
 export function deliveryMessage(team: DeliveryTeam, token: string, scheduledAt: string, from: string) {
+  assertDeliverySchedule(scheduledAt);
   senderAddress(from);
   if (team.leader_email !== team.leader_email.trim().toLowerCase() || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(team.leader_email)
     || /[\r\n]/.test(team.leader_email) || !tokenHash(token)) throw Error("Invalid invitation destination.");
@@ -43,11 +48,25 @@ export function deliveryMessage(team: DeliveryTeam, token: string, scheduledAt: 
 }
 export type ProviderOutcome = { status: "accepted" | "rejected" | "unknown"; providerId: string | null; code: number | null };
 /** No retry, no provider body/error logging. The DB reservation is authoritative beyond Resend's 24h key lifetime. */
-export async function submitInvitation(key: string, message: ReturnType<typeof deliveryMessage>, id: string): Promise<ProviderOutcome> {
+export async function submitInvitation(key: string, message: ReturnType<typeof deliveryMessage>, id: string, timeout = 15_000): Promise<ProviderOutcome> {
+  assertDeliverySchedule(message.scheduled_at); // Outside catch: malformed schedules make zero provider calls.
+  let providerId: string | null = null;
   try {
-    const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `hustle-r2/${id}` }, body: JSON.stringify(message), signal: AbortSignal.timeout(15_000), cache: "no-store" });
+    await new Promise(resolve => setTimeout(resolve, 125));
+    const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `hustle-r2/${id}` }, body: JSON.stringify(message), signal: AbortSignal.timeout(timeout), cache: "no-store" });
     const data = await r.json().catch(() => null);
-    if (r.ok && typeof data?.id === "string" && UUID.test(data.id) && !data.error) return { status: "accepted", providerId: data.id, code: r.status };
+    if (r.ok && typeof data?.id === "string" && UUID.test(data.id) && !data.error) {
+      providerId = data.id;
+      await new Promise(resolve => setTimeout(resolve, 125));
+      const readback = await fetch(`https://api.resend.com/emails/${providerId}`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(timeout), cache: "no-store" });
+      const proof = await readback.json();
+      if (readback.ok && proof.id === providerId && proof.last_event === "scheduled"
+        && Date.parse(proof.scheduled_at) === Date.parse(PARTICIPANT_DELIVERY_AT)
+        && JSON.stringify(proof.to) === JSON.stringify(message.to) && proof.from === message.from
+        && proof.subject === message.subject && (proof.cc === null || (Array.isArray(proof.cc) && !proof.cc.length))
+        && (proof.bcc === null || (Array.isArray(proof.bcc) && !proof.bcc.length))) return { status: "accepted", providerId, code: r.status };
+      return { status: "unknown", providerId, code: readback.status };
+    }
     return { status: r.status >= 400 && r.status < 500 && ![408,409].includes(r.status) ? "rejected" : "unknown", providerId: null, code: r.status };
-  } catch { return { status: "unknown", providerId: null, code: null }; }
+  } catch { return { status: "unknown", providerId, code: null }; }
 }
