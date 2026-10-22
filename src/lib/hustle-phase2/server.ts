@@ -6,7 +6,7 @@ import { requirePartnerAccess } from "@/lib/partners/requirePartnerAccess";
 import { csvCell } from "@/lib/partners/csv";
 import { BASE, EVENT_ID, MAX_CSV_BYTES, newToken, parseCsv, previewCsv, receipt, tokenHash, verifyReceipt, stageInvitation, readInvitation, type Mapping, type TeamInput } from "./core";
 
-// Source approval remains OFF. The two server-only environment switches also
+// Participant source approval remains OFF. Its two server-only environment switches also
 // default OFF and cannot bypass the account-onboarding source release gate.
 // Read both on every request, never cache approval at module initialization.
 export function enabled(): boolean {
@@ -25,6 +25,33 @@ export function enabled(): boolean {
     return !process.env.VERCEL_ENV && ["development", "test"].includes(process.env.NODE_ENV || "")
       && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE === "true"
       && url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  } catch { return false; }
+}
+
+/** Separately approved CSV preparation only; never participant release authority. */
+export function inactiveImportEnabled(requestOrigin: string): boolean {
+  const INACTIVE_IMPORT_RELEASE_APPROVED = true; // Approval is limited to this reviewed import-only code.
+  if (!INACTIVE_IMPORT_RELEASE_APPROVED
+    || process.env.HUSTLE_PHASE2_IMPORT_ENABLED !== "true"
+    || process.env.HUSTLE_PHASE2_IMPORT_RELEASE_APPROVED !== "true"
+    || process.env.HUSTLE_PHASE2_ENABLED === "true"
+    || process.env.HUSTLE_PHASE2_RELEASE_APPROVED === "true") return false;
+  try {
+    const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash
+      || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+      || !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) return false;
+    if (process.env.NODE_ENV === "production") {
+      return process.env.VERCEL_ENV === "production" && requestOrigin === "https://www.hackermate.in"
+        && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE !== "true"
+        && url.protocol === "https:" && url.hostname === "rhryjrbebfrrfhtyyzbs.supabase.co" && !url.port;
+    }
+    // Disposable local tests only. A hosted Preview can never use this branch.
+    return !process.env.VERCEL_ENV && ["development", "test"].includes(process.env.NODE_ENV || "")
+      && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE === "true" && url.protocol === "http:"
+      && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+      && ["http:", "https:"].includes(new URL(requestOrigin).protocol)
+      && ["127.0.0.1", "localhost", "[::1]"].includes(new URL(requestOrigin).hostname);
   } catch { return false; }
 }
 export const COOKIE = "hm_hustle_p2_account";
@@ -157,11 +184,15 @@ export function handleApi(req: NextRequest, action: string): Promise<Response> {
 }
 async function handleApiRequest(req: NextRequest, action: string, onCookies: (cookies: AuthCookieUpdate[]) => void): Promise<Response> {
   try {
-    if (!enabled()) return json({ error: "Round 2 registration is not available yet." }, 503);
+    const registrationEnabled = enabled();
+    const importOnly = !registrationEnabled && inactiveImportEnabled(req.nextUrl.origin);
+    const importAction = (req.method === "POST" && ["columns", "import"].includes(action))
+      || (req.method === "GET" && action === "organizer");
+    if (!registrationEnabled && !(importOnly && importAction)) return json({ error: "Round 2 registration is not available yet." }, 503);
     if (req.nextUrl.search) throw new HttpError(400, "Query parameters are not accepted.");
     if (req.method === "POST") sameOrigin(req);
     if (req.method === "GET" && ["organizer", "export"].includes(action)) {
-      const auth = await authorize(req, false, onCookies); const data = await snapshot(auth.client);
+      const auth = await authorize(req, importOnly, onCookies); const data = await snapshot(auth.client);
       if (action === "organizer") return json({ ...data, isAdmin: auth.isAdmin });
       const fields = ["Team ID", "Team", "Leader", "Leader email", "Leader WhatsApp", "Second member", "Attendance", "Responded at", "Account onboarding", "Member verification"];
       const csv = [fields, ...data.teams.map(t => { const members = t.members || []; const verified = members.filter(m => m.verified).length; return [t.external_team_id, t.team_name, t.leader_name, t.leader_email, t.leader_whatsapp || "", t.second_member_name || "", t.decision, t.decided_at || "", verified === 0 ? "Not started" : verified === members.length ? "Fully verified" : "Partially verified", members.map(m => `${m.role}: ${m.verified ? "verified" : "pending"}`).join("; ")]; })].map(row => row.map(csvCell).join(",")).join("\r\n");
