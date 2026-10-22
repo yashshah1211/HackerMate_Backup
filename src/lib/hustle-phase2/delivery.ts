@@ -66,7 +66,11 @@ export async function launchOperation(action: string, data: Record<string, unkno
   if (action === "launch") {
     if (data.confirm !== "ACTIVATE AND PREPARE") throw Error("Explicit launch confirmation required.");
     if (Date.parse(manifest.scheduledAt) < Date.now() + 5 * 60_000) throw Error("Schedule must be at least five minutes in the future.");
-    await providerPreflight(manifest.batches.reduce((sum, b) => sum + b.count, 0));
+    const report = await rpc<{ deliveries: Delivery[] }>("hustle_phase2_delivery_report", { p_actor: actor });
+    if (report.deliveries.some(d => ["dispatching", "unknown", "rejected", "failed"].includes(d.status))) throw Error("Delivery needs reconciliation; STOP automatic preparation.");
+    const approvedTeams = new Set(teams.filter(t => manifest.batches.some(b => b.batchId === t.batch_id)).map(t => t.id));
+    const accepted = report.deliveries.filter(d => d.status === "accepted" && approvedTeams.has(d.team_id)).length;
+    await providerPreflight(manifest.batches.reduce((sum, b) => sum + b.count, 0) - accepted);
     return rpc("hustle_phase2_delivery_prepare", { p_actor: actor, p_batch: batch.batchId, p_digest: batch.digest, p_count: batch.count,
       p_scheduled: manifest.scheduledAt, p_entries: rows.map(({ team_id, token_hash, payload_hash }) => ({ team_id, token_hash, payload_hash })) });
   }
@@ -75,6 +79,7 @@ export async function launchOperation(action: string, data: Record<string, unkno
   const report = await rpc<{ deliveries: Delivery[] }>("hustle_phase2_delivery_report", { p_actor: actor });
   // Crash between claim and finish remains dispatching = UNKNOWN. No requeue path exists.
   if (report.deliveries.some(d => ["dispatching", "unknown", "rejected", "failed"].includes(d.status))) throw Error("Delivery needs reconciliation; STOP automatic dispatch.");
+  if (rows.some(row => !report.deliveries.some(d => d.team_id === row.team_id && ["prepared", "accepted"].includes(d.status)))) throw Error("Batch is not fully prepared; no dispatch completed.");
   const pending = rows.filter(row => report.deliveries.some(d => d.team_id === row.team_id && d.status === "prepared"));
   if (!pending.length) return { remaining: 0, accepted: 0 };
   await providerPreflight(pending.length);
@@ -91,5 +96,7 @@ export async function launchOperation(action: string, data: Record<string, unkno
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   const after = await rpc<{ deliveries: Delivery[] }>("hustle_phase2_delivery_report", { p_actor: actor });
+  if (after.deliveries.some(d => !["prepared", "accepted"].includes(d.status))
+    || rows.some(row => !after.deliveries.some(d => d.team_id === row.team_id && ["prepared", "accepted"].includes(d.status)))) throw Error("Dispatch completion is unresolved; STOP and reconcile.");
   return { remaining: after.deliveries.filter(d => d.status === "prepared" && rows.some(r => r.team_id === d.team_id)).length, accepted };
 }

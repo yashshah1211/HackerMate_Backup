@@ -6,10 +6,11 @@ const API='/api/partners/hustle-carnival/phase-2',BASE='/partners/hustle-carniva
 const CLOCK=Date.parse('2026-10-22T14:00:00Z'),SCHEDULE='2026-10-23T04:15:00.000Z';
 const q=v=>quote(v==null?null:typeof v==='object'?JSON.stringify(v):v);
 const names={hustle_phase2_delivery_prepare:['p_actor','p_batch','p_digest','p_count','p_scheduled','p_entries'],hustle_phase2_delivery_claim:['p_actor','p_team','p_hash','p_payload'],hustle_phase2_delivery_finish:['p_actor','p_team','p_status','p_provider','p_code'],hustle_phase2_delivery_report:['p_actor'],hustle_phase2_limit:['p_key','p_max'],hustle_phase2_snapshot:[],hustle_phase2_has_active_session:[],can_access_partner_event:['p_hackathon_id'],has_partner_admin_access:[]};
-async function main(){const db=await deliveryFixture();let server,browser;const results=[],logs=[],sent=[],rpcCalls=[];let providerMode=200,used=0,cleanup=false;
+async function main(){const db=await deliveryFixture();let server,browser;const results=[],logs=[],sent=[],rpcCalls=[];let providerMode=200,used=0,cleanup=false,providerWait=null,providerEntered=null;
 const check=(v,label)=>{assert(v,label);results.push({pass:true,label})};
-const out=path.join(ROOT,'test-results/hustle-delivery');fs.mkdirSync(out,{recursive:true});
+const out=path.join(ROOT,'test-results/hustle-delivery');
 try{
+ fs.mkdirSync(out,{recursive:true});
  const migrations=fs.readFileSync(path.join(ROOT,'supabase/migrations/20261022141142_hustle_round2_delivery.sql'),'utf8');
  check(db.sql("SELECT count(*) FROM pg_proc WHERE proname LIKE 'hustle_phase2_delivery_%' AND prosecdef AND proowner='postgres'::regrole AND proconfig=ARRAY['search_path=\"\"']")==='4','four trusted locked-path service RPCs');
  for(const role of ['anon','authenticated','service_role'])for(const table of ['hustle_phase2_deliveries','hustle_phase2_delivery_events']){assert.throws(()=>db.sql(`SET ROLE ${role};SELECT * FROM ${table}`),/permission denied/);check(true,role+' denied raw '+table)}
@@ -31,13 +32,15 @@ try{
   if(url.endsWith('/domains'))return Response.json({data:[{id:'synthetic-domain',name:'example.invalid'}]});
   if(url.endsWith('/domains/synthetic-domain'))return Response.json({status:'verified',capabilities:{sending:'enabled'},open_tracking:false,click_tracking:false});
   assert(url.endsWith('/emails')); const body=JSON.parse(options.body);sent.push({body,key:options.headers['Idempotency-Key']});
+  if(providerWait){providerEntered?.();await providerWait}
   if(providerMode==='timeout')throw Error('synthetic interruption');
   used++;return Response.json(providerMode===200?{id:crypto.randomUUID()}:providerMode==='malformed'?{}:{error:'synthetic rejection'},{status:typeof providerMode==='number'?providerMode:200});
  }
- function harness(identity='admin',patch={}){
+ function harness(identity='admin',patch={},hooks={}){
   const actor=identity==='revoked'?IDS.admin:IDS[identity];const cache=new Map();const testEnv={...env,...patch};
   class FixtureDate extends Date{constructor(...args){super(...(args.length?args:[CLOCK]))}static now(){return CLOCK}}
   function client(key){return {auth:{getUser:async()=>({data:{user:actor?{id:actor,email:identity+'@example.invalid',email_confirmed_at:'2026-01-01',is_anonymous:false}:null},error:null})},from(table){let columns='role,is_banned';return{select(value){columns=value;return this},eq(){return this},async maybeSingle(){return {data:actor?JSON.parse(db.sql(`SELECT row_to_json(p) FROM (SELECT ${columns} FROM ${table==='hackathons'?'hackathons':'profiles'} WHERE id='${table==='hackathons'?'0da43cba-90dc-449c-a126-a2fc8be8a379':actor}') p`)):null,error:null}}}},async rpc(name,args={}){
+   if(name==='hustle_phase2_delivery_claim'&&hooks.beforeClaim)await hooks.beforeClaim();
    rpcCalls.push(name);const role=key==='synthetic-service'?'service_role':'authenticated';const claims={sub:actor,role:'authenticated',session_id:actor?'82000000'+actor.slice(8):null};
    if(name==='hustle_phase2_has_active_session'&&identity==='revoked')return{data:false,error:null};
    const keys=names[name]||[];try{const result=await db.asyncSql(`SET ROLE ${role}; SET request.jwt.claim.sub=${q(actor||'')};SET request.jwt.claims=${q(claims)}; SELECT to_jsonb(public.${name}(${keys.map(k=>typeof args[k]==='number'?args[k]:q(args[k])).join(',')}))`);return{data:JSON.parse(result.split(/\r?\n/).at(-1)),error:null}}catch(error){console.error('Fixture SQL failure',name,error.message);return{data:null,error:{code:/permission denied|Access denied/.test(error.message)?'42501':'P0001',message:'Synthetic operation rejected'}}}
@@ -55,6 +58,7 @@ try{
  check((await post('launch',{},harness('admin',{HUSTLE_PHASE2_ENABLED:'false'}))).status===503,'disabled launch returns 503');
  {const r=await post('launch',{},harness('admin',{HUSTLE_PHASE2_DELIVERY_RELEASE_APPROVED:'false'}));check(r.status===503,'dispatch gate OFF fails closed; status='+r.status+' body='+await r.text())}
  check((await post('launch',{batchId:crypto.randomUUID(),confirm:'ACTIVATE AND PREPARE'})).status===503,'unapproved batch denied');
+ check((await post('dispatch',{batchId:batch,confirm:'SCHEDULE LEADER INVITATIONS'})).status===503&&sent.length===0,'unprepared inactive batch cannot falsely report completion');
  check(db.sql('SELECT count(*) FROM hustle_phase2_invites')==='0','all denied requests leave invitations empty');
  // Wrong count/digest and invalid entries roll back activation and every invitation.
  for(const [digest,count]of [['b'.repeat(64),42],['a'.repeat(64),41]]){assert.throws(()=>db.sql(`SET ROLE service_role;SELECT hustle_phase2_delivery_prepare('${IDS.admin}','${batch}','${digest}',${count},'${SCHEDULE}','[]')`),/Approved batch mismatch/);check(true,'scope mismatch rejected atomically')}
@@ -110,6 +114,33 @@ try{
  const token=sent[0].body.text.match(/\/invite#([A-Za-z0-9_-]{43})/)[1];check(!JSON.stringify(logs).includes(token),'logs do not contain invitation token');
  check(db.sql("SELECT count(*) FROM information_schema.columns WHERE table_name IN ('hustle_phase2_deliveries','hustle_phase2_delivery_events') AND column_name IN ('token','html','text','leader_email')")==='0','delivery persistence contains no plaintext tokens, bodies or contact copies');
  check(fs.readFileSync(path.join(ROOT,'src/lib/hustle-phase2/server.ts'),'utf8').includes('ACCOUNT_ONBOARDING_RELEASE_APPROVED = false'),'production participant source approval remains OFF');
+
+ // Restore the fault-injection row only inside the disposable fixture, then prove
+ // a separately approved second batch works with exactly seven remaining slots.
+ db.sql(`UPDATE fixture_clock SET value='2026-10-22T14:00:00Z';UPDATE hustle_phase2_deliveries SET status='accepted',attempted_at=${q(d0.attempted_at)},finished_at=${q(d0.finished_at)},provider_id='${d0.provider_id}' WHERE team_id='${team0}'`);
+ const more=rows.slice(0,7).map((r,i)=>({...r,external_team_id:'SYNTH-SECOND-'+i,leader_email:'second'+i+'@example.invalid'}));
+ const second=JSON.parse(db.sql(`SET ROLE service_role;SELECT hustle_phase2_import('${IDS.admin}','${'c'.repeat(64)}',${q(more)})`).split(/\r?\n/).at(-1)).batchId;
+ const secondManifest={...manifest,batches:[...manifest.batches,{batchId:second,digest:'c'.repeat(64),count:7}]};
+ const secondAdmin=harness('admin',{HUSTLE_PHASE2_LAUNCH_MANIFEST:JSON.stringify(secondManifest)});used=93;
+ check((await post('dispatch',{batchId:second,confirm:'SCHEDULE LEADER INVITATIONS'},secondAdmin)).status===503&&sent.length===42,'second inactive batch cannot claim scheduling success');
+ check((await post('launch',{batchId:second,confirm:'ACTIVATE AND PREPARE'},secondAdmin)).status===200,'second batch capacity subtracts already accepted first-batch messages');
+ for(let i=0;i<2;i++)check((await post('dispatch',{batchId:second,confirm:'SCHEDULE LEADER INVITATIONS'},secondAdmin)).status===200,'second batch drains within seven remaining quota slots');
+ check(sent.length===49&&used===100,'49 distinct leader submissions across two approved batches without reimport');
+ check(db.sql("SELECT count(*) FROM hustle_phase2_deliveries WHERE status='accepted'")==='49','both batches have complete durable acceptance ledger');
+
+ const raceRow={...rows[0],external_team_id:'SYNTH-RACE',leader_email:'race@example.invalid'};
+ const raceBatch=JSON.parse(db.sql(`SET ROLE service_role;SELECT hustle_phase2_import('${IDS.admin}','${'f'.repeat(64)}',${q([raceRow])})`).split(/\r?\n/).at(-1)).batchId;
+ const raceManifest={...manifest,batches:[...secondManifest.batches,{batchId:raceBatch,digest:'f'.repeat(64),count:1}]};
+ const racePatch={HUSTLE_PHASE2_LAUNCH_MANIFEST:JSON.stringify(raceManifest)};const raceAdmin=harness('admin',racePatch);used=99;
+ check((await post('launch',{batchId:raceBatch,confirm:'ACTIVATE AND PREPARE'},raceAdmin)).status===200,'dedicated one-team race batch prepared');
+ let releaseB,reachB;const bGate=new Promise(r=>releaseB=r),bReady=new Promise(r=>reachB=r);
+ const workerB=harness('admin',racePatch,{beforeClaim:async()=>{reachB();await bGate}});
+ const requestB=post('dispatch',{batchId:raceBatch,confirm:'SCHEDULE LEADER INVITATIONS'},workerB);await bReady;
+ let releaseProvider;providerWait=new Promise(r=>releaseProvider=r);const entered=new Promise(r=>providerEntered=r);
+ const requestA=post('dispatch',{batchId:raceBatch,confirm:'SCHEDULE LEADER INVITATIONS'},raceAdmin);await entered;releaseB();
+ try{check((await requestB).status===503,'concurrent final-team loser cannot report completion while winner is in flight')}finally{releaseProvider()}
+ check((await requestA).status===200,'winner reports completion only after durable acceptance');providerWait=null;providerEntered=null;
+ check(sent.length===50&&used===100,'concurrent workers submit exactly one additional message');
  console.log(results.length+'/'+results.length+' delivery checks passed. Synthetic provider/Auth; real disposable SQL and browser.');
-}finally{await browser?.close();if(server)await new Promise(r=>server.close(r));await db.close();cleanup=true;fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({results,cleanup,provider:'synthetic; no real sends',auth:'synthetic adapter; not hosted acceptance'},null,2));console.log('Disposable database, browser and HTTP server cleaned up.')}}
+}finally{const closed=await Promise.allSettled([Promise.resolve().then(()=>browser?.close()),Promise.resolve().then(()=>{if(server){server.closeAllConnections?.();return new Promise(r=>server.close(r))}}),Promise.resolve().then(()=>db.close())]);cleanup=closed.every(r=>r.status==='fulfilled');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({results,cleanup,provider:'synthetic; no real sends',auth:'synthetic adapter; not hosted acceptance'},null,2));if(!cleanup)throw Error('Synthetic fixture cleanup failed; inspect local resources');console.log('Disposable database, browser and HTTP server cleaned up.')}}
 main().catch(error=>{console.error(error);process.exitCode=1});

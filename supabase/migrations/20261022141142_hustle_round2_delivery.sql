@@ -138,7 +138,7 @@ BEGIN
  'failed',(SELECT count(*) FROM public.hustle_phase2_deliveries WHERE status='failed'),
  'unknown',(SELECT count(*) FROM public.hustle_phase2_deliveries WHERE status IN ('unknown','dispatching')),
  'window',public.hustle_phase2_window(clock_timestamp())),
- 'deliveries',coalesce((SELECT jsonb_agg(jsonb_build_object('team_id',team_id,'status',status)) FROM public.hustle_phase2_deliveries),'[]'::jsonb));
+ 'deliveries',coalesce((SELECT jsonb_agg(jsonb_build_object('team_id',team_id,'status',status,'provider_id',provider_id)) FROM public.hustle_phase2_deliveries),'[]'::jsonb));
 END $$;
 REVOKE ALL ON FUNCTION public.hustle_phase2_delivery_prepare(uuid,uuid,text,integer,timestamptz,jsonb),public.hustle_phase2_delivery_claim(uuid,uuid,text,text),public.hustle_phase2_delivery_finish(uuid,uuid,text,uuid,integer),public.hustle_phase2_delivery_report(uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.hustle_phase2_delivery_prepare(uuid,uuid,text,integer,timestamptz,jsonb),public.hustle_phase2_delivery_claim(uuid,uuid,text,text),public.hustle_phase2_delivery_finish(uuid,uuid,text,uuid,integer),public.hustle_phase2_delivery_report(uuid) TO service_role;

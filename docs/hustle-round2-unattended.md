@@ -48,7 +48,7 @@ endpoint exists. Accepted means provider acknowledgment, **not inbox delivery**.
 
 The admin aggregate report distinguishes prepared/submitted/accepted/rejected/
 failed/unknown, pending/confirmed/declined, active and verified accounts. Its private
-server RPC additionally returns team UUID/status pairs to drain the queue; no
+server RPC additionally returns team UUID/status/provider-ID projections to drain the queue; no
 emails, bodies or secrets. Automatic alerts/final-summary jobs/reminders are P1
 and deferred. Counts remain available after the SQL deadline; pending is never
 automatically declined. Provider transport delays can cause delivery after the
@@ -235,4 +235,6 @@ locked search path, missing synthetic event projection, old manual-link assertio
 and Windows browser sandbox/path setup. They were diagnosed without weakening
 application or SQL guards. Final counts and build evidence are recorded separately.
 
-Final candidate verification: 164/164 delivery, 89/89 unit/security, 57/57 authorization SQL, 91/91 participant SQL, 51/51 import browser, 8/8 disabled production-mode/public-route checks. Default Next.js 16.3.8 Turbopack build, TypeScript and scoped ESLint passed. No hosted/provider send was performed. Local build observed zero Round 2 calls to its fake database only; this is not production telemetry. Automated alerts, reminder delivery, duplicate-attempt counters and automatic final-summary emission remain deferred P1 work.
+Final candidate verification: 201/201 delivery, 89/89 unit/security, 57/57 authorization SQL, 91/91 participant SQL, 51/51 import browser, 8/8 disabled production-mode/public-route checks. Default Next.js 16.3.8 Turbopack build, TypeScript and scoped ESLint passed. No hosted/provider send was performed. Local build observed zero Round 2 calls to its fake database only; this is not production telemetry. Automated alerts, reminder delivery, duplicate-attempt counters and automatic final-summary emission remain deferred P1 work.
+
+Independent source review found and resolved: false completion for unprepared batches; provider-dependent double-counting of already accepted campaign quota; concurrent final-worker false completion; and fixture cleanup edge paths. Targeted regressions passed, including 42+7 teams and a paused-provider concurrent final-team race. The remaining monitoring gaps are documented P1, not claimed delivered.
