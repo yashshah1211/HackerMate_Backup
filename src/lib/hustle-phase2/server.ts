@@ -16,7 +16,7 @@ export function enabled(): boolean {
   const PRODUCTION_RELEASE_APPROVED = process.env.HUSTLE_PHASE2_RELEASE_APPROVED === "true";
   try { const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
     if (process.env.NODE_ENV === "production") {
-      const ACCOUNT_ONBOARDING_RELEASE_APPROVED = false; // Separate source-release approval required.
+      const ACCOUNT_ONBOARDING_RELEASE_APPROVED = true; // Source reviewed for launch; production still requires explicit environment approvals.
       return ACCOUNT_ONBOARDING_RELEASE_APPROVED && PRODUCTION_RELEASE_APPROVED && process.env.VERCEL_ENV === "production"
         && process.env.HUSTLE_PHASE2_LOCAL_FIXTURE !== "true"
         && url.protocol === "https:" && url.hostname === "rhryjrbebfrrfhtyyzbs.supabase.co"
