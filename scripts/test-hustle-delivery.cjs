@@ -3,10 +3,10 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),http
 const ts=require('typescript'); const {NextRequest,NextResponse}=require('next/server'); const {chromium}=require('@playwright/test');
 const {deliveryFixture}=require('./hustle-delivery-fixture.cjs'); const {ROOT,IDS,quote,freePort}=require('./hustle-phase2-local-db.cjs');
 const API='/api/partners/hustle-carnival/phase-2',BASE='/partners/hustle-carnival/phase-2';
-const CLOCK=Date.parse('2026-10-22T14:00:00Z'),SCHEDULE='2026-10-23T04:15:00.000Z';
+const CLOCK=Date.parse('2026-10-22T14:00:00Z'),SCHEDULE='2026-10-23T08:35:00.000Z';
 const q=v=>quote(v==null?null:typeof v==='object'?JSON.stringify(v):v);
 const names={hustle_phase2_delivery_prepare:['p_actor','p_batch','p_digest','p_count','p_scheduled','p_entries'],hustle_phase2_delivery_claim:['p_actor','p_team','p_hash','p_payload'],hustle_phase2_delivery_finish:['p_actor','p_team','p_status','p_provider','p_code'],hustle_phase2_delivery_report:['p_actor'],hustle_phase2_limit:['p_key','p_max'],hustle_phase2_snapshot:[],hustle_phase2_has_active_session:[],can_access_partner_event:['p_hackathon_id'],has_partner_admin_access:[]};
-async function main(){const db=await deliveryFixture();let server,browser;const results=[],logs=[],sent=[],rpcCalls=[];let providerMode=200,used=0,cleanup=false,providerWait=null,providerEntered=null;
+async function main(){const db=await deliveryFixture();let server,browser;const results=[],logs=[],sent=[],rpcCalls=[],messages=new Map();let providerMode=200,used=0,cleanup=false,providerWait=null,providerEntered=null;
 const check=(v,label)=>{assert(v,label);results.push({pass:true,label})};
 const out=path.join(ROOT,'test-results/hustle-delivery');
 try{
@@ -20,7 +20,7 @@ try{
  assert.throws(()=>db.sql('SET ROLE postgres;'+migrations),/expected trusted Phase 2 baseline/);check(true,'duplicate migration refused atomically');
  const rows=Array.from({length:42},(_,i)=>({external_team_id:'SYNTH-LAUNCH-'+String(i+1).padStart(3,'0'),team_name:'Synthetic Solo '+(i+1),leader_name:'Synthetic Leader '+(i+1),leader_email:'leader'+(i+1)+'@example.invalid',leader_whatsapp:null,second_member_name:null,second_member_email:null}));
  const batch=JSON.parse(db.sql(`SET ROLE service_role;SELECT hustle_phase2_import('${IDS.admin}','${'a'.repeat(64)}',${q(rows)})`).split(/\r?\n/).at(-1)).batchId;
- const manifest={batches:[{batchId:batch,digest:'a'.repeat(64),count:42}],scheduledAt:SCHEDULE};
+ const manifest={batches:[{batchId:batch,digest:'a'.repeat(64),count:42}],scheduledAt:SCHEDULE,sender:"HackerMate <test@example.invalid>"};
  const env={NODE_ENV:'test',HUSTLE_PHASE2_ENABLED:'true',HUSTLE_PHASE2_RELEASE_APPROVED:'true',HUSTLE_PHASE2_LOCAL_FIXTURE:'true',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:9999',NEXT_PUBLIC_SUPABASE_ANON_KEY:'synthetic-anon',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',HUSTLE_PHASE2_DELIVERY_ENABLED:'true',HUSTLE_PHASE2_DELIVERY_RELEASE_APPROVED:'true',HUSTLE_PHASE2_LAUNCH_MANIFEST:JSON.stringify(manifest),HUSTLE_PHASE2_DELIVERY_TOKEN_SECRET:'d'.repeat(64),RESEND_API_KEY:'synthetic-provider',RESEND_FROM_EMAIL:'HackerMate <test@example.invalid>'};
  // Only the disposable fixture substitutes clock_timestamp, never production SQL/source.
  db.sql(`CREATE TABLE fixture_clock(value timestamptz); INSERT INTO fixture_clock VALUES('2026-10-22T14:00:00Z'); GRANT SELECT ON fixture_clock TO postgres,service_role;CREATE FUNCTION fixture_now() RETURNS timestamptz LANGUAGE sql VOLATILE AS $$SELECT value FROM public.fixture_clock$$`);
@@ -31,10 +31,11 @@ try{
   if(url.endsWith('/usage'))return Response.json({emails:{daily:{limit:100,used},monthly:{limit:3000,used}},rate_limit:{limit:10,duration:'1000ms'}});
   if(url.endsWith('/domains'))return Response.json({data:[{id:'synthetic-domain',name:'example.invalid'}]});
   if(url.endsWith('/domains/synthetic-domain'))return Response.json({status:'verified',capabilities:{sending:'enabled'},open_tracking:false,click_tracking:false});
+  if(url.includes('/emails/')){const id=url.split('/').at(-1);return Response.json({id,...messages.get(id),last_event:'scheduled',cc:[],bcc:[]})}
   assert(url.endsWith('/emails')); const body=JSON.parse(options.body);sent.push({body,key:options.headers['Idempotency-Key']});
   if(providerWait){providerEntered?.();await providerWait}
   if(providerMode==='timeout')throw Error('synthetic interruption');
-  used++;return Response.json(providerMode===200?{id:crypto.randomUUID()}:providerMode==='malformed'?{}:{error:'synthetic rejection'},{status:typeof providerMode==='number'?providerMode:200});
+  used++;const id=crypto.randomUUID();messages.set(id,body);return Response.json(providerMode===200?{id}:providerMode==='malformed'?{}:{error:'synthetic rejection'},{status:typeof providerMode==='number'?providerMode:200});
  }
  function harness(identity='admin',patch={},hooks={}){
   const actor=identity==='revoked'?IDS.admin:IDS[identity];const cache=new Map();const testEnv={...env,...patch};

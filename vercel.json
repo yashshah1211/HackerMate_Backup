@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/hustle-round2-once",
+      "schedule": "45 0 23 10 *"
+    },
+    {
       "path": "/api/cron/database-activity-report",
       "schedule": "30 3 * * *"
     },

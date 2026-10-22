@@ -10,33 +10,35 @@ export function deliveryEnabled(): boolean {
   return DELIVERY_RELEASE_APPROVED && process.env.HUSTLE_PHASE2_DELIVERY_ENABLED === "true"
     && process.env.HUSTLE_PHASE2_DELIVERY_RELEASE_APPROVED === "true";
 }
-async function providerGet(path: string) {
+export async function providerGet(path: string, timeout = 10_000) {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) throw Error("Provider key unavailable.");
-  const r = await fetch(`https://api.resend.com${path}`, { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
+  await new Promise(resolve => setTimeout(resolve, 125));
+  const r = await fetch(`https://api.resend.com${path}`, { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(timeout) });
   if (!r.ok) throw Error("Provider preflight unavailable.");
   return r.json();
 }
 /** Read-only provider checks. No message body or recipient list is fetched. */
-export async function providerPreflight(required: number) {
+export async function providerPreflight(required: number, timeout = 10_000) {
   const from = process.env.RESEND_FROM_EMAIL?.trim() || "", address = senderAddress(from);
-  const usage = await providerGet("/usage");
+  const usage = await providerGet("/usage", timeout);
   const daily = usage?.emails?.daily, monthly = usage?.emails?.monthly;
   // Explicit free allowance, with no paid/uncapped fallback or speculative quota reset.
   if (daily?.limit !== 100 || monthly?.limit > 3000 || !Number.isInteger(monthly?.limit)
     || !Number.isInteger(daily?.used) || daily.used < 0 || !Number.isInteger(monthly?.used) || monthly.used < 0
     || daily.used + required > daily.limit || monthly.used + required > monthly.limit) throw Error("Free provider quota cannot cover this operation.");
-  const domains = await providerGet("/domains");
+  const domains = await providerGet("/domains", timeout);
   const domain = domains?.data?.find((d: { name: string }) => d.name === address.split("@")[1]);
   if (!domain || typeof domain.id !== "string") throw Error("Sender domain unavailable.");
-  const settings = await providerGet(`/domains/${encodeURIComponent(domain.id)}`);
+  const settings = await providerGet(`/domains/${encodeURIComponent(domain.id)}`, timeout);
   if (settings.status !== "verified" || settings.capabilities?.sending !== "enabled"
     || settings.open_tracking !== false || settings.click_tracking !== false) throw Error("Verified sender with tracking OFF required.");
-  return { dailyRemaining: daily.limit - daily.used, monthlyRemaining: monthly.limit - monthly.used };
+  return { dailyRemaining: daily.limit - daily.used, monthlyRemaining: monthly.limit - monthly.used, resetAt: daily.resets_at, rateLimit: usage.rate_limit };
 }
-function config() {
+export function deliveryConfig() {
   const manifest = launchManifest(process.env.HUSTLE_PHASE2_LAUNCH_MANIFEST);
   const from = process.env.RESEND_FROM_EMAIL?.trim() || ""; senderAddress(from);
+  if (from !== manifest.sender) throw Error("Sender differs from the approved manifest.");
   const secret = process.env.HUSTLE_PHASE2_DELIVERY_TOKEN_SECRET;
   if (!secret || !/^[a-f0-9]{64}$/.test(secret)) throw Error("Delivery secret unavailable.");
   return { manifest, from, secret };
@@ -46,7 +48,7 @@ function approved(batches: ApprovedBatch[], id: unknown) {
   if (!batch) throw Error("Batch is not in the approved launch manifest.");
   return batch;
 }
-function entries(batch: ApprovedBatch, teams: Teams[], secret: string, from: string, scheduledAt: string) {
+export function deliveryEntries(batch: ApprovedBatch, teams: Teams[], secret: string, from: string, scheduledAt: string) {
   const chosen = teams.filter(t => t.batch_id === batch.batchId);
   if (chosen.length !== batch.count) throw Error("Approved team count mismatch.");
   return chosen.map(team => {
@@ -58,11 +60,12 @@ function entries(batch: ApprovedBatch, teams: Teams[], secret: string, from: str
 /** Invoked only after enabled(), same-origin, verified current admin session, and rate limit. */
 export async function launchOperation(action: string, data: Record<string, unknown>, actor: string, teams: Teams[], rpc: Rpc) {
   if (!deliveryEnabled()) throw Error("Delivery approval is OFF.");
-  const { manifest, from, secret } = config();
+  if (process.env.HUSTLE_PHASE2_AUTODISPATCH_ENABLED === "true" && action !== "delivery-status") throw Error("Manual dispatch is locked during unattended mode.");
+  const { manifest, from, secret } = deliveryConfig();
   if (action === "delivery-status") return rpc("hustle_phase2_delivery_report", { p_actor: actor });
   if (Object.keys(data).some(k => !["batchId", "confirm"].includes(k))) throw Error("Unknown launch fields.");
   const batch = approved(manifest.batches, data.batchId);
-  const rows = entries(batch, teams, secret, from, manifest.scheduledAt);
+  const rows = deliveryEntries(batch, teams, secret, from, manifest.scheduledAt);
   if (action === "launch") {
     if (data.confirm !== "ACTIVATE AND PREPARE") throw Error("Explicit launch confirmation required.");
     if (Date.parse(manifest.scheduledAt) < Date.now() + 5 * 60_000) throw Error("Schedule must be at least five minutes in the future.");
@@ -90,7 +93,7 @@ export async function launchOperation(action: string, data: Record<string, unkno
     if (!claimed) continue;
     const outcome = await submitInvitation(process.env.RESEND_API_KEY!.trim(), row.message, claimed.id);
     // If persistence is uncertain this throws; a replay cannot claim dispatching again.
-    await rpc("hustle_phase2_delivery_finish", { p_actor: actor, p_team: row.team_id, p_status: outcome.status, p_provider: outcome.providerId, p_code: outcome.code });
+    await rpc("hustle_phase2_delivery_finish", { p_actor: actor, p_team: row.team_id, p_status: outcome.status, p_provider: outcome.status === "accepted" ? outcome.providerId : null, p_code: outcome.code });
     if (outcome.status !== "accepted") throw Error("Provider outcome requires reconciliation; STOP automatic dispatch.");
     accepted++;
     await new Promise(resolve => setTimeout(resolve, 250));
