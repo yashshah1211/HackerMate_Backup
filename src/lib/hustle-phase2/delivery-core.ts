@@ -124,7 +124,7 @@ export async function submitInvitation(key: string, message: ReturnType<typeof d
     const submittedAt = Date.now();
     const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `hustle-r2/${id}` }, body: JSON.stringify(message), signal: AbortSignal.timeout(timeout), cache: "no-store" });
     const data = await r.json().catch(() => null);
-    if (r.ok && !data?.error) {
+    if (r.ok) {
       const candidate = typeof data?.id === "string" ? data.id
         : typeof data?.data?.id === "string" ? data.data.id : null;
       providerId = candidate && UUID.test(candidate) ? candidate : null;
