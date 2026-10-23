@@ -47,7 +47,13 @@ const fixtures = http.createServer((req, res) => {
       check(response.status() === 200 && page.url() === origin + routePath, 'Anonymous route returns 200 without login redirect');
       check((await page.title()).startsWith('Public Workshops'), 'Workshop-specific title');
       check(await page.locator('main article').count() === 2, 'Two workshops');
-      check(await page.locator('main button:disabled').count() === 4, 'Four unavailable actions');
+      check(await page.locator('main button:disabled').count() === 2, 'Only certificate actions unavailable');
+      const liveLinks = await page.locator('main a[target="_blank"]').evaluateAll(nodes => nodes.map(n => ({ href: n.href, rel: n.rel })));
+      check(JSON.stringify(liveLinks.map(link => link.href)) === JSON.stringify([
+        'https://www.youtube.com/live/YnTbBoXHJ5A',
+        'https://www.youtube.com/live/ogiIp36iXxo',
+      ]), 'Each workshop links to its corresponding supplied YouTube livestream');
+      check(liveLinks.every(link => link.rel === 'noopener noreferrer'), 'Livestream links open with safe external attributes');
       check(await page.locator('main form, main input, main iframe').count() === 0, 'No registration or certificate collection');
       check(await page.getByText('No sign-in or registration required.').isVisible(), 'Public attendance explained');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow');
