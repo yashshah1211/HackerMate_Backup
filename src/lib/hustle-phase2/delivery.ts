@@ -68,7 +68,7 @@ async function auditUncertainProviderDelivery(report: { deliveries: Delivery[] }
   const recipient = teams.find(t => t.id === unresolved[0].team_id)?.leader_email;
   if (!recipient) return { status: "unknown_team_not_in_roster" };
   const start = Date.parse("2026-10-23T02:35:00.000Z"); // 08:05 IST; before the observed attempt.
-  const end = Date.parse("2026-10-23T02:45:00.000Z");
+  const end = Date.parse("2026-10-23T03:20:00.000Z"); // Covers both observed 08:07 and 08:30 IST incident attempts.
   const subject = "Hustle Carnival Round 2 — private attendance invitation";
   const schedule = Date.parse("2026-10-23T08:35:00.000Z");
   const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
