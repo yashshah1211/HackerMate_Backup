@@ -65,23 +65,28 @@ export function extractJsonFromResponse(rawText: string): string {
 
 /** Text evaluation: pinned primary/secondary, at most two network attempts per execution. */
 export async function callGeminiText(prompt: string, options: GeminiCallOptions = {}): Promise<GeminiCallResult> {
+  return callEvaluatorContent(prompt, options);
+}
+
+async function callEvaluatorContent(prompt: string, options: GeminiCallOptions, pdfBuffer?: Buffer): Promise<GeminiCallResult> {
   if (!process.env.GEMINI_API_KEY) throw new EvaluationFailure("provider_unavailable");
   const started = Date.now();
   const execution: EvaluationExecution = options.execution || { deadlineAt: started + 30_000, attempts: 0 };
   execution.trace ??= [];
   execution.providerDeadlineAt ??= Math.min(execution.deadlineAt, started + 30_000);
   const deadlineAt = Math.min(execution.deadlineAt, execution.providerDeadlineAt, started + (options.totalTimeoutMs ?? 30_000));
-  const maximum = Math.min(2 - execution.attempts, options.maxAttempts ?? 2);
+  const models = pdfBuffer ? ["gemini-3.5-flash-lite"] as const : GEMINI_CASCADE_MODELS;
+  const maximum = Math.min(models.length, 2 - execution.attempts, options.maxAttempts ?? (pdfBuffer ? 1 : 2));
   let last: EvaluationFailure = new EvaluationFailure("provider_unavailable");
   for (let index = 0; index < maximum; index++) {
     const budget: EvaluationExecution = { ...execution, deadlineAt };
     assertExecution(budget, 500);
-    if (index > 0) await withinDeadline(new Promise(resolve => setTimeout(resolve, 250 + Math.floor(Math.random() * 251))), budget, 500);
+    if (execution.attempts > 0) await withinDeadline(new Promise(resolve => setTimeout(resolve, 250 + Math.floor(Math.random() * 251))), budget, 500);
     if (execution.beforeProviderAttempt) await withinDeadline(execution.beforeProviderAttempt(deadlineAt), budget, deadlineAt - Date.now());
     assertExecution(budget, 500);
-    const model = GEMINI_CASCADE_MODELS[index];
+    const model = models[index];
     const attemptStarted = Date.now();
-    const attemptDeadline = Math.min(deadlineAt, attemptStarted + (options.perModelTimeoutMs ?? options.timeoutMs ?? 15_000));
+    const attemptDeadline = Math.min(deadlineAt, attemptStarted + (options.perModelTimeoutMs ?? options.timeoutMs ?? (pdfBuffer ? 20_000 : 15_000)));
     const timeout = AbortSignal.timeout(Math.max(1, attemptDeadline - attemptStarted));
     const signal = execution.signal ? AbortSignal.any([execution.signal, timeout]) : timeout;
     const attemptBudget = { ...budget, deadlineAt: attemptDeadline, signal };
@@ -89,8 +94,8 @@ export async function callGeminiText(prompt: string, options: GeminiCallOptions 
     try {
       const response = await withinDeadline(fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": getApiKey() }, signal,
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: {
-          temperature: options.temperature ?? 0.15, maxOutputTokens: options.maxOutputTokens ?? 4000,
+        body: JSON.stringify({ contents: [{ parts: [...(pdfBuffer ? [{ inlineData: { mimeType: "application/pdf", data: pdfBuffer.toString("base64") } }] : []), { text: prompt }] }], generationConfig: {
+          temperature: options.temperature ?? 0.15, maxOutputTokens: options.maxOutputTokens ?? (pdfBuffer ? 6500 : 4000),
           responseMimeType: options.responseMimeType ?? "application/json",
           ...(options.responseJsonSchema ? { responseJsonSchema: options.responseJsonSchema } : {}),
         } }),
@@ -266,81 +271,10 @@ export class DocumentAnalysisError extends Error {
   }
 }
 
-/** Native PDF document understanding. Separate model/budget path leaves image callers intact.
- * Uses inline PDF bytes in generateContent; no persistent remote file upload or per-page calls.
- */
-export async function callGeminiDocument(
-  prompt: string,
-  pdfBuffer: Buffer,
-  options: GeminiCallOptions = {},
-): Promise<GeminiCallResult> {
+/** One pinned native-PDF attempt; the caller may spend only the remaining shared attempt on eligible text degradation. */
+export async function callGeminiDocument(prompt: string, pdfBuffer: Buffer, options: GeminiCallOptions = {}): Promise<GeminiCallResult> {
   if (!pdfBuffer.length || pdfBuffer.length > PRESENTATION_LIMITS.pdfBytes || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
-    throw new DocumentAnalysisError({ stage: "request", code: "invalid_input" });
+    throw new EvaluationFailure("invalid_input");
   }
-  let apiKey: string;
-  try { apiKey = getApiKey(); } catch { throw new DocumentAnalysisError({ stage: "request", code: "missing_api_key" }); }
-  const started = Date.now();
-  const totalTimeoutMs = options.totalTimeoutMs ?? 20_000;
-  // v12 exhausted the PDF budget on two overloaded Flash routes before reaching lite.
-  // Use the PDF-capable model already verified with structured slide feedback directly.
-  const models = ["gemini-flash-lite-latest"].slice(0, options.maxAttempts ?? 1);
-  const attempts: Omit<DocumentFailure, "attempts">[] = [];
-  const record = (failure: Omit<DocumentFailure, "attempts">) => { attempts.push(failure); console.warn("[Gemini Document]", JSON.stringify(failure)); };
-  const body = JSON.stringify({
-    contents: [{ parts: [
-      { inlineData: { mimeType: "application/pdf", data: pdfBuffer.toString("base64") } },
-      { text: prompt },
-    ] }],
-    generationConfig: {
-      temperature: options.temperature ?? 0.1,
-      maxOutputTokens: options.maxOutputTokens ?? 6500,
-      responseMimeType: options.responseMimeType ?? "application/json",
-      ...(options.responseJsonSchema ? { responseJsonSchema: options.responseJsonSchema } : {}),
-    },
-  });
-  for (const model of models) {
-    const remaining = totalTimeoutMs - (Date.now() - started);
-    if (remaining < 2000) {
-      record({ stage: "budget", code: "budget_exhausted" });
-      break;
-    }
-    const modelStarted = Date.now();
-    const signal = AbortSignal.timeout(Math.max(1, Math.min(options.perModelTimeoutMs ?? totalTimeoutMs - 500, remaining - 500)));
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body,
-        signal,
-      });
-      if (!response.ok) {
-        await response.body?.cancel();
-        // Never log error bodies: provider messages can include supplied content.
-        record({ stage: "request", code: "http_error", model, httpStatus: response.status });
-        // Invalid PDF / project-wide auth or quota issues should not resend the PDF.
-        if ([400, 401, 403, 429].includes(response.status)) break;
-        continue;
-      }
-      let data;
-      try { data = await response.json(); } catch (error) {
-        const invalidJson = error instanceof SyntaxError || (typeof error === "object" && error !== null && "name" in error && error.name === "SyntaxError");
-        record({ stage: "response", code: signal.aborted ? "timeout" : invalidJson ? "invalid_json" : "network_error", model });
-        break;
-      }
-      const candidate = data?.candidates?.[0];
-      const parts = candidate?.content?.parts;
-      const text = Array.isArray(parts) ? parts.filter((part: { text?: string; thought?: boolean } | null) => part && !part.thought && typeof part.text === "string").map((part: { text: string }) => part.text).join("") : undefined;
-      if (data?.promptFeedback?.blockReason || ["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"].includes(candidate?.finishReason)) {
-        record({ stage: "response", code: "blocked_response", model }); break;
-      }
-      if (candidate && candidate.finishReason !== "STOP") {
-        record({ stage: "response", code: "incomplete_response", model }); break;
-      }
-      if (!text) { record({ stage: "response", code: "empty_response", model }); break; }
-      return { text, modelUsed: model, modelVersion: data.modelVersion || model, latencyMs: Date.now() - modelStarted, totalCascadeTimeMs: Date.now() - started };
-    } catch {
-      record({ stage: "request", code: signal.aborted ? "timeout" : "network_error", model });
-    }
-  }
-  throw new DocumentAnalysisError({ ...(attempts.at(-1) || { stage: "budget", code: "budget_exhausted" }), attempts });
+  return callEvaluatorContent(prompt, { ...options, maxAttempts: Math.min(1, options.maxAttempts ?? 1) }, pdfBuffer);
 }

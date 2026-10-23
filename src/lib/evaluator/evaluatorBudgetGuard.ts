@@ -50,6 +50,7 @@ export interface EvaluationAdmission {
   anonymous?: boolean;
   idempotencyKey: string;
   target?: string;
+  quotaScope?: string;
 }
 
 export async function reserveEvaluation(admin: SupabaseClient, execution: EvaluationExecution, input: EvaluationAdmission): Promise<void> {
@@ -91,7 +92,7 @@ export async function reserveEvaluation(admin: SupabaseClient, execution: Evalua
       }
     };
   } else {
-    await reserve(admin, execution, `${prefix}:${input.pipeline === "ppt" ? target : digest(`${input.actor}:${input.target}`)}:attempts`, input.pipeline === "ppt" ? 15 : 5, 86_400, "admission_limit");
+    await reserve(admin, execution, `${prefix}:${input.pipeline === "ppt" ? target : digest(`${input.actor}:${input.quotaScope || input.target}`)}:attempts`, input.pipeline === "ppt" ? 15 : 5, 86_400, "admission_limit");
     await reserve(admin, execution, tokenKey, 1, 86_400, "duplicate_request");
   }
 }

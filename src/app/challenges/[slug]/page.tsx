@@ -24,7 +24,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { CELEBRATION_THEMES, TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
+import { TeamsEmojiCelebration } from "@/components/challenges/TeamsEmojiCelebration";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useNotification } from "@/context/NotificationContext";
 import AuthModal from "@/components/AuthModal";
@@ -52,6 +52,7 @@ import {
 } from "@/components/system";
 import { eventTimeline } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { logDatabaseFailure } from "@/lib/evaluator/evaluationContract";
 
 /* ------------------------------------------------------------------ */
 /* Presentational data + helpers                                       */
@@ -70,36 +71,35 @@ function difficultyTone(difficulty: string | null | undefined): TapeTone {
   return "neutral";
 }
 
+const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
 const SLIDE_STRUCTURE = [
-  { num: 1, title: "Problem Framing & Target Personas", pts: 20, desc: "Pain points, personas, baseline data" },
-  { num: 2, title: "Proposed Solution & Value Moat", pts: 20, desc: "Core innovation, moat vs existing tools" },
-  { num: 3, title: "Technical Architecture & Pipeline", pts: 25, desc: "Data flow diagram, DB, frameworks, APIs" },
-  { num: 4, title: "Feasibility, Edge Cases & Risks", pts: 15, desc: "Fail-safes, offline mode, rate limits" },
-  { num: 5, title: "Impact Metrics & Beneficiary ROI", pts: 10, desc: "Measurable KPIs, baseline comparisons" },
-  { num: 6, title: "Execution Roadmap & Team Roles", pts: 10, desc: "Sprint roadmap, deliverables, role breakdown" },
+  { num: 1, title: "Problem framing", pts: 25, desc: "Problem evidence, intended users and value" },
+  { num: 2, title: "Solution innovation", pts: 25, desc: "Problem fit and justified differentiation" },
+  { num: 3, title: "Technical architecture", pts: 30, desc: "The actual proposed system and its data flow" },
+  { num: 4, title: "Feasibility and impact", pts: 20, desc: "Risks, measurement, impact and execution" },
 ];
 
 const GUIDE_PILLARS = [
   {
     n: 1,
     title: "Problem framing & target personas",
-    slides: "Slide 1",
+    slides: "Problem topic",
     max: 25,
     intro: "The AI checks whether you understand the root pain point beyond surface symptoms.",
     full: [
-      "Name 2+ specific user personas (e.g. Triage Nurse, Dispatch Officer).",
+      "Identify relevant users and support the problem with evidence.",
       'Include quantified baseline friction (e.g. "45 min triage delay").',
       "Articulate the cost of inaction clearly.",
     ],
-    penalty: "-5 to -8 pts",
+    penalty: "Evidence to review",
     penaltyText: "Generic problem statements with zero target persona definition or no measurable baseline numbers.",
   },
   {
     n: 2,
     title: "Solution design & innovation moat",
-    slides: "Slide 2",
+    slides: "Solution topic",
     max: 25,
-    intro: "The AI verifies that your solution offers genuine novelty rather than an off-the-shelf wrapper.",
+    intro: "Explain useful differentiation for the stated problem. The evaluator assesses supplied claims, not independent verification.",
     full: [
       "Detail a unique architectural moat (custom rule engine, local-first cache).",
       "Show why competitor solutions fail where yours succeeds.",
@@ -111,48 +111,48 @@ const GUIDE_PILLARS = [
   {
     n: 3,
     title: "Technical architecture & data pipeline",
-    slides: "Slide 3 · highest weight",
+    slides: "Architecture topic · 30 points",
     max: 30,
-    intro: "This is the heaviest graded slide. The AI looks for a complete, unbroken data flow diagram and stack.",
+    intro: "This is the highest-weight category. Explain your actual system and data flow in text; diagrams are not visually validated.",
     full: [
-      "Detail data pipeline: Ingestion → Worker/Queue → Storage → Edge Client.",
+      "Explain the data flow appropriate to your proposed system; queues and databases are optional.",
       "Specify database choices, latency budgets, and security/auth layers.",
       "Provide a clear architecture block diagram.",
     ],
-    penalty: "-7 to -12 pts",
+    penalty: "Evidence to review",
     penaltyText: 'Listing logo buzzwords ("React, Node, Mongo, AI") without an actual data flow pipeline.',
   },
   {
     n: 4,
     title: "Feasibility, edge cases & roadmap",
-    slides: "Slides 4, 5, 6",
+    slides: "Risks, impact and execution topics",
     max: 20,
     intro: "The AI checks real-world resilience, ROI quantification, and team execution readiness.",
     full: [
-      "Detail 3+ concrete edge cases with mitigation in Slide 4.",
+      "Explain relevant failure cases and mitigations; no fixed number is required.",
       "Include baseline vs projected ROI metrics in Slide 5.",
       "Provide sprint-by-sprint milestones and team roles in Slide 6.",
     ],
-    penalty: "-4 to -7 pts",
+    penalty: "Evidence to review",
     penaltyText: 'Ignoring system fail-safes (e.g. network dropout) or vague "launch soon" roadmaps.',
   },
 ];
 
 const GUIDE_CHECKLIST = [
-  { slide: "Slide 1", title: "Problem Framing", check: "2+ Target Personas defined with quantified baseline friction metrics." },
+  { slide: "Slide 1", title: "Problem Framing", check: "Explain relevant users and distinguish measured evidence from proposed targets." },
   { slide: "Slide 2", title: "Solution & Moat", check: "Clear architectural value moat beyond existing commercial tools." },
-  { slide: "Slide 3", title: "Architecture & Data Pipeline", check: "End-to-end data flow: Client Ingestion → Backend Worker → DB → Client." },
-  { slide: "Slide 4", title: "Feasibility & Risks", check: "3+ Edge cases addressed (rate limits, offline mode, fallback behaviors)." },
+  { slide: "Slide 3", title: "Architecture & Data Pipeline", check: "Explain your actual system data flow; particular databases or queues are optional." },
+  { slide: "Slide 4", title: "Feasibility & Risks", check: "Explain relevant failure cases and mitigations." },
   { slide: "Slide 5", title: "Impact & ROI", check: "Quantified baseline vs post-implementation target metrics." },
   { slide: "Slide 6", title: "Roadmap & Roles", check: "Sprint milestones with explicit owner roles and deliverables." },
 ];
 
 const GUIDE_DEDUCTIONS = [
-  { pts: "-7 to -12 pts", title: "Missing End-to-End Data Pipeline (Slide 3)", body: "Occurs when tech stack is merely a list of logos without an explicit data flow architecture." },
-  { pts: "-5 to -8 pts", title: "No Innovation Moat / Generic API Wrapper (Slide 2)", body: "Occurs when the solution is a thin layer over ChatGPT without proprietary domain logic." },
-  { pts: "-5 to -8 pts", title: "Generic Problem Statement (Slide 1)", body: "Occurs when problem lacks specific target user personas and baseline friction numbers." },
-  { pts: "-4 to -7 pts", title: "Ignoring Edge Cases & Fail-Safes (Slide 4)", body: "Occurs when failure scenarios (network offline, API timeout, bad input) have no mitigation." },
-  { pts: "-3 to -5 pts", title: "Missing Metrics / Vague Roadmap (Slides 5 & 6)", body: "Occurs when impact metrics have no baseline comparison or roadmap has no role ownership." },
+  { pts: "Review evidence", title: "Missing End-to-End Data Pipeline (Slide 3)", body: "Occurs when tech stack is merely a list of logos without an explicit data flow architecture." },
+  { pts: "Review evidence", title: "No Innovation Moat / Generic API Wrapper (Slide 2)", body: "Occurs when the solution is a thin layer over ChatGPT without proprietary domain logic." },
+  { pts: "Review evidence", title: "Generic Problem Statement (Slide 1)", body: "Occurs when problem lacks specific target user personas and baseline friction numbers." },
+  { pts: "Review evidence", title: "Ignoring Edge Cases & Fail-Safes (Slide 4)", body: "Occurs when failure scenarios (network offline, API timeout, bad input) have no mitigation." },
+  { pts: "Review evidence", title: "Missing Metrics / Vague Roadmap (Slides 5 & 6)", body: "Occurs when impact metrics have no baseline comparison or roadmap has no role ownership." },
 ];
 
 function ScoringGuideBody({ tab }: { tab: "rubric" | "checklist" | "deductions" }) {
@@ -330,30 +330,63 @@ export default function ChallengeDetailPage() {
   // Form State
   const [submissionMode, setSubmissionMode] = useState<"solo" | "team">("solo");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
-  const [inputMode, setInputMode] = useState<"upload" | "link">("upload");
-  const [file, setFile] = useState<File | null>(null);
+  const [, setInputMode] = useState<"upload" | "link">("upload");
+  const [, setFile] = useState<File | null>(null);
   const [externalLink, setExternalLink] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [demoUrl, setDemoUrl] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generation = useRef(0);
+  const actor = useRef<string | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const submitting = useRef(false);
+  const retryToken = useRef<{ fingerprint: string; token: string } | null>(null);
+  const [accountRevision, setAccountRevision] = useState(0);
+  const [hasRetryToken, setHasRetryToken] = useState(false);
 
   useEffect(() => {
+    let disposed = false;
+    const invalidate = (id: string | null) => {
+      if (disposed || id === actor.current) return;
+      const hadAccount = !!actor.current;
+      actor.current = id; generation.current++; controller.current?.abort();
+      submitting.current = false; retryToken.current = null; setHasRetryToken(false);
+      setIsSubmitting(false); setShowCelebration(false); setPendingSubmissionId(null); setPreviousSubmissions([]); setUserTeams([]); setSelectedTeamId(""); setErrorMsg(null);
+      if (hadAccount) { setExternalLink(""); setGithubUrl(""); setDemoUrl(""); setFile(null); sessionStorage.removeItem("hackermate_challenge_draft"); }
+      setAccountRevision(value => value + 1);
+    };
+    const initial = generation.current;
+    void supabase.auth.getSession().then(({ data, error }) => { if (!disposed && initial === generation.current) { if (error) logDatabaseFailure("challenge_client_session", error); invalidate(error ? null : data.session?.user?.id || null); } }).catch(error => { if (!disposed && initial === generation.current) { logDatabaseFailure("challenge_client_session", error); setErrorMsg("Identity verification is unavailable. Reload before submitting."); } });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => invalidate(session?.user?.id || null));
+    const dispose = () => { generation.current++; controller.current?.abort(); };
+    return () => { disposed = true; dispose(); subscription.unsubscribe(); };
+  }, [slug]);
+
+  useEffect(() => {
+    const epoch = generation.current;
+    controller.current?.abort();
+    const requestController = new AbortController();
+    controller.current = requestController;
     async function loadChallengeData() {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        if (epoch !== generation.current || requestController.signal.aborted) return;
 
         const headers: Record<string, string> = {};
         if (session?.access_token) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
-        const res = await fetch(`/api/challenges/${encodeURIComponent(slug)}`, { headers });
+        const res = await fetch(`/api/challenges/${encodeURIComponent(slug)}`, { headers, signal: requestController.signal });
         if (res.ok) {
           const data = await res.json();
+          if (epoch !== generation.current || requestController.signal.aborted) return;
+          const canonical = decodeURIComponent(slug).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          if (![slug, canonical].includes(data.challenge?.slug) && data.challenge?.id !== slug) { setChallenge(null); return; }
           setChallenge(data.challenge);
           setUserTeams(data.userTeams || []);
           if (data.userTeams?.length > 0) {
@@ -365,27 +398,30 @@ export default function ChallengeDetailPage() {
 
         if (session?.access_token) {
           const subRes = await fetch(`/api/challenges/${encodeURIComponent(slug)}/submissions`, {
+            signal: requestController.signal,
             headers: { Authorization: `Bearer ${session.access_token}` },
           });
           if (subRes.ok) {
             const subData = await subRes.json();
+            if (epoch !== generation.current || requestController.signal.aborted) return;
             setPreviousSubmissions(subData.submissions || []);
           } else {
             console.error("Failed to load challenge submissions: HTTP", subRes.status);
           }
         }
       } catch (err) {
-        console.error("Failed to load challenge details:", err);
+        logDatabaseFailure("challenge_client_load", err);
       } finally {
-        setLoading(false);
+        if (epoch === generation.current && !requestController.signal.aborted) setLoading(false);
       }
     }
 
     loadChallengeData();
-  }, [slug]);
+    return () => requestController.abort();
+  }, [slug, accountRevision]);
 
   // 2-Hour TTL for draft restoration (7,200,000 ms)
-  const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+
 
   // Restore prefilled presentation link & draft values after sign-in / redirect
   useEffect(() => {
@@ -412,7 +448,7 @@ export default function ChallengeDetailPage() {
     }
 
     // 2. Check sessionStorage draft freshness
-    let draft: any = null;
+    let draft: { slug?: string; externalLink?: string; githubUrl?: string; demoUrl?: string; submissionMode?: string; savedAt?: number } | null = null;
     let isDraftFresh = false;
     try {
       const raw = sessionStorage.getItem("hackermate_challenge_draft");
@@ -445,6 +481,9 @@ export default function ChallengeDetailPage() {
       (isUrlFresh && urlMode) ||
       (isDraftFresh && draft?.slug === slug ? draft.submissionMode : "");
 
+    const epoch = generation.current;
+    queueMicrotask(() => {
+      if (epoch !== generation.current) return;
     if (effectiveLink) {
       setExternalLink(effectiveLink);
       if (effectiveGithub) setGithubUrl(effectiveGithub);
@@ -471,6 +510,7 @@ export default function ChallengeDetailPage() {
       // Stale URL param: clean up address bar without restoring
       window.history.replaceState({}, "", window.location.pathname);
     }
+    });
   }, [slug, showToast]);
 
   function handleDeleteSubmission(e: React.MouseEvent, subId: string, version: number) {
@@ -505,8 +545,8 @@ export default function ChallengeDetailPage() {
           } else {
             showToast(data.error || "Failed to delete submission.", "error");
           }
-        } catch (err: any) {
-          showToast(err.message || "Failed to delete submission.", "error");
+        } catch (err: unknown) {
+          logDatabaseFailure("challenge_delete", err); showToast("Delete outcome unconfirmed. Refresh history.", "error");
         } finally {
           setDeletingSubmissionId(null);
         }
@@ -516,108 +556,56 @@ export default function ChallengeDetailPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    const epoch = generation.current;
+    submitting.current = true;
     setErrorMsg(null);
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      if (!externalLink.trim()) {
-        setErrorMsg("Please provide your Google Slides or Google Drive presentation link.");
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (epoch !== generation.current) return;
+      if (error) { logDatabaseFailure("challenge_client_session", error); setErrorMsg("Session verification is unavailable. Your draft remains here."); return; }
+      if (!externalLink.trim()) { setErrorMsg("Please provide a Google Slides or Drive presentation link."); return; }
+      if (!session) {
+        const now = Date.now();
+        try { sessionStorage.setItem("hackermate_challenge_draft", JSON.stringify({ slug, externalLink: externalLink.trim(), githubUrl: githubUrl.trim(), demoUrl: demoUrl.trim(), submissionMode, savedAt: now })); }
+        catch { console.error("[Challenges] Draft storage unavailable"); }
+        const query = new URLSearchParams({ prefill_link: externalLink.trim(), ts: String(now), mode: submissionMode });
+        if (githubUrl.trim()) query.set("github_url", githubUrl.trim());
+        if (demoUrl.trim()) query.set("demo_url", demoUrl.trim());
+        setAuthNextUrl(`/challenges/${encodeURIComponent(slug)}?${query}`); setShowAuthModal(true); return;
+      }
+      if (session.user.id !== actor.current) { setErrorMsg("Account changed. Review the current draft before submitting."); return; }
+      if (submissionMode === "team" && !selectedTeamId) { setErrorMsg("Select a team or switch to Solo."); return; }
+      setIsSubmitting(true);
+      setEvaluatingStep("Waiting for a confirmed text-only AI evaluation. Visuals are not validated.");
+      const fingerprint = JSON.stringify({ slug, externalLink: externalLink.trim(), submissionMode, selectedTeamId: submissionMode === "team" ? selectedTeamId : null, githubUrl, demoUrl });
+      if (retryToken.current?.fingerprint !== fingerprint) retryToken.current = { fingerprint, token: crypto.randomUUID() };
+      setHasRetryToken(true);
+      const form = new FormData();
+      form.append("external_link_url", externalLink.trim()); form.append("submission_mode", submissionMode);
+      if (submissionMode === "team") form.append("team_id", selectedTeamId);
+      if (githubUrl.trim()) form.append("github_url", githubUrl.trim());
+      if (demoUrl.trim()) form.append("demo_url", demoUrl.trim());
+      const res = await fetch(`/api/challenges/${encodeURIComponent(slug)}/evaluate`, { method: "POST", signal: controller.current?.signal,
+        headers: { Authorization: `Bearer ${session.access_token}`, "Idempotency-Key": retryToken.current!.token }, body: form });
+      const data = await res.json();
+      if (epoch !== generation.current) return;
+      if (!res.ok || data.success !== true || data.submission?.status !== "completed" || data.submission?.challenge_id !== challenge?.id || typeof data.submission?.id !== "string") {
+        setErrorMsg(data.code === "unauthorized" ? "Session verification failed. Reload and authenticate before submitting." : data.code === "forbidden" ? "This submission is not authorized or the challenge window is closed." : typeof data.error === "string" ? data.error : "No completed scorecard was confirmed. Review submission history before retrying.");
+        if (["invalid_input", "invalid_ai_output", "blocked_content", "provider_rejected", "unusable_text"].includes(data.code)) { retryToken.current = null; setHasRetryToken(false); }
         return;
       }
-
-      const now = Date.now();
-      const draft = {
-        slug,
-        externalLink: externalLink.trim(),
-        githubUrl: githubUrl.trim(),
-        demoUrl: demoUrl.trim(),
-        submissionMode,
-        savedAt: now,
-      };
-
-      try {
-        sessionStorage.setItem("hackermate_challenge_draft", JSON.stringify(draft));
-      } catch (err) {
-        console.warn("[Challenges] Could not save draft to sessionStorage:", err);
-      }
-
-      const queryParams = new URLSearchParams();
-      queryParams.set("prefill_link", externalLink.trim());
-      queryParams.set("ts", String(now));
-      if (githubUrl.trim()) queryParams.set("github_url", githubUrl.trim());
-      if (demoUrl.trim()) queryParams.set("demo_url", demoUrl.trim());
-      if (submissionMode) queryParams.set("mode", submissionMode);
-
-      const targetPath = `/challenges/${encodeURIComponent(slug)}?${queryParams.toString()}`;
-      setAuthNextUrl(targetPath);
-      setShowAuthModal(true);
-      return;
-    }
-
-    if (!externalLink.trim()) {
-      setErrorMsg("Please provide your Google Slides or Google Drive presentation link.");
-      return;
-    }
-
-    if (submissionMode === "team" && !selectedTeamId) {
-      setErrorMsg("Please select a team or switch to Solo submission.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setEvaluatingStep("Connecting to presentation deck and running AI evaluation cascade...");
-
-    try {
-      const formData = new FormData();
-      formData.append("external_link_url", externalLink.trim());
-      formData.append("submission_mode", submissionMode);
-      if (submissionMode === "team" && selectedTeamId) {
-        formData.append("team_id", selectedTeamId);
-      }
-      if (githubUrl.trim()) {
-        formData.append("github_url", githubUrl.trim());
-      }
-      if (demoUrl.trim()) {
-        formData.append("demo_url", demoUrl.trim());
-      }
-
-      const timer = setTimeout(() => {
-        setEvaluatingStep("Running multi-model AI evaluation cascade & generating jury diagnostic...");
-      }, 2500);
-
-      const res = await fetch(`/api/challenges/${encodeURIComponent(slug)}/evaluate`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: formData,
-      });
-
-      clearTimeout(timer);
-
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error || "Evaluation failed. Please verify your file and try again.");
-        setIsSubmitting(false);
-      } else if (data.submission) {
-        try {
-          sessionStorage.removeItem("hackermate_challenge_draft");
-        } catch {}
-        setPendingSubmissionId(data.submission.id);
-        setShowCelebration(true);
-        setIsSubmitting(false);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Network error occurred during evaluation.");
-      setIsSubmitting(false);
+      retryToken.current = null; setHasRetryToken(false);
+      try { sessionStorage.removeItem("hackermate_challenge_draft"); } catch { console.error("[Challenges] Draft storage unavailable"); }
+      setPendingSubmissionId(data.submission.id); setShowCelebration(true);
+    } catch (error) {
+      if (epoch !== generation.current) return;
+      logDatabaseFailure("challenge_client_submission", error);
+      setErrorMsg("The outcome could not be confirmed. Your draft remains here. Check submission history before starting another attempt.");
+    } finally {
+      if (epoch === generation.current) { submitting.current = false; setIsSubmitting(false); }
     }
   }
-
-
   if (loading) {
     return (
       <Page>
@@ -739,7 +727,7 @@ export default function ChallengeDetailPage() {
           )}
 
           <Section
-            title="6-slide structure"
+            title="Scoring rubric"
             count="100 pts"
             action={
               <Button variant="ghost" size="sm" iconRight={<ArrowRight />} onClick={() => setShowScoringGuideModal(true)}>
@@ -768,7 +756,7 @@ export default function ChallengeDetailPage() {
             <div id="submission-form" className="p-4 md:p-5">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <h2 className="text-[14px] font-semibold text-ink">Submit your deck</h2>
-                <Tape>6 slides max</Tape>
+                <Tape>Text only · up to 60 pages</Tape>
               </div>
 
               <PresentationErrorAlert
@@ -782,6 +770,7 @@ export default function ChallengeDetailPage() {
                 className="mb-4"
               />
 
+              {hasRetryToken && !isSubmitting && <Button variant="ghost" size="sm" onClick={() => { retryToken.current = null; setHasRetryToken(false); setErrorMsg("Check previous submissions before proceeding. A new explicit attempt reserves another allowance; no earlier reservation is refunded."); }}>Start a new attempt after reviewing history</Button>}
               {(() => {
                 if (isDeadlinePassed) {
                   return (
@@ -818,7 +807,7 @@ export default function ChallengeDetailPage() {
                 }
 
                 return (
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-4"><fieldset disabled={isSubmitting} className="min-w-0 space-y-4">
                     <div>
                       <FieldLabel>Submitting as</FieldLabel>
                       <ModeToggle value={submissionMode} onChange={setSubmissionMode} />
@@ -903,7 +892,7 @@ export default function ChallengeDetailPage() {
                         onChange={(e) => setGithubUrl(e.target.value)}
                         className="h-9 font-mono text-[12.5px]"
                       />
-                      <p className="mt-1.5 text-[12px] text-ink-3">Used to check your architecture claims.</p>
+                      <p className="mt-1.5 text-[12px] text-ink-3">Supplied link only; repository code is not inspected by this text-only evaluation.</p>
                     </div>
 
                     <div>
@@ -930,9 +919,9 @@ export default function ChallengeDetailPage() {
                       className="mx-auto flex min-h-9 items-center gap-1.5 text-[12.5px] font-medium text-ink-3 hover:text-ink"
                     >
                       <Target className="size-3.5" aria-hidden />
-                      How to score 100/100
+                      Review scoring criteria
                     </button>
-                  </form>
+                  </fieldset></form>
                 );
               })()}
             </div>
@@ -987,7 +976,7 @@ export default function ChallengeDetailPage() {
         onClose={() => setShowScoringGuideModal(false)}
         size="lg"
         title="How decks are scored"
-        description="Four pillars, 100 points. What the AI review rewards and what it deducts."
+        description="Four categories, 100 points. Text-only feedback on supplied evidence; no fixed slide template or automatic point penalties."
         footer={
           <Button variant="primary" onClick={() => setShowScoringGuideModal(false)}>
             Got it
@@ -1006,9 +995,10 @@ export default function ChallengeDetailPage() {
           ]}
         />
         <div className="mt-4">
+          <p className="mb-3 text-[12px] text-ink-3">These are guidance topics, not required physical pages. Only the supplied challenge rules establish eligibility restrictions. Visual layout and repository/demo links are not inspected.</p>
           <ScoringGuideBody tab={scoringTab} />
         </div>
-        <p className="mt-4 caps-label text-ink-3">AI evaluator v2.4 · fixed 6-slide structure</p>
+        <p className="mt-4 caps-label text-ink-3">Text-only AI evaluation · 8 MB PDF parser limit · no numeric fallback</p>
       </Dialog>
 
       {/* Celebration overlay → redirects to the scored submission */}
@@ -1028,7 +1018,7 @@ export default function ChallengeDetailPage() {
         open={showInviteTeammatesModal}
         onClose={() => setShowInviteTeammatesModal(false)}
         title="Invite teammates"
-        description="Build the 6-slide deck together."
+        description="Build a text-readable deck together."
         footer={
           <Button onClick={() => setShowInviteTeammatesModal(false)}>Close</Button>
         }
@@ -1045,7 +1035,7 @@ export default function ChallengeDetailPage() {
               onClick={() => {
                 if (typeof window !== "undefined" && challenge) {
                   const text = encodeURIComponent(
-                    `Hey! 👋 I'm practicing for our upcoming hackathon on HackerMate for Challenge #${challenge.challenge_number}: "${challenge.title}".\n\nJoin my practice squad and review our 6-slide deck here:\n${window.location.href}`
+                    `Hey! 👋 I'm practicing for our upcoming hackathon on HackerMate for Challenge #${challenge.challenge_number}: "${challenge.title}".\n\nJoin my practice squad and review our practice deck here:\n${window.location.href}`
                   );
                   window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
                 }

@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, ArrowRight, CheckCircle2, Share2, Target, Trash2, TriangleAlert } from "lucide-react";
-import { ShareScoreCardModal } from "@/components/challenges/ShareScoreCardModal";
+import PitchAnalysisBadge from "@/components/PitchAnalysisBadge";
+import { getAnalysisDisplay, type AnalysisMetadata } from "@/lib/ppt/analysisMetadata";
+import { logDatabaseFailure } from "@/lib/evaluator/evaluationContract";
 import { useNotification } from "@/context/NotificationContext";
 import {
   Button,
   ButtonLink,
+  Dialog,
   EmptyState,
   Page,
   PageHeader,
@@ -35,6 +38,7 @@ interface SubmissionDetail {
   score_feasibility_impact: number;
   total_score: number;
   grade: string;
+  status?: string;
   strengths: string[];
   growth_areas: string[];
   slide_feedback: Record<string, string>;
@@ -43,6 +47,7 @@ interface SubmissionDetail {
   ai_raw_feedback?: {
     topActionItem?: string;
     evaluatedAt?: string;
+    analysis?: AnalysisMetadata;
   };
   used_ai_fallback: boolean;
   created_at: string;
@@ -69,6 +74,7 @@ export default function SubmissionResultPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [activeSlideTab, setActiveSlideTab] = useState<string>("slide1");
   const [isDeleting, setIsDeleting] = useState(false);
+  const generation = useRef(0);
 
   function handleDeleteSubmission() {
     if (!submission) return;
@@ -102,8 +108,8 @@ export default function SubmissionResultPage() {
             showToast(data.error || "Failed to delete submission.", "error");
             setIsDeleting(false);
           }
-        } catch (err: any) {
-          showToast(err.message || "Failed to delete submission.", "error");
+        } catch (err: unknown) {
+          logDatabaseFailure("challenge_delete", err); showToast("Delete outcome unconfirmed. Reload history.", "error");
           setIsDeleting(false);
         }
       },
@@ -111,11 +117,23 @@ export default function SubmissionResultPage() {
   }
 
   useEffect(() => {
+    const epoch = ++generation.current;
+    const controller = new AbortController();
+    let actorId: string | null = null;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (actorId !== null && session?.user?.id !== actorId) {
+        generation.current++; controller.abort(); setSubmission(null); setChallenge(null); setShowShareModal(false); setLoading(false);
+        setErrorMsg("Account changed. Reload to view authorized evaluation history.");
+      }
+    });
     async function loadSubmission() {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        if (epoch !== generation.current) return;
+        actorId = session?.user?.id || null;
+        setLoading(true); setSubmission(null); setChallenge(null); setErrorMsg(null); setShowShareModal(false);
 
         if (!session) {
           setErrorMsg("Please sign in to view this evaluation.");
@@ -124,6 +142,7 @@ export default function SubmissionResultPage() {
         }
 
         const res = await fetch(`/api/challenges/${slug}/submissions/${submissionId}`, {
+          signal: controller.signal,
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
@@ -131,22 +150,26 @@ export default function SubmissionResultPage() {
 
         if (res.ok) {
           const data = await res.json();
+          if (epoch !== generation.current) return;
           setSubmission(data.submission);
+          setActiveSlideTab(Object.keys(data.submission?.slide_feedback || {}).find(key => data.submission.slide_feedback[key]) || "slide1");
           setChallenge(data.challenge);
         } else {
           const data = await res.json();
-          console.error("Failed to load submission: HTTP", res.status, data?.error);
+          console.error("Failed to load submission: HTTP", res.status);
           setErrorMsg(data.error || "Failed to load submission.");
         }
-      } catch (err: any) {
-        console.error("Failed to load submission:", err);
-        setErrorMsg(err.message || "Network error loading diagnostic.");
+      } catch (err: unknown) {
+        logDatabaseFailure("challenge_result_load", err);
+        if (epoch === generation.current) setErrorMsg("The evaluation could not be verified. Reload to check history.");
       } finally {
-        setLoading(false);
+        if (epoch === generation.current) setLoading(false);
       }
     }
 
     loadSubmission();
+    const dispose = () => { generation.current++; controller.abort(); };
+    return () => { dispose(); subscription.unsubscribe(); };
   }, [slug, submissionId]);
 
 
@@ -177,6 +200,8 @@ export default function SubmissionResultPage() {
     );
   }
 
+  if (submission.status && submission.status !== "completed") return <Page width="narrow"><EmptyState title="No completed scorecard" body="Processing is unconfirmed or failed. Check submission history before starting another evaluation." action={<ButtonLink href={`/challenges/${slug}`}>Back to history</ButtonLink>} /></Page>;
+
   const slideLabels: Record<string, { title: string; num: number }> = {
     slide1: { title: "Problem Framing & Target Personas", num: 1 },
     slide2: { title: "Proposed Solution & Value Moat", num: 2 },
@@ -199,6 +224,8 @@ export default function SubmissionResultPage() {
     { label: "Technical architecture", score: submission.score_architecture, max: 30 },
     { label: "Feasibility & roadmap", score: submission.score_feasibility_impact, max: 20 },
   ];
+  const analysis = getAnalysisDisplay({ analysis: submission.ai_raw_feedback?.analysis, usedAiFallback: submission.used_ai_fallback });
+  const shareEligible = submission.status === "completed" && !submission.used_ai_fallback && submission.ai_raw_feedback?.analysis?.rubricVersion === "challenge-v1" && analysis.mode === "text_only";
 
   return (
     <Page>
@@ -228,7 +255,7 @@ export default function SubmissionResultPage() {
         }
         actions={
           <>
-            <Button icon={<Share2 />} onClick={() => setShowShareModal(true)}>
+            <Button icon={<Share2 />} onClick={() => setShowShareModal(true)} disabled={!shareEligible}>
               Share
             </Button>
             <Button variant="danger" icon={<Trash2 />} loading={isDeleting} onClick={handleDeleteSubmission} title="Delete this submission">
@@ -242,6 +269,7 @@ export default function SubmissionResultPage() {
       />
 
       <div className="mt-2 space-y-8">
+        <div className="space-y-2"><PitchAnalysisBadge feedback={{ analysis: submission.ai_raw_feedback?.analysis, usedAiFallback: submission.used_ai_fallback }} /><p className="text-[13px] text-ink-3">{analysis.description}</p></div>
         {/* Score + rubric */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
           <Panel className="p-4">
@@ -299,7 +327,7 @@ export default function SubmissionResultPage() {
                   </li>
                 ))
               ) : (
-                <li className="py-2.5 text-[13px] text-ink-3">Clear structure and foundational approach.</li>
+                <li className="py-2.5 text-[13px] text-ink-3">No strengths recorded.</li>
               )}
             </ul>
           </Section>
@@ -314,15 +342,15 @@ export default function SubmissionResultPage() {
                   </li>
                 ))
               ) : (
-                <li className="py-2.5 text-[13px] text-ink-3">Expand quantitative impact metrics and roadmap.</li>
+                <li className="py-2.5 text-[13px] text-ink-3">No additional feedback recorded.</li>
               )}
             </ul>
           </Section>
         </div>
 
         {/* Slide-by-slide notes */}
-        <Section title="Slide-by-slide notes" count="6 slides">
-          <div role="tablist" aria-label="Slides" className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:px-0">
+        <Section title="Topic feedback" count="Not physical page numbers">
+          <div role="tablist" aria-label="Feedback topics" className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:px-0">
             {["slide1", "slide2", "slide3", "slide4", "slide5", "slide6"].map((slideKey) => {
               const meta = slideLabels[slideKey];
               const isActive = activeSlideTab === slideKey;
@@ -340,7 +368,7 @@ export default function SubmissionResultPage() {
                       : "bg-raised text-ink-2 ring-1 ring-inset ring-line-strong hover:text-ink hover:ring-ink-4",
                   )}
                 >
-                  Slide {meta?.num || 1}
+                  Topic {meta?.num || 1}
                 </button>
               );
             })}
@@ -349,11 +377,11 @@ export default function SubmissionResultPage() {
           {activeSlideTab && (
             <Panel className="mt-3 p-4 md:p-5">
               <h3 className="text-[14px] font-semibold text-ink">
-                <span className="font-mono text-[12.5px] text-ink-3">Slide {slideLabels[activeSlideTab]?.num}</span> ·{" "}
+                <span className="font-mono text-[12.5px] text-ink-3">Topic {slideLabels[activeSlideTab]?.num}</span> ·{" "}
                 {slideLabels[activeSlideTab]?.title}
               </h3>
               <p className="mt-2 whitespace-pre-line break-words text-[14px] leading-relaxed text-ink-2">
-                {submission.slide_feedback?.[activeSlideTab] || "No specific note for this slide."}
+                {submission.slide_feedback?.[activeSlideTab] || "No feedback recorded for this topic."}
               </p>
             </Panel>
           )}
@@ -373,26 +401,16 @@ export default function SubmissionResultPage() {
         </div>
       </div>
 
-      {/* 1-Click Social Share Card Modal */}
-      {submission && challenge && (
-        <ShareScoreCardModal
-          isOpen={showShareModal}
-          onClose={() => setShowShareModal(false)}
-          challengeTitle={challenge.title}
-          challengeNumber={challenge.challenge_number}
-          totalScore={submission.total_score}
-          grade={submission.grade}
-          scores={{
-            problem: submission.score_problem,
-            solution: submission.score_solution,
-            architecture: submission.score_architecture,
-            feasibility: submission.score_feasibility_impact,
-          }}
-          participantName={submission.submission_mode === "team" ? "Team Squad" : "Builder"}
-          submissionMode={submission.submission_mode}
-          shareUrl={typeof window !== "undefined" ? window.location.href : `https://hackermate.in/challenges/${slug}`}
-        />
-      )}
-    </Page>
+      {shareEligible && <Dialog open={showShareModal} onClose={() => setShowShareModal(false)} title="Share text-only result" description="AI feedback on supplied text; no independent verification or visual inspection.">
+        <div className="space-y-3">
+          <p className="text-[14px] text-ink">{submission.total_score}/100 · {submission.grade} · TEXT ONLY</p>
+          <Button onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(`HackerMate Challenge: ${submission.total_score}/100 (${submission.grade}). Text-only AI feedback on supplied claims; visuals and implementation not independently verified. ${window.location.href}`);
+              showToast("Qualified result copied.", "success");
+            } catch { showToast("Could not copy. Please copy the page link manually.", "error"); }
+          }}>Copy result and analysis mode</Button>
+        </div>
+      </Dialog>}    </Page>
   );
 }

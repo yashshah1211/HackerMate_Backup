@@ -7,6 +7,8 @@ const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const { harness } = require('./ppt-vision-harness.cjs');
 const { makePitchPdf } = require('./fixtures/pitch-pdf.cjs');
+const { pitchOutput, customRubric, presentationSetup } = require('./fixtures/evaluator-benchmarks.cjs');
+const TEXT = 'Classifier architecture with measured precision and latency.';
 
 const extractorPath = 'src/lib/ppt/presentationExtractor.ts';
 const enginePath = 'src/lib/ppt/evaluatorEngine.ts';
@@ -16,9 +18,12 @@ const slideFeedback = [
   { slideNumber: 1, title: 'Architecture', observation: 'Client, API and database blocks are already connected.', recommendation: 'Label the API-to-database arrow with the query and failure behavior.' },
   { slideNumber: 2, title: 'Prototype mockup', observation: 'An illustrative screen is present, but it does not establish a running implementation.', recommendation: 'Add an observed demo result and state which interactions work.' },
 ];
-function scoring(track = 'generic') {
-  return { scoreNovelty: 20, scoreTech: 21, scoreUiUx: 20, scoreTeam: ['generic', 'specific'].includes(track) ? 24 : 12, scoreDeductions: { novelty: 'Differentiation needs evidence.', tech: 'Show observed failure handling.', uiUx: 'Supply relevant measured outcomes.', team: 'Supply evidence for this final criterion.' }, strengths: ['Architecture shown'], criticalRisks: ['Mockup is not implementation evidence'], formatViolations: [], slideFeedback, slideRecommendations: { technicalApproach: 'Label the existing diagram.' } };
+function scoring(track = 'generic', mode = 'visual_text', source = TEXT, points) {
+ const output = pitchOutput(source, track, mode, points || [20,21,20,['generic','specific'].includes(track)?24:12]);
+ if (mode === 'visual_text') output.slideFeedback = slideFeedback;
+ return output;
 }
+
 const aiResponse = (result = scoring(), extra = {}) => new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(result) }] } }], modelVersion: 'fixture-model', ...extra }), { headers: { 'content-type': 'application/json' } });
 const downloadOverride = fn => ({ '@/lib/ppt/presentationDownload': undefined, './presentationDownload': { ...harness().load(downloadPath), downloadPresentation: fn } });
 
@@ -109,14 +114,14 @@ for (const track of ['generic', 'specific', 'web_dev', 'ai_genai']) {
     const calls = []; const pdf = makePitchPdf();
     const { load } = harness({}, { fetch: async (url, options) => { calls.push({ url, options, body: JSON.parse(options.body) }); return aiResponse(scoring(track)); } });
     const extraction = await load(extractorPath).extractTextFromPDF(pdf);
-    const result = await load(enginePath).runPitchDeckEvaluation('Local fixture', 'software', extraction.rawDocumentText, { memberCount: 3 }, track, 'Organizer rule: 40% usability and 60% working evidence.', extraction.pdf);
+    const result = await load(enginePath).runPitchDeckEvaluation('Local fixture', 'software', extraction.rawDocumentText, { memberCount: 3 }, track, track === 'specific' ? customRubric : undefined, extraction.pdf);
     assert.equal(result.analysis.mode, 'visual_text'); assert.equal(result.analysis.pdfReceived, true);
     assert.equal(result.usedAiFallback, false); assert.equal(result.trackId, track); assert.equal(calls.length, 1);
     const part = calls[0].body.contents[0].parts[0];
     assert.equal(part.inlineData.mimeType, 'application/pdf'); assert(Buffer.from(part.inlineData.data, 'base64').equals(pdf));
     const prompt = calls[0].body.contents[0].parts[1].text;
-    assert.match(prompt, /mockup alone NEVER proves/); assert.match(prompt, /Credit diagrams visibly present/);
-    if (track === 'specific') assert.match(prompt, /Organizer rule: 40% usability/);
+    assert.match(prompt, /Mockups are not proof/); assert.match(prompt, /physical page order/);
+    if (track === 'specific') assert(prompt.includes(customRubric));
     assert.equal(result.slideFeedback[0].slideNumber, 1); assert.match(result.slideFeedback[0].recommendation, /Label/);
     assert.match(result.slideFeedback[1].observation, /does not establish/);
     assert.equal(result.scoreTeam, ['generic', 'specific'].includes(track) ? 24 : 12);
@@ -124,58 +129,40 @@ for (const track of ['generic', 'specific', 'web_dev', 'ai_genai']) {
   });
 }
 
-for (const status of [400, 403, 429, 404]) {
-  test(`document HTTP ${status} falls back to text and never claims visual review`, async () => {
-    const calls = []; const { load } = harness({}, { fetch: async (url, options) => {
-      const body = JSON.parse(options.body); calls.push(body);
-      return body.contents[0].parts.some(part => part.inlineData) ? new Response('', { status }) : aiResponse();
-    } });
-    const extraction = await load(extractorPath).extractTextFromPDF(makePitchPdf());
-    const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', extraction.rawDocumentText, undefined, 'generic', undefined, extraction.pdf);
-    assert.equal(result.analysis.mode, 'text_only'); assert.equal(result.analysis.pdfReceived, false);
-    assert.equal(result.analysis.fallbackReason.code, 'http_error');
-    assert.equal(result.analysis.fallbackReason.httpStatus, status);
-    assert(result.analysis.fallbackReason.attempts.length <= 3);
-    assert.match(calls.at(-1).contents[0].parts[0].text, /Do NOT pretend you inspected/);
-    assert(calls.length <= 4);
-  });
+for (const status of [400, 401, 402, 403, 404, 429]) {
+ test('document HTTP '+status+' stops without text bypass or numeric fallback', async()=>{
+  let calls=0;const {load}=harness({}, {fetch:async()=>{calls++;return new Response('',{status})}});
+  await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'}),e=>e.code==='provider_rejected');
+  assert.equal(calls,1);
+ });
 }
 
-test('malformed visual scoring/missing slide evidence uses text-only fallback', async () => {
-  let count = 0;
-  const { load } = harness({}, { fetch: async (_url, options) => {
-    count++; return aiResponse(JSON.parse(options.body).contents[0].parts[0].inlineData ? { ...scoring(), slideFeedback: [{ ...slideFeedback[0], slideNumber: 99 }] } : scoring());
-  } });
-  const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', '[Slide 1]\nLocal text content', undefined, 'generic', undefined, { bytes: makePitchPdf(), pageCount: 3, source: 'linked_pdf' });
-  assert.equal(result.analysis.mode, 'text_only'); assert.equal(count, 2);
+test('invalid visual evidence is terminal and never bypassed through text', async()=>{
+ let count=0;const {load}=harness({}, {fetch:async()=>{count++;return aiResponse({...scoring(),slideFeedback:[{...slideFeedback[0],slideNumber:99}]})}});
+ await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'}),e=>e.code==='invalid_ai_output');assert.equal(count,1);
 });
 
 test('missing PDF is TEXT ONLY, default rubric is General, and low scores are not inflated', async () => {
   const calls = [];
-  const { load } = harness({}, { fetch: async (_url, options) => { calls.push(JSON.parse(options.body)); return aiResponse({ ...scoring(), scoreNovelty: 1, scoreTech: 2, scoreUiUx: 3, scoreTeam: 4 }); } });
+  const { load } = harness({}, { fetch: async (_url, options) => { calls.push(JSON.parse(options.body)); return aiResponse(scoring('generic', 'text_only', 'Local extracted problem and solution text.', [1,2,3,4])); } });
   const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Local extracted problem and solution text.');
   assert.equal(result.trackId, 'generic'); assert.equal(result.analysis.mode, 'text_only'); assert.equal(result.totalScore, 10);
   assert.equal(calls.length, 1); assert.equal(calls[0].contents[0].parts.length, 1);
 });
 
-test('no key, exhausted budget, and AI errors use honest heuristic/custom-rubric disclosure', async () => {
-  const { load, env } = harness(); delete env.GEMINI_API_KEY;
-  const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Architecture and mockup are proposed.', undefined, 'specific', 'Organizer custom criteria');
-  assert.equal(result.analysis.mode, 'heuristic_fallback'); assert.equal(result.usedAiFallback, true);
-  assert(result.criticalRisks.some(text => /cannot apply an arbitrary custom rubric/.test(text)));
-  assert(result.criticalRisks.some(text => /Visual content was not inspected/.test(text)));
-  const exhausted = await harness().load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Some text', undefined, 'generic', undefined, undefined, 0);
-  assert.equal(exhausted.analysis.mode, 'heuristic_fallback');
-  const apiError = await harness().load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Some text');
-  assert.equal(apiError.analysis.mode, 'heuristic_fallback');
+test('missing key, exhausted budget and transport failure remain scoreless',async()=>{
+ const {load,env}=harness();delete env.GEMINI_API_KEY;
+ await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT),e=>e.code==='provider_unavailable');
+ await assert.rejects(harness().load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,undefined,0),e=>e.code==='deadline_exceeded');
+ await assert.rejects(harness().load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT),e=>e.code==='provider_unavailable');
 });
 
 test('image-only PDF failure skips useless text model requests', async () => {
   let calls = 0;
   const { load } = harness({}, { fetch: async () => { calls++; return new Response('', { status: 429 }); } });
   const extraction = await load(extractorPath).extractTextFromPDF(makePitchPdf('images'));
-  const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', extraction.rawDocumentText, undefined, 'generic', undefined, extraction.pdf);
-  assert.equal(calls, 1); assert.equal(result.analysis.mode, 'heuristic_fallback');
+  await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',extraction.rawDocumentText,undefined,'generic',undefined,extraction.pdf),e=>e.code==='provider_rejected');
+  assert.equal(calls,1);
 });
 
 test('shared text and image gateway callers still send their existing modalities', async () => {
@@ -192,9 +179,9 @@ test('legacy feedback never receives a visual label; all three modes render accu
   const { load } = harness({ '@/components/system': { Tape } });
   const Badge = load('src/components/PitchAnalysisBadge.tsx').default;
   for (const [feedback, label] of [
-    [undefined, 'TEXT ONLY'], [{ usedAiFallback: true }, 'HEURISTIC FALLBACK'],
+    [undefined, 'MODE UNRECORDED'], [{ usedAiFallback: true }, 'LEGACY HEURISTIC'],
     [{ analysis: { mode: 'visual_text', pdfReceived: true } }, 'VISUAL + TEXT'],
-    [{ analysis: { mode: 'visual_text', pdfReceived: false } }, 'TEXT ONLY'],
+    [{ analysis: { mode: 'visual_text', pdfReceived: false } }, 'MODE UNRECORDED'],
     [{ analysis: { mode: 'text_only', pdfReceived: false } }, 'TEXT ONLY'],
   ]) assert(renderToStaticMarkup(React.createElement(Badge, { feedback })).includes(label));
 });
@@ -225,25 +212,15 @@ test('real evaluator UI renders physical slide evidence and correct General/cust
 
 test('real evaluator UI retains legacy feedback, red flags and versions without claiming vision', () => {
   const html = renderEvaluation({ spocRedFlags: ['Legacy risk preserved'], slideRecommendations: { technicalApproach: 'Legacy architecture guidance preserved' }, scoreDeductions: { novelty: 'Legacy score explanation' } }, 'web_dev');
-  assert.match(html, /TEXT ONLY/); assert.doesNotMatch(html, /VISUAL \+ TEXT/);
+  assert.match(html, /MODE UNRECORDED/); assert.doesNotMatch(html, /VISUAL \+ TEXT/);
   assert.match(html, /Legacy risk preserved/); assert.match(html, /Legacy architecture guidance preserved/);
   assert.match(html, /Legacy score explanation/); assert.match(html, /Versions/); assert.match(html, /v3/);
 });
 
-test('v12 overloaded Flash routes cannot consume the budget before the lite PDF request', async () => {
-  const calls = []; let now = 0; let allottedMs;
-  const { load } = harness({}, { Date: class extends Date { static now() { return now; } }, AbortSignal: { timeout(ms) { allottedMs = ms; return { aborted: false }; } }, fetch: async (url, options) => {
-    calls.push({ url, body: JSON.parse(options.body) });
-    now += url.includes('gemini-flash-lite-latest') ? 15000 : 10000;
-    return url.includes('gemini-flash-lite-latest') ? aiResponse() : new Response('provider detail must never be persisted', { status: 503 });
-  } });
-  const extraction = await load(extractorPath).extractTextFromPDF(makePitchPdf());
-  const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', extraction.rawDocumentText, { memberCount: 6 }, 'generic', undefined, extraction.pdf);
-  assert.equal(result.analysis.mode, 'visual_text');
-  assert.equal(calls.length, 1);
-  assert(calls[0].url.includes('gemini-flash-lite-latest'));
-  assert(allottedMs >= 15000 && allottedMs < 20000, 'Give the PDF request enough time and reserve validation time within the same 20s cap.');
-  assert(calls.every(call => call.body.contents[0].parts[0].inlineData?.mimeType === 'application/pdf'));
+test('native PDF uses one pinned lite model with a bounded attempt',async()=>{
+ const calls=[];const {load}=harness({}, {fetch:async(url,options)=>{calls.push({url,body:JSON.parse(options.body)});return aiResponse()}});
+ const result=await load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'});
+ assert.equal(result.analysis.mode,'visual_text');assert.equal(calls.length,1);assert(calls[0].url.includes('gemini-3.5-flash-lite'));assert(calls[0].body.contents[0].parts[0].inlineData);
 });
 
 test('text-only topic guidance never masquerades as physical slides, including old history', () => {
@@ -255,7 +232,8 @@ test('text-only topic guidance never masquerades as physical slides, including o
 test('reworded or omitted risks never receive a resolved claim', () => {
   const html = renderEvaluation({ criticalRisks: ['No measured accuracy results for the classifier.'] }, 'ai_genai', { criticalRisks: ['Classifier accuracy has not been validated.'] });
   assert(!html.includes('Resolved since'));
-  assert(html.includes('Omission does not establish resolution'));
+  // Unversioned historical rubrics are not compared as equivalent.
+  assert(!html.includes('Change since'));
   assert(html.includes('No measured accuracy results'));
 });
 
@@ -270,56 +248,41 @@ for (const [name, visualResult, code] of [
   ['empty result', new Response(JSON.stringify({ candidates: [] })), 'empty_response'],
   ['invalid response envelope', new Response('{bad envelope'), 'invalid_json'],
 ]) {
-  test(`PDF fallback distinguishes ${name} without leaking provider content`, async () => {
-    const { load } = harness({}, { fetch: async (_url, options) => JSON.parse(options.body).contents[0].parts[0].inlineData ? visualResult.clone() : aiResponse() });
-    const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Local extracted text.', undefined, 'generic', undefined, { bytes: makePitchPdf(), pageCount: 3, source: 'linked_pdf' });
-    assert.equal(result.analysis.mode, 'text_only'); assert.equal(result.analysis.fallbackReason.code, code);
-    assert(!JSON.stringify(result.analysis.fallbackReason).includes('{broken'));
-    assert.equal(result.slideFeedback.length, 0);
+  test('PDF rejects '+name+' without text bypass or private error output',async()=>{
+    let count=0;const {load}=harness({}, {fetch:async()=>{count++;return visualResult.clone()}});
+    await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'}),e=>['invalid_ai_output','blocked_content'].includes(e.code)&&!e.message.includes('{broken'));
+    assert.equal(count,1);assert(code);
   });
 }
 
-test('PDF diagnostics distinguish transport failure, timeout and insufficient budget', async () => {
-  for (const [fetch, code] of [
-    [async () => { throw new Error('credential or document content must not escape'); }, 'network_error'],
-    [async (_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('timeout with unsafe detail')))), 'timeout'],
-  ]) {
-    const { load } = harness({}, { fetch });
-    await assert.rejects(load(gatewayPath).callGeminiDocument('fixture', makePitchPdf(), { perModelTimeoutMs: 5, maxAttempts: 1 }), error => error.failure.code === code && !JSON.stringify(error.failure).includes('unsafe'));
-  }
-  let calls = 0;
-  const { load } = harness({}, { fetch: async () => { calls++; throw new Error('unexpected'); } });
-  const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Text', undefined, 'generic', undefined, { bytes: makePitchPdf(), pageCount: 3, source: 'linked_pdf' }, 0);
-  assert.equal(calls, 0); assert.equal(result.analysis.fallbackReason.code, 'budget_exhausted');
-});
 
-test('lite PDF failure is diagnosed once and never starts another document model', async () => {
-  let now = 0, calls = 0;
-  const { load } = harness({}, { Date: class extends Date { static now() { return now; } }, fetch: async url => { assert(url.includes('gemini-flash-lite-latest')); calls++; now += 10000; return new Response('', { status: 503 }); } });
-  await assert.rejects(load(gatewayPath).callGeminiDocument('fixture', makePitchPdf()), error => {
-    assert.equal(error.failure.code, 'http_error');
-    assert.equal(error.failure.model, 'gemini-flash-lite-latest');
-    assert.equal(error.failure.httpStatus, 503);
-    assert.equal(error.failure.attempts.length, 1);
-    return true;
-  });
-  assert.equal(calls, 1);
+test('PDF transport failures and timeouts are sanitized; no-budget makes no request',async()=>{
+ for(const fetch of [async()=>{throw Error('private detail')},async()=>new Promise(()=>{})]) {
+  const {load}=harness({}, {fetch});await assert.rejects(load(gatewayPath).callGeminiDocument('fixture',makePitchPdf(),{perModelTimeoutMs:5}),e=>e.code==='provider_unavailable'&&!e.message.includes('private'));
+ }
+ let calls=0;const {load}=harness({}, {fetch:async()=>{calls++;throw Error('unexpected')}});
+ await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'},0),e=>e.code==='deadline_exceeded');assert.equal(calls,0);
+});
+test('lite PDF 503 consumes one document attempt and records fixed diagnostics',async()=>{
+ const context={deadlineAt:Date.now()+30000,attempts:0};let calls=0;
+ const {load}=harness({}, {fetch:async url=>{calls++;assert(url.includes('gemini-3.5-flash-lite'));return new Response('',{status:503})}});
+ await assert.rejects(load(gatewayPath).callGeminiDocument('fixture',makePitchPdf(),{execution:context}),e=>e.code==='provider_unavailable');assert.equal(calls,1);assert.equal(context.trace[0].httpStatus,503);
 });
 
 test('all rubric prompts and deductions align categories and prohibit invented eligibility/AI requirements', async () => {
   for (const track of ['generic', 'specific', 'web_dev', 'ai_genai']) {
     let prompt;
-    const { load } = harness({}, { fetch: async (_url, options) => { prompt = JSON.parse(options.body).contents[0].parts[0].text; return aiResponse(scoring(track)); } });
-    const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Classifier architecture with measured precision and latency.', { memberCount: 6 }, track, 'Maximum team size: 5, per organizer rules.');
+    const { load } = harness({}, { fetch: async (_url, options) => { prompt = JSON.parse(options.body).contents[0].parts[0].text; return aiResponse(scoring(track, 'text_only')); } });
+    const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', 'Classifier architecture with measured precision and latency.', { memberCount: 6 }, track, track === 'specific' ? customRubric : undefined);
     const categories = load('src/lib/ppt/analysisMetadata.ts').getPitchCategories(track);
     for (const [key, category] of [['novelty', categories.novelty], ['tech', categories.tech], ['uiUx', categories.uiUxOrFeasibility], ['team', categories.impactOrTeam]]) {
-      assert(prompt.includes(`scoreDeductions.${key}: ${category.label}`));
-      assert(result.scoreDeductions[key].startsWith(category.label + ':'));
+      if (track !== 'specific') assert(prompt.includes(category.label));
+      assert(result.scoreDeductions[key].includes('Lost '));
     }
-    assert.match(prompt, /Never penalize the number of members/);
+    assert.match(prompt, /Do not impose gender, team size/);
     assert.doesNotMatch(prompt, /Squads of 2–5|Vector database, chunking/);
-    if (track === 'specific') assert.match(prompt, /Maximum team size: 5/);
-    if (track === 'ai_genai') assert.match(prompt, /optional approaches, not prerequisites/);
+    if (track === 'specific') assert(prompt.includes(customRubric));
+    if (track === 'ai_genai') assert.match(prompt, /optional, never universal requirements/);
     const heuristic = load(enginePath).generateHeuristicEvaluation;
     assert.deepEqual(JSON.parse(JSON.stringify(heuristic('Fixture', 'software', 'Classifier architecture with measured latency', undefined, 3, track))), JSON.parse(JSON.stringify(heuristic('Fixture', 'software', 'Classifier architecture with measured latency', undefined, 6, track))));
   }
@@ -330,56 +293,14 @@ test('track detection remains specialized when confident and General when ambigu
   for (const [input, track] of [['Chennai Civic Hackathon', 'generic'], ['AI agents challenge', 'ai_genai'], ['Full-stack web challenge', 'web_dev']]) assert.equal(detect(input).detectedTrack, track);
 });
 
-for (const mode of ['visual_text', 'text_only']) {
-test(`team API stores ${mode} JSONB diagnostics and history with missing track_id compatibility`, async () => {
-  const writes = [], selects = []; let insertion = 0; let passedRubric;
-  const extraction = await harness().load(extractorPath).extractTextFromPDF(makePitchPdf());
-  const evaluation = { ...scoring('specific'), totalScore: 85, grade: 'Promising', usedAiFallback: false, analysis: { mode, pdfReceived: mode === 'visual_text', pageCount: 3, source: 'google_slides_pdf', ...(mode === 'text_only' ? { fallbackReason: { stage: 'request', code: 'http_error', model: 'gemini-flash-lite-latest', httpStatus: 503 } } : {}) } };
-  const client = {
-    auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
-    from(table) {
-      let operation = 'select', payload, columns;
-      const result = () => {
-        if (table === 'teams') return { data: { id: 'team-1', owner_id: 'user-1', name: 'Fixture team', team_members: [], team_hackathons: [] } };
-        if (table === 'profiles') return { data: { id: 'user-1', role: 'developer' } };
-        if (table === 'team_members') return { data: { id: 'member-1' } };
-        if (operation === 'insert') {
-          writes.push({ operation, payload }); insertion++;
-          return insertion === 1 ? { data: null, error: { code: 'PGRST204', message: "Could not find track_id in schema cache" } } : { data: { id: 'evaluation-3' }, error: null };
-        }
-        if (operation === 'update') { writes.push({ operation, payload }); return { data: { id: 'evaluation-3', version: 3, ...payload }, error: null }; }
-        return { data: columns === 'version' ? [{ version: 2 }] : [], error: null };
-      };
-      const builder = {
-        select(value) { columns = value; selects.push(value); return this; }, eq() { return this; }, gte() { return this; }, order() { return this; }, limit() { return this; },
-        insert(value) { operation = 'insert'; payload = value; return this; }, update(value) { operation = 'update'; payload = value; return this; },
-        maybeSingle: async () => result(), single: async () => result(), then(resolve, reject) { return Promise.resolve(result()).then(resolve, reject); },
-      };
-      return builder;
-    },
-  };
-  const { load, env } = harness({
-    'next/server': { NextResponse: { json: (body, options) => new Response(JSON.stringify(body), { ...options, headers: { 'content-type': 'application/json' } }) } },
-    '@supabase/supabase-js': { createClient: () => client },
-    '@/lib/ppt/presentationExtractor': { ...harness().load(extractorPath), extractPresentationFromUrl: async () => extraction },
-    '@/lib/ppt/evaluatorEngine': { runPitchDeckEvaluation: async (_title, _category, _text, _team, track, rubric, pdf) => { assert.equal(track, 'specific'); assert(pdf.bytes.equals(extraction.pdf.bytes)); passedRubric = rubric; return evaluation; } },
-  });
-  env.NEXT_PUBLIC_SUPABASE_URL = 'https://fixture.invalid'; env.SUPABASE_SERVICE_ROLE_KEY = 'offline-key';
-  const req = new Request('https://fixture.invalid/api/teams/team-1/ppt-evaluate', { method: 'POST', headers: { authorization: 'Bearer offline-token', 'content-type': 'application/json' }, body: JSON.stringify({ external_link_url: 'https://docs.google.com/presentation/d/local-id/edit', track_id: 'specific', customRubric: 'Organizer rubric stays intact.' }) });
-  const response = await load('src/app/api/teams/[id]/ppt-evaluate/route.ts').POST(req, { params: Promise.resolve({ id: 'team-1' }) });
-  const body = await response.json(); assert.equal(response.status, 200, JSON.stringify(body));
-  assert.equal(passedRubric, 'Organizer rubric stays intact.');
-  assert.equal(writes[0].payload.track_id, 'specific'); assert.equal(writes[1].payload.track_id, undefined);
-  assert.equal(writes[1].payload.version, 3);
-  const completed = writes[2].payload;
-  assert.deepEqual(completed.ai_feedback.analysis, evaluation.analysis); assert.equal(completed.ai_feedback.track_id, 'specific');
-  assert.equal(completed.ai_feedback.customRubric, 'Organizer rubric stays intact.');
-  assert.equal(completed.slide_breakdown.length, 3); assert.equal(completed.slide_breakdown[1].wordCount, 0);
-  assert(!JSON.stringify(completed).includes(extraction.pdf.bytes.toString('base64')));
-  assert.equal(body.evaluation.version, 3); assert.equal(writes.filter(write => write.operation === 'update').length, 1);
-  assert(!selects.some(columns => typeof columns === 'string' && (columns.includes('owner_id, track') || columns.includes('name, tag'))));
+for(const mode of ['visual_text','text_only']) test('team route preserves '+mode+' metadata across missing track column',async()=>{
+ const {ppt,state}=presentationSetup({mode,track:'specific',trackError:'PGRST204'});
+ const result=await ppt({customRubric});assert.equal(result.status,200,JSON.stringify(result.body));
+ const inserts=state.writes.filter(q=>q.operation==='insert');assert.equal(inserts.length,2);assert.equal(inserts[0].payload.track_id,'specific');assert.equal(inserts[1].payload.track_id,undefined);
+ const completed=state.writes.find(q=>q.operation==='update'&&q.payload.status==='completed').payload;
+ assert.equal(completed.ai_feedback.analysis.mode,mode);assert.equal(completed.ai_feedback.track_id,'specific');assert.equal(completed.ai_feedback.customRubric,customRubric);
+ assert.equal(completed.ai_feedback.analysis.rubricVersion,'ppt-v1');assert(!JSON.stringify(completed).includes('base64'));assert.equal(result.body.evaluation.version,1);
 });
-}
 
 function transport(responses, addresses = [{ address: '142.250.1.1', family: 4 }]) {
   const calls = [];

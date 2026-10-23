@@ -23,7 +23,7 @@ export const PRESENTATION_LIMITS = {
   parseMs: 5_000,
 } as const;
 
-export type AnalysisMode = "visual_text" | "text_only" | "heuristic_fallback";
+export type AnalysisMode = "visual_text" | "text_only" | "heuristic_fallback" | "unknown";
 export interface AnalysisMetadata {
   mode: AnalysisMode;
   pdfReceived: boolean;
@@ -33,6 +33,15 @@ export interface AnalysisMetadata {
   fallbackReason?: "pdf_unavailable" | "document_ai_failed" | "ai_unavailable" | DocumentFailure;
   modelUsed?: string;
   modelVersion?: string;
+  schemaVersion?: "evaluator-v1";
+  rubricVersion?: "ppt-v1" | "challenge-v1";
+  trackId?: JudgingTrackId;
+  requestId?: string;
+  categoryCaps?: Record<string, number>;
+  categoryLabels?: Record<string, string>;
+  attempts?: number;
+  providerAttempts?: Array<{ model: string; latencyMs: number; code: string; httpStatus?: number }>;
+  evidence?: Record<string, Array<{ text: string; quote?: string; pageNumber?: number; evidence?: string }>>;
 }
 export interface SlideFeedback {
   slideNumber: number;
@@ -41,14 +50,15 @@ export interface SlideFeedback {
   recommendation: string;
 }
 
-/** Phase 1 history was text-only; absence of metadata must never imply vision. */
+/** Missing historical metadata is unknown. Never infer a visual or text-only review. */
 export function getAnalysisDisplay(feedback?: { analysis?: AnalysisMetadata; usedAiFallback?: boolean }) {
-  const mode = feedback?.usedAiFallback ? "heuristic_fallback" : feedback?.analysis?.mode || "text_only";
+  const mode = feedback?.usedAiFallback ? "heuristic_fallback" : feedback?.analysis?.mode || "unknown";
   if (mode === "visual_text" && feedback?.analysis?.pdfReceived === true) {
-    return { mode: "visual_text", label: "VISUAL + TEXT", description: "Gemini reviewed the actual PDF, including its layouts, diagrams and images." } as const;
+    return { mode: "visual_text", label: "VISUAL + TEXT", description: "The AI was supplied the actual PDF, including visual content. Its feedback is not independent verification of the project." } as const;
   }
   if (mode === "heuristic_fallback") {
-    return { mode, label: "HEURISTIC FALLBACK", description: "AI evaluation was unavailable. Scores use extracted text and deterministic rules; visuals were not inspected." } as const;
+    return { mode, label: "LEGACY HEURISTIC", description: "Stored deterministic score, not a validated AI evaluation. The specific fallback cause and visual assessment may be unverified." } as const;
   }
-  return { mode: "text_only", label: "TEXT ONLY", description: "Evaluation used extracted text. Visual layout, diagrams and screenshots were not inspected." } as const;
+  if (mode === "text_only") return { mode, label: "TEXT ONLY", description: "The score uses extracted text. Visual layout, diagrams and screenshots were not validated." } as const;
+  return { mode: "unknown", label: "MODE UNRECORDED", description: "This historical record does not establish its analysis mode. Do not infer visual inspection or current validation." } as const;
 }
