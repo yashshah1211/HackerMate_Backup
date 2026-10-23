@@ -55,13 +55,14 @@ async function findNewScheduledProviderId(
   key: string, message: ReturnType<typeof deliveryMessage>, submittedAt: number,
 ): Promise<string | null> {
   const notBefore = submittedAt - 5000;
-  const endBy = Date.now() + 15_000;
-  for (const delay of [300, 700, 1200]) {
+  const endBy = Date.now() + 35_000; // Give the provider's list index time to surface an accepted POST.
+  for (const delay of [350, 750, 1300, 2000, 3000, 4000, 5000, 6000, 6000]) {
     await new Promise(resolve => setTimeout(resolve, delay));
     const seen = new Set<string>();
     const matches: string[] = [];
     let after: string | null = null;
     let previousTime = Infinity;
+    let transientInventoryFailure = false;
     for (let page = 0; page < 5; page++) {
       const timeLeft = endBy - Date.now();
       if (timeLeft < 750) return null;
@@ -73,8 +74,11 @@ async function findNewScheduledProviderId(
           signal: AbortSignal.timeout(Math.min(3500, timeLeft - 300)),
           cache: "no-store",
         });
-      } catch { return null; }
-      if (!response.ok) return null;
+      } catch { transientInventoryFailure = true; break; }
+      if (!response.ok) {
+        if (response.status === 429 || response.status >= 500) { transientInventoryFailure = true; break; }
+        return null;
+      }
       const inventory = await response.json().catch(() => null) as {
         data?: Array<{ id?: unknown; created_at?: unknown; subject?: unknown;
           to?: unknown; from?: unknown; scheduled_at?: unknown }>;
@@ -94,10 +98,10 @@ async function findNewScheduledProviderId(
         seen.add(item.id);
         if (created < notBefore) beforeAttempt = true;
         if (created >= notBefore && created <= Date.now() + 60_000
-          && item.subject === message.subject && item.from === message.from
-          && JSON.stringify(item.to) === JSON.stringify(message.to)
-          && typeof item.scheduled_at === "string"
-          && Date.parse(item.scheduled_at) === Date.parse(PARTICIPANT_DELIVERY_AT)) {
+          && item.subject === message.subject
+          && JSON.stringify(item.to) === JSON.stringify(message.to)) {
+          // List-index metadata can lag; full from/scheduled_at and CC/BCC
+          // verification remains mandatory in the subsequent GET-by-ID.
           matches.push(item.id);
         }
       }
@@ -110,6 +114,7 @@ async function findNewScheduledProviderId(
       if (!inventory.data.length) return null;
       after = inventory.data[inventory.data.length - 1].id as string;
     }
+    if (transientInventoryFailure) continue; // GET-only retry; never repeat the POST.
   }
   return null;
 }
