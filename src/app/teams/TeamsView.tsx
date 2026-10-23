@@ -18,11 +18,20 @@ import {
   Tape,
 } from "@/components/system";
 import { teamSkillExplanation, teamSkillCoverage, uniqueSkills } from "@/lib/matchPresentation";
+import { trackEvent } from "@/lib/posthog";
 import { TeamsTabs } from "./TeamsTabs";
 import { compareDiscoveryTeams, teamMatchScore, teamStatus, type ListTeam } from "./useTeamsData";
 
 type Scope = "open" | "all";
 const PAGE = 30;
+
+function trackAlternative(path: "create" | "builders") {
+  try {
+    trackEvent("team_discovery_alternative_selected", { source: "team_discovery", path });
+  } catch (error) {
+    console.error("[teams] alternative analytics failed:", error);
+  }
+}
 
 function hackathonNames(t: ListTeam): string[] {
   const linked = [t.hackathons?.name, ...(t.team_hackathons || []).map((th) => th.hackathons?.name)].filter(Boolean) as string[];
@@ -110,6 +119,10 @@ export function TeamsView({
       })
       .sort(compareDiscoveryTeams);
   }, [enriched, scope, search, hackathon, college, skills]);
+
+  const offerAlternatives = !loading && !error && results.length > 0 && !results.some(
+    ({ t, status, coverage }) => status.open && t.ownerRecentlyActive && (!viewerHasSkills || coverage.matched > 0),
+  );
 
   const active = (hackathon ? 1 : 0) + (college ? 1 : 0) + skills.length;
   const reset = () => {
@@ -233,7 +246,7 @@ export function TeamsView({
               </button>
             </div>
             <p className="text-[12.5px] text-ink-3">
-              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""}{viewerHasSkills ? " · skill overlap" : ""} · recent owner activity · newest
+              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""} · recent owner activity{viewerHasSkills ? " · skill overlap" : ""} · newest
             </p>
           </div>
 
@@ -242,6 +255,14 @@ export function TeamsView({
           </p>
           {activityUnavailable && (
             <p role="status" className="mb-4 text-[12.5px] text-ink-3">Owner activity couldn’t be checked for some teams. You can still browse and apply.</p>
+          )}
+          {offerAlternatives && (
+            <p className="mb-4 max-w-prose text-[13px] text-ink-3">
+              {viewerHasSkills
+                ? "No open team with shared listed skills and a recently active owner has been identified in these results. "
+                : "No open team with a recently active owner has been identified in these results. Skill relevance can’t be assessed without your listed skills. "}
+              You can keep browsing, <Link href="/teams/create" onClick={() => trackAlternative("create")} className="inline-flex min-h-11 items-center text-ink-2 underline underline-offset-4 md:min-h-0">Create a team</Link> or <Link href="/developers" onClick={() => trackAlternative("builders")} className="inline-flex min-h-11 items-center text-ink-2 underline underline-offset-4 md:min-h-0">Discover builders</Link>.
+            </p>
           )}
 
           {error && <ErrorNotice className="mb-4" title="Couldn't load teams" detail={error} onRetry={onRetry} />}

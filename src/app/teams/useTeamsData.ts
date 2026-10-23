@@ -137,14 +137,14 @@ export function teamMatchScore(teamSkills: string[] | null | undefined, viewerSk
   return total ? Math.round((matched / total) * 100) : 0;
 }
 
-/** Joinability, skill relevance, recent owner activity among open peers, then date/ID. */
+/** Joinability, confirmed recent owner activity among open peers, skill relevance, then date/ID. */
 export function compareDiscoveryTeams(
   a: { t: Pick<ListTeam, "id" | "created_at" | "ownerRecentlyActive">; status: { open: boolean }; match: number },
   b: { t: Pick<ListTeam, "id" | "created_at" | "ownerRecentlyActive">; status: { open: boolean }; match: number },
 ): number {
   if (a.status.open !== b.status.open) return a.status.open ? -1 : 1;
-  if (a.match !== b.match) return b.match - a.match;
   if (a.status.open && Boolean(a.t.ownerRecentlyActive) !== Boolean(b.t.ownerRecentlyActive)) return a.t.ownerRecentlyActive ? -1 : 1;
+  if (a.match !== b.match) return b.match - a.match;
   const created = (value: string | null | undefined) => {
     const time = value ? Date.parse(value) : NaN;
     return Number.isFinite(time) ? time : -Infinity;

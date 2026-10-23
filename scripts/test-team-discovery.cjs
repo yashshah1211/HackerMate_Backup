@@ -73,8 +73,9 @@ test('without viewer skills, ties use newest date and ID with unknown dates last
 });
 
 // Reuse the repository's component harness to exercise real filter callbacks and rendered cards offline.
-function ui(teams, viewerSkills = ['react']) {
+function ui(teams, viewerSkills = ['react'], options = {}) {
   let cursor = 0, tree; const values = [];
+  const events = [], errors = [];
   const hooks = { ...React, useMemo: fn => fn(), useState(start) {
     const i = cursor++; if (!(i in values)) values[i] = start;
     return [values[i], value => { values[i] = typeof value === 'function' ? value(values[i]) : value; }];
@@ -90,18 +91,24 @@ function ui(teams, viewerSkills = ['react']) {
     return element(name === 'Button' ? 'button' : name === 'ButtonLink' ? 'a' : name === 'Select' ? 'select' : 'div');
   } });
   const Component = harness({ ...overrides, react: hooks, 'next/link': element('a'), '@/components/system': system,
-    './TeamsTabs': { TeamsTabs: () => null } }).load('src/app/teams/TeamsView.tsx').TeamsView;
+    '@/lib/posthog': { trackEvent(name, properties) {
+      if (options.analyticsError) throw options.analyticsError;
+      events.push({ name, properties: plain(properties) });
+    } }, './TeamsTabs': { TeamsTabs: () => null } }, { console: { error: (...args) => errors.push(args) } }).load('src/app/teams/TeamsView.tsx').TeamsView;
   const findAll = (node, predicate) => {
     if (!node || typeof node !== 'object') return [];
     return [...(predicate(node) ? [node] : []), ...[node.props?.children].flat(Infinity).flatMap(child => findAll(child, predicate))];
   };
-  const render = () => { cursor = 0; tree = Component({ teams, viewerSkills, loading: false, error: null, onRetry() {}, today: TODAY }); return tree; };
+  const render = () => { cursor = 0; tree = Component({ teams, viewerSkills, loading: false, error: null, onRetry() {}, today: TODAY, ...options }); return tree; };
   const text = node => typeof node === 'string' || typeof node === 'number' ? String(node) : [node?.props?.children].flat(Infinity).map(child => child ? text(child) : '').join('');
   const control = predicate => { const found = findAll(tree, predicate)[0]; assert(found, 'Control missing'); return found; };
   render();
   return {
     ids: () => findAll(tree, node => node.props?.href?.startsWith('/teams/') && node.props.href !== '/teams/create').map(node => node.props.href.slice(7)),
     html: () => renderToStaticMarkup(tree),
+    events, errors,
+    alternative(path) { control(node => node.props?.href === path && typeof node.props.onClick === 'function').props.onClick(); },
+    more() { control(node => text(node).startsWith('Show more') && typeof node.props?.onClick === 'function').props.onClick(); render(); },
     scope(label) { control(node => node.props?.role === 'tab' && text(node).startsWith(label)).props.onClick(); render(); },
     select(id, value) { control(node => node.props?.id === id).props.onChange({ target: { value } }); render(); },
     search(value) { control(node => node.props?.label === 'Search teams').props.onChange(value); render(); },
@@ -154,19 +161,129 @@ test('missing team skills, missing viewer skills and zero overlap have distinct 
   assert.match(ui([team('zero', { skills: ['Rust'] })]).html(), /No listed skills in common yet/);
 });
 
-test('recent owners rank ahead of equally relevant older peers without hiding unknown activity', () => {
+test('eligible recent owners rank before higher-overlap unknown peers without hiding any teams', () => {
   const records = [team('stale-new', { created_at: '2026-10-14' }), team('active-old', { ownerRecentlyActive: true, created_at: '2026-01-01' }),
     team('unknown', { created_at: null }), team('active-no-match', { ownerRecentlyActive: true, skills: ['Rust'] }),
     team('active-full', { ownerRecentlyActive: true, max_members: 1 })];
-  const expected = ['active-old', 'stale-new', 'unknown', 'active-no-match', 'active-full'];
+  const expected = ['active-old', 'active-no-match', 'stale-new', 'unknown', 'active-full'];
   assert.deepEqual(ranked(records), expected);
   assert.deepEqual(ranked([...records].reverse()), expected);
   const view = ui(records); assert.deepEqual(view.ids(), expected.slice(0, -1));
   view.scope('All teams'); assert.deepEqual(view.ids(), expected);
 });
-test('activity does not reorder non-joinable peers or override skill relevance', () => {
+test('activity does not reorder non-joinable peers; eligible recent owners precede skill relevance', () => {
   assert.deepEqual(ranked([team('a', { is_recruiting: false }), team('z', { is_recruiting: false, ownerRecentlyActive: true })]), ['a', 'z']);
-  assert.deepEqual(ranked([team('weak', { ownerRecentlyActive: true, skills: ['React', 'Rust'] }), team('relevant')]), ['relevant', 'weak']);
+  assert.deepEqual(ranked([team('weak', { ownerRecentlyActive: true, skills: ['React', 'Rust'] }), team('relevant')]), ['weak', 'relevant']);
+});
+
+test('skills remain the next ordering key within recent and unknown groups, with deterministic ties', () => {
+  const records = [team('recent-low', { ownerRecentlyActive: true, skills: ['React', 'Python'] }),
+    team('unknown-low', { skills: ['React', 'Rust'] }), team('unknown-high'),
+    team('recent-high-b', { ownerRecentlyActive: true }), team('recent-high-a', { ownerRecentlyActive: true })];
+  const expected = ['recent-high-a', 'recent-high-b', 'recent-low', 'unknown-high', 'unknown-low'];
+  assert.deepEqual(ranked(records), expected);
+  assert.deepEqual(ranked([...records].reverse()), expected);
+  const html = ui(records).html();
+  assert.match(html, /recent owner activity · skill overlap · newest/);
+  assert.match(html, /Matches a needed skill: React/);
+});
+
+test('recent eligible teams reach the first page and unknown teams remain reachable with Show more', () => {
+  const records = Array.from({ length: 34 }, (_, i) => team(`unknown-${String(i).padStart(2, '0')}`));
+  records.push(team('recent-last', { ownerRecentlyActive: true, skills: ['Rust'], created_at: null }));
+  const snapshot = plain(records), view = ui(records);
+  assert.equal(view.ids().length, 30); assert.equal(view.ids()[0], 'recent-last');
+  view.more(); assert.equal(view.ids().length, 35);
+  assert.deepEqual([...view.ids()].sort(), records.map(record => record.id).sort());
+  assert.deepEqual(records, snapshot);
+});
+
+test('missing, outdated and unavailable activity receive the same skill-based order, not an inactivity penalty', () => {
+  const records = [team('new-low', { skills: ['React', 'Python'], ownerRecentlyActive: false, created_at: '2026-10-14' }),
+    team('unknown-high'), team('older-high', { ownerRecentlyActive: false, created_at: '2026-01-01' })];
+  assert.deepEqual(ranked(records), ['unknown-high', 'older-high', 'new-low']);
+  const html = ui(records, ['React'], { activityUnavailable: true }).html();
+  assert.match(html, /Owner activity couldn’t be checked/);
+  assert.match(html, /You can still browse and apply/);
+  assert(!/inactive|unresponsive|abandoned|unwilling/i.test(html));
+});
+
+test('recent owners never elevate full, closed or concluded teams above eligible unknown owners', () => {
+  const records = [team('full', { ownerRecentlyActive: true, max_members: 1 }),
+    team('closed', { ownerRecentlyActive: true, is_recruiting: false }),
+    team('ended', { ownerRecentlyActive: true, hackathons: { id: 'past', end_date: '2026-10-13' } }),
+    team('eligible', { skills: ['Rust'] })];
+  const view = ui(records);
+  assert.deepEqual(view.ids(), ['eligible']);
+  view.scope('All teams'); assert.equal(view.ids()[0], 'eligible'); assert.equal(view.ids().length, 4);
+});
+
+test('nonempty results with no shared-skill recent owner offer alternatives while keeping every eligible row', () => {
+  const view = ui([team('unknown-match'), team('active-unmatched', { skills: ['Rust'], ownerRecentlyActive: true })]);
+  assert.deepEqual(view.ids(), ['active-unmatched', 'unknown-match']);
+  const html = view.html();
+  assert.match(html, /No open team with shared listed skills and a recently active owner has been identified in these results/);
+  assert.match(html, /You can keep browsing/);
+  assert.match(html, /href="\/developers"/); assert.match(html, />Create a team<\/a>/);
+  assert.equal((html.match(/>Discover builders<\/a>/g) || []).length, 1);
+  assert.match(html, /No listed skills in common yet/); assert.match(html, /Matches a needed skill: React/);
+  assert.match(html, /doesn’t guarantee a response/);
+});
+
+test('contextual alternatives respect the filtered results rather than unrelated recent owners', () => {
+  const view = ui([team('active-match', { name: 'Visible recent', ownerRecentlyActive: true }), team('unknown-match', { name: 'Other team' })]);
+  assert(!view.html().includes('has been identified in these results'));
+  view.search('Other team');
+  assert.deepEqual(view.ids(), ['unknown-match']); assert.match(view.html(), /has been identified in these results/);
+  view.search('Visible recent'); assert(!view.html().includes('has been identified in these results'));
+});
+
+test('without viewer skills, recent activity is usable without inventing skill relevance', () => {
+  const unknown = ui([team('unknown')], []);
+  assert.match(unknown.html(), /Skill relevance can’t be assessed without your listed skills/);
+  assert.match(unknown.html(), /Add skills to your profile/);
+  const recent = ui([team('recent', { ownerRecentlyActive: true })], []);
+  assert(!recent.html().includes('has been identified in these results'));
+  assert.match(recent.html(), /Add skills to your profile/);
+  assert(!recent.html().includes('· skill overlap'));
+});
+
+test('a recent owner without listed team skills cannot establish shared-skill relevance', () => {
+  const html = ui([team('recent', { skills: null, ownerRecentlyActive: true })]).html();
+  assert.match(html, /has been identified in these results/);
+  assert.match(html, /hasn&#x27;t listed skills yet/);
+});
+
+test('partial activity failures retain confirmed positive indicators and make missing coverage explicit', () => {
+  const html = ui([team('recent', { ownerRecentlyActive: true }), team('unknown')], ['React'], { activityUnavailable: true }).html();
+  assert.match(html, /Owner activity couldn’t be checked/);
+  assert.match(html, /<p[^>]*>Owner recently active<\/p>/);
+  assert(!html.includes('has been identified in these results'));
+});
+
+test('loading, errors and empty results do not duplicate the contextual alternative paragraph', () => {
+  for (const options of [{ loading: true }, { error: 'Synthetic team read failed' }]) {
+    assert(!ui([team('unknown')], ['React'], options).html().includes('has been identified in these results'));
+  }
+  const html = ui([]).html();
+  assert(!html.includes('has been identified in these results'));
+  assert.equal((html.match(/>Discover builders<\/a>/g) || []).length, 1);
+});
+
+test('alternative selection emits only fixed source and path values after an explicit click', () => {
+  const view = ui([team('private-id', { name: 'Private team name', owner_id: 'private-owner' })]);
+  assert.deepEqual(view.events, []);
+  view.alternative('/teams/create'); view.alternative('/developers');
+  assert.deepEqual(view.events, ['create', 'builders'].map(path => ({ name: 'team_discovery_alternative_selected', properties: { source: 'team_discovery', path } })));
+  assert(!/private|React|2026/.test(JSON.stringify(view.events)));
+});
+
+test('analytics exceptions are logged and cannot escape the alternative navigation callback', () => {
+  const failure = new Error('Synthetic analytics failure');
+  const view = ui([team('unknown')], ['React'], { analyticsError: failure });
+  assert.doesNotThrow(() => view.alternative('/developers'));
+  assert.equal(view.errors.length, 1); assert.equal(view.errors[0][1], failure);
+  assert.deepEqual(view.events, []); assert.match(view.html(), /href="\/developers"/);
 });
 for (const association of ['hackathons', 'team_hackathons']) {
   for (const event of [{ archived: true }, { status: 'archived' }, { end_date: '2026-10-13' }]) {
