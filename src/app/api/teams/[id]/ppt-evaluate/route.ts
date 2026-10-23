@@ -1,297 +1,122 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import { extractPresentationFromUrl, validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
 import { runPitchDeckEvaluation } from "@/lib/ppt/evaluatorEngine";
-import { JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
+import { TRACK_PROFILES, type JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
 import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
+import { reserveEvaluation } from "@/lib/evaluator/evaluatorBudgetGuard";
+import { EvaluationFailure, evaluationFailure, evaluationRead, evaluationSignal, verifiedEvaluationActor, inputString, isUuid, readEvaluationJson, readEvaluationForm, rubricFor, assertExecution, withinDeadline, logDatabaseFailure, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
 
-// Ensure Vercel allocates up to 60s execution budget for comprehensive AI evaluations
 export const maxDuration = 60;
 export const runtime = "nodejs";
+const COLUMNS = "id, team_id, submitted_by, ps_title, ps_category, submission_type, external_link_url, ppt_url, file_name, version, status, score_novelty, score_tech, score_ui_ux, score_team, total_score, grade, slide_breakdown, ai_feedback, error_message, created_at, updated_at";
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    throw new Error("Missing Supabase admin credentials.");
-  }
-  return createClient(url, serviceRoleKey);
-}
-
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const deadline = Date.now() + 55_000; // Leave room for the final database write.
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const started = Date.now(), requestId = randomUUID();
+  const execution: EvaluationExecution = { deadlineAt: started + 50_000, signal: AbortSignal.any([req.signal, AbortSignal.timeout(50_000)]), requestId, attempts: 0 };
+  const preflight = { ...execution, deadlineAt: started + 5_000 };
+  let admin: SupabaseClient | undefined, recordId: string | undefined, teamId: string | undefined;
+  let cleanupBudget: EvaluationExecution | undefined;
+  const persistenceBudget = () => cleanupBudget ??= { deadlineAt: Math.min(started + 55_000, Date.now() + 5_000), attempts: 0, requestId };
   try {
-    const { id: teamId } = await params;
-    const supabaseAdmin = getSupabaseAdmin();
-
-    // 1. Authenticate user from Bearer Token or Cookie
-    const authHeader = req.headers.get("Authorization");
-    let userId: string | null = null;
-
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: userData } = await supabaseAdmin.auth.getUser(token);
-      userId = userData?.user?.id || null;
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
-
-    // 2. Authorization Check: User must be a member or owner of the team
-    const [{ data: teamData }, { data: memberData }, { data: profileData }] = await Promise.all([
-      supabaseAdmin
-        .from("teams")
-        .select("id, name, owner_id, hackathon_name, team_hackathons(hackathons(id, name, description)), team_members(id, role, project_role, profiles(id, full_name, gender, skills))")
-        .eq("id", teamId)
-        .maybeSingle(),
-      supabaseAdmin.from("team_members").select("id").eq("team_id", teamId).eq("user_id", userId).maybeSingle(),
-      supabaseAdmin.from("profiles").select("id, role").eq("id", userId).maybeSingle(),
+    teamId = (await params).id;
+    if (!isUuid(teamId)) throw new EvaluationFailure("invalid_input");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new EvaluationFailure("limiter_unavailable");
+    admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: {
+      fetch: (target, init) => fetch(target, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000) }),
+    } });
+    const userId = await verifiedEvaluationActor(admin, req, preflight);
+    const body = req.headers.get("content-type")?.includes("application/json") ? await readEvaluationJson(req, preflight) : Object.fromEntries(await readEvaluationForm(req, preflight, 65_536));
+    const externalLink = inputString(body.external_link_url, 2048), title = inputString(body.ps_title, 200, "Project Pitch"), category = inputString(body.ps_category, 50, "software");
+    const custom = body.customRubric == null || body.customRubric === "" ? undefined : inputString(body.customRubric, 6000);
+    if (!validatePresentationUrl(externalLink).valid) throw new EvaluationFailure("invalid_input");
+    if (body.track_id != null && (typeof body.track_id !== "string" || !Object.hasOwn(TRACK_PROFILES, body.track_id))) throw new EvaluationFailure("invalid_input");
+    const [team, member, profile] = await Promise.all([
+      evaluationRead(admin.from("teams").select("id, owner_id, hackathon_name, team_hackathons(hackathons(name, description)), team_members(profiles(skills))").eq("id", teamId).abortSignal(evaluationSignal(preflight)).maybeSingle(), preflight, "read_ppt_team"),
+      evaluationRead(admin.from("team_members").select("id").eq("team_id", teamId).eq("user_id", userId).abortSignal(evaluationSignal(preflight)).maybeSingle(), preflight, "read_ppt_membership"),
+      evaluationRead(admin.from("profiles").select("id, role").eq("id", userId).abortSignal(evaluationSignal(preflight)).maybeSingle(), preflight, "read_ppt_role"),
     ]);
-
-    const isOwner = teamData?.owner_id === userId;
-    const isMember = !!memberData;
-    const isAdmin = profileData?.role === "admin";
-
-    if (!isOwner && !isMember && !isAdmin) {
-      return NextResponse.json(
-        { error: "Forbidden: Only active team members or owners can perform PPT evaluations." },
-        { status: 403 }
-      );
+    if (!team) throw new EvaluationFailure("not_found");
+    if (team.owner_id !== userId && !member && profile?.role !== "admin") throw new EvaluationFailure("forbidden");
+    const event = team.team_hackathons?.[0]?.hackathons as unknown as { name?: string; description?: string } | Array<{ name?: string; description?: string }> | undefined;
+    const detection = detectJudgingTrack({ name: team.hackathon_name || (Array.isArray(event) ? event[0]?.name : event?.name), description: Array.isArray(event) ? event[0]?.description : event?.description });
+    const track = (body.track_id || (detection.isConfident ? detection.detectedTrack : "generic")) as JudgingTrackId;
+    const isFallbackTrack = !body.track_id && !detection.isConfident;
+    const trackWarning = isFallbackTrack ? "Track not detected — General Hackathon rubric selected. Choose a specialized track if appropriate." : null;
+    rubricFor(track, custom);
+    await reserveEvaluation(admin, preflight, { pipeline: "ppt", actor: `user:${userId}`, target: teamId, idempotencyKey: req.headers.get("idempotency-key") || "" });
+    // Explicit authorized POST only. A bounded CAS never overwrites a completed row.
+    const staleCutoff = new Date(Date.now() - 120_000).toISOString();
+    const active = await evaluationRead(admin.from("team_ppt_evaluations").select("id, updated_at").eq("team_id", teamId).eq("status", "evaluating").order("updated_at", { ascending: true }).limit(4).abortSignal(evaluationSignal(execution)), execution, "read_ppt_active");
+    if (!Array.isArray(active)) throw new EvaluationFailure("database_unavailable");
+    for (const row of active.slice(0, 3)) {
+      if (!isUuid(row.id) || !Number.isFinite(Date.parse(row.updated_at))) throw new EvaluationFailure("database_unavailable");
+      if (Date.parse(row.updated_at) >= Date.parse(staleCutoff)) throw new EvaluationFailure("cooldown");
+      const repaired = await evaluationRead(admin.from("team_ppt_evaluations").update({ status: "failed", error_message: "processing_interrupted", updated_at: new Date().toISOString() }).eq("team_id", teamId).eq("id", row.id).eq("status", "evaluating").eq("updated_at", row.updated_at).lt("updated_at", staleCutoff).select("id").abortSignal(evaluationSignal(execution)), execution, "recover_stale_ppt");
+      if (!Array.isArray(repaired) || repaired.length !== 1 || repaired[0].id !== row.id) throw new EvaluationFailure("processing_interrupted");
     }
-
-    // 3. Concurrency Lock & Rate Limit Check
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentEvals, error: countErr } = await supabaseAdmin
-      .from("team_ppt_evaluations")
-      .select("id, status, created_at")
-      .eq("team_id", teamId)
-      .gte("created_at", twentyFourHoursAgo);
-
-    if (countErr) {
-      console.error("[PPT Evaluate API] Rate limit count query error:", countErr);
+    const stillActive = await evaluationRead(admin.from("team_ppt_evaluations").select("id").eq("team_id", teamId).eq("status", "evaluating").limit(1).abortSignal(evaluationSignal(execution)), execution, "verify_ppt_recovery");
+    if (!Array.isArray(stillActive) || stillActive.length) throw new EvaluationFailure("processing_interrupted");
+    const recent = await evaluationRead(admin.from("team_ppt_evaluations").select("id").eq("team_id", teamId).gte("created_at", new Date(Date.now() - 86_400_000).toISOString()).limit(15).abortSignal(evaluationSignal(execution)), execution, "read_ppt_rolling_limit");
+    if (!Array.isArray(recent)) throw new EvaluationFailure("database_unavailable");
+    if (recent.length >= 15) throw new EvaluationFailure("admission_limit");
+    const versions = await evaluationRead(admin.from("team_ppt_evaluations").select("version").eq("team_id", teamId).order("version", { ascending: false }).limit(1).abortSignal(evaluationSignal(execution)), execution, "read_ppt_version");
+    if (!Array.isArray(versions) || versions.length > 1 || (versions.length && (!Number.isInteger(versions[0].version) || versions[0].version < 1))) throw new EvaluationFailure("database_unavailable");
+    const extraction = await withinDeadline(extractPresentationFromUrl(externalLink, Math.min(15_000, execution.deadlineAt - Date.now()), execution.signal), execution, 15_000);
+    assertExecution(execution, 1000);
+    if (!extraction.success || !extraction.slides.length) throw new EvaluationFailure("unusable_text");
+    recordId = randomUUID();
+    const rubric = rubricFor(track, custom);
+    const analysis = { schemaVersion: "evaluator-v1", rubricVersion: "ppt-v1", trackId: track, requestId, mode: "unknown", pdfReceived: false,
+      categoryCaps: Object.fromEntries(Object.entries(rubric.categories).map(([name, c]) => [name, c.maxPts])), categoryLabels: Object.fromEntries(Object.entries(rubric.categories).map(([name, c]) => [name, c.label])) };
+    const initial = { id: recordId, team_id: teamId, submitted_by: userId, ps_title: title, ps_category: category, submission_type: "external_link", external_link_url: externalLink, ppt_url: externalLink,
+      file_name: extraction.pdf ? "Pitch_Deck.pdf" : "Linked_Presentation", version: (versions[0]?.version || 0) + 1, status: "evaluating", ai_feedback: { analysis, track_id: track, isFallbackTrack, trackWarning } };
+    let inserted = await withinDeadline(admin.from("team_ppt_evaluations").insert({ ...initial, track_id: track }).select("id").abortSignal(evaluationSignal(execution)).single(), execution, 5_000);
+    if (inserted.error && ["42703", "PGRST204"].includes(inserted.error.code) && inserted.error.message?.includes("track_id")) {
+      logDatabaseFailure("ppt_track_column_compatibility", inserted.error);
+      inserted = await withinDeadline(admin.from("team_ppt_evaluations").insert(initial).select("id").abortSignal(evaluationSignal(execution)).single(), execution, 5_000);
     }
-
-    const hasActiveEval = (recentEvals || []).some((e) => e.status === "evaluating");
-    if (hasActiveEval) {
-      return NextResponse.json(
-        { error: "An AI evaluation is already in progress for this team. Please wait a few moments." },
-        { status: 409 }
-      );
-    }
-
-    const count24h = recentEvals?.length || 0;
-    if (count24h >= 15) {
-      return NextResponse.json(
-        { error: "Daily limit reached (Max 15 evaluations per team per 24 hours). Please try again tomorrow." },
-        { status: 429 }
-      );
-    }
-
-    // 4. Parse Presentation Link Payload & Track
-    let rawTrackId: string | null = null;
-    let externalLinkUrl: string | null = null;
-    let psTitle = "Project Pitch";
-    let psCategory = "software";
-    let customRubric: string | null = null;
-
-    const contentType = req.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      const body = await req.json().catch(() => ({}));
-      rawTrackId = body.track_id?.trim() || null;
-      externalLinkUrl = body.external_link_url?.trim() || null;
-      psTitle = (body.ps_title?.trim() || "Project Pitch").slice(0, 200);
-      psCategory = (body.ps_category?.trim() || "software").slice(0, 50);
-      customRubric = body.customRubric?.trim() || null;
-    } else {
-      const formData = await req.formData().catch(() => new FormData());
-      rawTrackId = (formData.get("track_id") as string)?.trim() || null;
-      externalLinkUrl = (formData.get("external_link_url") as string)?.trim() || null;
-      psTitle = ((formData.get("ps_title") as string)?.trim() || "Project Pitch").slice(0, 200);
-      psCategory = ((formData.get("ps_category") as string)?.trim() || "software").slice(0, 50);
-      customRubric = ((formData.get("customRubric") as string)?.trim() || null);
-    }
-
-    if (!externalLinkUrl) {
-      return NextResponse.json(
-        { error: "Please provide a Google Slides or Google Drive presentation link." },
-        { status: 400 }
-      );
-    }
-
-    const urlCheck = validatePresentationUrl(externalLinkUrl);
-    if (!urlCheck.valid) {
-      return NextResponse.json({ error: urlCheck.error }, { status: 400 });
-    }
-
-    // Resolve Track ID: Fail Loud on Fallback
-    let resolvedTrackId: JudgingTrackId = "generic";
-    let isFallbackTrack = false;
-    let trackWarning: string | null = null;
-
-    if (rawTrackId && ["ai_genai", "web_dev", "generic", "specific"].includes(rawTrackId)) {
-      resolvedTrackId = rawTrackId as JudgingTrackId;
-    } else {
-      // Auto-detect track using boundary-safe detector
-      const hackathonObj = (teamData?.team_hackathons as any)?.[0]?.hackathons;
-      const detection = detectJudgingTrack({
-        name: teamData?.hackathon_name || hackathonObj?.name,
-        tag: hackathonObj?.tag,
-        description: hackathonObj?.description,
-      });
-
-      if (detection.isConfident) {
-        resolvedTrackId = detection.detectedTrack;
-      } else {
-        // Fail loud on fallback: Never default silently into whichever grading is easiest!
-        resolvedTrackId = "generic";
-        isFallbackTrack = true;
-        trackWarning = "Track not detected — defaulting to General Hackathon rubric. Select the correct track if this is a specialized submission.";
-        console.warn(`[PPT Evaluate] ${trackWarning} (Team ID: ${teamId})`);
-      }
-    }
-
-    // 5. Version numbering
-    const { data: versionRows } = await supabaseAdmin
-      .from("team_ppt_evaluations")
-      .select("version")
-      .eq("team_id", teamId)
-      .order("version", { ascending: false })
-      .limit(1);
-
-    const currentVersion = (versionRows?.[0]?.version || 0) + 1;
-
-    const pptStorageUrl = externalLinkUrl;
-    let fileName = "Linked_Presentation";
-    const submissionType = "external_link";
-    let extractedDocText = "";
-    let extractedSlidesList: any[] = [];
-
-    // 6. Obtain bounded PDF bytes and supplemental page text (or text-only fallback).
-    const extraction = await extractPresentationFromUrl(externalLinkUrl);
-    if (!extraction.success || extraction.slides.length === 0) {
-      return NextResponse.json(
-        {
-          error:
-            extraction.errorMessage ||
-            "Could not read the presentation. Please enable 'Anyone with the link can view'.",
-        },
-        { status: 422 }
-      );
-    }
-
-    extractedDocText = extraction.rawDocumentText;
-    extractedSlidesList = extraction.slides;
-    if (extraction.pdf) fileName = "Pitch_Deck.pdf";
-
-    // 7. Team Composition Metadata
-    const members = teamData?.team_members || [];
-    const memberCount = members.length;
-    // 8. Insert initial record with real track_id column (No conditional guessing)
-    const initialPayload = {
-      team_id: teamId,
-      submitted_by: userId,
-      ps_title: psTitle,
-      ps_category: psCategory,
-      submission_type: submissionType,
-      external_link_url: externalLinkUrl,
-      ppt_url: pptStorageUrl,
-      file_name: fileName,
-      version: currentVersion,
-      status: "evaluating",
+    if (inserted.error || inserted.data?.id !== recordId) { logDatabaseFailure("initialize_ppt", inserted.error); throw new EvaluationFailure("persistence_uncertain"); }
+    const members = team.team_members as unknown as Array<{ profiles: { skills?: string[] } | null }>;
+    const result = await runPitchDeckEvaluation(title, category, extraction.rawDocumentText, { memberCount: members?.length || 0, members: members?.map(m => ({ skills: m.profiles?.skills })) }, track, custom, extraction.pdf, Math.min(30_000, execution.deadlineAt - Date.now()), execution);
+    const budget = persistenceBudget();
+    const payload = { status: "completed", score_novelty: result.scoreNovelty, score_tech: result.scoreTech, score_ui_ux: result.scoreUiUx, score_team: result.scoreTeam,
+      total_score: result.totalScore, grade: result.grade, slide_breakdown: extraction.slides, error_message: null, updated_at: new Date().toISOString(),
+      ai_feedback: { strengths: result.strengths, criticalRisks: result.criticalRisks, formatViolations: result.formatViolations, slideRecommendations: result.slideRecommendations,
+        scoreDeductions: result.scoreDeductions, usedAiFallback: false, analysis: result.analysis, slideFeedback: result.slideFeedback, track_id: track,
+        ...(custom ? { customRubric: custom } : {}), isFallbackTrack, trackWarning, evaluatedAt: new Date().toISOString() } };
+    let final: { data: unknown; error: unknown } | undefined;
+    try {
+      final = await withinDeadline(admin.from("team_ppt_evaluations").update(payload).eq("id", recordId).eq("team_id", teamId).eq("status", "evaluating").select(COLUMNS).abortSignal(evaluationSignal(budget)).single(), budget, 5_000);
+      if (final.error) logDatabaseFailure("complete_ppt", final.error);
+    } catch (error) { logDatabaseFailure("complete_ppt", error); }
+    const confirms = (value: unknown) => {
+      const row = value as (Record<string, unknown> & { ai_feedback?: { usedAiFallback?: boolean; analysis?: { requestId?: string; mode?: string } } }) | null;
+      if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+      return row?.id === recordId && row.team_id === teamId && row.submitted_by === userId && row.status === "completed" && row.version === initial.version &&
+        row.ai_feedback?.analysis?.requestId === requestId && row.ai_feedback.analysis.mode === result.analysis.mode && row.ai_feedback.usedAiFallback === false &&
+        row.score_novelty === result.scoreNovelty && row.score_tech === result.scoreTech && row.score_ui_ux === result.scoreUiUx && row.score_team === result.scoreTeam && row.total_score === result.totalScore && row.grade === result.grade;
     };
-
-    let { data: initialRecord, error: insertErr } = await supabaseAdmin
-      .from("team_ppt_evaluations")
-      .insert({ ...initialPayload, track_id: resolvedTrackId })
-      .select("id")
-      .single();
-
-    // Environments without migration 20260905210000 or with stale schema cache
-    // have no track_id column (42703 or PGRST204). Retry without it.
-    if (insertErr && (insertErr.code === "42703" || insertErr.code === "PGRST204") && insertErr.message?.includes("track_id")) {
-      console.warn("[PPT Evaluate] track_id column missing or schema stale; inserting without it:", insertErr.message);
-      const retry = await supabaseAdmin.from("team_ppt_evaluations").insert(initialPayload).select("id").single();
-      initialRecord = retry.data;
-      insertErr = retry.error;
+    if (!final || final.error || !confirms(final.data)) {
+      const reconciled = await evaluationRead(admin.from("team_ppt_evaluations").select(COLUMNS).eq("id", recordId).eq("team_id", teamId).abortSignal(evaluationSignal(budget)).maybeSingle(), budget, "reconcile_ppt_completion");
+      if (!confirms(reconciled)) throw new EvaluationFailure("persistence_uncertain");
+      return NextResponse.json({ success: true, evaluation: reconciled, requestId, isFallbackTrack, trackWarning });
     }
-
-    if (insertErr || !initialRecord) {
-      console.error("[PPT Evaluate] DB initial record insert error:", insertErr);
-      return NextResponse.json({ error: "Failed to initialize evaluation record." }, { status: 500 });
+    return NextResponse.json({ success: true, evaluation: final.data, requestId, isFallbackTrack, trackWarning });
+  } catch (error) {
+    let uncertain = error instanceof EvaluationFailure && error.code === "persistence_uncertain";
+    if (admin && recordId && teamId) {
+      try {
+        const budget = persistenceBudget();
+        const failed = await withinDeadline(admin.from("team_ppt_evaluations").update({ status: "failed", error_message: error instanceof EvaluationFailure ? error.code : "provider_unavailable", updated_at: new Date().toISOString() })
+          .eq("id", recordId).eq("team_id", teamId).eq("status", "evaluating").select("id").abortSignal(evaluationSignal(budget)), budget, 5_000);
+        if (failed.error || !Array.isArray(failed.data) || failed.data.length !== 1 || failed.data[0]?.id !== recordId) { logDatabaseFailure("fail_ppt_processing", failed.error); uncertain = true; }
+      } catch (cleanupError) { logDatabaseFailure("fail_ppt_processing", cleanupError); uncertain = true; }
     }
-
-    const evalRecordId = initialRecord.id;
-
-    // 9. Run Pitch Deck Evaluation Engine
-    const evalResult = await runPitchDeckEvaluation(
-      psTitle,
-      psCategory,
-      extractedDocText,
-      {
-        name: teamData?.name,
-        memberCount,
-        members: members.map((m: any) => ({
-          name: m.profiles?.full_name,
-          skills: m.profiles?.skills,
-        })),
-      },
-      resolvedTrackId,
-      customRubric || undefined,
-      extraction.pdf,
-      Math.max(0, Math.min(30_000, deadline - Date.now() - 5000)),
-    );
-
-    // 10. Persist Completed Evaluation
-    const { data: finalRecord, error: updateErr } = await supabaseAdmin
-      .from("team_ppt_evaluations")
-      .update({
-        status: "completed",
-        score_novelty: evalResult.scoreNovelty,
-        score_tech: evalResult.scoreTech,
-        score_ui_ux: evalResult.scoreUiUx,
-        score_team: evalResult.scoreTeam,
-        total_score: evalResult.totalScore,
-        grade: evalResult.grade,
-        slide_breakdown: extractedSlidesList,
-        ai_feedback: {
-          strengths: evalResult.strengths,
-          criticalRisks: evalResult.criticalRisks,
-          formatViolations: evalResult.formatViolations,
-          slideRecommendations: evalResult.slideRecommendations,
-          scoreDeductions: evalResult.scoreDeductions,
-          usedAiFallback: evalResult.usedAiFallback,
-          analysis: evalResult.analysis,
-          slideFeedback: evalResult.slideFeedback,
-          evaluatedAt: new Date().toISOString(),
-          track_id: resolvedTrackId,
-          ...(resolvedTrackId === "specific" ? { customRubric: customRubric || null } : {}),
-          isFallbackTrack,
-          trackWarning,
-        },
-        error_message: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", evalRecordId)
-      .select()
-      .single();
-
-    if (updateErr || !finalRecord) {
-      console.error("[PPT Evaluate] DB persist error:", updateErr);
-      return NextResponse.json({ error: updateErr?.message || "Failed to persist evaluation results." }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      evaluation: finalRecord,
-      isFallbackTrack,
-      trackWarning,
-    });
-  } catch (err: any) {
-    console.error("[PPT Evaluate API] Exception:", err);
-    return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });
+    console.error("[PPT evaluation outcome]", { requestId, attempts: execution.attempts, providerAttempts: execution.trace, latencyMs: Date.now() - started });
+    const failure = evaluationFailure(uncertain ? new EvaluationFailure("persistence_uncertain") : error, requestId);
+    return NextResponse.json({ ...failure.body, ...(recordId ? { evaluationId: recordId } : {}) }, { status: failure.status });
   }
 }

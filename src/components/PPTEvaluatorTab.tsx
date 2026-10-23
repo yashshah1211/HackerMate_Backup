@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import PitchAnalysisBadge from "@/components/PitchAnalysisBadge";
 import { getAnalysisDisplay, getPitchCategories, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +11,7 @@ import {
   TRACK_PROFILES,
 } from "@/lib/evaluator/evaluatorTypes";
 import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
+import { logDatabaseFailure } from "@/lib/evaluator/evaluationContract";
 import {
   TriangleAlert,
   CheckCircle2,
@@ -21,7 +22,6 @@ import {
   TrendingDown,
   Minus,
   Lightbulb,
-  Building2,
   Bot,
   Globe,
   Presentation,
@@ -60,7 +60,7 @@ interface PPTEvaluation {
   score_team: number;
   total_score: number;
   grade: string;
-  slide_breakdown?: any[];
+  slide_breakdown?: unknown[];
   ai_feedback?: {
     strengths?: string[];
     criticalRisks?: string[];
@@ -78,6 +78,7 @@ interface PPTEvaluation {
   };
   error_message?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 const TOPIC_RECOMMENDATIONS = [
@@ -142,30 +143,36 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [psCategory, setPsCategory] = useState("software");
   const [customRubric, setCustomRubric] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [hasRetryToken, setHasRetryToken] = useState(false);
+  const [historyVerifiedAt, setHistoryVerifiedAt] = useState(0);
+  const generation = useRef(0);
+  const actor = useRef<string | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const submitting = useRef(false);
+  const retryToken = useRef<{ fingerprint: string; token: string } | null>(null);
 
-  useEffect(() => {
-    loadEvaluations();
-    loadTeamTrackContext();
-  }, [teamId]);
-
-  async function loadTeamTrackContext() {
+  const loadTeamTrackContext = useCallback(async function loadTeamTrackContext(epoch = generation.current, userId = actor.current) {
     try {
       // `teams.track` and `hackathons.tag` are not present in the live schema;
       // requesting them made PostgREST reject the whole query (400), which
       // silently disabled track auto-detection. Only request real columns.
       const { data: teamData, error: teamErr } = await supabase
         .from("teams")
-        .select("id, name, hackathon_name, team_hackathons(hackathons(id, name, description))")
+        .select("id, name, owner_id, hackathon_name, team_members(user_id), team_hackathons(hackathons(id, name, description))")
         .eq("id", teamId)
+        .abortSignal(controller.current!.signal)
         .maybeSingle();
 
-      if (teamErr) console.error("[PPTEvaluatorTab] Team track context query failed:", teamErr);
+      if (epoch !== generation.current) return;
+      if (teamErr) { logDatabaseFailure("ppt_client_team", teamErr); setCanManage(false); return; }
+      setCanManage(!!userId && (teamData?.owner_id === userId || !!teamData?.team_members?.some(member => member.user_id === userId)));
 
       if (teamData && !explicitTrack.current) {
-        const hackathonObj = (teamData.team_hackathons as any)?.[0]?.hackathons;
+        const joined = teamData.team_hackathons?.[0]?.hackathons;
+        const hackathonObj = Array.isArray(joined) ? joined[0] : joined;
         const detection = detectJudgingTrack({
           name: teamData.hackathon_name || hackathonObj?.name,
-          tag: hackathonObj?.tag,
           description: hackathonObj?.description,
           track: (teamData as { track?: string | null }).track ?? undefined,
         });
@@ -183,16 +190,17 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         }
       }
     } catch (err) {
-      console.error("[PPTEvaluatorTab] Load team track context error:", err);
+      logDatabaseFailure("ppt_client_team", err);
     }
-  }
+  }, [teamId]);
 
-  async function loadEvaluations() {
+  const loadEvaluations = useCallback(async function loadEvaluations(epoch = generation.current) {
     setLoading(true);
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      if (epoch !== generation.current) return;
 
       if (!session) {
         setLoading(false);
@@ -200,6 +208,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       }
 
       const res = await fetch(`/api/teams/${teamId}/ppt-evaluations`, {
+        signal: controller.current?.signal,
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -208,97 +217,108 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       const contentType = res.headers.get("content-type") || "";
       if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
+        if (epoch !== generation.current) return;
         const list = data.evaluations || [];
+        setHistoryVerifiedAt(Date.now());
         setEvaluations(list);
         if (list.length > 0) {
-          setSelectedEval((prev) => (prev ? list.find((e: any) => e.id === prev.id) || list[0] : list[0]));
+          setSelectedEval((prev) => (prev ? list.find((e: PPTEvaluation) => e.id === prev.id) || list[0] : list[0]));
         } else {
           setSelectedEval(null);
         }
       } else {
         // Keep the real reason visible instead of silently showing an empty history.
         console.error("[PPTEvaluatorTab] Evaluations request failed:", res.status, contentType);
+        if (epoch === generation.current) setErrorMsg("History could not be verified. Refresh history before starting another review.");
       }
     } catch (err) {
-      console.error("[PPTEvaluatorTab] Load error:", err);
+      logDatabaseFailure("ppt_client_history", err);
     } finally {
-      setLoading(false);
+      if (epoch === generation.current) setLoading(false);
     }
-  }
+  }, [teamId]);
+
+  useEffect(() => {
+    let disposed = false;
+    const synchronize = (id: string | null) => {
+      if (disposed) return;
+      generation.current++;
+      actor.current = id;
+      controller.current?.abort();
+      controller.current = new AbortController();
+      submitting.current = false;
+      retryToken.current = null;
+      setHasRetryToken(false);
+      setIsSubmitting(false); setCanManage(false); setEvaluations([]); setSelectedEval(null); setCompareVersionId(null);
+      setExternalLink(""); setPsTitle(""); setCustomRubric(""); setErrorMsg(null);
+      explicitTrack.current = false; confidentTrack.current = false;
+      setSelectedTrack("generic"); setUserExplicitlySelectedState(false);
+      if (!id) { setLoading(false); return; }
+      void loadEvaluations(generation.current);
+      void loadTeamTrackContext(generation.current, id);
+    };
+    const initialGeneration = generation.current;
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (disposed || generation.current !== initialGeneration) return;
+      if (error) logDatabaseFailure("ppt_client_session", error);
+      synchronize(error ? null : data.session?.user?.id || null);
+    }).catch(error => { if (!disposed && generation.current === initialGeneration) { logDatabaseFailure("ppt_client_session", error); synchronize(null); setErrorMsg("Identity verification is unavailable. Reload before submitting."); } });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if ((session?.user?.id || null) !== actor.current) synchronize(session?.user?.id || null);
+    });
+    const dispose = () => { generation.current++; controller.current?.abort(); };
+    return () => { disposed = true; dispose(); subscription.unsubscribe(); };
+  }, [teamId, loadEvaluations, loadTeamTrackContext]);
 
   async function handleEvaluate(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current || !canManage) return;
     setErrorMsg(null);
-
-    if (!externalLink.trim()) {
-      setErrorMsg("Please paste your Google Slides or Google Drive presentation link.");
-      return;
-    }
-
+    if (!externalLink.trim()) { setErrorMsg("Please paste your Google Slides or Drive link."); return; }
+    const epoch = generation.current;
+    submitting.current = true;
     setIsSubmitting(true);
-
+    const payload = { track_id: selectedTrack, external_link_url: externalLink.trim(), ps_title: psTitle.trim() || "Project Pitch", ps_category: psCategory,
+      customRubric: selectedTrack === "specific" ? customRubric : undefined };
+    const fingerprint = JSON.stringify(payload);
+    if (retryToken.current?.fingerprint !== fingerprint) retryToken.current = { fingerprint, token: crypto.randomUUID() };
+    setHasRetryToken(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        setErrorMsg("Session expired. Please log in again.");
-        setIsSubmitting(false);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (epoch !== generation.current) return;
+      if (error || !session || session.user.id !== actor.current) { setErrorMsg("Session could not be verified. Refresh before submitting."); return; }
+      const res = await fetch(`/api/teams/${teamId}/ppt-evaluate`, { method: "POST", signal: controller.current?.signal,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, "Idempotency-Key": retryToken.current!.token }, body: fingerprint });
+      if (!res.headers.get("content-type")?.includes("application/json")) throw Error("unconfirmed_response");
+      const data = await res.json();
+      if (epoch !== generation.current) return;
+      if (!res.ok || data.success !== true || data.evaluation?.status !== "completed" || data.evaluation?.team_id !== teamId || typeof data.evaluation?.id !== "string") {
+        setErrorMsg(data.code === "unauthorized" ? "Session verification failed. Reload and authenticate before submitting." : data.code === "forbidden" ? "This account is not authorized to request this review." : typeof data.error === "string" ? data.error : "No completed review was confirmed. Refresh history before retrying.");
+        if (["invalid_input", "rubric_unsupported", "invalid_ai_output", "blocked_content", "provider_rejected", "unusable_text"].includes(data.code)) { retryToken.current = null; setHasRetryToken(false); }
         return;
       }
-
-      const res = await fetch(`/api/teams/${teamId}/ppt-evaluate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          track_id: selectedTrack,
-          external_link_url: externalLink.trim(),
-          ps_title: psTitle.trim() || "Project Pitch",
-          ps_category: psCategory,
-          customRubric: selectedTrack === "specific" ? customRubric : undefined,
-        }),
-      });
-
-      const contentType = res.headers.get("content-type") || "";
-      let data: any = null;
-
-      if (contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        const rawText = await res.text();
-        console.error("[PPTEvaluatorTab] Server error response:", res.status, rawText.slice(0, 300));
-        setErrorMsg(
-          `Server returned status ${res.status} (${res.statusText || "Error"}). Please verify your presentation link sharing permissions and try again.`
-        );
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (!res.ok || data?.error) {
-        setErrorMsg(data?.error || "Evaluation failed. Please try again.");
-      } else if (data?.evaluation) {
-        setEvaluations((prev) => [data.evaluation, ...prev]);
-        setSelectedEval(data.evaluation);
-        setExternalLink("");
-      }
-    } catch (err: any) {
-      console.error("[PPTEvaluatorTab] Network/Evaluation exception:", err);
-      setErrorMsg(err.message || "Network exception occurred during evaluation.");
+      retryToken.current = null;
+      setHasRetryToken(false);
+      setEvaluations(prev => [data.evaluation, ...prev.filter(ev => ev.id !== data.evaluation.id)]);
+      setSelectedEval(data.evaluation);
+      setExternalLink("");
+    } catch (error) {
+      if (epoch !== generation.current) return;
+      logDatabaseFailure("ppt_client_submission", error);
+      setErrorMsg("The outcome could not be confirmed. Your inputs remain here. Refresh history before starting another review.");
     } finally {
-      setIsSubmitting(false);
+      if (epoch === generation.current) { submitting.current = false; setIsSubmitting(false); }
     }
   }
-
   async function handleDeleteEvaluation(evalId: string) {
+    if (!canManage || submitting.current) return;
+    const epoch = generation.current;
     setDeletingId(evalId);
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      if (epoch !== generation.current) return;
 
       if (!session) {
         setErrorMsg("Session expired. Please log in again.");
@@ -308,6 +328,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       }
 
       const res = await fetch(`/api/teams/${teamId}/ppt-evaluations?evalId=${evalId}`, {
+        signal: controller.current?.signal,
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -315,12 +336,13 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       });
 
       const contentType = res.headers.get("content-type") || "";
-      let data: any = null;
+      let data: { error?: string; success?: boolean } | null = null;
       if (contentType.includes("application/json")) {
         data = await res.json();
       }
+      if (epoch !== generation.current) return;
 
-      if (!res.ok || data?.error) {
+      if (!res.ok || data?.success !== true || data?.error) {
         setErrorMsg(data?.error || "Failed to delete evaluation record.");
       } else {
         const remaining = evaluations.filter((e) => e.id !== evalId);
@@ -329,11 +351,11 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           setSelectedEval(remaining.length > 0 ? remaining[0] : null);
         }
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Network error deleting evaluation.");
+    } catch (err: unknown) {
+      if (epoch !== generation.current) return;
+      logDatabaseFailure("ppt_client_delete", err); setErrorMsg("The delete outcome could not be verified. Refresh history.");
     } finally {
-      setDeletingId(null);
-      setConfirmDeleteId(null);
+      if (epoch === generation.current) { setDeletingId(null); setConfirmDeleteId(null); }
     }
   }
 
@@ -352,6 +374,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   };
 
   const getTrackBadge = (trackId: string = "generic") => {
+    if (!Object.hasOwn(TRACK_PROFILES, trackId)) return { label: "Rubric unverified", short: "Unverified", tone: "warn" as TapeTone, icon: <TriangleAlert /> };
     if (trackId === "generic" || trackId === "specific") {
       return { label: trackId === "specific" ? "Specific Hackathon" : "General Hackathon", short: trackId === "specific" ? "Custom" : "General", tone: "neutral" as TapeTone, icon: trackId === "specific" ? <Target /> : <Lightbulb /> };
     }
@@ -372,9 +395,11 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   };
 
   // Version-over-Version Diff Calculations
-  const otherCompletedEvals = evaluations.filter(
-    (e) => e.id !== selectedEval?.id && e.status === "completed"
-  );
+  const signature = (ev: PPTEvaluation | null) => ev?.ai_feedback?.analysis?.rubricVersion && !ev.ai_feedback.usedAiFallback ? JSON.stringify({
+    track: ev.ai_feedback.analysis.trackId, version: ev.ai_feedback.analysis.rubricVersion, labels: ev.ai_feedback.analysis.categoryLabels,
+    caps: ev.ai_feedback.analysis.categoryCaps, mode: ev.ai_feedback.analysis.mode,
+  }) : null;
+  const otherCompletedEvals = evaluations.filter(e => e.id !== selectedEval?.id && e.status === "completed" && !!signature(selectedEval) && signature(e) === signature(selectedEval));
 
   const compareEval = compareVersionId
     ? otherCompletedEvals.find((e) => e.id === compareVersionId) || null
@@ -423,13 +448,23 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     );
   }
 
+  const recordedTrack = selectedEval?.ai_feedback?.analysis?.trackId || selectedEval?.ai_feedback?.track_id || selectedEval?.track_id;
+  const trackConflict = new Set([selectedEval?.track_id, selectedEval?.ai_feedback?.track_id, selectedEval?.ai_feedback?.analysis?.trackId].filter(Boolean)).size > 1;
+  const knownTrack = !trackConflict && !!recordedTrack && Object.hasOwn(TRACK_PROFILES, recordedTrack);
   const selectedTrackInfo = selectedEval
-    ? getTrackBadge(selectedEval.track_id || selectedEval.ai_feedback?.track_id || "web_dev")
+    ? getTrackBadge(knownTrack ? recordedTrack! : "unknown")
     : null;
-  const selectedCategories = getPitchCategories((selectedEval?.track_id || selectedEval?.ai_feedback?.track_id || "web_dev") as JudgingTrackId);
+  const baseCategories = getPitchCategories(knownTrack ? recordedTrack as JudgingTrackId : "generic");
+  const stored = selectedEval?.ai_feedback?.analysis;
+  const category = (key: string, fallback: { label: string; maxPts: number }) => ({
+    label: stored?.categoryLabels?.[key] || (knownTrack ? fallback.label : "Recorded category · rubric unverified"),
+    maxPts: stored?.categoryCaps?.[key] || fallback.maxPts,
+  });
+  const selectedCategories = { novelty: category("scoreNovelty", baseCategories.novelty), tech: category("scoreTech", baseCategories.tech),
+    uiUxOrFeasibility: category("scoreUiUx", baseCategories.uiUxOrFeasibility), impactOrTeam: category("scoreTeam", baseCategories.impactOrTeam) };
   const analysisDisplay = getAnalysisDisplay(selectedEval?.ai_feedback);
 
-  const rubric = selectedEval
+  const rubric = selectedEval && knownTrack
     ? [
         { key: "novelty", label: selectedCategories.novelty.label, value: selectedEval.score_novelty, max: selectedCategories.novelty.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.novelty || "Evaluates uniqueness against existing alternatives." },
         { key: "tech", label: selectedCategories.tech.label, value: selectedEval.score_tech, max: selectedCategories.tech.maxPts, note: selectedEval.ai_feedback?.scoreDeductions?.tech || "Evaluates concrete data flow, frameworks, and fail-safes." },
@@ -477,6 +512,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 variant="secondary"
                 size="sm"
                 icon={<Bot />}
+                disabled={isSubmitting || !canManage}
                 className="h-9 md:h-7"
                 onClick={() => {
                   setSelectedTrack("ai_genai");
@@ -489,6 +525,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               <Button
                 variant="ghost"
                 size="sm"
+                disabled={isSubmitting || !canManage}
                 className="h-9 md:h-7"
                 onClick={() => {
                   setUserExplicitlySelected(true);
@@ -503,14 +540,16 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       )}
 
       {/* Linked Idea Pitch Benchmark from Idea Evaluator */}
-      <LinkedIdeaScorecard
+      {canManage && <LinkedIdeaScorecard
         teamId={teamId}
         onSelectIdeaTitle={(title) => {
+          if (submitting.current || !canManage) return;
           if (!psTitle) {
             setPsTitle(title);
           }
         }}
         onEvaluationLoaded={(evaluation: LinkedEvaluationRecord | null) => {
+          if (submitting.current || !canManage) return;
           if (evaluation?.track_id && !explicitTrack.current) {
             const tr = evaluation.track_id as JudgingTrackId;
             if (["ai_genai", "web_dev"].includes(tr)) {
@@ -521,13 +560,13 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
             }
           }
         }}
-      />
+      />}
 
-      {/* Submission form */}
-      <Panel as="section" className="min-w-0">
+      {canManage && <Panel as="section" className="min-w-0">
         <PanelHead icon={<Presentation className="text-ink-3" />} title="Review a new version" />
 
         <form onSubmit={handleEvaluate} className="space-y-4 p-4">
+          <fieldset disabled={isSubmitting} className="space-y-4 min-w-0">
           {/* Track selector */}
           <div className="min-w-0">
             <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
@@ -613,10 +652,11 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 type="text"
                 value={customRubric}
                 onChange={(e) => setCustomRubric(e.target.value)}
-                placeholder="Paste the hackathon's specific judging criteria..."
+                placeholder={'{"criteria":[{"label":"Problem","maxPoints":25}, ...]}'}
                 className="h-10 md:h-[34px]"
                 required
               />
+              <p className="mt-1 text-[12px] text-ink-3">Supply JSON with exactly four distinct criteria, each worth 25 points. Other rule formats cannot be applied faithfully.</p>
             </div>
           )}
 
@@ -631,8 +671,14 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               {isSubmitting ? "Reviewing deck…" : "Run review"}
             </Button>
           </div>
+          </fieldset>
         </form>
-      </Panel>
+      </Panel>}
+      {canManage && <Button type="button" variant="ghost" onClick={() => void loadEvaluations()} disabled={isSubmitting}>Refresh history</Button>}
+      {!canManage && <Button type="button" variant="ghost" onClick={() => void loadTeamTrackContext()}>Retry access check</Button>}
+      {!canManage && errorMsg && <PresentationErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} />}
+      {canManage && hasRetryToken && !isSubmitting && <Button type="button" variant="ghost" onClick={() => { retryToken.current = null; setHasRetryToken(false); setErrorMsg("History reviewed: a new explicit submission will reserve another allowance. Earlier processing may already have consumed an attempt."); }}>Start a new attempt after reviewing history</Button>}
+      {selectedEval && selectedEval.status !== "completed" && <p role="status" className="text-[13px] text-warn">{selectedEval.status === "failed" ? "This review failed. No completed score is available." : historyVerifiedAt - Date.parse(selectedEval.updated_at || selectedEval.created_at) >= 120_000 ? "Processing is interrupted or unconfirmed. Refresh history; an explicit new review can reconcile stale processing." : "Processing is unconfirmed. Refresh history before submitting again."}</p>}
 
       {/* Selected evaluation scorecard */}
       {selectedEval && selectedEval.status === "completed" && selectedTrackInfo && (
@@ -645,6 +691,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 {selectedTrackInfo.label}
               </Tape>
               <PitchAnalysisBadge feedback={selectedEval.ai_feedback} />
+              {!knownTrack && <p role="status" className="text-[12px] text-warn">{trackConflict ? "Conflicting rubric metadata. Category comparisons are unverified." : "Historical rubric unrecorded. Category labels and comparisons are unverified."}</p>}
             </div>
             <h3 className="mt-2 break-words text-[16px] font-semibold text-ink">{selectedEval.ps_title}</h3>
             <p className="mt-1 text-[12.5px] text-ink-3">{analysisDisplay.description}</p>
@@ -845,7 +892,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               const isCurrentSelected = selectedEval?.id === ev.id;
               const isConfirming = confirmDeleteId === ev.id;
               const isDeleting = deletingId === ev.id;
-              const evTrackInfo = getTrackBadge(ev.track_id || ev.ai_feedback?.track_id || "web_dev");
+              const evTrackInfo = getTrackBadge(ev.track_id || ev.ai_feedback?.track_id || "unknown");
 
               return (
                 <li
@@ -867,20 +914,20 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                       <span className="block truncate text-[12px] text-ink-3">
                         {new Date(ev.created_at).toLocaleDateString()} · {evTrackInfo.short}
                         {ev.status === "completed" && ` · ${getAnalysisDisplay(ev.ai_feedback).label}`}
-                        {ev.status !== "completed" && ` · ${ev.status}`}
+                        {ev.status !== "completed" && ` · ${ev.status === "failed" ? "Failed · no score" : "Processing unconfirmed"}`}
                         <span className="hidden sm:inline"> · {ev.file_name}</span>
                       </span>
                     </span>
-                    <Tape tone={getGradeTone(ev.grade)} className="hidden max-w-[150px] md:inline-flex">
+                    {ev.status === "completed" && <Tape tone={getGradeTone(ev.grade)} className="hidden max-w-[150px] md:inline-flex">
                       <span className="min-w-0 truncate">{cleanGrade(ev.grade).split(" / ")[0]}</span>
-                    </Tape>
-                    <span className={cn("shrink-0 font-mono text-[13px] font-semibold tabular", getScoreColor(ev.total_score))}>
+                    </Tape>}
+                    {ev.status === "completed" && <span className={cn("shrink-0 font-mono text-[13px] font-semibold tabular", getScoreColor(ev.total_score))}>
                       {ev.total_score}
                       <span className="text-[12px] font-normal text-ink-3">/100</span>
-                    </span>
+                    </span>}
                   </button>
 
-                  {isConfirming ? (
+                  {isConfirming && canManage ? (
                     <div className="ml-auto flex shrink-0 items-center gap-1.5 pr-1">
                       <Button
                         variant="danger"
@@ -895,11 +942,11 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                         Cancel
                       </Button>
                     </div>
-                  ) : (
+                  ) : canManage ? (
                     <IconButton label="Delete this review" onClick={() => setConfirmDeleteId(ev.id)} className="hover:text-bad">
                       <Trash2 />
                     </IconButton>
-                  )}
+                  ) : null}
                 </li>
               );
             })}
@@ -909,4 +956,3 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     </div>
   );
 }
-

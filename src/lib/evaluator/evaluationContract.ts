@@ -1,4 +1,5 @@
 import { TRACK_PROFILES, type JudgingTrackId, type TrackProfile } from "./evaluatorTypes";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const FAILURES = {
   invalid_input: [400, false, "Check the submission fields and limits, then submit again."],
@@ -10,6 +11,7 @@ const FAILURES = {
   duplicate_request: [409, false, "This submission token was already used. Check your history before starting another evaluation."],
   cooldown: [409, true, "Evaluation admission is cooling down. Wait briefly before an explicit new submission."],
   persistence_uncertain: [409, false, "The save outcome is uncertain. Check evaluation history before submitting again."],
+  processing_interrupted: [409, false, "Earlier processing was interrupted or could not be reconciled. Review history before an explicit new submission."],
   unusable_text: [422, false, "No usable presentation text was available. Supply a text-readable document."],
   blocked_content: [422, false, "The provider could not evaluate this content. No score was generated."],
   admission_limit: [429, false, "Your evaluation allowance has been reserved. Try again after the limit resets."],
@@ -17,6 +19,7 @@ const FAILURES = {
   invalid_ai_output: [502, false, "The AI response did not meet the evaluation contract. No score was generated."],
   auth_unavailable: [503, true, "Identity verification is unavailable. No evaluation was started."],
   limiter_unavailable: [503, true, "Evaluation admission is unavailable. No score was generated."],
+  database_unavailable: [503, true, "Evaluation records could not be verified. Check history before submitting again."],
   provider_unavailable: [503, true, "AI evaluation is temporarily unavailable. No score was generated."],
   provider_rejected: [503, false, "The provider rejected this evaluation request. No score was generated."],
   deadline_exceeded: [504, true, "The evaluation time budget ended. Check history before retrying an uncertain submission."],
@@ -101,6 +104,31 @@ export function groundedList(value: unknown, source: string, allowEmpty = true):
   });
 }
 
+export interface AnchoredFeedback { text: string; quote?: string; pageNumber?: number; evidence?: string }
+export function anchoredList(value: unknown, source: string, pageCount?: number, allowEmpty = true): AnchoredFeedback[] {
+  if (!Array.isArray(value) || value.length > 6 || (!allowEmpty && !value.length)) throw new EvaluationFailure("invalid_ai_output");
+  return value.map(item => {
+    const entry = object(item);
+    const text = boundedString(entry.text);
+    if (pageCount !== undefined) {
+      const pageNumber = score(entry.pageNumber, pageCount);
+      if (pageNumber < 1) throw new EvaluationFailure("invalid_ai_output");
+      return { text, pageNumber, evidence: boundedString(entry.evidence, 400) };
+    }
+    const quote = boundedString(entry.quote, 400);
+    if (!source.includes(quote)) throw new EvaluationFailure("invalid_ai_output");
+    return { text, quote };
+  });
+}
+
+export function feedbackItemSchema(pageCount?: number) {
+  return { type: "object", additionalProperties: false, properties: { text: { type: "string", maxLength: 800 },
+    ...(pageCount === undefined ? { quote: { type: "string", maxLength: 400 } } : {
+      pageNumber: { type: "integer", minimum: 1, maximum: pageCount }, evidence: { type: "string", maxLength: 400 },
+    }),
+  }, required: pageCount === undefined ? ["text", "quote"] : ["text", "pageNumber", "evidence"] };
+}
+
 export function rubricFor(track: JudgingTrackId, customRubric?: string): TrackProfile {
   const profile = TRACK_PROFILES[track];
   if (!profile) throw new EvaluationFailure("invalid_input");
@@ -127,6 +155,68 @@ export function logDatabaseFailure(operation: string, error: unknown) {
   const raw = error && typeof error === "object" && "code" in error ? error.code : null;
   const safeCodes = ["42501", "57014", "23505", "42703", "08006", "PGRST116", "PGRST204", "PGRST000", "PGRST001", "PGRST002"];
   console.error("[Evaluation database]", { operation, code: typeof raw === "string" && safeCodes.includes(raw) ? raw : "unclassified" });
+}
+
+/** Bound multipart input before the platform buffers and parses it. */
+export async function readEvaluationForm(request: Request, execution: EvaluationExecution, maxBytes = 8 * 1024 * 1024 + 16_384): Promise<FormData> {
+  const reader = request.body?.getReader();
+  if (!reader || !request.headers.get("content-type")?.startsWith("multipart/form-data;")) throw new EvaluationFailure("invalid_input");
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const next = await withinDeadline(reader.read(), execution, 5_000);
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > maxBytes) throw new EvaluationFailure("invalid_input");
+      parts.push(next.value);
+    }
+    return await withinDeadline(new Response(Buffer.concat(parts), { headers: { "content-type": request.headers.get("content-type")! } }).formData(), execution, 5_000);
+  } catch (error) {
+    void reader.cancel().catch(() => {});
+    if (error instanceof EvaluationFailure) throw error;
+    throw new EvaluationFailure("invalid_input");
+  } finally { reader.releaseLock(); }
+}
+
+export function inputString(value: unknown, max: number, fallback?: string): string {
+  if (value == null && fallback !== undefined) return fallback;
+  if (typeof value !== "string" || !value.trim() || value.length > max) throw new EvaluationFailure("invalid_input");
+  return value.trim();
+}
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+export function evaluationSignal(execution: EvaluationExecution): AbortSignal {
+  const timeout = AbortSignal.timeout(Math.max(1, Math.min(5_000, execution.deadlineAt - Date.now())));
+  return execution.signal ? AbortSignal.any([execution.signal, timeout]) : timeout;
+}
+
+export async function verifiedEvaluationActor(admin: SupabaseClient, request: Request, execution: EvaluationExecution): Promise<string> {
+  const header = request.headers.get("authorization");
+  if (!header || !/^Bearer [^\s]+$/.test(header)) throw new EvaluationFailure("unauthorized");
+  let auth;
+  try { auth = await withinDeadline(admin.auth.getUser(header.slice(7)), execution, 5_000); }
+  catch (error) { logDatabaseFailure("verify_evaluation_identity", error); throw new EvaluationFailure("auth_unavailable"); }
+  if (auth.error) {
+    logDatabaseFailure("verify_evaluation_identity", auth.error);
+    throw new EvaluationFailure([400, 401, 403].includes(auth.error.status ?? 0) ? "unauthorized" : "auth_unavailable");
+  }
+  if (!isUuid(auth.data.user?.id)) throw new EvaluationFailure("unauthorized");
+  return auth.data.user.id;
+}
+
+export async function evaluationRead<T>(operation: PromiseLike<{ data: T; error: unknown }>, execution: EvaluationExecution, name: string): Promise<T> {
+  try {
+    const result = await withinDeadline(operation, execution, 5_000);
+    if (result.error) { logDatabaseFailure(name, result.error); throw new EvaluationFailure("database_unavailable"); }
+    return result.data;
+  } catch (error) {
+    if (error instanceof EvaluationFailure) throw error;
+    logDatabaseFailure(name, error); throw new EvaluationFailure("database_unavailable");
+  }
 }
 
 /** Stream input before JSON parsing; Content-Length alone cannot enforce a bound. */

@@ -277,3 +277,203 @@ test('aborted/stale execution stops before a provider attempt', async () => {
   await assert.rejects(f.loader.load('src/lib/ai/geminiClient.ts').callGeminiText('fixture', { execution: { deadlineAt: Date.now() + 5_000, attempts: 0, signal: controller.signal } }), e => e.code === 'deadline_exceeded');
   assert.equal(f.state.calls.length, 0);
 });
+
+// Stage B: actual PPT/Challenge engines and routes; all transports are synthetic.
+const { pitchOutput, challengeOutput, providerEnvelope, makeBenchmarkPdf, presentationSetup } = require('./fixtures/evaluator-benchmarks.cjs');
+const presentationMatrix = [];
+after(() => fs.writeFileSync(path.join(ROOT, 'scratch/evaluator-benchmark-presentations.json'), JSON.stringify({ kind: 'offline_mock_response_contract', liveAccuracyMeasured: false, complete: presentationMatrix.length === 44, cases: presentationMatrix.sort((a,b)=>a.id.localeCompare(b.id)) }, null, 2) + '\n'));
+for (const fixture of cases.filter(c => c.pipeline !== 'idea')) test('benchmark contract '+fixture.id, async () => {
+  const context = { deadlineAt: Date.now()+30000, attempts:0, requestId:'offline-'+fixture.id };
+  let output = fixture.pipeline === 'ppt' ? pitchOutput(fixture.source,fixture.track,fixture.mode,fixture.quality === 'strong' ? undefined : [5,5,5,5]) : challengeOutput(fixture.source,fixture.quality === 'strong' ? undefined : [5,5,5,5]);
+  if(fixture.quality === 'adversarial') {
+    if(fixture.mode === 'visual_text') output.scoreDeductions.novelty.feedback.pageNumber=99;
+    else if(fixture.pipeline==='ppt') output.scoreDeductions.novelty.feedback.quote='Invented test result not in submission';
+    else output.scoreDeductions.problem.feedback.quote='Invented test result not in submission';
+  }
+  let calls=0;
+  const loader=harness({}, {fetch:async()=>{calls++;return Response.json(providerEnvelope(output))}});
+  const started=Date.now();
+  try {
+    const result=fixture.pipeline==='ppt' ? await loader.load('src/lib/ppt/evaluatorEngine.ts').runPitchDeckEvaluation('Synthetic proposal','open',fixture.source,{memberCount:6},fixture.track,fixture.customRubric,fixture.mode==='visual_text'?{bytes:makeBenchmarkPdf(fixture.source),pageCount:1,source:'linked_pdf'}:undefined,30000,context)
+      :await loader.load('src/lib/challenges/challengeEvaluatorEngine.ts').runChallengePitchEvaluation('Synthetic challenge',fixture.domain,'Explain the system.',fixture.source,{},context);
+    assert.notEqual(fixture.quality,'adversarial');assert.equal(result.usedAiFallback,false);assert.equal(result.analysis.mode,fixture.mode);
+    const sum=fixture.pipeline==='ppt'?result.scoreNovelty+result.scoreTech+result.scoreUiUx+result.scoreTeam:result.scoreProblem+result.scoreSolution+result.scoreArchitecture+result.scoreFeasibilityImpact;
+    assert.equal(result.totalScore,sum);assert.equal(calls,1);assert.equal(context.attempts,1);
+    if(fixture.quality!=='strong')assert.equal(sum,20);
+    for(const items of Object.values(result.analysis.evidence))for(const item of items)if(item.quote)assert(fixture.source.includes(item.quote));else assert.equal(item.pageNumber,1);
+    presentationMatrix.push({id:fixture.id,pipeline:fixture.pipeline,mode:result.analysis.mode,status:'accepted_mock_contract',total:sum,grade:result.grade,attempts:context.attempts,latencyMs:Date.now()-started,evidenceAnchors:'validated',liveAccuracy:false});
+  } catch(error) {
+    assert.equal(fixture.quality,'adversarial',error.stack);assert.equal(error.code,'invalid_ai_output');assert.equal(calls,1);
+    presentationMatrix.push({id:fixture.id,pipeline:fixture.pipeline,mode:fixture.mode,status:'rejected_invalid_mock_evidence',score:null,code:error.code,attempts:context.attempts,latencyMs:Date.now()-started,liveAccuracy:false});
+  }
+});
+for(const pipeline of ['ppt','challenge']) {
+  for(const [label,mutate] of [
+    ['missing identity',s=>{s.user=null}],['Auth service error',s=>{s.authError={status:503,message:PRIVATE}}],['Auth throws',s=>{s.authThrows=true}],
+    ['limiter error',s=>{s.rateError=true}],['malformed atomic result',s=>{s.rateOverride={data:[],error:null}}],
+  ])test(pipeline+' '+label+' stops before provider or business mutation',async()=>{
+    const setup=presentationSetup({pipeline});mutate(setup.state);const response=await setup[pipeline]();assert(response.status>=400);assert.equal(setup.state.calls.length,0);assert.equal(setup.state.writes.length,0);assert(!JSON.stringify(response).includes(PRIVATE));
+  });
+  test(pipeline+' zero/uncertain completed persistence never returns success',async()=>{
+    const setup=presentationSetup({pipeline,queryOverride(q){if(q.table===(pipeline==='ppt'?'team_ppt_evaluations':'challenge_submissions')&&((q.operation==='update'&&q.payload.status==='completed')||(pipeline==='challenge'&&q.operation==='insert')))return{data:null,error:null}}});
+    const response=await setup[pipeline]();assert.equal(response.status,409,JSON.stringify(response));assert.equal(response.body.code,'persistence_uncertain');assert.equal(response.body.result,null);assert.equal(setup.state.calls.length,1);
+    assert(!setup.state.tables[pipeline==='ppt'?'team_ppt_evaluations':'challenge_submissions'].some(row=>row.status==='completed'));
+  });
+  test(pipeline+' lost successful save is reconciled without a second provider call',async()=>{
+    const setup=presentationSetup({pipeline,afterMutation(q){if((q.operation==='update'&&q.payload.status==='completed')||(pipeline==='challenge'&&q.operation==='insert'))throw Error(PRIVATE)}});
+    const response=await setup[pipeline]();assert.equal(response.status,200,JSON.stringify(response));assert.equal(response.body.success,true);assert.equal(setup.state.calls.length,1);assert(!setup.state.writes.some(q=>q.payload.status==='failed'));
+  });
+  test(pipeline+' known duplicate does not rerun model or charge another slot',async()=>{
+    const setup=presentationSetup({pipeline});assert.equal((await setup[pipeline]()).status,200);const count=setup.state.counters.size;
+    const duplicate=await setup[pipeline]();assert.equal(duplicate.body.code,'duplicate_request');assert.equal(setup.state.calls.length,1);assert.equal(setup.state.counters.size,count);
+  });
+  test(pipeline+' concurrent distinct tokens share a fixed active slot',async()=>{
+    let release,started;const reached=new Promise(resolve=>{started=resolve});
+    const setup=presentationSetup({pipeline,provider:async()=>{started();await new Promise(resolve=>{release=resolve});return Response.json(providerEnvelope(pipeline==='ppt'?pitchOutput(SOURCE):challengeOutput(SOURCE)))}});
+    const first=setup[pipeline]();await reached;
+    const second=await setup[pipeline]({}, {'idempotency-key':'offline-distinct-token-0002'});assert.equal(second.body.code,'cooldown');release();assert.equal((await first).status,200);assert.equal(setup.state.calls.length,1);
+  });
+  for(const column of ['version','id'])test(pipeline+' failed '+column+' read cannot fail open',async()=>{
+    const setup=presentationSetup({pipeline,queryOverride(q){if(q.table===(pipeline==='ppt'?'team_ppt_evaluations':'challenge_submissions')&&q.operation==='select'&&(q.columns===column||(column==='id'&&q.columns==='id, status')))return{data:null,error:{code:'42501',message:PRIVATE}}}});
+    const response=await setup[pipeline]();assert.equal(response.body.code,'database_unavailable');assert.equal(setup.state.calls.length,0);assert(!setup.state.writes.some(q=>q.operation==='insert'));
+  });
+}
+for(const code of ['42703','PGRST204'])test('PPT optional track-column '+code+' retries once with metadata intact',async()=>{
+ const setup=presentationSetup({track:'specific',trackError:code});const result=await setup.ppt({customRubric});assert.equal(result.status,200);assert.equal(setup.state.writes.filter(q=>q.operation==='insert').length,2);assert.equal(result.body.evaluation.ai_feedback.analysis.trackId,'specific');assert.equal(result.body.evaluation.ai_feedback.analysis.rubricVersion,'ppt-v1');
+});
+test('PPT unrelated/uncertain initialization never retries insert',async()=>{
+ let inserts=0;const setup=presentationSetup({queryOverride(q){if(q.operation==='insert'){inserts++;return{data:null,error:{code:'08006',message:PRIVATE}}}}});
+ const result=await setup.ppt();assert.equal(result.body.code,'persistence_uncertain');assert.equal(inserts,1);assert.equal(setup.state.calls.length,0);
+});
+for(const bad of ['nonsense',3,null])test('PPT invalid explicit track '+JSON.stringify(bad)+' is rejected',async()=>{
+ const setup=presentationSetup();const result=await setup.ppt({track_id:bad});assert.equal(result.status,bad===null?200:400);if(bad!==null)assert.equal(setup.state.calls.length,0);
+});
+test('PPT unsupported custom rubric is rejected before reservation',async()=>{
+ const setup=presentationSetup({track:'specific'});assert.equal((await setup.ppt({customRubric:'Use arbitrary organizer weights'})).body.code,'rubric_unsupported');assert.equal(setup.state.counters.size,0);
+});
+for(const permission of ['owner','member','admin','visitor'])test('PPT preserves '+permission+' authorization',async()=>{
+ const setup=presentationSetup();if(permission!=='owner')setup.state.tables.teams[0].owner_id=OTHER;
+ if(!['owner','member'].includes(permission))setup.state.tables.team_members=[];
+ if(permission==='admin')setup.state.tables.profiles[0].role='admin';
+ const result=await setup.ppt();assert.equal(result.status,permission==='visitor'?403:200);if(permission==='visitor')assert.equal(setup.state.calls.length,0);
+});
+for(const age of [119000,121000])test('PPT explicit authorized POST distinguishes '+age+'ms processing',async()=>{
+ const setup=presentationSetup();const old={id:'00000000-0000-4000-8000-000000000009',team_id:setup.TEAM,status:'evaluating',version:1,created_at:new Date(Date.now()-age).toISOString(),updated_at:new Date(Date.now()-age).toISOString()};setup.state.tables.team_ppt_evaluations.push(old);
+ const result=await setup.ppt();assert.equal(result.status,age<120000?409:200);assert.equal(old.status,age<120000?'evaluating':'failed');
+ if(age>120000){const recovery=setup.state.writes.find(q=>q.payload.error_message==='processing_interrupted');assert(recovery.filters.some(f=>f.key==='status'&&f.value==='evaluating'));assert(recovery.filters.some(f=>f.kind==='lt'&&f.key==='updated_at'));}
+});
+test('PPT stale recovery is bounded and reports a remaining backlog',async()=>{
+ const setup=presentationSetup();for(let i=0;i<4;i++)setup.state.tables.team_ppt_evaluations.push({id:`00000000-0000-4000-8000-00000000001${i}`,team_id:setup.TEAM,status:'evaluating',version:i+1,updated_at:new Date(Date.now()-200000).toISOString(),created_at:new Date(Date.now()-200000).toISOString()});
+ const result=await setup.ppt();assert.equal(result.body.code,'processing_interrupted');assert.equal(setup.state.writes.length,3);assert.equal(setup.state.calls.length,0);
+});
+test('PPT stale CAS zero-row or read failure stops initialization',async()=>{
+ const setup=presentationSetup({queryOverride(q){if(q.operation==='update')return{data:[],error:null}}});setup.state.tables.team_ppt_evaluations.push({id:SAVED,team_id:setup.TEAM,status:'evaluating',updated_at:new Date(Date.now()-200000).toISOString()});
+ const result=await setup.ppt();assert.equal(result.body.code,'processing_interrupted');assert.equal(setup.state.calls.length,0);
+});
+test('PPT model failure terminalizes the initialized row without scores',async()=>{
+ const setup=presentationSetup({provider:async()=>new Response('',{status:403})});const result=await setup.ppt();assert.equal(result.body.code,'provider_rejected');assert.equal(setup.state.tables.team_ppt_evaluations[0].status,'failed');assert.equal(setup.state.tables.team_ppt_evaluations[0].total_score,undefined);
+});
+test('PPT failed cleanup is observable as persistence uncertainty and sanitized',async()=>{
+ const setup=presentationSetup({provider:async()=>new Response('',{status:403}),queryOverride(q){if(q.operation==='update'&&q.payload.status==='failed')return{data:null,error:{code:'42501',message:PRIVATE}}}});
+ const result=await setup.ppt();assert.equal(result.body.code,'persistence_uncertain');assert.equal(setup.state.tables.team_ppt_evaluations[0].status,'evaluating');assert(setup.state.logs.some(l=>JSON.stringify(l).includes('fail_ppt_processing')));assert(!JSON.stringify(setup.state.logs).includes(PRIVATE));
+});
+test('PPT completion racing terminal failure never overwrites completed status',async()=>{
+ const setup=presentationSetup({provider:async()=>new Response('',{status:403}),queryOverride(q,state){if(q.operation==='update'&&q.payload.status==='failed'){state.tables.team_ppt_evaluations[0].status='completed';return{data:[],error:null}}}});
+ const result=await setup.ppt();assert.equal(result.body.code,'persistence_uncertain');assert.equal(setup.state.tables.team_ppt_evaluations[0].status,'completed');
+});
+for(const status of ['draft','closed','archived'])test('Challenge '+status+' cannot start evaluation',async()=>{
+ const setup=presentationSetup({pipeline:'challenge'});setup.state.tables.weekly_challenges[0].status=status;assert.equal((await setup.challenge()).status,403);assert.equal(setup.state.calls.length,0);
+});
+for(const dateCase of ['future','expired','invalid'])test('Challenge '+dateCase+' window fails closed',async()=>{
+ const setup=presentationSetup({pipeline:'challenge'}),challenge=setup.state.tables.weekly_challenges[0];if(dateCase==='future')challenge.starts_at=new Date(Date.now()+100000).toISOString();else challenge.ends_at=dateCase==='invalid'?'invalid':new Date(Date.now()-1000).toISOString();
+ assert((await setup.challenge()).status>=400);assert.equal(setup.state.calls.length,0);
+});
+for(const slug of ['does-not-exist','fixture','', '%ZZ'])test('Challenge never picks another target for '+slug,async()=>{
+ const setup=presentationSetup({pipeline:'challenge'});assert((await setup.challenge({}, {},slug)).status>=400);assert.equal(setup.state.calls.length,0);assert(!setup.state.queries.some(q=>q.table==='weekly_challenges'&&!q.filters.length));
+});
+for(const modeCase of [{submission_mode:'team'},{submission_mode:'unknown'},{submission_mode:'solo',team_id:OTHER},{submission_mode:'team',team_id:OTHER}])test('Challenge invalid mode/membership '+JSON.stringify(modeCase)+' stops before model',async()=>{
+ const setup=presentationSetup({pipeline:'challenge'});assert((await setup.challenge(modeCase)).status>=400);assert.equal(setup.state.calls.length,0);
+});
+test('Challenge verified team uses the same actor/challenge quota as solo',async()=>{
+ const setup=presentationSetup({pipeline:'challenge'});assert.equal((await setup.challenge()).status,200);
+ const quota=[...setup.state.counters.keys()].find(k=>k.endsWith(':attempts'));
+ for(const [key,row]of setup.state.counters)if(key.endsWith('active'))row.resetMs=Date.now()-1;
+ assert.equal((await setup.challenge({submission_mode:'team',team_id:setup.TEAM},{'idempotency-key':'offline-challenge-team-token'})).status,200);
+ assert.equal(setup.state.counters.get(quota).count,2);assert.equal([...setup.state.counters.keys()].filter(k=>k.endsWith(':attempts')).length,1);
+});
+for(const link of ['http://127.0.0.1','https://docs.google.com.evil.invalid/deck','https://user:pass@docs.google.com/presentation/d/test/edit','https://example.invalid/deck'])test('Challenge rejects unsafe presentation URL '+link,async()=>{
+ const setup=presentationSetup({pipeline:'challenge'});assert.equal((await setup.challenge({external_link_url:link})).status,400);assert.equal(setup.state.calls.length,0);
+});
+test('Challenge uploaded PDF limit is 8MB and image-only extraction stays unscored',async()=>{
+ const setup=presentationSetup({pipeline:'challenge'});const oversized=new Blob([Buffer.alloc(8*1024*1024+1)],{type:'application/pdf'});
+ assert.equal((await setup.challenge({external_link_url:undefined,file:oversized})).status,400);assert.equal(setup.state.calls.length,0);
+ const extractor=harness().load('src/lib/challenges/challengeExtractor.ts');const {makePitchPdf}=require('./fixtures/pitch-pdf.cjs');
+ assert.equal((await extractor.extractChallengeTextFromPDF(makePitchPdf('images'))).success,false);
+ const real=await extractor.extractChallengeTextFromPDF(makePitchPdf('text',8));assert.equal(real.success,true);assert.equal(real.slides.length,8);assert.equal(real.pdf,undefined);
+});
+test('Challenge forged feedback/default objects cannot produce numeric scores',async()=>{
+ for(const output of [{},challengeOutput(SOURCE,[5,5,5,5])]){
+  const setup=presentationSetup({pipeline:'challenge',output});const result=await setup.challenge();
+  if(Object.keys(output).length){assert.equal(result.status,200);assert.equal(result.body.submission.total_score,20);assert.equal(result.body.submission.grade,'Needs Revision 🛠️');}
+  else{assert.equal(result.body.code,'invalid_ai_output');assert.equal(setup.state.writes.length,0);}
+ }
+});
+test('PDF transport-only degradation shares two attempts and one provider deadline',async()=>{
+ const setup=presentationSetup({mode:'visual_text',provider:async(n)=>n===1?new Response('',{status:503}):Response.json(providerEnvelope(pitchOutput(SOURCE)))});
+ const result=await setup.ppt();assert.equal(result.status,200,JSON.stringify(result));assert.equal(result.body.evaluation.ai_feedback.analysis.mode,'text_only');assert.equal(result.body.evaluation.ai_feedback.analysis.attempts,2);assert.equal(setup.state.calls.length,2);assert(setup.state.calls[0].body.contents[0].parts[0].inlineData);assert(!setup.state.calls[1].body.contents[0].parts[0].inlineData);
+});
+for(const [pipeline,keys,caps]of [['ppt',['scoreNovelty','scoreTech','scoreUiUx','scoreTeam'],[25,25,25,25]],['challenge',['scoreProblem','scoreSolution','scoreArchitecture','scoreFeasibilityImpact'],[25,25,30,20]]]) {
+ for(const [i,key]of keys.entries())for(const value of [undefined,null,'5',true,0.5,-1,NaN,Infinity,caps[i]+1])test(pipeline+' rejects '+key+'='+String(value),async()=>{
+  const output=pipeline==='ppt'?pitchOutput(SOURCE):challengeOutput(SOURCE);output[key]=value;
+  const setup=presentationSetup({pipeline,output});const result=await setup[pipeline]();assert.equal(result.body.code,'invalid_ai_output');assert.equal(result.body.result,null);assert(!setup.state.tables[pipeline==='ppt'?'team_ppt_evaluations':'challenge_submissions'].some(row=>row.status==='completed'));
+ });
+}
+test('PPT/Challenge cancellation makes no provider call when already aborted',async()=>{
+ const signal=AbortSignal.abort();for(const pipeline of ['ppt','challenge']){
+  const loader=harness();const context={deadlineAt:Date.now()+1000,attempts:0,signal};
+  await assert.rejects(pipeline==='ppt'?loader.load('src/lib/ppt/evaluatorEngine.ts').runPitchDeckEvaluation('Title','software',SOURCE,undefined,'generic',undefined,undefined,1000,context):loader.load('src/lib/challenges/challengeEvaluatorEngine.ts').runChallengePitchEvaluation('Title','Open','Problem',SOURCE,{},context),e=>e.code==='deadline_exceeded');
+ }
+});
+for(const pipeline of ['ppt','challenge'])test(pipeline+' requires a Bearer token before any read or write',async()=>{
+ const setup=presentationSetup({pipeline});const result=await setup[pipeline]({}, {authorization:''});assert.equal(result.status,401);assert.equal(setup.state.queries.length,0);assert.equal(setup.state.calls.length,0);
+});
+for(const pipeline of ['ppt','challenge'])test(pipeline+' derives total/grade and rejects non-grounded or malformed feedback',async()=>{
+ const low=pipeline==='ppt'?pitchOutput(SOURCE,'generic','text_only',[5,5,5,5]):challengeOutput(SOURCE,[5,5,5,5]);
+ const setup=presentationSetup({pipeline,output:{...low,totalScore:100,grade:'Mastery'}});const response=await setup[pipeline]();assert.equal(response.status,200);const row=response.body.evaluation||response.body.submission;assert.equal(row.total_score,20);assert.notEqual(row.grade,'Mastery');
+ for(const mutation of [output=>{output.strengths=['unanchored praise']},output=>{output.scoreDeductions[pipeline==='ppt'?'novelty':'problem'].pointsLost=0},output=>{output.scoreDeductions[pipeline==='ppt'?'novelty':'problem'].feedback.quote='Fabricated result'},output=>{output.formatViolations=[{text:'Unsupplied six-member penalty',quote:SOURCE,ruleQuote:'invented cap'}]}]){
+  const output=pipeline==='ppt'?pitchOutput(SOURCE):challengeOutput(SOURCE);mutation(output);const failed=presentationSetup({pipeline,output});assert.equal((await failed[pipeline]()).body.code,'invalid_ai_output');assert(!failed.state.tables[pipeline==='ppt'?'team_ppt_evaluations':'challenge_submissions'].some(row=>row.status==='completed'));
+ }
+});
+for(const total of [49,50,71,72,87,88])test('PPT local grade boundary '+total,()=>{
+ const grade=harness().load('src/lib/ppt/evaluatorEngine.ts').computeGrade(total,6,['Invented eligibility violation'],'ai_genai');assert.equal(grade,total>=88?'Strong Pitch 🏆':total>=72?'Promising ✅':total>=50?'Needs Iteration ⚠️':'Major Concerns 🚨');
+});
+for(const total of [54,55,71,72,84,85])test('Challenge local grade boundary '+total,async()=>{
+ let remaining=total;const values=[25,25,30,20].map(cap=>{const value=Math.min(remaining,cap);remaining-=value;return value});
+ const setup=presentationSetup({pipeline:'challenge',output:challengeOutput(SOURCE,values)});const response=await setup.challenge();assert.equal(response.status,200);assert.equal(response.body.submission.grade,total>=85?'Mastery 🏆':total>=72?'Strong Contender 🚀':total>=55?'Developing 💡':'Needs Revision 🛠️');
+});
+test('Challenge only accepts rule-grounded violations and retains verified organizer rules',async()=>{
+ const output=challengeOutput(SOURCE);output.formatViolations=[{text:'Explain how the required validation will be supplied.',quote:SOURCE,ruleQuote:'Supply a validation method'}];
+ const setup=presentationSetup({pipeline:'challenge',output});setup.state.tables.weekly_challenges[0].additional_rules='Supply a validation method';const response=await setup.challenge();assert.equal(response.status,200);assert.equal(response.body.submission.format_violations.length,1);assert(setup.state.calls[0].body.contents[0].parts[0].text.includes('Supply a validation method'));
+});
+test('Challenge hardened adapter never fetches an arbitrary host and preserves >6 pages',async()=>{
+ let fetches=0;const loader=harness({}, {fetch:async()=>{fetches++;throw Error('Unexpected network')}});const result=await loader.load('src/lib/challenges/challengeExtractor.ts').extractChallengePresentationFromUrl('https://127.0.0.1/private');assert.equal(result.success,false);assert.equal(fetches,0);
+});
+test('PPT request-wide deadline and PDF degradation never grant another provider budget',async()=>{
+ let now=0,calls=0;const loader=harness({}, {Date:class extends Date{static now(){return now}},fetch:async()=>{calls++;now=30000;return new Response('',{status:503})}});
+ const context={deadlineAt:50000,attempts:0};const {makePitchPdf}=require('./fixtures/pitch-pdf.cjs');
+ await assert.rejects(loader.load('src/lib/ppt/evaluatorEngine.ts').runPitchDeckEvaluation('Title','open',SOURCE,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'},30000,context),e=>e.code==='deadline_exceeded');assert.equal(calls,1);assert.equal(context.providerDeadlineAt,30000);
+});
+test('PDF parent cancellation destroys parser state and prevents a scored continuation',async()=>{
+ const abort=new AbortController();let destroyed=0;
+ const document={numPages:1,loadingTask:{async destroy(){destroyed++}},getPage:()=>new Promise(()=>{})};
+ const loader=harness({unpdf:{getDocumentProxy:async()=>document}});const pending=loader.load('src/lib/ppt/presentationExtractor.ts').extractTextFromPDF(Buffer.from('%PDF-fixture'),'linked_pdf',5000,abort.signal);abort.abort();assert.equal((await pending).success,false);assert(destroyed>=1);
+});
+for(const pipeline of ['ppt','challenge'])test(pipeline+' malformed persisted category data cannot confirm a new score',async()=>{
+ const column=pipeline==='ppt'?'score_tech':'score_architecture';const malformed=row=>({...row,[column]:null});
+ const setup=presentationSetup({pipeline,afterMutation(q,rows){if((pipeline==='ppt'&&q.operation==='update'&&q.payload.status==='completed')||(pipeline==='challenge'&&q.operation==='insert'))return{data:malformed(rows[0]),error:null}},queryOverride(q,state){if(q.operation==='select'&&q.columns?.includes('total_score')&&q.filters.some(f=>f.key==='id'))return{data:malformed(state.tables[q.table][0]),error:null}}});
+ const result=await setup[pipeline]();assert.equal(result.body.code,'persistence_uncertain');assert.equal(result.body.result,null);assert.equal(setup.state.calls.length,1);assert.equal(setup.state.tables[pipeline==='ppt'?'team_ppt_evaluations':'challenge_submissions'][0].status,'completed');
+});
+test('PPT failed cleanup response identity must match the intended record',async()=>{
+ const setup=presentationSetup({provider:async()=>new Response('',{status:403}),queryOverride(q){if(q.operation==='update'&&q.payload.status==='failed')return{data:[{id:OTHER}],error:null}}});
+ const result=await setup.ppt();assert.equal(result.body.code,'persistence_uncertain');assert.equal(setup.state.tables.team_ppt_evaluations[0].status,'evaluating');
+});

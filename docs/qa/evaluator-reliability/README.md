@@ -1,8 +1,8 @@
 # Mission 05 — retention and evaluator reliability QA
 
-Status: **retention and PR A implemented offline; PR B outstanding; production release blocked on operational evidence and explicit approval**. This is not the complete Mission 05 release candidate. See the PR A checkpoint below for its separate inventory and validation.
+Status: **retention, PR A and PR B implemented and validated offline; production release remains blocked on operational evidence and separate explicit approval**. The dated checkpoints below preserve their original evidence; the PR B section records the complete 60-case offline candidate, final inventories and current limitations. This is not a production-ready release.
 
-Base: latest main independently fetched and verified October 23, 2026: `83a9fa3187715dbb0f8a0104e97d492cd73e3a50`. Branch: `fix/expired-rate-limit-retention`. The separate retention draft is a prerequisite for the approved evaluator sequence. PR #58 and its branch are untouched.
+Main baseline, independently reverified October 24, 2026: `83a9fa3187715dbb0f8a0104e97d492cd73e3a50`. Draft sequence: retention #60 → Idea #61 → PPT/Challenge PR B. Current branch: `fix/presentation-evaluation-outcomes`. The retention draft is a prerequisite for new evaluator namespaces.
 
 ## Retention PR #60 inventory — seven files
 
@@ -14,7 +14,7 @@ Base: latest main independently fetched and verified October 23, 2026: `83a9fa31
 6. `docs/qa/evaluator-reliability/README.md`: this QA record and release/rollback gates.
 7. `docs/qa/evaluator-reliability/results.json`: machine-readable results and outstanding gates.
 
-No UI changes/screenshots, package changes, migrations, environment changes, production writes, paid calls, new schedule, dependencies, accounts or infrastructure. Evaluator screenshots and the 60-case matrix remain requirements of A/B, not claimed results here.
+Retention PR only: no UI changes/screenshots, package changes, migrations, environment changes, production writes, paid calls, new schedule, dependencies, accounts or infrastructure. Evaluator screenshots and matrix observations appear in the later A/B checkpoints.
 
 ## Behavior and precise retention semantics
 
@@ -120,3 +120,83 @@ PR #60's real cron health, deployed cleanup permissions, legacy review, maximum 
 Before any release: complete/review B, verify the then-current main and real PostgreSQL 17/Supabase/PostgREST behavior under separately authorized safe conditions, verify server-only key/model entitlement and trusted proxy identity, and obtain merge/deployment approval. No real mutation test, paid model smoke, environment change, demo setup, production deletion or deployment occurred. A successful build/preview or mocked concurrency test cannot replace those gates.
 
 Rollback must preserve verified identity and fail-closed security. Prefer a separately reviewed temporary unavailable endpoint or targeted quality revert; do not blindly restore body-ID impersonation, heuristic substitution or racy counters. Metadata is additive; retain history and do not reset counters or rewrite outcomes. If retention is disabled, block new namespaces until an approved procedure is restored. No rollback action against production is authorized here.
+
+## PR B — Trustworthy PPT/Challenge Outcomes & Processing Recovery
+
+October 24, 2026. Branch `fix/presentation-evaluation-outcomes`, stacked on draft #61 at `0861c28746f462e2f64bcdb0ad0ac703c533e5f7`. This section supersedes earlier checkpoint statements that B or its 44 fixtures were pending. The approved offline implementation and final validation are complete; production release remains blocked. Do not merge any of the three dependent drafts.
+
+### Exact PR B inventory — 24 files relative to PR #61
+
+1. `src/app/api/teams/[id]/ppt-evaluate/route.ts`
+2. `src/lib/ppt/evaluatorEngine.ts`
+3. `src/lib/ppt/analysisMetadata.ts`
+4. `src/lib/ppt/presentationExtractor.ts`
+5. `src/components/PPTEvaluatorTab.tsx`
+6. `src/app/api/challenges/[slug]/evaluate/route.ts`
+7. `src/lib/challenges/challengeExtractor.ts`
+8. `src/lib/challenges/challengeEvaluatorEngine.ts`
+9. `src/app/challenges/[slug]/page.tsx`
+10. `src/app/challenges/[slug]/submissions/[submissionId]/page.tsx`
+11. `src/lib/ai/geminiClient.ts`
+12. `src/lib/evaluator/evaluationContract.ts`
+13. `src/lib/evaluator/evaluatorBudgetGuard.ts`
+14. `scripts/test-ppt-vision.cjs`
+15. `scripts/test-evaluator-reliability.cjs`
+16. `scripts/fixtures/evaluator-benchmarks.cjs`
+17. `scripts/test-evaluator-reliability-browser.cjs`
+18. `docs/plans/2026-10-23-evaluator-reliability-quality.md`
+19. `docs/qa/evaluator-reliability/README.md`
+20. `docs/qa/evaluator-reliability/results.json`
+21. `docs/qa/evaluator-reliability/team-visual-1440.png`
+22. `docs/qa/evaluator-reliability/team-text-390.png`
+23. `docs/qa/evaluator-reliability/challenge-failure-390.png`
+24. `docs/qa/evaluator-reliability/challenge-text-1440.png`
+
+The three shared source files were already in the approved overall manifest. B reuses/extends them for presentation execution and actor+challenge quota grouping; no new source location was added. No history/list API, downloader, image moderation source, package/lockfile, migration, production configuration, PR #58 or Hustle functionality changed. Existing local fixture tooling is reused; no new test environment or infrastructure was provisioned.
+
+### Result and processing contracts
+
+New PPT/Challenge scores require validated AI results and confirmed completed persistence. Completion confirmation checks intended record/actor/team/version, mode, each category score, total and local grade; a malformed category response cannot stand in for a verified save. Terminal-failure cleanup also verifies the returned ID. Three focused regressions first reproduced these malformed-response gaps, then passed after hardening; a save is re-read before any success claim. Provider failure, invalid schemas, unusable text, admission failure or uncertain writes produce no new scorecard. Existing deterministic generators remain compatibility-only exports with no production callers. Historical heuristic or unrecorded modes remain readable and accurately labelled; category metadata conflicts are unverified, not silently interpreted as web development. Matching versioned rubric/caps/labels/modes are required for comparison.
+
+PPT retains native PDF review: one pinned `gemini-3.5-flash-lite` request, optionally followed only after eligible transport/5xx/attempt-timeout failure by one text request if usable text remains. Both share the same two-attempt and 30-second provider budget. Invalid/blocked/permanent/429 outputs cannot evade validation by switching mode. A native result means the actual PDF was supplied, not independently verified implementation or a proven correct visual assessment. Text-only results explicitly do not validate visuals.
+
+PPT generic/custom caps are 25/25/25/25; specialized caps are 25/35/25/15. Challenge remains its distinct 25/25/30/20 rubric. Totals and each rubric's existing grade thresholds are local. Every deduction validates cap-minus-score arithmetic plus evidence. Text quotes must match source; PDF references must address real physical pages and include observations. Native observations are not semantically independently verified. Empty strengths do not become invented praise. Supported custom JSON is exactly four distinct criteria worth 25 points each; other rules/weights fail explicitly. Only actual authoritative Challenge rules can justify its format violations.
+
+Challenge URL ingestion delegates to the existing HTTPS allowlist, redirect validation, public-DNS pinning and streamed-byte safeguards. No arbitrary fetch remains. Both presentation paths cap PDFs at 8 MB/60 physical pages/120,000 extracted characters, with existing bounded text exports. Parsing is at most five seconds within up to 15 seconds ingestion and remaining work budget. Blank/image-only pages survive PPT ingestion; Challenge requires usable text, never synthesizes six pages and never claims visual review. The 8 MB parser cap does not establish deployed upload ingress/provider limits. Uploaded bytes remain ephemeral; no PDF base64/binary is persisted.
+
+Bearer identity and membership/owner/admin decisions are verified before service writes. Challenge accepts exact/canonical slug or UUID only, active status and a valid current window; invalid team/mode cannot silently become solo. Read/query errors fail closed, including counts and versions. Actor/target 75-second slots and 24-hour token reservations use the previously read-only verified atomic RPC. PPT adds the conservative 15/team counter plus its existing rolling history check. Challenge adds 5/verified-user/challenge independently of solo/team target, plus rolling history. Fixed reservation counters are not exact rolling failed-attempt measurements, usage billing or refunds. Partial reservations and uncertain responses remain consumed; retries are bounded, not exactly-once.
+
+Routes share a request-entry deadline: preflight up to five seconds, work up to 50 seconds, then at most the remaining five seconds for persistence/reconciliation, under the existing 60-second handler. Every database operation has an abort/deadline bound. Once a PPT ID is allocated, failures attempt a conditional `evaluating -> failed` transition without overwriting completed rows. An uncertain completion re-reads the same authorized ID/request metadata before success; unresolved completion/cleanup returns 409 `persistence_uncertain` and the known ID. A hard termination cannot run catch/finally; the UI labels aged rows interrupted/unconfirmed. An explicit authorized POST can recover at most three rows older than 120 seconds with status/team/id/timestamp CAS, then must recheck active state. A remaining backlog or lost race stops. No repair writes occur from GET, PDF reporting or a scheduler.
+
+The exact 42703/PGRST204 + track-column branch retries initialization once without that optional column, never retries unknown insert outcomes and always preserves resolved track/schema/rubric metadata in JSON. Challenge inserts only completed results after AI validation, verifies exactly the intended record and re-reads uncertain saves without calling the model again. Version serialization uses conservative active admission slots and verified reads, not an unimplemented unique constraint.
+
+Inputs/tokens survive uncertainty. Account changes clear old private state and ignore late responses. Pending inputs cannot change; Challenge preserves its existing waiting-panel behavior with honest text. Explicit later attempts are user actions after history guidance, never automatic retries. No success celebration/navigation occurs before a completed record is confirmed. Sharing from the approved Challenge result page is limited to new confirmed versioned text-only records and includes the method/limitations; it reuses existing Dialog/buttons rather than the unrelated modal that claims a verified multi-model jury. That separate source file remains unchanged.
+
+### Verification and runtime evidence
+
+The commands in PR A's verification section now execute all pipelines. The complete suite includes **698 passing tests, zero failures/cancellations/skips**: 301 evaluator regressions (including all 60 matrix cases), 50 presentation extraction/mode/rubric tests, 38 cleanup cases and 309 retained admin/email compatibility cases. Retirement tests deliberately replace former automatic-heuristic expectations with scoreless failure assertions; ingestion, page preservation, image modalities, strict rubric and legacy rendering checks remain. Tests use real routes/engines with synthetic transport/DB adapters that reject unexpected external requests.
+
+Coverage includes missing/failed Auth, owner/member/admin/visitor authorization, exact challenge/window/team checks, malformed/denied atomic results, duplicate/concurrent admission, actor+challenge quota grouping, failed rolling/version reads, score types/ranges/grade boundaries, false totals/grades, non-grounded feedback/eligibility claims, PDF-to-text shared deadlines, native safety/invalid-output stop conditions, unknown saves with successful reconciliation, zero-row completion, failed cleanup, concurrent terminal transitions and bounded stale recovery. Mock CAS/RPC races do not establish deployed PostgreSQL behavior. No paid provider or real database mutation tests ran.
+
+The actual Idea/PPT/Challenge components/CSS ran in Edge at **390 and 1440px**, with retained drafts/tokens, no failure score/celebration, confirmed native/text modes, interrupted processing, account switching, default-deny team controls, legacy/unrecorded method labels, qualified sharing and no horizontal overflow. The share dialog is fully closed before the result capture. All six total Mission 05 images were visually inspected. The four B artifacts are:
+
+| Evidence | Purpose |
+| --- | --- |
+| [Team visual 1440](team-visual-1440.png) | Native PDF mode and physical-page feedback |
+| [Team text 390](team-text-390.png) | Text-only disclosure and topic guidance |
+| [Challenge failure 390](challenge-failure-390.png) | Retained input, explicit failure, no score/celebration |
+| [Challenge text 1440](challenge-text-1440.png) | Local total 20, honest method, grounded topic feedback |
+
+All **60/60 synthetic mock-response contracts** executed: 16 Idea, 32 PPT, 12 Challenge; **45 controlled valid mock responses accepted, 15 deliberately invalid evidence responses rejected without scores**. Source/mode/attempts/arithmetic/codes and observed test timing are copied from actual test artifacts in results.json. Native fixtures supply synthetic PDF bytes with the case source on the actual page. Timings are local fixture execution, not live latency. This matrix does **not** establish live model accuracy, quality ranking, repeatability, hallucination rates or resistance to real prompt injection. In particular, adversarial rejections test fabricated evidence anchors, not whether a real model ignores the embedded instructions.
+
+Final standalone TypeScript passed serially after the final production build; scoped lint passed with zero errors/warnings. The final source production build passed all 44 HTML checks with 39 anonymous fixture reads, no writes or external data. Existing middleware/Sentry convention warnings remain unchanged. Exact statuses are in results.json. Run standalone TypeScript serially after Next regenerates .next/types. Existing build warnings about middleware/Sentry remain outside scope. The safe production fixture strips real service/provider/email keys and uses loopback anonymous public reads/offline fonts; it does not deploy or exercise live evaluator authentication, model access or database mutations.
+
+### Release prerequisites, retention and rollback
+
+All #60/#61 operational gates remain: verify actual daily Vercel cron success, correctly authenticated deployed GET maintenance path, service-role SELECT/DELETE permissions and clocks, legacy47 review, key-format compatibility and maximum backlog clearance within 100 rows x five batches / five seconds. Retention physical deletion is only the next successful existing daily run after `reset_time < fixed(now - 60s)`; selection and deletion both recheck it. Complete means a successful empty final probe for that cutoff only. Partial/failed/skipped cleanup is not established retention and blocks release until reconciled. There is no strict physical-deletion SLA or immediate-erasure guarantee. Account erasure, HMAC key rotation and retention obligations require explicit reconciliation before enabling evaluator namespaces. No keys/IPs/hashes/tokens are logged.
+
+No successful production cron/deletion, real Postgres17/Supabase/PostgREST concurrency/permissions/CAS integration, safe account-erasure procedure or live Gemini entitlement/quality/latency was established here. Deployed ingress limits, trusted proxy identity and performance remain unverified. A Vercel build, local mock or PostgreSQL18 result cannot substitute for those gates. No demo target, accounts, new credentials, scheduler, dependencies or infrastructure were created. The existing model/output ceilings are bounded but reservations are not a monetary spending guarantee.
+
+**Separate approval is required before any production deletion, merge or deployment. Merging #60 or a cleanup-dependent application PR may automatically deploy production deletion code; that effect is not authorized.** Do not apply any migration or alter production configuration to make these drafts pass.
+
+Rollback is application-only through a separately reviewed change. B can be withdrawn independently of A; retain history and additive JSON metadata. Do not restore SSRF, forged identity writes, numeric fallback or fail-open admission in a blind revert; keep affected evaluator routes unavailable if needed while a safe targeted rollback is reviewed. No DB rollback or historical rewrite is required. Do not reset/refund limiter reservations to force retries. Disabling retention blocks new namespaces until a compliant approved procedure exists and cannot restore already deleted keys. No production rollback was executed or authorized.

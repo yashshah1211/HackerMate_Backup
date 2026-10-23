@@ -35,12 +35,15 @@ export async function extractTextFromPDF(
   pdfBuffer: Buffer,
   source: PresentationPdf["source"] = "linked_pdf",
   timeoutMs: number = PRESENTATION_LIMITS.parseMs,
+  signal?: AbortSignal,
 ): Promise<ExtractionResult> {
+  if (signal?.aborted || timeoutMs <= 0) return failed("Presentation processing was interrupted.");
   if (pdfBuffer.length > PRESENTATION_LIMITS.pdfBytes) return failed("PDF exceeds the 8 MB limit.");
   if (pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") return failed("Invalid PDF document.");
   let document: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
   let expired = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
   const parse = async (): Promise<ExtractionResult> => {
     document = await getDocumentProxy(new Uint8Array(pdfBuffer), { useSystemFonts: false, enableXfa: false, verbosity: 0, stopAtErrors: true });
     if (expired) { await document.loadingTask.destroy(); return failed("PDF parsing timed out."); }
@@ -80,12 +83,15 @@ export async function extractTextFromPDF(
   };
   try {
     return await Promise.race([parse(), new Promise<ExtractionResult>(resolve => {
-      timer = setTimeout(() => { expired = true; void document?.loadingTask.destroy().catch(() => {}); resolve(failed("PDF parsing timed out.")); }, Math.max(1, timeoutMs));
+      onAbort = () => { expired = true; void document?.loadingTask.destroy().catch(() => {}); resolve(failed("PDF processing timed out or was interrupted.")); };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) onAbort();
+      timer = setTimeout(onAbort, Math.max(1, Math.min(timeoutMs, PRESENTATION_LIMITS.parseMs)));
     })]);
   } catch {
     // Do not log parser errors: they may include document data.
     return failed("PDF parsing failed. Check that the document is valid and not password protected.");
-  } finally { clearTimeout(timer); }
+  } finally { clearTimeout(timer); if (onAbort) signal?.removeEventListener("abort", onAbort); }
 }
 
 function fromText(raw: string): ExtractionResult | undefined {
@@ -97,11 +103,12 @@ function fromText(raw: string): ExtractionResult | undefined {
   return { success: true, totalSlidesDetected: slides.length, slides, rawDocumentText: slides.map(slide => `[Slide ${slide.slideNumber}]\n${slide.rawText}`).join("\n\n") };
 }
 
-export async function extractPresentationFromUrl(pptUrl: string): Promise<ExtractionResult> {
+export async function extractPresentationFromUrl(pptUrl: string, timeBudgetMs: number = PRESENTATION_LIMITS.ingestionMs, signal?: AbortSignal): Promise<ExtractionResult> {
+  if (signal?.aborted || timeBudgetMs <= 0) return failed("Presentation processing was interrupted.");
   const check = validatePresentationUrl(pptUrl);
   if (!check.valid || !check.url) return failed(check.error || "Invalid presentation URL.");
   const url = check.url;
-  const deadline = Date.now() + PRESENTATION_LIMITS.ingestionMs;
+  const deadline = Date.now() + Math.min(PRESENTATION_LIMITS.ingestionMs, timeBudgetMs);
   const slidesId = /^(?:docs|slides)\.google\.com$/.test(url.hostname) ? url.pathname.match(/^\/presentation\/d\/(?!e(?:\/|$))([a-zA-Z0-9_-]+)/)?.[1] : undefined;
   const driveId = url.hostname === "drive.google.com" ? url.pathname.match(/^\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || url.searchParams.get("id") : undefined;
   if (driveId && !/^[a-zA-Z0-9_-]+$/.test(driveId)) return failed("Invalid Google Drive file ID.");
@@ -115,12 +122,13 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
   let textFallback: ExtractionResult | undefined;
   try {
     for (const candidate of pdfCandidates) {
-      if (Date.now() >= deadline) break;
+      if (signal?.aborted || Date.now() >= deadline) break;
       try {
         const result = await downloadPresentation(candidate.url, PRESENTATION_LIMITS.pdfBytes, deadline);
+        if (signal?.aborted || Date.now() >= deadline) return failed("Presentation processing was interrupted.");
         if (result.bytes.subarray(0, 5).toString("ascii") === "%PDF-") {
           // Parse failure/oversize/page limits must not bypass validation via a text fallback.
-          return await extractTextFromPDF(result.bytes, candidate.source, Math.min(PRESENTATION_LIMITS.parseMs, deadline - Date.now()));
+          return await extractTextFromPDF(result.bytes, candidate.source, Math.min(PRESENTATION_LIMITS.parseMs, deadline - Date.now()), signal);
         }
         if (result.contentType.includes("application/pdf")) return failed("The link did not return a valid PDF.");
         if (!id && /text\/(html|plain)/.test(result.contentType)) {
@@ -136,9 +144,10 @@ export async function extractPresentationFromUrl(pptUrl: string): Promise<Extrac
     // Existing Google text/pub fallbacks, now bounded and with validated redirects.
     if (id) {
       for (const format of ["export/txt", "pub"]) {
-        if (Date.now() >= deadline) break;
+        if (signal?.aborted || Date.now() >= deadline) break;
         try {
           const result = await downloadPresentation(`https://docs.google.com/presentation/d/${id}/${format}`, PRESENTATION_LIMITS.textBytes, deadline);
+          if (signal?.aborted || Date.now() >= deadline) return failed("Presentation processing was interrupted.");
           if (!/text\/(plain|html)/.test(result.contentType)) continue;
           const raw = result.bytes.toString("utf8");
           const extracted = fromText(result.contentType.includes("text/html") ? stripHtmlToText(raw) : raw);
