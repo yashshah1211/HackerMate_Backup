@@ -29,7 +29,7 @@ async function mount(t, options = {}) {
           return Promise.resolve(result).then(resolve, reject);
         } };
     },
-    async rpc(name, args) { writes.push({ name, args }); return server.result ?? { data: 'fixture-team', error: null }; },
+    async rpc(name, args) { writes.push({ name, args }); return server.result ?? { data: name === 'reject_team_join_request' ? args.p_request_id : 'fixture-team', error: null }; },
   };
   const passthrough = ({ children }) => React.createElement('div', null, children);
   const Component = harness({
@@ -59,8 +59,7 @@ for (const data of [[], null, [{ id: 'wrong' }], [{ id: 'request-1' }, { id: 're
 });
 test('decline confirms precisely the pending request on this team', async t => {
   const ui = await mount(t); await ui.flush(() => ui.buttons('Decline')[0].click());
-  assert.deepEqual(ui.writes[0].filters, { id: 'request-1', team_id: 'fixture-team', status: 'pending' });
-  assert.equal(ui.writes[0].columns, 'id'); assert.deepEqual(ui.toasts, [['Join request rejected.', 'info']]);
+  assert.deepEqual(JSON.parse(JSON.stringify(ui.writes[0])), { name: 'reject_team_join_request', args: { p_request_id: 'request-1' } }); assert.deepEqual(ui.toasts, [['Join request rejected.', 'info']]);
 });
 for (const data of [null, '', [], {}, 'another-team']) test(`acceptance requires intended team ID: ${JSON.stringify(data)}`, async t => {
   const ui = await mount(t, { result: { data, error: null } }); await ui.flush(() => ui.buttons('Accept')[0].click());

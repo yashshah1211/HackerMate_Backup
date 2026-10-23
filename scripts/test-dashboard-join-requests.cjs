@@ -79,6 +79,11 @@ async function view(t, options = {}) {
     rpc: async (name, args) => {
       mutations.push({ name, args });
       if (options.rpc) return options.rpc(name, args);
+      if (name === 'reject_team_join_request') {
+        if (options.decline) return options.decline({ filters: { id: args.p_request_id, team_id: TEAM, status: 'pending' } });
+        server.requests = server.requests.filter(r => r.id !== args.p_request_id);
+        return { data: args.p_request_id, error: null };
+      }
       const row = server.requests.find(r => r.id === args.p_request_id);
       assert(row, 'RPC fixture expects a pending request');
       server.members.push({ user_id: row.user_id, role: 'member', profiles: row.profiles });
@@ -166,10 +171,9 @@ test('accept confirms RPC result, removes only that row and refreshes capacity',
   assert.equal(ui.toasts.filter(t => t.type === 'success').length, 1);
 });
 
-test('decline only deletes the pending request for its team and confirms the returned row', async t => {
+test('decline uses the authorized rejection RPC and confirms the intended request ID', async t => {
   const ui = await view(t); await ui.click('Decline');
-  assert.equal(ui.mutations.length, 1); assert.equal(ui.mutations[0].columns, 'id');
-  assert.deepEqual(ui.mutations[0].filters, { id: 'a', team_id: TEAM, status: 'pending' });
+  assert.equal(ui.mutations.length, 1); assert.deepEqual(JSON.parse(JSON.stringify(ui.mutations[0])), { name: 'reject_team_join_request', args: { p_request_id: 'a' } });
   assert.equal(ui.rows().length, 1); assert.equal(ui.toasts[0].type, 'info');
 });
 
@@ -205,7 +209,7 @@ test('network rejection unlocks controls and supports a fresh retry', async t =>
 
 test('full teams disable accept while decline remains available', async t => {
   const ui = await view(t, { server: { max: 1 } }); assert.equal(ui.button('Accept').disabled, true);
-  assert.match(ui.text(), /Team full/); await ui.click('Decline'); assert.equal(ui.mutations[0].mode, 'delete');
+  assert.match(ui.text(), /Team full/); await ui.click('Decline'); assert.equal(ui.mutations[0].name, 'reject_team_join_request');
 });
 
 for (const change of ['owner', 'capacity', 'membership', 'pending', 'identity']) {
@@ -373,4 +377,9 @@ test('React Strict Mode and subsequent reloads emit only one prompt impression p
   assert.equal(promptEvents(ui).length, 1);
   await ui.reload(); await ui.reload();
   assert.equal(promptEvents(ui).length, 1); assert.deepEqual(ui.mutations, []);
+});
+
+for (const data of [null, [], {}, 'wrong-request', ['a']]) test(`malformed rejection result ${JSON.stringify(data)} cannot remove a dashboard row`, async t => {
+  const ui = await view(t, { decline: async () => ({ data, error: null }) }); await ui.click('Decline');
+  assert.equal(ui.rows().length, 2); assert.equal(ui.toasts.some(t => t.type === 'info'), false);
 });

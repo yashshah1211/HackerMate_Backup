@@ -1,0 +1,17 @@
+==========================================================
+🛡️   HACKERMATE CORE PAGES & QUERY AUDIT SMOKE TEST
+==========================================================
+
+--- 1. STATIC CODEBASE QUERY AUDIT ---
+--- CORE PAGES SMOKE TEST SUMMARY ---
+Static Code Audit    | PASS ✅     | All client files use explicit safe column projections (0 wildcard/email leaks)
+/dashboard           | PASS ✅     | User: "Synthetic builder 1", Network Count: 3
+/profile/[id]        | PASS ✅     | Successfully loaded 3/3 synthetic profiles: Synthetic builder 1, Synthetic builder 2, Synthetic builder 3
+/developers          | PASS ✅     | Loaded 3 builders cleanly
+/connections         | PASS ✅     | Loaded 3 partner profiles
+/teams/[id] Roster   | PASS ✅     | Loaded 1 team members: Synthetic builder 1
+Certificates Query   | PASS ✅     | Verified query schema on 0 badges
+PPT Evaluations      | PASS ✅     | Evaluations query schema verified
+
+==========================================================
+✅ SMOKE TEST PASSED: All static audit and page query checks passed cleanly!

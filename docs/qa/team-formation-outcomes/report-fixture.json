@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-23T12:00:00.000Z",
+  "start": "2026-09-18T00:00:00.000Z",
+  "end": "2026-10-16T00:00:00.000Z",
+  "coverageStart": "2026-09-01T00:00:00.000Z",
+  "coverage": "complete",
+  "cleanupAt": "2026-10-23T03:30:00.000Z",
+  "endedAt": null,
+  "requests": { "submitted": 10, "applicants": 8, "mature": 10, "immature": 0, "accepted": 3, "rejected": 2, "superseded": 1, "unclassified": 0, "pending": 4, "responded7": 4, "converted": 4, "unexplained": 0, "decision_p50_hours": 48, "decision_p90_hours": 144 },
+  "backlog": { "pending": 5, "unknown_age": 1, "over7": 3, "over14": 2, "age_p50_days": 9, "age_p90_days": 20 },
+  "memberships": { "episodes": 7, "people": 6, "creators": 2, "joiners": 5, "unattributed": 0 },
+  "activation": { "registrations": 12, "mature": 12, "immature": 0, "activated7": 4, "creators7": 1, "joiners7": 3, "unattributed7": 0 },
+  "removals": 1,
+  "collaboratingTeams": 3,
+  "baselineFacts": 2,
+  "excludedAccounts": 5,
+  "qualityIssues": 0,
+  "warnings": ["Synthetic reporting fixture only. These are not HackerMate production statistics.", "Erased accounts are excluded. Historical acceptance and legacy first-team history are unknown."]
+}
