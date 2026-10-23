@@ -1,0 +1,210 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Isolated real-component browser checks, never live Supabase. */
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const { createServer } = require('node:http');
+const fs = require('node:fs/promises');
+const { existsSync, statSync } = require('node:fs');
+const path = require('node:path');
+const { build } = require('esbuild');
+const postcss = require('postcss');
+const tailwind = require('@tailwindcss/postcss');
+const { chromium, expect } = require('@playwright/test');
+const ROOT = path.resolve(__dirname, '..');
+const BASE = '873b117406110e373f48c37a85082c738d52cae9';
+const evidence = path.join(ROOT, 'docs/qa/first-team-conversion');
+const adapters = {
+  'next/link': `import React from 'react';export default function Link({href,children,...props}){return <a {...props} href={href} onClick={e=>{props.onClick?.(e);if(e.defaultPrevented)return;e.preventDefault();history.pushState(null,'',href);window.dispatchEvent(new PopStateEvent('popstate'));}}>{children}</a>}`,
+  'next/navigation': `export const usePathname=()=>location.pathname;`,
+  '@/components/AuthGuard': `export default function AuthGuard({children}){return children;}`,
+  '@/lib/posthog': `export function trackEvent(name,properties){if(new URLSearchParams(location.search).has('analytics-failure'))throw Error('Synthetic analytics failure');window.__qa.events.push({name,properties});}`,
+  '@/lib/supabase': `
+    Date.now=()=>Date.parse('2026-10-19T12:00:00Z');
+    window.__qa={queries:[],writes:[],events:[],fallbackRenders:[]};
+    const params=new URLSearchParams(location.search);
+    const team=(id,name,extra={})=>({id,name,owner_id:'owner-'+id,description:'Building accessible tools for students. Looking for thoughtful collaborators.',skills:['React'],college:'QA Campus',hackathon_name:null,max_members:4,is_recruiting:true,created_at:'2026-10-18T00:00:00Z',team_members:[{id:'m-'+id}],team_hackathons:[],...extra});
+    const h={id:'event',name:'QA Design Sprint',archived:true,status:'approved',end_date:'2026-11-01'};
+    const records=[team('stale','Campus Tools'),team('active','Open Source Builders',{skills:['React','Python'],created_at:'2026-05-01T00:00:00Z'}),
+      team('unknown','Weekend Makers',{created_at:'2026-09-01T00:00:00Z'}),
+      team('less-relevant','Python Studio',{skills:['Python'],created_at:'2026-10-17T00:00:00Z'}),
+      team('archived','Archived Event Team',{hackathon_id:h.id,hackathons:h}),
+      team('ended','Concluded Event Team',{team_hackathons:[{hackathons:{id:'past',name:'QA Past Hackathon',end_date:'2026-10-18'}}]}),
+      team('full','Full Team',{max_members:1}),team('closed','Closed Team',{is_recruiting:false})];
+    export const supabase={auth:{getUser:async()=>({data:{user:params.has('signedout')?null:{id:'viewer'}},error:null})},from(table){
+      const q={table};const chain={select(columns){q.columns=columns;return this},eq(){return this},single(){return this},in(column,ids){q.ids=ids;return this},
+        order(){return this},abortSignal(){return this},then(resolve,reject){window.__qa.queries.push(q);
+          return Promise.resolve().then(()=>{if(table==='teams'){
+            if(params.has('list-error'))return{data:null,error:{message:'Synthetic team read denied'}};
+            return{data:records.map(t=>{const copy=JSON.parse(JSON.stringify(t));if(!q.columns.includes('teams_hackathon_id_fkey'))delete copy.hackathons;return copy}),error:null};}
+          if(table==='profiles'&&q.columns==='skills')return{data:{skills:params.has('no-skills')?[]:['React']},error:null};
+          if(table==='profiles'&&q.columns==='id, last_seen_at'){
+            const result=()=>{
+            if(params.has('denied'))return{data:null,error:{code:'42501'}};
+            if(params.has('transport'))throw Error('Synthetic activity network failure');
+            if(params.has('missing'))return{data:[],error:null};
+            return{data:[{id:'owner-active',last_seen_at:'2026-10-18T11:00:00+00:00'},{id:'owner-stale',last_seen_at:'2026-06-01T00:00:00Z'},
+              {id:'owner-unknown',last_seen_at:null},{id:'owner-less-relevant',last_seen_at:'2026-10-19T10:00:00Z'}],error:null};};
+            if(params.has('defer'))return new Promise((resolve,reject)=>{window.__qa.finishActivity=()=>{try{resolve(result())}catch(error){reject(error)}}});
+            return result();}
+          throw Error('Unexpected fixture query '+table+' '+q.columns);
+        }).then(resolve,reject)}};return chain;}};`,
+};
+const entry = `import React,{useEffect,useState}from'react';import{createRoot}from'react-dom/client';
+ import TeamsPage from'@/app/teams/page';
+ function App(){const[route,setRoute]=useState(location.pathname);useEffect(()=>{const change=()=>setRoute(location.pathname);window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[]);
+ return route==='/teams'?<TeamsPage/>:<p>Fixture destination: {route}</p>}
+ new MutationObserver(()=>{if(document.getElementById('root').textContent.includes('has been identified in these results'))window.__qa.fallbackRenders.push('visible')}).observe(document.getElementById('root'),{subtree:true,childList:true,characterData:true});
+ createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);`;
+async function bundle(before) {
+  const result = await build({ stdin: { contents: entry, loader: 'tsx', resolveDir: ROOT }, bundle: true, write: false, jsx: 'automatic', platform: 'browser',
+    define: { 'process.env.NODE_ENV': '"test"' }, plugins: [{ name: 'offline-team-discovery', setup(builder) {
+      builder.onResolve({ filter: /^(@\/|next\/)/ }, args => {
+        if (adapters[args.path]) return { path: args.path, namespace: 'fixture' };
+        const target = path.join(ROOT, 'src', args.path.slice(2));
+        const file = [target, target + '.tsx', target + '.ts', target + '/index.ts'].find(file => existsSync(file) && statSync(file).isFile());
+        assert(file, 'Unresolved source: ' + args.path); return { path: file };
+      });
+      builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: adapters[args.path], loader: 'tsx', resolveDir: ROOT }));
+      if (before) builder.onLoad({ filter: /teams[\\/](TeamsView\.tsx|useTeamsData\.ts)$/ }, args => ({
+        contents: execFileSync('git', ['show', BASE + ':' + path.relative(ROOT, args.path).replaceAll('\\', '/')], { cwd: ROOT, encoding: 'utf8' }),
+        loader: 'tsx', resolveDir: path.dirname(args.path),
+      }));
+    } }] });
+  return result.outputFiles[0].text;
+}
+(async () => {
+  await fs.mkdir(evidence, { recursive: true });
+  const [before, after, source] = await Promise.all([bundle(true), bundle(false), fs.readFile(path.join(ROOT, 'src/app/globals.css'), 'utf8')]);
+  const css = (await postcss([tailwind()]).process(source, { from: path.join(ROOT, 'src/app/globals.css') })).css;
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://127.0.0.1');
+    if (url.pathname === '/app.js') { res.setHeader('Content-Type', 'text/javascript'); return res.end(url.searchParams.has('before') ? before : after); }
+    if (url.pathname === '/app.css') { res.setHeader('Content-Type', 'text/css'); return res.end(css); }
+    res.setHeader('Content-Type', 'text/html');res.end('<!doctype html><html class="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"><style>:root{--font-ui:Arial;--font-display-face:Arial;--font-code:monospace}*{animation:none!important;transition:none!important}</style></head><body><div id="root"></div><script src="/app.js' + (url.searchParams.has('before') ? '?before=1' : '') + '"></script></body></html>');
+  });
+  let browser;const checks = [], external = [];
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch(process.env.QA_CHROMIUM_PATH
+      ? { executablePath: process.env.QA_CHROMIUM_PATH, headless: true }
+      : process.platform === 'win32' ? { channel: 'msedge', headless: true } : { headless: true });
+    for (const width of [320, 390, 768, 1440]) {
+      const name = String(width);
+      const context = await browser.newContext({ viewport: { width, height: width === 1440 ? 1000 : 844 }, isMobile: width < 500, hasTouch: width < 500, reducedMotion: 'reduce' });
+      await context.route('**/*', route => {
+        if (new URL(route.request().url()).origin !== origin) { external.push(route.request().url()); return route.abort(); }
+        return route.continue();
+      });
+      const page = await context.newPage(), errors = [];page.on('pageerror', err => errors.push(err.message));
+      const cards = () => page.locator('a[href^="/teams/"]').filter({ hasNotText: /New team|Create a team/ });
+      const ids = () => cards().evaluateAll(nodes => nodes.map(node => node.getAttribute('href').slice(7)));
+      await page.goto(origin + '/teams?before=1'); await expect(cards().first()).toBeVisible();
+      await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(2);
+      assert.deepEqual(await ids(), ['stale', 'unknown', 'active', 'less-relevant']);
+      await page.screenshot({ path: path.join(evidence, `before-${name}.png`), fullPage: true });
+      await page.goto(origin + '/teams');
+      await expect(cards().first()).toHaveText('Open Source Builders');
+      assert.deepEqual(await ids(), ['active', 'less-relevant', 'stale', 'unknown']);
+      await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(2);
+      await expect(page.getByText(/doesn’t guarantee a response/)).toBeVisible();
+      assert(!/last seen|online now|abandoned|2026-10-18T/.test(await page.locator('body').innerText()));
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow ${width}`);
+      await expect(page.getByText('Matches a needed skill: React', { exact: true })).toHaveCount(3);
+      await expect(page.getByText('No listed skills in common yet.', { exact: true })).toHaveCount(1);
+      await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+      await page.screenshot({ path: path.join(evidence, `after-${name}.png`), fullPage: true });
+      assert.deepEqual(await page.evaluate(() => window.__qa.events), []);
+      assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);
+      const queries = await page.evaluate(() => window.__qa.queries);
+      const activity = queries.filter(q => q.columns === 'id, last_seen_at');assert.equal(activity.length, 1);
+      assert.equal(activity[0].ids.length, 8);assert.equal(new Set(activity[0].ids).size, 8);
+      await page.getByRole('tab', { name: /All teams/ }).click();
+      assert.equal((await ids()).length, 8);await expect(page.getByRole('link', { name: 'Archived Event Team', exact: true })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Concluded Event Team', exact: true })).toBeVisible();
+      const eventFilter = async value => {
+        if (width < 1024) { await page.getByRole('button', { name: 'Filters', exact: true }).click(); await expect(page.getByRole('dialog')).toBeVisible(); }
+        const panel = width < 1024 ? page.getByRole('dialog') : page.locator('aside');
+        assert.equal(await page.locator('#t-event').count(), 1, 'Desktop and sheet filter IDs must be distinct');
+        await panel.getByLabel('Hackathon', { exact: true }).selectOption(value);
+        if (width < 1024) { await page.getByRole('button', { name: /^Show \d+ teams$/ }).click(); await expect(page.getByRole('dialog')).toHaveCount(0); }
+      };
+      await eventFilter('QA Design Sprint');assert.deepEqual(await ids(), ['archived']);
+      await page.getByRole('tab', { name: /Open to join/ }).click();await expect(page.getByText('No open teams match')).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Create a team', exact: true })).toHaveAttribute('href', '/teams/create');
+      await expect(page.getByRole('link', { name: 'Discover builders', exact: true })).toHaveAttribute('href', '/developers');
+      await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+      await page.getByRole('button', { name: 'Show all teams', exact: true }).click();assert.deepEqual(await ids(), ['archived']);
+      await eventFilter('');
+      await page.getByRole('searchbox', { name: 'Search teams', exact: true }).fill('nothing fits');
+      await expect(page.getByText('No teams match', { exact: true })).toBeVisible();
+      await page.getByRole('link', { name: 'Discover builders', exact: true }).focus();await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(origin + '/developers');
+      assert.deepEqual(await page.evaluate(() => window.__qa.events), [], 'Existing empty-state links are not instrumented again');
+      for (const failure of ['denied', 'transport', 'missing']) {
+        await page.goto(origin + '/teams?' + failure + '=1');
+        if (failure !== 'missing') await expect(page.getByRole('status')).toContainText('Owner activity couldn’t be checked');
+        await expect(page.getByText(/has been identified in these results/)).toBeVisible();
+        assert.deepEqual(await ids(), ['stale', 'unknown', 'active', 'less-relevant']);
+        await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(0);
+        assert(!/inactive|unresponsive|abandoned|unwilling/i.test(await page.locator('body').innerText()));
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Fallback overflow ${width}`);
+        if (failure === 'denied') await page.screenshot({ path: path.join(evidence, `fallback-${name}.png`), fullPage: true });
+        const builders = page.getByRole('link', { name: 'Discover builders', exact: true });
+        if (width < 768) assert((await builders.boundingBox()).height >= 44, 'Alternative touch target');
+        await builders.focus(); await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(origin + '/developers');
+        assert.deepEqual(await page.evaluate(() => window.__qa.events), [{ name: 'team_discovery_alternative_selected', properties: { source: 'team_discovery', path: 'builders' } }]);
+        assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);
+      }
+      await page.goto(origin + '/teams');
+      await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(2);
+      await page.getByRole('searchbox', { name: 'Search teams', exact: true }).fill('Campus Tools');
+      await expect(page.getByText(/has been identified in these results/)).toBeVisible();
+      await page.getByRole('link', { name: 'Create a team', exact: true }).focus(); await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(origin + '/teams/create');
+      assert.deepEqual(await page.evaluate(() => window.__qa.events), [{ name: 'team_discovery_alternative_selected', properties: { source: 'team_discovery', path: 'create' } }]);
+      assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);
+      await page.goto(origin + '/teams?no-skills=1');
+      await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(2);
+      await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+      await page.getByRole('searchbox', { name: 'Search teams', exact: true }).fill('Campus Tools');
+      await expect(page.getByText(/Skill relevance can’t be assessed/)).toBeVisible();
+      await page.goto(origin + '/teams?denied=1&analytics-failure=1');
+      await expect(page.getByRole('status')).toBeVisible();
+      await page.getByRole('link', { name: 'Discover builders', exact: true }).click();
+      await expect(page).toHaveURL(origin + '/developers');
+      assert.deepEqual(await page.evaluate(() => window.__qa.events), []);
+      await page.goto(origin + '/teams?signedout=1');await expect(cards().first()).toBeVisible();
+      assert.equal((await page.evaluate(() => window.__qa.queries)).filter(q => q.table === 'profiles').length, 0);
+      await page.goto(origin + '/teams?list-error=1');await expect(page.getByRole('alert')).toContainText('Synthetic team read denied');
+      await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+      assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);assert.deepEqual(errors, []);
+      for (const outcome of ['success', 'missing', 'denied', 'transport']) {
+        await page.goto(origin + '/teams?defer=1&' + outcome + '=1');
+        await expect(cards()).toHaveCount(4);
+        await expect.poll(() => page.evaluate(() => typeof window.__qa.finishActivity)).toBe('function');
+        await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+        assert.deepEqual(await page.evaluate(() => window.__qa.fallbackRenders), [], 'No contextual message before activity settles');
+        assert.deepEqual(await ids(), ['stale', 'unknown', 'active', 'less-relevant'], 'Teams remain available before optional activity');
+        if (outcome === 'success' && width === 390) await page.screenshot({ path: path.join(evidence, 'activity-pending-390.png'), fullPage: true });
+        await page.evaluate(() => window.__qa.finishActivity());
+        if (outcome === 'success') {
+          await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(2);
+          await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+          assert.deepEqual(await page.evaluate(() => window.__qa.fallbackRenders), [], 'Successful relevant activity must never flash a fallback');
+        } else {
+          await expect(page.getByText(/has been identified in these results/)).toBeVisible();
+          if (outcome !== 'missing') await expect(page.getByRole('status')).toContainText('Owner activity couldn’t be checked');
+          await expect(page.getByRole('link', { name: 'Discover builders', exact: true })).toBeVisible();
+          await expect(cards()).toHaveCount(4);
+        }
+        assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);
+      }
+      assert.deepEqual(errors, []);
+      checks.push({ viewport: name, width, checks: ['pinned main skill-first and changed activity-first order', 'accurate skill explanations and coarse activity only', 'no overflow', 'all teams retained', 'primary-event filter and closure', 'filter sheet on mobile/tablet', 'empty-state links not duplicated', 'denied/transport/missing optional activity preserves skill ordering', 'filtered fallback and missing viewer skills', 'keyboard alternative navigation emits only fixed source/path', 'analytics failure cannot block navigation', 'signed-out skips profiles', 'team-read error shown without contextual suggestion', 'zero writes or external network', 'real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity', 'delayed missing/denied/transport activity enables alternatives only after settlement'] });
+      await context.close();
+    }
+    assert.deepEqual(external, []);await fs.writeFile(path.join(evidence, 'browser-results.json'), JSON.stringify({ base: BASE, checks, externalRequests: 0, writes: 0,
+      limitations: 'Actual TeamsPage/discovery components and application CSS with synthetic read adapters, passthrough AuthGuard and local fonts; destination pages are route sentinels. No Next routing runtime, live Auth/RLS, database mutations or GA ingestion. These checks cannot establish team formation outcomes.' }, null, 2) + '\n');
+    console.log(`Passed real TeamsView/useTeamsData browser checks at 320, 390, 768 and 1440px; before/after evidence: ${path.relative(ROOT, evidence)}`);
+  } finally { if (browser) await browser.close();await new Promise(resolve => server.close(resolve)); }
+})().catch(err => { console.error(err);process.exitCode = 1; });

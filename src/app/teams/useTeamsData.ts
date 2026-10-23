@@ -35,6 +35,7 @@ export function useTeamsData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activityUnavailable, setActivityUnavailable] = useState(false);
+  const [activitySettled, setActivitySettled] = useState(false);
   const generation = useRef(0);
   const controller = useRef<AbortController | null>(null);
 
@@ -46,6 +47,7 @@ export function useTeamsData() {
     const current = () => generation.current === request && !abort.signal.aborted;
     setLoading(true);
     setActivityUnavailable(false);
+    setActivitySettled(false);
     setViewerSkills([]);
     try {
       // Auth/skill failures must not prevent the independently authorized team read.
@@ -79,7 +81,11 @@ export function useTeamsData() {
     } catch (err) {
       if (current()) setError(err instanceof Error ? err.message : "Teams could not be loaded. Please retry.");
     } finally {
-      if (current()) setLoading(false);
+      if (current()) {
+        setLoading(false);
+        // Includes unavailable/skipped lookups; stale or aborted loads cannot settle a newer one.
+        setActivitySettled(true);
+      }
     }
   }, []);
 
@@ -89,7 +95,7 @@ export function useTeamsData() {
     return () => { mounted = false; controller.current?.abort(); generation.current += 1; };
   }, [load]);
 
-  return { teams, viewerSkills, loading, error, activityUnavailable, reload: load };
+  return { teams, viewerSkills, loading, error, activityUnavailable, activitySettled, reload: load };
 }
 
 /** Reject permissive Date.parse coercions and impossible calendar days. */
@@ -137,14 +143,14 @@ export function teamMatchScore(teamSkills: string[] | null | undefined, viewerSk
   return total ? Math.round((matched / total) * 100) : 0;
 }
 
-/** Joinability, skill relevance, recent owner activity among open peers, then date/ID. */
+/** Joinability, confirmed recent owner activity among open peers, skill relevance, then date/ID. */
 export function compareDiscoveryTeams(
   a: { t: Pick<ListTeam, "id" | "created_at" | "ownerRecentlyActive">; status: { open: boolean }; match: number },
   b: { t: Pick<ListTeam, "id" | "created_at" | "ownerRecentlyActive">; status: { open: boolean }; match: number },
 ): number {
   if (a.status.open !== b.status.open) return a.status.open ? -1 : 1;
-  if (a.match !== b.match) return b.match - a.match;
   if (a.status.open && Boolean(a.t.ownerRecentlyActive) !== Boolean(b.t.ownerRecentlyActive)) return a.t.ownerRecentlyActive ? -1 : 1;
+  if (a.match !== b.match) return b.match - a.match;
   const created = (value: string | null | undefined) => {
     const time = value ? Date.parse(value) : NaN;
     return Number.isFinite(time) ? time : -Infinity;

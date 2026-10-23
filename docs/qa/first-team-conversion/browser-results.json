@@ -1,0 +1,96 @@
+{
+  "base": "873b117406110e373f48c37a85082c738d52cae9",
+  "checks": [
+    {
+      "viewport": "320",
+      "width": 320,
+      "checks": [
+        "pinned main skill-first and changed activity-first order",
+        "accurate skill explanations and coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile/tablet",
+        "empty-state links not duplicated",
+        "denied/transport/missing optional activity preserves skill ordering",
+        "filtered fallback and missing viewer skills",
+        "keyboard alternative navigation emits only fixed source/path",
+        "analytics failure cannot block navigation",
+        "signed-out skips profiles",
+        "team-read error shown without contextual suggestion",
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
+      ]
+    },
+    {
+      "viewport": "390",
+      "width": 390,
+      "checks": [
+        "pinned main skill-first and changed activity-first order",
+        "accurate skill explanations and coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile/tablet",
+        "empty-state links not duplicated",
+        "denied/transport/missing optional activity preserves skill ordering",
+        "filtered fallback and missing viewer skills",
+        "keyboard alternative navigation emits only fixed source/path",
+        "analytics failure cannot block navigation",
+        "signed-out skips profiles",
+        "team-read error shown without contextual suggestion",
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
+      ]
+    },
+    {
+      "viewport": "768",
+      "width": 768,
+      "checks": [
+        "pinned main skill-first and changed activity-first order",
+        "accurate skill explanations and coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile/tablet",
+        "empty-state links not duplicated",
+        "denied/transport/missing optional activity preserves skill ordering",
+        "filtered fallback and missing viewer skills",
+        "keyboard alternative navigation emits only fixed source/path",
+        "analytics failure cannot block navigation",
+        "signed-out skips profiles",
+        "team-read error shown without contextual suggestion",
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
+      ]
+    },
+    {
+      "viewport": "1440",
+      "width": 1440,
+      "checks": [
+        "pinned main skill-first and changed activity-first order",
+        "accurate skill explanations and coarse activity only",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet on mobile/tablet",
+        "empty-state links not duplicated",
+        "denied/transport/missing optional activity preserves skill ordering",
+        "filtered fallback and missing viewer skills",
+        "keyboard alternative navigation emits only fixed source/path",
+        "analytics failure cannot block navigation",
+        "signed-out skips profiles",
+        "team-read error shown without contextual suggestion",
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
+      ]
+    }
+  ],
+  "externalRequests": 0,
+  "writes": 0,
+  "limitations": "Actual TeamsPage/discovery components and application CSS with synthetic read adapters, passthrough AuthGuard and local fonts; destination pages are route sentinels. No Next routing runtime, live Auth/RLS, database mutations or GA ingestion. These checks cannot establish team formation outcomes."
+}
