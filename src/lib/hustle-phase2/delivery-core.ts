@@ -46,6 +46,74 @@ export function deliveryMessage(team: DeliveryTeam, token: string, scheduledAt: 
   return { from, to: [team.leader_email], subject: "Hustle Carnival Round 2 — private attendance invitation", text,
     html: `<h1>HackerMate × Hustle Carnival</h1><p>${escapeHtml(team.team_name)}: you are shortlisted for Round 2.</p><p><a href="${escapeHtml(link)}">Open your private leader invitation</a></p><p>Sign in with Google using the organizer-approved email that received this message. Complete onboarding, verify your roster entry, then choose Confirm or Decline for your entire team.</p><p>23 October 2026, 9:00 AM–11:00 PM IST. No fee. Opening the invitation does not confirm attendance. Forwarding it does not authorize another account.</p><p><a href="https://www.hackermate.in/contact">Contact support</a></p>`, scheduled_at: scheduledAt };
 }
+/**
+ * Resend may accept a scheduled POST (HTTP 200) before its response body yields a
+ * usable ID. Recover the ID ONLY via bounded read-only GET inventory, never by
+ * resubmitting the same payload. Reject ambiguous/malformed/incomplete scans.
+ */
+async function findNewScheduledProviderId(
+  key: string, message: ReturnType<typeof deliveryMessage>, submittedAt: number,
+): Promise<string | null> {
+  const notBefore = submittedAt - 5000;
+  const endBy = Date.now() + 15_000;
+  for (const delay of [300, 700, 1200]) {
+    await new Promise(resolve => setTimeout(resolve, delay));
+    const seen = new Set<string>();
+    const matches: string[] = [];
+    let after: string | null = null;
+    let previousTime = Infinity;
+    for (let page = 0; page < 5; page++) {
+      const timeLeft = endBy - Date.now();
+      if (timeLeft < 750) return null;
+      let response: Response;
+      try {
+        response = await fetch("https://api.resend.com/emails?limit=100" +
+          (after ? "&after=" + encodeURIComponent(after) : ""), {
+          headers: { Authorization: `Bearer ${key}` },
+          signal: AbortSignal.timeout(Math.min(3500, timeLeft - 300)),
+          cache: "no-store",
+        });
+      } catch { return null; }
+      if (!response.ok) return null;
+      const inventory = await response.json().catch(() => null) as {
+        data?: Array<{ id?: unknown; created_at?: unknown; subject?: unknown;
+          to?: unknown; from?: unknown; scheduled_at?: unknown }>;
+        has_more?: unknown;
+      } | null;
+      if (!inventory || !Array.isArray(inventory.data) || inventory.data.length > 100
+        || typeof inventory.has_more !== "boolean"
+        || (!inventory.data.length && inventory.has_more)) return null;
+      let beforeAttempt = false;
+      for (const item of inventory.data) {
+        if (!item || typeof item.id !== "string" || !UUID.test(item.id)
+          || typeof item.created_at !== "string") return null;
+        const created = Date.parse(item.created_at);
+        if (!Number.isFinite(created) || created > previousTime || seen.has(item.id))
+          return null;
+        previousTime = created;
+        seen.add(item.id);
+        if (created < notBefore) beforeAttempt = true;
+        if (created >= notBefore && created <= Date.now() + 60_000
+          && item.subject === message.subject && item.from === message.from
+          && JSON.stringify(item.to) === JSON.stringify(message.to)
+          && typeof item.scheduled_at === "string"
+          && Date.parse(item.scheduled_at) === Date.parse(PARTICIPANT_DELIVERY_AT)) {
+          matches.push(item.id);
+        }
+      }
+      // Two provider records for the same new invitation means STOP, never guess.
+      if (matches.length > 1) return null;
+      if (beforeAttempt || inventory.has_more === false) {
+        if (matches.length === 1) return matches[0];
+        break; // Completed this scan; allow delayed provider visibility.
+      }
+      if (!inventory.data.length) return null;
+      after = inventory.data[inventory.data.length - 1].id as string;
+    }
+  }
+  return null;
+}
+
 export type ProviderOutcome = { status: "accepted" | "rejected" | "unknown"; providerId: string | null; code: number | null };
 /** No retry, no provider body/error logging. The DB reservation is authoritative beyond Resend's 24h key lifetime. */
 export async function submitInvitation(key: string, message: ReturnType<typeof deliveryMessage>, id: string, timeout = 15_000): Promise<ProviderOutcome> {
@@ -53,10 +121,19 @@ export async function submitInvitation(key: string, message: ReturnType<typeof d
   let providerId: string | null = null;
   try {
     await new Promise(resolve => setTimeout(resolve, 125));
+    const submittedAt = Date.now();
     const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `hustle-r2/${id}` }, body: JSON.stringify(message), signal: AbortSignal.timeout(timeout), cache: "no-store" });
     const data = await r.json().catch(() => null);
-    if (r.ok && typeof data?.id === "string" && UUID.test(data.id) && !data.error) {
-      providerId = data.id;
+    if (r.ok) {
+      const candidate = typeof data?.id === "string" ? data.id
+        : typeof data?.data?.id === "string" ? data.data.id : null;
+      providerId = candidate && UUID.test(candidate) ? candidate : null;
+      if (!providerId) {
+        // Never repeat an accepted POST with an unparseable response.
+        // Reconcile against the actual provider's immutable scheduled metadata.
+        providerId = await findNewScheduledProviderId(key, message, submittedAt);
+      }
+      if (!providerId) return { status: "unknown", providerId: null, code: r.status };
       // Never retry the POST. A successfully created scheduled email may take
       // a moment to become visible with last_event=scheduled in the GET API.
       // Follow its *known provider ID* with bounded, read-only GET probes.
