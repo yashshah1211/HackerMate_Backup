@@ -1,9 +1,9 @@
 {
   "mission": "05",
   "date": "2026-10-23",
-  "status": "retention_offline_checks_passed_operational_gates_pending",
+  "status": "pr_a_offline_validated_pr_b_pending_operational_release_gates_pending",
   "baseCommit": "83a9fa3187715dbb0f8a0104e97d492cd73e3a50",
-  "branch": "fix/expired-rate-limit-retention",
+  "branch": "fix/trusted-idea-evaluator",
   "productionWrites": false,
   "paidProviderCalls": false,
   "readOnlyPrerequisites": {
@@ -34,20 +34,344 @@
     "partialOrFailedOrSkipped": "release_blocker_until_reconciled"
   },
   "validation": {
-    "cleanupSpecific": { "passed": 38, "failed": 0 },
-    "combinedCleanupAdminEmailCompatibility": { "passed": 347, "failed": 0 },
-    "baselinePptVision": { "passed": 49, "failed": 0, "scope": "unchanged_baseline_only" },
+    "cleanupSpecific": {
+      "passed": 38,
+      "failed": 0
+    },
+    "combinedCleanupAdminEmailCompatibility": {
+      "passed": 347,
+      "failed": 0
+    },
+    "baselinePptVision": {
+      "passed": 49,
+      "failed": 0,
+      "scope": "unchanged_baseline_only"
+    },
     "typecheck": "passed",
-    "scopedLint": "passed_zero_errors_zero_warnings",
+    "scopedLint": "passed_zero_errors_two_existing_internal_navigation_warnings",
     "productionBuild": "passed_final_frozen_source_synthetic_configuration_offline_fonts",
-    "productionHtml": { "passed": 44, "anonymousFixtureReads": 39, "writes": 0 },
-    "existingBuildWarnings": ["middleware_convention_deprecated", "sentry_instrumentation_configuration_conventions"],
+    "productionHtml": {
+      "passed": 44,
+      "anonymousFixtureReads": 39,
+      "writes": 0
+    },
+    "existingBuildWarnings": [
+      "middleware_convention_deprecated",
+      "sentry_instrumentation_configuration_conventions"
+    ],
     "loopbackRuntime": "passed_existing_HTTP_authorization_with_offline_adapters",
-    "newEvaluatorRegressions": "pending_implementation",
-    "benchmark60": "not_implemented_or_run",
-    "evaluatorBrowser": "pending_implementation",
+    "newEvaluatorRegressions": "idea_complete_ppt_challenge_pending",
+    "benchmark60": "partial_16_observed_44_pending_not_live_accuracy",
+    "evaluatorBrowser": "idea_passed_390_1440_ppt_challenge_pending",
     "supabasePostgres17MutationIntegration": "not_run_not_authorized",
-    "liveModelAccuracy": "not_measured"
+    "liveModelAccuracy": "not_measured",
+    "ideaBrowser": {
+      "status": "passed",
+      "checks": [
+        {
+          "width": 390,
+          "passed": [
+            "no new score/share on failure",
+            "draft retained",
+            "uncertain network and cooldown retain retry token",
+            "confirmed terminal response permits later explicit token",
+            "Bearer identity without body userId",
+            "edited inputs invalidate scorecard",
+            "account switch discards stale response and private draft",
+            "new identity used on next explicit request",
+            "legacy heuristic readable and labelled",
+            "unknown historical rubric and AI mode never guessed",
+            "stale initial Auth error ignored after identity switch",
+            "forced heuristic retired",
+            "no simulated stage claims",
+            "no horizontal overflow"
+          ]
+        },
+        {
+          "width": 1440,
+          "passed": [
+            "no new score/share on failure",
+            "draft retained",
+            "uncertain network and cooldown retain retry token",
+            "confirmed terminal response permits later explicit token",
+            "Bearer identity without body userId",
+            "edited inputs invalidate scorecard",
+            "account switch discards stale response and private draft",
+            "new identity used on next explicit request",
+            "legacy heuristic readable and labelled",
+            "unknown historical rubric and AI mode never guessed",
+            "stale initial Auth error ignored after identity switch",
+            "forced heuristic retired",
+            "no simulated stage claims",
+            "no horizontal overflow"
+          ]
+        }
+      ],
+      "externalRequests": 0,
+      "liveDatabaseWrites": 0,
+      "limitations": "Actual Idea component/CSS with synthetic Auth/read/API adapters; no live Auth/RLS/provider or production evidence. PPT/Challenge browser work remains pending."
+    },
+    "ideaBenchmark": {
+      "definedTotal": 60,
+      "executed": 16,
+      "pending": 44,
+      "acceptedFixtureResponses": 12,
+      "rejectedFabricatedCitationResponses": 4,
+      "liveAccuracyMeasured": false,
+      "cases": [
+        {
+          "id": "idea-ai_genai-adversarial",
+          "track": "ai_genai",
+          "quality": "adversarial",
+          "mode": "text_only",
+          "outcome": "rejected",
+          "code": "invalid_ai_output",
+          "score": null,
+          "mockProviderAttempts": 1,
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-ai_genai-incomplete",
+          "track": "ai_genai",
+          "quality": "incomplete",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 14,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-ai_genai-strong",
+          "track": "ai_genai",
+          "quality": "strong",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 82,
+          "grade": "Strong Contender ✅",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-ai_genai-weak",
+          "track": "ai_genai",
+          "quality": "weak",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 34,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-generic-adversarial",
+          "track": "generic",
+          "quality": "adversarial",
+          "mode": "text_only",
+          "outcome": "rejected",
+          "code": "invalid_ai_output",
+          "score": null,
+          "mockProviderAttempts": 1,
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-generic-incomplete",
+          "track": "generic",
+          "quality": "incomplete",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 14,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-generic-strong",
+          "track": "generic",
+          "quality": "strong",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 90,
+          "grade": "Top Tier / Nomination Ready 🏆",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-generic-weak",
+          "track": "generic",
+          "quality": "weak",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 34,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-specific-adversarial",
+          "track": "specific",
+          "quality": "adversarial",
+          "mode": "text_only",
+          "outcome": "rejected",
+          "code": "invalid_ai_output",
+          "score": null,
+          "mockProviderAttempts": 1,
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-specific-incomplete",
+          "track": "specific",
+          "quality": "incomplete",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 14,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 1,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-specific-strong",
+          "track": "specific",
+          "quality": "strong",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 90,
+          "grade": "Top Tier / Nomination Ready 🏆",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-specific-weak",
+          "track": "specific",
+          "quality": "weak",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 34,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 2,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-web_dev-adversarial",
+          "track": "web_dev",
+          "quality": "adversarial",
+          "mode": "text_only",
+          "outcome": "rejected",
+          "code": "invalid_ai_output",
+          "score": null,
+          "mockProviderAttempts": 1,
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-web_dev-incomplete",
+          "track": "web_dev",
+          "quality": "incomplete",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 14,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 3,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-web_dev-strong",
+          "track": "web_dev",
+          "quality": "strong",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 82,
+          "grade": "Strong Contender ✅",
+          "mockProviderAttempts": 1,
+          "latencyMs": 19,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        },
+        {
+          "id": "idea-web_dev-weak",
+          "track": "web_dev",
+          "quality": "weak",
+          "mode": "text_only",
+          "outcome": "accepted_fixture_response",
+          "code": null,
+          "score": 34,
+          "grade": "High Risk / Incomplete 🚨",
+          "mockProviderAttempts": 1,
+          "latencyMs": 3,
+          "latencyEvidence": "offline_mock_only",
+          "liveAccuracyMeasured": false
+        }
+      ]
+    },
+    "prARegressions": {
+      "passed": 98,
+      "failed": 0
+    },
+    "prACombined": {
+      "passed": 494,
+      "failed": 0,
+      "retainedCompatibility": 396
+    },
+    "prATypecheck": "passed_serial_after_final_build",
+    "prAProductionBuild": "passed_final_source_synthetic_configuration_offline_fonts",
+    "prAProductionHtml": {
+      "passed": 44,
+      "anonymousFixtureReads": 39,
+      "writes": 0
+    },
+    "prAInventory": [
+      "docs/plans/2026-10-23-evaluator-reliability-quality.md",
+      "docs/qa/evaluator-reliability/README.md",
+      "docs/qa/evaluator-reliability/idea-failure-390.png",
+      "docs/qa/evaluator-reliability/legacy-mode-1440.png",
+      "docs/qa/evaluator-reliability/results.json",
+      "scripts/fixtures/evaluator-benchmarks.cjs",
+      "scripts/test-evaluator-reliability-browser.cjs",
+      "scripts/test-evaluator-reliability.cjs",
+      "src/app/api/evaluator/evaluate/route.ts",
+      "src/components/PitchEvaluatorClient.tsx",
+      "src/lib/ai/geminiClient.ts",
+      "src/lib/evaluator/evaluationContract.ts",
+      "src/lib/evaluator/evaluatorBudgetGuard.ts",
+      "src/lib/evaluator/evaluatorTypes.ts",
+      "src/lib/evaluator/trackEvaluatorEngine.ts"
+    ],
+    "typecheckNote": "One concurrent run hit generated Next types during build; serial verification required and no configuration weakened.",
+    "prAScopedLint": {
+      "errors": 0,
+      "warnings": 2,
+      "warningScope": "pre_existing_internal_navigation_in_team_prefill"
+    }
   },
   "operationalReleaseGates": [
     "actual_daily_cron_success_and_authenticated_deployed_cleanup_path",
@@ -57,5 +381,15 @@
     "reconcile_skipped_failed_partial_cleanup_and_erasure_key_rotation_obligations",
     "separate_explicit_production_deletion_merge_deployment_approval"
   ],
-  "mission05Complete": false
+  "mission05Complete": false,
+  "checkpointDate": "2026-10-24",
+  "prABase": "40023bf5350b8b19a1e4eeade950a7e81efe50b1",
+  "dependencies": [
+    {
+      "pr": 60,
+      "url": "https://github.com/yashshah1211/HackerMate_Backup/pull/60",
+      "head": "40023bf5350b8b19a1e4eeade950a7e81efe50b1",
+      "merged": false
+    }
+  ]
 }

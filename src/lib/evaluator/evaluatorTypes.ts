@@ -75,6 +75,15 @@ export interface ProjectEvaluationResult {
   latencyMs?: number;
   fallbackReason?: "missing_api_key" | "budget_exhausted" | "gemini_api_error" | "forced_fallback" | null;
   fallbackDetails?: string | null;
+  evaluationMetadata?: {
+    schemaVersion: "evaluator-v1";
+    rubricVersion: "idea-v1";
+    mode: "text_only";
+    trackId: JudgingTrackId;
+    attempts: number;
+    providerAttempts: Array<{ model: string; latencyMs: number; code: string; httpStatus?: number }>;
+    evidence: Record<string, Array<{ text: string; quote: string }>>;
+  };
 }
 
 export const TRACK_PROFILES: Record<JudgingTrackId, TrackProfile> = {
@@ -110,22 +119,22 @@ export const TRACK_PROFILES: Record<JudgingTrackId, TrackProfile> = {
     name: "AI, GenAI & Agentic Systems",
     badge: "AI / ML Track",
     icon: "🤖",
-    tagline: "RAG Pipelines, Vector Search, Hallucination Mitigations & Real Moat",
-    description: "Evaluates pipeline engineering, fine-tuning vs RAG, vector database indexing, latency, and defensibility.",
+    tagline: "Task-appropriate AI, Evidence, Safety & Execution",
+    description: "Evaluates the actual AI method, data, validation, latency, and realistic operating costs.",
     categories: {
       novelty: { label: "AI Novelty & True Moat", maxPts: 25 },
-      tech: { label: "Model Pipeline & Vector Architecture", maxPts: 35 },
+      tech: { label: "Model Pipeline & Data Architecture", maxPts: 35 },
       uiUxOrFeasibility: { label: "Hallucination Control & Latency", maxPts: 25 },
       impactOrTeam: { label: "Unit Economics & Accuracy", maxPts: 15 },
     },
     primaryChecks: [
-      "RAG architecture: chunking strategy, embeddings, and vector DB indexing",
+      "Task-appropriate model, classifier, vision, retrieval or agent architecture",
       "Hallucination mitigation, guardrails, and validation loops",
       "Inference latency optimization, caching, and fallback models",
-      "Defensibility: custom datasets, fine-tuning, or proprietary agent loops beyond basic API wrapping",
+      "Evidence of useful differentiation, appropriate data and measurable validation",
     ],
     commonRedFlags: [
-      "Generic OpenAI/Gemini wrapper without custom retrieval or pipeline moat",
+      "Unexplained AI choices or unsupported differentiation claims",
       "No handling for prompt injection, context window overflow, or rate limits",
       "Missing evaluation metrics (BLEU, ROUGE, precision/recall, ground truth tests)",
       "Unrealistic inference latency and unmodeled token costs",
