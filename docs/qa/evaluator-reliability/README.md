@@ -45,7 +45,7 @@ node scripts/test-public-hackathon-metadata-production.cjs
 - Existing local HTTP authorization test executes actual handlers through loopback with mocked identity/database/provider adapters. Transport test uses installed Supabase client with mocked fetch; unexpected network requests fail.
 - Early fixture failures were corrected without weakening assertions: TSX generic-arrow ambiguity, cross-realm assertions, missing VM timer globals and a mistaken Supabase safe-key quoting expectation.
 
-No real scheduled execution, production DELETE/latency, PostgreSQL 17/Supabase/PostgREST mutation/concurrency integration or live model accuracy was tested. No demo environment was provisioned. Local builds and mocked races cannot replace these gates. Existing build warnings concern deprecated middleware convention, Sentry instrumentation/config conventions and Node's deprecated url.parse; none was changed here.
+No real scheduled execution, production DELETE/latency, PostgreSQL 17/Supabase/PostgREST mutation/concurrency integration or live model accuracy was tested. No demo environment was provisioned. Local builds and mocked races cannot replace these gates. Existing final-build warnings concern deprecated middleware convention and Sentry instrumentation/config conventions; neither was changed here.
 
 ## Release dependencies and rollback
 

@@ -41,7 +41,7 @@
     "scopedLint": "passed_zero_errors_zero_warnings",
     "productionBuild": "passed_final_frozen_source_synthetic_configuration_offline_fonts",
     "productionHtml": { "passed": 44, "anonymousFixtureReads": 39, "writes": 0 },
-    "existingBuildWarnings": ["middleware_convention_deprecated", "sentry_instrumentation_configuration_conventions", "node_url_parse_deprecated"],
+    "existingBuildWarnings": ["middleware_convention_deprecated", "sentry_instrumentation_configuration_conventions"],
     "loopbackRuntime": "passed_existing_HTTP_authorization_with_offline_adapters",
     "newEvaluatorRegressions": "pending_implementation",
     "benchmark60": "not_implemented_or_run",
