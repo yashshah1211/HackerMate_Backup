@@ -41,6 +41,8 @@ function TeamRequestsContent() {
   const [teamName, setTeamName] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [capacityKnown, setCapacityKnown] = useState(false);
+  const [pendingKnown, setPendingKnown] = useState(false);
+  const pendingVerified = useRef(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const scope = useRef(0);
   const read = useRef(0);
@@ -52,6 +54,8 @@ function TeamRequestsContent() {
   async function checkOwnership() {
     const epoch = scope.current, generation = ++read.current;
     const valid = () => current(epoch) && generation === read.current;
+    pendingVerified.current = false;
+    setPendingKnown(false);
     setCapacityKnown(false);
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -68,12 +72,13 @@ function TeamRequestsContent() {
       setIsOwner(!!owner.current);
       if (!owner.current) { setRequests([]); return; }
       setMaxMembers(team.max_members || 0);
-      const [capacity, pending] = await Promise.all([
+      const [capacityRead, pendingRead] = await Promise.allSettled([
         supabase.from("team_members").select("id", { count: "exact", head: true }).eq("team_id", teamId),
         supabase.from("team_join_requests").select("id, user_id, status, profiles(id, full_name, avatar_url)")
           .eq("team_id", teamId).eq("status", "pending"),
       ]);
       if (!valid()) return;
+      const capacity = capacityRead.status === "fulfilled" ? capacityRead.value : { count: null, error: capacityRead.reason };
       if (capacity.error) console.error("[requests] capacity read failed:", capacity.error);
       const known = !capacity.error && typeof capacity.count === "number" && Number.isInteger(capacity.count) && capacity.count >= 0;
       setCapacityKnown(known);
@@ -81,9 +86,13 @@ function TeamRequestsContent() {
         setMemberCount(capacity.count!);
         setTeamFull(!!team.max_members && capacity.count! >= team.max_members);
       }
+      if (pendingRead.status === "rejected") throw pendingRead.reason;
+      const pending = pendingRead.value;
       if (pending.error) throw pending.error;
       if (!Array.isArray(pending.data)) throw new Error("Couldn't verify pending requests.");
       setRequests(pending.data as unknown as Request[]);
+      pendingVerified.current = true;
+      setPendingKnown(true);
       setLoadError(known ? null : "Capacity is unavailable. Refresh before accepting requests.");
     } catch (error) {
       console.error("[requests] load failed:", error);
@@ -96,6 +105,8 @@ function TeamRequestsContent() {
     const initialEpoch = scope.current;
     const reset = () => {
       ++scope.current; owner.current = null; action.current = false;
+      pendingVerified.current = false;
+      setPendingKnown(false);
       setIsOwner(false); setRequests([]); setCapacityKnown(false); setBusyId(null);
       setLoadError(null); setLoading(true);
     };
@@ -111,7 +122,7 @@ function TeamRequestsContent() {
   }, [teamId]);
 
   async function runForRow(request: Request, accept: boolean) {
-    if (action.current || !owner.current || (accept && (!capacityKnown || teamFull))) return;
+    if (action.current || !owner.current || !pendingVerified.current || (accept && (!capacityKnown || teamFull))) return;
     action.current = true;
     const epoch = scope.current, expectedOwner = owner.current;
     setBusyId(request.id);
@@ -254,7 +265,7 @@ function TeamRequestsContent() {
                     </ButtonLink>
                     <Button
                       variant="ghost"
-                      disabled={busyId !== null}
+                      disabled={busyId !== null || !pendingKnown}
                       onClick={() => runForRow(request, false)}
                       className="h-9 md:h-[34px]"
                     >
@@ -265,7 +276,7 @@ function TeamRequestsContent() {
                         variant="primary"
                         icon={<Check aria-hidden />}
                         loading={busy}
-                        disabled={busyId !== null}
+                        disabled={busyId !== null || !pendingKnown}
                         onClick={() => runForRow(request, true)}
                         className="h-9 md:h-[34px]"
                       >

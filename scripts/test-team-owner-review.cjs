@@ -12,6 +12,7 @@ async function mount(t, options = {}) {
   const previous = keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
   for (const key of keys) Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : dom.window[key] });
   const root = require('react-dom/client').createRoot(document.getElementById('root'));
+  const handlers = {};
   const server = { user: 'owner', count: 1, ...options }, writes = [], errors = [], toasts = [], listeners = new Set();
   const requests = [{ id: 'request-1', user_id: 'applicant', status: 'pending', profiles: { full_name: 'Synthetic Applicant' } }, { id: 'request-2', user_id: 'another', status: 'pending', profiles: { full_name: 'Another Applicant' } }];
   const client = {
@@ -23,8 +24,8 @@ async function mount(t, options = {}) {
         then(resolve, reject) {
           if (q.deleting) { writes.push(q); return Promise.resolve(server.result ?? { data: [{ id: q.filters.id }], error: null }).then(resolve, reject); }
           const result = table === 'teams' ? { data: { name: 'Synthetic Team', owner_id: 'owner', max_members: 4 }, error: null }
-            : table === 'team_members' ? { count: server.count, error: server.capacityError || null }
-            : { data: requests, error: null };
+            : table === 'team_members' ? server.capacityResult ?? { count: server.count, error: server.capacityError || null }
+            : server.pendingResult ?? { data: server.pendingRows ?? requests, error: server.pendingError || null };
           return Promise.resolve(result).then(resolve, reject);
         } };
     },
@@ -42,13 +43,13 @@ async function mount(t, options = {}) {
       ButtonLink: ({ children, href }) => React.createElement('a', { href }, children),
       EmptyState: ({ title }) => React.createElement('p', null, title),
       ErrorNotice: ({ detail, onRetry }) => React.createElement('div', { role: 'alert' }, detail, React.createElement('button', { onClick: onRetry }, 'Retry')),
-      Button: ({ children, disabled, loading, onClick }) => React.createElement('button', { disabled: disabled || loading, onClick }, children),
+      Button: ({ children, disabled, loading, onClick }) => { handlers[children] = onClick; return React.createElement('button', { disabled: disabled || loading, onClick }, children); },
     },
   }, { window: dom.window, document: dom.window.document, queueMicrotask, console: { error: (...args) => errors.push(args) } }).load('src/app/teams/[id]/requests/page.tsx').default;
   const flush = async fn => React.act(async () => { fn?.(); for (let i = 0; i < 4; ++i) await new Promise(resolve => setImmediate(resolve)); });
   t.after(async () => { await React.act(async () => root.unmount()); dom.window.close(); for (const [key, value] of previous) { if (value) Object.defineProperty(globalThis, key, value); else delete globalThis[key]; } });
   await flush(() => root.render(React.createElement(Component)));
-  return { server, writes, errors, toasts, flush, buttons: name => [...document.querySelectorAll('button')].filter(b => b.textContent === name),
+  return { server, writes, errors, toasts, flush, handler: name => handlers[name], buttons: name => [...document.querySelectorAll('button')].filter(b => b.textContent === name),
     auth: user => flush(() => { server.user = user; for (const fn of listeners) fn('SIGNED_IN', user ? { user: { id: user } } : null); }), text: () => document.body.textContent };
 }
 
@@ -86,4 +87,55 @@ test('uncertain response never retries or reports success', async t => {
   const gate = deferred(), ui = await mount(t, { result: gate.promise }); await ui.flush(() => ui.buttons('Decline')[0].click());
   await ui.flush(() => gate.resolve(Promise.reject(new Error('Synthetic disconnect after possible commit'))));
   assert.equal(ui.writes.length, 1); assert.equal(ui.toasts.filter(t => t[1] !== 'error').length, 0);
+});
+
+
+test('failed pending refresh disables retained rows and saved actions; accessible Retry verifies recovery', async t => {
+  const ui = await mount(t), staleDecline = ui.handler('Decline');
+  assert(ui.buttons('Accept').every(b => !b.disabled));
+  ui.server.pendingError = { code: '42501', message: 'Synthetic pending refresh denied' };
+  await ui.flush(() => ui.buttons('Accept')[0].click());
+  assert.equal(ui.writes.length, 1);
+  assert.equal(ui.buttons('Accept').length, 2, 'previously loaded rows remain visible');
+  assert(ui.buttons('Accept').every(b => b.disabled));
+  assert(ui.buttons('Decline').every(b => b.disabled));
+  assert.match(ui.text(), /Couldn.t verify the latest requests/);
+  assert(ui.errors.some(args => args.includes(ui.server.pendingError)), 'actual query error logged');
+  await ui.flush(() => { staleDecline(); ui.buttons('Decline')[0].click(); ui.buttons('Accept')[0].click(); });
+  assert.equal(ui.writes.length, 1, 'unverified rows cannot issue another mutation');
+  const retry = ui.buttons('Retry')[0]; assert(retry && !retry.disabled);
+  retry.focus(); assert.equal(document.activeElement, retry);
+  ui.server.pendingError = null;
+  ui.server.pendingRows = [{ id: 'request-2', user_id: 'another', status: 'pending', profiles: { full_name: 'Verified Applicant' } }];
+  await ui.flush(() => retry.click());
+  assert.equal(ui.buttons('Accept').length, 1); assert.equal(ui.buttons('Accept')[0].disabled, false);
+  assert.equal(ui.buttons('Decline')[0].disabled, false); assert.equal(ui.buttons('Retry').length, 0);
+  assert.equal(ui.writes.length, 1, 'Retry only reads');
+});
+
+test('pending refresh in flight blocks retained decision callbacks before the response settles', async t => {
+  const ui = await mount(t), staleDecline = ui.handler('Decline'), pending = deferred();
+  ui.server.pendingResult = pending.promise;
+  await ui.flush(() => ui.buttons('Accept')[0].click());
+  assert(ui.buttons('Decline').every(b => b.disabled));
+  await ui.flush(() => staleDecline()); assert.equal(ui.writes.length, 1);
+  await ui.flush(() => pending.resolve({ data: [], error: null }));
+  assert.equal(ui.buttons('Decline').length, 0); assert.match(ui.text(), /No pending requests/);
+});
+
+test('capacity-only failure leaves verified Decline available and Accept unavailable', async t => {
+  const ui = await mount(t, { count: null, capacityError: { message: 'Synthetic capacity unavailable' } });
+  assert.equal(ui.buttons('Accept').length, 0);
+  assert(ui.buttons('Decline').every(b => !b.disabled));
+  await ui.flush(() => ui.buttons('Decline')[0].click());
+  assert.equal(ui.writes.length, 1); assert.deepEqual(ui.toasts, [['Join request rejected.', 'info']]);
+  assert(ui.buttons('Decline').every(b => !b.disabled));
+});
+
+test('thrown capacity transport failure does not discard a verified pending list', async t => {
+  const failure = new Error('Synthetic capacity transport failure');
+  const ui = await mount(t, { capacityResult: { then(_resolve, reject) { reject(failure); } } });
+  assert.equal(ui.buttons('Accept').length, 0); assert(ui.buttons('Decline').every(b => !b.disabled));
+  assert(ui.errors.some(args => args.includes(failure)));
+  await ui.flush(() => ui.buttons('Decline')[0].click()); assert.equal(ui.writes.length, 1);
 });

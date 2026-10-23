@@ -20,12 +20,12 @@ const adapters = {
   '@/components/partners/HustlePartnershipBanner': `export default function Stub(){return null}`,
   '@/components/AuthGuard': `export default function AuthGuard({children}){return children}`,
   '@/context/NotificationContext': `export const useNotification=()=>({showToast:(...args)=>window.__qa.toasts.push(args)});`,
-  '@/lib/supabase': `const listeners=new Set();const dashboard=location.pathname==='/dashboard';const qa=window.__qa={user:'owner',toasts:[],writes:[],capacityError:new URLSearchParams(location.search).has('capacity'),zero:true,hold:false,releases:[],setUser(user){qa.user=user;for(const fn of listeners)fn('SIGNED_IN',{user:{id:user}})},release(){for(const fn of qa.releases.splice(0))fn()}};
+  '@/lib/supabase': `const listeners=new Set();const dashboard=location.pathname==='/dashboard';const qa=window.__qa={user:'owner',toasts:[],writes:[],capacityError:new URLSearchParams(location.search).has('capacity'),zero:true,pendingError:false,hold:false,releases:[],setUser(user){qa.user=user;for(const fn of listeners)fn('SIGNED_IN',{user:{id:user}})},release(){for(const fn of qa.releases.splice(0))fn()}};
   const profile={id:'synthetic-applicant',full_name:'Synthetic Campus Builder',skills:['React'],bio:'Building campus tools',college:'QA College',year_of_study:'3rd Year',onboarding_completed:true,avatar_url:null};
   let rows=[{id:'request-1',team_id:'fixture-team',user_id:profile.id,status:'pending',created_at:new Date().toISOString(),profiles:profile}];
   const team=()=>({id:'fixture-team',owner_id:'owner',name:'Campus Builders',max_members:4,team_hackathons:[],team_members:[{user_id:'owner',role:'owner',profiles:{...profile,id:'owner'}}]});
   export const subscribeWithRetry=()=>()=>{};
-  export const supabase={channel:()=>({on(){return this}}),auth:{getUser:async()=>({data:{user:{id:qa.user}},error:null}),onAuthStateChange(fn){listeners.add(fn);return{data:{subscription:{unsubscribe(){listeners.delete(fn)}}}}}},from(table){let deleting=false,id,single=false,head=false;return{select(_c,settings){head=!!settings?.head;return this},eq(k,v){if(k==='id')id=v;return this},in(){return this},neq(){return this},or(){return this},gte(){return this},lte(){return this},limit(){return this},order(){return this},single(){single=true;return this},maybeSingle(){single=true;return this},delete(){deleting=true;return this},then(resolve,reject){if(deleting){qa.writes.push({table,id});return Promise.resolve({data:qa.zero?[]:[{id}],error:null}).then(resolve,reject)}let result={data:[],error:null,count:0};if(table==='teams')result={data:head?null:single||!dashboard?team():[team()],error:null,count:1};if(table==='profiles')result={data:single?{...profile,id:qa.user}:[],error:null,count:0};if(table==='team_members')result={data:[],count:qa.capacityError?null:1,error:qa.capacityError?{message:'Synthetic capacity failure'}:null};if(table==='team_join_requests')result={data:single?rows.find(r=>r.id===id)||null:rows,error:null};return Promise.resolve(result).then(resolve,reject)}}},async rpc(name,args){qa.writes.push({name,args});if(qa.hold)await new Promise(done=>qa.releases.push(done));rows=rows.filter(r=>r.id!==args.p_request_id);return{data:'fixture-team',error:null}}};`,
+  export const supabase={channel:()=>({on(){return this}}),auth:{getUser:async()=>({data:{user:{id:qa.user}},error:null}),onAuthStateChange(fn){listeners.add(fn);return{data:{subscription:{unsubscribe(){listeners.delete(fn)}}}}}},from(table){let deleting=false,id,single=false,head=false;return{select(_c,settings){head=!!settings?.head;return this},eq(k,v){if(k==='id')id=v;return this},in(){return this},neq(){return this},or(){return this},gte(){return this},lte(){return this},limit(){return this},order(){return this},single(){single=true;return this},maybeSingle(){single=true;return this},delete(){deleting=true;return this},then(resolve,reject){if(deleting){qa.writes.push({table,id});return Promise.resolve({data:qa.zero?[]:[{id}],error:null}).then(resolve,reject)}let result={data:[],error:null,count:0};if(table==='teams')result={data:head?null:single||!dashboard?team():[team()],error:null,count:1};if(table==='profiles')result={data:single?{...profile,id:qa.user}:[],error:null,count:0};if(table==='team_members')result={data:[],count:qa.capacityError?null:1,error:qa.capacityError?{message:'Synthetic capacity failure'}:null};if(table==='team_join_requests')result={data:qa.pendingError?null:single?rows.find(r=>r.id===id)||null:rows,error:qa.pendingError?{message:'Synthetic pending refresh failure'}:null};return Promise.resolve(result).then(resolve,reject)}}},async rpc(name,args){qa.writes.push({name,args});if(qa.hold)await new Promise(done=>qa.releases.push(done));rows=rows.filter(r=>r.id!==args.p_request_id);return{data:'fixture-team',error:null}}};`,
 };
 const entry = `import React from 'react';import{createRoot}from'react-dom/client';import Page from '@/app/teams/[id]/requests/page';import{useDashboardData}from '@/app/dashboard/useDashboardData';import{DashboardView}from '@/app/dashboard/DashboardView';function Dashboard(){const dash=useDashboardData();return <DashboardView data={dash.data} unreadMessages={0} handlers={{onAcceptJoin:dash.acceptJoinRequest,onDeclineJoin:dash.declineJoinRequest,onReload:dash.reload,onConfirmYear(){},onYearChange(){},onOpenProfileSetup(){},onOpenInbox(){}}}/>};createRoot(document.getElementById('root')).render(location.pathname==='/dashboard'?<Dashboard/>:<Page/>);`;
 
@@ -54,7 +54,7 @@ async function main() {
     else if (url.pathname === '/app.css') { res.setHeader('Content-Type', 'text/css'); res.end(css); }
     else { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><html class="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"><style>:root{--font-ui:Arial;--font-display-face:Arial;--font-code:monospace}*{animation:none!important;transition:none!important}</style></head><body><div id="root"></div><script src="/app.js' + (url.searchParams.has('before') ? '?before=1' : '') + '"></script></body></html>'); }
   });
-  let browser; const checks = [], external = [];
+  let browser; let rpcCount=0; const checks = [], external = [];
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
@@ -76,20 +76,30 @@ async function main() {
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       await button('Decline').focus();await expect(button('Decline')).toBeFocused();await page.keyboard.press('Enter');
       await expect.poll(()=>page.evaluate(()=>window.__qa.toasts.length)).toBe(1);assert.equal(await page.evaluate(()=>window.__qa.toasts[0][1]),'error');
-      await page.evaluate(()=>{window.__qa.capacityError=false});await page.getByRole('button',{name:/Retry/}).click();await expect(button('Accept')).toBeVisible();
+      await expect(button('Decline')).toBeEnabled();
+      await page.evaluate(()=>{window.__qa.capacityError=false;window.__qa.pendingError=true});await button('Decline').click();
+      await expect(page.getByRole('alert')).toContainText("Couldn't verify the latest requests");
+      await expect(button('Decline')).toBeDisabled();await expect(button('Accept')).toBeDisabled();
+      await page.screenshot({path:path.join(evidence,`stale-pending-${width}.png`),fullPage:true});
+      const writes=await page.evaluate(()=>window.__qa.writes.length);
+      await page.evaluate(()=>{window.__qa.pendingError=false});const retry=page.getByRole('button',{name:/Retry/});await retry.focus();await expect(retry).toBeFocused();await page.keyboard.press('Enter');
+      await expect(button('Accept')).toBeEnabled();await expect(button('Decline')).toBeEnabled();assert.equal(await page.evaluate(()=>window.__qa.writes.length),writes);
+
       await page.evaluate(()=>{window.__qa.hold=true});await button('Accept').click();await expect(button('Decline')).toBeDisabled();
       await page.evaluate(()=>window.__qa.setUser('different-account'));await expect(button('Accept')).toHaveCount(0);
       await page.evaluate(()=>window.__qa.release());assert.equal(await page.evaluate(()=>window.__qa.toasts.filter(t=>t[1]==='success').length),0);
+      rpcCount+=await page.evaluate(()=>window.__qa.writes.filter(w=>w.name).length);
       await page.goto(origin+'/dashboard');const queue=page.locator('#needs-you');await expect(queue.getByRole('button',{name:'Decline',exact:true})).toBeVisible();
       await queue.getByRole('button',{name:'Decline',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__qa.toasts.length)).toBe(1);
       assert.equal(await page.evaluate(()=>window.__qa.toasts[0][1]),'error');await expect(queue.getByRole('button',{name:'Accept',exact:true})).toBeEnabled();
       await queue.getByRole('button',{name:'Accept',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__qa.toasts.some(t=>t[1]==='success'))).toBe(true);
-      assert.deepEqual(errors,[]);checks.push(`${width}: no overflow, unknown capacity, keyboard decline, busy lock, stale success suppressed; dashboard zero-row decline and confirmed accept`);await context.close();
+      rpcCount+=await page.evaluate(()=>window.__qa.writes.filter(w=>w.name).length);
+      assert.deepEqual(errors,[]);checks.push(`${width}: no overflow, capacity-only decline enabled, failed pending refresh disables retained rows, keyboard read-only Retry recovery, busy lock, stale success suppressed; dashboard zero-row decline and confirmed accept`);await context.close();
     }
     assert.deepEqual(external, []);
-    await writeFile(path.join(evidence, 'browser-results.json'), JSON.stringify({ baseline: BASE, checks, externalRequests: 0, syntheticRequestRPCs: 8,
+    await writeFile(path.join(evidence, 'browser-results.json'), JSON.stringify({ baseline: BASE, checks, externalRequests: 0, syntheticRequestRPCs: rpcCount,
       limitations: 'Real request page and dashboard hook/view/components/CSS; mocked Supabase, matching, notification, Next navigation and unrelated dashboard decorations. System fonts replace Next fonts. No live Supabase, RLS, middleware, real OAuth or production writes.' }, null, 2) + '\n');
-    console.log(`${checks.length} viewport checks passed; eight screenshots; zero external requests; eight explicitly initiated synthetic RPCs.`);
+    console.log(`${checks.length} viewport checks passed; twelve screenshots; zero external requests; ${rpcCount} explicitly initiated synthetic RPCs.`);
   } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
