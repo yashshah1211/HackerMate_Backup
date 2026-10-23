@@ -71,7 +71,7 @@ export default function HustleCarnivalWorkshops({ workshops = HUSTLE_WORKSHOPS }
       </section>
 
       <section className={styles.practical} aria-labelledby="attending-title">
-        <div><p className={styles.eyebrow}>02 / GOOD TO KNOW</p><h2 id="attending-title">Just bring your curiosity.</h2><p>Watch your chosen session on an official Club Ellusion YouTube channel. Livestream links will appear above once the organizer shares them.</p></div>
+        <div><p className={styles.eyebrow}>02 / GOOD TO KNOW</p><h2 id="attending-title">Just bring your curiosity.</h2><p>Choose your session above and select Watch on YouTube to open its livestream in a new tab.</p></div>
         <div className={styles.faq}>
           <details><summary>Who can attend the workshops?</summary><p>Everyone. These public workshops are open to anyone, independently of buildathon participation. You do not need to sign in to HackerMate or register for a workshop.</p></details>
           <details><summary>Can I watch both workshops live?</summary><p>Both run on 24 October 2026 from 2:00 PM to 4:00 PM IST (UTC+05:30). They take place simultaneously, so choose the session you want to join.</p></details>

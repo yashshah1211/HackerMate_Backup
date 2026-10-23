@@ -14,11 +14,15 @@ function render(data = workshops) {
   return new JSDOM(renderToStaticMarkup(React.createElement(component, { workshops: data }))).window.document;
 }
 
-test('configuration contains two public simultaneous workshops and no invented links', () => {
+test('configuration maps supplied official YouTube livestreams to the correct workshops while certificates remain pending', () => {
   assert.deepEqual(Array.from(workshops, w => w.title), ['Git & GitHub', 'Introduction to AI Tools']);
   assert.equal(schedule.start, '2026-10-24T14:00:00+05:30');
   assert.equal(schedule.end, '2026-10-24T16:00:00+05:30');
-  for (const w of workshops) { assert.equal(w.livestream, null); assert.equal(w.certificateForm, null); }
+  assert.deepEqual(Array.from(workshops, w => validate(w.livestream, 'livestream')), [
+    'https://www.youtube.com/live/YnTbBoXHJ5A',
+    'https://www.youtube.com/live/ogiIp36iXxo',
+  ]);
+  for (const w of workshops) assert.equal(w.certificateForm, null);
 });
 
 test('links require explicit organizer approval, even on recognised hosts', () => {
@@ -39,11 +43,16 @@ test('rejects unsafe, malformed, lookalike, unrelated and cross-kind destination
   for (const url of [stream, 'https://forms.gle/', 'https://forms.gle.evil.test/fixture', 'https://docs.google.com/document/d/fixture', 'https://docs.google.com/forms/d/fixture/edit', 'http://forms.gle/fixture', 'https://forms.gle:8443/fixture']) assert.equal(validate(approved(url), 'certificate'), null, url);
 });
 
-test('unconfigured page is accessible without identity, registration or certificate collection', () => {
+test('livestream-ready page remains public without identity, registration or certificate collection', () => {
   const doc = render();
   assert.equal(doc.querySelectorAll('article').length, 2);
-  assert.equal(doc.querySelectorAll('button[disabled]').length, 4);
-  assert.equal(doc.querySelectorAll('form, input, iframe, a[target="_blank"]').length, 0);
+  assert.equal(doc.querySelectorAll('button[disabled]').length, 2);
+  assert.equal(doc.querySelectorAll('a[target="_blank"]').length, 2);
+  assert.deepEqual(Array.from(doc.querySelectorAll('a[target="_blank"]'), a => a.href), [
+    'https://www.youtube.com/live/YnTbBoXHJ5A',
+    'https://www.youtube.com/live/ogiIp36iXxo',
+  ]);
+  assert.equal(doc.querySelectorAll('form, input, iframe').length, 0);
   assert.match(doc.body.textContent, /No sign-in or registration required/);
   assert.match(doc.body.textContent, /Both workshops run simultaneously/);
   assert.match(doc.body.textContent, /HackerMate does not generate certificates or collect certificate responses/);
