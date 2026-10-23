@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, Inbox, Lock, TriangleAlert } from "lucide-react";
@@ -39,123 +39,122 @@ function TeamRequestsContent() {
   const [maxMembers, setMaxMembers] = useState(0);
   const [teamFull, setTeamFull] = useState(false);
   const [teamName, setTeamName] = useState("");
-  // UI-only: surfaces query failures instead of a silent empty state.
   const [loadError, setLoadError] = useState<string | null>(null);
-  // UI-only: disables a row's buttons while its action runs.
+  const [capacityKnown, setCapacityKnown] = useState(false);
+  const [pendingKnown, setPendingKnown] = useState(false);
+  const pendingVerified = useRef(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const scope = useRef(0);
+  const read = useRef(0);
+  const owner = useRef<string | null>(null);
+  const action = useRef(false);
+  const mounted = useRef(false);
+  const current = (epoch: number) => mounted.current && epoch === scope.current;
+
   async function checkOwnership() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    const { data: team, error } = await supabase
-      .from("teams")
-      .select("owner_id, max_members, name")
-      .eq("id", teamId)
-      .single();
-    if (error || !team) {
-      console.error(error);
-      setLoadError(error?.message ?? null);
-      setLoading(false);
-      return;
-    }
-    setTeamName(team.name);
-    if (team.owner_id !== user.id) {
-      setLoading(false);
-      return;
-    }
-    setMaxMembers(team.max_members || 0);
-    const { count } = await supabase
-      .from("team_members")
-      .select("*", { count: "exact", head: true })
-      .eq("team_id", teamId);
-    const currentCount = count || 0;
-    setMemberCount(currentCount);
-    if (team.max_members && currentCount >= team.max_members) {
-      setTeamFull(true);
-    } else {
-      setTeamFull(false);
-    }
-    setIsOwner(true);
-    loadRequests();
-  }
-  async function loadRequests() {
-    const { data, error } = await supabase
-      .from("team_join_requests")
-      .select(
-        `
-        id,
-        user_id,
-        status,
-        profiles (
-          id,
-          full_name,
-          avatar_url
-        )
-      `
-      )
-      .eq("team_id", teamId)
-      .eq("status", "pending");
-    if (error) {
-      console.error(error);
-      setLoadError(error.message);
-    } else {
-      setLoadError(null);
-      setRequests(data as unknown as Request[]);
-    }
-    setLoading(false);
+    const epoch = scope.current, generation = ++read.current;
+    const valid = () => current(epoch) && generation === read.current;
+    pendingVerified.current = false;
+    setPendingKnown(false);
+    setCapacityKnown(false);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (!valid()) return;
+      if (authError) throw authError;
+      if (!user) { owner.current = null; setIsOwner(false); setRequests([]); return; }
+      const { data: team, error } = await supabase.from("teams")
+        .select("owner_id, max_members, name").eq("id", teamId).single();
+      if (!valid()) return;
+      if (error) throw error;
+      if (!team) throw new Error("Couldn't verify this team.");
+      setTeamName(team.name);
+      owner.current = team.owner_id === user.id ? user.id : null;
+      setIsOwner(!!owner.current);
+      if (!owner.current) { setRequests([]); return; }
+      setMaxMembers(team.max_members || 0);
+      const [capacityRead, pendingRead] = await Promise.allSettled([
+        supabase.from("team_members").select("id", { count: "exact", head: true }).eq("team_id", teamId),
+        supabase.from("team_join_requests").select("id, user_id, status, profiles(id, full_name, avatar_url)")
+          .eq("team_id", teamId).eq("status", "pending"),
+      ]);
+      if (!valid()) return;
+      const capacity = capacityRead.status === "fulfilled" ? capacityRead.value : { count: null, error: capacityRead.reason };
+      if (capacity.error) console.error("[requests] capacity read failed:", capacity.error);
+      const known = !capacity.error && typeof capacity.count === "number" && Number.isInteger(capacity.count) && capacity.count >= 0;
+      setCapacityKnown(known);
+      if (known) {
+        setMemberCount(capacity.count!);
+        setTeamFull(!!team.max_members && capacity.count! >= team.max_members);
+      }
+      if (pendingRead.status === "rejected") throw pendingRead.reason;
+      const pending = pendingRead.value;
+      if (pending.error) throw pending.error;
+      if (!Array.isArray(pending.data)) throw new Error("Couldn't verify pending requests.");
+      setRequests(pending.data as unknown as Request[]);
+      pendingVerified.current = true;
+      setPendingKnown(true);
+      setLoadError(known ? null : "Capacity is unavailable. Refresh before accepting requests.");
+    } catch (error) {
+      console.error("[requests] load failed:", error);
+      if (valid()) setLoadError("Couldn't verify the latest requests. Please refresh.");
+    } finally { if (valid()) setLoading(false); }
   }
   useEffect(() => {
-    if (teamId) {
-      Promise.resolve().then(() => {
-        checkOwnership();
-      });
-    }
+    mounted.current = true;
+    ++scope.current;
+    const initialEpoch = scope.current;
+    const reset = () => {
+      ++scope.current; owner.current = null; action.current = false;
+      pendingVerified.current = false;
+      setPendingKnown(false);
+      setIsOwner(false); setRequests([]); setCapacityKnown(false); setBusyId(null);
+      setLoadError(null); setLoading(true);
+    };
+    queueMicrotask(() => { if (current(initialEpoch)) void checkOwnership(); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user.id === owner.current) return;
+      reset();
+      // Avoid a Supabase auth call inside its auth callback.
+      queueMicrotask(() => { if (mounted.current) void checkOwnership(); });
+    });
+    return () => { mounted.current = false; subscription.unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
-  async function acceptRequest(request: Request) {
-    const { error } = await supabase.rpc("accept_team_join_request", {
-      p_request_id: request.id,
-    });
-    if (error) {
-      showToast(error.message, "error");
-      return;
-    }
-    showToast("Join request accepted!", "success");
-    await checkOwnership();
-  }
-  async function rejectRequest(requestId: string) {
-    const { error } = await supabase
-      .from("team_join_requests")
-      .delete()
-      .eq("id", requestId);
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      return;
-    }
-    showToast("Join request rejected.", "info");
-    loadRequests();
-  }
 
-  // UI wrapper: tracks the busy row around the unchanged handlers.
-  async function runForRow(id: string, action: () => Promise<void>) {
-    setBusyId(id);
+  async function runForRow(request: Request, accept: boolean) {
+    if (action.current || !owner.current || !pendingVerified.current || (accept && (!capacityKnown || teamFull))) return;
+    action.current = true;
+    const epoch = scope.current, expectedOwner = owner.current;
+    setBusyId(request.id);
+    ++read.current;
     try {
-      await action();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (!current(epoch)) return;
+      if (authError) throw authError;
+      if (user?.id !== expectedOwner) { ++scope.current; owner.current = null; setIsOwner(false); setRequests([]); return; }
+      // The RPC enforces capacity and ownership transactionally; deletes remain team/pending scoped.
+      const result = accept
+        ? await supabase.rpc("accept_team_join_request", { p_request_id: request.id })
+        : await supabase.from("team_join_requests").delete().eq("id", request.id)
+          .eq("team_id", teamId).eq("status", "pending").select("id");
+      if (!current(epoch)) return;
+      if (result.error) throw result.error;
+      const confirmed = accept ? result.data === teamId
+        : Array.isArray(result.data) && result.data.length === 1 && result.data[0]?.id === request.id;
+      if (!confirmed) throw new Error("Unexpected request confirmation");
+      showToast(accept ? "Join request accepted!" : "Join request rejected.", accept ? "success" : "info");
+    } catch (error) {
+      console.error("[requests] decision could not be confirmed:", error);
+      if (current(epoch)) showToast("Couldn't verify the change. Refresh requests before trying again.", "error");
     } finally {
-      setBusyId(null);
+      if (current(epoch)) {
+        action.current = false; setBusyId(null);
+        await checkOwnership(); // Reconcile with reads only, including uncertain responses.
+      }
     }
   }
 
-  function retryLoad() {
-    setLoadError(null);
-    setLoading(true);
-    checkOwnership();
-  }
+  function retryLoad() { setLoading(true); void checkOwnership(); }
 
   const backLink = (
     <Link
@@ -212,7 +211,7 @@ function TeamRequestsContent() {
             <span>
               {requests.length} pending
             </span>
-            <SeatMeter filled={memberCount} total={maxMembers || null} />
+            {capacityKnown ? <SeatMeter filled={memberCount} total={maxMembers || null} /> : <span>Capacity unavailable</span>}
           </span>
         }
       />
@@ -266,18 +265,19 @@ function TeamRequestsContent() {
                     </ButtonLink>
                     <Button
                       variant="ghost"
-                      disabled={busy}
-                      onClick={() => runForRow(request.id, () => rejectRequest(request.id))}
+                      disabled={busyId !== null || !pendingKnown}
+                      onClick={() => runForRow(request, false)}
                       className="h-9 md:h-[34px]"
                     >
                       Decline
                     </Button>
-                    {!teamFull && (
+                    {capacityKnown && !teamFull && (
                       <Button
                         variant="primary"
                         icon={<Check aria-hidden />}
                         loading={busy}
-                        onClick={() => runForRow(request.id, () => acceptRequest(request))}
+                        disabled={busyId !== null || !pendingKnown}
+                        onClick={() => runForRow(request, true)}
                         className="h-9 md:h-[34px]"
                       >
                         Accept
@@ -294,9 +294,10 @@ function TeamRequestsContent() {
   );
 }
 export default function TeamRequestsPage() {
+  const params = useParams();
   return (
     <AuthGuard>
-      <TeamRequestsContent />
+      <TeamRequestsContent key={params.id as string} />
     </AuthGuard>
   );
 }

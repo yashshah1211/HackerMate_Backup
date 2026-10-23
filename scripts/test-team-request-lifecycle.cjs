@@ -32,6 +32,7 @@ async function mount(t, options = {}) {
     from(table) {
       const q = { table, filters: {} };
       return {
+        delete() { q.deleting = true; return this; },
         select(columns) { q.columns = columns; return this; }, eq(key, value) { q.filters[key] = value; return this; },
         maybeSingle() { q.single = true; return this; }, single() { q.single = true; return this; },
         limit(value) { q.limit = value; return this; }, abortSignal(signal) { q.signal = signal; return this; },
@@ -41,17 +42,18 @@ async function mount(t, options = {}) {
           if (table === 'teams') data = { id: q.filters.id, name: 'QA Campus Builders', owner_id: server.owner, max_members: 4, team_hackathons: [], skills: [] };
           if (table === 'profiles') data = { skills: ['React'] };
           if (table === 'team_invites') data = server.invite ? { id: 'fixture-invite', status: 'pending' } : null;
-          if (table === 'team_members') data = q.single ? server.member ? { id: 'fixture-member' } : null : [];
+          if (table === 'team_members') data = q.single ? server.member ? { id: 'fixture-member' } : null : server.member ? [{ id: 'fixture-member', user_id: server.user, profiles: { id: server.user, full_name: 'Synthetic Member' } }] : [];
           if (table === 'team_hackathons') data = [];
           if (table === 'team_join_requests') data = server.pending ? { id: 'fixture-request' } : null;
-          const result = { data, error: server[table + 'Error'] || null };
+          const result = q.deleting ? (server.deleteResult || { data: [{ id: q.filters.id }], error: null }) : { data, error: server[table + 'Error'] || null };
+          if (q.deleting) writes.push(q);
           return Promise.resolve(gates[table]?.length && (table !== 'team_members' || q.single) ? gates[table].shift() : result).then(resolve, reject);
         },
       };
     },
     async rpc(name, args) {
       writes.push({ name, args: JSON.parse(JSON.stringify(args)), user: server.user });
-      const result = gates.rpc.length ? await gates.rpc.shift() : { error: server.rpcError || null };
+      const result = gates.rpc.length ? await gates.rpc.shift() : { data: '10000000-0000-4000-8000-000000000001', error: server.rpcError || null };
       if (!result.error && name === 'request_to_join_team') server.pending = true;
       if (!result.error && name === 'join_team_instantly') { server.member = true; server.pending = false; }
       return result;
@@ -240,3 +242,48 @@ for (const [token, message] of [['fixture-invalid-token', 'Invalid invite token 
     await ui.focus(); assert.equal(ui.writes.length, 1); // Refresh cannot retry an invitation or request.
   });
 }
+
+for (const data of [null, '', 'not-a-uuid', [], {}, ['10000000-0000-4000-8000-000000000001']]) test(`malformed submission confirmation ${JSON.stringify(data)} never reports success`, async t => {
+  const ui = await mount(t, { pending: false }); ui.gate('rpc', Promise.resolve({ data, error: null }));
+  await ui.flush(() => ui.overview().requestToJoin());
+  assert.deepEqual(ui.events, []); assert.equal(ui.overview().requestStatus, 'error');
+  assert.equal(ui.writes.length, 1); assert.equal(ui.toasts.filter(t => t[1] === 'success').length, 0);
+});
+for (const kind of ['leaveTeam', 'disbandTeam']) for (const result of [{ data: [], error: null }, { data: null, error: null }, { data: [{ id: 'wrong' }], error: null }]) test(`${kind} does not confirm ${JSON.stringify(result.data)}`, async t => {
+  const ui = await mount(t, { member: true, owner: A, deleteResult: result });
+  await ui.flush(() => ui.overview()[kind]('fixture-member'));
+  assert.equal(ui.writes.length, 1); assert.equal(ui.toasts.filter(t => t[1] === 'success' || t[1] === 'info').length, 0);
+});
+test('member removal verifies returned ID and scopes the delete to its team', async t => {
+  const ui = await mount(t, { member: true, owner: A });
+  await ui.flush(() => ui.overview().removeMember('fixture-member'));
+  await ui.flush(() => ui.confirmations[0].onConfirm());
+  assert.equal(ui.writes.length, 1); assert.deepEqual(ui.writes[0].filters, { id: 'fixture-member', team_id: 'fixture-team' });
+  assert.equal(ui.toasts.filter(t => t[1] === 'success').length, 1);
+});
+test('stale member removal confirmation cannot write after account switching', async t => {
+  const ui = await mount(t, { member: true, owner: A });
+  await ui.flush(() => ui.overview().removeMember('fixture-member')); const old = ui.confirmations[0];
+  await ui.auth(B); await ui.flush(() => old.onConfirm()); assert.equal(ui.writes.length, 0);
+});
+test('synchronous disband calls mutate once', async t => {
+  const ui = await mount(t, { member: true, owner: A });
+  await ui.flush(() => { void ui.overview().disbandTeam(); void ui.overview().disbandTeam(); }); assert.equal(ui.writes.length, 1);
+});
+
+for (const kind of ['leaveTeam', 'disbandTeam']) test(`${kind} confirms exactly one intended deletion`, async t => {
+  const ui = await mount(t, { member: true, owner: A }); await ui.flush(() => ui.overview()[kind]('fixture-member'));
+  assert.equal(ui.writes.length, 1); assert.equal(ui.toasts.filter(t => t[1] === 'success' || t[1] === 'info').length, 1);
+});
+test('uncertain membership delete is never replayed or confirmed', async t => {
+  const ui = await mount(t, { member: true, owner: A }); const gate = deferred(); ui.server.deleteResult = gate.promise;
+  await ui.flush(() => { void ui.overview().leaveTeam('fixture-member'); });
+  await ui.flush(() => gate.resolve(Promise.reject(new Error('Synthetic lost delete response'))));
+  assert.equal(ui.writes.length, 1); assert.equal(ui.toasts.filter(t => t[1] === 'success').length, 0);
+});
+test('late membership deletion after account switch has no success effects', async t => {
+  const ui = await mount(t, { member: true, owner: A }); const gate = deferred(); ui.server.deleteResult = gate.promise;
+  await ui.flush(() => { void ui.overview().leaveTeam('fixture-member'); }); await ui.auth(B);
+  await ui.flush(() => gate.resolve({ data: [{ id: 'fixture-member' }], error: null }));
+  assert.equal(ui.writes.length, 1); assert.deepEqual(ui.toasts, []);
+});

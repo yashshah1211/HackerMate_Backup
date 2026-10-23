@@ -35,13 +35,13 @@ async function mount(t, options = {}) {
     },
     async rpc(name, args) {
       writes.push({ name, args: JSON.parse(JSON.stringify(args)) });
-      return { data: null, error: options.rpcError || null };
+      return { data: '10000000-0000-4000-8000-000000000001', error: options.rpcError || null };
     },
   };
   const Component = harness({
     'next/navigation': { useRouter: () => ({}), useParams: () => ({ id: 'fixture-team' }), useSearchParams: () => new URLSearchParams() },
     '@/lib/supabase': { supabase },
-    '@/lib/posthog': { trackEvent: (name, properties) => events.push({ name, properties: JSON.parse(JSON.stringify(properties)) }) },
+    '@/lib/posthog': { trackEvent: (name, properties) => { if (options.analyticsError) throw options.analyticsError; events.push({ name, properties: JSON.parse(JSON.stringify(properties)) }); } },
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {}, confirm() { throw new Error('Unexpected confirmation'); } }) },
     '@/components/TeamOverviewView': props => {
       overview = props;
@@ -87,3 +87,10 @@ for (const options of [{ visitor: true }, { member: true }]) {
     assert.deepEqual(ui.writes, []); assert.deepEqual(ui.events, []);
   });
 }
+
+test('analytics failure preserves confirmed submission and never offers a duplicate', async t => {
+  const ui = await mount(t, { analyticsError: new Error('Synthetic analytics unavailable') });
+  await ui.click();
+  assert.equal(ui.overview().requestSent, true); assert.equal(ui.overview().requestStatus, 'ready');
+  assert.equal(ui.button().disabled, true); assert.equal(ui.writes.length, 1); assert.equal(ui.errors.length, 1);
+});
