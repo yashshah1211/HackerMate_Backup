@@ -8,31 +8,35 @@ Eligible teams now sort by confirmed recent owner activity, then existing listed
 
 The exact **Owner recently active** label and definition (recorded app activity within 30 days) remain, along with the response disclaimer. Matched skill names and no-overlap/missing-skill explanations remain visible. A recently active owner with fewer shared skills can appear ahead of an unknown owner with more overlap; the explanations make that tradeoff visible. Existing filters, open/all scopes and Show more preserve access to all teams.
 
-For nonempty filtered results without an eligible recent-owner team sharing at least one listed viewer skill, one inline paragraph offers **Create a team** and **Discover builders**, while explicitly allowing continued browsing. Without viewer skills, the paragraph explains that skill relevance cannot be assessed and appears only when no eligible recent owner is identified. It is suppressed during team loading and team-read errors. Empty results reuse their existing alternatives. The dashboard already has join/create paths and is unchanged. Optional activity still loads progressively, as before, so ordering and contextual text can update after the base team list appears.
+For nonempty filtered results without an eligible recent-owner team sharing at least one listed viewer skill, one inline paragraph offers **Create a team** and **Discover builders**, while explicitly allowing continued browsing. Without viewer skills, the paragraph explains that skill relevance cannot be assessed and appears only when no eligible recent owner is identified. It is suppressed during team loading, team-read errors and any unsettled activity lookup. Empty results reuse their existing alternatives. The dashboard already has join/create paths and is unchanged. Optional activity still loads progressively, so the team list appears immediately and ordering can update later; the contextual paragraph waits for that lookup to settle.
 
 Only an explicit click on either new inline link emits `team_discovery_alternative_selected`, with exactly `{ source: "team_discovery", path: "create" | "builders" }`. There is no automatic request, new impression event, identifying field, team name, skill value or timestamp in this payload. Analytics errors are logged and cannot block navigation. Existing global analytics configuration and existing event payloads are unchanged; this is not a claim that all existing analytics traffic is anonymous.
 
 ## Verification
 
 - Baseline audit: 87 existing offline tests passed before implementation.
-- Final focused suites: **99 tests passed**, including 12 additional discovery regressions. Discovery-only rerun after the final pagination regression: **45 passed**. Commands:
+- Updated focused suites after PR review: **106 tests passed** (original PR validation: 99). Seven new hook regressions and extended existing assertions cover delayed success/missing/malformed/denied/network results, stale and aborted responses, reload reset, unmount, skipped lookups, and view suppression until activity settles. Commands:
   - `node --test scripts/test-team-discovery.cjs scripts/test-team-activity.cjs scripts/test-team-creation.cjs scripts/test-first-team-request-analytics.cjs`
   - `node --test scripts/test-team-discovery.cjs`
 - `npx tsc --noEmit`: passed.
-- `npx eslint src/app/teams/useTeamsData.ts src/app/teams/TeamsView.tsx scripts/test-team-discovery.cjs scripts/test-first-team-conversion-browser.cjs`: passed, no warnings.
+- `npx eslint src/app/teams/useTeamsData.ts src/app/teams/TeamsView.tsx src/app/teams/page.tsx scripts/test-team-discovery.cjs scripts/test-team-activity.cjs scripts/test-first-team-conversion-browser.cjs`: passed, no warnings.
 - `git diff --check`: passed.
-- `node scripts/test-first-team-conversion-browser.cjs`: passed with installed Edge at **320, 390, 768 and 1440 pixels**. Real `TeamsView`, `useTeamsData` and application CSS; synthetic read adapters, loopback-only network. See [machine-readable browser evidence](browser-results.json).
+- `node scripts/test-first-team-conversion-browser.cjs`: passed with installed Edge at **320, 390, 768 and 1440 pixels**. Real `TeamsPage`, `TeamsView`, `useTeamsData` and application CSS; synthetic read adapters, passthrough AuthGuard and loopback-only network. See [machine-readable browser evidence](browser-results.json).
 - `node scripts/test-public-hackathon-metadata-production.cjs`: actual Next production build passed (`next build --webpack`), followed by **44 production HTML checks**, 39 anonymous fixture reads and zero writes/external data. This existing script uses synthetic local configuration and offline fonts, not deployed credentials. Existing middleware-convention, Sentry instrumentation and Edge Runtime dependency warnings remain; no framework/security configuration was changed.
 
 Regressions cover eligible-first ordering, lower-overlap recent owners, skill ordering within activity groups, deterministic ties, unknown/outdated parity, pagination retaining all 35 synthetic eligible teams, capacity/recruitment/event closure, primary/junction events, filters, missing viewer/team skills, partial activity failure, denied/network/missing activity, unchanged empty states, error/loading suppression, fixed analytics payloads and analytics failure isolation. Existing request and create suites retain explicit request submission, confirmed success analytics, session/duplicate/failure protections, workspace handoff and invitation behavior.
 
-The browser run checks 14 behavior groups at each viewport: before/after ordering, accurate skills/activity copy, no overflow, all teams retained, event closure/filtering, mobile/tablet sheet, no duplicated empty-state links, failure fallback, filtered/missing-skill suggestions, keyboard navigation with exact analytics payloads, navigation despite analytics exceptions, signed-out read restrictions, team-read errors and zero mutations/external requests. The signed-out fixture exercises the hook defensively; it does not bypass or replace the unchanged production AuthGuard. Create and builder destinations are route sentinels, not real accounts or live pages. Both route source files were verified to exist.
+The browser run checks 16 behavior groups at each viewport: the original 14 (before/after ordering, accurate skills/activity copy, no overflow, all teams retained, event closure/filtering, mobile/tablet sheet, no duplicated empty-state links, failure fallback, filtered/missing-skill suggestions, keyboard navigation with exact analytics payloads, navigation despite analytics exceptions, signed-out read restrictions, team-read errors and zero mutations/external requests), plus controlled pending/success and delayed missing/denied/network settlement. A DOM observer records any fallback render and confirms none occurs while successful relevant activity is pending or after it resolves. Failed or missing lookups keep all four eligible fixture cards visible and enable alternatives only after settlement. The fixture's passthrough AuthGuard is not live authentication validation; production AuthGuard is unchanged. Create and builder destinations are route sentinels, not real accounts or live pages. Both route source files were verified to exist.
+
+Review follow-up against `4c387f969644b4ed6b7884f82dac2ffc9314e4db`: reproduced the missing-completion gate with failing hook/view assertions before changing source. Added `activitySettled`, reset it on each load, and set it only in the current generation's completion path. A pending lookup never settles speculatively or gains a new timeout; the team list remains available. Missing/denied/network/malformed results settle as unknown, not inactive. Aborted/stale responses cannot settle a replacement request. `/teams/page.tsx` forwards the state; the view defaults to unsettled when callers omit it. No product behavior beyond the requested message timing changed. The React checklist found no added data waterfall, effect-driven derived UI state, component dependency or accessibility change.
 
 One initial browser assertion expected only one React skill explanation, although three fixture teams legitimately display it. Corrected that fixture count; the complete run then passed. No application change was needed for that correction.
 
 ## Screenshots
 
 Pinned main and changed source use identical synthetic data and local font fallbacks. Manually inspected the generated mobile fallback and desktop ranking screenshots in addition to automated checks.
+
+[Pending activity, 390px](activity-pending-390.png): team rows are visible while the contextual alternatives are suppressed. Existing before/after/fallback screenshots were regenerated by the updated page-level fixture.
 
 | Width | Before | After | Activity unavailable with alternatives |
 | --- | --- | --- | --- |
@@ -62,8 +66,11 @@ Pinned main and changed source use identical synthetic data and local font fallb
 17. `docs/qa/first-team-conversion/before-1440.png`
 18. `docs/qa/first-team-conversion/after-1440.png`
 19. `docs/qa/first-team-conversion/fallback-1440.png`
+20. `src/app/teams/page.tsx`
+21. `scripts/test-team-activity.cjs`
+22. `docs/qa/first-team-conversion/activity-pending-390.png`
 
-`scripts/test-team-activity.cjs` required no changes; its existing hook/failure tests were rerun. No package manifest or lockfile changes. Generated build diagnostics are local artifacts and excluded from the PR.
+The follow-up modifies 10 files: the three discovery source files, three test scripts, this QA README, the browser-results JSON, the plan, and the new pending screenshot. No package manifest or lockfile changes. Generated build diagnostics are local artifacts and excluded from the PR.
 
 ## Expected outcome and limitations
 

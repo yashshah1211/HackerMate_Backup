@@ -15,10 +15,11 @@ const evidence = path.join(ROOT, 'docs/qa/first-team-conversion');
 const adapters = {
   'next/link': `import React from 'react';export default function Link({href,children,...props}){return <a {...props} href={href} onClick={e=>{props.onClick?.(e);if(e.defaultPrevented)return;e.preventDefault();history.pushState(null,'',href);window.dispatchEvent(new PopStateEvent('popstate'));}}>{children}</a>}`,
   'next/navigation': `export const usePathname=()=>location.pathname;`,
+  '@/components/AuthGuard': `export default function AuthGuard({children}){return children;}`,
   '@/lib/posthog': `export function trackEvent(name,properties){if(new URLSearchParams(location.search).has('analytics-failure'))throw Error('Synthetic analytics failure');window.__qa.events.push({name,properties});}`,
   '@/lib/supabase': `
     Date.now=()=>Date.parse('2026-10-19T12:00:00Z');
-    window.__qa={queries:[],writes:[],events:[]};
+    window.__qa={queries:[],writes:[],events:[],fallbackRenders:[]};
     const params=new URLSearchParams(location.search);
     const team=(id,name,extra={})=>({id,name,owner_id:'owner-'+id,description:'Building accessible tools for students. Looking for thoughtful collaborators.',skills:['React'],college:'QA Campus',hackathon_name:null,max_members:4,is_recruiting:true,created_at:'2026-10-18T00:00:00Z',team_members:[{id:'m-'+id}],team_hackathons:[],...extra});
     const h={id:'event',name:'QA Design Sprint',archived:true,status:'approved',end_date:'2026-11-01'};
@@ -36,18 +37,22 @@ const adapters = {
             return{data:records.map(t=>{const copy=JSON.parse(JSON.stringify(t));if(!q.columns.includes('teams_hackathon_id_fkey'))delete copy.hackathons;return copy}),error:null};}
           if(table==='profiles'&&q.columns==='skills')return{data:{skills:params.has('no-skills')?[]:['React']},error:null};
           if(table==='profiles'&&q.columns==='id, last_seen_at'){
+            const result=()=>{
             if(params.has('denied'))return{data:null,error:{code:'42501'}};
             if(params.has('transport'))throw Error('Synthetic activity network failure');
             if(params.has('missing'))return{data:[],error:null};
             return{data:[{id:'owner-active',last_seen_at:'2026-10-18T11:00:00+00:00'},{id:'owner-stale',last_seen_at:'2026-06-01T00:00:00Z'},
-              {id:'owner-unknown',last_seen_at:null},{id:'owner-less-relevant',last_seen_at:'2026-10-19T10:00:00Z'}],error:null};}
+              {id:'owner-unknown',last_seen_at:null},{id:'owner-less-relevant',last_seen_at:'2026-10-19T10:00:00Z'}],error:null};};
+            if(params.has('defer'))return new Promise((resolve,reject)=>{window.__qa.finishActivity=()=>{try{resolve(result())}catch(error){reject(error)}}});
+            return result();}
           throw Error('Unexpected fixture query '+table+' '+q.columns);
         }).then(resolve,reject)}};return chain;}};`,
 };
 const entry = `import React,{useEffect,useState}from'react';import{createRoot}from'react-dom/client';
- import{TeamsView}from'@/app/teams/TeamsView';import{useTeamsData}from'@/app/teams/useTeamsData';
- function App(){const d=useTeamsData();const[route,setRoute]=useState(location.pathname);useEffect(()=>{const change=()=>setRoute(location.pathname);window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[]);
- return route==='/teams'?<TeamsView {...d} onRetry={d.reload} today="2026-10-19"/>:<p>Fixture destination: {route}</p>}
+ import TeamsPage from'@/app/teams/page';
+ function App(){const[route,setRoute]=useState(location.pathname);useEffect(()=>{const change=()=>setRoute(location.pathname);window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[]);
+ return route==='/teams'?<TeamsPage/>:<p>Fixture destination: {route}</p>}
+ new MutationObserver(()=>{if(document.getElementById('root').textContent.includes('has been identified in these results'))window.__qa.fallbackRenders.push('visible')}).observe(document.getElementById('root'),{subtree:true,childList:true,characterData:true});
  createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);`;
 async function bundle(before) {
   const result = await build({ stdin: { contents: entry, loader: 'tsx', resolveDir: ROOT }, bundle: true, write: false, jsx: 'automatic', platform: 'browser',
@@ -173,11 +178,33 @@ async function bundle(before) {
       await page.goto(origin + '/teams?list-error=1');await expect(page.getByRole('alert')).toContainText('Synthetic team read denied');
       await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
       assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);assert.deepEqual(errors, []);
-      checks.push({ viewport: name, width, checks: ['pinned main skill-first and changed activity-first order', 'accurate skill explanations and coarse activity only', 'no overflow', 'all teams retained', 'primary-event filter and closure', 'filter sheet on mobile/tablet', 'empty-state links not duplicated', 'denied/transport/missing optional activity preserves skill ordering', 'filtered fallback and missing viewer skills', 'keyboard alternative navigation emits only fixed source/path', 'analytics failure cannot block navigation', 'signed-out skips profiles', 'team-read error shown without contextual suggestion', 'zero writes or external network'] });
+      for (const outcome of ['success', 'missing', 'denied', 'transport']) {
+        await page.goto(origin + '/teams?defer=1&' + outcome + '=1');
+        await expect(cards()).toHaveCount(4);
+        await expect.poll(() => page.evaluate(() => typeof window.__qa.finishActivity)).toBe('function');
+        await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+        assert.deepEqual(await page.evaluate(() => window.__qa.fallbackRenders), [], 'No contextual message before activity settles');
+        assert.deepEqual(await ids(), ['stale', 'unknown', 'active', 'less-relevant'], 'Teams remain available before optional activity');
+        if (outcome === 'success' && width === 390) await page.screenshot({ path: path.join(evidence, 'activity-pending-390.png'), fullPage: true });
+        await page.evaluate(() => window.__qa.finishActivity());
+        if (outcome === 'success') {
+          await expect(page.getByText('Owner recently active', { exact: true })).toHaveCount(2);
+          await expect(page.getByText(/has been identified in these results/)).toHaveCount(0);
+          assert.deepEqual(await page.evaluate(() => window.__qa.fallbackRenders), [], 'Successful relevant activity must never flash a fallback');
+        } else {
+          await expect(page.getByText(/has been identified in these results/)).toBeVisible();
+          if (outcome !== 'missing') await expect(page.getByRole('status')).toContainText('Owner activity couldn’t be checked');
+          await expect(page.getByRole('link', { name: 'Discover builders', exact: true })).toBeVisible();
+          await expect(cards()).toHaveCount(4);
+        }
+        assert.deepEqual(await page.evaluate(() => window.__qa.writes), []);
+      }
+      assert.deepEqual(errors, []);
+      checks.push({ viewport: name, width, checks: ['pinned main skill-first and changed activity-first order', 'accurate skill explanations and coarse activity only', 'no overflow', 'all teams retained', 'primary-event filter and closure', 'filter sheet on mobile/tablet', 'empty-state links not duplicated', 'denied/transport/missing optional activity preserves skill ordering', 'filtered fallback and missing viewer skills', 'keyboard alternative navigation emits only fixed source/path', 'analytics failure cannot block navigation', 'signed-out skips profiles', 'team-read error shown without contextual suggestion', 'zero writes or external network', 'real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity', 'delayed missing/denied/transport activity enables alternatives only after settlement'] });
       await context.close();
     }
     assert.deepEqual(external, []);await fs.writeFile(path.join(evidence, 'browser-results.json'), JSON.stringify({ base: BASE, checks, externalRequests: 0, writes: 0,
-      limitations: 'Actual discovery components and application CSS with synthetic read adapters and local fonts; destination pages are route sentinels. No Next routing runtime, live Auth/RLS, database mutations or GA ingestion. These checks cannot establish team formation outcomes.' }, null, 2) + '\n');
+      limitations: 'Actual TeamsPage/discovery components and application CSS with synthetic read adapters, passthrough AuthGuard and local fonts; destination pages are route sentinels. No Next routing runtime, live Auth/RLS, database mutations or GA ingestion. These checks cannot establish team formation outcomes.' }, null, 2) + '\n');
     console.log(`Passed real TeamsView/useTeamsData browser checks at 320, 390, 768 and 1440px; before/after evidence: ${path.relative(ROOT, evidence)}`);
   } finally { if (browser) await browser.close();await new Promise(resolve => server.close(resolve)); }
 })().catch(err => { console.error(err);process.exitCode = 1; });

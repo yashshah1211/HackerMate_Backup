@@ -18,7 +18,9 @@
         "analytics failure cannot block navigation",
         "signed-out skips profiles",
         "team-read error shown without contextual suggestion",
-        "zero writes or external network"
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
       ]
     },
     {
@@ -38,7 +40,9 @@
         "analytics failure cannot block navigation",
         "signed-out skips profiles",
         "team-read error shown without contextual suggestion",
-        "zero writes or external network"
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
       ]
     },
     {
@@ -58,7 +62,9 @@
         "analytics failure cannot block navigation",
         "signed-out skips profiles",
         "team-read error shown without contextual suggestion",
-        "zero writes or external network"
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
       ]
     },
     {
@@ -78,11 +84,13 @@
         "analytics failure cannot block navigation",
         "signed-out skips profiles",
         "team-read error shown without contextual suggestion",
-        "zero writes or external network"
+        "zero writes or external network",
+        "real TeamsPage keeps list visible and suppresses fallback throughout delayed successful activity",
+        "delayed missing/denied/transport activity enables alternatives only after settlement"
       ]
     }
   ],
   "externalRequests": 0,
   "writes": 0,
-  "limitations": "Actual discovery components and application CSS with synthetic read adapters and local fonts; destination pages are route sentinels. No Next routing runtime, live Auth/RLS, database mutations or GA ingestion. These checks cannot establish team formation outcomes."
+  "limitations": "Actual TeamsPage/discovery components and application CSS with synthetic read adapters, passthrough AuthGuard and local fonts; destination pages are route sentinels. No Next routing runtime, live Auth/RLS, database mutations or GA ingestion. These checks cannot establish team formation outcomes."
 }

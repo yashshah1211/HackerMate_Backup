@@ -99,7 +99,7 @@ function ui(teams, viewerSkills = ['react'], options = {}) {
     if (!node || typeof node !== 'object') return [];
     return [...(predicate(node) ? [node] : []), ...[node.props?.children].flat(Infinity).flatMap(child => findAll(child, predicate))];
   };
-  const render = () => { cursor = 0; tree = Component({ teams, viewerSkills, loading: false, error: null, onRetry() {}, today: TODAY, ...options }); return tree; };
+  const render = () => { cursor = 0; tree = Component({ teams, viewerSkills, loading: false, activitySettled: true, error: null, onRetry() {}, today: TODAY, ...options }); return tree; };
   const text = node => typeof node === 'string' || typeof node === 'number' ? String(node) : [node?.props?.children].flat(Infinity).map(child => child ? text(child) : '').join('');
   const control = predicate => { const found = findAll(tree, predicate)[0]; assert(found, 'Control missing'); return found; };
   render();
@@ -262,7 +262,7 @@ test('partial activity failures retain confirmed positive indicators and make mi
 });
 
 test('loading, errors and empty results do not duplicate the contextual alternative paragraph', () => {
-  for (const options of [{ loading: true }, { error: 'Synthetic team read failed' }]) {
+  for (const options of [{ loading: true }, { activitySettled: false }, { activitySettled: undefined }, { error: 'Synthetic team read failed' }]) {
     assert(!ui([team('unknown')], ['React'], options).html().includes('has been identified in these results'));
   }
   const html = ui([]).html();

@@ -1,6 +1,6 @@
 # Mission 04 — First-team conversion
 
-Status: explicitly approved by the user on October 23, 2026; implementation and local validation complete. See `docs/qa/first-team-conversion/README.md` for the exact 19-file inventory, results, screenshots, limitations and rollback. One separate draft PR is authorized. No merge, deployment or production changes.
+Status: explicitly approved by the user on October 23, 2026; implemented in draft PR #59, with the narrowly requested activity-completion review fix. See `docs/qa/first-team-conversion/README.md` for the exact 22-file PR inventory, results, screenshots, limitations and rollback. No merge, deployment or production changes.
 
 ## Verified starting point and audit
 
@@ -22,6 +22,8 @@ Status: explicitly approved by the user on October 23, 2026; implementation and 
 4. Reuse the GA4 bridge for clicks on these new alternatives only: `team_discovery_alternative_selected`, with fixed `source: team_discovery` and `path: create | builders`. No identifiers, names, skill values or timestamps. Catch/log analytics errors so navigation remains available. No new impression event, automatic join action or backend instrumentation.
 5. Extend existing offline discovery/activity tests and adapt the existing local browser fixture for this mission. Document behavior, evidence and rollback. No dependencies, query expansion, database or server changes.
 
+Approved review follow-up: keep base team loading independent of an `activitySettled` state. Reset settlement on reload, complete only for the current request generation, and forward it through `src/app/teams/page.tsx`. The contextual paragraph must wait for settlement; rows remain visible throughout. Missing/failed/skipped activity can settle without implying inactivity; stale/aborted responses cannot complete newer activity. Extend the existing hook/view tests and page-level browser fixture, including delayed responses and a DOM check for transient fallback renders. No new product scope.
+
 An activity-only filter would hide eligible teams, and a second dashboard recommendation panel would duplicate existing choices. Neither is recommended.
 
 ## Validation and exact intended inventory
@@ -29,10 +31,11 @@ An activity-only filter would hide eligible teams, and a second dashboard recomm
 Implementation:
 - `src/app/teams/useTeamsData.ts`
 - `src/app/teams/TeamsView.tsx`
+- `src/app/teams/page.tsx` (review follow-up: forward activity settlement)
 
 Regression evidence:
 - `scripts/test-team-discovery.cjs`: active lower-overlap owner precedes unknown higher-overlap owner; skills order within activity groups; eligible first; deterministic ties; no hidden rows; unchanged scopes/filters/event closure; suggestion visibility, missing skills, unavailable activity and empty/error/loading states; privacy-safe click payloads and analytics failure isolation.
-- `scripts/test-team-activity.cjs`: retain existing optional-read, timestamp, stale-load and permission-failure coverage; extend only if needed for changed behavior.
+- `scripts/test-team-activity.cjs`: retain existing optional-read, timestamp, stale-load and permission-failure coverage; extend with separate activity settlement and delayed/stale/aborted/reload regressions for the review follow-up.
 - `scripts/test-first-team-conversion-browser.cjs` (new): reuse current fixture tooling to run actual discovery components/CSS, synthetic authorized-read adapters and loopback-only browser requests. Verify ordering, keyboard navigation, filters, failure fallback, alternative routes, no automatic mutations, and no horizontal overflow at 320/390/768/1440 pixels. Capture before/after screenshots against the pinned main source.
 - `docs/qa/first-team-conversion/README.md`, browser result JSON and before/after screenshots: exact final inventory and limitations after running validation.
 - This plan file.

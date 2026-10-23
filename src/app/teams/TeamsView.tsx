@@ -48,6 +48,7 @@ export function TeamsView({
   loading,
   error,
   activityUnavailable = false,
+  activitySettled = false,
   onRetry,
   today,
 }: {
@@ -56,6 +57,7 @@ export function TeamsView({
   loading: boolean;
   error: string | null;
   activityUnavailable?: boolean;
+  activitySettled?: boolean;
   onRetry: () => void;
   today: string;
 }) {
@@ -120,7 +122,7 @@ export function TeamsView({
       .sort(compareDiscoveryTeams);
   }, [enriched, scope, search, hackathon, college, skills]);
 
-  const offerAlternatives = !loading && !error && results.length > 0 && !results.some(
+  const offerAlternatives = !loading && activitySettled && !error && results.length > 0 && !results.some(
     ({ t, status, coverage }) => status.open && t.ownerRecentlyActive && (!viewerHasSkills || coverage.matched > 0),
   );
 

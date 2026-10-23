@@ -95,6 +95,7 @@ for (const kind of ['denied', 'transport']) test(`hook keeps teams visible and r
 for (const scenario of [{ user: null }, { authError: { message: 'expired' } }, { authThrow: true }]) test(`no authorized viewer skips owner profiles: ${JSON.stringify(scenario)}`, async t => {
   const view = await mountedHook(t, scenario);
   assert.equal(view.state.teams.length, 1); assert.equal(view.state.error, null);
+  assert.equal(view.state.activitySettled, true);
   assert.equal(view.queries.filter(q => q.table === 'profiles').length, 0);
 });
 test('base team failure stays a team error and makes no owner read', async t => {
@@ -106,17 +107,76 @@ test('team list is visible before optional activity resolves; older reload canno
   let finish; const pending = new Promise(resolve => { finish = resolve; });
   const view = await mountedHook(t, { activity: () => pending });
   assert.equal(view.state.loading, false); assert.equal(view.state.teams[0].id, 'one');
+  assert.equal(view.state.activitySettled, false);
   view.server.records = [team('new')]; view.server.activity = () => ({ data: [], error: null });
   await view.reload();
   await React.act(async () => finish({ data: [{ id: 'owner', last_seen_at: new Date(Date.now() - 1000).toISOString() }], error: null }));
   assert.equal(view.state.teams[0].id, 'new'); assert.equal(view.state.teams[0].ownerRecentlyActive, false);
+  assert.equal(view.state.activitySettled, true);
+});
+
+test('activity remains unsettled while a successful lookup is pending despite a visible team list', async t => {
+  let finish;
+  const view = await mountedHook(t, { activity: () => new Promise(resolve => { finish = resolve; }) });
+  assert.equal(view.state.loading, false); assert.equal(view.state.teams.length, 1);
+  assert.equal(view.state.activitySettled, false);
+  await React.act(async () => finish({ data: [{ id: 'owner', last_seen_at: new Date(Date.now() - 1000).toISOString() }], error: null }));
+  assert.equal(view.state.activitySettled, true);
+  assert.equal(view.state.teams[0].ownerRecentlyActive, true);
+});
+
+for (const kind of ['missing', 'malformed', 'denied', 'transport']) test(`delayed ${kind} activity settles without hiding the team list`, async t => {
+  let finish, fail;
+  const view = await mountedHook(t, { activity: () => new Promise((resolve, reject) => { finish = resolve; fail = reject; }) });
+  assert.equal(view.state.loading, false); assert.equal(view.state.teams.length, 1);
+  assert.equal(view.state.activitySettled, false);
+  await React.act(async () => {
+    if (kind === 'transport') fail(Error('Synthetic network failure'));
+    else finish(kind === 'denied' ? { data: null, error: { code: '42501' } }
+      : { data: kind === 'missing' ? [] : {}, error: null });
+  });
+  assert.equal(view.state.activitySettled, true);
+  assert.equal(view.state.loading, false); assert.equal(view.state.error, null);
+  assert.equal(view.state.teams.length, 1); assert.equal(view.state.teams[0].ownerRecentlyActive, false);
+  assert.equal(view.state.activityUnavailable, kind !== 'missing');
+});
+
+test('an aborted stale lookup cannot settle the newer pending lookup', async t => {
+  let oldFinish, newFinish;
+  const view = await mountedHook(t, { activity: () => new Promise(resolve => { oldFinish = resolve; }) });
+  const oldSignal = view.queries.find(q => q.columns === 'id, last_seen_at').signal;
+  view.server.records = [team('new')];
+  view.server.activity = () => new Promise(resolve => { newFinish = resolve; });
+  let reload;
+  await React.act(async () => { reload = view.state.reload(); });
+  assert.equal(oldSignal.aborted, true);
+  assert.equal(view.state.loading, false); assert.equal(view.state.teams[0].id, 'new');
+  assert.equal(view.state.activitySettled, false);
+  await React.act(async () => oldFinish({ data: [{ id: 'owner', last_seen_at: new Date(Date.now() - 1000).toISOString() }], error: null }));
+  assert.equal(view.state.activitySettled, false);
+  assert.equal(view.state.teams[0].id, 'new'); assert.equal(view.state.teams[0].ownerRecentlyActive, undefined);
+  await React.act(async () => { newFinish({ data: [], error: null }); await reload; });
+  assert.equal(view.state.activitySettled, true); assert.equal(view.state.teams[0].ownerRecentlyActive, false);
+});
+
+test('reload clears previous completion while the replacement activity lookup is pending', async t => {
+  const view = await mountedHook(t);
+  assert.equal(view.state.activitySettled, true);
+  let finish, reload;
+  view.server.activity = () => new Promise(resolve => { finish = resolve; });
+  await React.act(async () => { reload = view.state.reload(); });
+  assert.equal(view.state.loading, false); assert.equal(view.state.activitySettled, false);
+  await React.act(async () => { finish({ data: [], error: null }); await reload; });
+  assert.equal(view.state.activitySettled, true);
 });
 test('unmount aborts pending optional read', async t => {
   let finish; const pending = new Promise(resolve => { finish = resolve; });
   const view = await mountedHook(t, { activity: () => pending });
   const signal = view.queries.find(q => q.columns === 'id, last_seen_at').signal;
+  assert.equal(view.state.activitySettled, false);
   await view.unmount(); assert.equal(signal.aborted, true);
   await React.act(async () => finish({ data: [], error: null }));
+  assert.equal(view.state.activitySettled, false);
 });
 test('reload rechecks activity and removes a previously positive signal on access failure', async t => {
   const view = await mountedHook(t); assert.equal(view.state.teams[0].ownerRecentlyActive, true);
