@@ -108,8 +108,12 @@ export function TeamsView({
         if (want.size && !wantedSkills.some((s) => want.has(s.toLowerCase()))) return false;
         return true;
       })
-      .sort(compareDiscoveryTeams);
-  }, [enriched, scope, search, hackathon, college, skills]);
+      .sort((a, b) => compareDiscoveryTeams(a, b, !activityUnavailable));
+  }, [enriched, scope, search, hackathon, college, skills, activityUnavailable]);
+
+  const weakSupply = !loading && !error && !activityUnavailable && results.length > 0
+    && results.every(({ t }) => t.ownerActivityStatus === "checked")
+    && !results.some(({ t, status }) => status.open && t.ownerRecentlyActive);
 
   const active = (hackathon ? 1 : 0) + (college ? 1 : 0) + skills.length;
   const reset = () => {
@@ -233,7 +237,7 @@ export function TeamsView({
               </button>
             </div>
             <p className="text-[12.5px] text-ink-3">
-              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""}{viewerHasSkills ? " · skill overlap" : ""} · recent owner activity · newest
+              <span className="font-mono text-ink-2 tabular">{results.length}</span> shown{scope === "all" ? " · recruiting first" : ""}{!activityUnavailable ? " · recent owner activity first" : ""}{viewerHasSkills ? " · skill overlap" : ""} · newest
             </p>
           </div>
 
@@ -246,9 +250,21 @@ export function TeamsView({
 
           {error && <ErrorNotice className="mb-4" title="Couldn't load teams" detail={error} onRetry={onRetry} />}
 
+          {weakSupply && (
+            <EmptyState compact className="mb-5"
+              title="No recent owner activity confirmed for open teams here."
+              body="You can still apply, browse other teams, or start a team with other builders."
+              action={<>
+                <ButtonLink href="/developers" size="sm" variant="secondary" icon={<Users />}>Discover builders</ButtonLink>
+                <ButtonLink href="/teams/create" size="sm" variant="ghost" icon={<Plus />}>Create a team</ButtonLink>
+                <Button size="sm" variant="ghost" onClick={() => { setSearch(""); reset(); setScope("all"); }}>Browse other teams</Button>
+              </>}
+            />
+          )}
+
           {loading ? (
             <SkeletonRows rows={7} avatar="square" />
-          ) : results.length === 0 ? (
+          ) : error ? null : results.length === 0 ? (
             <EmptyState
               icon={<Users />}
               title={scope === "open" ? "No open teams match" : "No teams match"}
@@ -297,9 +313,11 @@ export function TeamsView({
                             <span className="text-[12.5px] font-medium text-ink-2"><span className="text-accent">●</span> Recruiting</span>
                           )}
                         </div>
-                        {t.ownerRecentlyActive && (
-                          <p className="mt-1 text-[12.5px] text-ink-3">Owner recently active</p>
-                        )}
+                        <p className="mt-1 text-[12.5px] text-ink-3">
+                          {t.ownerActivityStatus === "loading" ? "Checking owner activity…"
+                            : t.ownerActivityStatus === "unavailable" ? "Owner activity unavailable"
+                            : t.ownerRecentlyActive ? "Owner recently active" : "No confirmed recent owner activity"}
+                        </p>
                         <p className="mt-1 line-clamp-1 text-[13.5px] text-ink-2">{t.description || "No description yet."}</p>
                         <p className="mt-1.5 truncate text-[13px] text-ink-3">
                           {[events.join(", ") || "Independent project", t.college || "Multi-college"].join(" · ")}
