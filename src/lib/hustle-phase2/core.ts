@@ -3,7 +3,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 export const EVENT_ID = "0da43cba-90dc-449c-a126-a2fc8be8a379";
 export const BASE = "/partners/hustle-carnival/phase-2";
 export const API = "/api/partners/hustle-carnival/phase-2";
-export const OPENS = "2026-10-23T04:30:00.000Z";
+export const OPENS = "2026-10-23T03:30:00.000Z";
 export const CLOSES = "2026-10-23T17:30:00.000Z";
 export const MAX_CSV_BYTES = 512 * 1024;
 export const MAX_TEAMS = 500;
