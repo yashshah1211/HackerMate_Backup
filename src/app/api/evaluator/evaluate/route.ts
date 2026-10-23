@@ -1,153 +1,102 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  checkEvaluatorBudgetAndRateLimit,
-  recordSuccessfulEvaluation,
-} from "@/lib/evaluator/evaluatorBudgetGuard";
+import { randomUUID } from "node:crypto";
+import { isIP } from "node:net";
+import { reserveEvaluation } from "@/lib/evaluator/evaluatorBudgetGuard";
 import { runTrackAwareEvaluation } from "@/lib/evaluator/trackEvaluatorEngine";
-import { EvaluationInput, JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
+import { EvaluationFailure, evaluationFailure, readEvaluationJson, rubricFor, withinDeadline, assertExecution, logDatabaseFailure, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
+import { TRACK_PROFILES, type EvaluationInput, type JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
 
-// Ensure Vercel allocates up to 60s execution budget for comprehensive AI evaluations
 export const maxDuration = 60;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error("Missing Supabase credentials.");
-  }
-  return createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+function clientIp(req: NextRequest): string {
+  const candidate = (req.headers.get("x-forwarded-for")?.split(",").at(-1) || req.headers.get("x-real-ip") || "").trim();
+  // Trust only the platform-appended hop, never an arbitrary caller's first hop.
+  // Missing/unusable proxy evidence shares a conservative anonymous bucket.
+  return isIP(candidate) ? candidate : "unknown";
 }
 
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
+function inputFrom(body: Record<string, unknown>): EvaluationInput {
+  const field = (name: string, max: number, required = false): string | undefined => {
+    const value = body[name];
+    if (value === undefined && !required) return undefined;
+    if (typeof value !== "string" || value.length > max || (required && !value.trim())) throw new EvaluationFailure("invalid_input");
+    return value.trim() || undefined;
+  };
+  const track = body.trackId ?? "generic";
+  if (typeof track !== "string" || !Object.hasOwn(TRACK_PROFILES, track)) throw new EvaluationFailure("invalid_input");
+  if (body.forceFallback === true) throw new EvaluationFailure("unsupported_mode");
+  if (body.forceFallback !== undefined && body.forceFallback !== false) throw new EvaluationFailure("invalid_input");
+  const input: EvaluationInput = { psTitle: field("psTitle", 200, true)!, solutionDescription: field("solutionDescription", 12_000, true)!,
+    techStack: field("techStack", 2_000), architectureDetails: field("architectureDetails", 12_000), slidesText: field("slidesText", 30_000),
+    customRubric: field("customRubric", 6_000), trackId: track as JudgingTrackId, isTextOnly: true,
+    repoUrl: field("repoUrl", 2_048), demoUrl: field("demoUrl", 2_048), hackathonId: field("hackathonId", 64) };
+  if (input.hackathonId && !UUID.test(input.hackathonId)) throw new EvaluationFailure("invalid_input");
+  for (const link of [input.repoUrl, input.demoUrl]) if (link) {
+    let url: URL; try { url = new URL(link); } catch { throw new EvaluationFailure("invalid_input"); }
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new EvaluationFailure("invalid_input");
   }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) {
-    return realIp.trim();
-  }
-  return "127.0.0.1";
+  rubricFor(input.trackId, input.customRubric);
+  return input;
 }
 
 export async function POST(req: NextRequest) {
+  const started = Date.now(), requestId = randomUUID();
+  const signal = AbortSignal.any([req.signal, AbortSignal.timeout(55_000)]);
+  const execution: EvaluationExecution = { deadlineAt: started + 50_000, signal, attempts: 0, requestId };
+  const preflight = { ...execution, deadlineAt: started + 5_000 };
   try {
-    const body = await req.json();
-    const {
-      psTitle,
-      solutionDescription,
-      techStack,
-      architectureDetails,
-      repoUrl,
-      demoUrl,
-      slidesText,
-      trackId = "generic",
-      hackathonId,
-      userId,
-      forceFallback = false,
-      customRubric,
-    } = body;
-
-    if (!psTitle || !solutionDescription) {
-      return NextResponse.json(
-        { error: "Please provide both a project title and a description/problem statement." },
-        { status: 400 }
-      );
-    }
-
-    const clientIp = getClientIp(req);
-    const supabaseAdmin = getSupabaseAdmin();
-
-    // 1. Check Rate Limits and Daily Gemini AI Budget
-    const budgetDecision = await checkEvaluatorBudgetAndRateLimit(
-      supabaseAdmin,
-      clientIp,
-      userId
-    );
-
-    if (budgetDecision.isRateLimited) {
-      return NextResponse.json(
-        {
-          error: budgetDecision.rateLimitMessage || "Rate limit exceeded. Please try again later.",
-          isRateLimited: true,
-        },
-        { status: 429 }
-      );
-    }
-
-    const validTracks: JudgingTrackId[] = ["web_dev", "ai_genai", "generic", "specific"];
-    const activeTrack: JudgingTrackId = validTracks.includes(trackId) ? trackId : "generic";
-
-    const input: EvaluationInput = {
-      psTitle: psTitle.trim(),
-      solutionDescription: solutionDescription.trim(),
-      techStack: techStack ? techStack.trim() : undefined,
-      architectureDetails: architectureDetails ? architectureDetails.trim() : undefined,
-      repoUrl: repoUrl ? repoUrl.trim() : undefined,
-      demoUrl: demoUrl ? demoUrl.trim() : undefined,
-      slidesText: slidesText ? slidesText.trim() : undefined,
-      trackId: activeTrack,
-      hackathonId,
-      customRubric: customRubric ? customRubric.trim() : undefined,
-    };
-
-    // 2. Execute Evaluation Engine (Gemini AI or Heuristic Fallback based on budget / forceFallback)
-    const allowAiCall = forceFallback ? false : budgetDecision.allowAiCall;
-    const result = await runTrackAwareEvaluation(input, allowAiCall);
-
-    // 3. Record Successful Evaluation & Increment Budget
-    await recordSuccessfulEvaluation(
-      supabaseAdmin,
-      clientIp,
-      result.usedAiEngine,
-      userId
-    );
-
-    // 4. Persist to User Pitch Evaluations History if signed in
-    let savedEvaluationId: string | null = null;
-    if (userId) {
-      try {
-        const { data: inserted, error: insertErr } = await supabaseAdmin
-          .from("user_pitch_evaluations")
-          .insert({
-            user_id: userId,
-            ps_title: input.psTitle,
-            track_id: input.trackId || "generic",
-            total_score: result.totalScore,
-            grade: result.grade,
-            used_ai_engine: result.usedAiEngine,
-            sub_scores: result.subScores,
-            evaluation_result: result,
-          })
-          .select("id")
-          .single();
-
-        if (insertErr) {
-          console.error("[API Evaluator] Error saving evaluation history:", insertErr);
-        } else if (inserted) {
-          savedEvaluationId = inserted.id;
-        }
-      } catch (saveErr) {
-        console.error("[API Evaluator] Exception saving evaluation history:", saveErr);
+    if (req.nextUrl.searchParams.get("engine") === "heuristic") throw new EvaluationFailure("unsupported_mode");
+    const body = await readEvaluationJson(req, preflight);
+    const input = inputFrom(body);
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new EvaluationFailure("limiter_unavailable");
+    const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: (target, init) => fetch(target, { ...init, signal: AbortSignal.any([signal, AbortSignal.timeout(5_000), ...(init?.signal ? [init.signal] : [])]) }) } });
+    let verifiedId: string | null = null;
+    const header = req.headers.get("authorization");
+    if (header !== null) {
+      if (!/^Bearer [^\s]+$/.test(header)) throw new EvaluationFailure("unauthorized");
+      let auth;
+      try { auth = await withinDeadline(admin.auth.getUser(header.slice(7)), preflight, 5_000); }
+      catch (error) { logDatabaseFailure("verify_idea_identity", error); throw new EvaluationFailure("auth_unavailable"); }
+      if (auth.error) {
+        logDatabaseFailure("verify_idea_identity", auth.error);
+        throw new EvaluationFailure([400, 401, 403].includes(auth.error.status ?? 0) ? "unauthorized" : "auth_unavailable");
       }
+      if (!auth.data.user?.id || !UUID.test(auth.data.user.id)) throw new EvaluationFailure("unauthorized");
+      verifiedId = auth.data.user.id;
     }
-
-    return NextResponse.json({
-      success: true,
-      result,
-      savedEvaluationId,
-      mode: result.usedAiEngine ? "gemini_ai" : "heuristic_fallback",
-      fallbackReason: result.fallbackReason || null,
-      fallbackDetails: result.fallbackDetails || null,
-    });
-  } catch (err: any) {
-    console.error("[API Evaluator Error]:", err);
-    return NextResponse.json(
-      { error: err.message || "Internal server error during pitch evaluation." },
-      { status: 500 }
-    );
+    // body.userId never authorizes a quota exemption or privileged history write.
+    await reserveEvaluation(admin, preflight, { pipeline: "idea", actor: verifiedId ? `user:${verifiedId}` : `anonymous:${clientIp(req)}`,
+      anonymous: !verifiedId, idempotencyKey: req.headers.get("idempotency-key") || "" });
+    execution.beforeProviderAttempt = preflight.beforeProviderAttempt;
+    // Provider reservations use the remaining request budget, not the expired preflight budget.
+    if (execution.beforeProviderAttempt) {
+      preflight.deadlineAt = execution.deadlineAt;
+    }
+    assertExecution(execution, 1_000);
+    const result = await runTrackAwareEvaluation(input, true, execution);
+    let savedEvaluationId: string | null = null;
+    let persistence: "saved" | "unavailable" | "not_requested" = verifiedId ? "unavailable" : "not_requested";
+    if (verifiedId) {
+      const saveBudget = { ...execution, deadlineAt: started + 55_000 };
+      try {
+        const saved = await withinDeadline(admin.from("user_pitch_evaluations").insert({ user_id: verifiedId, ps_title: input.psTitle,
+          track_id: input.trackId, total_score: result.totalScore, grade: result.grade, used_ai_engine: true, sub_scores: result.subScores, evaluation_result: result })
+          .select("id").abortSignal(signal).single(), saveBudget, 5_000);
+        if (saved.error) logDatabaseFailure("save_idea_history", saved.error);
+        else if (typeof saved.data?.id === "string" && UUID.test(saved.data.id)) { savedEvaluationId = saved.data.id; persistence = "saved"; }
+        else logDatabaseFailure("invalid_idea_save_contract", null);
+      } catch (error) { logDatabaseFailure("save_idea_history", error); }
+    }
+    return NextResponse.json({ success: true, result, mode: "text_only", savedEvaluationId, persistence, requestId,
+      ...(persistence === "unavailable" ? { warning: "Evaluation succeeded, but its history save could not be confirmed. Check history before submitting again." } : {}) });
+  } catch (error) {
+    console.error("[Idea evaluation outcome]", { requestId, pipeline: "idea", attempts: execution.attempts, providerAttempts: execution.trace, latencyMs: Date.now() - started });
+    const failure = evaluationFailure(error, requestId);
+    return NextResponse.json(failure.body, { status: failure.status,
+      ...(failure.body.retryAfterSeconds ? { headers: { "Retry-After": String(failure.body.retryAfterSeconds) } } : {}) });
   }
 }

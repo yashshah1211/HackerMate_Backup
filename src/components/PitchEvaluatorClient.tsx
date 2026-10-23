@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +11,7 @@ import {
   ProjectEvaluationResult,
 } from "@/lib/evaluator/evaluatorTypes";
 import { detectJudgingTrack } from "@/lib/evaluator/trackDetection";
+import { logDatabaseFailure } from "@/lib/evaluator/evaluationContract";
 import {
   Layers,
   Cpu,
@@ -82,17 +84,17 @@ type RubricKey = "novelty" | "tech" | "uiUxOrFeasibility" | "impactOrTeam";
 const RUBRIC_KEYS: RubricKey[] = ["novelty", "tech", "uiUxOrFeasibility", "impactOrTeam"];
 
 /** One rubric row: label | score, with a thin bar underneath. */
-function RubricRow({ label, score, max }: { label: string; score?: number; max: number }) {
-  const pct = typeof score === "number" && max > 0 ? (score / max) * 100 : 0;
+function RubricRow({ label, score, max }: { label: string; score?: number; max?: number }) {
+  const pct = typeof score === "number" && typeof max === "number" && max > 0 ? (score / max) * 100 : 0;
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1.5 py-2.5">
       <span className="min-w-0 text-[13px] text-ink-2">{label}</span>
       <span className="font-mono text-[12.5px] text-ink-3 tabular">
         {typeof score === "number" ? <span className="font-semibold text-ink">{score}</span> : null}
-        {typeof score === "number" ? " / " : "max "}
+        {typeof max === "number" ? typeof score === "number" ? " / " : "max " : ""}
         {max}
       </span>
-      {typeof score === "number" && <Progress value={pct} tone={pct < 50 ? "warn" : "accent"} className="col-span-2" />}
+      {typeof score === "number" && typeof max === "number" && <Progress value={pct} tone={pct < 50 ? "warn" : "accent"} className="col-span-2" />}
     </li>
   );
 }
@@ -100,6 +102,9 @@ function RubricRow({ label, score, max }: { label: string; score?: number; max: 
 interface PitchEvaluatorClientProps {
   initialTrack?: JudgingTrackId;
 }
+type HackathonContext = { id: string; name: string; description?: string | null; tag?: string | null };
+type UserTeam = { id: string; name: string; description?: string | null; team_hackathons?: Array<{ hackathons: HackathonContext | null }> };
+type HistoryItem = { id: string; ps_title: string; track_id?: JudgingTrackId; created_at: string; total_score: number; grade?: string; evaluation_result?: ProjectEvaluationResult };
 
 export default function PitchEvaluatorClient({
   initialTrack = "web_dev",
@@ -114,14 +119,20 @@ export default function PitchEvaluatorClient({
   const [customRubric, setCustomRubric] = useState("");
 
   // Logged-in user context & hackathon auto-detection
-  const [user, setUser] = useState<any | null>(null);
-  const [userTeams, setUserTeams] = useState<any[]>([]);
-  const [allHackathons, setAllHackathons] = useState<any[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [identityReady, setIdentityReady] = useState(false);
+  const identityRef = useRef<string | null | undefined>(undefined);
+  const generationRef = useRef(0);
+  const requestRef = useRef<AbortController | null>(null);
+  const tokenRef = useRef<string | null>(null);
+  const busyRef = useRef(false);
+  const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+  const [allHackathons, setAllHackathons] = useState<HackathonContext[]>([]);
   const [selectedHackathonId, setSelectedHackathonId] = useState<string>("");
   const [autoDetectedBadge, setAutoDetectedBadge] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [evaluatingStep, setEvaluatingStep] = useState(0);
+  const [persistenceWarning, setPersistenceWarning] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [result, setResult] = useState<ProjectEvaluationResult | null>(null);
   const [copied, setCopied] = useState(false);
@@ -135,18 +146,19 @@ export default function PitchEvaluatorClient({
   const [attachError, setAttachError] = useState<string | null>(null);
 
   // History Drawer State
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
 
   const loadHistory = async () => {
+    const generation = generationRef.current;
     try {
       setLoadingHistory(true);
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session || session.user.id !== identityRef.current || generation !== generationRef.current) return;
 
       const res = await fetch("/api/evaluator/history", {
         headers: {
@@ -154,26 +166,28 @@ export default function PitchEvaluatorClient({
         },
       });
       const data = await res.json();
+      if (generation !== generationRef.current || session.user.id !== identityRef.current) return;
       if (res.ok && data.success) {
         setHistory(data.history || []);
       } else {
-        console.error("[PitchEvaluatorClient] loadHistory failed:", res.status, data?.error);
+        logDatabaseFailure("load_idea_history", data);
       }
     } catch (err) {
-      console.error("[PitchEvaluatorClient] loadHistory error:", err);
+      logDatabaseFailure("load_idea_history", err);
     } finally {
-      setLoadingHistory(false);
+      if (generation === generationRef.current) setLoadingHistory(false);
     }
   };
 
   const deleteHistoryItem = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const generation = generationRef.current;
     try {
       setDeletingHistoryId(id);
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session || session.user.id !== identityRef.current || generation !== generationRef.current) return;
 
       const res = await fetch(`/api/evaluator/history?id=${id}`, {
         method: "DELETE",
@@ -181,24 +195,28 @@ export default function PitchEvaluatorClient({
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-      if (res.ok) {
+      if (res.ok && generation === generationRef.current && session.user.id === identityRef.current) {
         setHistory((prev) => prev.filter((item) => item.id !== id));
       }
     } catch (err) {
-      console.error("[PitchEvaluatorClient] deleteHistoryItem error:", err);
+      logDatabaseFailure("delete_idea_history", err);
     } finally {
-      setDeletingHistoryId(null);
+      if (generation === generationRef.current) setDeletingHistoryId(null);
     }
   };
 
-  const handleSelectHistoryItem = (item: any) => {
+  const handleSelectHistoryItem = (item: HistoryItem) => {
+    requestRef.current?.abort();
+    busyRef.current = false;
+    setLoading(false);
+    setPersistenceWarning(null);
     if (item.evaluation_result) {
       setResult(item.evaluation_result);
       if (item.id) setSavedEvaluationId(item.id);
       setAttachedTeamName(null);
       setAttachError(null);
       if (item.ps_title) setTitle(item.ps_title);
-      if (item.track_id) setSelectedTrack(item.track_id as JudgingTrackId);
+      if (item.track_id && Object.hasOwn(TRACK_PROFILES, item.track_id)) setSelectedTrack(item.track_id);
       setShowHistoryDrawer(false);
       setTimeout(() => {
         document.getElementById("evaluation-results")?.scrollIntoView({ behavior: "smooth" });
@@ -206,56 +224,55 @@ export default function PitchEvaluatorClient({
     }
   };
 
-  // Load user session, user teams, and platform hackathons
+  // Auth callbacks invalidate in-flight UI work. Token refresh for the same
+  // account does not clear results; an actual account change always does.
   useEffect(() => {
-    async function loadUserAndHackathons() {
-      const {
-        data: { user: sessionUser },
-      } = await supabase.auth.getUser();
-
-      if (sessionUser) {
-        setUser(sessionUser);
-        loadHistory();
-
-        // 1. Fetch user's teams & joined hackathons
-        try {
-          const { data: memberData, error: memberErr } = await supabase
-            .from("team_members")
-            .select("teams(id, name, description, team_hackathons(hackathons(id, name, description)))")
-            .eq("user_id", sessionUser.id);
-          if (memberErr) console.error("[PitchEvaluatorClient] team_members load failed:", memberErr);
-
-          const formattedTeams = (memberData as any[])
-            ?.map((d) => d.teams)
-            .filter(Boolean) || [];
-          setUserTeams(formattedTeams);
-        } catch (err) {
-          console.warn("Could not load user teams:", err);
-        }
-
-        // 2. Fetch all platform hackathons for dropdown (alphabetical A-Z)
-        try {
-          const { data: hackathonList, error: hackathonErr } = await supabase
-            .from("hackathons")
-            .select("id, name, description")
-            .eq("archived", false)
-            .order("name", { ascending: true });
-          if (hackathonErr) console.error("[PitchEvaluatorClient] hackathons load failed:", hackathonErr);
-
-          if (hackathonList) {
-            setAllHackathons(hackathonList);
-          }
-        } catch (err) {
-          console.warn("Could not load hackathons:", err);
-        }
+    let mounted = true;
+    async function applyIdentity(next: User | null) {
+      if (!mounted || identityRef.current === (next?.id ?? null)) return;
+      if (identityRef.current) {
+        setTitle(""); setDescription(""); setTechStack(""); setArchitecture(""); setCustomRubric("");
+        setSelectedHackathonId(""); setAutoDetectedBadge(null);
       }
+      identityRef.current = next?.id ?? null;
+      const generation = ++generationRef.current;
+      requestRef.current?.abort(); requestRef.current = null;
+      tokenRef.current = null; busyRef.current = false;
+      setUser(next); setIdentityReady(true); setLoading(false); setResult(null);
+      setSavedEvaluationId(null); setHistory([]); setUserTeams([]); setAllHackathons([]);
+      setLoadingHistory(false); setDeletingHistoryId(null); setShowHistoryDrawer(false);
+      setAttachedTeamName(null); setAttachError(null); setSelectedAttachTeamId(""); setIsAttaching(false);
+      setPersistenceWarning(null); setErrorMsg(null); setCopied(false);
+      if (!next) return;
+      void loadHistory();
+      try {
+        const members = await supabase.from("team_members")
+          .select("teams(id, name, description, team_hackathons(hackathons(id, name, description)))").eq("user_id", next.id);
+        if (members.error) logDatabaseFailure("load_idea_teams", members.error);
+        if (!mounted || generation !== generationRef.current) return;
+        setUserTeams((members.data as unknown as Array<{ teams: UserTeam | null }> | null)?.map(d => d.teams).filter((team): team is UserTeam => Boolean(team)) || []);
+        const events = await supabase.from("hackathons").select("id, name, description").eq("archived", false).order("name", { ascending: true });
+        if (events.error) logDatabaseFailure("load_idea_hackathons", events.error);
+        if (mounted && generation === generationRef.current && events.data) setAllHackathons(events.data);
+      } catch (error) { logDatabaseFailure("load_idea_context", error); }
     }
-
-    loadUserAndHackathons();
+    const initialGeneration = generationRef.current;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Do not await another Auth call while its callback holds the auth lock.
+      queueMicrotask(() => { void applyIdentity(session?.user ?? null); });
+    });
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (!mounted || generationRef.current !== initialGeneration) return;
+      if (error) { console.error("[PitchEvaluator]", { operation: "initial_identity", code: "unavailable" }); setErrorMsg("Identity verification is unavailable. Reload before submitting."); return; }
+      void applyIdentity(data.user);
+    }).catch(() => { if (mounted && generationRef.current === initialGeneration) { console.error("[PitchEvaluator]", { operation: "initial_identity", code: "unavailable" }); setErrorMsg("Identity verification is unavailable. Reload before submitting."); } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- This counter is deliberately incremented at teardown to invalidate stale async work; it is not a DOM ref.
+    return () => { mounted = false; generationRef.current++; identityRef.current = undefined; requestRef.current?.abort(); subscription.unsubscribe(); };
   }, []);
 
   // Auto-detect track when a hackathon is selected
   const handleHackathonSelect = (hackathonId: string) => {
+    setResult(null); setSavedEvaluationId(null); setPersistenceWarning(null);
     setSelectedHackathonId(hackathonId);
     if (!hackathonId) {
       setAutoDetectedBadge(null);
@@ -263,7 +280,7 @@ export default function PitchEvaluatorClient({
     }
 
     // Look for hackathon in user teams first, then in platform list
-    let targetHackathon: any = null;
+    let targetHackathon: HackathonContext | null | undefined = null;
     for (const t of userTeams) {
       const thList = t.team_hackathons || [];
       for (const th of thList) {
@@ -300,9 +317,13 @@ export default function PitchEvaluatorClient({
   };
 
   const currentProfile = TRACK_PROFILES[selectedTrack] || TRACK_PROFILES.web_dev;
+  const resultProfile = result && Object.hasOwn(TRACK_PROFILES, result.trackId) ? TRACK_PROFILES[result.trackId] : null;
+  const resultMethod = result?.usedAiEngine ? result.evaluationMetadata?.mode === "text_only" ? "AI · Text only" : "Legacy AI · mode unrecorded" : "Legacy heuristic · not an AI evaluation";
+  const invalidateScorecard = () => { setResult(null); setSavedEvaluationId(null); setPersistenceWarning(null); };
 
-  // Sample idea presets engineered for top-tier score demonstrations
+  // Illustrative proposal samples; their metrics are claims, not verified outcomes.
   const loadSample = () => {
+    invalidateScorecard();
     if (selectedTrack === "web_dev") {
       setTitle("DevOrbit: High-Throughput Edge-Synchronized Developer Collaboration Suite");
       setDescription("Modern hackathon teams face 40% collaboration loss across fragmented tools. DevOrbit provides a unified workspace with sub-30ms CRDT state synchronization, integrated schema-to-mock API generation, and real-time multiplayer code review designed for 36-hour sprint environments.");
@@ -323,64 +344,45 @@ export default function PitchEvaluatorClient({
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) {
-      setErrorMsg("Please provide at least a project title and problem statement description.");
-      return;
-    }
-
-    setLoading(true);
-    setErrorMsg(null);
-    setResult(null);
-    setSavedEvaluationId(null);
-    setAttachedTeamName(null);
-    setAttachError(null);
-
-    // Simulated evaluation steps for animated UX
-    setEvaluatingStep(1);
-    const stepInterval = setInterval(() => {
-      setEvaluatingStep((prev) => (prev < 3 ? prev + 1 : prev));
-    }, 900);
-
+    if (busyRef.current || !identityReady) return;
+    if (forceHeuristic) { setErrorMsg("Heuristic scoring is retired for new evaluations. Open AI evaluation to continue."); return; }
+    if (!title.trim() || !description.trim()) { setErrorMsg("Provide a project title and problem statement description."); return; }
+    const generation = generationRef.current;
+    const identity = identityRef.current;
+    const controller = new AbortController();
+    requestRef.current = controller; busyRef.current = true;
+    setLoading(true); setErrorMsg(null); setResult(null); setSavedEvaluationId(null);
+    setPersistenceWarning(null); setAttachedTeamName(null); setAttachError(null);
+    const current = () => !controller.signal.aborted && generation === generationRef.current && identity === identityRef.current;
     try {
-      const res = await fetch("/api/evaluator/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          psTitle: title,
-          solutionDescription: description,
-          techStack,
-          architectureDetails: architecture,
-          trackId: selectedTrack,
-          customRubric: selectedTrack === "specific" ? customRubric : undefined,
-          hackathonId: selectedHackathonId || undefined,
-          userId: user?.id,
-          forceFallback: forceHeuristic,
-        }),
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (!current()) return;
+      if (error || (session?.user.id ?? null) !== identity) { setErrorMsg("Your account changed or could not be verified. Reload before submitting."); return; }
+      tokenRef.current ??= crypto.randomUUID();
+      const response = await fetch("/api/evaluator/evaluate", {
+        method: "POST", signal: controller.signal,
+        headers: { "Content-Type": "application/json", "Idempotency-Key": tokenRef.current, ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ psTitle: title, solutionDescription: description, techStack, architectureDetails: architecture, trackId: selectedTrack,
+          customRubric: selectedTrack === "specific" ? customRubric : undefined, hackathonId: selectedHackathonId || undefined }),
       });
-
-      clearInterval(stepInterval);
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setErrorMsg(data.error || "Evaluation failed. Please try again.");
-      } else {
-        setResult(data.result);
-        if (data.savedEvaluationId) {
-          setSavedEvaluationId(data.savedEvaluationId);
-        }
-        if (user) {
-          loadHistory();
-        }
-        setTimeout(() => {
-          document.getElementById("evaluation-results")?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
+      const data = await response.json();
+      if (!current()) return;
+      // Rotate only after a confirmed terminal envelope. A lost/invalid response
+      // keeps the token so the next explicit retry cannot silently rerun AI.
+      if (data.success === false && ["duplicate_request", "invalid_ai_output", "blocked_content", "provider_rejected", "provider_unavailable", "unsupported_mode", "invalid_input", "rubric_unsupported"].includes(data.code)) tokenRef.current = null;
+      if (!response.ok || data.success !== true) { setErrorMsg(data.error || "Evaluation failed. No score was generated."); return; }
+      if (data.result?.usedAiEngine !== true || data.result?.evaluationMetadata?.schemaVersion !== "evaluator-v1" ||
+        typeof data.result.totalScore !== "number" || !Number.isFinite(data.result.totalScore) || data.result.totalScore < 0 || data.result.totalScore > 100) {
+        setErrorMsg("The evaluation response was invalid. No scorecard was displayed. Check history before submitting again."); return;
       }
-    } catch (err: any) {
-      clearInterval(stepInterval);
-      setErrorMsg(err.message || "Network exception during evaluation.");
+      setResult(data.result); setSavedEvaluationId(data.savedEvaluationId || null);
+      tokenRef.current = null;
+      setPersistenceWarning(data.persistence === "unavailable" ? data.warning || "History save could not be confirmed. Check history before submitting again." : null);
+      if (session) void loadHistory();
+    } catch {
+      if (current()) setErrorMsg("The response could not be confirmed. Check history before retrying; your draft and retry token are preserved.");
     } finally {
-      setLoading(false);
-      setEvaluatingStep(0);
+      if (requestRef.current === controller) { requestRef.current = null; busyRef.current = false; if (generation === generationRef.current) setLoading(false); }
     }
   };
 
@@ -454,6 +456,7 @@ export default function PitchEvaluatorClient({
 
   const handleAttachToTeam = async (targetTeamId: string) => {
     if (!targetTeamId) return;
+    const generation = generationRef.current;
     setIsAttaching(true);
     setAttachError(null);
 
@@ -465,9 +468,10 @@ export default function PitchEvaluatorClient({
         setAttachError("Please log in to attach this scorecard to a team workspace.");
         return;
       }
+      if (generation !== generationRef.current || session.user.id !== identityRef.current) return;
 
       if (!savedEvaluationId) {
-        setAttachError("Evaluation record ID is not ready yet. Please re-run evaluation while signed in.");
+        setAttachError("The history save is not confirmed. Check history before starting another evaluation.");
         return;
       }
 
@@ -484,28 +488,29 @@ export default function PitchEvaluatorClient({
       });
 
       const resData = await res.json();
+      if (generation !== generationRef.current || session.user.id !== identityRef.current) return;
       if (!res.ok) {
         setAttachError(resData.error || "Failed to attach evaluation to team.");
       } else {
         const teamObj = userTeams.find((t) => t.id === targetTeamId);
         setAttachedTeamName(resData.teamName || teamObj?.name || "Team");
       }
-    } catch (err: any) {
-      setAttachError(err.message || "Network error attaching to team.");
+    } catch {
+      if (generation === generationRef.current) setAttachError("The team attachment response could not be confirmed. Check history before trying again.");
     } finally {
-      setIsAttaching(false);
+      if (generation === generationRef.current) setIsAttaching(false);
     }
   };
 
   const shareOnWhatsApp = () => {
     if (!result) return;
-    const text = `🚀 My project "${title}" scored ${result.totalScore}/100 on the HackerMate Idea Evaluator (${result.grade})! Test your pitch & find teammates: https://www.hackermate.in/evaluator`;
+    const text = `My project "${title}" scored ${result.totalScore}/100 on the HackerMate Idea Evaluator (${result.grade}; ${resultMethod}). Test your pitch & find teammates: https://www.hackermate.in/evaluator`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const copySummary = () => {
     if (!result) return;
-    const summary = `📊 HackerMate Idea Evaluation: ${title}\nScore: ${result.totalScore}/100 (${result.grade})\nTrack: ${currentProfile.name}\n\nTop Strengths:\n${result.strengths.map((s) => `• ${s}`).join("\n")}\n\nKey Recommendations:\n${result.architectureSuggestions.map((a) => `• ${a}`).join("\n")}\n\nEvaluated at: https://www.hackermate.in/evaluator`;
+    const summary = `HackerMate Idea Evaluation: ${title}\nScore: ${result.totalScore}/100 (${result.grade})\nMethod: ${resultMethod}\nTrack: ${resultProfile?.name || "Historical rubric unknown"}\n\nTop Strengths:\n${result.strengths.map((s) => `• ${s}`).join("\n")}\n\nKey Recommendations:\n${result.architectureSuggestions.map((a) => `• ${a}`).join("\n")}\n\nEvaluated at: https://www.hackermate.in/evaluator`;
     navigator.clipboard.writeText(summary);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -537,6 +542,7 @@ export default function PitchEvaluatorClient({
                 <FieldLabel htmlFor="ev-hackathon" hint="Optional">Hackathon</FieldLabel>
                 <Select
                   id="ev-hackathon"
+                  disabled={loading}
                   value={selectedHackathonId}
                   onChange={(e) => handleHackathonSelect(e.target.value)}
                 >
@@ -593,6 +599,7 @@ export default function PitchEvaluatorClient({
                         setSelectedTrack(trackKey);
                         setResult(null);
                       }}
+                      disabled={loading}
                       className={cn(
                         "flex min-h-12 w-full items-start gap-3 px-3 py-2.5 text-left transition-colors",
                         isSelected ? "bg-selected" : "hover:bg-hover",
@@ -629,16 +636,19 @@ export default function PitchEvaluatorClient({
                   id="ev-rubric"
                   required
                   rows={4}
-                  placeholder="Paste the hackathon's specific judging criteria, scoring rules, or focus areas here."
+                  placeholder={'{"criteria":[{"label":"Problem","maxPoints":25},{"label":"Feasibility","maxPoints":25},{"label":"Impact","maxPoints":25},{"label":"Communication","maxPoints":25}]}'}
+                  maxLength={6000}
+                  disabled={loading}
                   value={customRubric}
-                  onChange={(e) => setCustomRubric(e.target.value)}
+                  onChange={(e) => { invalidateScorecard(); setCustomRubric(e.target.value); }}
                 />
+                <p className="mt-1.5 text-[12.5px] text-ink-3">Supported format: four named criteria, each worth 25 points. Other rubric formats are rejected without a score.</p>
               </div>
             )}
 
             <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
               <span className="caps-label text-ink-3">Your idea</span>
-              <Button variant="ghost" size="sm" icon={<Lightbulb aria-hidden />} onClick={loadSample} className="h-9 md:h-7">
+              <Button variant="ghost" size="sm" icon={<Lightbulb aria-hidden />} onClick={loadSample} disabled={loading} className="h-9 md:h-7">
                 Load sample idea
               </Button>
             </div>
@@ -647,11 +657,13 @@ export default function PitchEvaluatorClient({
               <FieldLabel htmlFor="ev-title" hint="Required">Project or pitch title</FieldLabel>
               <Input
                 id="ev-title"
+                maxLength={200}
+                disabled={loading}
                 type="text"
                 required
                 placeholder="e.g. Nexus: real-time collaboration workspace for dev teams"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => { invalidateScorecard(); setTitle(e.target.value); }}
                 className="h-10 md:h-[34px]"
               />
             </div>
@@ -660,11 +672,13 @@ export default function PitchEvaluatorClient({
               <FieldLabel htmlFor="ev-description" hint="Required">Problem and proposed solution</FieldLabel>
               <Textarea
                 id="ev-description"
+                maxLength={12000}
+                disabled={loading}
                 required
                 rows={4}
                 placeholder="What problem are you solving, who is it for, and what makes your solution different?"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => { invalidateScorecard(); setDescription(e.target.value); }}
               />
             </div>
 
@@ -672,10 +686,12 @@ export default function PitchEvaluatorClient({
               <FieldLabel htmlFor="ev-stack">Tech stack</FieldLabel>
               <Textarea
                 id="ev-stack"
+                maxLength={2000}
+                disabled={loading}
                 rows={2}
                 placeholder="e.g. Next.js, TypeScript, PostgreSQL with Supabase RLS, Redis, Docker"
                 value={techStack}
-                onChange={(e) => setTechStack(e.target.value)}
+                onChange={(e) => { invalidateScorecard(); setTechStack(e.target.value); }}
                 className="min-h-16"
               />
             </div>
@@ -684,31 +700,29 @@ export default function PitchEvaluatorClient({
               <FieldLabel htmlFor="ev-architecture">Architecture and data flow</FieldLabel>
               <Textarea
                 id="ev-architecture"
+                maxLength={12000}
+                disabled={loading}
                 rows={3}
                 placeholder="How the pieces connect: request flow, API, database, caching / RAG / queues, response handling."
                 value={architecture}
-                onChange={(e) => setArchitecture(e.target.value)}
+                onChange={(e) => { invalidateScorecard(); setArchitecture(e.target.value); }}
               />
             </div>
 
             {errorMsg && <ErrorNotice title={errorMsg} />}
+            {forceHeuristic && <p className="text-[13px] text-ink-2">New heuristic scores are retired. <Link className="underline" href="/tools/pitch-evaluator">Open AI evaluation</Link>.</p>}
 
             <Button
               type="submit"
               variant="primary"
               size="lg"
               loading={loading}
+              disabled={!identityReady}
               icon={<Zap aria-hidden />}
               className="w-full"
             >
               <span className="min-w-0 truncate">
-                {loading
-                  ? evaluatingStep === 1
-                    ? "Reading architecture and stack…"
-                    : evaluatingStep === 2
-                      ? "Checking edge cases and red flags…"
-                      : "Scoring and finding role gaps…"
-                  : `Evaluate · ${currentProfile.badge}`}
+                {loading ? "Waiting for AI evaluation…" : `Evaluate · ${currentProfile.badge}`}
               </span>
             </Button>
           </form>
@@ -721,12 +735,12 @@ export default function PitchEvaluatorClient({
               <Spinner className="text-accent-ink" label="Evaluating" />
               <div className="min-w-0">
                 <p className="text-[13.5px] font-medium text-ink">Evaluating your idea</p>
-                <p className="text-[12.5px] text-ink-3">Step {Math.max(evaluatingStep, 1)} of 3</p>
+                <p className="text-[12.5px] text-ink-3">Waiting for a validated response. No score is available yet.</p>
               </div>
             </Panel>
           ) : result ? (
             <Panel className="p-4">
-              <div className="caps-label text-ink-3">{currentProfile.name}</div>
+              <div className="caps-label text-ink-3">{resultProfile?.name || "Historical rubric unknown"}</div>
               <h2 className="mt-1 break-words text-[14.5px] font-semibold leading-snug text-ink">{title}</h2>
 
               <div className="mt-4 flex items-end gap-2">
@@ -742,9 +756,9 @@ export default function PitchEvaluatorClient({
                   <Tape
                     tone="ok"
                     icon={<Zap aria-hidden />}
-                    title="Evaluated using live Gemini AI model with deep semantic reasoning and domain jury rubric checks."
+                    title="AI evaluation is feedback on submitted evidence, not independent verification of the project."
                   >
-                    Gemini AI
+                    {resultMethod}
                   </Tape>
                 ) : (
                   <Tape
@@ -752,10 +766,12 @@ export default function PitchEvaluatorClient({
                     icon={<Zap aria-hidden />}
                     title="Evaluated using static pattern heuristic rules (offline / fast check mode)."
                   >
-                    Quick heuristic check
+                    Legacy heuristic check
                   </Tape>
                 )}
               </div>
+              {!result.evaluationMetadata && <p className="mt-2 text-[12.5px] text-ink-3">Historical score; the current validation contract was not recorded. Analysis mode may be unknown.</p>}
+              {persistenceWarning && <div className="mt-3"><ErrorNotice title={persistenceWarning} /></div>}
 
               <ul className="mt-4 divide-y divide-line border-t border-line">
                 {RUBRIC_KEYS.map((key) => (
@@ -763,7 +779,7 @@ export default function PitchEvaluatorClient({
                     key={key}
                     label={result.categoryLabels[key]}
                     score={result.subScores[key]}
-                    max={currentProfile.categories[key].maxPts}
+                    max={resultProfile?.categories[key].maxPts}
                   />
                 ))}
               </ul>
@@ -806,20 +822,13 @@ export default function PitchEvaluatorClient({
             <div className="flex items-start gap-2.5 rounded-lg bg-warn-soft px-4 py-3 ring-1 ring-inset ring-warn/25" role="status">
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
               <p className="min-w-0 text-[12.5px] leading-relaxed text-ink-2">
-                <span className="font-semibold text-ink">Heuristic mode.</span>{" "}
-                {result.fallbackReason === "missing_api_key" ? (
-                  <>
-                    This scorecard was generated using pattern heuristics because the server&apos;s AI environment key is not configured. Scores are conservative baseline approximations.
-                  </>
-                ) : result.fallbackReason === "budget_exhausted" ? (
-                  <>
-                    This scorecard was generated using pattern heuristics because today&apos;s global Gemini AI daily budget cap has been reached. Scores are conservative baseline approximations.
-                  </>
-                ) : (
-                  <>
-                    This scorecard was generated using static rule heuristics because the live AI model was temporarily rate-limited or offline. Scores from the heuristic engine are conservative baseline approximations.
-                  </>
-                )}
+                <span className="font-semibold text-ink">Historical heuristic score.</span>{" "}
+                This is a stored deterministic estimate, not a validated AI evaluation. New requests do not use heuristic scores.{" "}
+                {result.fallbackReason === "missing_api_key" ? "Recorded reason: server AI key unavailable."
+                  : result.fallbackReason === "budget_exhausted" ? "Recorded reason: budget fallback."
+                  : result.fallbackReason === "forced_fallback" ? "Recorded reason: requested heuristic mode."
+                  : result.fallbackReason === "gemini_api_error" ? "Recorded reason: AI evaluation failed; the specific cause is unverified."
+                  : "The fallback cause was not recorded."}
               </p>
             </div>
           )}
@@ -1075,13 +1084,13 @@ export default function PitchEvaluatorClient({
               compact
               icon={<History />}
               title="No saved evaluations yet"
-              body="Evaluations you run while signed in are saved here automatically."
+              body="Successfully saved evaluations appear here."
             />
           </div>
         ) : (
           <ul className="divide-y divide-line">
             {history.map((item) => {
-              const trackInfo = TRACK_PROFILES[item.track_id as JudgingTrackId] || TRACK_PROFILES.web_dev;
+              const trackInfo = item.track_id && Object.hasOwn(TRACK_PROFILES, item.track_id) ? TRACK_PROFILES[item.track_id] : null;
               const dateStr = new Date(item.created_at).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -1097,7 +1106,7 @@ export default function PitchEvaluatorClient({
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[12.5px] text-ink-3">{dateStr}</span>
-                      <Tape>{trackInfo.badge}</Tape>
+                      <Tape>{trackInfo?.badge || "Unknown historical rubric"}</Tape>
                     </span>
                     <span className="mt-1 line-clamp-2 block text-[13.5px] font-medium text-ink">{item.ps_title}</span>
                     <span className="mt-1 flex min-w-0 items-center gap-2">
