@@ -1,0 +1,16 @@
+{
+  "baseline": "51af1f0d2ed8faa0fed7fb28e699f230496a98be",
+  "checks": [
+    "320: baseline reproduces acceptance after capacity failure and false zero-row decline",
+    "320: no overflow, unknown capacity, keyboard decline, busy lock, stale success suppressed; dashboard zero-row decline and confirmed accept",
+    "390: baseline reproduces acceptance after capacity failure and false zero-row decline",
+    "390: no overflow, unknown capacity, keyboard decline, busy lock, stale success suppressed; dashboard zero-row decline and confirmed accept",
+    "768: baseline reproduces acceptance after capacity failure and false zero-row decline",
+    "768: no overflow, unknown capacity, keyboard decline, busy lock, stale success suppressed; dashboard zero-row decline and confirmed accept",
+    "1440: baseline reproduces acceptance after capacity failure and false zero-row decline",
+    "1440: no overflow, unknown capacity, keyboard decline, busy lock, stale success suppressed; dashboard zero-row decline and confirmed accept"
+  ],
+  "externalRequests": 0,
+  "syntheticRequestRPCs": 8,
+  "limitations": "Real request page and dashboard hook/view/components/CSS; mocked Supabase, matching, notification, Next navigation and unrelated dashboard decorations. System fonts replace Next fonts. No live Supabase, RLS, middleware, real OAuth or production writes."
+}

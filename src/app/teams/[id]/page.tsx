@@ -64,6 +64,7 @@ function TeamDetailsContent({ currentUser, sessionIsCurrent, recheckSession }: {
   const teamRead = useRef(0);
   const requestRead = useRef(0);
   const submitting = useRef(false);
+  const managing = useRef(false);
   const mounted = useRef(false);
   const [isMember, setIsMember] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -281,68 +282,56 @@ function TeamDetailsContent({ currentUser, sessionIsCurrent, recheckSession }: {
     if (!submitting.current) void checkExistingRequest();
   }
 
-  async function performRemove(memberId: string) {
-    const { error } = await supabase
-      .from("team_members")
-      .delete()
-      .eq("id", memberId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      return;
-    }
-
-    showToast("Member removed from team", "success");
-    loadTeam();
+  async function deleteConfirmed(kind: "remove" | "leave" | "disband", id: string, epoch = scope.current) {
+    if (!current(epoch) || managing.current || !currentUser) return;
+    if (kind === "remove" || kind === "disband") { if (!isOwner) return; }
+    if (kind === "leave" && !members.some(member => member.id === id && member.profiles.id === currentUser.id)) return;
+    managing.current = true;
+    try {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (!current(epoch)) return;
+      if (authError) throw authError;
+      if (auth.user?.id !== currentUser.id) { recheckSession(); return; }
+      const query = kind === "disband"
+        ? supabase.from("teams").delete().eq("id", teamId).eq("owner_id", currentUser.id)
+        : supabase.from("team_members").delete().eq("id", id).eq("team_id", teamId);
+      const { data, error } = await query.select("id");
+      if (!current(epoch)) return;
+      if (error) throw error;
+      const expectedId = kind === "disband" ? teamId : id;
+      if (!Array.isArray(data) || data.length !== 1 || data[0]?.id !== expectedId) {
+        throw new Error("The change could not be confirmed. Refresh the team before trying again.");
+      }
+      showToast(kind === "remove" ? "Member removed from team" : kind === "leave" ? "You have left the team" : "Team disbanded successfully.", kind === "disband" ? "info" : "success");
+      if (kind === "remove") void loadTeam(); else router.push("/teams");
+    } catch (error) {
+      console.error("[team] membership change could not be confirmed:", error);
+      if (current(epoch)) {
+        showToast("Couldn't verify the change. Refresh the team before trying again.", "error");
+        void loadTeam();
+      }
+    } finally { managing.current = false; }
   }
 
   async function removeMember(memberId: string) {
+    const epoch = scope.current;
     confirm({
       title: "Remove Team Member",
       message: "Are you sure you want to remove this member from the team?",
       confirmText: "Remove Member",
       cancelText: "Keep Member",
       onConfirm: () => {
-        performRemove(memberId);
+        void deleteConfirmed("remove", memberId, epoch);
       }
     });
   }
 
   async function leaveTeam(memberId: string) {
-    setLoading(true);
-    const { error } = await supabase
-      .from("team_members")
-      .delete()
-      .eq("id", memberId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      setLoading(false);
-      return;
-    }
-
-    showToast("You have left the team", "success");
-    router.push("/teams");
+    await deleteConfirmed("leave", memberId);
   }
 
   async function disbandTeam() {
-    setLoading(true);
-    const { error } = await supabase
-      .from("teams")
-      .delete()
-      .eq("id", teamId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      setLoading(false);
-      return;
-    }
-
-    showToast("Team disbanded successfully.", "info");
-    router.push("/teams");
+    await deleteConfirmed("disband", teamId);
   }
 
   async function toggleRecruiting() {
@@ -411,7 +400,7 @@ function TeamDetailsContent({ currentUser, sessionIsCurrent, recheckSession }: {
       if (!current(epoch)) return;
       if (latestError) throw latestError;
       if (latest.user?.id !== currentUser.id) { recheckSession(); return; }
-      const { error } = await supabase.rpc("request_to_join_team", { p_team_id: teamId });
+      const { data, error } = await supabase.rpc("request_to_join_team", { p_team_id: teamId });
       if (!current(epoch)) return;
       if (error) {
         console.error("[team] request submission failed:", error);
@@ -420,10 +409,14 @@ function TeamDetailsContent({ currentUser, sessionIsCurrent, recheckSession }: {
         await checkExistingRequest();
         return;
       }
-      trackEvent("team_join_request_sent", { source: "team_detail" });
+      if (typeof data !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data)) {
+        throw new Error("Unexpected request confirmation");
+      }
       showToast("Join request sent!", "success");
       setRequestSent(true);
       setRequestStatus("ready");
+      try { trackEvent("team_join_request_sent", { source: "team_detail" }); }
+      catch (analyticsError) { console.error("[team] request analytics failed:", analyticsError); }
     } catch (error) {
       console.error("[team] request submission failed:", error);
       if (current(epoch)) {
