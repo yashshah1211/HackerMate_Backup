@@ -73,7 +73,7 @@ test('without viewer skills, ties use newest date and ID with unknown dates last
 });
 
 // Reuse the repository's component harness to exercise real filter callbacks and rendered cards offline.
-function ui(teams, viewerSkills = ['react']) {
+function ui(teams, viewerSkills = ['react'], props = {}) {
   let cursor = 0, tree; const values = [];
   const hooks = { ...React, useMemo: fn => fn(), useState(start) {
     const i = cursor++; if (!(i in values)) values[i] = start;
@@ -95,7 +95,7 @@ function ui(teams, viewerSkills = ['react']) {
     if (!node || typeof node !== 'object') return [];
     return [...(predicate(node) ? [node] : []), ...[node.props?.children].flat(Infinity).flatMap(child => findAll(child, predicate))];
   };
-  const render = () => { cursor = 0; tree = Component({ teams, viewerSkills, loading: false, error: null, onRetry() {}, today: TODAY }); return tree; };
+  const render = () => { cursor = 0; tree = Component({ teams, viewerSkills, loading: false, error: null, onRetry() {}, today: TODAY, ...props }); return tree; };
   const text = node => typeof node === 'string' || typeof node === 'number' ? String(node) : [node?.props?.children].flat(Infinity).map(child => child ? text(child) : '').join('');
   const control = predicate => { const found = findAll(tree, predicate)[0]; assert(found, 'Control missing'); return found; };
   render();
@@ -158,15 +158,46 @@ test('recent owners rank ahead of equally relevant older peers without hiding un
   const records = [team('stale-new', { created_at: '2026-10-14' }), team('active-old', { ownerRecentlyActive: true, created_at: '2026-01-01' }),
     team('unknown', { created_at: null }), team('active-no-match', { ownerRecentlyActive: true, skills: ['Rust'] }),
     team('active-full', { ownerRecentlyActive: true, max_members: 1 })];
-  const expected = ['active-old', 'stale-new', 'unknown', 'active-no-match', 'active-full'];
+  const expected = ['active-old', 'active-no-match', 'stale-new', 'unknown', 'active-full'];
   assert.deepEqual(ranked(records), expected);
   assert.deepEqual(ranked([...records].reverse()), expected);
   const view = ui(records); assert.deepEqual(view.ids(), expected.slice(0, -1));
   view.scope('All teams'); assert.deepEqual(view.ids(), expected);
 });
-test('activity does not reorder non-joinable peers or override skill relevance', () => {
+test('activity precedes skill overlap only among joinable teams', () => {
   assert.deepEqual(ranked([team('a', { is_recruiting: false }), team('z', { is_recruiting: false, ownerRecentlyActive: true })]), ['a', 'z']);
-  assert.deepEqual(ranked([team('weak', { ownerRecentlyActive: true, skills: ['React', 'Rust'] }), team('relevant')]), ['relevant', 'weak']);
+  assert.deepEqual(ranked([team('weak', { ownerRecentlyActive: true, skills: ['React', 'Rust'] }), team('relevant')]), ['weak', 'relevant']);
+  assert.deepEqual(ranked([team('weak', { ownerRecentlyActive: true, skills: ['Rust'] }), team('strong', { ownerRecentlyActive: true })]), ['strong', 'weak']);
+});
+
+test('any activity retrieval failure restores skill/date/ID ranking even with successful active owners', () => {
+  const records = [team('weak', { ownerRecentlyActive: true, skills: ['Rust'] }), team('relevant')];
+  const view = ui(records, ['react'], { activityUnavailable: true });
+  assert.deepEqual(view.ids(), ['relevant', 'weak']);
+  assert.match(view.html(), /Owner activity couldn’t be checked/);
+  assert(!view.html().includes('recent owner activity first'));
+});
+
+test('cards distinguish no confirmed recent activity, pending checks and unavailable activity without inactivity claims', () => {
+  for (const [ownerActivityStatus, label] of [['checked', 'No confirmed recent owner activity'], ['loading', 'Checking owner activity…'], ['unavailable', 'Owner activity unavailable']]) {
+    const html = ui([team('fixture', { ownerActivityStatus })]).html();
+    assert(html.includes(label));
+    assert(!/inactive|unwilling|Guaranteed response|Verified recruiting/.test(html));
+  }
+});
+
+test('weak supply provides alternatives only after activity checks succeed and respects current filters', () => {
+  const records = [team('other', { ownerActivityStatus: 'checked', ownerRecentlyActive: true }), team('wanted', { ownerActivityStatus: 'checked' })];
+  const view = ui(records);
+  assert(!view.html().includes('No recent owner activity confirmed for open teams here'));
+  view.search('wanted');
+  assert.match(view.html(), /No recent owner activity confirmed for open teams here/);
+  assert.match(view.html(), /href="\/developers"/);
+  assert.match(view.html(), /Browse other teams/);
+  for (const props of [{ activityUnavailable: true }, { loading: true }, { error: 'denied' }]) {
+    assert(!ui([records[1]], ['react'], props).html().includes('No recent owner activity confirmed for open teams here'));
+  }
+  assert(!ui([team('pending', { ownerActivityStatus: 'loading' })]).html().includes('No recent owner activity confirmed for open teams here'));
 });
 for (const association of ['hackathons', 'team_hackathons']) {
   for (const event of [{ archived: true }, { status: 'archived' }, { end_date: '2026-10-13' }]) {

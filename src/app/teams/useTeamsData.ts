@@ -19,6 +19,7 @@ export type ListTeam = {
   created_at?: string | null;
   owner_id?: string | null;
   ownerRecentlyActive?: boolean;
+  ownerActivityStatus?: "loading" | "checked" | "unavailable";
   hackathons?: DiscoveryEvent | null;
   team_members?: { id: string }[];
   team_hackathons?: { hackathons: DiscoveryEvent | null }[];
@@ -37,6 +38,7 @@ export function useTeamsData() {
   const [activityUnavailable, setActivityUnavailable] = useState(false);
   const generation = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const identity = useRef<string | null | undefined>(undefined);
 
   const load = useCallback(async () => {
     const request = ++generation.current;
@@ -49,35 +51,52 @@ export function useTeamsData() {
     setViewerSkills([]);
     try {
       // Auth/skill failures must not prevent the independently authorized team read.
-      const auth = await supabase.auth.getUser().catch(() => null);
+      const auth = await supabase.auth.getUser().catch(err => {
+        console.error("[teams] viewer session failed:", err);
+        return null;
+      });
       if (!current()) return;
+      if (auth?.error) console.error("[teams] viewer session failed:", auth.error);
       const user = auth?.error ? null : auth?.data.user;
+      identity.current = user?.id || null;
       if (user) {
         try {
-          const { data: profile } = await supabase.from("profiles").select("skills").eq("id", user.id).abortSignal(abort.signal).single();
+          const { data: profile, error: profileError } = await supabase.from("profiles").select("skills").eq("id", user.id).abortSignal(abort.signal).single();
+          if (profileError && current()) console.error("[teams] viewer skills failed:", profileError);
           if (current()) setViewerSkills(profile?.skills || []);
-        } catch { /* Skill relevance is optional too. */ }
+        } catch (err) {
+          if (current()) console.error("[teams] viewer skills failed:", err);
+        }
       }
       const { data, error: tErr } = await supabase
         .from("teams")
         .select("*, team_members(id), hackathons!teams_hackathon_id_fkey(id, name, end_date, status, archived), team_hackathons(hackathons(id, name, end_date, status, archived)), team_ppt_evaluations(total_score, grade, status)")
         .order("created_at", { ascending: false }).abortSignal(abort.signal);
       if (!current()) return;
-      if (tErr) throw new Error(tErr.message);
+      if (tErr) {
+        console.error("[teams] team list failed:", tErr);
+        throw new Error(tErr.message);
+      }
       const records = (data as ListTeam[]) || [];
       setError(null);
-      setTeams(records);
+      setTeams(records.map(t => ({ ...t, ownerRecentlyActive: false, ownerActivityStatus: user ? "loading" : "unavailable" })));
       setLoading(false);
       if (!user) {
-        setActivityUnavailable(Boolean(auth?.error || !auth));
+        setActivityUnavailable(true);
         return;
       }
       const activity = await loadOwnerActivity(supabase, records, abort.signal);
       if (!current()) return;
-      setTeams(records.map(t => ({ ...t, ownerRecentlyActive: activity.recentOwners.has(t.owner_id || "") })));
+      setTeams(records.map(t => ({ ...t,
+        ownerRecentlyActive: activity.recentOwners.has(t.owner_id || ""),
+        ownerActivityStatus: activity.unavailableOwners.has(t.owner_id || "") ? "unavailable" : "checked",
+      })));
       setActivityUnavailable(activity.unavailable);
     } catch (err) {
-      if (current()) setError(err instanceof Error ? err.message : "Teams could not be loaded. Please retry.");
+      if (current()) {
+        console.error("[teams] discovery load failed:", err);
+        setError(err instanceof Error ? err.message : "Teams could not be loaded. Please retry.");
+      }
     } finally {
       if (current()) setLoading(false);
     }
@@ -85,8 +104,23 @@ export function useTeamsData() {
 
   useEffect(() => {
     let mounted = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextId = session?.user?.id || null;
+      if (identity.current === nextId) return;
+      if (identity.current === undefined && _event === "INITIAL_SESSION") {
+        identity.current = nextId;
+        return;
+      }
+      identity.current = nextId;
+      controller.current?.abort(); generation.current += 1;
+      setTeams([]); setViewerSkills([]); setError(null); setActivityUnavailable(false); setLoading(true);
+      clearTimeout(timer);
+      // Like My Teams, defer reads outside Supabase's auth callback.
+      timer = setTimeout(() => { if (mounted) void load(); }, 0);
+    });
     Promise.resolve().then(() => { if (mounted) void load(); });
-    return () => { mounted = false; controller.current?.abort(); generation.current += 1; };
+    return () => { mounted = false; clearTimeout(timer); subscription.unsubscribe(); controller.current?.abort(); generation.current += 1; };
   }, [load]);
 
   return { teams, viewerSkills, loading, error, activityUnavailable, reload: load };
@@ -117,18 +151,25 @@ export function ownerRecentlyActive(value: unknown, now: number): boolean {
 export async function loadOwnerActivity(client: Pick<typeof supabase, "from">, teams: ListTeam[], signal: AbortSignal, now = Date.now()) {
   const ids = [...new Set(teams.map(t => t.owner_id).filter((id): id is string => typeof id === "string" && Boolean(id)))];
   const recentOwners = new Set<string>();
+  const unavailableOwners = new Set<string>();
   let unavailable = false;
   for (let offset = 0; offset < ids.length && !signal.aborted; offset += 100) {
     const batch = ids.slice(offset, offset + 100);
     try {
       const { data, error } = await client.from("profiles").select("id, last_seen_at").in("id", batch).abortSignal(signal);
-      if (error || !Array.isArray(data)) { unavailable = true; continue; }
+      if (error || !Array.isArray(data)) {
+        if (!signal.aborted) console.error("[teams] owner activity failed:", error || new Error("Invalid activity response"));
+        unavailable = true; batch.forEach(id => unavailableOwners.add(id)); continue;
+      }
       for (const row of data) {
         if (row && batch.includes(row.id) && ownerRecentlyActive(row.last_seen_at, now)) recentOwners.add(row.id);
       }
-    } catch { unavailable = true; }
+    } catch (err) {
+      if (!signal.aborted) console.error("[teams] owner activity failed:", err);
+      unavailable = true; batch.forEach(id => unavailableOwners.add(id));
+    }
   }
-  return { recentOwners, unavailable };
+  return { recentOwners, unavailableOwners, unavailable };
 }
 
 /** Share of distinct listed team skills that the viewer lists, not a fit probability. */
@@ -137,14 +178,15 @@ export function teamMatchScore(teamSkills: string[] | null | undefined, viewerSk
   return total ? Math.round((matched / total) * 100) : 0;
 }
 
-/** Joinability, skill relevance, recent owner activity among open peers, then date/ID. */
+/** Joinability, confirmed recent activity among open peers, skill overlap, then date/ID. */
 export function compareDiscoveryTeams(
   a: { t: Pick<ListTeam, "id" | "created_at" | "ownerRecentlyActive">; status: { open: boolean }; match: number },
   b: { t: Pick<ListTeam, "id" | "created_at" | "ownerRecentlyActive">; status: { open: boolean }; match: number },
+  prioritizeActivity = true,
 ): number {
   if (a.status.open !== b.status.open) return a.status.open ? -1 : 1;
+  if (prioritizeActivity && a.status.open && Boolean(a.t.ownerRecentlyActive) !== Boolean(b.t.ownerRecentlyActive)) return a.t.ownerRecentlyActive ? -1 : 1;
   if (a.match !== b.match) return b.match - a.match;
-  if (a.status.open && Boolean(a.t.ownerRecentlyActive) !== Boolean(b.t.ownerRecentlyActive)) return a.t.ownerRecentlyActive ? -1 : 1;
   const created = (value: string | null | undefined) => {
     const time = value ? Date.parse(value) : NaN;
     return Number.isFinite(time) ? time : -Infinity;

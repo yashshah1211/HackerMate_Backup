@@ -1,0 +1,91 @@
+{
+  "base": "51af1f0d2ed8faa0fed7fb28e699f230496a98be",
+  "checks": [
+    {
+      "viewport": "320",
+      "width": 320,
+      "checks": [
+        "baseline and activity-before-skills order",
+        "coarse activity states",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet keyboard opening, Escape and focus restoration below 1024px",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves skill ranking",
+        "weak-supply alternatives",
+        "activity and list loading states",
+        "account switch updates relevance",
+        "keyboard team-detail navigation",
+        "signed-out skips profiles",
+        "team-read error without empty state",
+        "zero writes or external network"
+      ]
+    },
+    {
+      "viewport": "390",
+      "width": 390,
+      "checks": [
+        "baseline and activity-before-skills order",
+        "coarse activity states",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet keyboard opening, Escape and focus restoration below 1024px",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves skill ranking",
+        "weak-supply alternatives",
+        "activity and list loading states",
+        "account switch updates relevance",
+        "keyboard team-detail navigation",
+        "signed-out skips profiles",
+        "team-read error without empty state",
+        "zero writes or external network"
+      ]
+    },
+    {
+      "viewport": "768",
+      "width": 768,
+      "checks": [
+        "baseline and activity-before-skills order",
+        "coarse activity states",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet keyboard opening, Escape and focus restoration below 1024px",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves skill ranking",
+        "weak-supply alternatives",
+        "activity and list loading states",
+        "account switch updates relevance",
+        "keyboard team-detail navigation",
+        "signed-out skips profiles",
+        "team-read error without empty state",
+        "zero writes or external network"
+      ]
+    },
+    {
+      "viewport": "1440",
+      "width": 1440,
+      "checks": [
+        "baseline and activity-before-skills order",
+        "coarse activity states",
+        "no overflow",
+        "all teams retained",
+        "primary-event filter and closure",
+        "filter sheet keyboard opening, Escape and focus restoration below 1024px",
+        "empty-state paths and keyboard navigation",
+        "denied optional read preserves skill ranking",
+        "weak-supply alternatives",
+        "activity and list loading states",
+        "account switch updates relevance",
+        "keyboard team-detail navigation",
+        "signed-out skips profiles",
+        "team-read error without empty state",
+        "zero writes or external network"
+      ]
+    }
+  ],
+  "externalRequests": 0,
+  "writes": 0
+}

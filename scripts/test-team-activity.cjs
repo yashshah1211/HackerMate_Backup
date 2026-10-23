@@ -55,6 +55,8 @@ test('large lists use bounded owner batches and retain successful activity when 
   const records = Array.from({ length: 205 }, (_, i) => team(String(i), `owner-${i}`));
   const result = await loadOwnerActivity(fixture.client, records, new AbortController().signal, NOW);
   assert.deepEqual(fixture.queries.map(q => q.ids.length), [100, 100, 5]); assert.equal(result.recentOwners.size, 105); assert.equal(result.unavailable, true);
+  assert.equal(result.unavailableOwners.size, 100);
+  assert(result.unavailableOwners.has('owner-100')); assert(!result.unavailableOwners.has('owner-0'));
 });
 
 async function mountedHook(t, options = {}) {
@@ -63,17 +65,19 @@ async function mountedHook(t, options = {}) {
   const prior = new Map(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   for (const key of keys) Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : dom.window[key] });
   const root = require('react-dom/client').createRoot(dom.window.document.getElementById('root'));
-  const queries = [], server = { user: { id: 'viewer' }, records: [team()], ...options };
+  const queries = [], listeners = new Set(), server = { user: { id: 'viewer' }, records: [team()], ...options };
   const client = { auth: { getUser: async () => {
+    const user = server.user;
+    if (server.authWait) await server.authWait;
     if (server.authThrow) throw Error('Auth unavailable');
-    return { data: { user: server.user }, error: server.authError || null };
-  } }, from(table) {
+    return { data: { user }, error: server.authError || null };
+  }, onAuthStateChange(fn) { listeners.add(fn); return { data: { subscription: { unsubscribe() { listeners.delete(fn); } } } }; } }, from(table) {
     const q = { table }; queries.push(q);
     return { select(columns) { q.columns = columns; return this; }, eq() { return this; }, single() { return this; },
       order() { return this; }, in(column, ids) { q.ids = ids; return this; }, abortSignal(signal) { q.signal = signal; return this; },
       then(resolve, reject) { return Promise.resolve().then(() => {
         if (table === 'teams') return { data: server.records, error: server.teamError };
-        if (q.columns === 'skills') return { data: { skills: ['React'] }, error: null };
+        if (q.columns === 'skills') return { data: { skills: server.skills || ['React'] }, error: server.skillsError || null };
         if (server.activity) return server.activity(q);
         return { data: [{ id: 'owner', last_seen_at: new Date(Date.now() - 1000).toISOString() }], error: null };
       }).then(resolve, reject); } };
@@ -85,12 +89,18 @@ async function mountedHook(t, options = {}) {
     for (const [key, descriptor] of prior) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } });
   await React.act(async () => root.render(React.createElement(Probe)));
   return { get state() { return state; }, server, queries, reload: () => React.act(async () => state.reload()),
+    switchUser: user => React.act(async () => {
+      server.user = user;
+      for (const fn of listeners) fn(user ? 'SIGNED_IN' : 'SIGNED_OUT', user ? { user } : null);
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }), listenerCount: () => listeners.size,
     unmount: async () => { await React.act(() => root.unmount()); mounted = false; } };
 }
 for (const kind of ['denied', 'transport']) test(`hook keeps teams visible and reports optional ${kind} failure`, async t => {
   const view = await mountedHook(t, { activity() { if (kind === 'transport') throw Error('network'); return { data: null, error: { code: '42501' } }; } });
   assert.equal(view.state.teams.length, 1); assert.equal(view.state.error, null); assert.equal(view.state.loading, false);
   assert.equal(view.state.activityUnavailable, true); assert.equal(view.state.teams[0].ownerRecentlyActive, false);
+  assert.equal(view.state.teams[0].ownerActivityStatus, 'unavailable');
 });
 for (const scenario of [{ user: null }, { authError: { message: 'expired' } }, { authThrow: true }]) test(`no authorized viewer skips owner profiles: ${JSON.stringify(scenario)}`, async t => {
   const view = await mountedHook(t, scenario);
@@ -106,10 +116,60 @@ test('team list is visible before optional activity resolves; older reload canno
   let finish; const pending = new Promise(resolve => { finish = resolve; });
   const view = await mountedHook(t, { activity: () => pending });
   assert.equal(view.state.loading, false); assert.equal(view.state.teams[0].id, 'one');
+  assert.equal(view.state.teams[0].ownerActivityStatus, 'loading');
   view.server.records = [team('new')]; view.server.activity = () => ({ data: [], error: null });
   await view.reload();
   await React.act(async () => finish({ data: [{ id: 'owner', last_seen_at: new Date(Date.now() - 1000).toISOString() }], error: null }));
   assert.equal(view.state.teams[0].id, 'new'); assert.equal(view.state.teams[0].ownerRecentlyActive, false);
+});
+
+test('switching accounts invalidates pending activity and clears previous viewer skill relevance', async t => {
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const view = await mountedHook(t, { activity: () => pending });
+  view.server.skills = ['Rust']; view.server.activity = () => ({ data: [], error: null });
+  await view.switchUser({ id: 'fixture-account-b' });
+  assert.deepEqual(Array.from(view.state.viewerSkills), ['Rust']);
+  assert.equal(view.state.teams[0].ownerActivityStatus, 'checked');
+  await React.act(async () => finish({ data: [{ id: 'owner', last_seen_at: new Date(Date.now() - 1000).toISOString() }] }));
+  assert.equal(view.state.teams[0].ownerRecentlyActive, false);
+  await view.switchUser(null);
+  assert.deepEqual(Array.from(view.state.viewerSkills), []);
+  assert.equal(view.state.teams[0].ownerActivityStatus, 'unavailable');
+  await view.unmount(); assert.equal(view.listenerCount(), 0);
+});
+
+test('activity query failures log the original error without logging activity rows', async () => {
+  const logs = [], denied = { code: '42501', message: 'Synthetic denial' };
+  const { loadOwnerActivity: load } = harness({ '@/lib/supabase': { supabase: {} } }, { console: { error: (...args) => logs.push(args) } }).load('src/app/teams/useTeamsData.ts');
+  await load(clientFor(() => ({ data: null, error: denied })).client, [team()], new AbortController().signal, NOW);
+  assert.equal(logs.length, 1); assert.equal(logs[0][1], denied);
+});
+
+test('partial activity failure retains honest successful labels and marks only failed-batch cards unavailable', async t => {
+  const records = Array.from({ length: 101 }, (_, i) => team(`fixture-${i}`, `owner-${i}`));
+  const view = await mountedHook(t, { records, activity: q => q.ids.includes('owner-100')
+    ? { data: null, error: { code: '42501', message: 'Synthetic batch denial' } }
+    : { data: [{ id: 'owner-0', last_seen_at: new Date(Date.now() - 1000).toISOString() }], error: null } });
+  assert.equal(view.state.activityUnavailable, true);
+  assert.equal(view.state.teams.length, 101);
+  assert.equal(view.state.teams[0].ownerRecentlyActive, true);
+  assert.equal(view.state.teams[0].ownerActivityStatus, 'checked');
+  assert.equal(view.state.teams[1].ownerActivityStatus, 'checked');
+  assert.equal(view.state.teams[100].ownerActivityStatus, 'unavailable');
+});
+
+test('an account switch before the initial identity resolves invalidates the delayed identity', async t => {
+  let finish;
+  const authWait = new Promise(resolve => { finish = resolve; });
+  const view = await mountedHook(t, { authWait });
+  view.server.authWait = null; view.server.skills = ['Rust'];
+  await view.switchUser({ id: 'fixture-account-b' });
+  assert.deepEqual(Array.from(view.state.viewerSkills), ['Rust']);
+  const reads = view.queries.length;
+  await React.act(async () => finish());
+  assert.equal(view.queries.length, reads);
+  assert.deepEqual(Array.from(view.state.viewerSkills), ['Rust']);
 });
 test('unmount aborts pending optional read', async t => {
   let finish; const pending = new Promise(resolve => { finish = resolve; });
