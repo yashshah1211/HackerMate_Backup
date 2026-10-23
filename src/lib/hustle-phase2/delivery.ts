@@ -58,6 +58,71 @@ export function deliveryConfig() {
   if (!secret || !/^[a-f0-9]{64}$/.test(secret)) throw Error("Delivery secret unavailable.");
   return { manifest, from, secret };
 }
+
+/** Read-only metadata investigation of the single uncertain 08:07 IST dispatch.
+ * Never sends, reschedules, cancels, retries, or changes the delivery ledger. */
+async function auditUncertainProviderDelivery(report: { deliveries: Delivery[] }, teams: Teams[], sender: string) {
+  const unresolved = report.deliveries.filter(d => d.status === "unknown" || d.status === "dispatching");
+  if (!unresolved.length) return { status: "no_uncertain_delivery" };
+  if (unresolved.length !== 1) return { status: "multiple_uncertain_deliveries", count: unresolved.length };
+  const recipient = teams.find(t => t.id === unresolved[0].team_id)?.leader_email;
+  if (!recipient) return { status: "unknown_team_not_in_roster" };
+  const start = Date.parse("2026-10-23T02:35:00.000Z"); // 08:05 IST; before the observed attempt.
+  const end = Date.parse("2026-10-23T02:45:00.000Z");
+  const subject = "Hustle Carnival Round 2 — private attendance invitation";
+  const schedule = Date.parse("2026-10-23T08:35:00.000Z");
+  const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+  const began = Date.now(), seen = new Set<string>(), matches: string[] = [];
+  let cursor: string | null = null, scanned = 0, previous = Infinity;
+  for (let page = 0; page < 8; page++) {
+    const left = 18_000 - (Date.now() - began);
+    if (left < 600) return { status: "inventory_time_limit", scanned };
+    const url = "/emails?limit=100" + (cursor ? "&after=" + encodeURIComponent(cursor) : "");
+    const result = await providerGet(url, Math.min(3500, left - 300)) as {
+      data?: Array<{ id?: unknown; created_at?: unknown; subject?: unknown; to?: unknown }>;
+      has_more?: unknown;
+    };
+    if (!Array.isArray(result?.data) || result.data.length > 100 || typeof result.has_more !== "boolean")
+      return { status: "inventory_malformed", scanned };
+    let coveredIncident = false;
+    for (const item of result.data) {
+      if (typeof item.id !== "string" || !uuid.test(item.id) || typeof item.created_at !== "string")
+        return { status: "inventory_malformed", scanned };
+      const created = Date.parse(item.created_at);
+      if (!Number.isFinite(created) || created > previous || seen.has(item.id))
+        return { status: "inventory_out_of_order", scanned };
+      seen.add(item.id); previous = created; scanned++;
+      if (created < start) coveredIncident = true;
+      if (created >= start && created <= end && item.subject === subject && Array.isArray(item.to)
+        && item.to.length === 1 && item.to[0] === recipient) matches.push(item.id);
+    }
+    if (matches.length > 1) return { status: "multiple_matching_provider_emails", count: matches.length, scanned };
+    if (coveredIncident || result.has_more === false) {
+      if (!matches.length) return { status: "no_match_in_scanned_inventory", completeToIncident: true, scanned };
+      const leftReadback = 18_000 - (Date.now() - began);
+      if (leftReadback < 600) return { status: "readback_time_limit", scanned };
+      const id = matches[0];
+      const email = await providerGet("/emails/" + id, Math.min(3500, leftReadback - 300)) as {
+        id?: unknown; to?: unknown; from?: unknown; subject?: unknown;
+        scheduled_at?: unknown; last_event?: unknown; created_at?: unknown; cc?: unknown; bcc?: unknown;
+      };
+      const empty = (v: unknown) => v == null || (Array.isArray(v) && !v.length);
+      const verified = email.id === id && email.subject === subject && email.from === sender
+        && Array.isArray(email.to) && email.to.length === 1 && email.to[0] === recipient
+        && typeof email.scheduled_at === "string" && Date.parse(email.scheduled_at) === schedule
+        && email.last_event === "scheduled" && empty(email.cc) && empty(email.bcc)
+        && typeof email.created_at === "string" && Date.parse(email.created_at) >= start
+        && Date.parse(email.created_at) <= end;
+      return { status: verified ? "scheduled_provider_record_verified" : "matching_record_requires_review",
+        providerId: id, event: typeof email.last_event === "string" ? email.last_event : "unknown",
+        scanned, completeToIncident: true };
+    }
+    if (!result.data.length) return { status: "inventory_malformed", scanned };
+    cursor = result.data[result.data.length - 1].id as string;
+  }
+  return { status: "inventory_page_limit", scanned };
+}
+
 function approved(batches: ApprovedBatch[], id: unknown) {
   const batch = batches.find(b => b.batchId === id);
   if (!batch) throw Error("Batch is not in the approved launch manifest.");
@@ -77,7 +142,13 @@ export async function launchOperation(action: string, data: Record<string, unkno
   if (!deliveryEnabled()) throw Error("Delivery approval is OFF.");
   if (process.env.HUSTLE_PHASE2_AUTODISPATCH_ENABLED === "true" && action !== "delivery-status") throw Error("Manual dispatch is locked during unattended mode.");
   const { manifest, from, secret } = deliveryConfig();
-  if (action === "delivery-status") return rpc("hustle_phase2_delivery_report", { p_actor: actor });
+  if (action === "delivery-status") {
+    const report = await rpc<{ counts: Record<string, unknown>; deliveries: Delivery[] }>("hustle_phase2_delivery_report", { p_actor: actor });
+    let providerAudit: Record<string, unknown>;
+    try { providerAudit = await auditUncertainProviderDelivery(report, teams, from); }
+    catch { providerAudit = { status: "provider_inventory_unavailable" }; }
+    return { ...report, providerAudit };
+  }
   if (Object.keys(data).some(k => !["batchId", "confirm"].includes(k))) throw Error("Unknown launch fields.");
   const batch = approved(manifest.batches, data.batchId);
   const rows = deliveryEntries(batch, teams, secret, from, manifest.scheduledAt);
