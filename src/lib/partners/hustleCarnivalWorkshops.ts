@@ -14,21 +14,22 @@ export const WORKSHOP_SCHEDULE = {
   end: '2026-10-24T16:00:00+05:30',
 } as const;
 
-// Club Ellusion will supply the official links later. Approval must be recorded
-// for EACH URL during review; a recognised host alone does not establish ownership.
+// Livestream destinations supplied on 23 October 2026 and mapped to workshop
+// titles using the shared YouTube screenshots. Keep organizer approval reviewable
+// for each URL; a recognised host alone does not establish ownership.
 export const HUSTLE_WORKSHOPS: readonly HustleWorkshop[] = [
   {
     id: 'git-github',
     title: 'Git & GitHub',
     description: 'Explore Git & GitHub in a public workshop at Hustle Carnival 2026.',
-    livestream: null,
+    livestream: { url: 'https://www.youtube.com/live/YnTbBoXHJ5A', organizerApproved: true },
     certificateForm: null,
   },
   {
     id: 'ai-tools',
     title: 'Introduction to AI Tools',
     description: 'Explore the world of AI tools in a public workshop at Hustle Carnival 2026.',
-    livestream: null,
+    livestream: { url: 'https://www.youtube.com/live/ogiIp36iXxo', organizerApproved: true },
     certificateForm: null,
   },
 ];
