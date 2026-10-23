@@ -10,7 +10,14 @@ The page reuses the canonical HackerMate logo and existing public app shell, wit
 
 ## Supplying official links
 
-Edit **only** `src/lib/partners/hustleCarnivalWorkshops.ts` when Club Ellusion supplies links. Each workshop has independent `livestream` and `certificateForm` entries, currently `null`. Replace an entry with `{ url: <exact organizer-supplied URL>, organizerApproved: true }` only after confirming with Club Ellusion that it is the correct official channel/stream or Google Form. Record organizer approval in the change review. Do not use visitor input, query parameters or registration data as link configuration.
+Workshop URLs are configured in `src/lib/partners/hustleCarnivalWorkshops.ts`. On 23 October, the following workshop-specific YouTube links were shared and matched to their visible YouTube titles in the supplied screenshots:
+
+- **Git & GitHub:** `https://www.youtube.com/live/YnTbBoXHJ5A`
+- **Introduction to AI Tools / AI Tools & Prompt Engineering:** `https://www.youtube.com/live/ogiIp36iXxo`
+
+The user specifically requested that these URLs replace the disabled placeholders, providing editorial approval for these exact links. The sender's independent organizational authority was not technically verified. Each configured livestream has `organizerApproved: true` as the source-reviewed editorial gate. **Both `certificateForm` values remain `null`.**
+
+For future links, replace an entry with `{ url: <exact organizer-supplied URL>, organizerApproved: true }` only after confirming the correct stream or form. Record approval in the change review. Do not use visitor input, query parameters or registration data as link configuration.
 
 Approval and URL validation are both required. HTTPS YouTube watch, live, short video and supported channel URLs are accepted for livestreams; `forms.gle` and Google Forms respondent `viewform` URLs are accepted for certificates. Other hosts, HTTP, credentials, nonstandard ports, malformed destinations and Google Forms edit URLs fail closed. Host validation cannot establish channel/form ownership; organizer approval is a separate editorial requirement. Unsupported legitimate URL formats should receive a focused validator/test update, not a bypass.
 
@@ -56,4 +63,4 @@ The real Next route was tested in development with the full inherited app shell 
 
 ## Follow-up integration
 
-Supply the two official livestream URLs and the applicable official Google Forms, confirm ownership and approval per link, and review the small configuration update. Portal and dashboard navigation are included in the separate partnership-navigation change. No merge or production deployment is included in this assignment.
+The two livestream links are now configured for review; certificate Google Forms are still pending. Confirm organizer ownership if independently required before production release, and apply later form URLs in a separate reviewed update. Portal and dashboard navigation are included in the separate partnership-navigation change. No merge or production deployment is included in this assignment.
