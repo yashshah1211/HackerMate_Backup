@@ -1,0 +1,12 @@
+{
+  "baseline": "51af1f0d2ed8faa0fed7fb28e699f230496a98be",
+  "checks": [
+    "320: baseline, loading, partial coverage/rates unavailable, keyboard Refresh, verified aggregates, unavailable response and account switching clear numbers, late response ignored, no overflow, GET only",
+    "390: baseline, loading, partial coverage/rates unavailable, keyboard Refresh, verified aggregates, unavailable response and account switching clear numbers, late response ignored, no overflow, GET only",
+    "768: baseline, loading, partial coverage/rates unavailable, keyboard Refresh, verified aggregates, unavailable response and account switching clear numbers, late response ignored, no overflow, GET only",
+    "1440: baseline, loading, partial coverage/rates unavailable, keyboard Refresh, verified aggregates, unavailable response and account switching clear numbers, late response ignored, no overflow, GET only"
+  ],
+  "externalRequests": 0,
+  "syntheticRequestRPCs": 0,
+  "limitations": "Real admin page/components/CSS and DTO validation; AuthGuard and same-origin report APIs use synthetic adapters. Backend authorization and SQL are tested separately. System fonts replace Next fonts. No live Supabase, RLS, middleware, real OAuth or production writes."
+}

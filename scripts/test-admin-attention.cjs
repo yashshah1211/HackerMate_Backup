@@ -278,10 +278,12 @@ async function ui(t, first, initialCategory = 'onboarding') {
   } });
   const responses = [first ?? Promise.resolve(json(await payload(initialCategory)))], calls = [], guards = [];
   const Component = harness({
+    '@/lib/supabase': { supabase: { auth: { getUser: async () => ({ data: { user: { id: 'synthetic-admin' } }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) } } },
     '@/components/AuthGuard': ({ children, adminOnly }) => { guards.push(adminOnly); return children; },
     'next/link': ({ children, ...props }) => React.createElement('a', props, children),
   }, { URLSearchParams, AbortController, Error,
     fetch: async (url, opts) => {
+      if (url === '/api/admin/team-formation') return json({ error: 'Synthetic formation unavailable' }, 503);
       assert(url.startsWith('/api/admin/attention?')); assert.equal(opts.method, 'GET'); assert.equal(opts.cache, 'no-store'); assert.equal(opts.credentials, 'same-origin');
       assert(opts.signal instanceof AbortSignal); calls.push({ url, signal: opts.signal }); assert(responses.length, 'Unexpected automatic request'); return responses.shift();
     },

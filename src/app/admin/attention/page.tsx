@@ -6,6 +6,8 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import AuthGuard from "@/components/AuthGuard";
 import { StatusBadge } from "@/app/admin/_components/StatusBadge";
 import type { AttentionCategory, AttentionFilter, AttentionResponse, Measurement } from "@/lib/admin/attentionQueue";
+import { isFormationReport, type FormationReport } from "@/lib/admin/teamFormationReport";
+import { supabase } from "@/lib/supabase";
 
 const categories: { key: AttentionCategory; title: string; description: string }[] = [
   { key: "onboarding", title: "Incomplete onboarding", description: "Profiles explicitly marked incomplete" },
@@ -38,6 +40,69 @@ function Count({ metric }: { metric?: Measurement }) {
   return metric?.status === "verified" ? <>{metric.value}</> : <span title={metric?.status === "unavailable" ? metric.reason : undefined}>{metric ? "Unavailable" : "—"}</span>;
 }
 const time = (value: string) => new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
+
+function FormationPanel({ refresh }: { refresh: number }) {
+  const [loaded, setLoaded] = useState<{ refresh: number; report?: FormationReport; error?: string } | null>(null);
+  const report = loaded?.refresh === refresh ? loaded.report : undefined;
+  const error = loaded?.refresh === refresh ? loaded.error : undefined;
+  useEffect(() => {
+    const controller = new AbortController();
+    let observedUser: string | null | undefined;
+    let expectedUser: string | undefined;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      observedUser = session?.user.id ?? null;
+      if (expectedUser !== undefined && observedUser !== expectedUser) {
+        controller.abort();
+        setLoaded({ refresh, error: "Account changed. Refresh to verify administrator access." });
+      }
+    });
+    void (async () => {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (controller.signal.aborted) return;
+        if (authError) { console.error("[team-formation] report session check failed:", authError); throw new Error("Administrator access could not be verified."); }
+        if (!user || observedUser !== undefined && observedUser !== user.id) throw new Error("Account changed. Refresh to verify administrator access.");
+        expectedUser = user.id;
+        const response = await fetch("/api/admin/team-formation", { cache: "no-store", credentials: "same-origin", signal: controller.signal });
+        const body: unknown = await response.json();
+        if (!response.ok || !isFormationReport(body)) throw new Error("Formation outcomes are unavailable. Access, retention or coverage could not be verified.");
+        if (!controller.signal.aborted) setLoaded({ refresh, report: body });
+      } catch (failure) {
+        if (!controller.signal.aborted) setLoaded({ refresh, error: failure instanceof Error ? failure.message : "Formation data is unavailable." });
+      }
+    })();
+    return () => { controller.abort(); subscription.unsubscribe(); };
+  }, [refresh]);
+  const rate = (n: number, d: number) => report?.coverage === "complete" && d > 0 ? `${n} / ${d} (${(100 * n / d).toFixed(1)}%)` : `${n} / ${d} · rate unavailable`;
+  const decimal = (n: number | null, unit: string) => n === null ? "Unavailable" : `${n.toFixed(1)} ${unit}`;
+  return <section aria-labelledby="formation-title" className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+    <h2 id="formation-title" className="font-semibold">Team formation outcomes</h2>
+    {!report && !error && <p role="status" className="text-sm text-zinc-500">Loading formation outcomes…</p>}
+    {error && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{error} Use Refresh to retry.</p>}
+    {report && <>
+      <p className="text-xs text-zinc-500">UTC cohort [{report.start}, {report.end}). Generated {time(report.generatedAt)} IST. Coverage starts {time(report.coverageStart)} IST; {report.coverage}. Cleanup verified {time(report.cleanupAt)} IST.</p>
+      {report.coverage !== "complete" && <p role="status" className="text-sm text-amber-700 dark:text-amber-400">Partial measurement: rates are unavailable. Missing history is not a zero outcome.</p>}
+      <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+        <caption className="sr-only">Mature cohorts and confirmed durable team outcomes</caption>
+        <thead><tr className="border-b border-zinc-200 dark:border-zinc-800"><th scope="col" className="py-2 pr-4">Measure</th><th scope="col" className="py-2">Verified aggregate</th></tr></thead>
+        <tbody>{[
+          ["Current pending backlog", `${report.backlog.pending}; over 7d ${report.backlog.over7}; over 14d ${report.backlog.over14}; unknown age ${report.backlog.unknown_age}`],
+          ["Pending age P50 / P90", `${decimal(report.backlog.age_p50_days, "days")} / ${decimal(report.backlog.age_p90_days, "days")}`],
+          ["Submitted requests", `${report.requests.submitted} attempts; ${report.requests.applicants} applicants; ${report.requests.mature} mature; ${report.requests.immature} immature`],
+          ["Mature request outcomes", `${report.requests.accepted} accepted; ${report.requests.rejected} rejected; ${report.requests.superseded} superseded; ${report.requests.unclassified} unclassified; ${report.requests.pending} still pending`],
+          ["Owner response within seven days", rate(report.requests.responded7, report.requests.mature)],
+          ["Request to confirmed membership", rate(report.requests.converted, report.requests.mature)],
+          ["Owner decision time P50 / P90", `${decimal(report.requests.decision_p50_hours, "hours")} / ${decimal(report.requests.decision_p90_hours, "hours")}`],
+          ["Membership acquisitions", `${report.memberships.episodes} episodes / ${report.memberships.people} people; ${report.memberships.creators} creators; ${report.memberships.joiners} joiners; ${report.memberships.unattributed} unattributed; ${report.removals} removals`],
+          ["New-account first-team activation within seven days", `${rate(report.activation.activated7, report.activation.mature)}; ${report.activation.creators7} creators; ${report.activation.joiners7} joiners; ${report.activation.unattributed7} unattributed; ${report.activation.immature} immature registrations`],
+          ["Current collaboration", `${report.collaboratingTeams} teams with at least two members`],
+          ["Measurement health", `${report.baselineFacts} baseline facts; ${report.excludedAccounts} legacy or unknown-registration accounts excluded from first activation; ${report.requests.unexplained} unexplained request gaps; ${report.qualityIssues} reassignment or timestamp issues`],
+        ].map(([label, value]) => <tr key={label} className="border-b border-zinc-100 last:border-0 dark:border-zinc-900"><th scope="row" className="py-2 pr-4 font-medium">{label}</th><td className="py-2">{value}</td></tr>)}</tbody>
+      </table></div>
+      {report.warnings.map(warning => <p key={warning} className="text-xs text-zinc-500">{warning}</p>)}
+    </>}
+  </section>;
+}
 
 function AttentionContent() {
   const [category, setCategory] = useState<AttentionCategory>("onboarding");
@@ -94,6 +159,8 @@ function AttentionContent() {
       </div>
       <button type="button" onClick={reload} className={`${button} inline-flex w-fit items-center gap-2`}><RefreshCw size={14} /> Refresh</button>
     </header>
+
+    <FormationPanel refresh={refresh} />
 
     {loading && <p role="status" className="text-sm text-zinc-500">Loading attention queues…</p>}
     {loadError && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-sm"><p>{loadError}</p><button type="button" onClick={reload} className={`${button} mt-3`}>Retry queues</button></div>}

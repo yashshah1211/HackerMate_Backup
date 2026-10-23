@@ -1,0 +1,147 @@
+mission02_fixture|127.0.0.1|180004
+Migration milliseconds: 229
+100 submission/removal pairs, baseline seconds: 0.030728; journal seconds: 0.066253; added milliseconds per pair: 0.35525000000000007
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+
+INSERT 0 21
+INSERT 0 6
+INSERT 0 6
+SET
+
+
+RESET
+SET
+SET
+
+
+
+
+02016c99-07f4-4853-bf68-3f6374175086
+RESET
+SET
+
+SET
+00000000-0000-4000-8000-000000000070
+
+
+
+
+
+SET
+4615b67f-0d91-4b00-bb29-6ada4782c1b0
+
+SET
+4615b67f-0d91-4b00-bb29-6ada4782c1b0
+
+
+INSERT 0 1
+SET
+5fb135da-4094-4125-a61a-a0fca3a73be4
+INSERT 0 1
+00000000-0000-4000-8000-000000000074
+
+
+SET
+67a36965-a17c-43f8-9ba6-19616e32ac34
+INSERT 0 1
+
+DO
+
+
+
+SET
+4bbdea40-07b0-47c0-83a5-decd24b2642c
+
+UPDATE 1
+
+SET
+ce119189-af1e-4776-a065-b63d876fbf7e
+SET
+DELETE 1
+RESET
+SET
+
+c98b662e-0088-4f43-b38b-336ca2f3307d
+
+CREATE FUNCTION
+CREATE TRIGGER
+SET
+
+
+DROP TRIGGER
+INSERT 0 1
+DELETE 1
+
+SET
+
+
+
+
+RESET
+SET
+UPDATE 1
+SET
+
+{"deleted": 1}
+RESET
+SET
+
+
+
+
+INSERT 0 1
+INSERT 0 3
+00000000-0000-4000-8000-000000000201
+00000000-0000-4000-8000-000000000203
+UPDATE 3
+UPDATE 2
+UPDATE 1
+UPDATE 1
+DO
+UPDATE 1
+
+BEGIN
+SET CONSTRAINTS
+SET
+ba993594-80de-4855-92d8-eb111891af71
+COMMIT
+
+
+BEGIN
+INSERT 0 1
+ROLLBACK
+
+INSERT 0 1
+INSERT 0 1
+
+UPDATE 1
+
+
+
+SET
+d901c4fa-200f-4e2e-8ad4-d78560cc32c8
+UPDATE 1
+INSERT 0 1
+00000000-0000-4000-8000-000000000075
+
+SET
+be9c11a2-d9d3-451d-bae6-cf62deee1baf
+UPDATE 1
+UPDATE 1
+SET
+00000000-0000-4000-8000-000000000072
+DO
+INSERT 0 4
+
+Concurrent accept/reject: one winner; one terminal fact.
+Concurrent first memberships: two memberships, one first activation.
+Last-seat race: one acceptance, capacity preserved.
+Rollback: all four captured deployed definitions restored; coverage unavailable.
+SET
+Result  (cost=0.00..0.27 rows=1 width=32) (actual time=23.265..23.266 rows=1.00 loops=1)
+  Buffers: shared hit=1090
+Planning Time: 0.108 ms
+Execution Time: 23.314 ms
+237568

@@ -135,12 +135,10 @@ function TeamRequestsContent() {
       // The RPC enforces capacity and ownership transactionally; deletes remain team/pending scoped.
       const result = accept
         ? await supabase.rpc("accept_team_join_request", { p_request_id: request.id })
-        : await supabase.from("team_join_requests").delete().eq("id", request.id)
-          .eq("team_id", teamId).eq("status", "pending").select("id");
+        : await supabase.rpc("reject_team_join_request", { p_request_id: request.id });
       if (!current(epoch)) return;
       if (result.error) throw result.error;
-      const confirmed = accept ? result.data === teamId
-        : Array.isArray(result.data) && result.data.length === 1 && result.data[0]?.id === request.id;
+      const confirmed = result.data === (accept ? teamId : request.id);
       if (!confirmed) throw new Error("Unexpected request confirmation");
       showToast(accept ? "Join request accepted!" : "Join request rejected.", accept ? "success" : "info");
     } catch (error) {

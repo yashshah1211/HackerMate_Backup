@@ -568,11 +568,10 @@ export function useDashboardData() {
         if (!current()) return;
         if (data !== team.id) throw new Error("Acceptance could not be confirmed. Refresh before trying again.");
       } else {
-        const { data, error } = await supabase.from("team_join_requests").delete()
-          .eq("id", requestId).eq("team_id", team.id).eq("status", "pending").select("id");
+        const { data, error } = await supabase.rpc("reject_team_join_request", { p_request_id: requestId });
         if (error) throw error;
         if (!current()) return;
-        if (data?.length !== 1 || data[0].id !== requestId) throw new Error("No pending request was declined. It may have changed or your permission was removed.");
+        if (data !== requestId) throw new Error("No pending request was declined. It may have changed or your permission was removed.");
       }
       if (!current()) return;
       removeQueueItem(q => q.kind === "join" && q.id === requestId);

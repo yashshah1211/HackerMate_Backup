@@ -1,0 +1,9 @@
+# Permission inventory before migration
+
+Before writing SQL, `rg` across src/, scripts/ and supabase/ found no existing references to the three proposed private relations: `audit.team_formation_events`, `audit.team_formation_accounts`, `audit.team_formation_coverage`. No existing table policy or grant will change.
+
+New references are limited to the migration and its local synthetic SQL test/runner. Events: event key, kind, subject user, team/request/membership IDs, occurred/recorded timestamps, source, baseline flag and transaction identity. Accounts: user ID, registration time/eligibility, first-activation time/source. Coverage: capture start/end and last cleanup time. The profile capture and baseline read auth.users(id, created_at) for authoritative registration time; no Auth grants, rows, or behavior are modified. The aggregate function reads these columns and existing request timestamps/status, member team/user IDs, and team IDs. TypeScript calls only public aggregate and cleanup RPCs, never private relations. The report returns no personal or entity identifiers. Browser clients call only the authorized rejection RPC.
+
+Detailed facts are subject to the 90-day ceiling. Account landmarks cascade on profile deletion. Journal tables have RLS, no ordinary-role grants/policies and no schema exposure. Internal writers are postgres-owned with fixed search paths and no caller execution privileges. Service-role read privileges support the SECURITY INVOKER aggregate; ordinary roles have neither schema usage nor table access. Only internal functions write facts.
+
+Read-only deployed definitions and ACLs were rechecked on October 23, 2026 and saved in deployed-functions.json. Token joining must preserve the deployed notification and must not delete invitations. Migration preconditions reject function drift instead of silently overwriting it.
