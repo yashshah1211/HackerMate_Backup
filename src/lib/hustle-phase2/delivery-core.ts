@@ -57,15 +57,43 @@ export async function submitInvitation(key: string, message: ReturnType<typeof d
     const data = await r.json().catch(() => null);
     if (r.ok && typeof data?.id === "string" && UUID.test(data.id) && !data.error) {
       providerId = data.id;
-      await new Promise(resolve => setTimeout(resolve, 125));
-      const readback = await fetch(`https://api.resend.com/emails/${providerId}`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(timeout), cache: "no-store" });
-      const proof = await readback.json();
-      if (readback.ok && proof.id === providerId && proof.last_event === "scheduled"
-        && Date.parse(proof.scheduled_at) === Date.parse(PARTICIPANT_DELIVERY_AT)
-        && JSON.stringify(proof.to) === JSON.stringify(message.to) && proof.from === message.from
-        && proof.subject === message.subject && (proof.cc === null || (Array.isArray(proof.cc) && !proof.cc.length))
-        && (proof.bcc === null || (Array.isArray(proof.bcc) && !proof.bcc.length))) return { status: "accepted", providerId, code: r.status };
-      return { status: "unknown", providerId, code: readback.status };
+      // Never retry the POST. A successfully created scheduled email may take
+      // a moment to become visible with last_event=scheduled in the GET API.
+      // Follow its *known provider ID* with bounded, read-only GET probes.
+      let lastReadbackCode: number | null = null;
+      for (let probe = 0; probe < 5; probe++) {
+        await new Promise(resolve => setTimeout(resolve, [250, 500, 750, 1000, 1500][probe]));
+        let readback: Response;
+        try {
+          readback = await fetch(`https://api.resend.com/emails/${providerId}`, {
+            headers: { Authorization: `Bearer ${key}` },
+            signal: AbortSignal.timeout(Math.min(timeout, 4000)), cache: "no-store",
+          });
+        } catch { continue; } // GET-only transport uncertainty never authorizes another POST.
+        lastReadbackCode = readback.status;
+        const proof = await readback.json().catch(() => null);
+        if (!readback.ok || !proof) continue;
+        // The API may omit absent CC/BCC entirely; absence and empty arrays are safe.
+        const noExtraRecipients = (value: unknown) => value == null || (Array.isArray(value) && value.length === 0);
+        const identityMatches = proof.id === providerId
+          && Date.parse(proof.scheduled_at) === Date.parse(PARTICIPANT_DELIVERY_AT)
+          && JSON.stringify(proof.to) === JSON.stringify(message.to)
+          && proof.from === message.from && proof.subject === message.subject
+          && noExtraRecipients(proof.cc) && noExtraRecipients(proof.bcc);
+        if (identityMatches && proof.last_event === "scheduled")
+          return { status: "accepted", providerId, code: r.status };
+        // A definite recipient, sender, subject or schedule mismatch is a STOP,
+        // not an eventual-consistency wait.
+        if (proof.id === providerId && (
+          (proof.to != null && JSON.stringify(proof.to) !== JSON.stringify(message.to))
+          || (proof.from != null && proof.from !== message.from)
+          || (proof.subject != null && proof.subject !== message.subject)
+          || (proof.scheduled_at != null && Date.parse(proof.scheduled_at) !== Date.parse(PARTICIPANT_DELIVERY_AT))
+          || !noExtraRecipients(proof.cc) || !noExtraRecipients(proof.bcc)
+        )) return { status: "unknown", providerId, code: readback.status };
+      }
+      // Retain unknown outcome after bounded GETs: never submit the same email again.
+      return { status: "unknown", providerId, code: lastReadbackCode };
     }
     return { status: r.status >= 400 && r.status < 500 && ![408,409].includes(r.status) ? "rejected" : "unknown", providerId: null, code: r.status };
   } catch { return { status: "unknown", providerId, code: null }; }
