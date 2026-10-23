@@ -63,7 +63,14 @@ function harness(options = {}) {
         return { data: { user: token === 'fixture-session' || cookieSession ? state.user : null }, error: state.authError };
       } },
       from(table) { state.events.push(['table', table]); return query(table); },
-      async rpc(name) { state.events.push(['maintenance', name]); return { data: null, error: null }; },
+      async rpc(name) {
+        state.events.push(['maintenance', name]);
+        if (name === 'prune_team_formation_history') {
+          if (state.lifecycleThrow) throw state.lifecycleThrow;
+          return state.lifecycleResult ?? { data: { deleted: 0 }, error: null };
+        }
+        return { data: null, error: null };
+      },
     };
   }
   const cache = new Map();
@@ -281,3 +288,46 @@ test('local HTTP runtime blocks unauthorized PDF and permits approved admin PDF'
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+
+const lifecycleCalls = state => state.events.filter(([event, name]) => event === 'maintenance' && name === 'prune_team_formation_history');
+for (const method of ['GET', 'POST']) for (const query of ['', '?format=pdf']) {
+  test(`interactive admin ${method} ${query || 'report'} does not run lifecycle retention cleanup`, async () => {
+    const h = harness({ profile: { role: 'admin' } });
+    const result = await h.load(REPORT)[method](request('api/cron/database-activity-report', { method, query }));
+    assert.equal(result.status, query ? 200 : 503);
+    assert.equal(lifecycleCalls(h.state).length, 0);
+    assert(h.state.events.some(([event]) => event === 'report-read'));
+    assert(h.state.events.some(([event, name]) => event === 'maintenance' && name === 'cleanup_lapsed_streaks'), 'existing maintenance behavior unchanged');
+    if (query) assert.equal(result.headers.get('content-type'), 'application/pdf');
+  });
+}
+test('authenticated scheduled GET executes lifecycle cleanup once before generating the report', async () => {
+  const h = harness({ user: null });
+  const result = await h.load(REPORT).GET(request('api/cron/database-activity-report', { token: 'fixture-cron-secret' }));
+  assert.equal(result.status, 503, 'existing missing email provider result unchanged');
+  assert.equal(lifecycleCalls(h.state).length, 1);
+  assert(h.state.events.findIndex(([event, name]) => event === 'maintenance' && name === 'prune_team_formation_history') < h.state.events.findIndex(([event]) => event === 'report-read'));
+  assert.equal(h.state.errors.length, 0); assert(!h.state.events.some(([event]) => event === 'authenticate'));
+});
+for (const req of [{ method: 'POST', token: 'fixture-cron-secret' }, { token: 'fixture-cron-secret', cookie: true, query: '?format=pdf' }, { token: 'wrong-secret', cookie: true }, { query: '?secret=fixture-cron-secret' }]) {
+  test(`non-scheduled/admin fallback invocation cannot trigger lifecycle cleanup: ${JSON.stringify(req)}`, async () => {
+    const h = harness({ profile: { role: 'admin' } });
+    const result = await h.load(REPORT)[req.method || 'GET'](request('api/cron/database-activity-report', req));
+    assert.equal(result.status, req.query === '?format=pdf' ? 200 : 503);
+    assert.equal(lifecycleCalls(h.state).length, 0);
+  });
+}
+for (const options of [{ lifecycleResult: { data: null, error: { code: '42501', message: 'Synthetic cleanup denied' } } }, { lifecycleThrow: new Error('Synthetic cleanup network failure') }, { lifecycleResult: { data: { deleted: -1 }, error: null } }]) {
+  test('scheduled cleanup failure is logged and preserves existing report/PDF behavior', async () => {
+    const h = harness({ user: null, ...options });
+    const result = await h.load(REPORT).GET(request('api/cron/database-activity-report', { token: 'fixture-cron-secret' }));
+    const body = await result.json(); assert.equal(result.status, 503); assert.equal(body.pdfGenerated, true);
+    assert.equal(lifecycleCalls(h.state).length, 1);
+    const logged = h.state.errors.find(args => String(args[0]).includes('Lifecycle retention cleanup failed'));
+    assert(logged, 'retention failure must remain observable');
+    const actualError = options.lifecycleResult?.error || options.lifecycleThrow;
+    if (actualError) assert.equal(logged[1], actualError);
+    assert(h.state.events.some(([event]) => event === 'report-read'));
+  });
+}

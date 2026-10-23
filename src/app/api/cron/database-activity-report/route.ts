@@ -139,15 +139,17 @@ async function handleDatabaseActivityReport(req: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // Reuse the existing daily invocation; no new schedule or delivery path.
-    // Cleanup is independent of report generation and must remain visible on failure.
-    try {
-      const { data, error } = await supabaseAdmin.rpc("prune_team_formation_history");
-      if (error) throw error;
-      if (!data || !Number.isSafeInteger(data.deleted) || data.deleted < 0) throw new Error("Invalid lifecycle cleanup result");
-      console.info("[Database Activity Report Cron] Lifecycle cleanup completed:", data.deleted);
-    } catch (error) {
-      console.error("[Database Activity Report Cron] Lifecycle retention cleanup failed:", error);
+    // Only the existing scheduled GET credential authorizes lifecycle cleanup.
+    // Interactive reports/PDFs retain their existing behavior without this write.
+    if (isAuthorizedCron && req.method === "GET" && format !== "pdf") {
+      try {
+        const { data, error } = await supabaseAdmin.rpc("prune_team_formation_history");
+        if (error) throw error;
+        if (!data || !Number.isSafeInteger(data.deleted) || data.deleted < 0) throw new Error("Invalid lifecycle cleanup result");
+        console.info("[Database Activity Report Cron] Lifecycle cleanup completed:", data.deleted);
+      } catch (error) {
+        console.error("[Database Activity Report Cron] Lifecycle retention cleanup failed:", error);
+      }
     }
 
     // 0. Maintain daily streaks: Decay/reset lapsed streaks for inactive builders

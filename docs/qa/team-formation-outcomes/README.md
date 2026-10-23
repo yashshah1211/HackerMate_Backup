@@ -2,7 +2,7 @@
 
 Draft implementation only. No migration has been applied to production or staging; no production data was mutated. No merge or application deployment is authorized.
 
-Branch `feat/team-formation-outcomes` is stacked on Stage A (`7e1ea16566b62afb8805ca7fff007d3288199d76`, draft PR #56), whose ancestor is reverified main `51af1f0d2ed8faa0fed7fb28e699f230496a98be`. PR B targets Stage A's branch to expose only Stage B changes. PR #55 is untouched. The user separately approved adding retention cleanup to the existing daily database activity job; its schedule, report and email behavior remain unchanged.
+Branch `feat/team-formation-outcomes` is stacked on Stage A (`43433d954e0a0dd17654a8362efafc47ab3553ff`, draft PR #56), whose ancestor is reverified main `51af1f0d2ed8faa0fed7fb28e699f230496a98be`. PR B targets Stage A's branch to expose only Stage B changes. PR #55 is untouched. The user separately approved adding retention cleanup to the existing daily database activity job; its schedule, report and email behavior remain unchanged.
 
 ## Architecture and authoritative semantics
 
@@ -31,7 +31,7 @@ The existing admin boundary verifies caller identity, protected role/ban state a
 
 ## Retention and erasure enforcement
 
-Detailed rows are physically deleted at **88 days from recording**, leaving a two-day margin before the approved 90-day maximum. The existing authenticated daily database-activity job calls the service-only `prune_team_formation_history` before its existing reporting work. It validates the result, logs actual failures, and continues the existing report/email flow. There is no new schedule, vendor, notification or automatic outreach.
+Detailed rows are physically deleted at **88 days from recording**, leaving a two-day margin before the approved 90-day maximum. Only a non-PDF GET with the validated existing cron credential calls the service-only `prune_team_formation_history` before its existing reporting work. It validates the result, logs actual failures, and continues the existing report/email flow. There is no new schedule, vendor, notification or automatic outreach.
 
 The report shows the last successful cleanup, becomes partial after 36 hours without cleanup, refuses a report if any detailed row reaches 90 days, and refuses windows older than 87 days. This prevents expired/partial history being labelled complete; refusing a read is **not** a substitute for physical deletion.
 
@@ -69,3 +69,14 @@ No staging writes, production mutation tests, migrations, real emails, OAuth ses
 - [Exact Stage B changed files](changed-files.txt), [permission/query inventory](query-inventory.md), [deployed SQL capture](deployed-functions.json), [rollback template](rollback.sql).
 - [Regression output](tests.txt), [SQL/performance output](sql-results.txt), [core smoke](core-smoke.txt), [browser checks](browser-results.json).
 - Screenshot pairs: [320 before](before-320.png) / [after](after-320.png); [390 before](before-390.png) / [after](after-390.png); [768 before](before-768.png) / [after](after-768.png); [1440 before](before-1440.png) / [after](after-1440.png).
+
+
+## Review follow-up — scheduled cleanup authorization (October 23, 2026)
+
+Lifecycle pruning is now gated by all three conditions: the existing timing-safe cron credential check succeeds, the method is GET, and the request is not a PDF download. Ordinary authenticated admin GET/POST reports, GET/POST PDFs, cookie-authorized fallback after an invalid cron token, and query-string secrets do not authorize this new write. A PDF request remains interactive even when it also carries the cron credential. Existing admin authorization, streak maintenance, PDF generation, report dispatch and response behavior remain unchanged.
+
+Twelve new regressions exercise the actual report handler. They first reproduced unexpected cleanup on eight interactive/non-scheduled paths, then passed after the guard was added. Tests prove a scheduled GET prunes once before report generation, and database errors, thrown network failures and malformed cleanup results are logged with the actual error while existing reporting continues. The focused report/admin regression run passed 274 tests before restacking; the restacked combined suite passed all 447 tests (zero failures), recorded in review-followup-tests.txt after inheriting the PR #56 fix.
+
+PR #58 remains stacked on PR #56. Its inherited owner review regressions and four-viewport browser checks passed on the updated stack (eight grouped checks, twelve screenshots, 20 synthetic RPCs, zero external requests); PR #56 owns the stale-row screenshots. The follow-up changes no SQL, migration, table permission, scheduler, production configuration or production data. No Vercel build or PostgreSQL 18 run is used to qualify this fix. PostgreSQL 17/full Supabase integration, authenticated core pages, schema-exposure validation, cleanup operations and backup/erasure release gates above remain unfulfilled and mandatory.
+
+Follow-up TypeScript and scoped ESLint passed. Whole-file lint on the activity-report route still reports its unchanged explicit-any baseline error (now line 217). The journal migration and rollback SQL are unchanged by this review fix; prior PostgreSQL 18 evidence is historical and is not PostgreSQL 17/Supabase qualification.

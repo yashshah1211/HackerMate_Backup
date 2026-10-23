@@ -13,10 +13,12 @@ docs/qa/team-formation-outcomes/core-smoke.txt
 docs/qa/team-formation-outcomes/deployed-functions.json
 docs/qa/team-formation-outcomes/query-inventory.md
 docs/qa/team-formation-outcomes/report-fixture.json
+docs/qa/team-formation-outcomes/review-followup-tests.txt
 docs/qa/team-formation-outcomes/rollback.sql
 docs/qa/team-formation-outcomes/sql-results.txt
 docs/qa/team-formation-outcomes/tests.txt
 scripts/test-admin-attention.cjs
+scripts/test-admin-authorization.cjs
 scripts/test-dashboard-join-requests.cjs
 scripts/test-team-formation-browser.cjs
 scripts/test-team-formation-local.cjs
