@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
+import { EvaluationFailure, evaluationFailure, evaluationRead, evaluationSignal, isUuid, readEvaluationJson, verifiedEvaluationActor, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,10 +49,11 @@ export async function GET(req: NextRequest) {
       success: true,
       history: evaluations || [],
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Evaluator History GET Exception]:", err);
+    const message = err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "";
     return NextResponse.json(
-      { error: err.message || "Internal server error fetching evaluation history." },
+      { error: message || "Internal server error fetching evaluation history." },
       { status: 500 }
     );
   }
@@ -84,118 +87,47 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Evaluator History DELETE Exception]:", err);
+    const message = err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "";
     return NextResponse.json(
-      { error: err.message || "Internal server error deleting evaluation history." },
+      { error: message || "Internal server error deleting evaluation history." },
       { status: 500 }
     );
   }
 }
 
 export async function PATCH(req: NextRequest) {
+  const requestId = randomUUID();
+  const execution: EvaluationExecution = { deadlineAt: Date.now() + 5_000, signal: req.signal, attempts: 0, requestId };
   try {
     const supabaseAdmin = getSupabaseAdmin();
-    const userId = await getAuthenticatedUserId(req, supabaseAdmin);
+    const userId = await verifiedEvaluationActor(supabaseAdmin, req, execution);
+    const { evaluationId, teamId } = await readEvaluationJson(req, execution);
+    if (!isUuid(evaluationId) || !isUuid(teamId)) throw new EvaluationFailure("invalid_input");
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { evaluationId, teamId } = body;
-
-    if (!evaluationId || !teamId) {
-      return NextResponse.json(
-        { error: "Missing required fields: evaluationId and teamId are required." },
-        { status: 400 }
-      );
-    }
-
-    // 1. Verify user is owner or member of the target team
-    const [{ data: memberData }, { data: teamData }] = await Promise.all([
-      supabaseAdmin
-        .from("team_members")
-        .select("id")
-        .eq("team_id", teamId)
-        .eq("user_id", userId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("teams")
-        .select("id, name, owner_id")
-        .eq("id", teamId)
-        .maybeSingle(),
+    const [memberData, teamData] = await Promise.all([
+      evaluationRead(supabaseAdmin.from("team_members").select("id").eq("team_id", teamId).eq("user_id", userId)
+        .abortSignal(evaluationSignal(execution)).maybeSingle(), execution, "read_attachment_membership"),
+      evaluationRead(supabaseAdmin.from("teams").select("id, name, owner_id").eq("id", teamId)
+        .abortSignal(evaluationSignal(execution)).maybeSingle(), execution, "read_attachment_team"),
     ]);
+    if (!teamData) throw new EvaluationFailure("not_found");
+    if (teamData.id !== teamId || (teamData.owner_id !== userId && !memberData)) throw new EvaluationFailure("forbidden");
 
-    if (!teamData) {
-      return NextResponse.json({ error: "Team not found." }, { status: 404 });
-    }
+    const evalRecord = await evaluationRead(supabaseAdmin.from("user_pitch_evaluations").select("id, user_id, ps_title")
+      .eq("id", evaluationId).abortSignal(evaluationSignal(execution)).maybeSingle(), execution, "read_attachment_evaluation");
+    if (!evalRecord) throw new EvaluationFailure("not_found");
+    if (evalRecord.id !== evaluationId || evalRecord.user_id !== userId) throw new EvaluationFailure("forbidden");
 
-    const isOwner = teamData.owner_id === userId;
-    const isMember = Boolean(memberData);
-
-    if (!isOwner && !isMember) {
-      return NextResponse.json(
-        { error: "Forbidden: You are not an active member or owner of this team." },
-        { status: 403 }
-      );
-    }
-
-    // 2. Verify evaluation exists and is owned by the authenticated user
-    const { data: evalRecord, error: evalFetchErr } = await supabaseAdmin
-      .from("user_pitch_evaluations")
-      .select("id, user_id, ps_title")
-      .eq("id", evaluationId)
-      .maybeSingle();
-
-    if (evalFetchErr) {
-      console.error("[Evaluator History PATCH Fetch Error]:", evalFetchErr);
-      return NextResponse.json({ error: evalFetchErr.message }, { status: 500 });
-    }
-
-    if (!evalRecord) {
-      return NextResponse.json({ error: "Evaluation not found." }, { status: 404 });
-    }
-
-    if (evalRecord.user_id !== userId) {
-      return NextResponse.json(
-        { error: "Forbidden: You do not own this evaluation." },
-        { status: 403 }
-      );
-    }
-
-    // 3. Strictly update ONLY team_id on user's own evaluation record
-    const { data: updated, error: updateErr } = await supabaseAdmin
-      .from("user_pitch_evaluations")
-      .update({ team_id: teamId })
-      .eq("id", evaluationId)
-      .eq("user_id", userId)
-      .select("id, ps_title")
-      .maybeSingle();
-
-    if (updateErr) {
-      console.error("[Evaluator History PATCH Error]:", updateErr);
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
-    }
-
-    if (!updated) {
-      return NextResponse.json(
-        { error: "Failed to attach evaluation to team." },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      evaluationId: updated.id,
-      teamId,
-      teamName: teamData.name,
-    });
-  } catch (err: any) {
-    console.error("[Evaluator History PATCH Exception]:", err);
-    return NextResponse.json(
-      { error: err.message || "Internal server error attaching evaluation to team." },
-      { status: 500 }
-    );
+    // This API is the only user-facing attachment writer; never forward body fields.
+    const updated = await evaluationRead(supabaseAdmin.from("user_pitch_evaluations").update({ team_id: teamId })
+      .eq("id", evaluationId).eq("user_id", userId).select("id, ps_title")
+      .abortSignal(evaluationSignal(execution)).maybeSingle(), execution, "attach_evaluation");
+    if (!updated || updated.id !== evaluationId) throw new EvaluationFailure("persistence_uncertain");
+    return NextResponse.json({ success: true, evaluationId: updated.id, teamId, teamName: teamData.name });
+  } catch (error) {
+    const failure = evaluationFailure(error, requestId);
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }

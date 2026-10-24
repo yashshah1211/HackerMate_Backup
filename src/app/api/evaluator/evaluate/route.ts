@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import { reserveEvaluation } from "@/lib/evaluator/evaluatorBudgetGuard";
 import { runTrackAwareEvaluation } from "@/lib/evaluator/trackEvaluatorEngine";
-import { EvaluationFailure, evaluationFailure, readEvaluationJson, rubricFor, withinDeadline, assertExecution, logDatabaseFailure, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
+import { EvaluationFailure, evaluationFailure, readEvaluationJson, rubricFor, withinDeadline, assertExecution, logDatabaseFailure, verifiedEvaluationActor, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
 import { TRACK_PROFILES, type EvaluationInput, type JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
 
 export const maxDuration = 60;
@@ -57,16 +57,7 @@ export async function POST(req: NextRequest) {
     let verifiedId: string | null = null;
     const header = req.headers.get("authorization");
     if (header !== null) {
-      if (!/^Bearer [^\s]+$/.test(header)) throw new EvaluationFailure("unauthorized");
-      let auth;
-      try { auth = await withinDeadline(admin.auth.getUser(header.slice(7)), preflight, 5_000); }
-      catch (error) { logDatabaseFailure("verify_idea_identity", error); throw new EvaluationFailure("auth_unavailable"); }
-      if (auth.error) {
-        logDatabaseFailure("verify_idea_identity", auth.error);
-        throw new EvaluationFailure([400, 401, 403].includes(auth.error.status ?? 0) ? "unauthorized" : "auth_unavailable");
-      }
-      if (!auth.data.user?.id || !UUID.test(auth.data.user.id)) throw new EvaluationFailure("unauthorized");
-      verifiedId = auth.data.user.id;
+      verifiedId = await verifiedEvaluationActor(admin, req, preflight);
     }
     // body.userId never authorizes a quota exemption or privileged history write.
     await reserveEvaluation(admin, preflight, { pipeline: "idea", actor: verifiedId ? `user:${verifiedId}` : `anonymous:${clientIp(req)}`,

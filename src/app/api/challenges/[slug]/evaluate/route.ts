@@ -12,6 +12,8 @@ export const maxDuration = 60;
 export const runtime = "nodejs";
 const COLUMNS = "id, challenge_id, user_id, team_id, submission_mode, submission_type, external_link_url, ppt_url, file_name, github_url, demo_url, version, status, score_problem, score_solution, score_architecture, score_feasibility_impact, total_score, grade, strengths, growth_areas, slide_feedback, format_violations, score_deductions, ai_raw_feedback, used_ai_fallback, created_at, updated_at";
 const CHALLENGE_COLUMNS = "id, slug, title, track, problem_statement, additional_rules, status, starts_at, ends_at";
+type ChallengeRecord = { id: string; slug: string; title: string; track: string; problem_statement: string;
+  additional_rules?: string | null; status: string; starts_at: string; ends_at: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const started = Date.now(), requestId = randomUUID();
@@ -28,10 +30,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     let slug: string;
     try { slug = inputString(decodeURIComponent((await params).slug), 200); } catch { throw new EvaluationFailure("invalid_input"); }
     const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    let challenge = await evaluationRead(admin.from("weekly_challenges").select(CHALLENGE_COLUMNS).eq("slug", slug).abortSignal(evaluationSignal(preflight)).maybeSingle(), preflight, "read_exact_challenge");
-    if (!challenge && cleanSlug && cleanSlug !== slug) challenge = await evaluationRead(admin.from("weekly_challenges").select(CHALLENGE_COLUMNS).eq("slug", cleanSlug).abortSignal(evaluationSignal(preflight)).maybeSingle(), preflight, "read_canonical_challenge");
-    if (!challenge && isUuid(slug)) challenge = await evaluationRead(admin.from("weekly_challenges").select(CHALLENGE_COLUMNS).eq("id", slug).abortSignal(evaluationSignal(preflight)).maybeSingle(), preflight, "read_challenge_id");
+    let rulesColumnMissing = false;
+    const readChallenge = async (column: "slug" | "id", value: string) => {
+      const query = () => admin.from("weekly_challenges").select(rulesColumnMissing ? CHALLENGE_COLUMNS.replace(", additional_rules", "") : CHALLENGE_COLUMNS)
+        .eq(column, value).abortSignal(evaluationSignal(preflight)).maybeSingle<ChallengeRecord>();
+      let found;
+      try { found = await withinDeadline(query(), preflight, 5_000); }
+      catch (error) {
+        if (error instanceof EvaluationFailure) throw error;
+        logDatabaseFailure("read_challenge", error);
+        throw new EvaluationFailure("database_unavailable");
+      }
+      if (!rulesColumnMissing && found.error && ["42703", "PGRST204"].includes(found.error.code) &&
+        /^(?:column (?:weekly_challenges\.)?additional_rules does not exist|Could not find the 'additional_rules' column of 'weekly_challenges' in the schema cache)$/i.test(found.error.message || "")) {
+        logDatabaseFailure("challenge_rules_column_compatibility", found.error);
+        rulesColumnMissing = true;
+        return evaluationRead(query(), preflight, "read_challenge_without_optional_rules");
+      }
+      if (found.error) { logDatabaseFailure("read_challenge", found.error); throw new EvaluationFailure("database_unavailable"); }
+      return found.data;
+    };
+    let challenge = await readChallenge("slug", slug);
+    if (!challenge && cleanSlug && cleanSlug !== slug) challenge = await readChallenge("slug", cleanSlug);
+    if (!challenge && isUuid(slug)) challenge = await readChallenge("id", slug);
     if (!challenge) throw new EvaluationFailure("not_found");
+    if (challenge.additional_rules != null && typeof challenge.additional_rules !== "string") throw new EvaluationFailure("database_unavailable");
     if (!isUuid(challenge.id) || !Number.isFinite(Date.parse(challenge.starts_at)) || !Number.isFinite(Date.parse(challenge.ends_at))) throw new EvaluationFailure("database_unavailable");
     if (challenge.status !== "active" || Date.parse(challenge.starts_at) > Date.now() || Date.parse(challenge.ends_at) <= Date.now()) throw new EvaluationFailure("forbidden");
     const form = await readEvaluationForm(req, preflight);

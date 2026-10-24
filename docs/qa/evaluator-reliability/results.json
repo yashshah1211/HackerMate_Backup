@@ -1250,5 +1250,292 @@
   "prBBase": "0861c28746f462e2f64bcdb0ad0ac703c533e5f7",
   "authorizedOfflineImplementationComplete": true,
   "productionReleaseReady": false,
-  "completionMeaning": "Approved code/offline validation complete. Production release and operational acceptance remain incomplete and unauthorized."
+  "completionMeaning": "Approved code/offline validation complete. Production release and operational acceptance remain incomplete and unauthorized.",
+  "securityRemediation": {
+    "date": "2026-10-24",
+    "status": "implemented_offline_validated_production_blocked",
+    "implementationApproval": "explicit_founder_approval_AGENTS_section_5",
+    "baseCommit": "0f7863839faa59482ec2b1a2ae64f1dc68b5ef20",
+    "migration": {
+      "file": "supabase/migrations/20261024030634_mission05_evaluator_result_authority.sql",
+      "generatedBy": "Supabase CLI 2.122.0 migration new mission05_evaluator_result_authority",
+      "applied": false,
+      "executedOnAnyDatabase": false,
+      "selectDeletePreserved": true,
+      "viewRecreated": false
+    },
+    "validation": {
+      "fullSuite": {
+        "passed": 850,
+        "failed": 0,
+        "skipped": 0
+      },
+      "finalEvaluatorSuite": {
+        "passed": 354,
+        "failed": 0,
+        "skipped": 0
+      },
+      "additionalMalformedCredentialCases": 4,
+      "distinctTestsPassed": 855,
+      "deduplication": "850 - 350 overlapping evaluator cases - 22 overlapping authority cases + 354 final evaluator cases + 23 packaging authority cases",
+      "authoritySuite": {
+        "passed": 23,
+        "failed": 0
+      },
+      "benchmarks": {
+        "cases": 60,
+        "idea": 16,
+        "presentation": 44,
+        "accepted": 45,
+        "rejected": 15,
+        "evidence": "offline_mock_response_contract",
+        "liveAccuracyMeasured": false
+      },
+      "typecheck": "passed_serial_after_final_build",
+      "scopedLint": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "safeProductionBuild": {
+        "passed": true,
+        "htmlChecks": 44,
+        "anonymousFixtureReads": 39,
+        "writes": 0,
+        "externalData": false,
+        "configuration": "synthetic_loopback_offline_fonts"
+      },
+      "coreSmoke": {
+        "passed": 8,
+        "failed": 0,
+        "loopbackRequests": 10,
+        "syntheticProfiles": 3,
+        "productionPermissionEvidence": false
+      },
+      "readOnlyReview": {
+        "standards": "no_remaining_actionable_findings",
+        "spec": "no_remaining_actionable_findings",
+        "corrected": [
+          "runner_catalog_preflight",
+          "signal_aware_and_late_response_deadline_outcomes"
+        ]
+      }
+    },
+    "integration": {
+      "runnerDefaultGuard": "BLOCKED_before_connection_without_approval",
+      "connectedChecksRun": false,
+      "postgres17MigrationSyntaxAndEffects": "offline_PostgreSQL_17_7_grammar_passed_catalog_resolution_and_effects_BLOCKED_not_executed",
+      "postgres17EffectiveDenial": "BLOCKED",
+      "postgrestAndAuthenticatedBrowser": "BLOCKED",
+      "servicePersistenceCasConcurrency": "BLOCKED_no_authorized_FK_valid_fixture_method",
+      "testAccountsCreated": false,
+      "infrastructureCreated": false,
+      "postgres18Substitute": false
+    },
+    "limitations": [
+      "Anonymous requests cannot conclusively identify suspended accounts",
+      "Suspension enforcement is at admission, not cancellation of already-running provider work",
+      "Historical provenance is not retroactively certified",
+      "Original retention/erasure/cron/backlog/proxy/clock/ingress/provider release gates remain"
+    ],
+    "productionWrites": false,
+    "connectedPermissionChanges": false,
+    "paidProviderCalls": false,
+    "staged": false,
+    "committed": false,
+    "pushed": false,
+    "merged": false,
+    "deployed": false,
+    "packagingReview": {
+      "supersededBy": "m1Correction",
+      "date": "2026-10-24",
+      "status": "offline_validated_publication_blocked",
+      "cliVersion": "2.122.0",
+      "releaseSourceRevision": "5afad870388552d0198087d27037da7ac745ba2b",
+      "transactionContract": {
+        "ordinaryMigration": "runner_managed_single_implicit_transaction",
+        "history": "same_final_batch",
+        "explicitFileBoundariesRemoved": true,
+        "topLevelStatements": 4,
+        "assertionPermissionBodyUnchanged": true,
+        "localTimeoutsPreserved": true,
+        "nontransactionalDirective": false,
+        "sourceTransportStub": {
+          "executions": 5,
+          "syncMessages": 1,
+          "socketOpened": false
+        }
+      },
+      "migrationSha256": "2c1dbad2fb0ad0a8eadcaa88d6d47fe6f58732fd0bf22d56ec6bb8b595e7b682",
+      "syntax": {
+        "tool": "pglast 7.21",
+        "postgresqlGrammar": "17.7",
+        "sqlAst": [
+          "VariableSetStmt",
+          "VariableSetStmt",
+          "LockStmt",
+          "DoStmt"
+        ],
+        "plpgsqlBlocks": 1,
+        "passed": true,
+        "databaseConnected": false,
+        "temporaryToolLocation": "ignored scratch only"
+      },
+      "affectedTests": {
+        "passed": 377,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "authority": 23,
+        "evaluator": 354
+      },
+      "typecheck": "passed_after_reference_excerpts_renamed_to_text",
+      "lint": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "javascriptSyntax": "passed",
+      "diffCheck": "passed",
+      "manifest": {
+        "expected": 12,
+        "actual": 12,
+        "extra": [],
+        "staged": []
+      },
+      "automation": {
+        "branch": "fix/presentation-evaluation-outcomes",
+        "vercelProductionBranch": "main",
+        "vercelAutoAssignProductionDomains": true,
+        "vercelPreviewAllUnassignedBranches": true,
+        "vercelBuildCommand": "npm run build",
+        "vercelInstallCommand": "npm install",
+        "vercelIgnoredBuildBehavior": "Automatic",
+        "vercelDeployHooks": 0,
+        "supabaseProductionGithubRepository": "none_connected",
+        "supabaseDevelopmentBranches": 0,
+        "githubWorkflows": "two_remote_matched_workflow_dispatch_only",
+        "activeLocalPrePushHook": false,
+        "buildMigrationCommandFound": false,
+        "externalAutomationEnumerated": false,
+        "pushCanTriggerPreviewDeployment": true,
+        "publishingStopped": true
+      },
+      "connectedSqlRun": false,
+      "migrationApplied": false,
+      "pushed": false,
+      "deployed": false
+    },
+    "m1Correction": {
+      "status": "source_level_execution_risk_confirmed_local_correction_offline_validated_runtime_blocked",
+      "baseCommit": "d165dbe9435c55bd5bbf91986bd71d5d4338cb69",
+      "parentCommit": "0f7863839faa59482ec2b1a2ae64f1dc68b5ef20",
+      "branch": "fix/presentation-evaluation-outcomes",
+      "initialWorktree": "clean",
+      "finding": {
+        "id": "M1",
+        "classification": "confirmed_credible_source_level_execution_risk",
+        "runtimeReproduced": false,
+        "postgresqlSource": "REL_17_6",
+        "explanation": "Single-Sync atomicity does not satisfy the top-level LOCK CheckTransactionBlock check in TBLOCK_STARTED; SPI execution inside DO is non-top-level",
+        "priorInferenceCorrected": true
+      },
+      "sources": {
+        "cliVersion": "2.122.0",
+        "cliRevision": "5afad870388552d0198087d27037da7ac745ba2b",
+        "postgresql": [
+          "src/backend/access/transam/xact.c",
+          "src/backend/tcop/postgres.c",
+          "src/backend/tcop/utility.c",
+          "src/backend/executor/spi.c",
+          "src/backend/utils/misc/guc_funcs.c"
+        ]
+      },
+      "migration": {
+        "file": "supabase/migrations/20261024030634_mission05_evaluator_result_authority.sql",
+        "previousSha256": "2c1dbad2fb0ad0a8eadcaa88d6d47fe6f58732fd0bf22d56ec6bb8b595e7b682",
+        "sha256": "35336ee3c43dddb513dc92ce235c17b4ee3d6811eff18eade9b7b7a0c86ff5a3",
+        "topLevelStatements": 2,
+        "lockInsideDo": true,
+        "transactionLocalLockTimeout": "3s_via_set_config_true",
+        "effectiveTimeoutAssertion": "non_null_and_greater_than_zero_and_at_most_3_seconds_before_lock",
+        "oidResolution": "after_lock_not_DECLARE_defaults",
+        "priorOwnerDriftPermissionPostconditionSuffixUnchanged": true,
+        "explicitTransactionControl": false,
+        "statementTimeout": "retained_top_level_15s_hint_effect_unverified_no_file_deadline_claim",
+        "applied": false
+      },
+      "validation": {
+        "beforeMigrationCorrection": {
+          "scope": "focused_static_migration_contracts",
+          "passed": 1,
+          "expectedFailures": 3
+        },
+        "authority": {
+          "passed": 25,
+          "failed": 0,
+          "skipped": 0,
+          "cancelled": 0
+        },
+        "combinedEvaluatorAuthority": {
+          "passed": 379,
+          "failed": 0,
+          "skipped": 0,
+          "cancelled": 0,
+          "isolation": "none",
+          "evaluator": 354,
+          "authority": 25
+        },
+        "syntax": {
+          "tool": "pglast 7.21",
+          "postgresqlGrammar": "17.7",
+          "sqlAst": [
+            "VariableSetStmt",
+            "DoStmt"
+          ],
+          "plpgsqlBlocks": 1,
+          "passed": true,
+          "databaseConnected": false
+        },
+        "cliSourceContracts": {
+          "actualParserAndSplitterStatements": 2,
+          "transactionMode": "transactional",
+          "pipelineIncompatibleStatements": 0,
+          "authoredTransactionControl": false,
+          "transportExecutionsWithoutRestore": 3,
+          "transportExecutionsWithRestore": 4,
+          "syncPerBatch": 1,
+          "history": "synthetic_transport_placeholder_same_batch",
+          "socketOpened": false,
+          "postgresqlExecuted": false
+        },
+        "javascriptSyntax": "passed",
+        "scopedLint": {
+          "errors": 0,
+          "warnings": 0
+        },
+        "typecheck": "passed",
+        "diffCheck": "passed",
+        "priorHistoricalEvidencePreserved": true
+      },
+      "modifiedFiles": [
+        "supabase/migrations/20261024030634_mission05_evaluator_result_authority.sql",
+        "scripts/test-evaluator-result-authority.cjs",
+        "docs/qa/evaluator-reliability/README.md",
+        "docs/qa/evaluator-reliability/results.json"
+      ],
+      "remainingBlockers": [
+        "Actual PostgreSQL 17 CLI execution, warning handling, timeout/lock contention, rollback and migration-history atomicity",
+        "Deployed ACL and PostgREST denial; service persistence/CAS/concurrency; authenticated runtime verification",
+        "No approved FK-valid fixture method within account/infrastructure restrictions",
+        "Shared production credentials and automatic Vercel Preview deployments",
+        "Original retention, erasure, cron, backlog, provider, ingress, proxy and clock release requirements"
+      ],
+      "connectedSqlRun": false,
+      "productionChanges": false,
+      "providerCalls": false,
+      "staged": false,
+      "committed": false,
+      "pushed": false,
+      "deployed": false
+    }
+  }
 }
