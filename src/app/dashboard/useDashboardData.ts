@@ -3,7 +3,7 @@
 import { loadTeammateRecommendations } from "@/lib/matchingClient";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeCollege } from "@/lib/colleges";
+import { collegeMatchValues } from "@/lib/colleges";
 import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
@@ -113,6 +113,32 @@ function nextStepFor(p: DashProfile | null): string {
   if (!p.bio) return "Write a line about what you build and the role you want.";
   if (!p.full_name) return "Add your full name so teams know who they're talking to.";
   return "Your profile is complete.";
+}
+
+/**
+ * Same-campus builders for the dashboard. A single value keeps the original
+ * exact `.eq("college", …)` query. Multiple values (reviewed GL Bajaj legacy
+ * spellings, see collegeMatchValues) use `.in` so legacy-spelling peers stay
+ * visible until the profile backfill. Fields, filters, order and limit are unchanged.
+ */
+export async function fetchCampusBuilders(
+  client: Pick<typeof supabase, "from">,
+  userId: string,
+  collegeValues: readonly string[],
+) {
+  if (collegeValues.length === 0) return { data: [], count: 0, error: null };
+  const query = client
+    .from("profiles")
+    .select("id, full_name, avatar_url, college, bio, skills, github_url, linkedin_url, year_of_study, is_available", { count: "exact" });
+  const byCollege = collegeValues.length === 1
+    ? query.eq("college", collegeValues[0])
+    : query.in("college", collegeValues);
+  return byCollege
+    .neq("id", userId)
+    .eq("is_banned", false)
+    .eq("onboarding_completed", true)
+    .order("last_active_date", { ascending: false })
+    .limit(6);
 }
 
 /**
@@ -273,19 +299,7 @@ export function useDashboardData() {
       const matchP = profile ? loadTeammateRecommendations(supabase, user.id)
         : Promise.resolve({ data: [], error: null, matchEngine: "v3" as const });
 
-      const fetchCampusBuilders = async (normalizedCollege: string | null) => {
-        if (!normalizedCollege) return { data: [], count: 0, error: null };
-        return supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, college, bio, skills, github_url, linkedin_url, year_of_study, is_available", { count: "exact" })
-          .eq("college", normalizedCollege)
-          .neq("id", user.id)
-          .eq("is_banned", false)
-          .eq("onboarding_completed", true)
-          .order("last_active_date", { ascending: false })
-          .limit(6);
-      };
-      const campusP = fetchCampusBuilders(normalizeCollege(profile?.college));
+      const campusP = fetchCampusBuilders(supabase, user.id, collegeMatchValues(profile?.college));
       
       const memberP = supabase.from("team_members").select("team_id, teams(id, name, hackathon_id, max_members, owner_id)").eq("user_id", user.id);
       const ownedP = supabase.from("teams").select("id, name, hackathon_id, max_members, owner_id").eq("owner_id", user.id);

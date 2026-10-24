@@ -9,7 +9,7 @@ import { useNotification } from "@/context/NotificationContext";
 import AuthGuard from "@/components/AuthGuard";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
 import { useShell } from "@/components/shell/ShellContext";
-import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+import { COLLEGES, collegeMatchesSearch, normalizeCollege } from "@/lib/colleges";
 import { cn } from "@/lib/utils";
 import {
   Avatar,
@@ -480,7 +480,7 @@ function SettingsContent() {
   }
 
   const filteredColleges = COLLEGES.filter((c) =>
-    c.toLowerCase().includes(collegeSearch.toLowerCase())
+    collegeMatchesSearch(c, collegeSearch)
   );
 
   const filteredSkills = SKILLS_LIST.filter(

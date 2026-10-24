@@ -17,7 +17,7 @@ const failure = error => ({ data: null, error });
 const plain = value => JSON.parse(JSON.stringify(value));
 const wrapper = ({ children }) => React.createElement('div', null, children);
 
-async function ui(t, { results = [success()], auth = { data: { user: { id: USER } }, error: null }, next = '' } = {}) {
+async function ui(t, { results = [success()], auth = { data: { user: { id: USER } }, error: null }, next = '', college = 'Offline Campus' } = {}) {
   dom.window.history.replaceState(null, '', '/onboarding' + next);
   dom.window.localStorage.clear();
   dom.window.localStorage.setItem('hm_referrer_source', 'offline-invite');
@@ -34,7 +34,7 @@ async function ui(t, { results = [success()], auth = { data: { user: { id: USER 
       assert.equal(table, 'profiles');
       return {
         select() { return { eq() { return { async single() { return { data: {
-          college: 'Offline Campus', skills: ['React', 'Python'], bio: ' My retained bio ',
+          college, skills: ['React', 'Python'], bio: ' My retained bio ',
           github_url: 'https://github.com/offline-fixture', linkedin_url: 'https://example.test/fixture',
           has_participated_hackathon: true, hackathon_participations: 3, has_won_hackathon: true, hackathon_wins: 1,
         }, error: null }; } }; } }; },
@@ -95,7 +95,7 @@ async function ui(t, { results = [success()], auth = { data: { user: { id: USER 
     assert.equal(toasts.filter(toast => toast.type === 'success').length, 0);
     assert.equal(dom.window.localStorage.getItem(`year_confirmed_${USER}`), null);
   };
-  return { submit, writes, toasts, analytics, identities, navigation, retained, failed };
+  return { submit, writes, toasts, analytics, identities, navigation, retained, failed, container };
 }
 
 test('normal save preserves all fields and existing completion analytics and next navigation', async t => {
@@ -192,3 +192,40 @@ for (const next of ['/hackathons?tab=past&q=water+energy#results', '/hackathons/
     assert.equal(app.writes.length, 1, 'Only the explicit onboarding submission writes');
   });
 }
+
+// GL Bajaj college normalization (Phase A): only reviewed campus-explicit aliases change.
+const MATHURA = 'GL Bajaj Group of Institutions, Mathura';
+const NOIDA = 'GL Bajaj Institute of Technology & Management, Greater Noida';
+for (const [stored, expected, custom] of [
+  ['G.l bajaj mathura', MATHURA, true], ['GL Bajaj Group Of Institutions, Mathura', MATHURA, true],
+  [NOIDA, NOIDA, false], ['GL Bajaj', 'GL Bajaj', true], ['GL Bajaj Group of Institutions', 'GL Bajaj Group of Institutions', true],
+  ['GL Bajaj Institute of Technology and Management', 'GL Bajaj Institute of Technology and Management', true],
+  ['GLA University Mathura', 'GLA University Mathura', true], ['tcet', 'TCET Mumbai (Thakur College of Engineering and Technology)', true],
+]) test(`onboarding saves the normalized college for stored ${JSON.stringify(stored)}`, async t => {
+  const app = await ui(t, { college: stored }); await app.submit();
+  assert.equal(app.writes.length, 1);
+  assert.equal(app.writes[0].college, expected);
+  assert.deepEqual(app.analytics[1].properties, { college: expected, is_custom_college: custom, skills_count: 2 });
+});
+
+async function typeCollege(app, text) {
+  const input = app.container.querySelector('#onb-college');
+  await act(async () => { input.dispatchEvent(new dom.window.FocusEvent('focusin', { bubbles: true })); });
+  const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;
+  await act(async () => { setValue.call(input, text); input.dispatchEvent(new dom.window.Event('input', { bubbles: true })); });
+  return [...app.container.querySelectorAll('#onb-college-list button')];
+}
+test('onboarding search "g.l bajaj mathura" finds only the Mathura campus, keeps Other, and saves it', async t => {
+  const app = await ui(t);
+  const options = await typeCollege(app, 'g.l bajaj mathura');
+  assert.deepEqual(options.map(button => button.textContent), [MATHURA, 'Other (type your college name)']);
+  await act(async () => { options[0].click(); });
+  await app.submit();
+  assert.equal(app.writes[0].college, MATHURA);
+  assert.equal(app.analytics[1].properties.is_custom_college, false);
+});
+test('onboarding search for a campus-less GL Bajaj name lists both campuses separately', async t => {
+  const app = await ui(t);
+  const options = await typeCollege(app, 'G.L. Bajaj');
+  assert.deepEqual(options.map(button => button.textContent), [MATHURA, NOIDA, 'Other (type your college name)']);
+});
