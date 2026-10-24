@@ -199,12 +199,36 @@ export async function verifiedEvaluationActor(admin: SupabaseClient, request: Re
   if (!header || !/^Bearer [^\s]+$/.test(header)) throw new EvaluationFailure("unauthorized");
   let auth;
   try { auth = await withinDeadline(admin.auth.getUser(header.slice(7)), execution, 5_000); }
-  catch (error) { logDatabaseFailure("verify_evaluation_identity", error); throw new EvaluationFailure("auth_unavailable"); }
+  catch (error) {
+    logDatabaseFailure("verify_evaluation_identity", error);
+    assertExecution(execution);
+    if (error instanceof EvaluationFailure) throw error;
+    throw new EvaluationFailure("auth_unavailable");
+  }
+  assertExecution(execution);
   if (auth.error) {
     logDatabaseFailure("verify_evaluation_identity", auth.error);
     throw new EvaluationFailure([400, 401, 403].includes(auth.error.status ?? 0) ? "unauthorized" : "auth_unavailable");
   }
-  if (!isUuid(auth.data.user?.id)) throw new EvaluationFailure("unauthorized");
+  if (!isUuid(auth.data?.user?.id)) throw new EvaluationFailure("unauthorized");
+  // Auth identity alone does not enforce the application's suspension flag.
+  // Query the protected current profile before admission or privileged writes.
+  const profileSignal = evaluationSignal(execution);
+  let profile;
+  try {
+    profile = await evaluationRead(admin.from("profiles").select("id, is_banned")
+      .eq("id", auth.data.user.id).abortSignal(profileSignal).maybeSingle(), execution, "verify_evaluation_profile");
+  } catch (error) {
+    if (profileSignal.aborted) throw new EvaluationFailure("deadline_exceeded");
+    assertExecution(execution);
+    if (error instanceof EvaluationFailure) throw error;
+    logDatabaseFailure("verify_evaluation_profile", error);
+    throw new EvaluationFailure("database_unavailable");
+  }
+  assertExecution(execution);
+  if (!profile || Array.isArray(profile) || profile.id !== auth.data.user.id || profile.is_banned !== false) {
+    throw new EvaluationFailure("forbidden");
+  }
   return auth.data.user.id;
 }
 

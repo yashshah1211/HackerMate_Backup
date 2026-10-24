@@ -46,6 +46,14 @@ function setup(options = {}) {
       } }; } };
     },
     from(table) {
+      if (table === 'profiles') {
+        const query = { select(columns) { assert.equal(columns, 'id, is_banned'); return query; }, eq(key, value) { assert.equal(key, 'id'); assert.equal(value, state.user.id); return query; },
+          abortSignal(signal) { assert(signal instanceof AbortSignal); return query; }, async maybeSingle() {
+            if (state.profileThrows) throw Error(PRIVATE);
+            if (state.profileDeadline) state.now = (state.now ?? Date.now()) + 6_000;
+            return state.profileResult || { data: { id: state.user.id, is_banned: false }, error: null };
+          } }; return query;
+      }
       if (table === 'rate_limits') {
         let tokenKey;
         const query = { select(columns) { assert.equal(columns, 'reset_time'); return query; }, eq(column, key) { assert.equal(column, 'ip'); tokenKey = key; return query; },
@@ -476,4 +484,69 @@ for(const pipeline of ['ppt','challenge'])test(pipeline+' malformed persisted ca
 test('PPT failed cleanup response identity must match the intended record',async()=>{
  const setup=presentationSetup({provider:async()=>new Response('',{status:403}),queryOverride(q){if(q.operation==='update'&&q.payload.status==='failed')return{data:[{id:OTHER}],error:null}}});
  const result=await setup.ppt();assert.equal(result.body.code,'persistence_uncertain');assert.equal(setup.state.tables.team_ppt_evaluations[0].status,'evaluating');
+});
+
+// Mission 05 security remediation: current protected profile before any effects.
+for(const authorization of ['', 'Basic fixture', 'Bearer', 'Bearer fixture token'])test('Idea supplied malformed credentials cannot become anonymous: '+authorization,async()=>{
+  const f=setup(),result=await f.route(input,{headers:{authorization}});assert.equal(result.status,401);
+  assert.equal(f.state.authCalls+f.state.calls.length+f.state.reservations.length+f.state.writes.length,0);
+});
+for (const profile of [null, [], {id:OTHER,is_banned:false}, {id:USER,is_banned:true}, {id:USER,is_banned:null}, {id:USER}, {id:USER,is_banned:'false'}, {id:USER,is_banned:0}]) {
+  test('Idea rejects unknown/suspended profile '+JSON.stringify(profile),async()=>{
+    const f=setup({profileResult:{data:profile,error:null}}),result=await f.route(input,{authenticated:true});
+    assert.equal(result.status,403);assert.equal(result.body.result,null);
+    assert.equal(f.state.calls.length+f.state.reservations.length+f.state.writes.length,0);
+  });
+  for(const pipeline of ['ppt','challenge'])test(pipeline+' rejects unknown/suspended profile '+JSON.stringify(profile),async()=>{
+    const f=presentationSetup({pipeline,queryOverride(q){if(q.table==='profiles'&&q.columns==='id, is_banned')return{data:profile,error:null}}});
+    const result=await f[pipeline]();assert.equal(result.status,403);assert.equal(result.body.result,null);
+    assert.equal(f.state.calls.length+f.state.writes.length+f.state.counters.size,0);
+  });
+}
+for(const profileOptions of [{profileThrows:true},{profileResult:{data:null,error:{code:'42501',message:PRIVATE}}},{profileDeadline:true}])test('Idea profile lookup fails closed '+JSON.stringify(profileOptions),async()=>{
+  const f=setup(profileOptions),result=await f.route(input,{authenticated:true});assert([503,504].includes(result.status));
+  assert.equal(f.state.calls.length+f.state.reservations.length+f.state.writes.length,0);assert(!JSON.stringify(f.state.logs).includes(PRIVATE));
+});
+for(const pipeline of ['ppt','challenge'])for(const scenario of ['error','throw','timeout','banned-admin'])test(pipeline+' protected profile '+scenario,async()=>{
+  const f=presentationSetup({pipeline,queryOverride(q){if(q.table!=='profiles'||q.columns!=='id, is_banned')return;
+    if(scenario==='error')return{data:null,error:{code:'42501',message:PRIVATE}};
+    if(scenario==='throw')throw Error(PRIVATE);
+    if(scenario==='timeout')return new Promise(()=>{});
+    return{data:{id:USER,role:'admin',is_banned:true},error:null};
+  }});
+  const result=await f[pipeline]();assert.equal(result.status,scenario==='banned-admin'?403:scenario==='timeout'?504:503);
+  assert.equal(f.state.calls.length+f.state.writes.length+f.state.counters.size,0);assert(!JSON.stringify(f.state.logs).includes(PRIVATE));
+});
+for(const pipeline of ['ppt','challenge'])test(pipeline+' explicit non-banned member retains evaluation access',async()=>{
+  const f=presentationSetup({pipeline}),result=await f[pipeline]();assert.equal(result.status,200);assert.equal(f.state.calls.length,1);
+  const gate=f.state.queries.findIndex(q=>q.table==='profiles'&&q.columns==='id, is_banned');
+  assert(gate>=0);assert(f.state.queries.slice(0,gate).every(q=>q.operation==='select'));
+});
+test('non-banned DB admin keeps PPT exception; Challenge does not gain one',async()=>{
+  const tables={teams:[{id:'00000000-0000-4000-8000-000000000004',owner_id:OTHER,team_members:[]}],team_members:[],profiles:[{id:USER,role:'admin',is_banned:false}]};
+  const ppt=presentationSetup({tables});assert.equal((await ppt.ppt()).status,200);
+  const challenge=presentationSetup({pipeline:'challenge',tables});assert.equal((await challenge.challenge({submission_mode:'team',team_id:challenge.TEAM})).status,403);assert.equal(challenge.state.calls.length,0);
+});
+for(const error of [{code:'42703',message:'column weekly_challenges.additional_rules does not exist'},{code:'PGRST204',message:"Could not find the 'additional_rules' column of 'weekly_challenges' in the schema cache"}])
+for(const slug of ['fixture-challenge','Fixture Challenge','00000000-0000-4000-8000-000000000005'])test('Challenge optional rules compatibility '+error.code+' '+slug,async()=>{
+  const f=presentationSetup({pipeline:'challenge',queryOverride(q,state){if(q.table!=='weekly_challenges')return;
+    if(q.columns.includes('additional_rules'))return{data:null,error};
+    const row=state.tables.weekly_challenges.find(r=>q.filters.every(filter=>r[filter.key]===filter.value));
+    if(!row)return{data:null,error:null};const copy={...row};delete copy.additional_rules;return{data:copy,error:null};
+  }});
+  const result=await f.challenge({}, {},slug);assert.equal(result.status,200);
+  const reads=f.state.queries.filter(q=>q.table==='weekly_challenges');assert.equal(reads.filter(q=>q.columns.includes('additional_rules')).length,1);
+  assert(!f.state.calls[0].body.contents[0].parts.at(-1).text.includes('undefined'));
+});
+for(const error of [{code:'42501',message:'column weekly_challenges.additional_rules does not exist'},{code:'42703',message:'column weekly_challenges.status does not exist'},{code:'PGRST204',message:"Could not find the 'additional_rules' column of 'profiles' in the schema cache"},{code:'42703',message:'private error '+PRIVATE}])test('Challenge never masks another query error '+error.code+' '+error.message,async()=>{
+  const f=presentationSetup({pipeline:'challenge',queryOverride(q){if(q.table==='weekly_challenges')return{data:null,error}}});const result=await f.challenge();
+  assert.equal(result.status,503);assert.equal(f.state.queries.filter(q=>q.table==='weekly_challenges').length,1);assert.equal(f.state.calls.length+f.state.counters.size+f.state.writes.length,0);
+});
+test('Challenge actual organizer rules are preserved',async()=>{
+  const f=presentationSetup({pipeline:'challenge'});f.state.tables.weekly_challenges[0].additional_rules='Discuss the prototype limitations honestly.';
+  assert.equal((await f.challenge()).status,200);assert(JSON.stringify(f.state.calls[0].body).includes('Discuss the prototype limitations honestly.'));
+});
+test('Challenge malformed stored rules stop before admission',async()=>{
+  const f=presentationSetup({pipeline:'challenge'});f.state.tables.weekly_challenges[0].additional_rules={fake:'rules'};
+  assert.equal((await f.challenge()).status,503);assert.equal(f.state.calls.length+f.state.counters.size+f.state.writes.length,0);
 });

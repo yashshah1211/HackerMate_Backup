@@ -55,7 +55,7 @@ function presentationSetup(options = {}) {
   const USER = '00000000-0000-4000-8000-000000000001', TEAM = '00000000-0000-4000-8000-000000000004', CHALLENGE = '00000000-0000-4000-8000-000000000005';
   const source = options.source || 'We propose a classifier with a held-out validation set.';
   const state = { source, user: { id: USER }, queries: [], writes: [], calls: [], logs: [], counters: new Map(), ...options };
-  state.tables = { teams: [{ id: TEAM, owner_id: USER, team_hackathons: [], team_members: [{ profiles: { skills: ['testing'] } }] }], team_members: [{ id: TEAM, team_id: TEAM, user_id: USER }], profiles: [{ id: USER, role: 'developer' }],
+  state.tables = { teams: [{ id: TEAM, owner_id: USER, team_hackathons: [], team_members: [{ profiles: { skills: ['testing'] } }] }], team_members: [{ id: TEAM, team_id: TEAM, user_id: USER }], profiles: [{ id: USER, role: 'developer', is_banned: false }],
     weekly_challenges: [{ id: CHALLENGE, slug: 'fixture-challenge', title: 'Fixture challenge', track: 'Open', problem_statement: 'Explain a useful proposed system.', additional_rules: null, status: 'active', starts_at: new Date(Date.now() - 100000).toISOString(), ends_at: new Date(Date.now() + 86400000).toISOString() }],
     team_ppt_evaluations: [], challenge_submissions: [], ...options.tables };
   const admin = {
