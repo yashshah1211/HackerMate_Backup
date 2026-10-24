@@ -20,7 +20,7 @@ const cases = [];
 for (const track of tracks) for (const quality of qualities) cases.push({ id: `idea-${track}-${quality}`, pipeline: 'idea', track, quality, mode: 'text_only', source: sourceFor(track, quality), customRubric: track === 'specific' ? customRubric : undefined });
 for (const track of tracks) for (const quality of qualities) for (const mode of ['visual_text', 'text_only']) cases.push({ id: `ppt-${track}-${quality}-${mode}`, pipeline: 'ppt', track, quality, mode, source: sourceFor(track, quality), customRubric: track === 'specific' ? customRubric : undefined });
 for (const domain of ['web', 'classifier', 'hardware']) for (const quality of qualities) cases.push({ id: `challenge-${domain}-${quality}`, pipeline: 'challenge', domain, quality, mode: 'text_only', source: sourceFor({ web: 'web_dev', classifier: 'ai_genai', hardware: 'generic' }[domain], quality) });
-module.exports = { cases, customRubric, limitation: '60 synthetic contract/evidence fixtures. Mock responses do not measure live Gemini accuracy, ranking consistency, hallucination rates or repeatability.' };
+module.exports = { cases, customRubric, qualityBenchmark: require('./idea-quality-benchmarks.cjs'), limitation: '60 synthetic contract/evidence fixtures. Mock responses do not measure live Gemini accuracy, ranking consistency, hallucination rates or repeatability.' };
 
 // Explicit valid provider outputs; individual tests mutate them to exercise rejection.
 function pitchOutput(source, track = 'generic', mode = 'text_only', values) {
