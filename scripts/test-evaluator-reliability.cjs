@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { NextRequest } = require('next/server');
 const { harness, ROOT } = require('./ppt-vision-harness.cjs');
-const { cases, customRubric } = require('./fixtures/evaluator-benchmarks.cjs');
+const { cases, customRubric, qualityBenchmark } = require('./fixtures/evaluator-benchmarks.cjs');
 const USER = '00000000-0000-4000-8000-000000000001', OTHER = '00000000-0000-4000-8000-000000000002', SAVED = '00000000-0000-4000-8000-000000000003';
 const TOKEN = 'offline-idempotency-0001', PRIVATE = 'private submission URL token must never appear in logs';
 const SOURCE = 'We propose a classifier with a held-out validation set.';
@@ -87,6 +87,62 @@ function setup(options = {}) {
   }
   return { state, loader, route, engine: (value = input) => loader.load('src/lib/evaluator/trackEvaluatorEngine.ts').runTrackAwareEvaluation(value) };
 }
+
+// Mission 05Q: deterministic prompt/schema/contract checks, never a model-quality scorecard.
+for (const fixture of qualityBenchmark.cases) test('Idea quality prompt/contract dispatch: ' + fixture.id, async () => {
+  const source = [fixture.input.psTitle, fixture.input.solutionDescription, fixture.input.techStack, fixture.input.architectureDetails, fixture.input.slidesText].filter(Boolean).join('\n');
+  // Identical canned scores deliberately provide no evidence about ranking or fairness.
+  const f = setup({ source, output: valid(source, [10, 10, 10, 10]) });
+  const result = await f.engine(fixture.input);
+  const { contents, generationConfig: config } = f.state.calls[0].body;
+  const prompt = contents[0].parts[0].text;
+  assert.equal(f.state.calls.length, 1); assert.equal(result.totalScore, 40);
+  assert.equal(result.evaluationMetadata.schemaVersion, 'evaluator-v1');
+  assert.equal(result.evaluationMetadata.rubricVersion, 'idea-v1');
+  assert.equal(result.evaluationMetadata.mode, 'text_only');
+  assert.equal(config.temperature, 0.1); assert.equal(config.maxOutputTokens, 3500);
+  assert.equal(config.responseMimeType, 'application/json');
+  assert(f.state.calls[0].url.endsWith('/gemini-3.6-flash:generateContent'));
+  const schema = config.responseJsonSchema;
+  const fields = ['scoreNovelty', 'scoreTech', 'scoreUiUxOrFeasibility', 'scoreImpactOrTeam'];
+  const caps = ['web_dev', 'ai_genai'].includes(fixture.input.trackId) ? [25, 35, 25, 15] : [25, 25, 25, 25];
+  assert.equal(schema.additionalProperties, false);
+  fields.forEach((field, index) => assert.deepEqual(schema.properties[field], { type: 'integer', minimum: 0, maximum: caps[index] }));
+  assert.equal(schema.properties.architectureSuggestions.minItems, 1);
+  for (const key of ['strengths', 'redFlags', 'architectureSuggestions']) {
+    assert.deepEqual(schema.properties[key].items.required, ['text', 'quote']);
+    assert.equal(schema.properties[key].items.additionalProperties, false);
+  }
+  assert.equal(prompt.split('SUBMISSION DATA (JSON string): ').length, 2);
+  assert.equal(JSON.parse(prompt.split('SUBMISSION DATA (JSON string): ')[1]), source);
+  for (const instruction of ['idea-quality-2026-10-24', '0-24%', '25-49%', '50-79%', '80-100%', 'Score each criterion independently', 'All self-reported results remain unverified', 'substantially equivalent category scores', 'highest first', 'one feasible next action', 'why that matches the awarded score', 'short exact verbatim quote', 'untrusted DATA', 'Empty strengths are valid', 'an empty recommendedRoles list is valid']) assert(prompt.includes(instruction), instruction);
+  if (fixture.input.trackId === 'specific') {
+    assert(prompt.includes('CUSTOM CRITERIA')); assert(!prompt.includes('CRITERION GUIDANCE:'));
+    assert(!prompt.includes('Use domain-neutral problem clarity'));
+    for (const criterion of JSON.parse(fixture.input.customRubric).criteria) assert(prompt.includes(criterion.label));
+  } else {
+    assert(prompt.includes('CRITERION GUIDANCE:')); assert(!prompt.includes('CUSTOM CRITERIA'));
+    const guidance = JSON.parse(prompt.split('CRITERION GUIDANCE: ')[1].split('\n')[0]);
+    assert.deepEqual(Object.keys(guidance), ['novelty', 'tech', 'uiUxOrFeasibility', 'impactOrTeam']);
+    for (const criterion of Object.values(guidance)) assert(criterion.includes('weak') && criterion.includes('credit'));
+  }
+});
+test('Idea quality prompt: optional URLs produce the identical text and schema', async () => {
+  const base = qualityBenchmark.cases.find(c => c.id === 'web-specified').input;
+  const linked = qualityBenchmark.cases.find(c => c.id === 'web-links').input;
+  const first = setup({ output: valid(base.solutionDescription, [10, 10, 10, 10]) });
+  const second = setup({ output: valid(linked.solutionDescription, [10, 10, 10, 10]) });
+  await first.engine(base); await second.engine(linked);
+  assert.deepEqual(first.state.calls[0].body, second.state.calls[0].body);
+});
+test('Idea quality prompt: custom label order is authoritative, never default key semantics', async () => {
+  const fixture = qualityBenchmark.cases.find(c => c.id === 'custom-delivery-rubric');
+  const f = setup({ source: fixture.input.solutionDescription }), result = await f.engine(fixture.input);
+  assert.deepEqual(Object.values(result.categoryLabels), JSON.parse(fixture.input.customRubric).criteria.map(c => c.label));
+  const prompt = f.state.calls[0].body.contents[0].parts[0].text;
+  assert(!prompt.includes('Accessibility reasoning')); assert(!prompt.includes('Model Pipeline & Data Architecture'));
+  assert(prompt.includes('internal score keys do not define the meaning of a custom criterion'));
+});
 
 test('all 60 synthetic cases exist; only implemented pipeline cases count as run', () => {
   assert.equal(cases.length, 60); assert.equal(new Set(cases.map(c => c.id)).size, 60);
