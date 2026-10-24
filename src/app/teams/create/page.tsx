@@ -24,7 +24,7 @@ import {
 } from "@/components/system";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
-import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+import { COLLEGES, collegeMatchesSearch, normalizeCollege } from "@/lib/colleges";
 
 import ContextualProfileNudgeModal from "@/components/ContextualProfileNudgeModal";
 import { calculateProfileCompleteness } from "@/lib/profileCompleteness";
@@ -449,7 +449,7 @@ function CreateTeamForm() {
   const extraSkills = selectedSkills.filter((s) => !SKILLS.includes(s));
   const extraRoles = selectedRoles.filter((r) => !ROLES.includes(r));
   const filteredColleges = COLLEGES.filter((col) =>
-    col.toLowerCase().includes(collegeSearch.toLowerCase())
+    collegeMatchesSearch(col, collegeSearch)
   );
   const missing = [
     !name.trim() && "team name",

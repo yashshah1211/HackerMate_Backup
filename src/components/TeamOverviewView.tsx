@@ -20,7 +20,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import ShareModal from "@/components/ShareModal";
 import { useNotification } from "@/context/NotificationContext";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, normalizeCollege } from "@/lib/colleges";
 
 
 import { CATEGORY_TONE, getTeamCategoryInfo } from "@/lib/teamCategory";
@@ -271,7 +271,7 @@ export default function TeamOverviewView({
     if (editRoles.length === 0) return showToast("Please select at least one role", "warning");
 
     setSavingEdit(true);
-    const finalCollege = editCollege === "Other" ? editCustomCollege.trim() : editCollege || null;
+    const finalCollege = normalizeCollege(editCollege === "Other" ? editCustomCollege.trim() : editCollege) || null;
     const { error } = await supabase
       .from("teams")
       .update({ name: editName.trim(), description: editDesc.trim(), college: finalCollege, max_members: editMaxMembers, skills: editSkills, roles_needed: editRoles })

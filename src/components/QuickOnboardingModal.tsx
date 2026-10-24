@@ -5,7 +5,7 @@ import { Plus, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { parseGithubUsername } from "@/lib/github";
-import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+import { COLLEGES, collegeMatchesSearch, normalizeCollege } from "@/lib/colleges";
 import { trackEvent, identifyUser } from "@/lib/posthog";
 import { Button, Dialog, FieldLabel, Input, Select, Tape } from "@/components/system";
 
@@ -128,7 +128,7 @@ export default function QuickOnboardingModal({
   }
 
   const filteredColleges = COLLEGES.filter((c) =>
-    c.toLowerCase().includes(collegeSearch.toLowerCase())
+    collegeMatchesSearch(c, collegeSearch)
   );
 
   return (

@@ -257,3 +257,43 @@ test('analytics exceptions cannot prevent the invitation or workspace handoff', 
   assert.deepEqual(view.calls.map(call => call.name), ['create_team_with_owner', 'send_team_invite']);
   assert.deepEqual(view.navigations, [WORKSPACE]);
 });
+
+// GL Bajaj college normalization (Phase A): team payloads use the same campus rules.
+const MATHURA = 'GL Bajaj Group of Institutions, Mathura';
+for (const [initial, expected] of [
+  [{ college: 'Other', customCollege: 'G.L. Bajaj Group Of Institutions, Mathura' }, MATHURA],
+  [{ college: 'Other', customCollege: ' Gl bajaj mathura ' }, MATHURA],
+  [{ college: MATHURA }, MATHURA],
+  [{ college: 'Other', customCollege: 'GL Bajaj Institute of Technology and Management, Greater Noida' }, 'GL Bajaj Institute of Technology & Management, Greater Noida'],
+  [{ college: 'Other', customCollege: 'GL Bajaj' }, 'GL Bajaj'],
+  [{ college: 'Other', customCollege: 'GL Bajaj Group of Institutions' }, 'GL Bajaj Group of Institutions'],
+  [{ college: 'Other', customCollege: 'tcet' }, 'TCET Mumbai (Thakur College of Engineering and Technology)'],
+  [{ college: 'Other', customCollege: 'Offline Campus' }, 'Offline Campus'],
+]) test(`team creation sends normalized p_college for ${JSON.stringify(initial)}`, async () => {
+  const view = ui({ initial });
+  view.submit().props.onClick();
+  await settle();
+  assert.equal(view.calls[0].name, 'create_team_with_owner');
+  assert.equal(view.calls[0].args.p_college, expected);
+});
+
+for (const [stored, expected] of [['Gl bajaj mathura', MATHURA], ['GL Bajaj Group of Institutions', 'GL Bajaj Group of Institutions']]) {
+  test(`team creation falls back to the normalized profile college for ${JSON.stringify(stored)}`, async () => {
+    const view = ui({ initial: { currentUserProfile: { id: 'fixture-owner', skills: ['React'], college: stored } } });
+    view.submit().props.onClick();
+    view.render();
+    view.nudge().props.onProceed();
+    await settle();
+    assert.equal(view.calls[0].args.p_college, expected);
+  });
+}
+
+test('team college search finds Mathura only for "g.l bajaj mathura" and keeps Other for an empty search', () => {
+  const html = ui({ initial: { showCollegeDropdown: true, collegeSearch: 'g.l bajaj mathura' } }).html();
+  assert(html.includes(MATHURA));
+  assert(!html.includes('Greater Noida'));
+  const both = ui({ initial: { showCollegeDropdown: true, collegeSearch: 'GL Bajaj' } }).html();
+  assert(both.includes(MATHURA) && both.includes('Greater Noida'));
+  const all = ui({ initial: { showCollegeDropdown: true, collegeSearch: '' } }).html();
+  assert(all.includes('>Other</button>'));
+});

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from "@/context/NotificationContext";
 import { ArrowRight, Check, ChevronDown, Plus } from "lucide-react";
-import { COLLEGES, normalizeCollege } from "@/lib/colleges";
+import { COLLEGES, collegeMatchesSearch, normalizeCollege } from "@/lib/colleges";
 import { trackEvent, identifyUser } from "@/lib/posthog";
 import { Button, FilterChip, Input, Skeleton } from "@/components/system";
 import { FormStep, OnboardingFrame, OnboardingLabel } from "@/components/onboarding/OnboardingFrame";
@@ -283,7 +283,7 @@ export default function OnboardingPage() {
   }
 
   const filteredColleges = COLLEGES.filter((col) =>
-    col !== "Other" && col.toLowerCase().includes(collegeSearch.toLowerCase())
+    col !== "Other" && collegeMatchesSearch(col, collegeSearch)
   );
 
   const displayCollege = college === "Other" ? customCollege.trim() : college;

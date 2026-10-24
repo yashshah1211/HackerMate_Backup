@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useRouter as useAppRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
-import { COLLEGES } from "@/lib/colleges";
+import { COLLEGES, collegeMatchesSearch } from "@/lib/colleges";
 import { cn } from "@/lib/utils";
 import { Button, FieldLabel, Input, Page, PageHeader, Select, Tape, Textarea } from "@/components/system";
 
@@ -190,7 +190,7 @@ export default function CreateHackathonPage() {
 
 
   const filteredColleges = COLLEGES.filter(
-    (col) => col !== "Other" && col.toLowerCase().includes(collegeSearch.toLowerCase()),
+    (col) => col !== "Other" && collegeMatchesSearch(col, collegeSearch),
   );
 
   const teamSizeSummary =
