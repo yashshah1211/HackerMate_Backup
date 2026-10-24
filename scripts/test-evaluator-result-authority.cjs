@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Offline real-route authority and migration contracts. */
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -110,14 +111,48 @@ for(const phase of ['auth','profile'])test('late '+phase+' response cannot repla
   await assert.rejects(loader.load('src/lib/evaluator/evaluationContract.ts').verifiedEvaluationActor(admin,new Request('https://fixture.invalid',{headers:{authorization:'Bearer fixture'}}),{deadlineAt:1050,attempts:0}),e=>e.code==='deadline_exceeded');
 });
 const migration=fs.readFileSync(path.join(ROOT,'supabase/migrations/20261024030634_mission05_evaluator_result_authority.sql'),'utf8');
-test('permission migration leaves transaction ownership to the verified CLI runner',()=>{
+test('permission/assertion suffix matches the independently reviewed SHA-256',()=>{
+  const sql=migration.replace(/\r\n/g,'\n');
+  const starts=[...sql.matchAll(/^[ \t]*IF current_user\b/gm)];
+  const ends=[...sql.matchAll(/^\$migration\$;/gm)];
+  assert.equal(starts.length,1);assert.equal(ends.length,1);
+  assert(ends[0].index>starts[0].index);
+  // Preserve first-line indentation; exclude the newline after the closing semicolon.
+  const suffix=sql.slice(starts[0].index,ends[0].index+ends[0][0].length);
+  assert.equal(createHash('sha256').update(suffix,'utf8').digest('hex'),
+    'fbdd5df7d3be36d14da069bddd21747fa9c0371fd2acc6ba50926ca7cc12b7d4');
+});
+test('permission migration keeps only the statement-timeout hint outside the CLI-managed DO',()=>{
   const sql=migration.replace(/--[^\n]*/g,'');
   const outsideBody=sql.replace(/DO \$migration\$[\s\S]*?\$migration\$;/g,'DO_BODY;');
   assert.equal((outsideBody.match(/DO_BODY;/g)||[]).length,1);
   assert(!/\b(?:BEGIN|START\s+TRANSACTION|COMMIT|END|ROLLBACK|ABORT|PREPARE\s+TRANSACTION)\s*;/i.test(outsideBody));
+  assert(!/^\s*(?:COMMIT|ROLLBACK|ABORT|START\s+TRANSACTION|PREPARE\s+TRANSACTION|END\s+(?:WORK|TRANSACTION))\b/im.test(sql),'DO must not end the transaction before migration history');
   assert(!migration.includes('-- pg-delta: transaction=false'));
   assert(!/\b(?:VACUUM|ALTER\s+SYSTEM|CLUSTER|(?:CREATE|DROP|REINDEX)[^;]*\bCONCURRENTLY)\b/i.test(outsideBody));
-  assert.match(outsideBody,/SET LOCAL lock_timeout = '3s';\s*SET LOCAL statement_timeout = '15s';\s*LOCK TABLE public\.challenge_submissions, public\.team_ppt_evaluations,\s*public\.user_pitch_evaluations IN ACCESS EXCLUSIVE MODE;\s*DO_BODY;\s*$/);
+  assert.match(outsideBody,/^\s*SET LOCAL statement_timeout = '15s';\s*DO_BODY;\s*$/);
+});
+test('permission migration bounds effective local lock waits before acquiring locks',()=>{
+  const sql=migration.replace(/--[^\n]*/g,'');
+  const body=sql.match(/DO \$migration\$([\s\S]*?)\$migration\$;/)?.[1];
+  assert(body);
+  assert.match(body,/PERFORM pg_catalog\.set_config\('lock_timeout', '3s', true\);/);
+  assert.match(body,/lock_timeout_value := pg_catalog\.current_setting\('lock_timeout'\)::interval;/);
+  assert.match(body,/IF lock_timeout_value IS NULL OR lock_timeout_value <= interval '0 seconds'\s+OR lock_timeout_value > interval '3 seconds' THEN\s+RAISE EXCEPTION 'Mission05: bounded lock timeout unavailable';\s+END IF;/);
+  const order=["PERFORM pg_catalog.set_config('lock_timeout', '3s', true)","lock_timeout_value :=",'IF lock_timeout_value IS NULL',"RAISE EXCEPTION 'Mission05: bounded lock timeout unavailable'",'LOCK TABLE public.challenge_submissions'];
+  const positions=order.map(value=>body.indexOf(value));
+  assert(positions.every((position,i)=>position>=0&&(i===0||position>positions[i-1])));
+  assert(!/EXCEPTION\s+WHEN/i.test(body),'timeout or lock failures must not be swallowed');
+});
+test('permission migration locks before resolving result OIDs or changing permissions',()=>{
+  const sql=migration.replace(/--[^\n]*/g,'');
+  assert.match(sql,/DECLARE\s+targets oid\[\];\s+public_view oid;/);
+  assert.match(sql,/LOCK TABLE public\.challenge_submissions, public\.team_ppt_evaluations,\s*public\.user_pitch_evaluations IN ACCESS EXCLUSIVE MODE;/);
+  const lockEnd=sql.indexOf('IN ACCESS EXCLUSIVE MODE;')+'IN ACCESS EXCLUSIVE MODE;'.length;
+  assert(!sql.slice(0,lockEnd).includes('::regclass'),'no target OID resolution before locks');
+  const order=['LOCK TABLE public.challenge_submissions','targets := ARRAY[',"public_view := 'public.team_ppt_evaluations_public'::regclass::oid",'IF current_user',"RAISE EXCEPTION 'Mission05: unexpected function/view/rule dependency'",'INTO preserved_policies','REVOKE INSERT, UPDATE, TRUNCATE, TRIGGER'];
+  const positions=order.map(value=>sql.indexOf(value));
+  assert(positions.every((position,i)=>position>=0&&(i===0||position>positions[i-1])));
 });
 test('permission migration contract closes base, column and view writers without SELECT/DELETE changes',()=>{
   const sql=migration.replace(/--[^\n]*/g,'');

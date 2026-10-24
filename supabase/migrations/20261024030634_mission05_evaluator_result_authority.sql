@@ -4,18 +4,18 @@
 -- Apply only through a separately approved release. Do not restore client writes
 -- as a rollback: that reintroduces forged scores and AI provenance.
 -- Supabase CLI 2.122.0 owns the transaction: this ordinary migration and its
--- history insert execute in one batch. Keep SET LOCAL and every assertion in
--- that batch; do not execute statement-by-statement or enable transaction=false.
-SET LOCAL lock_timeout = '3s';
+-- history insert execute in one batch. Atomicity does not make a top-level
+-- LOCK TABLE eligible for CheckTransactionBlock; acquire locks inside the DO.
+-- Do not execute statement-by-statement or enable transaction=false.
+-- Retained statement-timeout hint can warn outside an explicit transaction
+-- block. Its protocol-message timing is not a guaranteed 15s file deadline.
 SET LOCAL statement_timeout = '15s';
-LOCK TABLE public.challenge_submissions, public.team_ppt_evaluations,
-  public.user_pitch_evaluations IN ACCESS EXCLUSIVE MODE;
 
 DO $migration$
 DECLARE
-  targets oid[] := ARRAY['public.challenge_submissions'::regclass::oid,
-    'public.team_ppt_evaluations'::regclass::oid, 'public.user_pitch_evaluations'::regclass::oid];
-  public_view oid := 'public.team_ppt_evaluations_public'::regclass::oid;
+  targets oid[];
+  public_view oid;
+  lock_timeout_value interval;
   preserved_policies jsonb;
   preserved_access jsonb;
   preserved_view text;
@@ -24,6 +24,18 @@ DECLARE
   client_role text;
   column_row record;
 BEGIN
+  PERFORM pg_catalog.set_config('lock_timeout', '3s', true);
+  lock_timeout_value := pg_catalog.current_setting('lock_timeout')::interval;
+  IF lock_timeout_value IS NULL OR lock_timeout_value <= interval '0 seconds'
+    OR lock_timeout_value > interval '3 seconds' THEN
+    RAISE EXCEPTION 'Mission05: bounded lock timeout unavailable';
+  END IF;
+  LOCK TABLE public.challenge_submissions, public.team_ppt_evaluations,
+    public.user_pitch_evaluations IN ACCESS EXCLUSIVE MODE;
+  targets := ARRAY['public.challenge_submissions'::regclass::oid,
+    'public.team_ppt_evaluations'::regclass::oid, 'public.user_pitch_evaluations'::regclass::oid];
+  public_view := 'public.team_ppt_evaluations_public'::regclass::oid;
+
   IF current_user <> 'postgres' AND NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
     RAISE EXCEPTION 'Mission05: migration must execute as the verified object owner';
   END IF;

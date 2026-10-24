@@ -1346,6 +1346,7 @@
     "merged": false,
     "deployed": false,
     "packagingReview": {
+      "supersededBy": "m1Correction",
       "date": "2026-10-24",
       "status": "offline_validated_publication_blocked",
       "cliVersion": "2.122.0",
@@ -1420,6 +1421,119 @@
       },
       "connectedSqlRun": false,
       "migrationApplied": false,
+      "pushed": false,
+      "deployed": false
+    },
+    "m1Correction": {
+      "status": "source_level_execution_risk_confirmed_local_correction_offline_validated_runtime_blocked",
+      "baseCommit": "d165dbe9435c55bd5bbf91986bd71d5d4338cb69",
+      "parentCommit": "0f7863839faa59482ec2b1a2ae64f1dc68b5ef20",
+      "branch": "fix/presentation-evaluation-outcomes",
+      "initialWorktree": "clean",
+      "finding": {
+        "id": "M1",
+        "classification": "confirmed_credible_source_level_execution_risk",
+        "runtimeReproduced": false,
+        "postgresqlSource": "REL_17_6",
+        "explanation": "Single-Sync atomicity does not satisfy the top-level LOCK CheckTransactionBlock check in TBLOCK_STARTED; SPI execution inside DO is non-top-level",
+        "priorInferenceCorrected": true
+      },
+      "sources": {
+        "cliVersion": "2.122.0",
+        "cliRevision": "5afad870388552d0198087d27037da7ac745ba2b",
+        "postgresql": [
+          "src/backend/access/transam/xact.c",
+          "src/backend/tcop/postgres.c",
+          "src/backend/tcop/utility.c",
+          "src/backend/executor/spi.c",
+          "src/backend/utils/misc/guc_funcs.c"
+        ]
+      },
+      "migration": {
+        "file": "supabase/migrations/20261024030634_mission05_evaluator_result_authority.sql",
+        "previousSha256": "2c1dbad2fb0ad0a8eadcaa88d6d47fe6f58732fd0bf22d56ec6bb8b595e7b682",
+        "sha256": "35336ee3c43dddb513dc92ce235c17b4ee3d6811eff18eade9b7b7a0c86ff5a3",
+        "topLevelStatements": 2,
+        "lockInsideDo": true,
+        "transactionLocalLockTimeout": "3s_via_set_config_true",
+        "effectiveTimeoutAssertion": "non_null_and_greater_than_zero_and_at_most_3_seconds_before_lock",
+        "oidResolution": "after_lock_not_DECLARE_defaults",
+        "priorOwnerDriftPermissionPostconditionSuffixUnchanged": true,
+        "explicitTransactionControl": false,
+        "statementTimeout": "retained_top_level_15s_hint_effect_unverified_no_file_deadline_claim",
+        "applied": false
+      },
+      "validation": {
+        "beforeMigrationCorrection": {
+          "scope": "focused_static_migration_contracts",
+          "passed": 1,
+          "expectedFailures": 3
+        },
+        "authority": {
+          "passed": 25,
+          "failed": 0,
+          "skipped": 0,
+          "cancelled": 0
+        },
+        "combinedEvaluatorAuthority": {
+          "passed": 379,
+          "failed": 0,
+          "skipped": 0,
+          "cancelled": 0,
+          "isolation": "none",
+          "evaluator": 354,
+          "authority": 25
+        },
+        "syntax": {
+          "tool": "pglast 7.21",
+          "postgresqlGrammar": "17.7",
+          "sqlAst": [
+            "VariableSetStmt",
+            "DoStmt"
+          ],
+          "plpgsqlBlocks": 1,
+          "passed": true,
+          "databaseConnected": false
+        },
+        "cliSourceContracts": {
+          "actualParserAndSplitterStatements": 2,
+          "transactionMode": "transactional",
+          "pipelineIncompatibleStatements": 0,
+          "authoredTransactionControl": false,
+          "transportExecutionsWithoutRestore": 3,
+          "transportExecutionsWithRestore": 4,
+          "syncPerBatch": 1,
+          "history": "synthetic_transport_placeholder_same_batch",
+          "socketOpened": false,
+          "postgresqlExecuted": false
+        },
+        "javascriptSyntax": "passed",
+        "scopedLint": {
+          "errors": 0,
+          "warnings": 0
+        },
+        "typecheck": "passed",
+        "diffCheck": "passed",
+        "priorHistoricalEvidencePreserved": true
+      },
+      "modifiedFiles": [
+        "supabase/migrations/20261024030634_mission05_evaluator_result_authority.sql",
+        "scripts/test-evaluator-result-authority.cjs",
+        "docs/qa/evaluator-reliability/README.md",
+        "docs/qa/evaluator-reliability/results.json"
+      ],
+      "remainingBlockers": [
+        "Actual PostgreSQL 17 CLI execution, warning handling, timeout/lock contention, rollback and migration-history atomicity",
+        "Deployed ACL and PostgREST denial; service persistence/CAS/concurrency; authenticated runtime verification",
+        "No approved FK-valid fixture method within account/infrastructure restrictions",
+        "Shared production credentials and automatic Vercel Preview deployments",
+        "Original retention, erasure, cron, backlog, provider, ingress, proxy and clock release requirements"
+      ],
+      "connectedSqlRun": false,
+      "productionChanges": false,
+      "providerCalls": false,
+      "staged": false,
+      "committed": false,
       "pushed": false,
       "deployed": false
     }
