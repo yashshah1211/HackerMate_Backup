@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { challengeIdentity } from "@/lib/challenges/challengeEvaluationContract";
 
 function getSupabaseClient(token?: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -46,77 +47,26 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const decodedSlug = decodeURIComponent(slug);
-    const cleanSlug = decodedSlug
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    let challenge: any = null;
-
-    // 1. Clean slug match
-    const { data: byClean } = await supabase
-      .from("weekly_challenges")
-      .select("id")
-      .eq("slug", cleanSlug)
-      .maybeSingle();
-    challenge = byClean;
-
-    // 2. Decoded slug match
-    if (!challenge) {
-      const { data: byDecoded } = await supabase
-        .from("weekly_challenges")
-        .select("id")
-        .eq("slug", decodedSlug)
-        .maybeSingle();
-      challenge = byDecoded;
-    }
-
-    // 3. UUID match
-    if (!challenge && /^[0-9a-f-]{36}$/i.test(decodedSlug)) {
-      const { data: byId } = await supabase
-        .from("weekly_challenges")
-        .select("id")
-        .eq("id", decodedSlug)
-        .maybeSingle();
-      challenge = byId;
-    }
-
-    // 4. Memory fallback
-    if (!challenge) {
-      const { data: allChallenges } = await supabase
-        .from("weekly_challenges")
-        .select("id, title, slug")
-        .order("created_at", { ascending: false });
-
-      if (allChallenges && allChallenges.length > 0) {
-        challenge = allChallenges.find((c) => {
-          const cSlug = (c.slug || "").toLowerCase();
-          const cTitle = (c.title || "").toLowerCase();
-          const searchKey = cleanSlug.replace(/-/g, " ");
-          return (
-            cSlug === cleanSlug ||
-            cSlug === decodedSlug.toLowerCase() ||
-            cSlug.includes(cleanSlug) ||
-            cleanSlug.includes(cSlug) ||
-            cTitle.includes(searchKey) ||
-            searchKey.includes(cTitle)
-          );
-        }) || allChallenges[0];
-      }
-    }
-
-    if (!challenge) {
-      return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
-    }
+    let identity: ReturnType<typeof challengeIdentity>;
+    try { identity = challengeIdentity(slug); }
+    catch { return NextResponse.json({ error: "Invalid challenge reference" }, { status: 400 }); }
+    const readChallenge = async (column: "slug" | "id", value: string) => {
+      const { data, error } = await supabase.from("weekly_challenges").select("id").eq(column, value).maybeSingle();
+      if (error) throw error;
+      return data;
+    };
+    let challenge = await readChallenge("slug", identity.slug);
+    if (!challenge && identity.normalized && identity.normalized !== identity.slug) challenge = await readChallenge("slug", identity.normalized);
+    if (!challenge && identity.id) challenge = await readChallenge("id", identity.id);
+    if (!challenge) return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
 
     // Get user's teams
-    const { data: memberTeams } = await supabase
+    const { data: memberTeams, error: memberError } = await supabase
       .from("team_members")
       .select("team_id")
       .eq("user_id", userId);
 
+    if (memberError) throw memberError;
     const teamIds = (memberTeams || []).map((m) => m.team_id).filter(Boolean);
 
     // Fetch user submissions and team submissions
@@ -135,12 +85,12 @@ export async function GET(
 
     if (error) {
       console.error("[Challenge Submissions List] DB error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Challenge data is temporarily unavailable. Please retry." }, { status: 503 });
     }
 
     return NextResponse.json({ submissions: submissions || [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Challenge Submissions List] Exception:", err);
-    return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });
+    return NextResponse.json({ error: "Challenge data is temporarily unavailable. Please retry." }, { status: 503 });
   }
 }

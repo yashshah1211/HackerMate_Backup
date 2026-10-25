@@ -412,9 +412,9 @@ test('Challenge verified team uses the same actor/challenge quota as solo',async
 for(const link of ['http://127.0.0.1','https://docs.google.com.evil.invalid/deck','https://user:pass@docs.google.com/presentation/d/test/edit','https://example.invalid/deck'])test('Challenge rejects unsafe presentation URL '+link,async()=>{
  const setup=presentationSetup({pipeline:'challenge'});assert.equal((await setup.challenge({external_link_url:link})).status,400);assert.equal(setup.state.calls.length,0);
 });
-test('Challenge uploaded PDF limit is 8MB and image-only extraction stays unscored',async()=>{
+test('Challenge oversized direct upload is rejected before extraction',async()=>{
  const setup=presentationSetup({pipeline:'challenge'});const oversized=new Blob([Buffer.alloc(8*1024*1024+1)],{type:'application/pdf'});
- assert.equal((await setup.challenge({external_link_url:undefined,file:oversized})).status,400);assert.equal(setup.state.calls.length,0);
+ assert.equal((await setup.challenge({external_link_url:undefined,file:oversized})).status,413);assert.equal(setup.state.calls.length,0);
  const extractor=harness().load('src/lib/challenges/challengeExtractor.ts');const {makePitchPdf}=require('./fixtures/pitch-pdf.cjs');
  assert.equal((await extractor.extractChallengeTextFromPDF(makePitchPdf('images'))).success,false);
  const real=await extractor.extractChallengeTextFromPDF(makePitchPdf('text',8));assert.equal(real.success,true);assert.equal(real.slides.length,8);assert.equal(real.pdf,undefined);

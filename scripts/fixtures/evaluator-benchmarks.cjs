@@ -56,7 +56,7 @@ function presentationSetup(options = {}) {
   const source = options.source || 'We propose a classifier with a held-out validation set.';
   const state = { source, user: { id: USER }, queries: [], writes: [], calls: [], logs: [], counters: new Map(), ...options };
   state.tables = { teams: [{ id: TEAM, owner_id: USER, team_hackathons: [], team_members: [{ profiles: { skills: ['testing'] } }] }], team_members: [{ id: TEAM, team_id: TEAM, user_id: USER }], profiles: [{ id: USER, role: 'developer', is_banned: false }],
-    weekly_challenges: [{ id: CHALLENGE, slug: 'fixture-challenge', title: 'Fixture challenge', track: 'Open', problem_statement: 'Explain a useful proposed system.', additional_rules: null, status: 'active', starts_at: new Date(Date.now() - 100000).toISOString(), ends_at: new Date(Date.now() + 86400000).toISOString() }],
+    weekly_challenges: [{ id: CHALLENGE, slug: 'fixture-challenge', title: 'Fixture challenge', track: 'Open', problem_statement: 'Explain a useful proposed system.', additional_rules: null, constraints: [], slide_template: [], status: 'active', starts_at: new Date(Date.now() - 100000).toISOString(), ends_at: new Date(Date.now() + 86400000).toISOString() }],
     team_ppt_evaluations: [], challenge_submissions: [], ...options.tables };
   const admin = {
     auth: { async getUser() { if (state.authThrows) throw Error('private auth detail'); return { data: { user: state.user }, error: state.authError || null }; } },
@@ -79,7 +79,11 @@ function presentationSetup(options = {}) {
         if (override !== undefined) return override;
         if (table === 'rate_limits') { const value = state.counters.get(filters.find(f => f.key === 'ip')?.value); return { data: value ? { reset_time: new Date(value.resetMs).toISOString() } : null, error: null }; }
         assert(Object.hasOwn(state.tables, table), 'Unexpected table ' + table);
-        const matches = row => filters.every(f => f.kind === 'eq' ? row[f.key] === f.value : f.kind === 'lt' ? row[f.key] < f.value : row[f.key] >= f.value);
+        const matches = row => filters.every(f => f.kind === 'or' ? (() => {
+          const match = /^user_id\.eq\.([\w-]+),team_id\.in\.\(([\w,-]+)\)$/.exec(f.value);
+          assert(match, 'Unexpected synthetic OR filter');
+          return row.user_id === match[1] || match[2].split(',').includes(row.team_id);
+        })() : (f.kind === 'eq' || f.kind === 'is') ? row[f.key] === f.value : f.kind === 'lt' ? row[f.key] < f.value : row[f.key] >= f.value);
         let rows = state.tables[table].filter(matches);
         if (ordering) rows.sort((a, b) => (a[ordering.key] < b[ordering.key] ? -1 : a[ordering.key] > b[ordering.key] ? 1 : 0) * (ordering.ascending ? 1 : -1));
         rows = rows.slice(0, max);
@@ -93,8 +97,8 @@ function presentationSetup(options = {}) {
         if (state.afterMutation && operation !== 'select') { const overridden = await state.afterMutation(query, rows); if (overridden !== undefined) return overridden; }
         return { data: single ? rows[0] || null : rows, error: null };
       };
-      const query = { select(value) { columns = value; return query; }, eq(key, value) { filters.push({ kind: 'eq', key, value }); return query; }, gte(key, value) { filters.push({ kind: 'gte', key, value }); return query; }, lt(key, value) { filters.push({ kind: 'lt', key, value }); return query; },
-        order(key, opts) { ordering = { key, ...opts }; return query; }, limit(value) { max = value; return query; }, abortSignal(signal) { assert(signal instanceof AbortSignal); return query; },
+      const query = { select(value) { columns = value; return query; }, eq(key, value) { filters.push({ kind: 'eq', key, value }); return query; }, is(key, value) { filters.push({ kind: 'is', key, value }); return query; }, gte(key, value) { filters.push({ kind: 'gte', key, value }); return query; }, lt(key, value) { filters.push({ kind: 'lt', key, value }); return query; },
+        or(value) { filters.push({ kind: 'or', value }); return query; }, order(key, opts) { ordering = { key, ...opts }; return query; }, limit(value) { max = value; return query; }, abortSignal(signal) { assert(signal instanceof AbortSignal); return query; },
         insert(value) { operation = 'insert'; payload = value; return query; }, update(value) { operation = 'update'; payload = value; return query; },
         single() { return execute(true); }, maybeSingle() { return execute(true); }, then(resolve, reject) { return execute(false).then(resolve, reject); },
       }; return query;
@@ -104,7 +108,7 @@ function presentationSetup(options = {}) {
     ...(state.mode === 'visual_text' ? { pdf: { bytes: makePitchPdf(), pageCount: 3, source: 'linked_pdf' } } : {}) };
   const loader = harness({ '@supabase/supabase-js': { createClient: () => admin },
     '@/lib/ppt/presentationExtractor': { ...harness().load('src/lib/ppt/presentationExtractor.ts'), extractPresentationFromUrl: async () => state.extraction || extraction },
-    '@/lib/challenges/challengeExtractor': { extractChallengePresentationFromUrl: async () => state.extraction || extraction, extractChallengeTextFromPDF: async () => state.extraction || extraction },
+    '@/lib/challenges/challengeExtractor': { extractChallengePresentationFromUrl: async () => state.extraction || extraction, extractChallengeTextFromPDF: async bytes => { state.uploadBytes = bytes.byteLength; return state.extraction || extraction; } },
   }, { fetch: async (url, init) => {
     assert.equal(new URL(url).origin, 'https://generativelanguage.googleapis.com');
     state.calls.push({ url, body: JSON.parse(init.body) });
@@ -120,10 +124,13 @@ function presentationSetup(options = {}) {
   async function challenge(body = {}, headers = {}, slug = 'fixture-challenge') {
     const form = new FormData();
     for (const [key, value] of Object.entries({ external_link_url: 'https://docs.google.com/presentation/d/fixture/edit', submission_mode: 'solo', ...body })) if (value !== undefined) form.set(key, value);
-    const req = new Request('https://fixture.invalid/api/challenges/' + slug + '/evaluate', { method: 'POST', headers: { authorization: 'Bearer fixture', 'idempotency-key': 'offline-challenge-token-0001', ...headers }, body: form });
+    // Serialize as network bytes before delivery. Cancelling Node's lazy FormData
+    // producer mid-Blob can itself reject asynchronously after a route returns.
+    const encoded = new Response(form), bytes = await encoded.arrayBuffer();
+    const req = new Request('https://fixture.invalid/api/challenges/' + slug + '/evaluate', { method: 'POST', headers: { authorization: 'Bearer fixture', 'idempotency-key': 'offline-challenge-token-0001', 'content-type': encoded.headers.get('content-type'), ...headers }, body: bytes });
     const response = await loader.load('src/app/api/challenges/[slug]/evaluate/route.ts').POST(req, { params: Promise.resolve({ slug }) });
     return { status: response.status, body: await response.json() };
   }
-  return { state, loader, ppt, challenge, USER, TEAM, CHALLENGE };
+  return { state, loader, admin, ppt, challenge, USER, TEAM, CHALLENGE };
 }
 Object.assign(module.exports, { pitchOutput, challengeOutput, providerEnvelope, makeBenchmarkPdf, presentationSetup });

@@ -8,7 +8,7 @@ const { build } = require('esbuild');
 const postcss = require('postcss');
 const tailwind = require('@tailwindcss/postcss');
 const { chromium, expect } = require('@playwright/test');
-const ROOT = path.resolve(__dirname, '..'), evidence = path.join(ROOT, 'docs/qa/evaluator-reliability');
+const ROOT = path.resolve(__dirname, '..'), evidence = path.resolve(ROOT, process.env.HM_EVALUATOR_BROWSER_EVIDENCE || 'docs/qa/evaluator-reliability');
 const USER_A = '00000000-0000-4000-8000-000000000001', USER_B = '00000000-0000-4000-8000-000000000002';
 const result = { trackId: 'generic', totalScore: 72, grade: 'Strong Contender ✅', subScores: { novelty: 18, tech: 18, uiUxOrFeasibility: 18, impactOrTeam: 18 },
   categoryLabels: { novelty: 'Problem clarity', tech: 'Architecture', uiUxOrFeasibility: 'Impact', impactOrTeam: 'Communication' },
@@ -116,11 +116,15 @@ async function bundle() {
     const challengeRecord={id:SAVED,challenge_id:CHALLENGE,user_id:USER_A,submission_mode:'solo',submission_type:'external_link',version:1,status:'completed',file_name:'Synthetic.pdf',score_problem:5,score_solution:5,score_architecture:5,score_feasibility_impact:5,total_score:20,grade:'Needs Revision',strengths:[],growth_areas:['Explain how the proposed system will be tested.'],slide_feedback:{slide3:'Describe the claimed classifier and its held-out test method.'},format_violations:[],score_deductions:{},ai_raw_feedback:{topActionItem:'Describe a validation method.',analysis:{mode:'text_only',pdfReceived:false,rubricVersion:'challenge-v1',schemaVersion:'evaluator-v1'}},used_ai_fallback:false,created_at:'2026-10-24T12:00:00Z'};
     for(const width of [390,1440]) {
       const context=await browser.newContext({viewport:{width,height:width===390?844:1000},reducedMotion:'reduce'});
-      let apiMode='failure',history=[],resultRecord=challengeRecord,release,started;const posts=[],errors=[];
+      let apiMode='failure',detailMode='ok',history=[],resultRecord=challengeRecord,release,started;const posts=[],errors=[];
       await context.route('**/*',async route=>{
         const request=route.request(),url=new URL(request.url());if(url.origin!==origin){external.push(url.origin);return route.abort()}
         if(url.pathname===('/api/teams/'+TEAM+'/ppt-evaluations'))return route.fulfill({json:{evaluations:history}});
-        if(url.pathname==='/api/challenges/fixture-challenge')return route.fulfill({json:{challenge:challengeFixture,userTeams:[{id:TEAM,name:'Synthetic team'}]}});
+        if(url.pathname==='/api/challenges/fixture-challenge') {
+          if(detailMode==='missing'||detailMode==='database')return route.fulfill({status:detailMode==='missing'?404:503,json:{error:detailMode==='missing'?'Challenge not found':'Challenge data is temporarily unavailable.'}});
+          if(detailMode==='malformed')return route.fulfill({json:{success:true}});
+          return route.fulfill({json:{challenge:detailMode==='wrong'?{...challengeFixture,id:SAVED,slug:'another-challenge'}:challengeFixture,userTeams:[{id:TEAM,name:'Synthetic team'}]}});
+        }
         if(url.pathname==='/api/challenges/fixture-challenge/submissions')return route.fulfill({json:{submissions:[]}});
         if(url.pathname===('/api/challenges/fixture-challenge/submissions/'+SAVED))return route.fulfill({json:{submission:resultRecord,challenge:challengeFixture}});
         if(url.pathname.endsWith('/ppt-evaluate')||url.pathname.endsWith('/fixture-challenge/evaluate')){
@@ -144,7 +148,13 @@ async function bundle() {
       history=[{...pitchRecord(),status:'evaluating',updated_at:new Date(Date.now()-200000).toISOString()}];await openPPT();await expect(page.getByText(/Processing is interrupted or unconfirmed/)).toBeVisible();await expect(page.getByText('/100',{exact:true})).toHaveCount(0);history=[];
       apiMode='deferred';await fillPPT();await page.getByRole('button',{name:'Run review',exact:true}).click();await expect.poll(()=>started).toBe(true);await expect(page.getByLabel('Google Slides or Drive link')).toBeDisabled();await page.evaluate(id=>window.__qa.switchUser(id),USER_B);release();await expect(page.getByLabel('Problem statement or idea')).toHaveValue('');await expect(page.getByText('Offline deck review',{exact:true})).toHaveCount(0);
       await page.goto(origin+'/qa/ppt?visitor=1');await expect(page.getByRole('button',{name:'Retry access check',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Refresh history',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Run review',exact:true})).toHaveCount(0);
-      apiMode='failure';await page.goto(origin+'/qa/challenge');await expect(page.getByRole('heading',{name:'Offline systems practice',exact:true})).toBeVisible();
+      for(const mode of ['missing','database','wrong','malformed']) {
+        detailMode=mode;await page.goto(origin+'/qa/challenge');
+        await expect(page.getByText(mode==='missing'?'Challenge not found':'Challenge unavailable',{exact:true})).toBeVisible();
+        await expect(page.locator('#challenge-deck-link')).toHaveCount(0);
+        if(mode!=='missing')await expect(page.getByText('Challenge not found',{exact:true})).toHaveCount(0);
+      }
+      detailMode='ok';apiMode='failure';await page.goto(origin+'/qa/challenge');await expect(page.getByRole('heading',{name:'Offline systems practice',exact:true})).toBeVisible();
       const link=page.locator('#challenge-deck-link');await expect(link).toBeVisible();await link.fill('https://docs.google.com/presentation/d/fixture/edit');
       const submit=()=>page.locator('button[type=submit]').click();await submit();await expect(page.getByRole('alert').last()).toContainText('No score was generated');await expect(link).toHaveValue('https://docs.google.com/presentation/d/fixture/edit');await expect(page.getByText(/multi-model AI evaluation cascade/i)).toHaveCount(0);
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));if(width===390)await page.screenshot({path:path.join(evidence,'challenge-failure-390.png'),fullPage:true});
@@ -159,7 +169,8 @@ async function bundle() {
     }
 
     assert.deepEqual(external, []);
-    const file = path.join(evidence, 'results.json'), record = JSON.parse(await fs.readFile(file, 'utf8'));
+    const file = path.join(evidence, 'results.json'), record = existsSync(file) ? JSON.parse(await fs.readFile(file, 'utf8')) : {validation:{}};
+    record.validation.challengeCorrectnessBrowser = {status:'passed',cases:8,failed:0,viewports:[390,1440],checks:['404 is not-found','503 is unavailable, not not-found','wrong identity rejected','malformed success rejected']};
     record.validation.presentationBrowser = {status:'passed',checks:presentationChecks,externalRequests:0,liveDatabaseWrites:0,limitations:'Actual PPT/Challenge components and CSS with synthetic Auth/DB/API adapters. No live Auth/RLS/provider validation.'};
     record.validation.ideaBrowser = { status: 'passed', checks, externalRequests: 0, liveDatabaseWrites: 0, limitations: 'Actual Idea component/CSS with synthetic Auth/read/API adapters; no live Auth/RLS/provider or production evidence. Presentation browser results are recorded separately.' };
     await fs.writeFile(file, JSON.stringify(record, null, 2) + '\n');

@@ -6,14 +6,15 @@ import { runChallengePitchEvaluation } from "@/lib/challenges/challengeEvaluator
 import { validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
 import { PRESENTATION_LIMITS } from "@/lib/ppt/analysisMetadata";
 import { reserveEvaluation } from "@/lib/evaluator/evaluatorBudgetGuard";
+import { CHALLENGE_UPLOAD_LIMITS, challengeIdentity, normalizeChallengeRequirements } from "@/lib/challenges/challengeEvaluationContract";
 import { EvaluationFailure, evaluationFailure, evaluationRead, evaluationSignal, verifiedEvaluationActor, inputString, isUuid, readEvaluationForm, assertExecution, withinDeadline, logDatabaseFailure, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
 const COLUMNS = "id, challenge_id, user_id, team_id, submission_mode, submission_type, external_link_url, ppt_url, file_name, github_url, demo_url, version, status, score_problem, score_solution, score_architecture, score_feasibility_impact, total_score, grade, strengths, growth_areas, slide_feedback, format_violations, score_deductions, ai_raw_feedback, used_ai_fallback, created_at, updated_at";
-const CHALLENGE_COLUMNS = "id, slug, title, track, problem_statement, additional_rules, status, starts_at, ends_at";
+const CHALLENGE_COLUMNS = "id, slug, title, track, problem_statement, constraints, slide_template, additional_rules, status, starts_at, ends_at";
 type ChallengeRecord = { id: string; slug: string; title: string; track: string; problem_statement: string;
-  additional_rules?: string | null; status: string; starts_at: string; ends_at: string };
+  constraints?: unknown; slide_template?: unknown; additional_rules?: string | null; status: string; starts_at: string; ends_at: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const started = Date.now(), requestId = randomUUID();
@@ -27,9 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       fetch: (target, init) => fetch(target, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000) }),
     } });
     const userId = await verifiedEvaluationActor(admin, req, preflight);
-    let slug: string;
-    try { slug = inputString(decodeURIComponent((await params).slug), 200); } catch { throw new EvaluationFailure("invalid_input"); }
-    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    let identity: ReturnType<typeof challengeIdentity>;
+    try { identity = challengeIdentity((await params).slug); } catch { throw new EvaluationFailure("invalid_input"); }
+    const { slug, normalized: cleanSlug } = identity;
     let rulesColumnMissing = false;
     const readChallenge = async (column: "slug" | "id", value: string) => {
       const query = () => admin.from("weekly_challenges").select(rulesColumnMissing ? CHALLENGE_COLUMNS.replace(", additional_rules", "") : CHALLENGE_COLUMNS)
@@ -52,17 +53,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     };
     let challenge = await readChallenge("slug", slug);
     if (!challenge && cleanSlug && cleanSlug !== slug) challenge = await readChallenge("slug", cleanSlug);
-    if (!challenge && isUuid(slug)) challenge = await readChallenge("id", slug);
+    if (!challenge && identity.id) challenge = await readChallenge("id", identity.id);
     if (!challenge) throw new EvaluationFailure("not_found");
-    if (challenge.additional_rules != null && typeof challenge.additional_rules !== "string") throw new EvaluationFailure("database_unavailable");
+    let requirements: ReturnType<typeof normalizeChallengeRequirements>;
+    try { requirements = normalizeChallengeRequirements(challenge); }
+    catch (error) { logDatabaseFailure("challenge_requirements", error); throw new EvaluationFailure("database_unavailable"); }
     if (!isUuid(challenge.id) || !Number.isFinite(Date.parse(challenge.starts_at)) || !Number.isFinite(Date.parse(challenge.ends_at))) throw new EvaluationFailure("database_unavailable");
     if (challenge.status !== "active" || Date.parse(challenge.starts_at) > Date.now() || Date.parse(challenge.ends_at) <= Date.now()) throw new EvaluationFailure("forbidden");
-    const form = await readEvaluationForm(req, preflight);
+    const form = await readEvaluationForm(req, preflight, CHALLENGE_UPLOAD_LIMITS.requestBytes, "upload_too_large");
     const file = form.get("file"), linkValue = form.get("external_link_url");
     const externalLink = linkValue == null || linkValue === "" ? null : inputString(linkValue, 2048);
     if ((file !== null && typeof file === "string") || (!!file === !!externalLink)) throw new EvaluationFailure("invalid_input");
     if (externalLink && !validatePresentationUrl(externalLink).valid) throw new EvaluationFailure("invalid_input");
-    if (file && (file.size > PRESENTATION_LIMITS.pdfBytes || !file.size || file.type !== "application/pdf")) throw new EvaluationFailure("invalid_input");
+    if (file && file.size > CHALLENGE_UPLOAD_LIMITS.fileBytes) throw new EvaluationFailure("upload_too_large");
+    if (file && (!file.size || file.type !== "application/pdf")) throw new EvaluationFailure("invalid_input");
+    // File is constructed by the bounded server multipart parser, not client size metadata.
+    const uploadedBytes = file ? Buffer.from(await withinDeadline(file.arrayBuffer(), preflight, 5_000)) : null;
+    if (uploadedBytes && uploadedBytes.byteLength > CHALLENGE_UPLOAD_LIMITS.fileBytes) throw new EvaluationFailure("upload_too_large");
     const mode = inputString(form.get("submission_mode"), 8);
     const teamValue = form.get("team_id"), teamId = teamValue == null || teamValue === "" ? null : inputString(teamValue, 36);
     if (!["solo", "team"].includes(mode) || (mode === "team" && !isUuid(teamId)) || (mode === "solo" && teamId !== null)) throw new EvaluationFailure("invalid_input");
@@ -84,14 +91,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     if (!Array.isArray(recent)) throw new EvaluationFailure("database_unavailable");
     if (recent.length >= 5) throw new EvaluationFailure("admission_limit");
     if (recent.some(row => row.status === "evaluating")) throw new EvaluationFailure("processing_interrupted");
-    const versions = await evaluationRead(admin.from("challenge_submissions").select("version").eq("challenge_id", challenge.id).eq(teamId ? "team_id" : "user_id", teamId || userId).order("version", { ascending: false }).limit(1).abortSignal(evaluationSignal(execution)), execution, "read_challenge_version");
+    let versionQuery = admin.from("challenge_submissions").select("version").eq("challenge_id", challenge.id).eq("submission_mode", mode);
+    versionQuery = teamId ? versionQuery.eq("team_id", teamId) : versionQuery.eq("user_id", userId).is("team_id", null);
+    const versions = await evaluationRead(versionQuery.order("version", { ascending: false }).limit(1).abortSignal(evaluationSignal(execution)), execution, "read_challenge_version");
     if (!Array.isArray(versions) || versions.length > 1 || (versions.length && (!Number.isInteger(versions[0].version) || versions[0].version < 1))) throw new EvaluationFailure("database_unavailable");
-    const extraction = await withinDeadline(file ? extractChallengeTextFromPDF(Buffer.from(await withinDeadline(file.arrayBuffer(), execution, 5_000)), Math.min(PRESENTATION_LIMITS.parseMs, execution.deadlineAt - Date.now()), execution.signal)
+    const extraction = await withinDeadline(uploadedBytes ? extractChallengeTextFromPDF(uploadedBytes, Math.min(PRESENTATION_LIMITS.parseMs, execution.deadlineAt - Date.now()), execution.signal)
       : extractChallengePresentationFromUrl(externalLink!, Math.min(PRESENTATION_LIMITS.ingestionMs, execution.deadlineAt - Date.now()), execution.signal), execution, PRESENTATION_LIMITS.ingestionMs);
     assertExecution(execution, 1000);
     if (!extraction.success) throw new EvaluationFailure("unusable_text");
     const result = await runChallengePitchEvaluation(challenge.title, challenge.track, challenge.problem_statement, extraction.rawDocumentText, {
-      submissionMode: mode as "solo" | "team", githubUrl, demoUrl, additionalRules: challenge.additional_rules || null,
+      submissionMode: mode as "solo" | "team", githubUrl, demoUrl, ...requirements,
     }, execution);
     submissionId = randomUUID();
     const payload = { id: submissionId, challenge_id: challenge.id, user_id: userId, team_id: teamId, submission_mode: mode, submission_type: file ? "pdf_upload" : "external_link",

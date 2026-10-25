@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { challengeIdentity, isParticipantConstraint } from "@/lib/challenges/challengeEvaluationContract";
 import {
   ArrowLeft,
   ArrowRight,
@@ -313,6 +314,7 @@ export default function ChallengeDetailPage() {
   const [userTeams, setUserTeams] = useState<Array<{ id: string; name: string }>>([]);
   const [previousSubmissions, setPreviousSubmissions] = useState<SubmissionSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluatingStep, setEvaluatingStep] = useState<string>("");
   const [showCelebration, setShowCelebration] = useState(false);
@@ -370,6 +372,7 @@ export default function ChallengeDetailPage() {
     const requestController = new AbortController();
     controller.current = requestController;
     async function loadChallengeData() {
+      setLoading(true); setChallenge(null); setLoadError(null); setPreviousSubmissions([]);
       try {
         const {
           data: { session },
@@ -382,11 +385,12 @@ export default function ChallengeDetailPage() {
         }
 
         const res = await fetch(`/api/challenges/${encodeURIComponent(slug)}`, { headers, signal: requestController.signal });
+        if (epoch !== generation.current || requestController.signal.aborted) return;
         if (res.ok) {
           const data = await res.json();
           if (epoch !== generation.current || requestController.signal.aborted) return;
-          const canonical = decodeURIComponent(slug).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-          if (![slug, canonical].includes(data.challenge?.slug) && data.challenge?.id !== slug) { setChallenge(null); return; }
+          const identity = challengeIdentity(slug);
+          if (!data.challenge || (![identity.slug, identity.normalized].includes(data.challenge.slug) && (!identity.id || data.challenge.id !== identity.id))) { setLoadError("The challenge response did not match this link. Please reload."); return; }
           setChallenge(data.challenge);
           setUserTeams(data.userTeams || []);
           if (data.userTeams?.length > 0) {
@@ -394,6 +398,8 @@ export default function ChallengeDetailPage() {
           }
         } else {
           console.error("Failed to load challenge details: HTTP", res.status);
+          if (res.status !== 404) setLoadError("Challenge data is temporarily unavailable. Please reload to retry.");
+          return;
         }
 
         if (session?.access_token) {
@@ -407,10 +413,12 @@ export default function ChallengeDetailPage() {
             setPreviousSubmissions(subData.submissions || []);
           } else {
             console.error("Failed to load challenge submissions: HTTP", subRes.status);
+            if (epoch === generation.current && !requestController.signal.aborted) setErrorMsg("Submission history could not be loaded. Reload before submitting again.");
           }
         }
       } catch (err) {
         logDatabaseFailure("challenge_client_load", err);
+        if (epoch === generation.current && !requestController.signal.aborted) setLoadError("Challenge data is temporarily unavailable. Please reload to retry.");
       } finally {
         if (epoch === generation.current && !requestController.signal.aborted) setLoading(false);
       }
@@ -592,7 +600,7 @@ export default function ChallengeDetailPage() {
       if (epoch !== generation.current) return;
       if (!res.ok || data.success !== true || data.submission?.status !== "completed" || data.submission?.challenge_id !== challenge?.id || typeof data.submission?.id !== "string") {
         setErrorMsg(data.code === "unauthorized" ? "Session verification failed. Reload and authenticate before submitting." : data.code === "forbidden" ? "This submission is not authorized or the challenge window is closed." : typeof data.error === "string" ? data.error : "No completed scorecard was confirmed. Review submission history before retrying.");
-        if (["invalid_input", "invalid_ai_output", "blocked_content", "provider_rejected", "unusable_text"].includes(data.code)) { retryToken.current = null; setHasRetryToken(false); }
+        if (["invalid_input", "upload_too_large", "invalid_ai_output", "blocked_content", "provider_rejected", "unusable_text"].includes(data.code)) { retryToken.current = null; setHasRetryToken(false); }
         return;
       }
       retryToken.current = null; setHasRetryToken(false);
@@ -614,14 +622,14 @@ export default function ChallengeDetailPage() {
     );
   }
 
-  if (!challenge) {
+  if (loadError || !challenge) {
     return (
       <Page width="narrow">
         <div className="pt-10">
           <EmptyState
             icon={<TriangleAlert />}
-            title="Challenge not found"
-            body="It may have been archived, or the link is wrong."
+            title={loadError ? "Challenge unavailable" : "Challenge not found"}
+            body={loadError || "It may have been archived, or the link is wrong."}
             action={
               <ButtonLink href="/challenges" icon={<ArrowLeft />}>
                 Back to practice
@@ -634,9 +642,9 @@ export default function ChallengeDetailPage() {
   }
 
   const themePrefix = "ReactionTheme:";
-  const participantConstraints = challenge.constraints.filter((c) => !c.startsWith(themePrefix));
-  const themeEntries = challenge.constraints.filter((c) => c.startsWith(themePrefix));
-  const reactionTheme = themeEntries[0]?.slice(themePrefix.length) ?? "default";
+  const participantConstraints = (challenge.constraints || []).filter(isParticipantConstraint);
+  const themeEntries = (challenge.constraints || []).filter((c) => !isParticipantConstraint(c));
+  const reactionTheme = themeEntries[0]?.trim().slice(themePrefix.length) ?? "default";
 
   // Presentational: same deadline expression the page has always used.
   const isDeadlinePassed = isSubmissionWindowClosed(challenge.ends_at, challenge.status);
@@ -998,7 +1006,7 @@ export default function ChallengeDetailPage() {
           <p className="mb-3 text-[12px] text-ink-3">These are guidance topics, not required physical pages. Only the supplied challenge rules establish eligibility restrictions. Visual layout and repository/demo links are not inspected.</p>
           <ScoringGuideBody tab={scoringTab} />
         </div>
-        <p className="mt-4 caps-label text-ink-3">Text-only AI evaluation · 8 MB PDF parser limit · no numeric fallback</p>
+        <p className="mt-4 caps-label text-ink-3">Text-only AI evaluation · linked PDFs up to 8 MiB · direct API uploads up to 4,000,000 bytes · no numeric fallback</p>
       </Dialog>
 
       {/* Celebration overlay → redirects to the scored submission */}

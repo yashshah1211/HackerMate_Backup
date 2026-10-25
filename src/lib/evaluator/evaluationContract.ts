@@ -1,8 +1,10 @@
+import { CHALLENGE_UPLOAD_ERROR } from "../challenges/challengeEvaluationContract";
 import { TRACK_PROFILES, type JudgingTrackId, type TrackProfile } from "./evaluatorTypes";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const FAILURES = {
   invalid_input: [400, false, "Check the submission fields and limits, then submit again."],
+  upload_too_large: [413, false, CHALLENGE_UPLOAD_ERROR],
   unsupported_mode: [400, false, "Heuristic scoring is retired for new evaluations. Please use AI evaluation."],
   rubric_unsupported: [400, false, "Custom judging requires four named criteria, each worth 25 points, in the supported JSON format."],
   unauthorized: [401, false, "Your session could not be verified. Sign in again before submitting."],
@@ -158,7 +160,7 @@ export function logDatabaseFailure(operation: string, error: unknown) {
 }
 
 /** Bound multipart input before the platform buffers and parses it. */
-export async function readEvaluationForm(request: Request, execution: EvaluationExecution, maxBytes = 8 * 1024 * 1024 + 16_384): Promise<FormData> {
+export async function readEvaluationForm(request: Request, execution: EvaluationExecution, maxBytes = 8 * 1024 * 1024 + 16_384, oversizeCode: "invalid_input" | "upload_too_large" = "invalid_input"): Promise<FormData> {
   const reader = request.body?.getReader();
   if (!reader || !request.headers.get("content-type")?.startsWith("multipart/form-data;")) throw new EvaluationFailure("invalid_input");
   const parts: Uint8Array[] = [];
@@ -168,7 +170,7 @@ export async function readEvaluationForm(request: Request, execution: Evaluation
       const next = await withinDeadline(reader.read(), execution, 5_000);
       if (next.done) break;
       size += next.value.byteLength;
-      if (size > maxBytes) throw new EvaluationFailure("invalid_input");
+      if (size > maxBytes) throw new EvaluationFailure(oversizeCode);
       parts.push(next.value);
     }
     return await withinDeadline(new Response(Buffer.concat(parts), { headers: { "content-type": request.headers.get("content-type")! } }).formData(), execution, 5_000);
