@@ -374,3 +374,26 @@ test('React Strict Mode and subsequent reloads emit only one prompt impression p
   await ui.reload(); await ui.reload();
   assert.equal(promptEvents(ui).length, 1); assert.deepEqual(ui.mutations, []);
 });
+
+// GL Bajaj college normalization (Phase A): same-campus query compatibility.
+const campusQuery = ui => ui.queries.find(q => q.table === 'profiles' && q.settings?.count === 'exact' && !q.settings?.head && q.columns.includes('is_available'));
+for (const [college, expected] of [
+  ['Fixture College', 'Fixture College'],
+  ['tcet', 'TCET Mumbai (Thakur College of Engineering and Technology)'],
+  ['GL Bajaj', 'GL Bajaj'],
+]) test(`dashboard campus query keeps the exact .eq match for ${JSON.stringify(college)}`, async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner', profile: { college } } });
+  assert.equal(campusQuery(ui).filters.college, expected);
+});
+test('dashboard campus query widens a legacy Mathura spelling to reviewed spellings without Greater Noida', async t => {
+  const ui = await view(t, { server: { owner: 'fixture-other-owner', profile: { college: 'Gl bajaj mathura' } } });
+  const values = Array.from(campusQuery(ui).filters.college);
+  assert.equal(values[0], 'GL Bajaj Group of Institutions, Mathura');
+  assert(values.includes('Gl bajaj mathura'));
+  assert(values.includes('G.L. Bajaj Group Of Institutions, Mathura'));
+  assert(!values.some(value => /noida/i.test(value)));
+  assert(!values.includes('GL Bajaj') && !values.includes('GL Bajaj Group of Institutions'));
+  assert.equal(campusQuery(ui).filters.is_banned, false);
+  assert.equal(campusQuery(ui).filters.onboarding_completed, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(campusQuery(ui).order)), { column: 'last_active_date', settings: { ascending: false } });
+});

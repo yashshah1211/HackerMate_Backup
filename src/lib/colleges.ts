@@ -1,3 +1,7 @@
+// Two separate GL Bajaj institutions. They must never be merged.
+export const GL_BAJAJ_MATHURA = "GL Bajaj Group of Institutions, Mathura";
+export const GL_BAJAJ_GREATER_NOIDA = "GL Bajaj Institute of Technology & Management, Greater Noida";
+
 export const COLLEGES = [
   // Maharashtra - Mumbai
   "VJTI Mumbai (Veermata Jijabai Technological Institute)",
@@ -110,6 +114,10 @@ export const COLLEGES = [
   "Thapar Institute of Engineering and Technology, Patiala",
   "PSG College of Technology, Coimbatore",
   "Amrita Vishwa Vidyapeetham",
+
+  // Uttar Pradesh
+  GL_BAJAJ_MATHURA,
+  GL_BAJAJ_GREATER_NOIDA,
   
   // Fallback
   "Other"
@@ -180,6 +188,8 @@ export const COLLEGE_EXACT_ALIASES: Record<string, string> = {
  * EXPLICIT RULE: Collapses all multiple consecutive whitespace characters (\s+)
  * into a single space and trims leading/trailing whitespace before performing
  * an EXACT-MATCH ONLY (case-insensitive) check against the canonical list and alias dictionary.
+ * Reviewed campus-explicit GL Bajaj aliases are then matched by exact
+ * punctuation-insensitive key (no substring or fuzzy matching).
  * 
  * If no exact match is found, the cleaned/collapsed custom input is preserved untouched.
  */
@@ -201,8 +211,109 @@ export function normalizeCollege(input?: string | null): string {
     return COLLEGE_EXACT_ALIASES[lowerKey];
   }
 
-  // 3. Fallback: Return collapsed input as-is for unlisted custom colleges
+  // 3. Reviewed campus-explicit aliases, compared by punctuation-insensitive key.
+  // Only reached when steps 1 and 2 miss, so earlier mappings are unchanged.
+  const campusMatch = CAMPUS_ALIAS_KEYS.get(collegeMatchKey(collapsed));
+  if (campusMatch) return campusMatch;
+
+  // 4. Fallback: Return collapsed input as-is for unlisted custom colleges
   return collapsed;
+}
+
+/**
+ * Comparison key that ignores case, punctuation and extra whitespace.
+ * "&" becomes "and", and runs of single letters are joined so "G.L." and "GL"
+ * produce the same key. Used only for exact key lookups and dropdown search.
+ */
+export function collegeMatchKey(input?: string | null): string {
+  if (!input) return "";
+  const tokens = input
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const merged: string[] = [];
+  let initials = "";
+  for (const token of tokens) {
+    if (/^[a-z]$/.test(token)) {
+      initials += token;
+      continue;
+    }
+    if (initials) merged.push(initials);
+    initials = "";
+    merged.push(token);
+  }
+  if (initials) merged.push(initials);
+  return merged.join(" ");
+}
+
+/**
+ * Reviewed, campus-explicit GL Bajaj alias keys (see collegeMatchKey).
+ * City-less names such as "GL Bajaj", "GL Bajaj Group of Institutions" or
+ * "GL Bajaj Institute of Technology and Management" are intentionally absent
+ * and stay unchanged.
+ */
+const CAMPUS_ALIAS_KEYS = new Map<string, string>([
+  ["gl bajaj group of institutions mathura", GL_BAJAJ_MATHURA],
+  ["gl bajaj group of institution mathura", GL_BAJAJ_MATHURA],
+  ["gl bajaj mathura", GL_BAJAJ_MATHURA],
+  ["gl bajaj institute of technology and management greater noida", GL_BAJAJ_GREATER_NOIDA],
+]);
+
+/**
+ * Exact spellings already stored on profiles before the canonical names existed,
+ * as reviewed in the read-only production audit. Used only to keep same-campus
+ * dashboard results working until the Phase B data backfill. Do not add
+ * unreviewed variants here.
+ */
+const CAMPUS_REVIEWED_SPELLINGS = new Map<string, readonly string[]>([
+  [GL_BAJAJ_MATHURA, [
+    "GL Bajaj Group Of Institutions Mathura",
+    "GL Bajaj Group Of Institutions, Mathura",
+    "G.L. Bajaj Group Of Institutions, Mathura",
+    "G.L.bajaj group of institutions mathura",
+    "GL Bajaj group of institution mathura",
+    "G.l bajaj mathura",
+    "Gl bajaj mathura",
+  ]],
+  [GL_BAJAJ_GREATER_NOIDA, []],
+]);
+
+/**
+ * Stored `college` values that count as the same campus for exact-match queries.
+ * Colleges outside the reviewed campus set return only their normalized value,
+ * exactly as before. For a reviewed campus, the list also includes the reviewed
+ * legacy spellings and the user's own stored spelling, so no existing peer
+ * disappears before the backfill.
+ */
+export function collegeMatchValues(input?: string | null): string[] {
+  const normalized = normalizeCollege(input);
+  if (!normalized) return [];
+  const reviewed = CAMPUS_REVIEWED_SPELLINGS.get(normalized);
+  if (!reviewed) return [normalized];
+  const values = [normalized, ...reviewed];
+  // Same collapsed value the previous exact-match query used.
+  const own = (input ?? "").replace(/\s+/g, " ").trim();
+  // PostgREST list quoting cannot escape these characters, so skip such values.
+  if (own && !/["\\]/.test(own)) values.push(own);
+  return Array.from(new Set(values));
+}
+
+/**
+ * Dropdown search match. Keeps every match of the previous case-insensitive
+ * substring search, then also tolerates punctuation, spacing and word order gaps
+ * (e.g. "g.l bajaj mathura" finds the Mathura entry but not Greater Noida).
+ */
+export function collegeMatchesSearch(college: string, query: string): boolean {
+  if (college.toLowerCase().includes(query.toLowerCase())) return true;
+  const queryKey = collegeMatchKey(query);
+  if (!queryKey) return false;
+  const collegeKey = collegeMatchKey(college);
+  if (collegeKey.replace(/ /g, "").includes(queryKey.replace(/ /g, ""))) return true;
+  const words = collegeKey.split(" ");
+  return queryKey.split(" ").every((part) => words.some((word) => word.startsWith(part)));
 }
 
 
