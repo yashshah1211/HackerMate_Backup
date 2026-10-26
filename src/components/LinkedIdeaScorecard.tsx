@@ -229,6 +229,7 @@ export default function LinkedIdeaScorecard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="caps-label text-ink-3">Idea score</p>
+            <Tape>Historical provenance unverified</Tape>
             <Tape>{trackInfo.badge}</Tape>
             <span className="font-mono text-[12.5px] text-ink-3">{formattedDate}</span>
           </div>

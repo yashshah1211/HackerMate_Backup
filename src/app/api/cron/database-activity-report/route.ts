@@ -9,6 +9,7 @@ import {
   DatabaseActivityData,
 } from "@/lib/admin/databaseActivityReport";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
+import { pruneExpiredRateLimits, type RateLimitCleanupResult } from "@/lib/evaluator/rateLimitRetention";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -112,6 +113,7 @@ function generateEmailHtml(data: DatabaseActivityData, dateStr: string): string 
 }
 
 async function handleDatabaseActivityReport(req: NextRequest) {
+  let rateLimitCleanup: RateLimitCleanupResult | undefined;
   try {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get("authorization") || "";
@@ -138,6 +140,12 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+
+    // The existing daily Vercel invocation is GET + machine credentials. Human
+    // report/PDF requests and POST requests never perform this expiry cleanup.
+    if (isAuthorizedCron && req.method === "GET" && format !== "pdf") {
+      rateLimitCleanup = await pruneExpiredRateLimits(supabaseAdmin);
+    }
 
     // 0. Maintain daily streaks: Decay/reset lapsed streaks for inactive builders
     try {
@@ -199,11 +207,14 @@ async function handleDatabaseActivityReport(req: NextRequest) {
       if (bookkeeping === "failed") console.error("[Database Activity Report] Acceptance checkpoint unavailable.");
     }
     return NextResponse.json({ ...dispatchResponse(dispatch), accounting, bookkeeping, pdfGenerated: true,
+      ...(rateLimitCleanup ? { rateLimitCleanup } : {}),
       metricsEvidence: "Partial business-record evidence; historical provider acceptance and delivery are unverified." }, { status: dispatchHttpStatus(dispatch) });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Database Activity Report Cron Exception]:", err);
-    return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });
+    const message = err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "";
+    return NextResponse.json({ error: message || "Internal server error.",
+      ...(rateLimitCleanup ? { rateLimitCleanup } : {}) }, { status: 500 });
   }
 }
 

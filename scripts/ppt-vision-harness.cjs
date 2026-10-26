@@ -7,7 +7,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 function harness(overrides = {}, globals = {}) {
   const cache = new Map();
-  const env = { GEMINI_API_KEY: 'offline-fixture-key' };
+  const env = { GEMINI_API_KEY: 'offline-fixture-key', EVALUATOR_GENERATION_ENABLED: 'true' };
   function load(relative) {
     const filename = path.resolve(ROOT, relative);
     if (cache.has(filename)) return cache.get(filename);
@@ -24,6 +24,7 @@ function harness(overrides = {}, globals = {}) {
       ...globals,
       require(name) {
         if (Object.hasOwn(overrides, name)) return overrides[name];
+        if (name === "server-only") return {}; // Next build enforces the server-only boundary; VM tests run server modules.
         if (name.startsWith('@/') || name.startsWith('.')) {
           const target = name.startsWith('@/') ? path.join(ROOT, 'src', name.slice(2)) : path.resolve(path.dirname(filename), name);
           const file = ['.ts', '.tsx', ''].map(ext => target + ext).find(file => fs.existsSync(file) && fs.statSync(file).isFile());

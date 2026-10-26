@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Trophy } from "lucide-react";
 import { EmptyState, Section, Segmented, SkeletonRows, Tape } from "@/components/system";
 import { cn } from "@/lib/utils";
+import { HISTORICAL_PROVENANCE_LABEL } from "@/lib/evaluator/evaluationProvenance";
 
 interface LeaderboardEntry {
   id: string;
@@ -28,7 +29,7 @@ interface LeaderboardEntry {
 export function ChallengeLeaderboard({
   challengeSlug,
   title = "Top decks",
-  subtitle = "Highest-scoring decks from the AI review.",
+  subtitle = "Highest-scoring submitted decks.",
 }: {
   challengeSlug?: string;
   title?: string;
@@ -113,6 +114,7 @@ export function ChallengeLeaderboard({
                   <p className="mt-0.5 truncate text-[12.5px] text-ink-3">
                     #{entry.challengeNumber} · {entry.challengeTitle}
                   </p>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{HISTORICAL_PROVENANCE_LABEL}</p>
                 </div>
                 <div className="hidden shrink-0 items-center gap-3 font-mono text-[12.5px] text-ink-3 tabular md:flex">
                   <span>Arch {entry.scores.architecture}/30</span>
