@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { challengeIdentity } from "@/lib/challenges/challengeEvaluationContract";
 
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,70 +19,18 @@ export async function GET(
     const { slug } = await params;
     const supabase = getSupabaseClient();
 
-    const decodedSlug = decodeURIComponent(slug);
-    const cleanSlug = decodedSlug
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    let challenge: any = null;
-
-    // 1. Exact cleanSlug match
-    const { data: byCleanSlug } = await supabase
-      .from("weekly_challenges")
-      .select("*")
-      .eq("slug", cleanSlug)
-      .maybeSingle();
-    challenge = byCleanSlug;
-
-    // 2. Exact decodedSlug match
-    if (!challenge) {
-      const { data: byDecodedSlug } = await supabase
-        .from("weekly_challenges")
-        .select("*")
-        .eq("slug", decodedSlug)
-        .maybeSingle();
-      challenge = byDecodedSlug;
-    }
-
-    // 3. UUID match
-    if (!challenge && /^[0-9a-f-]{36}$/i.test(decodedSlug)) {
-      const { data: byId } = await supabase
-        .from("weekly_challenges")
-        .select("*")
-        .eq("id", decodedSlug)
-        .maybeSingle();
-      challenge = byId;
-    }
-
-    // 4. Fallback: fetch all challenges and match in JS memory or default to latest
-    if (!challenge) {
-      const { data: allChallenges } = await supabase
-        .from("weekly_challenges")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (allChallenges && allChallenges.length > 0) {
-        challenge = allChallenges.find((c) => {
-          const cSlug = (c.slug || "").toLowerCase();
-          const cTitle = (c.title || "").toLowerCase();
-          const searchKey = cleanSlug.replace(/-/g, " ");
-          return (
-            cSlug === cleanSlug ||
-            cSlug === decodedSlug.toLowerCase() ||
-            cSlug.includes(cleanSlug) ||
-            cleanSlug.includes(cSlug) ||
-            cTitle.includes(searchKey) ||
-            searchKey.includes(cTitle)
-          );
-        }) || allChallenges[0];
-      }
-    }
-
-    if (!challenge) {
-      return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
-    }
+    let identity: ReturnType<typeof challengeIdentity>;
+    try { identity = challengeIdentity(slug); }
+    catch { return NextResponse.json({ error: "Invalid challenge reference" }, { status: 400 }); }
+    const readChallenge = async (column: "slug" | "id", value: string) => {
+      const { data, error } = await supabase.from("weekly_challenges").select("*").eq(column, value).maybeSingle();
+      if (error) throw error;
+      return data;
+    };
+    let challenge = await readChallenge("slug", identity.slug);
+    if (!challenge && identity.normalized && identity.normalized !== identity.slug) challenge = await readChallenge("slug", identity.normalized);
+    if (!challenge && identity.id) challenge = await readChallenge("id", identity.id);
+    if (!challenge) return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
 
     // Optional user teams lookup
     const authHeader = req.headers.get("Authorization");
@@ -93,14 +42,15 @@ export async function GET(
       const userId = userData?.user?.id;
 
       if (userId) {
-        const { data: memberRows } = await supabase
+        const { data: memberRows, error: memberError } = await supabase
           .from("team_members")
           .select("team_id, teams(id, name)")
           .eq("user_id", userId);
 
+        if (memberError) throw memberError;
         if (memberRows && memberRows.length > 0) {
           userTeams = memberRows
-            .map((r: any) => r.teams)
+            .flatMap((r) => Array.isArray(r.teams) ? r.teams : [r.teams])
             .filter(Boolean) as Array<{ id: string; name: string }>;
         }
       }
@@ -111,8 +61,8 @@ export async function GET(
       challenge,
       userTeams,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Challenge By Slug GET] Exception:", err);
-    return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });
+    return NextResponse.json({ error: "Challenge data is temporarily unavailable. Please retry." }, { status: 503 });
   }
 }

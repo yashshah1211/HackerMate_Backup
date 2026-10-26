@@ -46,6 +46,8 @@ function harness(options = {}) {
       select(columns) { state.events.push(['select', table, columns]); return builder; },
       eq(column, value) { if (table === 'profiles') assert.deepEqual([column, value], ['id', USER_ID]); return builder; },
       order() { return builder; },
+      lt() { return builder; },
+      abortSignal() { return builder; },
       limit() { return builder; },
       insert() { state.events.push(['mutation', table]); return builder; },
       update() { state.events.push(['mutation', table]); return builder; },
@@ -108,7 +110,7 @@ function harness(options = {}) {
         if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`);
         throw new Error(`Unmocked dependency: ${name}`);
       },
-      process: { env }, URL, Date, Buffer, Uint8Array,
+      process: { env }, URL, Date, Buffer, Uint8Array, AbortSignal, setTimeout, clearTimeout,
       fetch() { throw new Error('Network access is forbidden in security tests'); },
       console: { log() {}, info() {}, warn() {}, error(...args) { state.errors.push(args); } },
     }, { filename });

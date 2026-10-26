@@ -1,41 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchPublicHtml, isBlockedDestinationError } from "@/lib/net/publicHttpFetch";
 
 export const runtime = "nodejs";
 
-function isPrivateOrLocalHost(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
-  if (
-    lower === "localhost" ||
-    lower === "127.0.0.1" ||
-    lower === "0.0.0.0" ||
-    lower === "::1" ||
-    lower === "169.254.169.254" ||
-    lower.endsWith(".local") ||
-    lower.endsWith(".internal")
-  ) {
-    return true;
-  }
-
-  // Check private IPv4 ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-  const ipParts = lower.split(".").map(Number);
-  if (ipParts.length === 4 && ipParts.every((p) => !isNaN(p) && p >= 0 && p <= 255)) {
-    if (ipParts[0] === 10) return true;
-    if (ipParts[0] === 127) return true;
-    if (ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) return true;
-    if (ipParts[0] === 192 && ipParts[1] === 168) return true;
-    if (ipParts[0] === 169 && ipParts[1] === 254) return true;
-  }
-
-  return false;
-}
-
-function resolveUrl(relative: string | null | undefined, base: string): string | null {
+/** Resolves page-supplied links against the final page URL; only http(s) results are returned. */
+function resolveUrl(relative: string | null | undefined, base: URL): string | null {
   if (!relative) return null;
   try {
-    return new URL(relative, base).toString();
+    const resolved = new URL(relative, base);
+    return resolved.protocol === "http:" || resolved.protocol === "https:" ? resolved.toString() : null;
   } catch {
     return null;
   }
+}
+
+// The metadata regexes below backtrack super-linearly on crafted input, and synchronous CPU work
+// cannot be interrupted by the fetch deadline. They only ever match within one tag (`>` may appear
+// only inside the quoted value), so run them per tag on bounded, non-overlapping slices.
+const MAX_TAG_CHARS = 2048;
+
+/** Index of the first `>` outside a quoted attribute value, or -1 within MAX_TAG_CHARS. */
+function findTagEnd(html: string, start: number): number {
+  let quote = "";
+  const limit = Math.min(html.length, start + MAX_TAG_CHARS);
+  for (let i = start; i < limit; i++) {
+    const char = html[i];
+    if (quote) {
+      if (char === quote) quote = "";
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === ">") {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function collectTags(html: string, name: string): string[] {
+  const tags: string[] = [];
+  const opener = new RegExp(`<${name}`, "gi");
+  let match: RegExpExecArray | null;
+  while ((match = opener.exec(html))) {
+    const end = findTagEnd(html, match.index);
+    if (end !== -1) tags.push(html.slice(match.index, end + 1));
+    // Slices never overlap, so total regex work stays bounded by the 120 KB body.
+    opener.lastIndex = end === -1 ? match.index + MAX_TAG_CHARS : end + 1;
+  }
+  return tags;
+}
+
+/** Linear equivalent of /<title[^>]*>([^<]+)<\/title>/i. */
+function findTitle(html: string): string | null {
+  const opener = /<title/gi;
+  let match: RegExpExecArray | null;
+  while ((match = opener.exec(html))) {
+    const end = html.indexOf(">", match.index);
+    if (end === -1) return null;
+    const close = html.indexOf("<", end + 1);
+    if (close === -1) return null;
+    if (close > end + 1 && html.slice(close, close + 8).toLowerCase() === "</title>") {
+      return html.slice(end + 1, close).trim();
+    }
+    opener.lastIndex = end + 1;
+  }
+  return null;
+}
+
+function defaultFavicon(hostname: string): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
+}
+
+function fallbackMetadata(targetUrl: string, hostname: string) {
+  return {
+    url: targetUrl,
+    domain: hostname,
+    title: hostname,
+    description: null,
+    image: null,
+    siteName: hostname,
+    favicon: defaultFavicon(hostname),
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -57,146 +101,89 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unsupported protocol" }, { status: 400 });
   }
 
-  if (isPrivateOrLocalHost(parsed.hostname)) {
-    return NextResponse.json({ error: "Private or internal hosts not allowed" }, { status: 403 });
-  }
-
+  let fetched: Awaited<ReturnType<typeof fetchPublicHtml>>;
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const res = await fetch(targetUrl, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (compatible; HackerMateBot/1.0)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-      redirect: "follow",
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      return NextResponse.json({
-        url: targetUrl,
-        domain: parsed.hostname,
-        title: parsed.hostname,
-        description: null,
-        image: null,
-        siteName: parsed.hostname,
-        favicon: `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`,
-      });
-    }
-
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
-      return NextResponse.json({
-        url: targetUrl,
-        domain: parsed.hostname,
-        title: parsed.hostname,
-        description: null,
-        image: null,
-        siteName: parsed.hostname,
-        favicon: `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`,
-      });
-    }
-
-    // Read first 120KB for fast metadata extraction
-    const reader = res.body?.getReader();
-    let html = "";
-    if (reader) {
-      let bytesRead = 0;
-      const maxBytes = 120 * 1024;
-      while (bytesRead < maxBytes) {
-        const { done, value } = await reader.read();
-        if (done || !value) break;
-        bytesRead += value.length;
-        html += new TextDecoder("utf-8", { fatal: false }).decode(value, { stream: true });
-        if (html.includes("</head>")) break;
-      }
-      try {
-        await reader.cancel();
-      } catch {}
-    } else {
-      html = await res.text();
-    }
-
-    const getMeta = (prop: string): string | null => {
-      // Matches <meta property="og:..." content="..."> or <meta name="..." content="...">
-      const regex1 = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, "i");
-      const match1 = html.match(regex1);
-      if (match1 && match1[1]) return match1[1].trim();
-
-      // Matches inverted <meta content="..." property="og:...">
-      const regex2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, "i");
-      const match2 = html.match(regex2);
-      if (match2 && match2[1]) return match2[1].trim();
-
-      return null;
-    };
-
-    const getTitle = (): string | null => {
-      const ogTitle = getMeta("og:title") || getMeta("twitter:title");
-      if (ogTitle) return ogTitle;
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      return titleMatch && titleMatch[1] ? titleMatch[1].trim() : null;
-    };
-
-    const getDescription = (): string | null => {
-      return (
-        getMeta("og:description") ||
-        getMeta("twitter:description") ||
-        getMeta("description") ||
-        null
-      );
-    };
-
-    const getImage = (): string | null => {
-      const rawImg = getMeta("og:image") || getMeta("twitter:image");
-      return resolveUrl(rawImg, targetUrl);
-    };
-
-    const getSiteName = (): string => {
-      return getMeta("og:site_name") || parsed.hostname.replace(/^www\./, "");
-    };
-
-    const getFavicon = (): string => {
-      const iconMatch = html.match(/<link[^>]+rel=["'](?:shortcut )?icon["'][^>]+href=["']([^"']+)["']/i);
-      if (iconMatch && iconMatch[1]) {
-        const resolved = resolveUrl(iconMatch[1].trim(), targetUrl);
-        if (resolved) return resolved;
-      }
-      return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`;
-    };
-
-    const metadata = {
-      url: targetUrl,
-      domain: parsed.hostname.replace(/^www\./, ""),
-      title: getTitle() || parsed.hostname,
-      description: getDescription(),
-      image: getImage(),
-      siteName: getSiteName(),
-      favicon: getFavicon(),
-    };
-
-    return NextResponse.json(metadata, {
-      headers: {
-        "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=43200",
-      },
-    });
+    // Validates every hop, pins DNS to the validated public address, one 4s deadline for everything.
+    fetched = await fetchPublicHtml(parsed);
   } catch (err: unknown) {
+    if (isBlockedDestinationError(err)) {
+      return NextResponse.json({ error: "Destination not allowed" }, { status: 403 });
+    }
     console.error("Link preview error:", err);
-    return NextResponse.json(
-      {
-        url: targetUrl,
-        domain: parsed.hostname,
-        title: parsed.hostname,
-        description: null,
-        image: null,
-        siteName: parsed.hostname,
-        favicon: `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`,
-      },
-      { status: 200 }
-    );
+    return NextResponse.json(fallbackMetadata(targetUrl, parsed.hostname), { status: 200 });
   }
+
+  if (fetched.html === null) {
+    return NextResponse.json(fallbackMetadata(targetUrl, parsed.hostname));
+  }
+
+  const html = fetched.html;
+  const baseUrl = fetched.finalUrl;
+  const metaTags = collectTags(html, "meta");
+  const linkTags = collectTags(html, "link");
+
+  const firstMatch = (tags: string[], regex: RegExp): string | null => {
+    for (const tag of tags) {
+      const match = tag.match(regex);
+      if (match && match[1]) return match[1].trim();
+    }
+    return null;
+  };
+
+  const getMeta = (prop: string): string | null => {
+    // Matches <meta property="og:..." content="..."> or <meta name="..." content="...">
+    const regex1 = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, "i");
+    // Matches inverted <meta content="..." property="og:...">
+    const regex2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, "i");
+    return firstMatch(metaTags, regex1) || firstMatch(metaTags, regex2);
+  };
+
+  const getTitle = (): string | null => {
+    const ogTitle = getMeta("og:title") || getMeta("twitter:title");
+    if (ogTitle) return ogTitle;
+    return findTitle(html);
+  };
+
+  const getDescription = (): string | null => {
+    return (
+      getMeta("og:description") ||
+      getMeta("twitter:description") ||
+      getMeta("description") ||
+      null
+    );
+  };
+
+  const getImage = (): string | null => {
+    const rawImg = getMeta("og:image") || getMeta("twitter:image");
+    return resolveUrl(rawImg, baseUrl);
+  };
+
+  const getSiteName = (): string => {
+    return getMeta("og:site_name") || parsed.hostname.replace(/^www\./, "");
+  };
+
+  const getFavicon = (): string => {
+    const icon = firstMatch(linkTags, /<link[^>]+rel=["'](?:shortcut )?icon["'][^>]+href=["']([^"']+)["']/i);
+    if (icon) {
+      const resolved = resolveUrl(icon, baseUrl);
+      if (resolved) return resolved;
+    }
+    return defaultFavicon(parsed.hostname);
+  };
+
+  const metadata = {
+    url: targetUrl,
+    domain: parsed.hostname.replace(/^www\./, ""),
+    title: getTitle() || parsed.hostname,
+    description: getDescription(),
+    image: getImage(),
+    siteName: getSiteName(),
+    favicon: getFavicon(),
+  };
+
+  return NextResponse.json(metadata, {
+    headers: {
+      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=43200",
+    },
+  });
 }
