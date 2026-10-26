@@ -1,6 +1,6 @@
 # Mission 05 consolidated release candidate — 26 October 2026 (IST)
 
-**Generation-disabled production code release: NO-GO. Full evaluator activation: NO-GO.** This is a draft integration candidate and authorization checklist, not permission to deploy, execute SQL, invoke cron, merge or enable generation.
+**Draft publication: GO after the repeated non-deploying preflight. Generation-disabled source candidate: ready for final founder authorization; actual production deployment: NO-GO pending the operational gates below. M1 execution and full evaluator activation: NO-GO.** This is a draft integration candidate and authorization checklist, not permission to deploy, execute SQL, invoke cron, merge or enable generation.
 
 ## Frozen inputs and integration
 
@@ -18,7 +18,7 @@ Freshly fetched origin/main: `5454f57d4ba8baf98b277589a2eb6e9584610397`. Frozen 
 | #69 generation/provenance | d196164697ce49f1d648bde330a124c0c08e9344 |
 | #70 offline qualification | 4cff459ce38036a04f44e98c728192cad10d038f |
 
-Every head and successive ancestry was verified. All seven original PRs remain drafts and unchanged. Main's GL Bajaj #64 changes are retained. #65, #66 and #68 are not integrated.
+Every head and successive ancestry was verified. All seven original PRs remain drafts and unchanged. Main's GL Bajaj #64 changes are retained. #65 remains excluded. The separately approved exact #68 and #66 patches are now integrated as recorded below.
 
 The merge completed **without conflicts**. Before the narrow history correction, all 56 paths changed by the stack matched the frozen stack's indexed Git blobs, and all 18 paths changed by main matched main's blobs. The two changed-path sets have no intersection. No manual conflict resolution was needed. The endpoint-to-endpoint main/R3 diff includes apparent reversions of college changes; merging their ancestry preserves those main changes instead of applying that misleading endpoint diff.
 
@@ -32,21 +32,68 @@ Main's separate GL Bajaj migration/rollback remain unchanged. Never replay eithe
 
 ## Narrow pre-production correction
 
-Only new application change beyond the merged stack: `src/app/api/evaluator/history/route.ts` GET/DELETE query failures and exception handlers return fixed generic errors, preserving HTTP 500 and actual server-side error logging. They no longer expose database/exception messages or missing-configuration details to the client. Existing authentication, verified-user ownership filters, legitimate history, deletion, and PATCH behavior are unchanged.
+The initial integration's application correction: `src/app/api/evaluator/history/route.ts` GET/DELETE query failures and exception handlers return fixed generic errors, preserving HTTP 500 and actual server-side error logging. They no longer expose database/exception messages or missing-configuration details to the client. Existing authentication, verified-user ownership filters, legitimate history, deletion, and PATCH behavior are unchanged.
 
 `scripts/test-evaluator-result-authority.cjs` adds eight adversarial cases: GET/DELETE x returned query error, thrown query error, thrown auth error, and missing service configuration. Each checks the generic response, unchanged synthetic records/no mutation, and retained server logging. The pre-fix negative run failed **8/8 as expected**; after the fix the complete authority suite passed **74/74**. All prior assertions remain.
 
-The two code/test paths above and this QA/checklist document are the only release-specific changes beyond the frozen stack. No new schema, dependencies, deployment config, privilege grants, provider behavior or unrelated cleanup.
+The history code/test paths above and this QA/checklist document were the only initial release-specific changes beyond the frozen stack. The approved security continuation adds exactly the five paths below. No new schema, deployment config, privilege grants, provider behavior or unrelated cleanup.
+
+## Final scoped security integration and evidence
+
+Starting published release commit: `67c98dc5823c1024c9248850bfac65255ce9b2ae`. Exact conflict-free `git cherry-pick -x` integrations:
+
+| Reviewed input | Release commit | Exact additional paths |
+| --- | --- | --- |
+| #68 `44127522a3e4a0dcd7fc1295d01dcd6d30de9c05` | `9f34e88694f8810f986dc2a191f09e472686ad64` | `src/lib/net/publicHttpFetch.ts`; `src/app/api/link-preview/route.ts`; `scripts/test-link-preview-security.cjs` |
+| #66 `280dbf2db2bf05ac4cb2ae8a11d1cb3068a1f614` | `7c0262c87887f5ea80e010ca2bdbd436f8ea0baf` | `package.json`; `package-lock.json` |
+
+Each of the five resulting Git blobs equals its reviewed input blob, not merely an equivalent rewrite. Both commits retain their source SHA trailer. This existing QA document is the only further changed path. The source candidate is `7c0262c87887f5ea80e010ca2bdbd436f8ea0baf`; its subsequent evidence-only commit is identified by the publication handoff/PR head. No original PR branch was modified.
+
+Stable patch IDs also match: #68/source and release both `1e904a94a2528de88e1dbe27d08d6585171949a6`; #66/source and release both `14ac494bfb8d6537d9afe294b54312330371f46e`. The final ancestry/blob audit preserved all seven original heads, all 18 main-changed blobs and 54/56 frozen-stack blobs; the only two stack exceptions remain the already published history correction and its tests. #65 is not an ancestor. Final evidence checksums and exact command outcomes are indexed in ignored `scratch/security-final-evidence.json`.
+
+The release-only ignored `node_modules` junction now references the existing `security-next-sentry-oct2026/node_modules` cache read-only. All 673 installed lock entries match reviewed version/resolved/integrity fields; 143 absent entries are optional. Next and eslint-config-next are **16.4.3**, Sentry **10.75.3**, sharp **0.35.5**, TypeScript **5.9.3**. No package installation or install script ran, no target cache/other worktree was changed, and lock sources remain official npm/bundled optional entries with no new install-script flags.
+
+These are fresh results after both cherry-picks. Successful checks were restored from actual command/evidence files after the usage interruption and were not needlessly rerun. The earlier results below remain dated pre-security evidence.
+
+| Final check | Result |
+| --- | --- |
+| Complete combined Node run, 17 files | **1,246/1,246 passed**, zero failed/skipped/cancelled, one sequential run with loopback permission and external network denial. Resolves the earlier sandbox-only PDF failure in a single combined run. Includes admission, authority, reliability, Challenge, PPT, admin, retention, email and main-compatibility suites plus #68. |
+| #68 standalone security suite | **22/22 passed**, zero skips, including actual local TCP/TLS, trusted certificate/SNI, mismatch and untrusted certificate rejection, proxy avoidance, mixed DNS/rebinding/redirect/private ranges, 120 KiB wire/decoded caps, decompression bombs, stalled/trickling streams and CPU cases. Benign metadata schema/fallback assertions pass. |
+| TypeScript | Pre-build and post-build **passed, zero diagnostics**; post-build uses `--incremental false --pretty false`. |
+| Newly changed source/test lint | Three files, **0 errors / 0 warnings**. |
+| Same-tool application/main lint comparison | Candidate **252 errors / 98 warnings**, 349 source files; main **314 / 108**, 343 files. **Zero introduced fingerprints**; no rules suppressed. Full lint still exits 1 due inherited debt. |
+| Next 16.4.3 production build | **Passed**; **44/44 HTML checks**, 39 anonymous synthetic reads, zero writes/external data. Offline fonts and synthetic configuration only. |
+| Existing evaluator browser | Passed at **390px and 1440px**, including Idea/PPT/Challenge, historical leaderboard filters, stale identity and uncertain responses. No invented assertion total. |
+| Supplemental actual LinkPreviewCard browser | **8/8 states passed** at 390px/1440px: received/own cards, fallback and denied preview, preserved links/images/text/layout. Eight synthetic GET fixtures, zero external requests/provider operations/page errors. |
+| Existing login/return-path/UI regressions | **315/315 passed**, zero failed/skipped. Synthetic OAuth/session adapters; no hosted sign-in or real account. |
+| Existing core-query smoke | **8/8 passed**, ten synthetic read-only loopback requests. Not real RLS or authenticated core-page integration evidence. |
+| Built Next HTTP | **5/5 passed**: three consistent scoreless generation-closed 503s and two sanitized history errors, no service key or enabled generation. |
+| M1/SQL | Unchanged LF checksum above; **7 offline checks passed**, including **3 negative controls**, PG17.7 grammar; eight catalog SELECTs parsed only. No PostgreSQL server, SQL execution or database contact. |
+| Local test network guard | **7/7 passed**: external/direct and non-loopback custom lookup results denied, including forged localhost lookup; only actual loopback accepted. This is a test-process guard, not OS isolation. |
+
+Commands and inline fixture programs, environment-key names, exit codes and raw output are in ignored `scratch/security-*.command.json` and `.log`. Combined command is the 16-file command below with `scripts/test-link-preview-security.cjs` appended, `--test-concurrency=1`, and the actual argument array preserved (default reporter for this run). Auth command: `node --test --test-concurrency=1 scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs`. Other fresh commands use the existing build/browser/smoke/SQL scripts listed below. Scoped lint uses ESLint `lintFiles` on the three #68 paths; baseline comparison uses the same updated ESLint configuration and main source blobs in memory.
+
+Browser evidence: `scratch/security-browser/results.json` and PNGs; `scratch/security-link-browser/results.json` and eight PNGs. Build artifacts/logs: `scratch/security-build-artifacts/public-metadata`. Core/runtime evidence: `scratch/security-core-smoke-evidence.json`, `scratch/security-next-http-evidence.json`. Lint details: `scratch/security-app-lint-details.json`. All remain excluded from Git.
+
+Environmental/harness issues during verification: an initial wrapper syntax error occurred before tests and was corrected; the first security run passed 21 and skipped TLS because OpenSSL was outside PATH, then the existing Git OpenSSL enabled the complete 22/22 run. The supplemental browser initially failed before mounting (`process is not defined` from unadapted Next Link through the design-system barrel); the standard existing-harness Next Link adapter resolved it without application changes. Diagnostic log remains `security-link-preview-browser-diagnostic.log`. No security assertion was removed or relaxed. Test sockets using synthetic public hostnames are accepted only after their test-only lookup resolves to actual loopback; non-loopback results remain denied. Existing Sentry instrumentation/middleware conventions and Edge-runtime warnings remain unsuppressed.
+
+### Final security disposition and residual risks
+
+- **Closed source blockers:** #68 validates every DNS answer, rejects mixed/private/special ranges, pins socket lookup, validates every redirect, preserves TLS/SNI verification, disables connection pooling/proxy inheritance and credential forwarding, and bounds time, wire/decoded bytes and parsing work. The route remains public by design. No confirmed bypass was found in this scoped review; offline cases are not a universal internet/deployed-network proof.
+- **Operational abuse warning:** no application authentication/rate or concurrency limiter protects this route; many permitted public requests can still consume DNS/CPU/connection budget. An aborted DNS promise cannot cancel the underlying OS lookup. Actual ingress/egress/concurrency protections require separate operational verification/acceptance. Preview image/favicon URLs are browser-fetched HTTP(S), not passed through the server DNS guard; privacy/local-network requests and third-party favicon fetching remain outside #68's server-fetch guarantee. No broad universal SSRF claim is made, including for the separate PPT downloader.
+- **Dependency disposition:** Next 16.4.3 and Sentry 10.75.3 exceed the fixed versions of the four reviewed advisories cited below. The original sharp workaround was already present; this does not mean every old advisory was exploitable. Residual lock entries remain DOMPurify 3.4.16 via jsPDF 4.2.1, zod 4.4.3 (dev/lint), and fast-uri 3.1.8 (Ajv/tooling). Their advisories are not fixed by this scoped update: [DOMPurify shadow/template mode](https://github.com/cure53/DOMPurify/security/advisories/GHSA-cg2g-xh64-v4q7), [Zod collection DoS](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), [fast-uri host confusion](https://github.com/fastify/fast-uri/security/advisories/GHSA-wjr9-j795-jxcr). Source search found no direct app import of these three, no jsPDF `.html()` call, and no required DOM template/shadow configuration. Thus affected versions are confirmed, application exploitability is not established; treat them as inherited dependency warnings requiring explicit release disposition, not a clean dependency audit. No new npm audit or dependency upgrade is implied.
+- **Secrets/auth/authority:** scoped high-confidence secret-pattern scan passed; no environment file is tracked or included, and none was read. No changed client credential path, service-role fallback, auth bypass or stored-provenance authority was introduced. The exact literal generation check still protects all three POSTs/direct engines before work; existing protected banned-user/owner/member guards and result persistence/read-back tests pass. Historical metadata still cannot establish verified provenance. An inherited `NEXT_PUBLIC_GEMINI_API_KEY` fallback exists only in the server upload-moderation module's current caller chain; no configured value/exposure was inspected or asserted. Never populate public-prefixed secrets; actual secret/config isolation remains a separately approved metadata-only release check. Scoped scanning is not a full historical secret audit.
+- **Highest remaining production gates:** existing direct result grants/old deployments are not closed by new source; real PG17/PostgREST enforcement, ledger/atomicity/recovery evidence and approved M1 execution remain missing. Retention can activate independently on deployment, without enabling generation; current backlog, erasure and deletion acceptance remain unverified. Dormant sharing-modal claims, inherited lint debt, incomplete Sentry initialization and provider/ingress/runtime acceptance remain documented limitations. No new source correction beyond the approved exact patches was required.
 
 ## Verification and environment boundary
 
-Existing cached packages are referenced through this worktree's ignored `node_modules` junction; manifests/lock are unchanged. No packages, browser, server or database software were installed. No Docker, new Supabase project, database backup, database service, live provider, external application endpoint or production/shared-staging data operation was used.
+The initial run used the old cached packages; the final security run uses the compatible cache and exact reviewed manifests/lock documented above. No packages, browser, server or database software were installed. No Docker, new Supabase project, database backup, database service, live provider, external application endpoint or production/shared-staging data operation was used.
 
 Test processes use an allowlisted environment with no inherited provider/database credentials and no `.env` files. A preload denies external fetch/TCP/TLS/DNS/UDP; reviewed synthetic fixtures may use isolated loopback. Logs, fixture data, temporary profiles and generated build artifacts stay local and are excluded from the release index. These guards are not an OS firewall or proof against malicious native code. Enabled evaluator tests use synthetic adapters; the real process remains default closed.
 
 Exact commands, environment-key names, exit status and raw outputs are stored in local `scratch/release-*.command.json` and `.log`. Counts below are updated only from commands actually run; earlier R1/R2/R3 evidence is separately dated and is not relabelled as release-candidate acceptance. No mocked/source check is real database integration evidence.
 
-### Fresh candidate results
+### Initial pre-security candidate results — historical evidence
 
 | Verification | Observed result |
 | --- | --- |
@@ -79,7 +126,9 @@ Source compatibility review repeated the result-table caller/embedded-join scan 
 
 Fresh publication control-plane checks: Vercel Preview branch tracking disabled, no custom environment mapping, Production matcher main; Supabase organization has no repository/project connections or Vercel integration; Render's five services map to other repositories and no Blueprint instances exist. Existing repository workflows are manual-only and no active local Git hook was found. No configuration/permission was changed and no production data was read. Recheck remote main/head and duplicate PR state immediately before the normal release-branch push.
 
-## Adjacent security PR disposition
+## Pre-integration adjacent security review — exclusion findings superseded
+
+The following records why integration was required. Both exact patches are now incorporated and their fresh acceptance evidence is above; references below to exclusion or subsequent approval describe the previous checkpoint, not the current candidate.
 
 Two read-only code-review axes (Standards and Spec) inspected #66 and #68 independently. Neither found a confirmed implementation/spec violation; each identified two release-risk/disposition findings. Both agree the worst issue is the public route left vulnerable when #68 is excluded. Reviewers performed source/current primary-advisory inspection, not tests or live probes.
 
@@ -103,7 +152,7 @@ Primary advisory references: [Next image](https://github.com/vercel/next.js/secu
 
 Every connected check/action below requires separate founder authorization naming the exact target and allowed operation. Neither this document nor publishing its draft authorizes it. Do not inspect/copy credentials into evidence.
 
-1. **Freeze candidate and deployment boundary.** Recheck final SHA, all original heads, main, automatic deployment branch mappings, old URLs, service-role-only result writers and `EVALUATOR_GENERATION_ENABLED` exact disabled/unset state. Resolve #68 and the #66 upgrade disposition first. Preview isolation must be established before any preview is exercised; a disabled automatic-preview toggle does not isolate existing URLs.
+1. **Freeze candidate and deployment boundary.** Recheck final SHA, all original heads, main, automatic deployment branch mappings, old URLs, service-role-only result writers and `EVALUATOR_GENERATION_ENABLED` exact disabled/unset state. #68/#66 source integration is complete; record the residual dependency/abuse disposition above. Preview isolation must be established before any preview is exercised; a disabled automatic-preview toggle does not isolate existing URLs.
 2. **Production version/schema/catalog preflight.** Under separately approved read-only access, verify PostgreSQL major/version; base result tables, columns, defaults/FKs/indexes and timestamp trigger; exact owner/RLS/force-RLS/view invoker definition; role membership/BYPASSRLS; effective table and every-column privileges; all policies and indirect function/view/rule paths. Use the proposed `mission05-authority-catalog-readonly.sql` metadata queries only after approval, supplemented with narrowly reviewed missing metadata checks. They have not been DB-executed here.
 3. **Ledger and runner.** Verify pinned Supabase CLI 2.122.0 provenance, actual source/executor/ledger module, current migration ledger including known live-only/different-version entries and that M1 version 20261024030634 is not already applied. Never infer applied bytes from a ledger row. Do not rewrite or backfill history automatically. Existing PostgreSQL 18 tooling is not PG17 acceptance evidence.
 4. **M1 execution rehearsal/approval.** Actual PG17 transaction/ledger atomicity, assertion rollback, lock contention, cancellation and timeout evidence remains blocked. Top-level statement_timeout is a hint, not a guaranteed 15-second file deadline; 3-second lock_timeout is per acquisition. No authored transaction boundary or transaction=false may be introduced. Obtain a permitted existing fixture/runner method; no new infrastructure, accounts or shared-staging mutation is authorized. If it cannot be provided, leave the gate blocked.
@@ -118,7 +167,7 @@ Every connected check/action below requires separate founder authorization namin
 
 ## Proposed deployment order and rollback
 
-1. Resolve adjacent security disposition; review this candidate and required operational evidence. Keep generation disabled throughout. Provider-quality and full persistence acceptance are activation gates, not evidence to invent for an initial disabled-code rollout. Actual PG17/CLI rehearsal remains required before M1 execution; a compatible disabled-code rollout still needs explicit acceptance of its interim old-URL/direct-grant exposure and independent retention activation.
+1. Review the now-integrated security patches and explicitly disposition residual dependency/abuse/lint warnings and required operational evidence. Keep generation disabled throughout. Provider-quality and full persistence acceptance are activation gates, not evidence to invent for an initial disabled-code rollout. Actual PG17/CLI rehearsal remains required before M1 execution; a compatible disabled-code rollout still needs explicit acceptance of its interim old-URL/direct-grant exposure and independent retention activation.
 2. Founder separately approves exact candidate, target, service configuration, M1 bytes/runner, ledger action, a recovery/forward-repair plan and **retention deletion activation**. No database backup/copy is created or proposed as an action under the current authorization.
 3. Deploy a compatible server-authoritative, generation-disabled build only after the cron/deletion implications are explicitly approved. Restrict/drain old deployment paths; verify the closed scoreless responses without starting generation.
 4. Apply only M1 through the separately approved rehearsed execution path after fresh drift preflight; never directory-push historical migrations. Compatible code first, permission hardening next, then approved real denial/service/history/core-page verification.
@@ -128,11 +177,12 @@ Rollback is generation closure plus a compatible server-authoritative applicatio
 
 ## Decisions at the founder checkpoint
 
-- **Draft candidate publication:** allowed only after fresh automation-safety verification; does not approve deployment.
-- **Generation-disabled code release: NO-GO**, notably #68 exclusion plus unapproved retention activation and pending database/operational evidence. #66 adoption is strongly recommended with scoped acceptance.
-- **Full evaluator activation: NO-GO**, additionally real PG17/PostgREST authority/persistence, retention/erasure, provider entitlement/quality/cost, proxy/ingress and actual runtime gates remain open.
+- **Draft candidate publication: GO** after the repeated automation-safety verification and exact staged inventory. Existing one-time scoped authorization applies; keep #71 Draft and normally push only this release branch. No production authorization follows.
+- **Generation-disabled source candidate: ready for final authorization. Actual production deployment: NO-GO currently.** The #66/#68 source blockers are closed, but real non-secret configuration/old-deployment and retention preflight and explicit acceptance/approval are pending. A disabled-only rollout can be considered before M1 only with explicit temporary direct-grant exposure acceptance; it does not establish database authority.
+- **M1 execution: NO-GO.** Exact bytes/grammar are qualified, but actual PG17 transaction/ledger/rollback/lock evidence, fresh catalog/ledger drift and exact runner/recovery approval remain missing. PostgreSQL 18 tooling or mocks cannot substitute. If no approved existing PG17 fixture is available under the no-infrastructure restriction, this gate remains blocked.
+- **Full evaluator activation: NO-GO**, additionally real PostgREST/JWT authority/persistence, retention/erasure, provider entitlement/quality/cost, proxy/ingress and actual runtime gates remain open.
 
-Shortest next step: founder reviews the consolidated candidate, approves #68/#66 integration scope as appropriate, and selects the narrowly scoped existing-target read-only catalog/operational evidence to obtain next. No production operation, infrastructure provisioning or automatic broad audit is implied.
+Minimum next founder authorization: read-only existing-target catalog/ledger and non-secret release/retention aggregate/old-deployment metadata checks, naming the target and exact queries; no row data, writes, credential disclosure, cleanup or migration. These checks require no new infrastructure. Then separately approve the exact final candidate's merge/deployment with generation unset/false, its independent scheduled-retention deletion implications and any accepted interim grant/dependency/abuse risks. M1 and real mutation/provider acceptance need their own later approvals; willingness to accept risk is not permission to execute them. No infrastructure provisioning or broad redesign is proposed.
 
 ## Exact release inventory
 
@@ -148,7 +198,7 @@ Nine unchanged stack commits (integration adds one merge commit whose parents ar
 - `d196164697ce49f1d648bde330a124c0c08e9344 fix(evaluator): default-close generation and clarify historical provenance`
 - `4cff459ce38036a04f44e98c728192cad10d038f test(evaluator): add M05-R3 offline database authority qualification`
 
-57 paths relative to current main; only the history route, authority tests and this document differ from the exact merged inputs:
+Initial 57 paths relative to current main are listed below. The final candidate has **62 paths**: these 57 plus the five exact security paths in the integration table above. Only the history route, authority tests and this document differ from the exact frozen-stack/main inputs, apart from those reviewed security patches.
 
 - `docs/plans/2026-10-23-evaluator-reliability-quality.md`
 - `docs/plans/2026-10-24-mission05-security-remediation.md`
