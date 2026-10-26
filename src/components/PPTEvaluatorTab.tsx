@@ -124,6 +124,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [currentResponse, setCurrentResponse] = useState<PPTEvaluation | null>(null);
 
   // Track Auto-Detection & Fallback States
   const [selectedTrack, setSelectedTrack] = useState<JudgingTrackId>("generic");
@@ -195,6 +196,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   }, [teamId]);
 
   const loadEvaluations = useCallback(async function loadEvaluations(epoch = generation.current) {
+    setCurrentResponse(null);
     setLoading(true);
     try {
       const {
@@ -224,7 +226,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
         if (list.length > 0) {
           setSelectedEval((prev) => (prev ? list.find((e: PPTEvaluation) => e.id === prev.id) || list[0] : list[0]));
         } else {
-          setSelectedEval(null);
+          setSelectedEval(null); setCurrentResponse(null);
         }
       } else {
         // Keep the real reason visible instead of silently showing an empty history.
@@ -249,7 +251,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       submitting.current = false;
       retryToken.current = null;
       setHasRetryToken(false);
-      setIsSubmitting(false); setCanManage(false); setEvaluations([]); setSelectedEval(null); setCompareVersionId(null);
+      setIsSubmitting(false); setCanManage(false); setEvaluations([]); setSelectedEval(null); setCurrentResponse(null); setCompareVersionId(null);
       setExternalLink(""); setPsTitle(""); setCustomRubric(""); setErrorMsg(null);
       explicitTrack.current = false; confidentTrack.current = false;
       setSelectedTrack("generic"); setUserExplicitlySelectedState(false);
@@ -277,6 +279,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
     if (!externalLink.trim()) { setErrorMsg("Please paste your Google Slides or Drive link."); return; }
     const epoch = generation.current;
     submitting.current = true;
+    setCurrentResponse(null);
     setIsSubmitting(true);
     const payload = { track_id: selectedTrack, external_link_url: externalLink.trim(), ps_title: psTitle.trim() || "Project Pitch", ps_category: psCategory,
       customRubric: selectedTrack === "specific" ? customRubric : undefined };
@@ -292,7 +295,9 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       if (!res.headers.get("content-type")?.includes("application/json")) throw Error("unconfirmed_response");
       const data = await res.json();
       if (epoch !== generation.current) return;
-      if (!res.ok || data.success !== true || data.evaluation?.status !== "completed" || data.evaluation?.team_id !== teamId || typeof data.evaluation?.id !== "string") {
+      const returnedAnalysis = data.evaluation?.ai_feedback?.analysis;
+      const currentModeValid = returnedAnalysis?.mode === "text_only" ? returnedAnalysis.pdfReceived === false : returnedAnalysis?.mode === "visual_text" && returnedAnalysis.pdfReceived === true;
+      if (!res.ok || data.success !== true || data.evaluation?.status !== "completed" || data.evaluation?.team_id !== teamId || typeof data.evaluation?.id !== "string" || data.evaluation?.ai_feedback?.usedAiFallback !== false || returnedAnalysis?.schemaVersion !== "evaluator-v1" || !currentModeValid) {
         setErrorMsg(data.code === "unauthorized" ? "Session verification failed. Reload and authenticate before submitting." : data.code === "forbidden" ? "This account is not authorized to request this review." : typeof data.error === "string" ? data.error : "No completed review was confirmed. Refresh history before retrying.");
         if (["invalid_input", "rubric_unsupported", "invalid_ai_output", "blocked_content", "provider_rejected", "unusable_text"].includes(data.code)) { retryToken.current = null; setHasRetryToken(false); }
         return;
@@ -300,7 +305,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       retryToken.current = null;
       setHasRetryToken(false);
       setEvaluations(prev => [data.evaluation, ...prev.filter(ev => ev.id !== data.evaluation.id)]);
-      setSelectedEval(data.evaluation);
+      setSelectedEval(data.evaluation); setCurrentResponse(data.evaluation);
       setExternalLink("");
     } catch (error) {
       if (epoch !== generation.current) return;
@@ -462,7 +467,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   });
   const selectedCategories = { novelty: category("scoreNovelty", baseCategories.novelty), tech: category("scoreTech", baseCategories.tech),
     uiUxOrFeasibility: category("scoreUiUx", baseCategories.uiUxOrFeasibility), impactOrTeam: category("scoreTeam", baseCategories.impactOrTeam) };
-  const analysisDisplay = getAnalysisDisplay(selectedEval?.ai_feedback);
+  const analysisDisplay = getAnalysisDisplay(selectedEval?.ai_feedback, !!selectedEval && selectedEval === currentResponse);
 
   const rubric = selectedEval && knownTrack
     ? [
@@ -690,7 +695,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               <Tape tone={selectedTrackInfo.tone} icon={selectedTrackInfo.icon}>
                 {selectedTrackInfo.label}
               </Tape>
-              <PitchAnalysisBadge feedback={selectedEval.ai_feedback} />
+              <PitchAnalysisBadge feedback={selectedEval.ai_feedback} currentResponse={selectedEval === currentResponse} />
               {!knownTrack && <p role="status" className="text-[12px] text-warn">{trackConflict ? "Conflicting rubric metadata. Category comparisons are unverified." : "Historical rubric unrecorded. Category labels and comparisons are unverified."}</p>}
             </div>
             <h3 className="mt-2 break-words text-[16px] font-semibold text-ink">{selectedEval.ps_title}</h3>
@@ -851,9 +856,9 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
 
           {/* Slide-by-slide recommendations */}
           <Panel as="section" className="min-w-0">
-            <PanelHead icon={<Lightbulb className="text-ink-3" />} title={analysisDisplay.mode === "visual_text" && selectedEval.ai_feedback?.slideFeedback?.length ? "Slide by slide" : "Topic recommendations"} />
+            <PanelHead icon={<Lightbulb className="text-ink-3" />} title={selectedEval.ai_feedback?.slideFeedback?.length ? selectedEval === currentResponse ? "Slide by slide" : "Reported slide feedback" : "Topic recommendations"} />
             <List className="px-4">
-              {analysisDisplay.mode === "visual_text" && selectedEval.ai_feedback?.slideFeedback?.length ? selectedEval.ai_feedback.slideFeedback.map((slide, index) => (
+              {selectedEval.ai_feedback?.slideFeedback?.length ? selectedEval.ai_feedback.slideFeedback.map((slide, index) => (
                 <li key={`${slide.slideNumber}-${index}`} className="flex items-start gap-3 py-3">
                   <span className="mt-px inline-flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-selected font-mono text-[12.5px] text-ink-2">{slide.slideNumber}</span>
                   <div className="min-w-0">
@@ -904,7 +909,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
                 >
                   <button
                     type="button"
-                    onClick={() => setSelectedEval(ev)}
+                    onClick={() => { setCurrentResponse(null); setSelectedEval(ev); }}
                     aria-current={isCurrentSelected ? "true" : undefined}
                     className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-hover"
                   >

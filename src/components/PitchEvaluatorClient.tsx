@@ -135,6 +135,7 @@ export default function PitchEvaluatorClient({
   const [persistenceWarning, setPersistenceWarning] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [result, setResult] = useState<ProjectEvaluationResult | null>(null);
+  const [currentResponse, setCurrentResponse] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"feedback" | "architecture" | "team">("feedback");
 
@@ -210,8 +211,9 @@ export default function PitchEvaluatorClient({
     busyRef.current = false;
     setLoading(false);
     setPersistenceWarning(null);
+    setCurrentResponse(false);
     if (item.evaluation_result) {
-      setResult(item.evaluation_result);
+      setCurrentResponse(false); setResult(item.evaluation_result);
       if (item.id) setSavedEvaluationId(item.id);
       setAttachedTeamName(null);
       setAttachError(null);
@@ -238,7 +240,7 @@ export default function PitchEvaluatorClient({
       const generation = ++generationRef.current;
       requestRef.current?.abort(); requestRef.current = null;
       tokenRef.current = null; busyRef.current = false;
-      setUser(next); setIdentityReady(true); setLoading(false); setResult(null);
+      setUser(next); setIdentityReady(true); setLoading(false); setResult(null); setCurrentResponse(false);
       setSavedEvaluationId(null); setHistory([]); setUserTeams([]); setAllHackathons([]);
       setLoadingHistory(false); setDeletingHistoryId(null); setShowHistoryDrawer(false);
       setAttachedTeamName(null); setAttachError(null); setSelectedAttachTeamId(""); setIsAttaching(false);
@@ -272,7 +274,7 @@ export default function PitchEvaluatorClient({
 
   // Auto-detect track when a hackathon is selected
   const handleHackathonSelect = (hackathonId: string) => {
-    setResult(null); setSavedEvaluationId(null); setPersistenceWarning(null);
+    setResult(null); setCurrentResponse(false); setSavedEvaluationId(null); setPersistenceWarning(null);
     setSelectedHackathonId(hackathonId);
     if (!hackathonId) {
       setAutoDetectedBadge(null);
@@ -318,8 +320,8 @@ export default function PitchEvaluatorClient({
 
   const currentProfile = TRACK_PROFILES[selectedTrack] || TRACK_PROFILES.web_dev;
   const resultProfile = result && Object.hasOwn(TRACK_PROFILES, result.trackId) ? TRACK_PROFILES[result.trackId] : null;
-  const resultMethod = result?.usedAiEngine ? result.evaluationMetadata?.mode === "text_only" ? "AI · Text only" : "Legacy AI · mode unrecorded" : "Legacy heuristic · not an AI evaluation";
-  const invalidateScorecard = () => { setResult(null); setSavedEvaluationId(null); setPersistenceWarning(null); };
+  const resultMethod = !currentResponse ? "Historical provenance unverified" : "AI · Text only";
+  const invalidateScorecard = () => { setResult(null); setCurrentResponse(false); setSavedEvaluationId(null); setPersistenceWarning(null); };
 
   // Illustrative proposal samples; their metrics are claims, not verified outcomes.
   const loadSample = () => {
@@ -351,7 +353,7 @@ export default function PitchEvaluatorClient({
     const identity = identityRef.current;
     const controller = new AbortController();
     requestRef.current = controller; busyRef.current = true;
-    setLoading(true); setErrorMsg(null); setResult(null); setSavedEvaluationId(null);
+    setLoading(true); setErrorMsg(null); setResult(null); setCurrentResponse(false); setSavedEvaluationId(null);
     setPersistenceWarning(null); setAttachedTeamName(null); setAttachError(null);
     const current = () => !controller.signal.aborted && generation === generationRef.current && identity === identityRef.current;
     try {
@@ -375,7 +377,7 @@ export default function PitchEvaluatorClient({
         typeof data.result.totalScore !== "number" || !Number.isFinite(data.result.totalScore) || data.result.totalScore < 0 || data.result.totalScore > 100) {
         setErrorMsg("The evaluation response was invalid. No scorecard was displayed. Check history before submitting again."); return;
       }
-      setResult(data.result); setSavedEvaluationId(data.savedEvaluationId || null);
+      setResult(data.result); setCurrentResponse(true); setSavedEvaluationId(data.savedEvaluationId || null);
       tokenRef.current = null;
       setPersistenceWarning(data.persistence === "unavailable" ? data.warning || "History save could not be confirmed. Check history before submitting again." : null);
       if (session) void loadHistory();
@@ -597,7 +599,7 @@ export default function PitchEvaluatorClient({
                       aria-checked={isSelected}
                       onClick={() => {
                         setSelectedTrack(trackKey);
-                        setResult(null);
+                        setResult(null); setCurrentResponse(false);
                       }}
                       disabled={loading}
                       className={cn(
@@ -752,7 +754,7 @@ export default function PitchEvaluatorClient({
 
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 <Tape tone={gradeTone(result.grade)} dot>{gradeLabel(result.grade)}</Tape>
-                {result.usedAiEngine ? (
+                {currentResponse && result.usedAiEngine ? (
                   <Tape
                     tone="ok"
                     icon={<Zap aria-hidden />}
@@ -764,13 +766,13 @@ export default function PitchEvaluatorClient({
                   <Tape
                     tone="warn"
                     icon={<Zap aria-hidden />}
-                    title="Evaluated using static pattern heuristic rules (offline / fast check mode)."
+                    title="Stored generation and processing claims are unverified."
                   >
-                    Legacy heuristic check
+                    {resultMethod}
                   </Tape>
                 )}
               </div>
-              {!result.evaluationMetadata && <p className="mt-2 text-[12.5px] text-ink-3">Historical score; the current validation contract was not recorded. Analysis mode may be unknown.</p>}
+              {!currentResponse && <p className="mt-2 text-[12.5px] text-ink-3">Historical provenance unverified. Stored scores and feedback do not prove their origin or processing mode.</p>}
               {persistenceWarning && <div className="mt-3"><ErrorNotice title={persistenceWarning} /></div>}
 
               <ul className="mt-4 divide-y divide-line border-t border-line">
@@ -818,12 +820,12 @@ export default function PitchEvaluatorClient({
           )}
 
           {/* Fallback engine notice */}
-          {result && !result.usedAiEngine && (
+          {result && !currentResponse && !result.usedAiEngine && (
             <div className="flex items-start gap-2.5 rounded-lg bg-warn-soft px-4 py-3 ring-1 ring-inset ring-warn/25" role="status">
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
               <p className="min-w-0 text-[12.5px] leading-relaxed text-ink-2">
-                <span className="font-semibold text-ink">Historical heuristic score.</span>{" "}
-                This is a stored deterministic estimate, not a validated AI evaluation. New requests do not use heuristic scores.{" "}
+                <span className="font-semibold text-ink">Reported historical heuristic score.</span>{" "}
+                Stored metadata reports a deterministic estimate; its origin and method are unverified. New requests do not use heuristic scores.{" "}
                 {result.fallbackReason === "missing_api_key" ? "Recorded reason: server AI key unavailable."
                   : result.fallbackReason === "budget_exhausted" ? "Recorded reason: budget fallback."
                   : result.fallbackReason === "forced_fallback" ? "Recorded reason: requested heuristic mode."
@@ -1109,6 +1111,7 @@ export default function PitchEvaluatorClient({
                       <Tape>{trackInfo?.badge || "Unknown historical rubric"}</Tape>
                     </span>
                     <span className="mt-1 line-clamp-2 block text-[13.5px] font-medium text-ink">{item.ps_title}</span>
+                    <span className="mt-1 block text-[12px] text-ink-3">Historical provenance unverified</span>
                     <span className="mt-1 flex min-w-0 items-center gap-2">
                       <span className="font-display text-[15px] font-semibold text-ink tabular">
                         {item.total_score}

@@ -84,6 +84,30 @@ test('Idea read/delete remains scoped to verified owner',async()=>{
   const f=setup({user:OTHER});assert.equal((await f.call(history)).body.history.length,0);
   await f.call(history,'DELETE',undefined,{},'?id='+ID);assert.equal(f.state.rows.user_pitch_evaluations.length,1);
 });
+test('generation closed preserves history, authorized attachment and delete without score changes',async()=>{
+  const f=setup();delete f.loader.env.EVALUATOR_GENERATION_ENABLED;
+  const before=normalize(f.state.rows.user_pitch_evaluations[0]);
+  assert.equal((await f.call(history)).body.history.length,1);
+  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,evaluation_result:{forged:true}})).status,200);
+  assert.deepEqual(normalize(f.state.rows.user_pitch_evaluations[0]),{...before,team_id:TEAM});
+  assert.equal((await f.call(history,'DELETE',undefined,{},'?id='+ID)).status,200);
+  assert.equal(f.state.rows.user_pitch_evaluations.length,0);
+});
+for(const scenario of ['banned','nonmember','foreign-evaluation'])test('generation closed does not relax attachment '+scenario,async()=>{
+  const f=setup();delete f.loader.env.EVALUATOR_GENERATION_ENABLED;
+  if(scenario==='banned')f.state.profile.is_banned=true;
+  if(scenario==='nonmember')f.state.owner=OTHER;
+  if(scenario==='foreign-evaluation')f.state.rows.user_pitch_evaluations[0].user_id=OTHER;
+  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM})).status,403);assert.equal(f.state.writes.length,0);
+});
+test('generation closed preserves authorized PPT and Challenge read/delete routes',async()=>{
+  const f=setup();f.loader.env.EVALUATOR_GENERATION_ENABLED='false';
+  const ppt='src/app/api/teams/[id]/ppt-evaluations/route.ts',challenge='src/app/api/challenges/[slug]/submissions/[id]/route.ts';
+  assert.equal((await f.call(ppt,'GET',undefined,{id:TEAM})).body.evaluations.length,1);
+  assert.equal((await f.call(challenge,'GET',undefined,{slug:'fixture',id:ID})).body.submission.total_score,80);
+  assert.equal((await f.call(ppt,'DELETE',undefined,{id:TEAM},'?evalId='+ID)).status,200);
+  assert.equal((await f.call(challenge,'DELETE',undefined,{slug:'fixture',id:ID})).status,200);
+});
 test('PPT service read and authorized delete remain functional',async()=>{
   const f=setup(),route='src/app/api/teams/[id]/ppt-evaluations/route.ts';
   assert.equal((await f.call(route,'GET',undefined,{id:TEAM})).body.evaluations.length,1);

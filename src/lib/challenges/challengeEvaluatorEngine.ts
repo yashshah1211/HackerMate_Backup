@@ -1,3 +1,4 @@
+import { assertGenerationEnabled, evaluationRevision } from "@/lib/evaluator/generationAdmission";
 import { callGeminiText, extractJsonFromResponse } from "@/lib/ai/geminiClient";
 import { EvaluationFailure, assertExecution, anchoredList, boundedString, feedbackItemSchema, object, score, type EvaluationExecution } from "@/lib/evaluator/evaluationContract";
 import type { AnalysisMetadata } from "@/lib/ppt/analysisMetadata";
@@ -18,6 +19,7 @@ export async function runChallengePitchEvaluation(
   challengeTitle: string, challengeTrack: string, problemStatementText: string, slideText: string,
   metadata?: ChallengeMetadata, execution?: EvaluationExecution,
 ): Promise<ChallengeEvaluationResult> {
+  assertGenerationEnabled();
   const context = execution || { deadlineAt: Date.now() + 30_000, attempts: 0 };
   assertExecution(context, 500);
   if (!slideText.replace(/\[Slide\s*\d+\]/gi, "").trim()) throw new EvaluationFailure("unusable_text");
@@ -81,7 +83,7 @@ UNTRUSTED SUBMISSION TEXT:\n${slideText}\nEND TEXT`;
     grade: computeChallengeGrade(totalScore), strengths: evidence.strengths.map(e => e.text), growthAreas: evidence.growthAreas.map(e => e.text),
     formatViolations: violations.map(e => e.text), slideFeedback, scoreDeductions, topActionItem: evidence.topActionItem[0].text,
     usedAiFallback: false, modelUsed: response.modelUsed, modelVersion: response.modelVersion, latencyMs: response.latencyMs,
-    analysis: { mode: "text_only", pdfReceived: false, source: "extracted_text", schemaVersion: "evaluator-v1", rubricVersion: "challenge-v1", requestId: context.requestId,
+    analysis: { mode: "text_only", pdfReceived: false, source: "extracted_text", revision: evaluationRevision("challenge"), schemaVersion: "evaluator-v1", rubricVersion: "challenge-v1", requestId: context.requestId,
       categoryCaps: Object.fromEntries(rubric.map(([key, , , cap]) => [key, cap])), categoryLabels: Object.fromEntries(rubric.map(([key, , label]) => [key, label])),
       attempts: context.attempts, providerAttempts: context.trace, modelUsed: response.modelUsed, modelVersion: response.modelVersion, evidence },
   };
@@ -95,6 +97,7 @@ export function generateChallengeHeuristicEvaluation(
   slideText: string = "",
   metadata?: ChallengeMetadata
 ): ChallengeEvaluationResult {
+  assertGenerationEnabled();
   const lowerText = slideText.toLowerCase();
   const words = slideText.trim().split(/\s+/).filter(Boolean);
   const wordCount = words.length;

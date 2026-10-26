@@ -183,7 +183,12 @@ test('legacy feedback never receives a visual label; all three modes render accu
     [{ analysis: { mode: 'visual_text', pdfReceived: true } }, 'VISUAL + TEXT'],
     [{ analysis: { mode: 'visual_text', pdfReceived: false } }, 'MODE UNRECORDED'],
     [{ analysis: { mode: 'text_only', pdfReceived: false } }, 'TEXT ONLY'],
-  ]) assert(renderToStaticMarkup(React.createElement(Badge, { feedback })).includes(label));
+  ]) {
+    assert(renderToStaticMarkup(React.createElement(Badge, { feedback, currentResponse: true })).includes(label));
+    const historical = renderToStaticMarkup(React.createElement(Badge, { feedback }));
+    assert(historical.includes('Historical provenance unverified'));
+    assert(!historical.includes('VISUAL + TEXT'));
+  }
 });
 
 function renderEvaluation(feedback, track = 'generic', previousFeedback) {
@@ -202,7 +207,7 @@ function renderEvaluation(feedback, track = 'generic', previousFeedback) {
 test('real evaluator UI renders physical slide evidence and correct General/custom categories', () => {
   const feedback = { analysis: { mode: 'visual_text', pdfReceived: true }, slideFeedback, scoreDeductions: { team: 'Presentation pacing deduction.' } };
   const general = renderEvaluation(feedback);
-  assert.match(general, /VISUAL \+ TEXT/); assert.match(general, /Slide 2: Prototype mockup/);
+  assert.match(general, /Historical provenance unverified/); assert.doesNotMatch(general, /VISUAL \+ TEXT/); assert.match(general, /Slide 2: Prototype mockup/);
   assert.match(general, /does not establish a running implementation/); assert.match(general, /General Hackathon/);
   assert.match(general, /Impact &amp; Viability/); assert.match(general, /Presentation Quality/);
   assert.match(general, /24\/25/); assert.doesNotMatch(general, /24\/15/);
@@ -212,7 +217,7 @@ test('real evaluator UI renders physical slide evidence and correct General/cust
 
 test('real evaluator UI retains legacy feedback, red flags and versions without claiming vision', () => {
   const html = renderEvaluation({ spocRedFlags: ['Legacy risk preserved'], slideRecommendations: { technicalApproach: 'Legacy architecture guidance preserved' }, scoreDeductions: { novelty: 'Legacy score explanation' } }, 'web_dev');
-  assert.match(html, /MODE UNRECORDED/); assert.doesNotMatch(html, /VISUAL \+ TEXT/);
+  assert.match(html, /Historical provenance unverified/); assert.doesNotMatch(html, /VISUAL \+ TEXT/);
   assert.match(html, /Legacy risk preserved/); assert.match(html, /Legacy architecture guidance preserved/);
   assert.match(html, /Legacy score explanation/); assert.match(html, /Versions/); assert.match(html, /v3/);
 });

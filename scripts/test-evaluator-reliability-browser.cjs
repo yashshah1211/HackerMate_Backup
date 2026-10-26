@@ -32,7 +32,7 @@ const adapters = {
       from(table){const q={select(){return this},eq(){return this},order(){return this},abortSignal(){return this},maybeSingle(){if(table==='teams')return Promise.resolve({data:{id:'00000000-0000-4000-8000-000000000004',owner_id:params.has('visitor')?'other':actor?.id,team_hackathons:[],team_members:[]},error:null});throw Error('Unexpected single fixture table')},then(resolve,reject){if(!['team_members','hackathons'].includes(table))throw Error('Unexpected fixture table');return Promise.resolve({data:[],error:null}).then(resolve,reject)}};return q;}};`,
 };
 async function bundle() {
-  const output = await build({ stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import Pitch from'@/components/PitchEvaluatorClient';import PPT from'@/components/PPTEvaluatorTab';import Challenge from'@/app/challenges/[slug]/page';import Result from'@/app/challenges/[slug]/submissions/[submissionId]/page';const view=location.pathname.includes('qa/ppt')?<PPT teamId="00000000-0000-4000-8000-000000000004"/>:location.pathname.includes('qa/challenge-result')?<Result/>:location.pathname.includes('qa/challenge')?<Challenge/>:<Pitch initialTrack="generic"/>;createRoot(document.getElementById('root')).render(<React.StrictMode>{view}</React.StrictMode>);`, loader: 'tsx', resolveDir: ROOT }, bundle: true, write: false, platform: 'browser', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"test"' },
+  const output = await build({ stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import Pitch from'@/components/PitchEvaluatorClient';import PPT from'@/components/PPTEvaluatorTab';import Challenge from'@/app/challenges/[slug]/page';import Result from'@/app/challenges/[slug]/submissions/[submissionId]/page';import ChallengesHub from'@/app/challenges/page';const view=location.pathname==='/challenges'?<ChallengesHub/>:location.pathname.includes('qa/ppt')?<PPT teamId="00000000-0000-4000-8000-000000000004"/>:location.pathname.includes('qa/challenge-result')?<Result/>:location.pathname.includes('qa/challenge')?<Challenge/>:<Pitch initialTrack="generic"/>;createRoot(document.getElementById('root')).render(<React.StrictMode>{view}</React.StrictMode>);`, loader: 'tsx', resolveDir: ROOT }, bundle: true, write: false, platform: 'browser', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"test"' },
     plugins: [{ name: 'offline-evaluator', setup(builder) {
       builder.onResolve({ filter: /^(@\/|next\/)/ }, args => {
         if (adapters[args.path]) return { path: args.path, namespace: 'fixture' };
@@ -64,7 +64,7 @@ async function bundle() {
       await context.route('**/*', async route => {
         const request = route.request(), url = new URL(request.url());
         if (url.origin !== origin) { external.push(url.origin); return route.abort(); }
-        if (url.pathname === '/api/evaluator/history') return route.fulfill({ json: { success: true, history: showLegacy ? [{ id: 'legacy-fixture', ps_title: 'Legacy proposal', created_at: '2026-10-01', track_id: legacyTrack || undefined, total_score: 42, grade: legacy.grade, evaluation_result: { ...legacy, usedAiEngine: legacyAI, trackId: legacyTrack || undefined } }] : [] } });
+        if (url.pathname === '/api/evaluator/history') return route.fulfill({ json: { success: true, history: showLegacy ? [{ id: 'legacy-fixture', ps_title: 'Legacy proposal', created_at: '2026-10-01', track_id: legacyTrack || undefined, total_score: 42, grade: legacy.grade, evaluation_result: { ...legacy, usedAiEngine: legacyAI, evaluationMetadata: legacyAI ? {...result.evaluationMetadata,requestId:'forged-server-id',revision:{source:'verified-server'}} : undefined, trackId: legacyTrack || undefined } }] : [] } });
         if (url.pathname === '/api/evaluator/evaluate') {
           posts.push({ headers: request.headers(), body: request.postDataJSON() });
           if (mode === 'lost') return route.abort();
@@ -94,12 +94,12 @@ async function bundle() {
       await expect(page.locator('button[type=submit]')).toBeEnabled(); await expect(page.getByText('Account A private proposal', { exact: true })).toHaveCount(0); await expect(page.getByRole('button', { name: 'Copy summary' })).toHaveCount(0);
       mode = 'success'; await fill('Account B proposal'); await submit(); await expect(page.getByRole('heading', { name: 'Account B proposal', exact: true })).toBeVisible(); assert.equal(posts.at(-1).headers.authorization, `Bearer offline-token-${USER_B}`);
       showLegacy = true; await page.goto(origin + '/tools/pitch-evaluator'); await expect(page.locator('button[type=submit]')).toBeEnabled();
-      await page.getByRole('button', { name: /History/ }).click(); await page.getByText('Legacy proposal', { exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0); await expect(page.getByText('Legacy heuristic check', { exact: true })).toBeVisible(); await expect(page.getByText(/Historical score;/)).toBeVisible();
+      await page.getByRole('button', { name: /History/ }).click(); await page.getByText('Legacy proposal', { exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0); await expect(page.getByText('Historical provenance unverified', { exact: true })).toBeVisible(); await expect(page.getByText(/Stored scores and feedback do not prove/)).toBeVisible();
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       if (width === 1440) await page.screenshot({ path: path.join(evidence, 'legacy-mode-1440.png'), fullPage: true });
       legacyTrack = null; legacyAI = true; await page.goto(origin + '/tools/pitch-evaluator'); await expect(page.locator('button[type=submit]')).toBeEnabled();
       await page.getByRole('button', { name: /History/ }).click(); await expect(page.getByText('Unknown historical rubric', { exact: true })).toBeVisible(); await page.getByText('Legacy proposal', { exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
-      await expect(page.getByText('Historical rubric unknown', { exact: true })).toBeVisible(); await expect(page.getByText('Legacy AI · mode unrecorded', { exact: true })).toBeVisible();
+      await expect(page.getByText('Historical rubric unknown', { exact: true })).toBeVisible(); await expect(page.getByText('Historical provenance unverified', { exact: true })).toBeVisible(); await expect(page.getByText('AI · Text only', { exact: true })).toHaveCount(0);
       await page.goto(origin + '/tools/pitch-evaluator?initial-auth-reject=1'); await expect(page.locator('button[type=submit]')).toBeEnabled();
       await page.evaluate(id => { window.__qa.switchUser(id); window.__qa.failInitial(); }, USER_B); await expect(page.getByRole('alert').last()).toHaveCount(0); await expect(page.locator('button[type=submit]')).toBeEnabled();
       showLegacy = false; await page.goto(origin + '/tools/pitch-evaluator?engine=heuristic'); await expect(page.locator('button[type=submit]')).toBeEnabled(); await fill(); const before = posts.length;
@@ -145,6 +145,16 @@ async function bundle() {
       apiMode=width===1440?'visual_text':'text_only';await page.getByRole('button',{name:'Run review',exact:true}).click();await expect(page.getByText(width===1440?'VISUAL + TEXT':'TEXT ONLY',{exact:true})).toBeVisible();
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:path.join(evidence,width===1440?'team-visual-1440.png':'team-text-390.png'),fullPage:true});
       if(width===390)await expect(page.getByText('Slide 1:',{exact:false})).toHaveCount(0);
+      await page.getByRole('button',{name:/v1.*Offline deck review/}).click();
+      await expect(page.getByText('Historical provenance unverified',{exact:true})).toBeVisible();
+      history=[pitchRecord(width===1440?'visual_text':'text_only')];
+      await page.getByRole('button',{name:/Refresh history/}).click();
+      await expect(page.getByText('Historical provenance unverified',{exact:true})).toBeVisible();
+      await expect(page.getByText('VISUAL + TEXT',{exact:true})).toHaveCount(0);
+      await expect(page.getByText('TEXT ONLY',{exact:true})).toHaveCount(0);
+      await page.reload();await expect(page.getByText('Historical provenance unverified',{exact:true})).toBeVisible();
+      if(width===1440)await expect(page.getByRole('heading',{name:'Reported slide feedback',exact:true})).toBeVisible();
+
       history=[{...pitchRecord(),status:'evaluating',updated_at:new Date(Date.now()-200000).toISOString()}];await openPPT();await expect(page.getByText(/Processing is interrupted or unconfirmed/)).toBeVisible();await expect(page.getByText('/100',{exact:true})).toHaveCount(0);history=[];
       apiMode='deferred';await fillPPT();await page.getByRole('button',{name:'Run review',exact:true}).click();await expect.poll(()=>started).toBe(true);await expect(page.getByLabel('Google Slides or Drive link')).toBeDisabled();await page.evaluate(id=>window.__qa.switchUser(id),USER_B);release();await expect(page.getByLabel('Problem statement or idea')).toHaveValue('');await expect(page.getByText('Offline deck review',{exact:true})).toHaveCount(0);
       await page.goto(origin+'/qa/ppt?visitor=1');await expect(page.getByRole('button',{name:'Retry access check',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Refresh history',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Run review',exact:true})).toHaveCount(0);
@@ -160,16 +170,66 @@ async function bundle() {
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));if(width===390)await page.screenshot({path:path.join(evidence,'challenge-failure-390.png'),fullPage:true});
       apiMode='lost';await submit();await expect(page.getByRole('alert').last()).toContainText('could not be confirmed');const challengeToken=posts.at(-1).headers['idempotency-key'];apiMode='cooldown';await submit();await expect(page.getByRole('alert').last()).toContainText('No score was generated');assert.equal(posts.at(-1).headers['idempotency-key'],challengeToken);
       apiMode='deferred';started=false;await submit();await expect.poll(()=>started).toBe(true);await expect(link).toHaveCount(0);await expect(page.getByRole('heading',{name:'Scoring your deck'})).toBeVisible();await page.evaluate(id=>window.__qa.switchUser(id),USER_B);release();await expect(link).toHaveValue('');await expect(page.getByText('Text-only AI evaluation',{exact:true})).toHaveCount(0);
-      await page.goto(origin+'/qa/challenge-result');await expect(page.getByText('TEXT ONLY',{exact:true})).toBeVisible();await expect(page.getByText(/^20\s*\/100$/)).toBeVisible();await expect(page.getByText('No strengths recorded.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Topic feedback',exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'Share',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Share',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('no independent verification');await expect(page.getByText('Verified by Multi-Model AI Jury')).toHaveCount(0);await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
+      await page.goto(origin+'/qa/challenge-result');await expect(page.getByText('Historical provenance unverified',{exact:true})).toBeVisible();await expect(page.getByText('TEXT ONLY',{exact:true})).toHaveCount(0);await expect(page.getByText(/^20\s*\/100$/)).toBeVisible();await expect(page.getByText('No strengths recorded.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Topic feedback',exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'Share',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Share',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('Historical provenance unverified');await expect(page.getByRole('dialog')).not.toContainText('TEXT ONLY');await expect(page.getByText('Verified by Multi-Model AI Jury')).toHaveCount(0);await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));if(width===1440)await page.screenshot({path:path.join(evidence,'challenge-text-1440.png'),fullPage:true});
-      resultRecord={...challengeRecord,used_ai_fallback:true};await page.goto(origin+'/qa/challenge-result');await expect(page.getByText('LEGACY HEURISTIC',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Share',exact:true})).toBeDisabled();resultRecord={...challengeRecord,ai_raw_feedback:{}};await page.goto(origin+'/qa/challenge-result');await expect(page.getByText('MODE UNRECORDED',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Share',exact:true})).toBeDisabled();resultRecord=challengeRecord;
+      resultRecord={...challengeRecord,used_ai_fallback:true};await page.goto(origin+'/qa/challenge-result');await expect(page.getByText('Historical provenance unverified',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Share',exact:true})).toBeDisabled();resultRecord={...challengeRecord,ai_raw_feedback:{}};await page.goto(origin+'/qa/challenge-result');await expect(page.getByText('Historical provenance unverified',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Share',exact:true})).toBeDisabled();resultRecord=challengeRecord;
       await page.evaluate(id=>window.__qa.switchUser(id),USER_B);await expect(page.getByText("Couldn't load this evaluation",{exact:true})).toBeVisible();
       assert(posts.every(post=>post.headers.authorization.startsWith('Bearer offline-token-')&&post.headers['idempotency-key']));assert.deepEqual(errors,[]);
       presentationChecks.push({width,passed:['no score or celebration on failure','draft preserved','uncertain network and cooldown retain token','confirmed PPT visual/text mode','stale processing honestly labelled without score','pending form disabled','account switch discards old response and draft','visitor cannot submit team review','Challenge text-only disclosure and local score20','legacy/unknown results labelled and not shared as verified','qualified share text without multi-model verification claim','no overflow'],liveWrites:0});await context.close();
     }
 
+    const leaderboardChecks=[];
+    const leaderboardEntries=['solo','team'].map((submissionMode,index)=>({id:'synthetic-'+submissionMode,rank:index+1,participantName:'Synthetic '+submissionMode,submissionMode,challengeNumber:1,challengeTitle:'Synthetic leaderboard deck',challengeSlug:'fixture-challenge',totalScore:index?79:83,grade:index?'Promising':'Strong',scores:{problem:index?20:21,solution:20,architecture:index?23:26,feasibility:16},createdAt:'2099-01-01',serverVerified:true,currentResponse:true,usedAiEngine:true,analysis:{mode:'visual_text',pdfReceived:true,schemaVersion:'evaluator-v1',rubricVersion:'challenge-v1',requestId:'forged-server-id',revision:{source:'verified-server'}}}));
+    const originalLeaderboard=JSON.stringify(leaderboardEntries);
+    for(const width of [390,1440]) {
+      const context=await browser.newContext({viewport:{width,height:width===390?844:1000},reducedMotion:'reduce'});
+      const requests=[],errors=[];let empty=false;
+      await context.route('**/*',async route=>{
+        const request=route.request(),url=new URL(request.url());
+        if(url.origin!==origin){external.push(url.origin);return route.abort()}
+        if(url.pathname.startsWith('/api/')) {
+          requests.push({method:request.method(),path:url.pathname,mode:url.searchParams.get('mode')});
+          if(request.method()==='GET'&&url.pathname==='/api/challenges')return route.fulfill({json:{challenges:[challengeFixture]}});
+          if(request.method()==='GET'&&url.pathname==='/api/challenges/leaderboard')return route.fulfill({json:{leaderboard:empty?[]:leaderboardEntries.filter(entry=>url.searchParams.get('mode')==='all'||entry.submissionMode===url.searchParams.get('mode'))}});
+          throw Error('Unexpected leaderboard operation: '+request.method()+' '+url.pathname);
+        }
+        return route.continue();
+      });
+      const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+      await page.goto(origin+'/challenges');
+      const section=page.locator('section').filter({has:page.getByRole('heading',{name:'Top decks this week',exact:true})});
+      const filter=section.getByRole('tablist',{name:'Submission type'});
+      for(const [mode,label] of [['all','All'],['solo','Solo'],['team','Teams'],['all','All']]) {
+        await filter.getByRole('tab',{name:label,exact:true}).click();
+        const expected=leaderboardEntries.filter(entry=>mode==='all'||entry.submissionMode===mode),rows=section.locator('ol > li');
+        await expect(rows).toHaveCount(expected.length);
+        for(const [index,entry] of expected.entries()) {
+          const row=rows.nth(index),disclosure=row.getByText('Historical provenance unverified',{exact:true});
+          await expect(disclosure).toBeVisible();await expect(row.getByText(entry.participantName,{exact:true})).toBeVisible();
+          await expect(row.getByText('#'+(index+1),{exact:true})).toBeVisible();
+          await expect(row.getByText(entry.grade,{exact:true})).toBeVisible();await expect(row).toContainText(String(entry.totalScore));
+          const architecture=row.getByText('Arch '+entry.scores.architecture+'/30',{exact:true});
+          await expect(architecture).toHaveCount(1);await expect(row.getByText('Problem '+entry.scores.problem+'/25',{exact:true})).toHaveCount(1);
+          if(width===1440)await expect(architecture).toBeVisible();else await expect(architecture).toBeHidden();
+          assert(await disclosure.evaluate(element=>{const bounds=element.getBoundingClientRect();return bounds.width>0&&bounds.left>=0&&bounds.right<=innerWidth&&element.scrollWidth<=element.clientWidth}));
+        }
+        await expect(section.getByText(/Verified by|Scored by AI|VISUAL \+ TEXT/)).toHaveCount(0);
+      }
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      await section.screenshot({path:path.join(evidence,'leaderboard-provenance-'+width+'.png')});
+      empty=true;await filter.getByRole('tab',{name:'Solo',exact:true}).click();await expect(section.getByText('No ranked decks yet',{exact:true})).toBeVisible();
+      await expect(section.locator('ol > li')).toHaveCount(0);
+      assert(requests.every(request=>request.method==='GET'&&['/api/challenges','/api/challenges/leaderboard'].includes(request.path)));
+      for(const mode of ['all','solo','team'])assert(requests.some(request=>request.path==='/api/challenges/leaderboard'&&request.mode===mode));
+      assert.equal(JSON.stringify(leaderboardEntries),originalLeaderboard);assert.deepEqual(errors,[]);
+      leaderboardChecks.push({width,filterStates:4,passed:['real /challenges consumer','solo and team disclosures','filters preserve disclosures','forged metadata ignored','scores grades categories ranking preserved','empty state preserved','no overflow or clipped disclosure','read-only requests and unchanged scores'],generationOrProviderOperations:0});
+      await context.close();
+    }
+
     assert.deepEqual(external, []);
     const file = path.join(evidence, 'results.json'), record = existsSync(file) ? JSON.parse(await fs.readFile(file, 'utf8')) : {validation:{}};
+    record.validation.r2Provenance = {status:'passed',viewports:[390,1440],checks:['forged Idea AI metadata remains historical','PPT fresh mode preserved','same-record history selection clears PPT trust','history refresh and reload clear PPT trust','persisted Challenge unverified with score retained','historical share text qualifies provenance','account switches discard stale responses'],externalRequests:0};
+    record.validation.r2LeaderboardProvenance={status:'passed',checks:leaderboardChecks,externalRequests:0,limitations:'Actual /challenges page, leaderboard and CSS with synthetic API responses; no production database/provider evidence.'};
     record.validation.challengeCorrectnessBrowser = {status:'passed',cases:8,failed:0,viewports:[390,1440],checks:['404 is not-found','503 is unavailable, not not-found','wrong identity rejected','malformed success rejected']};
     record.validation.presentationBrowser = {status:'passed',checks:presentationChecks,externalRequests:0,liveDatabaseWrites:0,limitations:'Actual PPT/Challenge components and CSS with synthetic Auth/DB/API adapters. No live Auth/RLS/provider validation.'};
     record.validation.ideaBrowser = { status: 'passed', checks, externalRequests: 0, liveDatabaseWrites: 0, limitations: 'Actual Idea component/CSS with synthetic Auth/read/API adapters; no live Auth/RLS/provider or production evidence. Presentation browser results are recorded separately.' };

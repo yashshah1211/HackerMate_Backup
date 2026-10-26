@@ -1,3 +1,4 @@
+import type { EvaluationRevision } from "./evaluationProvenance";
 export type JudgingTrackId = "web_dev" | "ai_genai" | "generic" | "specific";
 
 export interface TrackScoreCategories {
@@ -76,6 +77,7 @@ export interface ProjectEvaluationResult {
   fallbackReason?: "missing_api_key" | "budget_exhausted" | "gemini_api_error" | "forced_fallback" | null;
   fallbackDetails?: string | null;
   evaluationMetadata?: {
+    revision?: EvaluationRevision;
     schemaVersion: "evaluator-v1";
     rubricVersion: "idea-v1";
     mode: "text_only";

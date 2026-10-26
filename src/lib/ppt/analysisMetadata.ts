@@ -1,5 +1,6 @@
 /** Safe to import in client components. PDF bytes never belong in persisted feedback. */
 import { TRACK_PROFILES, type JudgingTrackId } from "../evaluator/evaluatorTypes";
+import { HISTORICAL_PROVENANCE_LABEL, HISTORICAL_PROVENANCE_DESCRIPTION, type EvaluationRevision } from "../evaluator/evaluationProvenance";
 
 export function getPitchCategories(track: JudgingTrackId) {
   const categories = TRACK_PROFILES[track]?.categories || TRACK_PROFILES.generic.categories;
@@ -25,6 +26,7 @@ export const PRESENTATION_LIMITS = {
 
 export type AnalysisMode = "visual_text" | "text_only" | "heuristic_fallback" | "unknown";
 export interface AnalysisMetadata {
+  revision?: EvaluationRevision;
   mode: AnalysisMode;
   pdfReceived: boolean;
   pageCount?: number;
@@ -51,7 +53,8 @@ export interface SlideFeedback {
 }
 
 /** Missing historical metadata is unknown. Never infer a visual or text-only review. */
-export function getAnalysisDisplay(feedback?: { analysis?: AnalysisMetadata; usedAiFallback?: boolean }) {
+export function getAnalysisDisplay(feedback?: { analysis?: AnalysisMetadata; usedAiFallback?: boolean }, currentResponse = false) {
+  if (!currentResponse) return { mode: "unknown", label: HISTORICAL_PROVENANCE_LABEL, description: HISTORICAL_PROVENANCE_DESCRIPTION } as const;
   const mode = feedback?.usedAiFallback ? "heuristic_fallback" : feedback?.analysis?.mode || "unknown";
   if (mode === "visual_text" && feedback?.analysis?.pdfReceived === true) {
     return { mode: "visual_text", label: "VISUAL + TEXT", description: "The AI was supplied the actual PDF, including visual content. Its feedback is not independent verification of the project." } as const;

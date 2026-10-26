@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { closedGenerationResponse } from "@/lib/evaluator/generationAdmission";
 import { extractChallengeTextFromPDF, extractChallengePresentationFromUrl } from "@/lib/challenges/challengeExtractor";
 import { runChallengePitchEvaluation } from "@/lib/challenges/challengeEvaluatorEngine";
 import { validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
@@ -18,6 +19,8 @@ type ChallengeRecord = { id: string; slug: string; title: string; track: string;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const started = Date.now(), requestId = randomUUID();
+  const closed = closedGenerationResponse(requestId);
+  if (closed) return closed;
   const execution: EvaluationExecution = { deadlineAt: started + 50_000, signal: AbortSignal.any([req.signal, AbortSignal.timeout(50_000)]), requestId, attempts: 0 };
   const preflight = { ...execution, deadlineAt: started + 5_000 };
   let submissionId: string | undefined;

@@ -3,6 +3,7 @@ import { TRACK_PROFILES, type JudgingTrackId, type TrackProfile } from "./evalua
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const FAILURES = {
+  generation_closed: [503, false, "Evaluator generation is currently unavailable. No evaluation was started. History remains available."],
   invalid_input: [400, false, "Check the submission fields and limits, then submit again."],
   upload_too_large: [413, false, CHALLENGE_UPLOAD_ERROR],
   unsupported_mode: [400, false, "Heuristic scoring is retired for new evaluations. Please use AI evaluation."],

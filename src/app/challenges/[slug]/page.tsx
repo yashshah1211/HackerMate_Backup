@@ -958,6 +958,7 @@ export default function ChallengeDetailPage() {
                           <span className="text-[12px] font-normal text-ink-3">/100</span>
                         </p>
                         <p className="mt-1 font-mono text-[12px] text-ink-3">{sub.grade}</p>
+                        <p className="mt-1 text-[12px] text-ink-3">Historical provenance unverified</p>
                       </div>
                       <ArrowRight className="size-3.5 shrink-0 text-ink-4 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" aria-hidden />
                     </Link>

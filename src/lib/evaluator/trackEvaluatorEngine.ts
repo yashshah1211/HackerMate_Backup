@@ -2,6 +2,7 @@ import {
   type EvaluationInput, type ProjectEvaluationResult, TRACK_PROFILES,
   type JudgingTrackId, type RecommendedRoleGap,
 } from "./evaluatorTypes";
+import { assertGenerationEnabled, evaluationRevision } from "@/lib/evaluator/generationAdmission";
 import { callGeminiText } from "@/lib/ai/geminiClient";
 import { EvaluationFailure, object, boundedString, score, stringList, groundedList, rubricFor, type EvaluationExecution } from "./evaluationContract";
 
@@ -12,6 +13,7 @@ const FEEDBACK_SCHEMA = { type: "array", maxItems: 6, items: { type: "object", r
 
 /** New evaluation success requires validated AI output. Legacy heuristic helpers below are never a fallback. */
 export async function runTrackAwareEvaluation(input: EvaluationInput, allowGeminiAi = true, execution?: EvaluationExecution): Promise<ProjectEvaluationResult> {
+  assertGenerationEnabled();
   if (!allowGeminiAi) throw new EvaluationFailure("unsupported_mode");
   const context: EvaluationExecution = execution || { deadlineAt: Date.now() + 30_000, attempts: 0 };
   const profile = rubricFor(input.trackId, input.customRubric);
@@ -67,7 +69,7 @@ SUBMISSION DATA (JSON string): ${JSON.stringify(source)}`, {
     strengths: strengths.map(item => item.text), redFlags: redFlags.map(item => item.text), architectureSuggestions: suggestions.map(item => item.text), recommendedRoles: roles,
     usedAiEngine: true, evaluationTimestamp: new Date().toISOString(), modelUsed: response.modelUsed, modelVersion: response.modelVersion, latencyMs: response.totalCascadeTimeMs ?? response.latencyMs,
     fallbackReason: null, fallbackDetails: null,
-    evaluationMetadata: { schemaVersion: "evaluator-v1", rubricVersion: "idea-v1", mode: "text_only", trackId: input.trackId, attempts: context.attempts, providerAttempts: context.trace || [],
+    evaluationMetadata: { revision: evaluationRevision("idea"), schemaVersion: "evaluator-v1", rubricVersion: "idea-v1", mode: "text_only", trackId: input.trackId, attempts: context.attempts, providerAttempts: context.trace || [],
       evidence: { ...categoryEvidence, strengths, redFlags, architectureSuggestions: suggestions, recommendedRoles: roles.map(role => ({ text: role.reason, quote: role.quote })) } },
   };
 }
@@ -78,6 +80,7 @@ SUBMISSION DATA (JSON string): ${JSON.stringify(source)}`, {
  * Guarantees: Strong (>75) > Weak (35-55) > Sparse (<30).
  */
 export function generateTrackHeuristicEvaluation(input: EvaluationInput): Omit<ProjectEvaluationResult, "usedAiEngine" | "evaluationTimestamp"> {
+  assertGenerationEnabled();
   const inputTrackId = input.trackId || "generic";
   const isKnownTrack = Object.keys(TRACK_PROFILES).includes(inputTrackId);
   const trackId = isKnownTrack ? inputTrackId : "generic";

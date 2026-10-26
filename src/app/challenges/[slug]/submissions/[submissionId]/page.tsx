@@ -225,7 +225,8 @@ export default function SubmissionResultPage() {
     { label: "Feasibility & roadmap", score: submission.score_feasibility_impact, max: 20 },
   ];
   const analysis = getAnalysisDisplay({ analysis: submission.ai_raw_feedback?.analysis, usedAiFallback: submission.used_ai_fallback });
-  const shareEligible = submission.status === "completed" && !submission.used_ai_fallback && submission.ai_raw_feedback?.analysis?.rubricVersion === "challenge-v1" && analysis.mode === "text_only";
+  // This only preserves the existing share control; copied text never authenticates stored metadata.
+  const shareEligible = submission.status === "completed" && !submission.used_ai_fallback && submission.ai_raw_feedback?.analysis?.rubricVersion === "challenge-v1" && submission.ai_raw_feedback.analysis.mode === "text_only";
 
   return (
     <Page>
@@ -401,15 +402,15 @@ export default function SubmissionResultPage() {
         </div>
       </div>
 
-      {shareEligible && <Dialog open={showShareModal} onClose={() => setShowShareModal(false)} title="Share text-only result" description="AI feedback on supplied text; no independent verification or visual inspection.">
+      {shareEligible && <Dialog open={showShareModal} onClose={() => setShowShareModal(false)} title="Share historical result" description="Historical provenance unverified. Stored metadata does not establish generation or processing mode.">
         <div className="space-y-3">
-          <p className="text-[14px] text-ink">{submission.total_score}/100 · {submission.grade} · TEXT ONLY</p>
+          <p className="text-[14px] text-ink">{submission.total_score}/100 · {submission.grade} · Historical provenance unverified</p>
           <Button onClick={async () => {
             try {
-              await navigator.clipboard.writeText(`HackerMate Challenge: ${submission.total_score}/100 (${submission.grade}). Text-only AI feedback on supplied claims; visuals and implementation not independently verified. ${window.location.href}`);
+              await navigator.clipboard.writeText(`HackerMate Challenge: ${submission.total_score}/100 (${submission.grade}). Historical provenance unverified; stored generation and processing claims are unverified. ${window.location.href}`);
               showToast("Qualified result copied.", "success");
             } catch { showToast("Could not copy. Please copy the page link manually.", "error"); }
-          }}>Copy result and analysis mode</Button>
+          }}>Copy historical result</Button>
         </div>
       </Dialog>}    </Page>
   );

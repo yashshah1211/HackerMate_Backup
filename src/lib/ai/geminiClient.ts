@@ -6,6 +6,7 @@
  * The separate image moderation cascade retains its existing behavior.
  */
 
+import { assertGenerationEnabled } from "../evaluator/generationAdmission";
 import { PRESENTATION_LIMITS, type DocumentFailure } from "../ppt/analysisMetadata";
 import { EvaluationFailure, assertExecution, object, withinDeadline, type EvaluationExecution } from "../evaluator/evaluationContract";
 
@@ -65,6 +66,7 @@ export function extractJsonFromResponse(rawText: string): string {
 
 /** Text evaluation: pinned primary/secondary, at most two network attempts per execution. */
 export async function callGeminiText(prompt: string, options: GeminiCallOptions = {}): Promise<GeminiCallResult> {
+  assertGenerationEnabled();
   return callEvaluatorContent(prompt, options);
 }
 
@@ -273,6 +275,7 @@ export class DocumentAnalysisError extends Error {
 
 /** One pinned native-PDF attempt; the caller may spend only the remaining shared attempt on eligible text degradation. */
 export async function callGeminiDocument(prompt: string, pdfBuffer: Buffer, options: GeminiCallOptions = {}): Promise<GeminiCallResult> {
+  assertGenerationEnabled();
   if (!pdfBuffer.length || pdfBuffer.length > PRESENTATION_LIMITS.pdfBytes || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
     throw new EvaluationFailure("invalid_input");
   }

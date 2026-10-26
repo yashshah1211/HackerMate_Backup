@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { closedGenerationResponse } from "@/lib/evaluator/generationAdmission";
 import { isIP } from "node:net";
 import { reserveEvaluation } from "@/lib/evaluator/evaluatorBudgetGuard";
 import { runTrackAwareEvaluation } from "@/lib/evaluator/trackEvaluatorEngine";
@@ -43,6 +44,8 @@ function inputFrom(body: Record<string, unknown>): EvaluationInput {
 
 export async function POST(req: NextRequest) {
   const started = Date.now(), requestId = randomUUID();
+  const closed = closedGenerationResponse(requestId);
+  if (closed) return closed;
   const signal = AbortSignal.any([req.signal, AbortSignal.timeout(55_000)]);
   const execution: EvaluationExecution = { deadlineAt: started + 50_000, signal, attempts: 0, requestId };
   const preflight = { ...execution, deadlineAt: started + 5_000 };

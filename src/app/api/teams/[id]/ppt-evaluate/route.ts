@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { closedGenerationResponse } from "@/lib/evaluator/generationAdmission";
 import { extractPresentationFromUrl, validatePresentationUrl } from "@/lib/ppt/presentationExtractor";
 import { runPitchDeckEvaluation } from "@/lib/ppt/evaluatorEngine";
 import { TRACK_PROFILES, type JudgingTrackId } from "@/lib/evaluator/evaluatorTypes";
@@ -14,6 +15,8 @@ const COLUMNS = "id, team_id, submitted_by, ps_title, ps_category, submission_ty
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const started = Date.now(), requestId = randomUUID();
+  const closed = closedGenerationResponse(requestId);
+  if (closed) return closed;
   const execution: EvaluationExecution = { deadlineAt: started + 50_000, signal: AbortSignal.any([req.signal, AbortSignal.timeout(50_000)]), requestId, attempts: 0 };
   const preflight = { ...execution, deadlineAt: started + 5_000 };
   let admin: SupabaseClient | undefined, recordId: string | undefined, teamId: string | undefined;
