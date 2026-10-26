@@ -199,3 +199,110 @@ test('PG17 runner performs only nonexecuting write plans in a read-only rolled-b
   assert(sql.includes('relrowsecurity'));assert(sql.includes('security_invoker=true'));assert(sql.includes("polcmd NOT IN ('r','d')"));assert(sql.includes('rolbypassrls'));
   assert(sql.includes('insufficient_privilege'));assert(sql.includes('ON CONFLICT'));assert(sql.includes('team_ppt_evaluations_public'));assert(sql.includes('has_column_privilege'));
 });
+
+// R3: source contracts only. None of these tests execute SQL or emulate PostgreSQL
+// ACL/RLS decisions. Each negative control alters only an in-memory string.
+const m1Contracts = {
+  owner: /IF current_user <> 'postgres' AND NOT \(SELECT rolsuper FROM pg_roles WHERE rolname = current_user\) THEN/,
+  inheritance: /FROM pg_auth_members WHERE member IN\s*\('anon'::regrole, 'authenticated'::regrole, 'service_role'::regrole\)/,
+  rls: /relkind <> 'r' OR NOT relrowsecurity OR pg_get_userbyid\(relowner\) <> 'postgres'/,
+  invoker: /'security_invoker=true' = ANY\(coalesce\(reloptions, ARRAY\[\]::text\[\]\)\)/,
+  grantor: /a\.grantor <> c\.relowner/,
+  columnDrift: /g\.privilege_type IN \('INSERT', 'UPDATE'\) AND NOT[\s\S]*?g\.grantee = 'authenticated'::regrole[\s\S]*?NOT g\.is_grantable/,
+  policyDrift: /p\.polcmd NOT IN \('r', 'd'\) AND NOT \(/,
+  dependencies: /p\.prosrc ~ '\(challenge_submissions\|team_ppt_evaluations\|user_pitch_evaluations\)'/,
+  tableDenial: /IF has_table_privilege\(client_role, relation\.oid, 'INSERT'\) OR has_table_privilege\(client_role, relation\.oid, 'UPDATE'\) THEN/,
+  allColumns: /FOR column_row IN SELECT attnum FROM pg_attribute WHERE attrelid = relation\.oid AND attnum > 0 AND NOT attisdropped LOOP/,
+  columnDenial: /IF has_column_privilege\(client_role, relation\.oid, column_row\.attnum, 'INSERT'\) OR\s*has_column_privilege\(client_role, relation\.oid, column_row\.attnum, 'UPDATE'\) THEN/,
+  destructiveDenial: /has_table_privilege\(client_role, relation\.oid, 'TRUNCATE'\) OR\s*has_table_privilege\(client_role, relation\.oid, 'TRIGGER'\)/,
+  service: /IF NOT has_table_privilege\('service_role', relation\.oid, 'SELECT'\) OR\s*NOT has_table_privilege\('service_role', relation\.oid, 'INSERT'\) OR\s*NOT has_table_privilege\('service_role', relation\.oid, 'UPDATE'\) OR\s*NOT has_table_privilege\('service_role', relation\.oid, 'DELETE'\) THEN/,
+  serviceBypass: /IF NOT \(SELECT rolbypassrls FROM pg_roles WHERE rolname = 'service_role'\) OR/,
+  preservedPolicies: /IF current_snapshot IS DISTINCT FROM preserved_policies THEN/,
+  preservedAccessView: /IF current_snapshot IS DISTINCT FROM preserved_access OR pg_get_viewdef\(public_view, true\) IS DISTINCT FROM preserved_view THEN/,
+};
+function assertM1Source(sql) {
+  const code = sql.replace(/--[^\n]*/g, '');
+  for(const [name,pattern] of Object.entries(m1Contracts))assert.match(code,pattern,name);
+  assert(!/EXCEPTION\s+WHEN/i.test(code),'No suppressed migration assertion');
+  assert.equal((code.match(/RAISE EXCEPTION 'Mission05:/g)||[]).length,15);
+  assert.match(code,/FOREACH client_role IN ARRAY ARRAY\['anon', 'authenticated'\] LOOP/);
+  assert.match(code,/FOR relation IN SELECT oid FROM pg_class WHERE oid = ANY\(targets\) OR oid = public_view LOOP/);
+}
+test('R3 full M1 artifact matches frozen LF checksum',()=>assert.equal(createHash('sha256').update(migration.replace(/\r\n/g,'\n')).digest('hex'),'35336ee3c43dddb513dc92ce235c17b4ee3d6811eff18eade9b7b7a0c86ff5a3'));
+test('R3 source verified: M1 effective privilege assertions cover base/view, both clients and live columns',()=>assertM1Source(migration));
+for(const [name,pattern] of Object.entries(m1Contracts))test('R3 negative source control detects removal of '+name,()=>{
+  const altered = migration.replace(pattern,'FALSE /* in-memory negative control */');
+  assert.notEqual(altered,migration);assert.throws(()=>assertM1Source(altered));
+});
+test('R3 negative source control rejects a swallowed assertion',()=>{
+  const altered=migration.replace(/END;\r?\n\$migration\$;/,"EXCEPTION WHEN OTHERS THEN NULL;\nEND;\n$migration$;");
+  assert.notEqual(altered,migration);assert.throws(()=>assertM1Source(altered));
+});
+
+// Definitions for later approval only. Dynamic pg_attribute enumeration is
+// essential: a hardcoded column list would miss future/unknown granted columns.
+// EXPLAIN (without ANALYZE) checks planning, never actual persistence or row RLS.
+function clientDenialDefinitions(role,table) {
+  assert(['anon','authenticated'].includes(role));
+  assert(['challenge_submissions','team_ppt_evaluations','user_pitch_evaluations','team_ppt_evaluations_public'].includes(table));
+  const jsonColumn=table==='challenge_submissions'?'ai_raw_feedback':table==='user_pitch_evaluations'?'evaluation_result':'ai_feedback';
+  const spoof=JSON.stringify({serverVerified:true,usedAiEngine:true,analysis:{mode:'visual_text',pdfReceived:true,requestId:ID,revision:{source:'verified-server'}}}).replaceAll("'","''");
+  const statements=[
+    `INSERT INTO public.${table} DEFAULT VALUES`,
+    `INSERT INTO public.${table}(id,total_score,grade,${jsonColumn}) VALUES ('${ID}',100,'forged','${spoof}'::jsonb)`,
+    `INSERT INTO public.${table}(id) VALUES ('${ID}') ON CONFLICT(id) DO UPDATE SET total_score=100`,
+    `UPDATE public.${table} SET total_score=100,grade='forged',${jsonColumn}='${spoof}'::jsonb WHERE false`,
+    `UPDATE public.${table} SET team_id='${TEAM}' WHERE false`,
+  ];
+  if(table!=='team_ppt_evaluations_public')statements.push(`TRUNCATE public.${table}`);
+  const perColumn=`SELECT a.attname, a.attnum,
+    has_column_privilege('${role}',a.attrelid,a.attnum,'INSERT') AS can_insert,
+    has_column_privilege('${role}',a.attrelid,a.attnum,'UPDATE') AS can_update,
+    format('EXPLAIN INSERT INTO public.${table} (%I) VALUES (NULL)',a.attname) AS insert_plan,
+    format('EXPLAIN UPDATE public.${table} SET %I=%I WHERE false',a.attname,a.attname) AS update_plan
+    FROM pg_attribute a WHERE a.attrelid='public.${table}'::regclass AND a.attnum>0 AND NOT a.attisdropped`;
+  return {role,table,expectedSqlstate:'42501',databaseExecuted:false,
+    status:'SQL case defined but not executed',statements,perColumn,
+    // Future runner must establish real role/JWT context; membership/admin claims
+    // must not bypass ACL. Any error other than permission denial is a failure.
+    actorContexts:['anonymous','owner','member','outsider','admin','banned'],
+    limitations:['Plan-only INSERT/UPDATE are not persistence or row-visibility proof',
+      'TRUNCATE requires separately approved rolled-back fixture execution',
+      'View upsert/updatability must be resolved on actual catalog; unsupported view operation is not a denial pass']};
+}
+for(const role of ['anon','authenticated'])for(const table of ['challenge_submissions','team_ppt_evaluations','user_pitch_evaluations','team_ppt_evaluations_public'])test('R3 SQL case definition only: '+role+' '+table,()=>{
+  const cases=clientDenialDefinitions(role,table);
+  assert.equal(cases.databaseExecuted,false);assert.equal(cases.expectedSqlstate,'42501');
+  assert.match(cases.perColumn,/attnum>0 AND NOT a.attisdropped/);assert.match(cases.perColumn,/has_column_privilege/);
+  assert.match(cases.perColumn,/EXPLAIN INSERT/);assert.match(cases.perColumn,/EXPLAIN UPDATE/);
+  assert(cases.statements.some(sql=>sql.includes('ON CONFLICT')));assert(cases.statements.some(sql=>sql.includes('team_id=')));
+  assert(cases.statements.some(sql=>sql.includes('serverVerified')&&sql.includes('pdfReceived')));
+  assert(!cases.statements.some(sql=>/EXPLAIN ANALYZE/.test(sql)));
+});
+test('R3 denial definitions reject unsafe identifiers instead of interpolating them',()=>{
+  assert.throws(()=>clientDenialDefinitions('postgres','challenge_submissions'));assert.throws(()=>clientDenialDefinitions('anon','challenge_submissions; SELECT 1'));
+});
+for(const method of ['GET','DELETE','PATCH'])test('R3 mocked history rejects missing/invalid identity for '+method,async()=>{
+  for(const options of [{user:null},{authError:{status:401}}]){
+    const f=setup(options),result=await f.call(history,method,method==='PATCH'?{evaluationId:ID,teamId:TEAM}:undefined,{},method==='DELETE'?'?id='+ID:'');
+    assert.equal(result.status,401);assert.equal(f.state.writes.length,0);
+  }
+});
+test('R3 mocked admin cannot attach to an unrelated destination team',async()=>{
+  const f=setup({owner:OTHER,profile:{id:USER,is_banned:false,role:'admin'}});
+  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM})).status,403);assert.equal(f.state.writes.length,0);
+});
+for(const role of ['user','admin'])test('R3 mocked banned '+role+' cannot attach forged score/provenance',async()=>{
+  const f=setup({profile:{id:USER,is_banned:true,role}}),before=normalize(f.state.rows);
+  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,total_score:100,serverVerified:true})).status,403);
+  assert.deepEqual(normalize(f.state.rows),before);assert.equal(f.state.writes.length,0);
+});
+test('R3 mocked confirmed attachment preserves forged persisted JSON without certifying it',async()=>{
+  const f=setup(),row=f.state.rows.user_pitch_evaluations[0];
+  row.evaluation_result={serverVerified:true,usedAiEngine:true,evaluationMetadata:{requestId:ID,revision:{source:'verified-server'}}};
+  const before=normalize(row);const result=await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,evaluation_result:{serverVerified:true},total_score:100});
+  assert.equal(result.status,200);assert.deepEqual(normalize(row),{...before,team_id:TEAM});
+  assert.deepEqual(normalize(f.state.writes[0].payload),{team_id:TEAM});
+  const display=harness().load('src/lib/ppt/analysisMetadata.ts').getAnalysisDisplay(row.evaluation_result);
+  assert.equal(display.label,'Historical provenance unverified');
+});
