@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import PitchAnalysisBadge from "@/components/PitchAnalysisBadge";
-import { getAnalysisDisplay, getPitchCategories, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
+import { findEarlierMatchingPdf, getAnalysisDisplay, getPitchCategories, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
 import { supabase } from "@/lib/supabase";
 import LinkedIdeaScorecard, { LinkedEvaluationRecord } from "@/components/LinkedIdeaScorecard";
 import PresentationErrorAlert from "@/components/ui/PresentationErrorAlert";
@@ -468,6 +468,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
   const selectedCategories = { novelty: category("scoreNovelty", baseCategories.novelty), tech: category("scoreTech", baseCategories.tech),
     uiUxOrFeasibility: category("scoreUiUx", baseCategories.uiUxOrFeasibility), impactOrTeam: category("scoreTeam", baseCategories.impactOrTeam) };
   const analysisDisplay = getAnalysisDisplay(selectedEval?.ai_feedback, !!selectedEval && selectedEval === currentResponse);
+  const matchingPdf = selectedEval ? findEarlierMatchingPdf(selectedEval, evaluations) : undefined;
 
   const rubric = selectedEval && knownTrack
     ? [
@@ -568,7 +569,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       />}
 
       {canManage && <Panel as="section" className="min-w-0">
-        <PanelHead icon={<Presentation className="text-ink-3" />} title="Review a new version" />
+        <PanelHead icon={<Presentation className="text-ink-3" />} title="Request another review" />
 
         <form onSubmit={handleEvaluate} className="space-y-4 p-4">
           <fieldset disabled={isSubmitting} className="space-y-4 min-w-0">
@@ -704,6 +705,15 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
               {new Date(selectedEval.created_at).toLocaleDateString()} at {new Date(selectedEval.created_at).toLocaleTimeString()} ·{" "}
               <span className="font-mono text-[12px]">{selectedEval.file_name}</span>
             </p>
+            {stored && (
+              <div className="mt-2 space-y-1 text-[12px] text-ink-3">
+                {stored.pdfSha256 && /^[a-f0-9]{64}$/.test(stored.pdfSha256)
+                  ? <p className="break-all font-mono">Recorded PDF SHA-256: {stored.pdfSha256}</p>
+                  : <p>PDF fingerprint not recorded.</p>}
+                <p>Recorded source: {stored.source || "unknown"} · Pages: {stored.pageCount ?? "unknown"} · Model: {stored.modelUsed || "unknown"}</p>
+                {matchingPdf && <p role="status" className="text-ink-2">Recorded PDF matches evaluation v{matchingPdf.version}. This is a separate evaluation of the same document; scores may vary.</p>}
+              </div>
+            )}
           </div>
 
           {/* PERSISTENT LOUD WARNING ON SCORECARD (If evaluated under fallback) */}
@@ -723,7 +733,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
             <Panel className="p-4">
               <p className="caps-label text-ink-3">
-                Deck v{selectedEval.version} · {selectedTrackInfo.short}
+                Evaluation v{selectedEval.version} · {selectedTrackInfo.short}
               </p>
               <p className="mt-2 font-display text-[40px] font-semibold leading-none tracking-[-0.03em] text-ink tabular">
                 {selectedEval.total_score}
@@ -891,7 +901,7 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
       {/* Version history */}
       {evaluations.length > 0 && (
         <Panel as="section" className="min-w-0">
-          <PanelHead title="Versions" meta={evaluations.length} />
+          <PanelHead title="Evaluation Versions" meta={evaluations.length} />
           <List>
             {evaluations.map((ev) => {
               const isCurrentSelected = selectedEval?.id === ev.id;

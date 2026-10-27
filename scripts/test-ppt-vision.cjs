@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { EventEmitter } = require('node:events');
+const { createHash } = require('node:crypto');
 const { Readable } = require('node:stream');
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
@@ -121,6 +122,7 @@ for (const track of ['generic', 'specific', 'web_dev', 'ai_genai']) {
     assert.equal(part.inlineData.mimeType, 'application/pdf'); assert(Buffer.from(part.inlineData.data, 'base64').equals(pdf));
     const prompt = calls[0].body.contents[0].parts[1].text;
     assert.match(prompt, /Mockups are not proof/); assert.match(prompt, /physical page order/);
+    assert.match(prompt, /self-reported performance, adoption and impact as claims, not independently verified results/);
     if (track === 'specific') assert(prompt.includes(customRubric));
     assert.equal(result.slideFeedback[0].slideNumber, 1); assert.match(result.slideFeedback[0].recommendation, /Label/);
     assert.match(result.slideFeedback[1].observation, /does not establish/);
@@ -140,6 +142,20 @@ for (const status of [400, 401, 402, 403, 404, 429]) {
 test('invalid visual evidence is terminal and never bypassed through text', async()=>{
  let count=0;const {load}=harness({}, {fetch:async()=>{count++;return aiResponse({...scoring(),slideFeedback:[{...slideFeedback[0],slideNumber:99}]})}});
  await assert.rejects(load(enginePath).runPitchDeckEvaluation('Fixture','software',TEXT,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'}),e=>e.code==='invalid_ai_output');assert.equal(count,1);
+});
+
+test('text fallback retains the original downloaded PDF identity without claiming visual analysis', async () => {
+  const pdf = makePitchPdf('text');
+  let calls = 0, source = '';
+  const { load } = harness({}, { fetch: async () => ++calls === 1 ? new Response('', { status: 503 }) : aiResponse(scoring('generic', 'text_only', source)) });
+  const extracted = await load(extractorPath).extractTextFromPDF(pdf, 'google_drive_pdf');
+  source = extracted.rawDocumentText;
+  const result = await load(enginePath).runPitchDeckEvaluation('Fixture', 'software', source, undefined, 'generic', undefined, extracted.pdf);
+  assert.equal(result.analysis.mode, 'text_only');
+  assert.equal(result.analysis.pdfReceived, false);
+  assert.equal(result.analysis.pdfSha256, createHash('sha256').update(pdf).digest('hex'));
+  assert.equal(result.analysis.pageCount, 3);
+  assert.equal(calls, 2);
 });
 
 test('missing PDF is TEXT ONLY, default rubric is General, and low scores are not inflated', async () => {
@@ -220,6 +236,17 @@ test('real evaluator UI retains legacy feedback, red flags and versions without 
   assert.match(html, /Historical provenance unverified/); assert.doesNotMatch(html, /VISUAL \+ TEXT/);
   assert.match(html, /Legacy risk preserved/); assert.match(html, /Legacy architecture guidance preserved/);
   assert.match(html, /Legacy score explanation/); assert.match(html, /Versions/); assert.match(html, /v3/);
+});
+
+test('repeated PDF is identified as a separate evaluation without certifying historical provenance', () => {
+  const digest = 'a'.repeat(64);
+  const analysis = { mode: 'visual_text', pdfReceived: true, pdfSha256: digest, source: 'google_drive_pdf', pageCount: 6, modelUsed: 'gemini-3.5-flash-lite' };
+  const html = renderEvaluation({ analysis }, 'generic', { analysis });
+  assert.match(html, /Recorded PDF SHA-256/);
+  assert(html.includes(digest));
+  assert.match(html, /Recorded PDF matches evaluation v2/);
+  assert.match(html, /separate evaluation of the same document; scores may vary/);
+  assert.match(html, /Historical provenance unverified/);
 });
 
 test('native PDF uses one pinned lite model with a bounded attempt',async()=>{
@@ -304,6 +331,8 @@ for(const mode of ['visual_text','text_only']) test('team route preserves '+mode
  const inserts=state.writes.filter(q=>q.operation==='insert');assert.equal(inserts.length,2);assert.equal(inserts[0].payload.track_id,'specific');assert.equal(inserts[1].payload.track_id,undefined);
  const completed=state.writes.find(q=>q.operation==='update'&&q.payload.status==='completed').payload;
  assert.equal(completed.ai_feedback.analysis.mode,mode);assert.equal(completed.ai_feedback.track_id,'specific');assert.equal(completed.ai_feedback.customRubric,customRubric);
+ if (mode === 'visual_text') assert.match(completed.ai_feedback.analysis.pdfSha256, /^[a-f0-9]{64}$/);
+ else assert.equal(completed.ai_feedback.analysis.pdfSha256, undefined);
  assert.equal(completed.ai_feedback.analysis.rubricVersion,'ppt-v1');assert(!JSON.stringify(completed).includes('base64'));assert.equal(result.body.evaluation.version,1);
 });
 

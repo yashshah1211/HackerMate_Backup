@@ -97,10 +97,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (final.error) logDatabaseFailure("complete_ppt", final.error);
     } catch (error) { logDatabaseFailure("complete_ppt", error); }
     const confirms = (value: unknown) => {
-      const row = value as (Record<string, unknown> & { ai_feedback?: { usedAiFallback?: boolean; analysis?: { requestId?: string; mode?: string } } }) | null;
+      const row = value as (Record<string, unknown> & { ai_feedback?: { usedAiFallback?: boolean; analysis?: { requestId?: string; mode?: string; pdfSha256?: string } } }) | null;
       if (!row || typeof row !== "object" || Array.isArray(row)) return false;
       return row?.id === recordId && row.team_id === teamId && row.submitted_by === userId && row.status === "completed" && row.version === initial.version &&
-        row.ai_feedback?.analysis?.requestId === requestId && row.ai_feedback.analysis.mode === result.analysis.mode && row.ai_feedback.usedAiFallback === false &&
+        row.ai_feedback?.analysis?.requestId === requestId && row.ai_feedback.analysis.mode === result.analysis.mode && row.ai_feedback.analysis.pdfSha256 === result.analysis.pdfSha256 && row.ai_feedback.usedAiFallback === false &&
         row.score_novelty === result.scoreNovelty && row.score_tech === result.scoreTech && row.score_ui_ux === result.scoreUiUx && row.score_team === result.scoreTeam && row.total_score === result.totalScore && row.grade === result.grade;
     };
     if (!final || final.error || !confirms(final.data)) {

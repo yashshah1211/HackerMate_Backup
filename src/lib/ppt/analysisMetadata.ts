@@ -31,6 +31,8 @@ export interface AnalysisMetadata {
   pdfReceived: boolean;
   pageCount?: number;
   pdfBytes?: number;
+  /** SHA-256 of the downloaded PDF, not of its URL or extracted text. */
+  pdfSha256?: string;
   source?: "google_slides_pdf" | "google_drive_pdf" | "linked_pdf" | "extracted_text";
   fallbackReason?: "pdf_unavailable" | "document_ai_failed" | "ai_unavailable" | DocumentFailure;
   modelUsed?: string;
@@ -44,6 +46,15 @@ export interface AnalysisMetadata {
   attempts?: number;
   providerAttempts?: Array<{ model: string; latencyMs: number; code: string; httpStatus?: number }>;
   evidence?: Record<string, Array<{ text: string; quote?: string; pageNumber?: number; evidence?: string }>>;
+}
+
+/** Compare only recorded PDF hashes within the same team's earlier completed evaluations. */
+export function findEarlierMatchingPdf<T extends { id: string; team_id: string; version: number; status: string; ai_feedback?: { analysis?: AnalysisMetadata } | null }>(selected: T, history: T[]): T | undefined {
+  const hash = selected.ai_feedback?.analysis?.pdfSha256;
+  if (!hash || !/^[a-f0-9]{64}$/.test(hash)) return undefined;
+  return history.filter(item => item.id !== selected.id && item.team_id === selected.team_id && item.status === "completed" &&
+    item.version < selected.version && item.ai_feedback?.analysis?.pdfSha256 === hash)
+    .sort((a, b) => b.version - a.version)[0];
 }
 export interface SlideFeedback {
   slideNumber: number;
