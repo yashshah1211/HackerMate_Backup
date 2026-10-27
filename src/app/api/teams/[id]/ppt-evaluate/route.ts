@@ -18,7 +18,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const closed = closedGenerationResponse(requestId);
   if (closed) return closed;
   const execution: EvaluationExecution = { deadlineAt: started + 50_000, signal: AbortSignal.any([req.signal, AbortSignal.timeout(50_000)]), requestId, attempts: 0 };
-  const preflight = { ...execution, deadlineAt: started + 5_000 };
+  // Keep admission bounded, but leave enough time for sequential auth, team reads and durable rate limits.
+  const preflight = { ...execution, deadlineAt: started + 18_000 };
   let admin: SupabaseClient | undefined, recordId: string | undefined, teamId: string | undefined;
   let cleanupBudget: EvaluationExecution | undefined;
   const persistenceBudget = () => cleanupBudget ??= { deadlineAt: Math.min(started + 55_000, Date.now() + 5_000), attempts: 0, requestId };
