@@ -53,6 +53,8 @@ export interface EvaluationExecution {
   requestId?: string;
   signal?: AbortSignal;
   attempts: number;
+  /** Optional bounded admission timeout; omitted for existing evaluator routes. */
+  admissionRequestTimeoutMs?: number;
   providerDeadlineAt?: number;
   trace?: Array<{ model: string; latencyMs: number; code: string; httpStatus?: number }>;
   beforeProviderAttempt?: (deadlineAt?: number) => Promise<void>;
