@@ -84,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (inserted.error || inserted.data?.id !== recordId) { logDatabaseFailure("initialize_ppt", inserted.error); throw new EvaluationFailure("persistence_uncertain"); }
     const members = team.team_members as unknown as Array<{ profiles: { skills?: string[] } | null }>;
-    const result = await runPitchDeckEvaluation(title, category, extraction.rawDocumentText, { memberCount: members?.length || 0, members: members?.map(m => ({ skills: m.profiles?.skills })) }, track, custom, extraction.pdf, Math.min(30_000, execution.deadlineAt - Date.now()), execution);
+    const result = await runPitchDeckEvaluation(title, category, extraction.rawDocumentText, { memberCount: members?.length || 0, members: members?.map(m => ({ skills: m.profiles?.skills })) }, track, custom, extraction.pdf, Math.min(36_000, execution.deadlineAt - Date.now()), execution);
     const budget = persistenceBudget();
     const payload = { status: "completed", score_novelty: result.scoreNovelty, score_tech: result.scoreTech, score_ui_ux: result.scoreUiUx, score_team: result.scoreTeam,
       total_score: result.totalScore, grade: result.grade, slide_breakdown: extraction.slides, error_message: null, updated_at: new Date().toISOString(),
