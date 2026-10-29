@@ -20,6 +20,8 @@ Local results: `node --test scripts/test-rack-it-up-2026.cjs` passed 27/27; `nod
 
 Linux browser/build results and screenshot evidence will be recorded in the Draft PR after execution. Known Windows browser/build restrictions from PR #82 are not retried. No live portal or production Supabase testing is performed. Screenshots are synthetic previews, not evidence of production configuration.
 
+Initial Linux CI at `da7b1449574b880be05155b936999052a2f6d9ac`: 8/8 network checks; partner tests 338/339; browser 19/19; production build passed (96 static pages, four synthetic reads, zero mutations); standard PR validation passed. The single failure correctly detected Git's CRLF-to-LF normalization of the supplied SVG. A directory-local `.gitattributes` rule disables text normalization for this exact SVG, preserving its original 285 bytes. The original hash assertion remains unchanged. Final CI results are recorded in the PR.
+
 ## Separate founder-approved activation
 
 After independent review, merge and deployment approval, verify all three deployed asset URLs manually. Then use the existing admin partner configuration flow to update **only** the existing `rack-it-up-2026` row's `logo_url` to:

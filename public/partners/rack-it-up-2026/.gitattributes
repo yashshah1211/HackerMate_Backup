@@ -1,0 +1,2 @@
+# Preserve the organizer's original SVG bytes, including its CRLF terminator.
+RackItUp-mark.svg -text whitespace=cr-at-eol
