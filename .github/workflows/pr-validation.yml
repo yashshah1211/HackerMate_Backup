@@ -1,8 +1,8 @@
 name: Pull Request Validation
 
 # Offline checks only: TypeScript, OAuth return paths, evaluator admission,
-# team matching, partner presentation, discovery navigation and authorization
-# with synthetic fixtures. No live DB, AI, email, browser, deployment,
+# team matching, partner presentation, discovery navigation, authorization and
+# certificate verification with synthetic fixtures. No live DB, AI, email, browser, deployment,
 # deployed SQL/RLS, or end-to-end verification is performed.
 on:
   pull_request:
@@ -43,4 +43,5 @@ jobs:
             scripts/test-squad-matching.cjs \
             scripts/test-partner-presentation.cjs \
             scripts/test-partner-discovery-navigation.cjs \
-            scripts/test-partner-authorization.cjs
+            scripts/test-partner-authorization.cjs \
+            scripts/test-certificate-verification-page.cjs

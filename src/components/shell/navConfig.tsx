@@ -70,6 +70,7 @@ export function isPartnerOrganizerRoute(pathname: string | null): boolean {
 /** Marketing / legal routes use the public header instead of the app shell. */
 export function isMarketingRoute(pathname: string | null): boolean {
   if (!pathname) return true;
+  if (isCertificateVerificationRoute(pathname)) return true;
   if (isPartnerOrganizerRoute(pathname)) return false;
   return (
     pathname === "/" ||
@@ -88,6 +89,12 @@ export function isMarketingRoute(pathname: string | null): boolean {
 /** V1 rule kept: public/marketing surfaces always render dark. */
 export function isForcedDarkRoute(pathname: string | null): boolean {
   if (!pathname) return true;
+  if (isCertificateVerificationRoute(pathname)) return true;
   const exact = ["/", "/login", "/faq", "/terms", "/privacy", "/contact", "/partners", "/onboarding", "/expo/judge"];
   return exact.includes(pathname) || pathname.startsWith("/partners/");
+}
+
+/** Certificate links are public even when a member session is present. */
+export function isCertificateVerificationRoute(pathname: string | null): boolean {
+  return Boolean(pathname && /^\/verify\/[^/]+\/?$/.test(pathname));
 }
