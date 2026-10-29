@@ -1,0 +1,42 @@
+name: Pull Request Validation
+
+# Offline checks only: TypeScript, OAuth return paths, evaluator admission,
+# and team matching with synthetic fixtures. No live DB, AI, email, browser,
+# deployment, or end-to-end verification is performed.
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  offline-validation:
+    name: TypeScript and offline regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out pull request code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact lockfile dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate TypeScript
+        run: npm run typecheck -- --incremental false --pretty false
+      - name: Run offline regression selection
+        run: |
+          node --test --test-concurrency=1 \
+            scripts/test-auth-return-paths.cjs \
+            scripts/test-evaluator-generation-admission.cjs \
+            scripts/test-squad-matching.cjs
