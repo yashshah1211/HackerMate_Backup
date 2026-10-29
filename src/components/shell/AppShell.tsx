@@ -14,7 +14,7 @@ import { ShellFrame } from "./ShellFrame";
 import { AccountSheet } from "./AccountMenu";
 import { PublicHeader } from "./PublicHeader";
 import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
-import { isBareRoute, isForcedDarkRoute, isMarketingRoute } from "./navConfig";
+import { isBareRoute, isForcedDarkRoute, isMarketingRoute, isCertificateVerificationRoute } from "./navConfig";
 
 function applyThemeClass(theme: "dark" | "light") {
   const root = document.documentElement;
@@ -52,6 +52,7 @@ function GuestHackathonShell({ children }: { children: ReactNode }) {
 /** A verified guest sees discovery chrome; members retain the full app shell. */
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";
+  if (isCertificateVerificationRoute(pathname)) return <PublicVerificationShell>{children}</PublicVerificationShell>;
   if (!isGuestDiscoverableEventRoute(pathname)) return <AuthenticatedAppShell>{children}</AuthenticatedAppShell>;
   return (
     <BrowsingBoundary>
@@ -60,6 +61,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
         : <AuthenticatedAppShell expectedUserId={access.userId}>{children}</AuthenticatedAppShell>}
     </BrowsingBoundary>
   );
+}
+
+function PublicVerificationShell({ children }: { children: ReactNode }) {
+  useEffect(() => { applyThemeClass("dark"); }, []);
+  return <>
+    <PublicHeader signedIn={false} onRequestSignOut={() => {}} />
+    <div className="dark min-h-[100dvh] bg-canvas pt-14 text-ink">{children}</div>
+  </>;
 }
 
 function AuthenticatedAppShell({ children, expectedUserId }: { children: ReactNode; expectedUserId?: string }) {
