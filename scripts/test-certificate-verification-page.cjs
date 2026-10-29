@@ -163,3 +163,35 @@ test('verification requests pass middleware without authentication', async () =>
   assert.equal(result.headers.get('x-middleware-next'), '1');
   assert(!middleware.config.matcher.some(pattern => pattern.startsWith('/verify')));
 });
+
+// Qualify the frontend against the actual merged handler, not a handwritten
+// approximation of its JSON. Only the Supabase transport is synthetic.
+for (const [id, outcome] of [['', 'invalid'], ['!!!', 'invalid'], ['missing', 'missing'], ['duplicate', 'ambiguous'],
+  ['database-error', 'unavailable'], ['HM-CERT-Legacy', 'verified'], ['42.5', 'verified'],
+  ['00000000-0000-4000-8000-000000000001', 'verified']]) {
+  test(`merged API contract projects ${JSON.stringify(id)} as ${outcome}`, async () => {
+    const queries = [];
+    const row = { id: '00000000-0000-4000-8000-000000000001', badge_name: fixture.badge_name,
+      rank_title: fixture.rank_title, issuer_name: fixture.issuer_name, issued_at: fixture.issued_at,
+      metadata: { certificate_id: id === '42.5' ? 42.5 : id },
+      profiles: { full_name: fixture.recipient_name, college: 'PRIVATE-EXTRA' }, hackathons: { name: fixture.event_name } };
+    const loader = harness({ '@supabase/supabase-js': { createClient() { return { from(table) {
+      assert.equal(table, 'user_badges');
+      return { select() { return this; }, eq(column, value) { queries.push([column, value]); return this; },
+        or(value) { queries.push(['or', value]); return this; }, async limit(count) {
+          assert.equal(count, 2);
+          return { data: id === 'missing' ? [] : id === 'duplicate' ? [row, row] : [row],
+            error: id === 'database-error' ? { message: 'Synthetic database failure' } : null };
+        } };
+    } }; } } });
+    const handler = loader.load('src/app/api/certificates/verify/[id]/route.ts').GET;
+    const response = await handler(new Request('http://offline.invalid'), { params: Promise.resolve({ id }) });
+    const result = api.certificateResponse(response.status, await response.json());
+    assert.equal(result.kind, outcome);
+    if (outcome === 'verified') {
+      assert.equal(result.certificate.id, id);
+      if (!id.startsWith('00000000')) assert.equal(queries[0][1], id);
+      assert(!JSON.stringify(result).includes('PRIVATE-EXTRA'));
+    }
+  });
+}
