@@ -17,13 +17,34 @@
   const results = [], requests = [];
   const check = async (name, fn) => { try { await fn(); results.push({ name, pass: true }); } catch (error) { results.push({ name, pass: false, error: error.message }); } };
   const official = 'https://unstop.com/hackathons/rack-it-up-2026-48-hour-online-hackathon-by-rackem-karma-enterprises-1777639';
+  // Embed only the two reviewed local images; every network request stays blocked.
+  const previewHtml = name => {
+    let html = fs.readFileSync(path.join(directory, name + '.html'), 'utf8');
+    for (const file of ['RackItUp-mark.png', 'karma-logo.png']) {
+      const asset = '/partners/rack-it-up-2026/' + file;
+      const embedded = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'public', asset)).toString('base64');
+      for (const attribute of ['src', 'href']) html = html.replaceAll(attribute + '="' + asset + '"', attribute + '="' + embedded + '"');
+    }
+    return html;
+  };
   try {
     for (const width of [390, 1440]) {
       const context = await browser.newContext({ viewport: { width, height: 900 }, serviceWorkers: 'block' });
       await context.route('**/*', route => { requests.push(route.request().url()); return route.abort('blockedbyclient'); });
       const page = await context.newPage();
       try {
-        await page.setContent(fs.readFileSync(path.join(directory, 'active.html'), 'utf8'));
+        await page.setContent(previewHtml('active'));
+        await check(width + ': official logos render without cropping or recoloring', async () => {
+          const mark = page.getByRole('img', { name: 'Rack It Up 2026 logo', exact: true });
+          const karma = page.locator('.organizerCredit img');
+          for (const [image, size] of [[mark, 1024], [karma, 400]]) {
+            await image.evaluate(el => el.decode()); assert(await image.isVisible());
+            assert.deepEqual(await image.evaluate(el => ({ width: el.naturalWidth, height: el.naturalHeight, fit: getComputedStyle(el).objectFit, filter: getComputedStyle(el).filter })), { width: size, height: size, fit: 'contain', filter: 'none' });
+            const box = await image.boundingBox(); assert.equal(box.width, box.height);
+          }
+          assert(await page.getByText('Organised by Karma Enterprises', { exact: true }).isVisible());
+          assert(await page.getByText('HackerMate is a Community Partner', { exact: true }).isVisible());
+        });
         await check(width + ': event identity', async () => assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), 'Rack It Up 2026'));
         await check(width + ': distinct correct CTAs', async () => {
           assert.equal(await page.getByRole('link', { name: 'Find teammates', exact: true }).getAttribute('href'), '/hackathons/00000000-0000-4000-8000-000000000006?tab=looking_for_teams');
@@ -44,7 +65,7 @@
           await page.keyboard.press('Tab'); assert((await page.locator(':focus').textContent()).includes('Register on Unstop'));
         });
         await page.screenshot({ path: path.join(directory, 'rack-' + width + '.png'), fullPage: true });
-        await page.setContent(fs.readFileSync(path.join(directory, 'pending.html'), 'utf8'));
+        await page.setContent(previewHtml('pending'));
         await check(width + ': missing event never targets a generic event', async () => {
           assert.equal(await page.getByRole('link', { name: 'Find teammates', exact: true }).count(), 0);
           assert.equal(await page.locator('a[href^="/hackathons/"]').count(), 0);
