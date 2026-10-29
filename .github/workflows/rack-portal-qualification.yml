@@ -1,0 +1,74 @@
+name: Rack portal isolated qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/rack-portal-qualification.yml'
+      - 'src/app/partners/**'
+      - 'src/components/partners/**'
+      - 'src/lib/partners/**'
+      - 'scripts/test-rack-it-up-2026.cjs'
+      - 'qa/rack-qualification.cjs'
+      - 'qa/test-rack-network-guard.cjs'
+      - 'qa/fixtures/rack-*'
+      - 'qa/browser/rack-it-up-2026.cjs'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: rack-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        id: deps
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify the offline network boundary before application execution
+        id: isolation
+        run: |
+          mkdir -p scratch/rack-ci
+          node qa/test-rack-network-guard.cjs 2>&1 | tee scratch/rack-ci/isolation.log
+      - name: Partner regressions with external application requests blocked
+        run: |
+          node qa/rack-qualification.cjs tests 2>&1 | tee scratch/rack-ci/tests.log
+      - name: Desktop and mobile using installed sandboxed Chrome
+        if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
+        run: |
+          mkdir -p scratch/rack-ci
+          google-chrome --version | tee scratch/rack-ci/chrome-version.log
+          node qa/rack-qualification.cjs browser 2>&1 | tee scratch/rack-ci/browser.log
+      - name: Production build with synthetic database and offline fonts
+        if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
+        run: |
+          mkdir -p scratch/rack-ci
+          node qa/rack-qualification.cjs build 2>&1 | tee scratch/rack-ci/build.log
+      - name: Retain isolated qualification evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rack-qualification-${{ github.event.pull_request.head.sha }}
+          path: |
+            scratch/rack-ci/
+            scratch/rack-it-up-preview/
+          retention-days: 7
+          if-no-files-found: warn

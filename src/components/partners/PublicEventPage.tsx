@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import type { PublicEvent, PublicPartnerConfig } from "@/lib/partners/config";
 import { eventDiscoveryHref } from "@/lib/hackathons/discoveryNavigation";
+import { isRackItUpEvent, RACK_IT_UP_2026, RACK_IT_UP_FACTS } from "@/lib/partners/rackItUp2026";
 import Logo from "@/components/Logo";
 import PartnerImage from "./PartnerImage";
 import styles from "./PublicEventPage.module.css";
@@ -26,31 +27,35 @@ export function PartnerPageState({ unavailable = false }: { unavailable?: boolea
   </div></main>;
 }
 
-export default function PublicEventPage({ config, event }: { config: PublicPartnerConfig; event: PublicEvent | null }) {
-  const title = event?.name || config.name;
-  const introduction = config.tagline || event?.description;
+export default function PublicEventPage({ config, event: resolvedEvent }: { config: PublicPartnerConfig; event: PublicEvent | null }) {
+  const rack = config.slug === RACK_IT_UP_2026.slug ? RACK_IT_UP_2026 : null;
+  const event = rack && !isRackItUpEvent(resolvedEvent) ? null : resolvedEvent;
+  const title = rack?.name || event?.name || config.name;
+  const introduction = rack?.introduction || config.tagline || event?.description;
   const teammatesUrl = eventDiscoveryHref(event?.id);
   const communityUrl = event ? `/hackathons/${event.id}` : null;
   const facts: { label: string; value: ReactNode; mono?: boolean }[] = [];
+  if (rack) facts.push(...RACK_IT_UP_FACTS.map(fact => ({ label: fact.label,
+    value: fact.dateTime ? <time dateTime={fact.dateTime}>{fact.value}</time> : fact.value })));
   const startFormat = event?.startDate && event.endDate && event.startDate !== event.endDate
     ? event.startDate.slice(0, 7) === event.endDate.slice(0, 7) ? "day"
       : event.startDate.slice(0, 4) === event.endDate.slice(0, 4) ? "month" : "full" : "full";
-  if (event?.startDate) facts.push({ label: "Dates", mono: true, value: <>
+  if (!rack && event?.startDate) facts.push({ label: "Dates", mono: true, value: <>
     <time dateTime={event.startDate} aria-label={dateLabel(event.startDate)}>{dateLabel(event.startDate, startFormat)}</time>
     {event.endDate && event.endDate !== event.startDate && <> – <time dateTime={event.endDate}>{dateLabel(event.endDate)}</time></>}
   </> });
-  else if (event?.endDate) facts.push({ label: "Ends", mono: true, value: <time dateTime={event.endDate}>{dateLabel(event.endDate)}</time> });
-  if (event?.mode) facts.push({ label: "Format", value: event.mode });
-  if (event?.location) facts.push({ label: "Venue", value: event.location });
-  if (event && (event.minTeamSize !== null || event.maxTeamSize !== null)) {
+  else if (!rack && event?.endDate) facts.push({ label: "Ends", mono: true, value: <time dateTime={event.endDate}>{dateLabel(event.endDate)}</time> });
+  if (!rack && event?.mode) facts.push({ label: "Format", value: event.mode });
+  if (!rack && event?.location) facts.push({ label: "Venue", value: event.location });
+  if (!rack && event && (event.minTeamSize !== null || event.maxTeamSize !== null)) {
     const min = event.minTeamSize;
     const max = event.maxTeamSize;
     facts.push({ label: "Team size", value: min && max ? min === max ? `${min} ${min === 1 ? "person" : "people"}` : `${min}–${max} people`
       : min ? `At least ${min} ${min === 1 ? "person" : "people"}` : `Up to ${max} ${max === 1 ? "person" : "people"}` });
   }
-  const officialRegistration = event?.isExternal && event.registrationUrl;
+  const officialRegistration = rack?.registrationUrl || (event?.isExternal && event.registrationUrl);
   const links = [
-    ...(config.officialWebsite ? [{ label: "Organizer website", url: config.officialWebsite }] : []),
+    ...(rack ? [{ label: "Organizer website", url: rack.website }] : config.officialWebsite ? [{ label: "Organizer website", url: config.officialWebsite }] : []),
     ...config.approvedLinks,
     ...(config.publicContact ? [config.publicContact] : []),
   ];
@@ -58,22 +63,27 @@ export default function PublicEventPage({ config, event }: { config: PublicPartn
     <div className={styles.container}>
       <div className={styles.coBrand}>
         <Link href="/" className={styles.wordmark} aria-label="HackerMate home"><Logo className={styles.brandLogo} decorative /></Link><span aria-hidden="true">×</span>
-        <span className={styles.partnerName}>{config.name}</span>
+        <span className={styles.partnerName}>{rack?.organizer || config.name}</span>
       </div>
       <section className={styles.hero} aria-labelledby="event-title">
         <div className={styles.identity}>
           {config.logoUrl ? <PartnerImage key={config.logoUrl} src={config.logoUrl} alt={`${config.name} logo`} className={styles.logo} fallback={config.name.slice(0, 1)} />
             : <span className={styles.logo} aria-hidden="true">{config.name.slice(0, 1)}</span>}
-          <p className={styles.identityLabel}>An event with {config.name}</p>
+          <p className={styles.identityLabel}>{rack ? "HackerMate is a Community Partner" : <>An event with {config.name}</>}</p>
         </div>
         <h1 id="event-title" className={styles.title}>{title}</h1>
         {introduction && <p className={styles.intro}>{introduction}</p>}
-        {(!event || facts.length === 0) && <p className={styles.pending}>Event information is being finalized.</p>}
+        {(!event || facts.length === 0) && <p className={styles.pending}>{rack
+          ? "Teammate matching is not available yet. You can register for the event on Unstop."
+          : "Event information is being finalized."}</p>}
         {(officialRegistration || communityUrl) && <div className={styles.actions}>
-          {officialRegistration && <ExternalLink href={officialRegistration} className={styles.primary}>Official registration</ExternalLink>}
-          {teammatesUrl && <Link href={teammatesUrl} className={officialRegistration ? styles.secondary : styles.primary}>Find teammates</Link>}
+          {rack && teammatesUrl && <Link href={teammatesUrl} className={styles.primary}>Find teammates</Link>}
+          {officialRegistration && <ExternalLink href={officialRegistration} className={rack && teammatesUrl ? styles.secondary : styles.primary}>{rack ? "Register on Unstop" : "Official registration"}</ExternalLink>}
+          {!rack && teammatesUrl && <Link href={teammatesUrl} className={officialRegistration ? styles.secondary : styles.primary}>Find teammates</Link>}
         </div>}
-        {event?.isExternal && <p className={styles.actionNote}>{officialRegistration
+        {(rack || event?.isExternal) && <p className={styles.actionNote}>{rack
+          ? "Finding teammates on HackerMate does not register you for the event. Complete registration separately on Unstop."
+          : officialRegistration
           ? "Official registration opens the organizer’s site. Joining the HackerMate community is a separate step."
           : "The official registration link will be shared when available. HackerMate community participation is separate."}</p>}
       </section>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import LegacyPartnerPage from "@/components/partners/LegacyPartnerPage";
 import PublicEventPage, { PartnerPageState } from "@/components/partners/PublicEventPage";
 import { loadPublicPartner } from "@/lib/partners/public";
+import { RACK_IT_UP_2026 } from "@/lib/partners/rackItUp2026";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -14,8 +15,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const { config } = result;
   const event = result.kind === "organizer-v1" ? result.event : null;
-  const title = event?.name || config.name;
-  const description = config.tagline || event?.description || `Event information and teammate discovery for ${title} on HackerMate.`;
+  const rack = config.slug === RACK_IT_UP_2026.slug ? RACK_IT_UP_2026 : null;
+  const title = rack?.name || event?.name || config.name;
+  const description = rack?.introduction || config.tagline || event?.description || `Event information and teammate discovery for ${title} on HackerMate.`;
   const path = `/partners/${config.slug}`;
   const image = config.bannerUrl || config.logoUrl;
   return {
