@@ -98,16 +98,60 @@ test('empty report and missing last-run setting preserve 24h fallback and PDF ou
   assert.equal(f.api.generateDatabaseActivityPdf(data).subarray(0, 5).toString(), '%PDF-');
 });
 
-for (const metadata of [null, { certificate_id: 'SYNTHETIC-CERT', team_name: 'Synthetic team', extra: { compatible: true } }, { certificate_id: { unsafe: true }, team_name: 123 }]) test('certificate renders and downloads with safe historical metadata: ' + JSON.stringify(metadata), async () => {
+for (const [metadata, expected] of [
+  [null, 'HM-CERT-12345678'],
+  [{ certificate_id: 'SYNTHETIC-CERT', team_name: 'Synthetic team', extra: { compatible: true } }, 'SYNTHETIC-CERT'],
+  [{ certificate_id: { unsafe: true }, team_name: 123 }, 'HM-CERT-12345678'],
+  [{ certificate_id: 123 }, '123'],
+  [{ certificate_id: -7 }, '-7'],
+  [{ certificate_id: '00123' }, '00123'],
+  [{}, 'HM-CERT-12345678'],
+  [{ certificate_id: '' }, 'HM-CERT-12345678'],
+  [{ certificate_id: 0 }, 'HM-CERT-12345678'],
+  [{ certificate_id: false }, 'HM-CERT-12345678'],
+  [{ certificate_id: true }, 'HM-CERT-12345678'],
+  [{ certificate_id: [] }, 'HM-CERT-12345678'],
+  [{ certificate_id: NaN }, 'HM-CERT-12345678'],
+  [{ certificate_id: Infinity }, 'HM-CERT-12345678'],
+  [{ certificate_id: -Infinity }, 'HM-CERT-12345678'],
+]) test('certificate renders and downloads with safe historical metadata: ' + String(metadata?.certificate_id), async () => {
   let saved; const badge = { id: '12345678-synthetic', issued_at: '2026-10-01', badge_name: 'Winner - Synthetic event', issuer_name: 'Synthetic organizer', metadata };
   const f = componentFixture('src/components/CertificateModal.tsx', { jspdf: { jsPDF: function(options) { const doc = new jsPDF(options); doc.save = name => { saved = { name, bytes: Buffer.from(doc.output('arraybuffer')) }; }; return doc; } } }, {}, { isOpen: true, badge, recipientName: 'Synthetic Builder', onClose() {} });
-  const html = f.render(); const expected = typeof metadata?.certificate_id === 'string' ? metadata.certificate_id : 'HM-CERT-12345678';
-  assert(html.includes(expected)); await f.controls.find(c => c.name === 'Button' && c.onClick?.name === 'generatePDF').onClick();
+  const html = f.render(); assert(html.includes('>' + expected + '</span>'));
+  await f.controls.find(c => c.name === 'Button' && c.onClick?.name === 'generatePDF').onClick();
   assert.equal(saved.name, 'synthetic_builder_achievement_certificate.pdf'); assert.equal(saved.bytes.subarray(0, 5).toString(), '%PDF-');
   assert(saved.bytes.toString().includes(expected)); assert(saved.bytes.toString().includes('Synthetic Builder'));
+  assert(saved.bytes.toString().includes('https://hackermate.in/verify/' + expected));
   if (typeof metadata?.team_name === 'string') assert(saved.bytes.toString().includes('Team: Synthetic team'));
   assert(!saved.bytes.toString().includes('[object Object]'));
   f.render(); assert.equal(f.controls.find(c => c.name === 'Button' && c.onClick?.name === 'generatePDF').loading, false); f.unmount();
+});
+
+test('numeric certificate URL preserves the existing verification route text-lookup contract', async () => {
+  const badge = { id: '12345678-0000-4000-8000-000000000001', metadata: { certificate_id: 123 } };
+  const filters = [];
+  const client = { from(table) {
+    assert.equal(table, 'user_badges');
+    return { select(columns) {
+      assert(columns.includes('metadata'));
+      return { or(filter) {
+        filters.push(filter);
+        // Synthetic JSON text lookup; no database or PostgreSQL acceptance is implied.
+        const matches = filter === 'id.eq.123,metadata->>certificate_id.eq.123';
+        return { maybeSingle: async () => ({ data: matches ? badge : null, error: null }) };
+      } };
+    } };
+  } };
+  const loader = harness({ '@supabase/supabase-js': { createClient: () => client } });
+  loader.env.NEXT_PUBLIC_SUPABASE_URL = 'https://synthetic.example.invalid';
+  loader.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'synthetic-anon-key';
+  const { GET } = loader.load('src/app/api/certificates/verify/[id]/route.ts');
+  const response = await GET(new Request('https://synthetic.example.invalid/api/certificates/verify/123'), { params: Promise.resolve({ id: '123' }) });
+  assert.equal(response.status, 200); const body = await response.json();
+  assert.equal(body.valid, true); assert.equal(String(body.certificate_id), '123');
+  const fallback = await GET(new Request('https://synthetic.example.invalid/api/certificates/verify/HM-CERT-12345678'), { params: Promise.resolve({ id: 'HM-CERT-12345678' }) });
+  assert.equal(fallback.status, 404); assert.equal((await fallback.json()).valid, false);
+  assert.deepEqual(filters, ['id.eq.123,metadata->>certificate_id.eq.123', 'id.eq.HM-CERT-12345678,metadata->>certificate_id.eq.HM-CERT-12345678']);
 });
 test('certificate PDF failure resets loading and reports the existing error', async () => {
   let alerts = 0; const f = componentFixture('src/components/CertificateModal.tsx', { jspdf: { jsPDF: function() { throw Error('synthetic PDF failure'); } } }, { console: { error() {} }, alert() { alerts++; } }, { isOpen: true, badge: { id: '12345678', issued_at: '2026-10-01' }, recipientName: 'Synthetic', onClose() {} });

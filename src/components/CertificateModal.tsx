@@ -13,7 +13,7 @@ export type UserBadge = {
   issuer_name: string;
   rank_title?: string | null;
   metadata?: {
-    certificate_id?: string;
+    certificate_id?: string | number;
     track?: string;
     team_name?: string;
     [key: string]: unknown;
@@ -38,8 +38,12 @@ export default function CertificateModal({
 
   if (!isOpen || !badge) return null;
 
+  const rawCertificateId = badge.metadata?.certificate_id;
   const certId =
-    (typeof badge.metadata?.certificate_id === "string" && badge.metadata.certificate_id) ||
+    (typeof rawCertificateId === "string" && rawCertificateId) ||
+    (typeof rawCertificateId === "number" && Number.isFinite(rawCertificateId) && rawCertificateId
+      ? String(rawCertificateId)
+      : "") ||
     `HM-CERT-${badge.id.slice(0, 8).toUpperCase()}`;
   const issueDateStr = new Date(badge.issued_at).toLocaleDateString("en-US", {
     month: "long",
