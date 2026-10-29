@@ -25,6 +25,9 @@
 .secondary { background: #161615; color: #f2f0ea; border-color: #373632; }
 .secondary:hover { border-color: #ceccc3; }
 .actionNote { max-width: 65ch; margin: 14px 0 0; color: #ceccc3; font-size: 13px; line-height: 1.6; }
+.organizerCredit { display: flex; align-items: center; gap: 12px; margin-top: 28px; }
+.organizerCredit p { margin: 0; color: #ceccc3; font-size: 14px; line-height: 1.5; }
+.organizerLogo { display: block; width: 56px; height: 56px; flex-shrink: 0; object-fit: contain; }
 .details { border-top: 1px solid #262624; padding-block: 24px 32px; }
 .sectionLabel { color: #ceccc3; font-size: 14px; font-weight: 500; margin: 0 0 20px; }
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }

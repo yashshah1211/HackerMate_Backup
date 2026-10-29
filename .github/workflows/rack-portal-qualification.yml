@@ -8,6 +8,7 @@ on:
       - 'src/app/partners/**'
       - 'src/components/partners/**'
       - 'src/lib/partners/**'
+      - 'public/partners/rack-it-up-2026/**'
       - 'scripts/test-rack-it-up-2026.cjs'
       - 'qa/rack-qualification.cjs'
       - 'qa/test-rack-network-guard.cjs'

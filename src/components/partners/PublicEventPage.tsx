@@ -86,6 +86,10 @@ export default function PublicEventPage({ config, event: resolvedEvent }: { conf
           : officialRegistration
           ? "Official registration opens the organizer’s site. Joining the HackerMate community is a separate step."
           : "The official registration link will be shared when available. HackerMate community participation is separate."}</p>}
+        {rack && <div className={styles.organizerCredit}>
+          <PartnerImage src="/partners/rack-it-up-2026/karma-logo.png" alt="" className={styles.organizerLogo} />
+          <p>Organised by Karma Enterprises</p>
+        </div>}
       </section>
       {facts.length > 0 && <section className={styles.details} aria-labelledby="details-title">
         <h2 id="details-title" className={styles.sectionLabel}>Event details</h2>

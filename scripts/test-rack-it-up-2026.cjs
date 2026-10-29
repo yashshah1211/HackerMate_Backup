@@ -8,6 +8,7 @@
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { JSDOM } = await import('jsdom');
   const { default: sharp } = await import('sharp');
+  const { createHash } = await import('node:crypto');
   const { default: helpers } = await import('./partner-presentation-harness.cjs');
   const { load, fixture, EVENT, ROOT } = helpers;
   const { RACK_IT_UP_2026: rack, RACK_IT_UP_FACTS, isRackItUpEvent } = load('src/lib/partners/rackItUp2026.ts');
@@ -31,7 +32,7 @@
   if (process.argv.includes('--preview')) {
     const directory = path.join(ROOT, 'scratch/rack-it-up-preview'); fs.mkdirSync(directory, { recursive: true });
     for (const [name, options] of [['active', {}], ['pending', { missingEvent: true }]]) {
-      const { result } = await resolve(options);
+      const { result } = await resolve({ ...options, partner: { logo_url: '/partners/rack-it-up-2026/RackItUp-mark.png' } });
       const css = fs.readFileSync(path.join(ROOT, 'src/components/partners/PublicEventPage.module.css'), 'utf8');
       const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rack It Up · synthetic preview</title><style>body{margin:0;background:#0f0f0e}aside{padding:12px 20px;color:#fff;background:#343432;font:14px Arial,sans-serif}' + css + '</style></head><body><aside>Synthetic offline preview. Matching uses a throwaway fixture ID; no live records, participant data or registration totals.</aside>' + render(result) + '</body></html>';
       fs.writeFileSync(path.join(directory, name + '.html'), html);
@@ -58,6 +59,33 @@
     assert(doc.body.textContent.includes(rack.organizer)); assert(!doc.body.textContent.includes('Stale event title'));
     assert(!doc.body.textContent.includes('Unapproved prize')); assert(!doc.body.textContent.includes('2028'));
     assert.equal(new Date(doc.querySelector('time[datetime*="23:59"]').dateTime).toISOString(), '2026-12-09T18:29:00.000Z');
+  });
+  test('configured official mark and organizer credit retain the existing partner branding contract', async () => {
+    const logo = '/partners/rack-it-up-2026/RackItUp-mark.png';
+    const { result } = await resolve({ partner: { logo_url: logo } }); const doc = documentOf(result);
+    assert.equal(result.config.logoUrl, logo);
+    assert.equal(doc.querySelector('img[alt="Rack It Up 2026 logo"]').getAttribute('src'), logo);
+    assert.equal(doc.querySelector('img[src$="/karma-logo.png"]').getAttribute('alt'), '');
+    assert.equal(doc.querySelector('.organizerCredit').textContent, 'Organised by Karma Enterprises');
+    assert(doc.body.textContent.includes('HackerMate is a Community Partner'));
+    assert.equal(doc.querySelector('a[aria-label="HackerMate home"]').getAttribute('href'), '/');
+  });
+  test('absent configured mark preserves the text fallback and missing event retains organizer credit', async () => {
+    const { result } = await resolve({ missingEvent: true }); const doc = documentOf(result);
+    assert.equal(doc.querySelector('.identity .logo').textContent, 'R');
+    assert.equal(doc.querySelector('.organizerCredit').textContent, 'Organised by Karma Enterprises');
+    assertNoMatching(result);
+  });
+  test('organizer assets are byte-identical originals with transparent event corners and opaque cream Karma background', async () => {
+    const hashes = { 'RackItUp-mark.png': '6e04d30b2da020cb0e2736be5c27b18867b796b9bf94b0fef1a9725b493e358e',
+      'RackItUp-mark.svg': '40e0d0a8e521782ce8b88be8b89a418aeca7de29240a948e17079a7f1704f10d',
+      'karma-logo.png': '99fe2e40317375eb2e9803850ba3c63cf5867fb13a81d10af4323d4db5939d17' };
+    for (const [name, hash] of Object.entries(hashes)) assert.equal(createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'public/partners/rack-it-up-2026', name))).digest('hex'), hash);
+    for (const [name, size, corner] of [['RackItUp-mark.png', 1024, [0, 0, 0, 0]], ['karma-logo.png', 400, [244, 242, 236, 255]]]) {
+      const image = sharp(path.join(ROOT, 'public/partners/rack-it-up-2026', name)); const meta = await image.metadata();
+      assert.equal(meta.width, size); assert.equal(meta.height, size);
+      const pixels = await image.ensureAlpha().raw().toBuffer(); assert.deepEqual([...pixels.subarray(0, 4)], corner);
+    }
   });
   for (const website_url of [rack.registrationUrl, rack.registrationUrl + '?utm_source=existing-listing', rack.registrationUrl + '/', rack.registrationUrl.replace('unstop.com', 'www.unstop.com')]) {
     test('official identity remains matchable: ' + website_url, async () => {
@@ -108,10 +136,11 @@
     const result = await publicApi.resolvePublicPartner(f.client, f.partner.slug); const html = render(result);
     assert(html.includes('Sample Build Weekend')); assert(html.includes('Official registration'));
     assert(html.includes(`/hackathons/${otherId}?tab=looking_for_teams`)); assert(!html.includes(`/hackathons/${EVENT}`)); assert(!html.includes(rack.name));
+    assert(!html.includes('Organised by Karma Enterprises')); assert(!html.includes('/partners/rack-it-up-2026/'));
     const legacy = fixture({ partner: { features: {} } }); assert.equal((await publicApi.resolvePublicPartner(legacy.client, legacy.partner.slug)).kind, 'legacy');
   });
   test('committed offline preview contains the actual current component and stylesheet', async () => {
-    const { result } = await resolve();
+    const { result } = await resolve({ partner: { logo_url: '/partners/rack-it-up-2026/RackItUp-mark.png' } });
     const preview = fs.readFileSync(path.join(ROOT, 'docs/qa/rack-it-up-2026-preview.html'), 'utf8');
     assert(preview.includes('Synthetic offline preview')); assert(preview.includes(render(result)));
     assert(preview.includes(fs.readFileSync(path.join(ROOT, 'src/components/partners/PublicEventPage.module.css'), 'utf8')));
