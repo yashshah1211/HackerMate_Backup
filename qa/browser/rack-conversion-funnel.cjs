@@ -42,7 +42,7 @@ const PORTAL = '/partners/rack-it-up-2026';
           if (url.pathname === '/fixture.css') return route.fulfill({ contentType: 'text/css', body: css });
           if (['RackItUp-mark.png', 'karma-logo.png'].some(file => url.pathname === '/partners/rack-it-up-2026/' + file)) return route.fulfill({ contentType: 'image/png', body: fs.readFileSync(path.join(ROOT, 'public', url.pathname)) });
           if (route.request().resourceType() !== 'document') { unexpected.push(url.pathname); return route.abort(); }
-          return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html class="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><p style="padding:12px">Synthetic isolated journey — no live accounts or records.</p><div id="root"></div><script src="/fixture.js"></script></body></html>' });
+          return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html class="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><p style="padding:12px">Synthetic isolated journey — no live accounts or records.</p><div id="root"></div><script src="/fixture.js"></script></body></html>' });
         });
         page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
         page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
