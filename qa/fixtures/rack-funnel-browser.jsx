@@ -29,7 +29,8 @@ export const useNotification = () => ({ showToast() {}, confirm() { throw Error(
 export const trackEvent = (name, properties) => state.legacyEvents.push({ name, properties });
 export const identifyUser = () => {};
 window.va = () => {};
-export function track(name, properties) { if (state.analyticsFailure) throw Error('Synthetic analytics unavailable'); state.events.push({ name, properties }); persist(); }
+export function track() { throw Error('Vercel Hobby custom events must not be used'); }
+window.sa_event = (name, properties) => { if (state.analyticsFailure) throw Error('Synthetic Simple Analytics unavailable'); state.events.push({ provider: 'simple_analytics', name, properties }); persist(); };
 
 const event = { id: EVENT, name: RACK_IT_UP_2026.name, description: 'Synthetic Rack It Up event details. No live participant data.',
   status: 'approved', archived: false, type: 'external', website_url: RACK_IT_UP_2026.registrationUrl,

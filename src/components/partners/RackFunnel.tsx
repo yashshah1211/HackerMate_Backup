@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { track } from "@vercel/analytics";
 import { RACK_IT_UP_2026 } from "@/lib/partners/rackItUp2026";
 import { eventDiscoveryHref } from "@/lib/hackathons/discoveryNavigation";
 
@@ -10,6 +9,10 @@ export const RACK_FUNNEL_KEY = "hm_rack_funnel_v1";
 export const RACK_FUNNEL_TTL_MS = 30 * 60 * 1000;
 type FunnelEvent = "rack_portal_view" | "rack_find_teammates_click" | "rack_unstop_click"
   | "rack_login_entry" | "rack_onboarding_entry";
+type SimpleAnalyticsWindow = Window & {
+  sa_event?: (name: FunnelEvent, metadata: { event_slug: typeof RACK_IT_UP_2026.slug }) => void;
+  sa_metadata?: unknown;
+};
 
 /** Exact generated discovery paths only. This record is never authorization. */
 export function rackFunnelDestination(value: unknown): string | null {
@@ -21,13 +24,18 @@ export function rackFunnelDestination(value: unknown): string | null {
 function measure(name: FunnelEvent, remaining = 4) {
   // No identity, URL, referrer or user-supplied metadata enters the event payload.
   try {
-    // The existing Analytics component may initialize after this component's effect.
-    // Wait at most one second for its queue; never load another script or block a click.
-    if (typeof window.va !== "function") {
+    // Use the existing Simple Analytics script; Vercel Hobby has no custom events.
+    // Wait at most one second for readiness; never load a script or block a click.
+    const analytics = window as SimpleAnalyticsWindow;
+    // The vendor can merge global metadata/collectors into individual events.
+    // Fail closed rather than inherit additional data or change shared settings.
+    if (analytics.sa_metadata != null && (typeof analytics.sa_metadata !== "object" || Object.keys(analytics.sa_metadata).length > 0)) return;
+    if (document.querySelector('script[src="https://scripts.simpleanalyticscdn.com/latest.js"][data-metadata-collector]')) return;
+    if (typeof analytics.sa_event !== "function") {
       if (remaining > 0) window.setTimeout(() => measure(name, remaining - 1), 250);
       return;
     }
-    track(name, { event_slug: RACK_IT_UP_2026.slug });
+    analytics.sa_event(name, { event_slug: RACK_IT_UP_2026.slug });
   }
   catch { /* Analytics must never interfere with the journey. */ }
 }

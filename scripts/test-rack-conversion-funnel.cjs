@@ -45,9 +45,12 @@ async function view(t, options = {}) {
       return { data: { items: rows.slice(args.p_offset, args.p_offset + 50), total: rows.length, offset: args.p_offset, limit: 50 }, error: options.rpcError || null };
     },
   };
-  dom.window.va = () => {};
+  const deliver = (name, properties) => { if (options.analyticsError) throw Error('Synthetic Simple Analytics unavailable'); events.push({ provider: 'simple_analytics', name, properties: plain(properties) }); };
+  dom.window.sa_event = deliver;
+  let unsupportedVercelCalls = 0;
+  dom.window.va = () => { unsupportedVercelCalls++; };
   const loader = harness({
-    '@vercel/analytics': { track(name, properties) { if (options.analyticsError) throw Error('Synthetic analytics unavailable'); events.push({ name, properties: plain(properties) }); } },
+    '@vercel/analytics': { track() { unsupportedVercelCalls++; throw Error('Vercel Hobby custom events must not be used'); } },
     'next/navigation': { usePathname: () => dom.window.location.pathname, useSearchParams: () => new URLSearchParams(dom.window.location.search), useParams: () => ({ id: EVENT }) },
     'next/link': ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children),
     '@/lib/supabase': { supabase: client },
@@ -70,7 +73,7 @@ async function view(t, options = {}) {
     await React.act(async () => { node.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...extra })); });
     return preventedByTracker;
   };
-  return { dom, events, errors, rpcs, reads, options, funnel, route, click, settle, get text() { return dom.window.document.body.textContent; } };
+  return { dom, events, errors, rpcs, reads, options, funnel, route, click, settle, deliver, get unsupportedVercelCalls() { return unsupportedVercelCalls; }, get text() { return dom.window.document.body.textContent; } };
 }
 
 test('portal view, both clicks, login and onboarding entries transmit only the fixed slug', async t => {
@@ -80,6 +83,7 @@ test('portal view, both clicks, login and onboarding entries transmit only the f
   await v.route('/onboarding?next=' + encodeURIComponent(DESTINATION));
   assert.deepEqual(v.events.map(e => e.name), ['rack_portal_view', 'rack_find_teammates_click', 'rack_unstop_click', 'rack_login_entry', 'rack_onboarding_entry']);
   for (const event of v.events) assert.deepEqual(event.properties, { event_slug: 'rack-it-up-2026' });
+  assert(v.events.every(event => event.provider === 'simple_analytics')); assert.equal(v.unsupportedVercelCalls, 0);
   assert.equal(v.reads.length, 0); assert.equal(v.rpcs.length, 0);
   await v.route('/onboarding?next=' + encodeURIComponent(DESTINATION)); assert.equal(v.events.length, 5);
 });
@@ -111,14 +115,35 @@ test('SDK and storage failures cannot cancel navigation or break rendering', asy
   assert.equal(await v.click('#find'), false); assert.equal(await v.click('#unstop'), false);
   await v.route('/login?next=' + encodeURIComponent(DESTINATION)); assert.deepEqual(v.events, []);
 });
-test('SDK initialization may be delayed, but readiness checks are bounded and emit once', async t => {
-  const v = await view(t, { path: '/hackathons' }); const pending = []; delete v.dom.window.va;
+test('Simple Analytics initialization may be delayed, but readiness checks are bounded and emit once', async t => {
+  const v = await view(t, { path: '/hackathons' }); const pending = []; delete v.dom.window.sa_event;
   v.dom.window.setTimeout = fn => { pending.push(fn); return pending.length; };
   await v.route(PORTAL); assert.equal(v.events.length, 0);
-  v.dom.window.va = () => {}; pending.shift()(); assert.equal(v.events.length, 1);
-  delete v.dom.window.va; await v.click('#find'); let attempts = 0;
+  v.dom.window.sa_event = v.deliver; pending.shift()(); assert.equal(v.events.length, 1);
+  delete v.dom.window.sa_event; await v.click('#find'); let attempts = 0;
   while (pending.length) { pending.shift()(); assert(++attempts <= 4); }
   assert.equal(v.events.length, 1);
+  assert.equal(v.unsupportedVercelCalls, 0);
+});
+test('available Vercel/GA4 globals do not become fallbacks or receive shared identity metadata', async t => {
+  const v = await view(t); const gaCalls = [];
+  v.dom.window.gtag = (...args) => gaCalls.push(args);
+  await v.click('#find'); await v.route('/login?next=' + encodeURIComponent(DESTINATION));
+  assert(v.events.every(event => event.provider === 'simple_analytics'));
+  assert(v.events.every(event => JSON.stringify(event.properties) === JSON.stringify({ event_slug: 'rack-it-up-2026' })));
+  assert.deepEqual(gaCalls, []); assert.equal(v.unsupportedVercelCalls, 0);
+  assert.equal(v.dom.window.document.querySelectorAll('script').length, 0);
+});
+test('Simple Analytics global metadata and configured collectors fail closed without changing them', async t => {
+  const v = await view(t); v.events.length = 0;
+  v.dom.window.sa_metadata = { email: 'synthetic-private@example.invalid' };
+  assert.equal(await v.click('#find'), false); assert.deepEqual(v.events, []);
+  assert.deepEqual(v.dom.window.sa_metadata, { email: 'synthetic-private@example.invalid' });
+  delete v.dom.window.sa_metadata;
+  const script = v.dom.window.document.createElement('script'); script.src = 'https://scripts.simpleanalyticscdn.com/latest.js';
+  script.setAttribute('data-metadata-collector', 'syntheticCollector'); v.dom.window.document.head.append(script);
+  assert.equal(await v.click('#unstop'), false); assert.deepEqual(v.events, []);
+  assert.equal(script.getAttribute('data-metadata-collector'), 'syntheticCollector'); assert.equal(v.unsupportedVercelCalls, 0);
 });
 test('other portals, forged click destinations and arbitrary redirects produce no Rack attribution', async t => {
   const v = await view(t, { path: '/partners/other-event' }); await v.click('#find'); assert.deepEqual(v.events, []);

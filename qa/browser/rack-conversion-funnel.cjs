@@ -99,10 +99,11 @@ const PORTAL = '/partners/rack-it-up-2026';
           assert.equal(writes[0].payload.user_id, '00000000-0000-4000-8000-000000000007');
           assert.equal(writes[0].payload.looking_for_team, true);
         });
-        await check(width + ': fixed-slug metrics are observations only', async () => {
+        await check(width + ': Simple Analytics receives fixed-slug observations only', async () => {
           const events = await page.evaluate(() => window.__qa.events);
           for (const name of ['rack_portal_view', 'rack_find_teammates_click', 'rack_login_entry', 'rack_onboarding_entry']) assert(events.some(e => e.name === name), name);
           for (const event of events) assert.deepEqual(event.properties, { event_slug: 'rack-it-up-2026' });
+          assert(events.every(e => e.provider === 'simple_analytics'));
           assert(events.every(e => !/completed|registered|signup/.test(e.name)));
         });
         // Start another public journey with analytics deliberately unavailable.
