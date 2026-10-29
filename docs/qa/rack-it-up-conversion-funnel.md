@@ -22,7 +22,9 @@ Every new custom event sends exactly `{event_slug: "rack-it-up-2026"}`. No user 
 | `rack_login_entry` | Login page entered with a matching, unexpired same-tab portal-click destination. |
 | `rack_onboarding_entry` | Onboarding page entered with that matching destination; not profile completion. |
 
-The optional session-storage record contains only a generated event destination and a 30-minute attribution expiry. It is never authorization or a profile/database field. No UTM propagation or query attribution is added. Modified/new-tab clicks do not create same-tab attribution. Storage or SDK failure cannot prevent navigation. SDK queue readiness is checked at most four times over one second; no second script is loaded. No delivery guarantee, unique-person count, cross-device attribution, completed-signup metric or verified Unstop conversion is claimed. Ordinary pre-existing vendor pageviews are unchanged.
+The optional session-storage record contains only a generated event destination and a 30-minute attribution expiry. It is never authorization or a profile/database field. No UTM propagation or query attribution is added. Modified/new-tab clicks do not create same-tab attribution. Storage or SDK failure cannot prevent navigation. SDK queue readiness is retried at most four times over one second; no second script is loaded. No delivery guarantee, unique-person count, cross-device attribution, completed-signup metric or verified Unstop conversion is claimed. Ordinary pre-existing vendor pageviews are unchanged.
+
+The pre-existing optional GA4 bridge has legacy identity and URL handling. These new events do not use that bridge. The fixed-slug guarantee applies to the five new custom payloads, not to every existing analytics flow across the site.
 
 ## Verification and limits
 
@@ -35,6 +37,10 @@ The existing Rack regression snapshot is regenerated from the actual component/C
 Final commands/results, tested head and screenshots are recorded in the Draft PR. Live deployed RPC grants and analytics plan/receipt are not inspected. If the projection is unavailable in production, seek separate founder review rather than changing grants or falling back to raw reads. Known Windows browser/build restrictions are not retried.
 
 Initial Linux CI at `c224f57d8de0be1d6e81ae22092b8dabbf0aa72e` passed 839/839 regressions, 8/8 isolation checks, 19/19 existing Rack browser checks and the production build. The new journey passed five mobile checks through onboarding entry, then timed out waiting for member listing controls. Source tracing found the new synthetic adapter incorrectly rejecting the unchanged member page's `hackathon_stages` and `hackathon_resources` wildcard reads. The adapter now permits only those two existing member contracts; guest relation restrictions and explicit profile/registration projections remain enforced. No application code was changed for this correction. Bounded, synthetic-only diagnostics are retained for any further browser failure. Final rerun evidence is in the PR.
+
+Final implementation/fixture qualification: `95e262d305de45594eb86ed57847c6f50505f391`, [Linux CI run](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/40929760282). Commands: `node qa/test-rack-network-guard.cjs` **8/8**; `node qa/rack-qualification.cjs tests` **839/839**; `node qa/rack-qualification.cjs browser` **19/19**; `node qa/rack-qualification.cjs funnel-browser` **20/20**; `node qa/rack-qualification.cjs build` **PASS**, 96/96 static pages, four loopback synthetic reads, zero mutations. Standard PR TypeScript/regression CI also passed. Build framework/Sentry/Edge-runtime warnings remain in the logs; none were suppressed. A missing UTF-8 declaration in the synthetic screenshot notice was corrected before this final run.
+
+[Final screenshots/logs artifact](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/40929760282/artifacts/12921539115): `rack-funnel/portal-390.png`, `portal-1440.png`, `guest-390.png`, `guest-1440.png`; seven-day CI retention. Any subsequent report-only commit changes no executable code or fixture.
 
 ## Independent review and Phase 2
 
