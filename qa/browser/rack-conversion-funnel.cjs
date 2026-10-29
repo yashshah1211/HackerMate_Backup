@@ -32,7 +32,8 @@ const PORTAL = '/partners/rack-it-up-2026';
   try {
     for (const width of [390, 1440]) {
       const context = await browser.newContext({ viewport: { width, height: 950 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
-      const unexpected = [], errors = [];
+      const unexpected = [], errors = [], consoleErrors = [];
+      let page;
       try {
         await context.route('**/*', route => {
           const url = new URL(route.request().url());
@@ -43,7 +44,8 @@ const PORTAL = '/partners/rack-it-up-2026';
           if (route.request().resourceType() !== 'document') { unexpected.push(url.pathname); return route.abort(); }
           return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html class="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body><p style="padding:12px">Synthetic isolated journey — no live accounts or records.</p><div id="root"></div><script src="/fixture.js"></script></body></html>' });
         });
-        const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
+        page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
+        page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
         await page.goto(BASE + PORTAL);
         await page.getByText('Browse public builder profiles first.', { exact: false }).waitFor();
         await check(width + ': portal branding, reassurance and distinct registration', async () => {
@@ -121,6 +123,13 @@ const PORTAL = '/partners/rack-it-up-2026';
           assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
           assert.deepEqual(unexpected, []); assert.deepEqual(errors, []);
         });
+      } catch (error) {
+        if (page) {
+          const diagnostics = await page.evaluate(() => ({ pathname: location.pathname, tables: window.__qa?.reads.map(read => ({ table: read.table, columns: read.columns })), operations: window.__qa?.writes.map(write => ({ table: write.table, operation: write.operation })) }));
+          fs.writeFileSync(path.join(OUT, `failure-${width}.json`), JSON.stringify({ error: error.message, errors, consoleErrors, diagnostics }, null, 2));
+          await page.screenshot({ path: path.join(OUT, `failure-${width}.png`), fullPage: true });
+        }
+        throw error;
       } finally { await context.close(); }
     }
   } finally { await browser.close(); fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 2)); }

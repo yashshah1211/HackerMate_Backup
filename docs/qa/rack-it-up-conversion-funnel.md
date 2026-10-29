@@ -34,6 +34,8 @@ The existing Rack regression snapshot is regenerated from the actual component/C
 
 Final commands/results, tested head and screenshots are recorded in the Draft PR. Live deployed RPC grants and analytics plan/receipt are not inspected. If the projection is unavailable in production, seek separate founder review rather than changing grants or falling back to raw reads. Known Windows browser/build restrictions are not retried.
 
+Initial Linux CI at `c224f57d8de0be1d6e81ae22092b8dabbf0aa72e` passed 839/839 regressions, 8/8 isolation checks, 19/19 existing Rack browser checks and the production build. The new journey passed five mobile checks through onboarding entry, then timed out waiting for member listing controls. Source tracing found the new synthetic adapter incorrectly rejecting the unchanged member page's `hackathon_stages` and `hackathon_resources` wildcard reads. The adapter now permits only those two existing member contracts; guest relation restrictions and explicit profile/registration projections remain enforced. No application code was changed for this correction. Bounded, synthetic-only diagnostics are retained for any further browser failure. Final rerun evidence is in the PR.
+
 ## Independent review and Phase 2
 
 Before any release, the founder should confirm existing-plan custom-event availability in **Vercel → hacker-mate-backup → Analytics → Events**; no paid upgrade or setting change is authorized. After a separately approved release, verify event receipt without sending personal metadata and check the existing public projection's availability. This PR does not enable a vendor or alter its plan.
