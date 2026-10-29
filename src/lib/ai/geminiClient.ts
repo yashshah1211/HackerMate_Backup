@@ -75,7 +75,11 @@ async function callEvaluatorContent(prompt: string, options: GeminiCallOptions, 
   const started = Date.now();
   const execution: EvaluationExecution = options.execution || { deadlineAt: started + 30_000, attempts: 0 };
   execution.trace ??= [];
-  execution.providerDeadlineAt ??= Math.min(execution.deadlineAt, started + (pdfBuffer ? 36_000 : 30_000));
+  // Pin the caller's original budget across PDF -> text degradation. Reusing
+  // an execution may tighten this absolute deadline, but must never renew it.
+  execution.providerDeadlineAt = Math.min(execution.deadlineAt,
+    execution.providerDeadlineAt ?? started + (pdfBuffer ? 36_000 : 30_000),
+    started + (options.totalTimeoutMs ?? 30_000));
   const deadlineAt = Math.min(execution.deadlineAt, execution.providerDeadlineAt, started + (options.totalTimeoutMs ?? 30_000));
   const models = pdfBuffer ? ["gemini-3.5-flash-lite"] as const : GEMINI_CASCADE_MODELS;
   const maximum = Math.min(models.length, 2 - execution.attempts, options.maxAttempts ?? (pdfBuffer ? 1 : 2));

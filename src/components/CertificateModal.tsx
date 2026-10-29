@@ -13,10 +13,10 @@ export type UserBadge = {
   issuer_name: string;
   rank_title?: string | null;
   metadata?: {
-    certificate_id?: string;
+    certificate_id?: string | number;
     track?: string;
     team_name?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   } | null;
   issued_at: string;
 };
@@ -38,8 +38,12 @@ export default function CertificateModal({
 
   if (!isOpen || !badge) return null;
 
+  const rawCertificateId = badge.metadata?.certificate_id;
   const certId =
-    badge.metadata?.certificate_id ||
+    (typeof rawCertificateId === "string" && rawCertificateId) ||
+    (typeof rawCertificateId === "number" && Number.isFinite(rawCertificateId) && rawCertificateId
+      ? String(rawCertificateId)
+      : "") ||
     `HM-CERT-${badge.id.slice(0, 8).toUpperCase()}`;
   const issueDateStr = new Date(badge.issued_at).toLocaleDateString("en-US", {
     month: "long",
@@ -51,7 +55,7 @@ export default function CertificateModal({
   const issuer = badge.issuer_name || "HackerMate Partner Network";
   const partnerOrg = (badge.issuer_name || "").replace(/^HackerMate\s*[×x]\s*/i, "").trim() || "PARTNER NETWORK";
   const rank = badge.rank_title || "Verified Winner";
-  const teamName = badge.metadata?.team_name || "";
+  const teamName = typeof badge.metadata?.team_name === "string" ? badge.metadata.team_name : "";
 
   async function generatePDF() {
     setDownloading(true);
