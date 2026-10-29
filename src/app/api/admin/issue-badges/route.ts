@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
+import { createHash } from "node:crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,19 +51,45 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Call grant_hackathon_winner_badges or execute batch insert
-    const insertPayload = userIds.map((uId) => ({
-      user_id: uId,
-      hackathon_id: hackathonId,
-      badge_type: badgeType,
-      badge_name: badgeName,
-      issuer_name: issuerName,
-      rank_title: rankTitle,
-      metadata: {
-        certificate_id: `HM-CERT-${uId.slice(0, 6).toUpperCase()}`,
-        issued_by_admin: user.id,
-      },
-    }));
+    // Reissuance must retain the ID already printed on an existing certificate.
+    const { data: existingBadges, error: existingErr } = await supabaseAdmin
+      .from("user_badges")
+      .select("id, user_id, metadata")
+      .eq("hackathon_id", hackathonId)
+      .eq("badge_type", badgeType)
+      .in("user_id", userIds);
+
+    if (existingErr) {
+      console.error("[Badge Issuance] Existing certificate lookup failed:", existingErr);
+      return NextResponse.json({ error: "Unable to retrieve existing certificates" }, { status: 500 });
+    }
+
+    const previousBadges = new Map((existingBadges || []).map((badge) => [badge.user_id, badge]));
+    const insertPayload = userIds.map((uId) => {
+      const previous = previousBadges.get(uId);
+      const metadata = previous?.metadata && typeof previous.metadata === "object" && !Array.isArray(previous.metadata)
+        ? previous.metadata : {};
+      const previousId = metadata.certificate_id;
+      // A deterministic full-key digest also keeps concurrent first issuance stable.
+      const certificateId =
+        (typeof previousId === "string" && previousId) ||
+        (typeof previousId === "number" && Number.isFinite(previousId) && previousId) ||
+        (previous ? `HM-CERT-${previous.id.slice(0, 8).toUpperCase()}` :
+          `HM-CERT-${createHash("sha256").update(JSON.stringify([uId.toLowerCase(), String(hackathonId).toLowerCase(), badgeType])).digest("hex").toUpperCase()}`);
+      return {
+        user_id: uId,
+        hackathon_id: hackathonId,
+        badge_type: badgeType,
+        badge_name: badgeName,
+        issuer_name: issuerName,
+        rank_title: rankTitle,
+        metadata: {
+          ...metadata,
+          certificate_id: certificateId,
+          issued_by_admin: user.id,
+        },
+      };
+    });
 
     const { data: badgeResults, error: badgeErr } = await supabaseAdmin
       .from("user_badges")

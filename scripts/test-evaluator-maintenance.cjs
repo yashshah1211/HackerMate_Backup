@@ -134,11 +134,12 @@ test('numeric certificate URL preserves the existing verification route text-loo
     assert.equal(table, 'user_badges');
     return { select(columns) {
       assert(columns.includes('metadata'));
-      return { or(filter) {
-        filters.push(filter);
+      return { eq(column, id) {
+        assert.equal(column, 'metadata->>certificate_id');
+        filters.push([column, id]);
         // Synthetic JSON text lookup; no database or PostgreSQL acceptance is implied.
-        const matches = filter === 'id.eq.123,metadata->>certificate_id.eq.123';
-        return { maybeSingle: async () => ({ data: matches ? badge : null, error: null }) };
+        const matches = id === '123';
+        return { limit: async count => { assert.equal(count, 2); return { data: matches ? [badge] : [], error: null }; } };
       } };
     } };
   } };
@@ -151,7 +152,7 @@ test('numeric certificate URL preserves the existing verification route text-loo
   assert.equal(body.valid, true); assert.equal(String(body.certificate_id), '123');
   const fallback = await GET(new Request('https://synthetic.example.invalid/api/certificates/verify/HM-CERT-12345678'), { params: Promise.resolve({ id: 'HM-CERT-12345678' }) });
   assert.equal(fallback.status, 404); assert.equal((await fallback.json()).valid, false);
-  assert.deepEqual(filters, ['id.eq.123,metadata->>certificate_id.eq.123', 'id.eq.HM-CERT-12345678,metadata->>certificate_id.eq.HM-CERT-12345678']);
+  assert.deepEqual(filters, [['metadata->>certificate_id', '123'], ['metadata->>certificate_id', 'HM-CERT-12345678']]);
 });
 test('certificate PDF failure resets loading and reports the existing error', async () => {
   let alerts = 0; const f = componentFixture('src/components/CertificateModal.tsx', { jspdf: { jsPDF: function() { throw Error('synthetic PDF failure'); } } }, { console: { error() {} }, alert() { alerts++; } }, { isOpen: true, badge: { id: '12345678', issued_at: '2026-10-01' }, recipientName: 'Synthetic', onClose() {} });

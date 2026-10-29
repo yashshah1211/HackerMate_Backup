@@ -15,24 +15,37 @@ export async function GET(
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Sanitize input to allow only valid ID / certificate string characters (alphanumeric, hyphens, underscores)
-    const cleanId = id.replace(/[^a-zA-Z0-9_-]/g, "");
-    if (!cleanId) {
+    // Retain the format guard, but never rewrite the actual certificate lookup value.
+    if (!/[a-zA-Z0-9_-]/.test(id)) {
       return NextResponse.json({ error: "Invalid certificate ID format" }, { status: 400 });
     }
 
     // Search by exact badge ID or metadata certificate_id
-    const { data: badge, error } = await supabase
+    const query = supabase
       .from("user_badges")
-      .select("id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name, college), hackathons:hackathon_id(name)")
-      .or(`id.eq.${cleanId},metadata->>certificate_id.eq.${cleanId}`)
-      .maybeSingle();
+      .select("id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name, college), hackathons:hackathon_id(name)");
+    // Non-UUID certificate IDs must never be cast against the UUID badge column.
+    // Use an exact scalar filter for legacy strings/numbers, without lossy sanitization.
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const { data: badges, error } = await (isUuid
+      ? query.or(`id.eq.${id},metadata->>certificate_id.eq.${id}`)
+      : query.eq("metadata->>certificate_id", id)).limit(2);
 
     if (error) {
       console.error("[Certificate Verification] Supabase query error:", error);
+      return NextResponse.json({ valid: false, error: "Unable to verify certificate" }, { status: 500 });
     }
 
-    if (error || !badge) {
+    if (badges && badges.length > 1) {
+      return NextResponse.json({
+        valid: false,
+        message: "Certificate ID matches multiple records. Please contact the issuer.",
+        certificate_id: id,
+      }, { status: 409 });
+    }
+
+    const badge = badges?.[0];
+    if (!badge) {
       return NextResponse.json({
         valid: false,
         message: "Certificate not found or invalid",
