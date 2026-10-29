@@ -22,7 +22,7 @@ export const RACK_IT_UP_FACTS: readonly { label: string; value: string; dateTime
 ];
 
 /** A configured UUID alone does not prove that discovery belongs to this event. */
-export function isRackItUpEvent(event: PublicEvent | null): boolean {
+export function isRackItUpEvent(event: Pick<PublicEvent, "isExternal" | "registrationUrl"> | null): boolean {
   if (!event?.isExternal || !event.registrationUrl) return false;
   try {
     const actual = new URL(event.registrationUrl);

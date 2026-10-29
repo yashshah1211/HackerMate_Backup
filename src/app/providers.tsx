@@ -3,6 +3,7 @@
 import { useEffect, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { pageview, GA_TRACKING_ID } from '@/lib/gtag';
+import RackFunnel from '@/components/partners/RackFunnel';
 
 function parseReferrerSource(utmSource: string | null, referrer: string): string {
   if (utmSource) {
@@ -65,6 +66,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <>
       <Suspense fallback={null}>
         <AnalyticsPageView />
+        <RackFunnel />
       </Suspense>
       {children}
     </>

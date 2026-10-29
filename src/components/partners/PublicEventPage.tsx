@@ -7,8 +7,8 @@ import Logo from "@/components/Logo";
 import PartnerImage from "./PartnerImage";
 import styles from "./PublicEventPage.module.css";
 
-function ExternalLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
-  return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+function ExternalLink({ href, children, className, rackAction }: { href: string; children: ReactNode; className?: string; rackAction?: "unstop" }) {
+  return <a href={href} target="_blank" rel="noopener noreferrer" className={className} data-rack-funnel={rackAction}>
     {children}<span aria-hidden="true"> ↗</span><span className={styles.srOnly}> (opens in a new tab)</span>
   </a>;
 }
@@ -77,10 +77,11 @@ export default function PublicEventPage({ config, event: resolvedEvent }: { conf
           ? "Teammate matching is not available yet. You can register for the event on Unstop."
           : "Event information is being finalized."}</p>}
         {(officialRegistration || communityUrl) && <div className={styles.actions}>
-          {rack && teammatesUrl && <Link href={teammatesUrl} className={styles.primary}>Find teammates</Link>}
-          {officialRegistration && <ExternalLink href={officialRegistration} className={rack && teammatesUrl ? styles.secondary : styles.primary}>{rack ? "Register on Unstop" : "Official registration"}</ExternalLink>}
+          {rack && teammatesUrl && <Link href={teammatesUrl} className={styles.primary} data-rack-funnel="find_teammates">Find teammates</Link>}
+          {officialRegistration && <ExternalLink href={officialRegistration} className={rack && teammatesUrl ? styles.secondary : styles.primary} rackAction={rack ? "unstop" : undefined}>{rack ? "Register on Unstop" : "Official registration"}</ExternalLink>}
           {!rack && teammatesUrl && <Link href={teammatesUrl} className={officialRegistration ? styles.secondary : styles.primary}>Find teammates</Link>}
         </div>}
+        {rack && teammatesUrl && <p className={styles.actionNote}>Browse public builder profiles first. Sign up free when you’re ready to list your profile or build a team.</p>}
         {(rack || event?.isExternal) && <p className={styles.actionNote}>{rack
           ? "Finding teammates on HackerMate does not register you for the event. Complete registration separately on Unstop."
           : officialRegistration
