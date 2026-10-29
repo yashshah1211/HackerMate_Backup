@@ -8,12 +8,16 @@ on:
       - 'src/app/partners/**'
       - 'src/components/partners/**'
       - 'src/lib/partners/**'
+      - 'src/app/providers.tsx'
+      - 'src/components/hackathons/PublicHackathonDetail.tsx'
       - 'public/partners/rack-it-up-2026/**'
       - 'scripts/test-rack-it-up-2026.cjs'
+      - 'scripts/test-rack-conversion-funnel.cjs'
       - 'qa/rack-qualification.cjs'
       - 'qa/test-rack-network-guard.cjs'
       - 'qa/fixtures/rack-*'
       - 'qa/browser/rack-it-up-2026.cjs'
+      - 'qa/browser/rack-conversion-funnel.cjs'
       - 'package.json'
       - 'package-lock.json'
 
@@ -58,6 +62,10 @@ jobs:
           mkdir -p scratch/rack-ci
           google-chrome --version | tee scratch/rack-ci/chrome-version.log
           node qa/rack-qualification.cjs browser 2>&1 | tee scratch/rack-ci/browser.log
+      - name: Synthetic guest and authenticated Rack conversion journeys
+        if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
+        run: |
+          node qa/rack-qualification.cjs funnel-browser 2>&1 | tee scratch/rack-ci/funnel.log
       - name: Production build with synthetic database and offline fonts
         if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
         run: |
@@ -71,5 +79,6 @@ jobs:
           path: |
             scratch/rack-ci/
             scratch/rack-it-up-preview/
+            scratch/rack-funnel/
           retention-days: 7
           if-no-files-found: warn

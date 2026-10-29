@@ -8,6 +8,9 @@ import { browsingActionHref, loadPublicEvent, type PublicEvent } from "@/lib/hac
 import { eventDate, eventState, listedTags, prizeLabel } from "@/lib/hackathons/discovery";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 import { ButtonLink, EmptyState, ErrorNotice, Page, PageHeader, PageLoader, Section } from "@/components/system";
+import { isRackItUpEvent } from "@/lib/partners/rackItUp2026";
+import { eventDiscoveryTab } from "@/lib/hackathons/discoveryNavigation";
+import RackPublicDiscovery from "@/components/partners/RackPublicDiscovery";
 
 function dateLabel(value: string | null | undefined) {
   const time = eventDate(value);
@@ -51,6 +54,8 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
   const status = eventState(event, now);
   const rounds = Array.isArray(event.rounds_info) ? event.rounds_info.filter(round => round && typeof round.name === "string") : [];
   const actionLabel = onboard ? "Complete onboarding" : "Sign in to participate";
+  const rack = isRackItUpEvent({ isExternal: event.type === "external", registrationUrl: event.website_url });
+  const discoveryTab = eventDiscoveryTab(search.getAll("tab"));
   return <Page>
     <Link href="/hackathons" className="text-sm text-ink-3 hover:text-ink">← Hackathons</Link>
     <PageHeader title={event.name} meta={`${event.mode || "Format not listed"} · ${event.location || "Location not listed"}`} actions={<ButtonLink href={href}>{actionLabel}</ButtonLink>} />
@@ -63,8 +68,9 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
           <h3 className="font-medium">{round.name}</h3><p className="text-sm text-ink-3">{dateLabel(round.start_date)} – {dateLabel(round.end_date)}</p>
           {typeof round.description === "string" && <StructuredHackathonDescription description={round.description} />}
         </div>)}</Section>}
+        {rack && (discoveryTab === "looking_for_teams" || discoveryTab === "builders") && <RackPublicDiscovery key={event.id} eventId={event.id} signInHref={href} onboard={onboard} />}
         <Section title="Participate on HackerMate">
-          <p className="mb-3 text-sm text-ink-2">{onboard ? "Complete your profile" : "Sign in"} to register, save this event, discover builders or link your team. Returning here will not register or save anything automatically.</p>
+          <p className="mb-3 text-sm text-ink-2">{rack ? <>{onboard ? "Complete your profile" : "Sign in free"} to list your profile, save this event or build a team. Official event registration stays on Unstop. Returning here will not perform an action automatically.</> : <>{onboard ? "Complete your profile" : "Sign in"} to register, save this event, discover builders or link your team. Returning here will not register or save anything automatically.</>}</p>
           <div className="flex flex-wrap gap-2"><ButtonLink href={href}>{actionLabel}</ButtonLink><ButtonLink href={href} variant="secondary">{onboard ? "Complete profile to save" : "Sign in to save"}</ButtonLink></div>
         </Section>
       </div>

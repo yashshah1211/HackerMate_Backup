@@ -45,9 +45,12 @@
     assert.equal(doc.querySelector('h1').textContent, rack.name);
     const matching = [...doc.querySelectorAll('a')].find(a => a.textContent === 'Find teammates');
     assert.equal(matching.getAttribute('href'), `/hackathons/${EVENT}?tab=looking_for_teams`);
+    assert.equal(matching.dataset.rackFunnel, 'find_teammates');
     const registration = [...doc.querySelectorAll('a')].find(a => a.textContent.startsWith('Register on Unstop'));
     assert.equal(registration.getAttribute('href'), rack.registrationUrl);
     assert.equal(registration.target, '_blank'); assert.equal(registration.rel, 'noopener noreferrer');
+    assert.equal(registration.dataset.rackFunnel, 'unstop');
+    assert(doc.body.textContent.includes('Browse public builder profiles first. Sign up free'));
     assert(doc.body.textContent.includes('does not register you')); assert(doc.body.textContent.includes('Community Partner'));
     assert.deepEqual(queries.map(q => q.table), ['partner_configs', 'hackathons']);
     assert.deepEqual(queries[1].filter, ['id', EVENT]);
@@ -137,6 +140,7 @@
     assert(html.includes('Sample Build Weekend')); assert(html.includes('Official registration'));
     assert(html.includes(`/hackathons/${otherId}?tab=looking_for_teams`)); assert(!html.includes(`/hackathons/${EVENT}`)); assert(!html.includes(rack.name));
     assert(!html.includes('Organised by Karma Enterprises')); assert(!html.includes('/partners/rack-it-up-2026/'));
+    assert(!html.includes('data-rack-funnel')); assert(!html.includes('Browse public builder profiles first'));
     const legacy = fixture({ partner: { features: {} } }); assert.equal((await publicApi.resolvePublicPartner(legacy.client, legacy.partner.slug)).kind, 'legacy');
   });
   test('committed offline preview contains the actual current component and stylesheet', async () => {

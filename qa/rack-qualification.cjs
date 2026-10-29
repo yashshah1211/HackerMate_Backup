@@ -6,7 +6,7 @@
   const { spawn } = await import('node:child_process');
   const { pathToFileURL } = await import('node:url');
   const mode = process.argv[2];
-  if (!['tests', 'browser', 'build'].includes(mode)) throw Error('Choose tests, browser or build');
+  if (!['tests', 'browser', 'funnel-browser', 'build'].includes(mode)) throw Error('Choose tests, browser, funnel-browser or build');
   for (const file of ['.env', '.env.local', '.env.production', '.env.production.local', '.env.development', '.env.development.local', '.env.test', '.env.test.local']) {
     if (fs.existsSync(file)) throw Error('Refusing qualification with environment file: ' + file);
   }
@@ -27,9 +27,10 @@
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'synthetic-anonymous', NEXT_PUBLIC_SITE_URL: 'https://offline.example.invalid',
         NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve('qa/fixtures/rack-font-mock.cjs') });
     }
-    const tests = ['scripts/test-rack-it-up-2026.cjs', 'scripts/test-partner-presentation.cjs', 'scripts/test-partner-discovery-navigation.cjs', 'scripts/test-partner-admin.cjs', 'scripts/test-partner-authorization.cjs'];
+    const tests = ['scripts/test-rack-it-up-2026.cjs', 'scripts/test-rack-conversion-funnel.cjs', 'scripts/test-partner-presentation.cjs', 'scripts/test-partner-discovery-navigation.cjs', 'scripts/test-partner-admin.cjs', 'scripts/test-partner-authorization.cjs',
+      'scripts/test-auth-return-paths.cjs', 'scripts/test-auth-return-ui.cjs', 'scripts/test-onboarding-submission.cjs', 'scripts/test-public-hackathon-browsing.cjs', 'scripts/test-event-compatibility.cjs'];
     const args = mode === 'build' ? ['node_modules/next/dist/bin/next', 'build', '--webpack']
-      : mode === 'browser' ? ['qa/browser/rack-it-up-2026.cjs'] : ['--test', '--test-concurrency=1', ...tests];
+      : mode === 'browser' ? ['qa/browser/rack-it-up-2026.cjs'] : mode === 'funnel-browser' ? ['qa/browser/rack-conversion-funnel.cjs'] : ['--test', '--test-concurrency=1', ...tests];
     const code = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, args, { env, stdio: 'inherit', timeout: 600000 });
       child.on('error', reject); child.on('exit', value => resolve(value ?? 1));
