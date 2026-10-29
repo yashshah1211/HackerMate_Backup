@@ -117,10 +117,11 @@ test('certificate PDF failure resets loading and reports the existing error', as
 async function ideaFixture({ authenticated = true, storageFails = false, saved = true, pending = false } = {}) {
   const user = authenticated ? { id: '00000000-0000-4000-8000-000000000001' } : null;
   const session = user ? { user, access_token: 'synthetic-token' } : null;
-  const navigation = [], storage = new Map(), logs = [], requests = []; let unsubscribed = 0;
+  const navigation = [], handoffs = [], storage = new Map(), logs = [], requests = []; let unsubscribed = 0;
   const result = { usedAiEngine: true, evaluationMetadata: { schemaVersion: 'evaluator-v1' }, totalScore: 72, grade: 'Strong', trackId: 'generic', strengths: [], redFlags: [], architectureSuggestions: [], recommendedRoles: [{ role: 'Frontend Developer', suggestedSkills: ['React'] }], subScores: { novelty: 18, tech: 18, uiUxOrFeasibility: 18, impactOrTeam: 18 }, categoryLabels: { novelty: 'Novelty', tech: 'Tech', uiUxOrFeasibility: 'Feasibility', impactOrTeam: 'Impact' } };
   const client = { auth: { getUser: async () => ({ data: { user }, error: null }), getSession: async () => ({ data: { session }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() { unsubscribed++; } } } }) }, from() { const q = { select() { return q; }, eq() { return q; }, order() { return q; }, then(resolve) { return Promise.resolve({ data: [], error: null }).then(resolve); } }; return q; } };
-  const f = componentFixture('src/components/PitchEvaluatorClient.tsx', { '@/lib/supabase': { supabase: client }, 'next/navigation': { useRouter: () => ({ push: url => navigation.push(url) }), useSearchParams: () => new URLSearchParams() } }, {
+  const f = componentFixture('src/components/PitchEvaluatorClient.tsx', { '@/lib/supabase': { supabase: client }, 'next/navigation': { useSearchParams: () => new URLSearchParams() } }, {
+    window: { location: { set href(url) { handoffs.push({ url, prefill: storage.get('hackermate_team_prefill') }); navigation.push(url); } } },
     crypto: webcrypto, AbortController, queueMicrotask, sessionStorage: { setItem(k, v) { if (storageFails) throw Error('synthetic storage unavailable'); storage.set(k, v); } }, console: { warn: (...args) => logs.push(args), error: (...args) => logs.push(args) },
     fetch: async (url, init = {}) => { if (url === '/api/evaluator/history') return Response.json({ success: true, history: [] }); assert.equal(url, '/api/evaluator/evaluate'); requests.push(init);
       if (pending) return new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(Error('synthetic cancelled')), { once: true }));
@@ -129,14 +130,15 @@ async function ideaFixture({ authenticated = true, storageFails = false, saved =
   f.render(); await f.effects(); f.render();
   for (const [id, value] of [['ev-title', 'Private synthetic title'], ['ev-description', 'Private synthetic description'], ['ev-stack', 'React']]) f.controls.find(c => c.id === id).onChange({ target: { value } });
   f.render();
-  return { ...f, navigation, storage, logs, requests, submit: () => f.controls.find(c => c.name === 'form').onSubmit({ preventDefault() {} }), view: f, get unsubscribed() { return unsubscribed; } };
+  return { ...f, navigation, handoffs, storage, logs, requests, submit: () => f.controls.find(c => c.name === 'form').onSubmit({ preventDefault() {} }), view: f, get unsubscribed() { return unsubscribed; } };
 }
-for (const options of [{}, { authenticated: false }, { storageFails: true }, { saved: false }]) test('Idea team navigation preserves opaque return path and prefill: ' + JSON.stringify(options), async () => {
+for (const options of [{}, { authenticated: false }, { storageFails: true }, { saved: false }]) test('baseline hard navigation preserves opaque return path and prefill: ' + JSON.stringify(options), async () => {
   const f = await ideaFixture(options); await f.submit(); f.view.render();
   const build = f.view.controls.find(c => c.name === 'Button' && c.onClick?.name === 'handleBuildWithTeam'); assert(build); build.onClick();
   const target = '/teams/create?prefill=' + (options.saved === false ? 'evaluator' : encodeURIComponent('opaque/synthetic id'));
   assert.deepEqual(f.navigation, [options.authenticated === false ? '/login?next=' + encodeURIComponent(target) : target]);
   assert(!/Private|synthetic-token/.test(f.navigation[0])); assert.equal(f.requests.length, 1);
+  assert.equal(f.handoffs.length, 1); assert.equal(f.handoffs[0].url, f.navigation[0]); assert.equal(f.handoffs[0].prefill, f.storage.get('hackermate_team_prefill'));
   if (!options.storageFails) { const payload = JSON.parse(f.storage.get('hackermate_team_prefill')); assert.equal(payload.name, 'Private synthetic title'); assert.equal(payload.description, 'Private synthetic description'); assert(payload.skills.includes('React')); }
   else { assert.equal(f.storage.size, 0); assert.equal(f.logs.length, 1); }
   f.view.unmount(); assert.equal(f.unsubscribed, 1);
