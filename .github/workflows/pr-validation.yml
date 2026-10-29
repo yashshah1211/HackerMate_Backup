@@ -1,8 +1,9 @@
 name: Pull Request Validation
 
 # Offline checks only: TypeScript, OAuth return paths, evaluator admission,
-# and team matching with synthetic fixtures. No live DB, AI, email, browser,
-# deployment, or end-to-end verification is performed.
+# team matching, partner presentation, discovery navigation and authorization
+# with synthetic fixtures. No live DB, AI, email, browser, deployment,
+# deployed SQL/RLS, or end-to-end verification is performed.
 on:
   pull_request:
     branches:
@@ -39,4 +40,7 @@ jobs:
           node --test --test-concurrency=1 \
             scripts/test-auth-return-paths.cjs \
             scripts/test-evaluator-generation-admission.cjs \
-            scripts/test-squad-matching.cjs
+            scripts/test-squad-matching.cjs \
+            scripts/test-partner-presentation.cjs \
+            scripts/test-partner-discovery-navigation.cjs \
+            scripts/test-partner-authorization.cjs
