@@ -136,6 +136,19 @@ test('personal certificate pages have static no-index metadata and unchanged par
   const result = await page.default({ params: Promise.resolve({ id: '42.5' }) });
   assert.equal(result.props.id, '42.5'); assert.equal(result.key, '42.5');
 });
+for (const id of [' Legacy /ID?%# ', 'HM%20literal', 'HM%2520literal', '42.5', 'HM-CERT-Legacy']) {
+  test(`page boundary decodes exactly once before lookup: ${id}`, async () => {
+    const page = harness(overrides, { AbortController }).load('src/app/verify/[id]/page.tsx');
+    const result = await page.default({ params: Promise.resolve({ id: encodeURIComponent(id) }) });
+    assert.equal(result.props.id, id);
+    assert.equal(api.certificateLookupPath(result.props.id), `/api/certificates/verify/${encodeURIComponent(id)}`);
+  });
+}
+test('malformed page encoding renders invalid without guessing an identifier', async () => {
+  const page = harness(overrides, { AbortController }).load('src/app/verify/[id]/page.tsx');
+  const result = await page.default({ params: Promise.resolve({ id: 'HM%broken' }) });
+  assert.equal(api.certificateLookupPath(result.props.id), null);
+});
 test('guest verification uses public navigation without mounting session or discovery boundaries', () => {
   const forbidden = () => { throw new Error('Protected/session boundary must not mount'); };
   const stub = () => null;
