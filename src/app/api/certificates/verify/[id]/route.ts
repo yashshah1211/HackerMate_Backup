@@ -23,7 +23,7 @@ export async function GET(
     // Search by exact badge ID or metadata certificate_id
     const query = supabase
       .from("user_badges")
-      .select("id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name, college), hackathons:hackathon_id(name)");
+      .select("id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name), hackathons:hackathon_id(name)");
     // Non-UUID certificate IDs must never be cast against the UUID badge column.
     // Use an exact scalar filter for legacy strings/numbers, without lossy sanitization.
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -60,7 +60,6 @@ export async function GET(
       issuer_name: badge.issuer_name,
       rank_title: badge.rank_title,
       recipient_name: (badge.profiles as any)?.full_name || "Verified Participant",
-      recipient_college: (badge.profiles as any)?.college || null,
       event_name: (badge.hackathons as any)?.name || badge.badge_name,
       issued_at: badge.issued_at,
     });

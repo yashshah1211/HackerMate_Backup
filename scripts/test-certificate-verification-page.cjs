@@ -23,7 +23,7 @@ for (const id of ['HM-CERT-Legacy', '123', '42.5', '00000000-0000-4000-8000-0000
 for (const id of ['', ' ', '..', '\u0000ID', '\ud800ID']) test('invalid input does not produce a lookup path', () => {
   assert.equal(api.certificateLookupPath(id), null);
 });
-for (const [status, kind] of [[400, 'invalid'], [404, 'missing'], [409, 'ambiguous'], [500, 'unavailable'], [503, 'unavailable'], [302, 'unavailable']]) {
+for (const [status, kind] of [[400, 'invalid'], [404, 'missing'], [409, 'ambiguous'], [429, 'unavailable'], [500, 'unavailable'], [503, 'unavailable'], [302, 'unavailable']]) {
   test(`HTTP ${status} cannot become verified even with valid=true`, () => {
     assert.equal(api.certificateResponse(status, fixture).kind, kind);
   });
@@ -70,7 +70,7 @@ async function view(fetch, id = 'SYNTHETIC-ONLY-123', globals = {}) {
 }
 const response = (status, body = fixture) => ({ status, json: async () => body });
 for (const [status, title] of [[200, 'Certificate verified'], [400, 'Invalid certificate link'], [404, 'Certificate not found'],
-  [409, 'Certificate ID is not unique'], [500, 'Verification unavailable']]) {
+  [409, 'Certificate ID is not unique'], [429, 'Verification unavailable'], [500, 'Verification unavailable']]) {
   test(`UI announces the distinct ${status} state and exposes only approved details`, async () => {
     const v = await view(async () => response(status));
     try {
@@ -79,12 +79,73 @@ for (const [status, title] of [[200, 'Certificate verified'], [400, 'Invalid cer
       assert.equal(doc.querySelector('[aria-busy]').getAttribute('aria-busy'), 'false');
       assert.equal(doc.body.textContent.includes('PRIVATE-EXTRA'), false);
       assert.equal(doc.body.textContent.includes(fixture.recipient_name), status === 200);
-      assert.equal(Boolean(doc.querySelector('button')), status === 500);
+      assert.equal(Boolean(doc.querySelector('button')), [429, 500].includes(status));
       if (status === 200) {
         for (const value of [fixture.recipient_name, fixture.rank_title, fixture.event_name, fixture.issuer_name, fixture.certificate_id]) assert(doc.body.textContent.includes(value));
         assert.equal(doc.querySelector('time').dateTime, '2026-10-29');
       }
     } finally { await v.close(); }
+  });
+}
+
+test('public API selects only the required profile field and returns an exact public allowlist', async () => {
+  const { createClient } = require('@supabase/supabase-js');
+  const privateValue = 'PRIVATE-COLLEGE-EMAIL-METADATA';
+  const row = { id: '00000000-0000-4000-8000-000000000001', badge_name: fixture.badge_name,
+    rank_title: fixture.rank_title, issuer_name: fixture.issuer_name, issued_at: fixture.issued_at,
+    metadata: { certificate_id: fixture.certificate_id, private_note: privateValue },
+    profiles: { full_name: fixture.recipient_name, college: privateValue, email: privateValue },
+    hackathons: { name: fixture.event_name }, private_extra: privateValue };
+  let reads = 0;
+  const loader = harness({ '@supabase/supabase-js': { createClient() {
+    return createClient('https://synthetic.example.invalid', 'synthetic-anon', {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: async (input, init) => {
+        const url = new URL(input); reads++;
+        assert.equal(url.origin, 'https://synthetic.example.invalid');
+        assert.equal(url.pathname, '/rest/v1/user_badges'); assert.equal(init.method, 'GET');
+        assert.equal(url.searchParams.get('metadata->>certificate_id'), `eq.${fixture.certificate_id}`);
+        assert.equal(url.searchParams.get('limit'), '2');
+        assert(url.searchParams.get('select').includes('profiles:user_id(full_name)'));
+        assert(!url.searchParams.get('select').includes('college'));
+        assert(!url.searchParams.get('select').includes('*'));
+        // Deliberately overbroad fixture still cannot expand the public response.
+        return Response.json([row]);
+      } },
+    });
+  } } });
+  const response = await loader.load('src/app/api/certificates/verify/[id]/route.ts').GET(
+    new Request('https://synthetic.example.invalid'), { params: Promise.resolve({ id: fixture.certificate_id }) });
+  assert.equal(response.status, 200); assert.equal(reads, 1);
+  const body = await response.json();
+  assert.deepEqual(Object.keys(body).sort(), ['valid', 'certificate_id', 'badge_name', 'issuer_name', 'rank_title', 'recipient_name', 'event_name', 'issued_at'].sort());
+  assert(!JSON.stringify(body).includes(privateValue));
+  assert.equal(Object.hasOwn(body, 'recipient_college'), false);
+  assert.equal(body.recipient_name, fixture.recipient_name);
+  assert.equal(body.certificate_id, fixture.certificate_id);
+  assert.equal(api.certificateResponse(response.status, body).kind, 'verified');
+});
+
+for (const [id, status] of [['!!!', 400], ['missing', 404], ['duplicate', 409], ['error', 500]]) {
+  test(`public API HTTP ${status} never exposes profile or certificate record details`, async () => {
+    const privateValue = 'PRIVATE-CERTIFICATE-DETAIL';
+    let reads = 0;
+    const loader = harness({ '@supabase/supabase-js': { createClient() { return { from() {
+      reads++;
+      return { select(columns) { assert(!columns.includes('college')); return this; }, eq() { return this; },
+        or() { return this; }, async limit(count) {
+          assert.equal(count, 2);
+          return { data: id === 'duplicate' ? [{ recipient_name: privateValue }, { recipient_name: privateValue }] : [],
+            error: id === 'error' ? { code: 'XX000', message: privateValue } : null };
+        } };
+    } }; } } });
+    const response = await loader.load('src/app/api/certificates/verify/[id]/route.ts').GET(
+      new Request('https://synthetic.example.invalid'), { params: Promise.resolve({ id }) });
+    assert.equal(response.status, status);
+    const body = await response.json();
+    assert(Object.keys(body).every(key => ['valid', 'message', 'error', 'certificate_id'].includes(key)));
+    assert(!JSON.stringify(body).includes(privateValue));
+    assert.notEqual(body.valid, true); assert.equal(reads, status === 400 ? 0 : 1);
   });
 }
 test('loading is announced; stale verified results cannot replace a newer failure', async () => {
@@ -199,7 +260,9 @@ for (const [id, outcome] of [['', 'invalid'], ['!!!', 'invalid'], ['missing', 'm
     } }; } } });
     const handler = loader.load('src/app/api/certificates/verify/[id]/route.ts').GET;
     const response = await handler(new Request('http://offline.invalid'), { params: Promise.resolve({ id }) });
-    const result = api.certificateResponse(response.status, await response.json());
+    const body = await response.json();
+    assert.equal(Object.hasOwn(body, 'recipient_college'), false);
+    const result = api.certificateResponse(response.status, body);
     assert.equal(result.kind, outcome);
     if (outcome === 'verified') {
       assert.equal(result.certificate.id, id);
