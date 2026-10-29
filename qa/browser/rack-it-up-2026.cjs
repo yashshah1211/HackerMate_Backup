@@ -7,10 +7,13 @@
   const { chromium } = await import('@playwright/test');
   const root = process.cwd(), directory = path.join(root, 'scratch/rack-it-up-preview');
   const env = {};
-  for (const key of ['SystemRoot', 'WINDIR', 'PATH', 'USERPROFILE', 'LOCALAPPDATA', 'TEMP', 'TMP', 'COMSPEC', 'NODE_OPTIONS']) if (process.env[key]) env[key] = process.env[key];
+  for (const key of ['SystemRoot', 'WINDIR', 'PATH', 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'TEMP', 'TMP', 'COMSPEC', 'NODE_OPTIONS']) if (process.env[key]) env[key] = process.env[key];
   const generated = spawnSync(process.execPath, ['scripts/test-rack-it-up-2026.cjs', '--preview'], { env, stdio: 'inherit', timeout: 30000 });
   if (generated.status !== 0) throw Error('Synthetic preview generation failed');
-  const browser = await chromium.launch({ headless: true, chromiumSandbox: true, env, args: ['--host-resolver-rules=MAP * ~NOTFOUND'] });
+  const browser = await chromium.launch({ headless: true, chromiumSandbox: true, env,
+    ...(process.platform === 'linux' ? { channel: 'chrome' } : {}),
+    args: ['--host-resolver-rules=MAP * ~NOTFOUND'] });
+  console.log('QUALIFICATION_BROWSER=' + browser.version());
   const results = [], requests = [];
   const check = async (name, fn) => { try { await fn(); results.push({ name, pass: true }); } catch (error) { results.push({ name, pass: false, error: error.message }); } };
   const official = 'https://unstop.com/hackathons/rack-it-up-2026-48-hour-online-hackathon-by-rackem-karma-enterprises-1777639';

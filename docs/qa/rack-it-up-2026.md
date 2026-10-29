@@ -4,9 +4,15 @@ Proposed URL: `/partners/rack-it-up-2026`. Branch: `feat/rack-it-up-2026-portal`
 
 The existing public partner renderer, anonymous resolver, metadata and event-discovery flow are reused. This slug adds founder-confirmed facts and Community Partner wording. The official Unstop CTA is distinct from matching. Matching requires a public event UUID whose external registration identity matches the official Unstop URL; missing, unpublished or mismatched events never fall back to another event. Rack cannot enter the legacy provisioner. Other portals, permissions and admin APIs are unchanged. No new attribution, registration-conversion claims, participant-data collection or registration totals are added.
 
-No Rack event ID/seed was found in repository source. Production was not queried: whether a reusable production record exists is **unverified**, not assumed absent. No partner/event record, artwork, prize detail or participation guarantee is invented. No production activation is authorized.
+Founder verification (reported, not queried by Codex): existing event `f8dd958a-bb3a-46e5-bd51-432ecf067203` has December 11–13 dates, Online location, Approved status, External type, team bounds 1–4 and the exact official Unstop URL. Reuse this event; **do not create another**. The founder also approved the visual preview. The production ID is documentation only, never a synthetic fixture or an activated configuration. No production activation is authorized.
 
-## Evidence
+## Linux qualification follow-up
+
+The dedicated PR-only workflow runs on `ubuntu-24.04`/Node 22 with read-only repository permissions and no production environment/secrets. Dependency setup uses the unchanged lockfile with lifecycle scripts disabled. Linux uses the runner's installed Google Chrome through Playwright with Chromium sandboxing retained; no browser download, OS-security change or elevated command is needed. Application child processes receive an allowlisted environment, an external-network guard and generation explicitly disabled. The build uses a GET/HEAD-only loopback database fixture and Next's local-font fixture. Browser contexts block all page requests and service workers; screenshots/results/logs are retained for seven days. No deployment step exists.
+
+CI evidence is recorded on the published PR/head, not inferred from the Windows results below. These checks qualify the production-mode build with synthetic data/offline fonts, and actual browser rendering of the real component/CSS fixture. They do not test production database access, real registrations, actual team creation or live authentication. Portal application code is unchanged by this qualification follow-up.
+
+## Original Windows evidence (head 0b6928548b369b528ad000a1f8c4afd47a4fae95)
 
 - Final relevant JavaScript run: **336/336 PASS**, including **24/24 Rack tests**, zero skipped/cancelled. This runs the five presentation/discovery/admin/authorization/Rack test files below, without the unrelated SQL runner.
 - Earlier expanded run: **335/336 PASS**. Its failed item is the separate local PostgreSQL metrics runner; its SQL assertions are unqualified, and its root cause was not established. A read-only binary check reports PostgreSQL 18.4 with Windows error-1920 warnings. No SQL or metric query is changed or used by this page. The final run adds the checked-in preview assertion; the earlier SQL failure is not converted into a pass.
@@ -33,8 +39,8 @@ Logo handoff: `public/brand/hackermate-logo-transparent.png`, 1112×432 RGBA. It
 
 ## Separately founder-approved activation checklist
 
-1. Approve configuration inspection first. In existing admin tools, identify the actual Rack event by the official Unstop identity `1777639` and full URL below, not a similar name. Confirm the UUID, public/non-archived state, external registration, dates December 11–13, and team bounds 1–4. Finals December 14 and results December 15 are separate milestones. Check for duplicate event records; if ambiguous, **STOP** for founder selection. No such production inspection was executed here.
-2. If no suitable event exists or fields need correction, **STOP** for a separately reviewed event-creation/correction proposal using confirmed information and existing required fields. Do not use the legacy portal provisioner or invent an ID, placeholder dates or prizes.
+1. Event identity/details are founder-verified as reported above. During a separately approved activation, reuse `f8dd958a-bb3a-46e5-bd51-432ecf067203` and confirm public/non-archived discovery eligibility. Finals December 14 and results December 15 remain separate milestones. Codex has not independently queried production.
+2. Do not create another event. If later evidence conflicts with the founder-verified record, **STOP** for review of that existing record. Do not use the legacy portal provisioner or invent an ID, placeholder dates or prizes.
 3. Read `GET /api/admin/partner-config` through the existing authenticated admin session. If this slug is absent, prepare the following `POST /api/admin/partner-config` body using the verified real UUID. The placeholder is intentionally invalid and must not be submitted. No credentials belong in files or logs.
 
 ```json
