@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { normalizePartnerConfig, normalizePublicEvent, record,
   type PublicEvent, type PublicPartnerConfig } from "./config";
+import { isRackItUpEvent, RACK_IT_UP_2026 } from "./rackItUp2026";
 
 export type PublicPartnerResult =
   | { kind: "missing" }
@@ -24,7 +25,13 @@ export async function resolvePublicPartner(client: SupabaseClient, slug: string)
     }
     if (!data) return { kind: "missing" };
     const config = normalizePartnerConfig(data);
-    if (config.portalVersion === "legacy") return { kind: "legacy", config };
+    if (config.portalVersion === "legacy") {
+      if (slug === RACK_IT_UP_2026.slug) {
+        console.error("[partners/public] Rack It Up requires public portal configuration");
+        return { kind: "unavailable" };
+      }
+      return { kind: "legacy", config };
+    }
     const eventId = record(data).hackathon_id;
     if (typeof eventId !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(eventId)) {
       return { kind: "organizer-v1", config, event: null };
@@ -34,7 +41,12 @@ export async function resolvePublicPartner(client: SupabaseClient, slug: string)
       console.error("[partners/public] event lookup failed:", eventResult.error);
       return { kind: "unavailable" };
     }
-    return { kind: "organizer-v1", config, event: eventResult.data ? normalizePublicEvent(eventResult.data, config) : null };
+    let event = eventResult.data ? normalizePublicEvent(eventResult.data, config) : null;
+    if (slug === RACK_IT_UP_2026.slug && event && !isRackItUpEvent(event)) {
+      console.error("[partners/public] Rack It Up event association does not match the official registration identity");
+      event = null;
+    }
+    return { kind: "organizer-v1", config, event };
   } catch (error) {
     console.error("[partners/public] lookup failed:", error);
     return { kind: "unavailable" };
