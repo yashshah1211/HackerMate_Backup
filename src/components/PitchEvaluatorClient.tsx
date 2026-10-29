@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   JudgingTrackId,
@@ -110,6 +110,7 @@ export default function PitchEvaluatorClient({
   initialTrack = "web_dev",
 }: PitchEvaluatorClientProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const forceHeuristic = searchParams?.get("engine") === "heuristic";
   const [selectedTrack, setSelectedTrack] = useState<JudgingTrackId>(initialTrack);
   const [title, setTitle] = useState("");
@@ -450,9 +451,9 @@ export default function PitchEvaluatorClient({
     const targetUrl = `/teams/create?prefill=${opaquePrefillId}`;
 
     if (user) {
-      window.location.href = targetUrl;
+      router.push(targetUrl);
     } else {
-      window.location.href = `/login?next=${encodeURIComponent(targetUrl)}`;
+      router.push(`/login?next=${encodeURIComponent(targetUrl)}`);
     }
   };
 

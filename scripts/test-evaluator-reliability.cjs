@@ -471,6 +471,62 @@ test('PPT request-wide deadline and PDF degradation never grant another provider
  const context={deadlineAt:50000,attempts:0};const {makePitchPdf}=require('./fixtures/pitch-pdf.cjs');
  await assert.rejects(loader.load('src/lib/ppt/evaluatorEngine.ts').runPitchDeckEvaluation('Title','open',SOURCE,undefined,'generic',undefined,{bytes:makePitchPdf(),pageCount:3,source:'linked_pdf'},30000,context),e=>e.code==='deadline_exceeded');assert.equal(calls,1);assert.equal(context.providerDeadlineAt,30000);
 });
+
+// Exercise the real engine and gateway, with a deterministic clock and local
+// provider responses. Backoff consumes clock time; no provider network is used.
+function deadlineFixture({ budget = 30000, executionDeadline = 50000, existingDeadline, firstElapsed = 6000, finishAt, failure = 503, signal } = {}) {
+ let now=0,calls=0;const admissions=[],timers=[];
+ const {pitchOutput,providerEnvelope}=require('./fixtures/evaluator-benchmarks.cjs');
+ class Clock extends Date { static now(){return now;} }
+ class Signals extends AbortSignal { static timeout(ms){timers.push({started:now,deadline:now+ms});return AbortSignal.timeout(ms);} }
+ const loader=harness({}, {Date:Clock,AbortSignal:Signals,Math:Object.assign(Object.create(Math),{random:()=>0}),
+  setTimeout(fn,ms,...args){if(ms===250){now+=250;return setTimeout(fn,0,...args);}return setTimeout(fn,ms,...args);},
+  fetch:async()=>{calls++;if(calls===1){now=firstElapsed;if(failure==='transport')throw Error('synthetic transport');return failure==='invalid'?Response.json({candidates:[]}):new Response('',{status:failure});}
+   if(finishAt!==undefined)now=finishAt;return Response.json(providerEnvelope(pitchOutput(SOURCE,'generic','text_only')));
+  }});
+ const context={deadlineAt:executionDeadline,attempts:0,signal,providerDeadlineAt:existingDeadline,beforeProviderAttempt:async d=>{admissions.push(d);}};
+ const run=()=>loader.load('src/lib/ppt/evaluatorEngine.ts').runPitchDeckEvaluation('Synthetic','open',SOURCE,undefined,'generic',undefined,{bytes:Buffer.from('%PDF-synthetic'),pageCount:1,source:'linked_pdf'},budget,context);
+ return {run,context,admissions,timers,get calls(){return calls;}};
+}
+for(const [budget,executionDeadline,existingDeadline,expected]of [[10000,50000,undefined,10000],[30000,50000,undefined,30000],[36000,50000,undefined,36000],[36000,20000,undefined,20000],[36000,50000,12000,12000],[10000,50000,36000,10000]]) {
+ test(`PPT fallback shares original absolute deadline ${budget}/${executionDeadline}/${existingDeadline}`,async()=>{
+  const f=deadlineFixture({budget,executionDeadline,existingDeadline});const result=await f.run();
+  assert.equal(result.analysis.mode,'text_only');assert.equal(f.context.providerDeadlineAt,expected);
+  assert.deepEqual(f.admissions,[expected,expected]);assert.equal(f.calls,2);assert.equal(f.context.attempts,2);
+  assert(f.timers.every(t=>t.deadline<=expected));assert.equal(f.timers[0].deadline,Math.min(16000,expected));
+  assert.equal(f.timers[1].deadline,Math.min(21250,expected));
+ });
+}
+test('PPT fallback cannot return a validated score beyond original caller budget',async()=>{
+ const f=deadlineFixture({budget:30000,firstElapsed:15900,finishAt:30500});
+ await assert.rejects(f.run(),e=>e.code==='deadline_exceeded');assert.equal(f.context.providerDeadlineAt,30000);assert.equal(f.calls,2);
+});
+test('PPT explicit 36s allowance permits a valid response after 30s',async()=>{
+ const f=deadlineFixture({budget:36000,firstElapsed:15900,finishAt:30500});const result=await f.run();
+ assert.equal(result.analysis.mode,'text_only');assert.equal(typeof result.totalScore,'number');assert.equal(f.context.providerDeadlineAt,36000);assert.equal(f.calls,2);
+});
+for(const failure of [400,401,402,403,404,429,'invalid'])test('PPT ineligible native failure never degrades: '+failure,async()=>{
+ const f=deadlineFixture({budget:36000,failure});await assert.rejects(f.run(),e=>e.code===(failure==='invalid'?'invalid_ai_output':'provider_rejected'));
+ assert.equal(f.calls,1);assert.equal(f.context.attempts,1);
+});
+test('PPT expired shared provider budget prevents even the fallback admission',async()=>{
+ const f=deadlineFixture({budget:10000,firstElapsed:10000});await assert.rejects(f.run(),e=>e.code==='deadline_exceeded');assert.equal(f.calls,1);assert.equal(f.context.attempts,1);
+});
+test('PPT cancelled before execution spends no provider attempt',async()=>{
+ const f=deadlineFixture({signal:AbortSignal.abort()});await assert.rejects(f.run(),e=>e.code==='deadline_exceeded');assert.equal(f.calls,0);
+});
+test('native attempt timeout permits just one bounded text fallback; parent abort forbids it',async()=>{
+ for(const parentAbort of [false,true]) {
+  let now=0,calls=0,timeouts=0;const owner=new AbortController();
+  const {pitchOutput,providerEnvelope}=require('./fixtures/evaluator-benchmarks.cjs');
+  class Signals extends AbortSignal {static timeout(ms){if(++timeouts===1){assert.equal(ms,16000);const c=new AbortController();queueMicrotask(()=>{now=16000;if(parentAbort)owner.abort();c.abort();});return c.signal;}return AbortSignal.timeout(ms);}}
+  const loader=harness({}, {Date:class extends Date{static now(){return now;}},AbortSignal:Signals,fetch:async(_url,init)=>{calls++;if(calls===1)return new Promise((_resolve,reject)=>{init.signal.addEventListener('abort',()=>reject(Error('synthetic timeout')),{once:true});});return Response.json(providerEnvelope(pitchOutput(SOURCE,'generic','text_only')));}});
+  const context={deadlineAt:50000,attempts:0,signal:owner.signal};
+  const pending=loader.load('src/lib/ppt/evaluatorEngine.ts').runPitchDeckEvaluation('Synthetic','open',SOURCE,undefined,'generic',undefined,{bytes:Buffer.from('%PDF-synthetic'),pageCount:1,source:'linked_pdf'},36000,context);
+  if(parentAbort){await assert.rejects(pending,e=>e.code==='deadline_exceeded');assert.equal(calls,1);}else{assert.equal((await pending).analysis.mode,'text_only');assert.equal(calls,2);}
+  assert.equal(context.attempts,calls);
+ }
+});
 test('PDF parent cancellation destroys parser state and prevents a scored continuation',async()=>{
  const abort=new AbortController();let destroyed=0;
  const document={numPages:1,loadingTask:{async destroy(){destroyed++}},getPage:()=>new Promise(()=>{})};
