@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { eventDiscoveryTab, type EventDiscoveryTab } from "@/lib/hackathons/discoveryNavigation";
+import { isRackItUpEvent } from "@/lib/partners/rackItUp2026";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -1131,6 +1132,8 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
     );
 
   const userSkillsLower = userSkills.map((sk) => sk.toLowerCase());
+  const rackDiscovery = activeTab === "looking_for_teams"
+    && isRackItUpEvent({ isExternal: hackathon.type === "external", registrationUrl: hackathon.website_url });
 
   return (
     <Page className="pb-32 md:pb-16">
@@ -1248,6 +1251,10 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
           <Stat label="Discoverable builders" value={discovery?.total ?? (discoveryError ? "Unavailable" : "Loading")} />
           <Stat label="Recruiting" value={recruitingTeams.length} />
         </div>
+        {rackDiscovery && <p className="mt-4 text-[13.5px] text-ink-2">
+          Ready to find teammates? <a href="#rack-teammates" className="font-medium text-ink underline underline-offset-4">Browse builders or list your profile</a>.
+          {" "}You choose whether to be listed. Register for the event separately on Unstop.
+        </p>}
       </header>
 
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
@@ -1360,7 +1367,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
           )}
 
           {/* ── People & resources tabs ─────────────────────────── */}
-          <section aria-label="Teams, builders and resources" className="min-w-0">
+          <section id={rackDiscovery ? "rack-teammates" : undefined} aria-label="Teams, builders and resources" className="min-w-0">
             <InPageTabs
               label="Hackathon sections"
               value={activeTab}
@@ -1455,7 +1462,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
                     <div className="mb-5 flex flex-col gap-3 rounded-lg border border-line bg-raised px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-[13.5px] font-semibold text-ink">List yourself as looking for a team</p>
-                        <p className="mt-0.5 text-[12.5px] text-ink-3">Teams in this hackathon can find you and reach out.</p>
+                        <p className="mt-0.5 text-[12.5px] text-ink-3">{rackDiscovery ? <>{myRegistration?.looking_for_team ? "Teammate discovery is enabled." : "Choose List my profile to enable teammate discovery."} Only opted-in profiles with public visibility appear to other builders. You can stop listing at any time.</> : "Teams in this hackathon can find you and reach out."}</p>
                       </div>
                       {isRegistered === null || (isNative && !isRegistered) ? (
                         <span className="shrink-0 text-[12.5px] text-ink-3">{isRegistered === null ? "Participation state unavailable" : "Register first to list your profile"}</span>
@@ -1475,7 +1482,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
                   )}
 
                   {discoveryError ? <ErrorNotice detail={discoveryError} onRetry={() => loadBuilderPage(hackathonId)} /> : !discovery ? <PageLoader label="Loading builders" /> : lookingForTeamRegs.length === 0 ? (
-                    <EmptyState icon={<Search />} title="Nobody is looking for a team yet" body="Builders appear after opting into teammate discovery with a visible public profile." />
+                    <EmptyState icon={<Search />} title={rackDiscovery ? "No public builder listings yet" : "Nobody is looking for a team yet"} body={rackDiscovery ? "Only opted-in, publicly visible profiles appear here. Use the profile listing control above to manage discovery, or create a team. Official registration stays on Unstop." : "Builders appear after opting into teammate discovery with a visible public profile."} />
                   ) : (
                     <ul className="divide-y divide-line rounded-lg border border-line bg-raised">
                       {buildersList.map((builder) => {
