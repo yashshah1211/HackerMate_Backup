@@ -102,6 +102,7 @@ function loadModule(relative, overrides = {}, globals = {}) {
 const api = loadModule('src/lib/hackathons/eventParticipation.ts');
 const discoveryNavigation = loadModule('src/lib/hackathons/discoveryNavigation.ts');
 const publicBrowsing = loadModule('src/lib/hackathons/publicBrowsing.ts');
+const rackIdentity = loadModule('src/lib/partners/rackItUp2026.ts', {}, { URL });
 function plain(value) {
   if (value == null || typeof value === 'boolean') return '';
   if (Array.isArray(value)) return value.map(plain).join(' ');
@@ -140,6 +141,7 @@ async function pageHarness(kind, options = {}) {
     },
     'next/link': component('Link'), 'lucide-react': icons, '@/lib/supabase': { supabase: fixtureData.client },
     '@/lib/hackathons/eventParticipation': api, '@/lib/hackathons/discoveryNavigation': discoveryNavigation, '@/lib/utils': { cn: () => '' },
+    '@/lib/partners/rackItUp2026': rackIdentity,
     '@/components/system': system, '@/components/landing/primitives': { Container: component('Container'), Eyebrow: component('Eyebrow') },
     '@/context/NotificationContext': { useNotification: () => ({ showToast(text, tone) { fixtureData.state.toasts.push({ text, tone }); }, confirm(value) { fixtureData.state.confirmation = value; } }) },
     '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }),
@@ -474,6 +476,35 @@ for (const search of ['', 'tab=organizer', 'tab=resources', 'tab=javascript%3Aal
 test('missing event keeps the existing not-found state even with a discovery deep link', async () => {
   const page = await pageHarness('event', { missingEvent: true, search: 'tab=looking_for_teams' });
   assert(page.html.includes('Hackathon not found'));
+  assert(page.state.queries.every(query => query.operation === 'read'));
+});
+
+for (const registration of [null, defaultRegistration]) test(`Rack member guidance preserves explicit listing intent; listed=${Boolean(registration)}`, async () => {
+  const page = await pageHarness('event', { search: 'tab=looking_for_teams', registration,
+    discoveryRows: [], total: 0, hackathon: { website_url: rackIdentity.RACK_IT_UP_2026.registrationUrl } });
+  assert(page.html.includes('href="#rack-teammates"')); assert(page.html.includes('id="rack-teammates"'));
+  assert(page.html.includes('No public builder listings yet')); assert(!page.html.includes('Nobody is looking for a team yet'));
+  assert(page.html.includes('Only opted-in profiles with public visibility appear to other builders.'));
+  assert(page.html.includes(registration ? 'Teammate discovery is enabled.' : 'Choose List my profile to enable teammate discovery.'));
+  assert(page.controls.some(control => control.text === (registration ? 'Stop listing profile' : 'List my profile')));
+  assert(page.state.queries.every(query => query.operation === 'read'));
+  await page.tab('builders');
+  assert(!page.html.includes('href="#rack-teammates"')); assert(!page.html.includes('id="rack-teammates"'));
+});
+
+test('Rack discovery failure never becomes the new empty state', async () => {
+  const page = await pageHarness('event', { search: 'tab=looking_for_teams', rpcError: { code: '42501' },
+    hackathon: { website_url: rackIdentity.RACK_IT_UP_2026.registrationUrl } });
+  assert(page.html.includes('This event data is not available to your session.'));
+  assert(!page.html.includes('No public builder listings yet'));
+  assert(page.state.queries.every(query => query.operation === 'read'));
+});
+
+test('other events keep their baseline listing copy and have no Rack jump target', async () => {
+  const page = await pageHarness('event', { search: 'tab=looking_for_teams', discoveryRows: [], total: 0 });
+  assert(page.html.includes('Nobody is looking for a team yet'));
+  assert(page.html.includes('Teams in this hackathon can find you and reach out.'));
+  assert(!page.html.includes('href="#rack-teammates"')); assert(!page.html.includes('id="rack-teammates"'));
   assert(page.state.queries.every(query => query.operation === 'read'));
 });
 test('legacy partner links to its resolved event and keeps official registration separate', async () => {

@@ -36,6 +36,7 @@ const event = { id: EVENT, name: RACK_IT_UP_2026.name, description: 'Synthetic R
   status: 'approved', archived: false, type: 'external', website_url: RACK_IT_UP_2026.registrationUrl,
   start_date: '2026-12-11', end_date: '2026-12-13', location: 'Online', mode: 'online', min_team_size: 1, max_team_size: 4,
   max_participants: null, tags: [], rounds_info: [], organizer_id: null, prize_pool: null };
+const longDescription = 'Synthetic event detail for testing navigation past a long description. '.repeat(24);
 const builder = { user_id: '00000000-0000-4000-8000-000000000008', full_name: 'Synthetic Public Builder', college: 'Synthetic Campus', skills: ['React', 'Python'], avatar_url: null };
 export const supabase = {
   auth: {
@@ -82,7 +83,10 @@ export const supabase = {
       // Preserve the unchanged member page's unrestricted stage/resource reads.
       // Guests still cannot reach these relations; restricted projections stay explicit.
       if (columns.includes('*') && !['hackathon_stages', 'hackathon_resources'].includes(table)) throw Error('Unexpected wildcard');
-      let rows = table === 'hackathons' ? [event] : table === 'profiles' ? [state.profile]
+      let rows = table === 'hackathons' ? [{ ...event,
+        ...(state.longDescription ? { description: longDescription, rounds_info: [{ name: 'Synthetic round', description: longDescription }] } : {}),
+        ...(state.otherEvent ? { name: 'Synthetic Other Event', website_url: 'https://example.invalid/other-event' } : {}),
+      }] : table === 'profiles' ? [state.profile]
         : table === 'hackathon_registrations' ? state.registration ? [state.registration] : [] : [];
       if (table === 'hackathon_registrations' && !filters.some(([key, value]) => key === 'user_id' && value === USER)) throw Error('Unscoped registration read');
       return { data: single ? rows[0] || null : rows, error: null };
