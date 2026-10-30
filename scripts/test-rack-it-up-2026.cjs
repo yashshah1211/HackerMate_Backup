@@ -154,7 +154,8 @@
     const page = load('src/app/partners/[slug]/page.tsx', { '@/lib/partners/public': { loadPublicPartner: async () => result }, '@/components/partners/LegacyPartnerPage': () => null });
     const meta = await page.generateMetadata({ params: Promise.resolve({ slug: rack.slug }) });
     assert.equal(meta.title, rack.name); assert.equal(meta.alternates.canonical, '/partners/' + rack.slug);
-    assert.equal(meta.openGraph.images.length, 0);
+    assert.equal(meta.openGraph.images[0].url, '/og-image.png');
+    assert.equal(meta.openGraph.images[0].alt, 'HackerMate — Team Operating System');
   });
   test('handoff PNG preserves the official SVG dimensions, colors and transparent background', async () => {
     const image = sharp(path.join(ROOT, 'public/brand/hackermate-logo-transparent.png')); const meta = await image.metadata();

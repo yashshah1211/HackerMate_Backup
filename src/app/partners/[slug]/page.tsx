@@ -11,7 +11,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadPublicPartner(slug);
   if (result.kind === "missing" || result.kind === "unavailable") {
-    return { title: "Partner event", robots: { index: false, follow: false } };
+    return { title: "Partner event", robots: { index: false, follow: false },
+      alternates: { canonical: null }, openGraph: null, twitter: null };
   }
   const { config } = result;
   const event = result.kind === "organizer-v1" ? result.event : null;
@@ -20,11 +21,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = rack?.introduction || config.tagline || event?.description || `Event information and teammate discovery for ${title} on HackerMate.`;
   const path = `/partners/${config.slug}`;
   const image = config.bannerUrl || config.logoUrl;
+  const images = image ? [{ url: image, alt: title }]
+    : [{ url: "/og-image.png", width: 1200, height: 630, alt: "HackerMate — Team Operating System" }];
+  // Only this checked-in mark is known to be square; other artwork is unmeasured.
+  const compactLogo = Boolean(rack && !config.bannerUrl && config.logoUrl === "/partners/rack-it-up-2026/RackItUp-mark.png");
   return {
     title, description, alternates: { canonical: path },
     openGraph: { title, description, url: path, type: "website", siteName: "HackerMate",
-      images: image ? [{ url: image, alt: title }] : [] },
-    twitter: { card: image ? "summary_large_image" : "summary", title, description, images: image ? [image] : [] },
+      images },
+    twitter: { card: compactLogo ? "summary" : "summary_large_image",
+      title, description, images: [image || "/og-image.png"] },
   };
 }
 
