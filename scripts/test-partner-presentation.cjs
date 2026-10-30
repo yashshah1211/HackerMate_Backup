@@ -194,7 +194,8 @@ test('metadata uses event facts, canonical slug and only validated real artwork'
   const { result } = await resolve({ partner: { banner_url: 'javascript:bad' } });
   const metadata = await route(result).generateMetadata(props);
   assert.equal(metadata.title, 'Sample Build Weekend'); assert.equal(metadata.description, 'A weekend for curious builders.');
-  assert.equal(metadata.alternates.canonical, '/partners/sample-event'); assert.equal(metadata.openGraph.images.length, 0);
+  assert.equal(metadata.alternates.canonical, '/partners/sample-event');
+  assert.equal(metadata.openGraph.images[0].url, '/og-image.png');
 });
 test('legacy page retains the reviewed contextual-navigation snapshot', () => {
   const current = fs.readFileSync(path.join(ROOT, 'src/components/partners/LegacyPartnerPage.tsx'), 'utf8');
