@@ -23,11 +23,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const image = config.bannerUrl || config.logoUrl;
   const images = image ? [{ url: image, alt: title }]
     : [{ url: "/og-image.png", width: 1200, height: 630, alt: "HackerMate — Team Operating System" }];
+  // Only this checked-in mark is known to be square; other artwork is unmeasured.
+  const compactLogo = Boolean(rack && !config.bannerUrl && config.logoUrl === "/partners/rack-it-up-2026/RackItUp-mark.png");
   return {
     title, description, alternates: { canonical: path },
     openGraph: { title, description, url: path, type: "website", siteName: "HackerMate",
       images },
-    twitter: { card: config.logoUrl && !config.bannerUrl ? "summary" : "summary_large_image",
+    twitter: { card: compactLogo ? "summary" : "summary_large_image",
       title, description, images: [image || "/og-image.png"] },
   };
 }

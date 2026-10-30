@@ -59,6 +59,11 @@ test('configured banner retains priority over logo without changing the asset', 
   assert.equal(m.openGraph.images[0].url, 'https://artwork.example.invalid/approved-banner.png');
   assert.equal(m.twitter.card, 'summary_large_image');
 });
+test('other logo aspect ratios retain their existing card policy', async () => {
+  const m = await partner('organizer-v1', { slug: 'synthetic-partner', logoUrl: '/brand/hackermate-logo-transparent.png' });
+  assert.equal(m.openGraph.images[0].url, '/brand/hackermate-logo-transparent.png');
+  assert.equal(m.twitter.card, 'summary_large_image');
+});
 for (const kind of ['missing', 'unavailable']) test(`${kind} partner suppresses inherited social claims and indexing`, async () => {
   const m = await partner(kind);
   assert.equal(m.robots.index, false); assert.equal(m.robots.follow, false);
