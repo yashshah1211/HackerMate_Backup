@@ -55,12 +55,16 @@ const PORTAL = '/partners/rack-it-up-2026';
           await page.screenshot({ path: path.join(OUT, `portal-${width}.png`), fullPage: true });
         });
         await page.getByRole('link', { name: 'Find teammates', exact: true }).focus();
+        await page.evaluate(() => { window.__qa.longDescription = true; });
         await page.keyboard.press('Enter');
         await page.getByText('Synthetic Public Builder', { exact: true }).waitFor();
         await check(width + ': guest sees real component projection before login', async () => {
           assert.equal(new URL(page.url()).pathname + new URL(page.url()).search, DESTINATION);
           assert.equal(await page.evaluate(() => window.__qa.writes.length), 0);
           assert(await page.evaluate(() => window.__qa.reads.every(read => read.table === 'hackathons')));
+          assert.equal(await page.locator('main h2').first().textContent(), 'Find teammates for Rack It Up');
+          assert.equal(await page.getByRole('link', { name: 'Sign in for teammate matching', exact: true }).first().getAttribute('href'), '/login?next=' + encodeURIComponent(DESTINATION));
+          assert(await page.getByRole('heading', { name: 'About this hackathon', exact: true }).count());
           assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
           await page.screenshot({ path: path.join(OUT, `guest-${width}.png`), fullPage: true });
         });
@@ -90,6 +94,25 @@ const PORTAL = '/partners/rack-it-up-2026';
           assert.equal(await page.evaluate(() => window.__qa.writes.filter(w => w.table === 'hackathon_registrations').length), 0);
           assert.equal(await page.getByRole('link', { name: 'Create a team', exact: true }).first().getAttribute('href'), `/teams/create?hackathon=${EVENT}`);
           assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+        });
+        await check(width + ': member jump link reaches existing discovery without writes', async () => {
+          const before = await page.evaluate(() => window.__qa.writes.length);
+          const jump = page.getByRole('link', { name: 'Browse builders or list your profile', exact: true });
+          assert.equal(await jump.getAttribute('href'), '#rack-teammates');
+          await jump.click();
+          await page.waitForFunction(() => {
+            const top = scrollY + document.getElementById('rack-teammates').getBoundingClientRect().top;
+            const maximum = document.scrollingElement.scrollHeight - innerHeight;
+            return scrollY > 0 && Math.abs(scrollY - Math.min(top, maximum)) < 3;
+          });
+          assert.equal(new URL(page.url()).pathname + new URL(page.url()).search, DESTINATION);
+          assert.equal(new URL(page.url()).hash, '#rack-teammates');
+          assert.equal(await page.evaluate(() => window.__qa.writes.length), before);
+          assert(await page.getByText('Only opted-in profiles with public visibility appear to other builders.', { exact: false }).isVisible());
+          const listing = await page.getByRole('button', { name: 'List my profile', exact: true }).boundingBox();
+          assert(listing && listing.y >= 0 && listing.y + listing.height <= 950, 'Listing control must be within the viewport after the native jump');
+          assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+          await page.screenshot({ path: path.join(OUT, `member-next-action-${width}.png`) });
         });
         await page.getByRole('button', { name: 'List my profile', exact: true }).click();
         await page.getByRole('button', { name: 'Stop listing profile', exact: true }).waitFor();
@@ -122,6 +145,63 @@ const PORTAL = '/partners/rack-it-up-2026';
           await page.getByRole('button', { name: 'Retry', exact: true }).click();
           await page.getByText('No public builder listings yet', { exact: true }).waitFor();
           assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+          assert.deepEqual(unexpected, []); assert.deepEqual(errors, []);
+        });
+        // An incomplete returning account remains on the public, read-only projection.
+        await page.evaluate(() => {
+          Object.assign(window.__qa, { signedIn: true, empty: false, discoveryFailure: false, analyticsFailure: false });
+          window.__qa.profile.onboarding_completed = false;
+          sessionStorage.setItem('m09_synthetic_fixture', JSON.stringify(window.__qa));
+        });
+        await page.goto(BASE + DESTINATION);
+        await page.getByRole('link', { name: 'Complete onboarding to list your profile', exact: true }).waitFor();
+        await check(width + ': incomplete account gets immediate public discovery and explicit next action', async () => {
+          assert.equal(await page.locator('main h2').first().textContent(), 'Find teammates for Rack It Up');
+          assert(await page.getByText('Synthetic Public Builder', { exact: true }).isVisible());
+          assert.equal(await page.getByRole('button', { name: 'List my profile', exact: true }).count(), 0);
+          const href = await page.getByRole('link', { name: 'Complete profile for teammate matching', exact: true }).first().getAttribute('href');
+          assert.equal(new URL(href, BASE).searchParams.get('next'), DESTINATION);
+          assert.equal(new URL(href, BASE).pathname, '/onboarding');
+          assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+          await page.screenshot({ path: path.join(OUT, `incomplete-next-action-${width}.png`) });
+        });
+        const writesBeforeReturn = await page.evaluate(() => window.__qa.writes.length);
+        await page.getByRole('link', { name: 'Complete onboarding to list your profile', exact: true }).click();
+        await page.getByRole('button', { name: 'Finish setup', exact: true }).first().waitFor();
+        await check(width + ': incomplete return preserves event and does not automatically complete or list', async () => {
+          assert.equal(new URL(page.url()).searchParams.get('next'), DESTINATION);
+          assert.equal(await page.evaluate(() => window.__qa.writes.length), writesBeforeReturn);
+        });
+        await page.evaluate(() => {
+          window.__qa.profile.onboarding_completed = true;
+          window.__qa.empty = true;
+          sessionStorage.setItem('m09_synthetic_fixture', JSON.stringify(window.__qa));
+        });
+        await page.goto(BASE + DESTINATION);
+        await page.getByText('No public builder listings yet', { exact: true }).waitFor();
+        await check(width + ': member empty state describes public listings, not nonexistent participants', async () => {
+          assert.equal(await page.getByText('Nobody is looking for a team yet', { exact: true }).count(), 0);
+          assert(await page.getByText('Only opted-in, publicly visible profiles appear here.', { exact: false }).isVisible());
+          assert(await page.getByText('Teammate discovery is enabled.', { exact: false }).isVisible());
+          assert.equal(await page.evaluate(() => window.__qa.writes.length), writesBeforeReturn);
+          assert(await page.getByRole('button', { name: 'Stop listing profile', exact: true }).count());
+          assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+        });
+        await page.evaluate(() => { window.__qa.discoveryFailure = true; sessionStorage.setItem('m09_synthetic_fixture', JSON.stringify(window.__qa)); });
+        await page.reload();
+        await page.getByText('This event data is not available to your session.', { exact: true }).waitFor();
+        await check(width + ': member discovery denial is an error, never a public empty result', async () => {
+          assert.equal(await page.getByText('No public builder listings yet', { exact: true }).count(), 0);
+          assert.equal(await page.evaluate(() => window.__qa.writes.length), writesBeforeReturn);
+        });
+        await page.evaluate(() => { window.__qa.otherEvent = true; window.__qa.discoveryFailure = false; sessionStorage.setItem('m09_synthetic_fixture', JSON.stringify(window.__qa)); });
+        await page.reload();
+        await page.getByText('Nobody is looking for a team yet', { exact: true }).waitFor();
+        await check(width + ': other events keep their existing member presentation', async () => {
+          assert.equal(await page.getByRole('link', { name: 'Browse builders or list your profile', exact: true }).count(), 0);
+          assert.equal(await page.locator('#rack-teammates').count(), 0);
+          assert(await page.getByText('Teams in this hackathon can find you and reach out.', { exact: true }).count());
+          assert.equal(await page.evaluate(() => window.__qa.writes.length), writesBeforeReturn);
           assert.deepEqual(unexpected, []); assert.deepEqual(errors, []);
         });
       } catch (error) {
