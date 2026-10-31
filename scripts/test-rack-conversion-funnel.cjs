@@ -172,7 +172,7 @@ for (const onboard of [false, true]) test(`Rack discovery is the first section o
     event: { description: 'Synthetic event details. '.repeat(120), rounds_info: [{ name: 'Synthetic round' }] } });
   const headings = [...v.dom.window.document.querySelectorAll('section h2')].map(node => node.textContent);
   assert.equal(headings[0], 'Find teammates for Rack It Up');
-  assert(headings.includes('Organizer information')); assert(headings.includes('Rounds'));
+  assert(headings.includes('About this hackathon')); assert(headings.includes('Rounds'));
   const headerAction = v.dom.window.document.querySelector('header a');
   assert.equal(headerAction.textContent, onboard ? 'Complete profile for teammate matching' : 'Sign in for teammate matching');
   assert.equal(new URL(headerAction.href).searchParams.get('next'), DESTINATION);
@@ -184,7 +184,7 @@ test('Rack overview keeps the existing general participation action without moun
   const v = await view(t, { detail: true, path: `/hackathons/${EVENT}` });
   assert.equal(v.dom.window.document.querySelector('header a').textContent, 'Sign in for teammate matching');
   assert.equal(v.rpcs.length, 0);
-  assert.equal(v.dom.window.document.querySelector('section h2').textContent, 'Organizer information');
+  assert.equal(v.dom.window.document.querySelector('section h2').textContent, 'About this hackathon');
 });
 test('empty means no public listings, while failed RPCs remain logged failures and can retry', async t => {
   const v = await view(t, { detail: true, path: DESTINATION, rows: [], rpcError: { code: '42501' } });

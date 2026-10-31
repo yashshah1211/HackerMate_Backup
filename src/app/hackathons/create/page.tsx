@@ -102,9 +102,12 @@ export default function CreateHackathonPage() {
       return;
     }
 
+    const registrationStartTime = eventDate(registrationStart);
+    const registrationEndTime = eventDate(registrationEnd, true);
     if ((startDate && eventDate(startDate) === null) || (endDate && eventDate(endDate, true) === null)
+      || (registrationStart && registrationStartTime === null) || (registrationEnd && registrationEndTime === null)
       || (startDate && endDate && eventDate(startDate)! >= eventDate(endDate, true)!)
-      || (registrationStart && registrationEnd && eventDate(registrationStart)! >= eventDate(registrationEnd, true)!)) {
+      || (registrationStartTime !== null && registrationEndTime !== null && registrationStartTime >= registrationEndTime)) {
       showToast("Check the event and registration date order.", "warning"); return;
     }
     setLoading(true);
@@ -143,8 +146,8 @@ export default function CreateHackathonPage() {
           description: description.trim() || null,
           start_date: startDate || null,
           end_date: endDate || null,
-          registration_start: registrationStart ? new Date(eventDate(registrationStart)!).toISOString() : null,
-          registration_end: registrationEnd ? new Date(eventDate(registrationEnd, true)!).toISOString() : null,
+          registration_start: registrationStartTime !== null ? new Date(registrationStartTime).toISOString() : null,
+          registration_end: registrationEndTime !== null ? new Date(registrationEndTime).toISOString() : null,
           location: mode === "online" ? "Online" : location.trim() || null,
           mode,
           prize_pool: prizePool.trim() || null,

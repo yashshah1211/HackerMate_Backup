@@ -33,10 +33,13 @@ export async function registerNativeEvent(client: SupabaseClient, eventId: strin
     const { data: team, error: teamError } = await client.from("teams").select("id,owner_id").eq("id", teamId).maybeSingle();
     if (teamError) { console.error("Native registration team lookup failed:", teamError); throw new RegistrationError("Team could not be verified.", 503); }
     if (!team || team.owner_id !== user.id) throw new RegistrationError("Only a team owner can register that team.", 403);
-    const { count, error } = await client.from("team_members").select("id", { count: "exact", head: true }).eq("team_id", teamId);
+    const { data: members, count, error } = await client.from("team_members").select("user_id", { count: "exact" }).eq("team_id", teamId);
     if (error) { console.error("Native registration team size failed:", error); throw new RegistrationError("Team size could not be verified.", 503); }
-    if (count === null || !Number.isSafeInteger(count) || count < 1) throw new RegistrationError("Team size could not be verified.", 503);
-    size = count;
+    // Match matchmaking's distinct roster UNION owner, including legacy teams.
+    // Reject incomplete/truncated reads rather than treating a partial roster as the full team.
+    if (!Array.isArray(members) || count === null || !Number.isSafeInteger(count) || count < 0 || members.length !== count
+      || members.some(member => typeof member.user_id !== "string" || !member.user_id.trim())) throw new RegistrationError("Team size could not be verified.", 503);
+    size = new Set([team.owner_id, ...members.map(member => member.user_id)]).size;
   }
   const checkSize = (current: typeof event) => {
     if ((current.min_team_size != null && size < current.min_team_size) || (current.max_team_size != null && size > current.max_team_size)) throw new RegistrationError("Your selected participation does not meet the listed team-size requirements.");

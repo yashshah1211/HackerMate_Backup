@@ -61,7 +61,7 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
     <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="min-w-0 space-y-6">
         {rackDiscovery && <RackPublicDiscovery key={event.id} eventId={event.id} signInHref={href} onboard={onboard} />}
-        <Section title="Organizer information"><StructuredHackathonDescription description={event.description} baseUrl={event.website_url} />
+        <Section title="About this hackathon"><StructuredHackathonDescription description={event.description} baseUrl={event.website_url} />
           <div className="mt-3 flex flex-wrap gap-2">{listedTags(event.tags).map(tag => <span key={tag} className="rounded-md bg-sunken px-2 py-1 text-xs text-ink-2">{tag}</span>)}</div>
         </Section>
         {!!rounds.length && <Section title="Rounds">{rounds.map((round, index) => <div key={index} className="border-b border-line py-3">

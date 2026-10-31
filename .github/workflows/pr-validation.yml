@@ -47,6 +47,8 @@ jobs:
             scripts/test-ppt-vision.cjs \
             scripts/test-ppt-document-identity.cjs \
             scripts/test-team-creation.cjs \
+            scripts/test-hackathon-create-dates.cjs \
+            scripts/test-native-registration.cjs \
             scripts/test-squad-matching.cjs \
             scripts/test-partner-presentation.cjs \
             scripts/test-partner-discovery-navigation.cjs \

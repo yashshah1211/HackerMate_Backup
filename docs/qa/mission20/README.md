@@ -1,5 +1,7 @@
 # Mission 20 — implementation and review evidence
 
+For the corrections following independent review of `a480b13822bf1c5134505e0b7b237af368c8a72d`, see [follow-up findings, verification and file inventory](FOLLOW-UP.md). The qualification and 57-file inventory below describe that original implementation; they do not imply its Rack conversion CI passed. The follow-up restores that browser contract without changing its assertion.
+
 Branch: `fix/mission20-hackathon-discovery-quality`. Verified starting main: `64aa18786f7035b830cd9d8f1095a533b5b2ac7b` (tree `bf7cbc4d39f1274e4332f2f6700e0fd946ab5f3e`). This isolated checkout had no pre-existing changes.
 
 ## Result
