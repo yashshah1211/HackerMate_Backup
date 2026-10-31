@@ -182,13 +182,13 @@ for (const onboard of [false, true]) test(`Rack discovery is the first section o
 
 test('Rack overview keeps the existing general participation action without mounting discovery', async t => {
   const v = await view(t, { detail: true, path: `/hackathons/${EVENT}` });
-  assert.equal(v.dom.window.document.querySelector('header a').textContent, 'Sign in to participate');
+  assert.equal(v.dom.window.document.querySelector('header a').textContent, 'Sign in for teammate matching');
   assert.equal(v.rpcs.length, 0);
   assert.equal(v.dom.window.document.querySelector('section h2').textContent, 'About this hackathon');
 });
 test('empty means no public listings, while failed RPCs remain logged failures and can retry', async t => {
   const v = await view(t, { detail: true, path: DESTINATION, rows: [], rpcError: { code: '42501' } });
-  assert.match(v.text, /Couldn't load public builder listings/); assert(!v.text.includes('No public builder listings yet')); assert.equal(v.errors.length, 1);
+  assert.match(v.text, /Couldn't load public builder listings/); assert(!v.text.includes('No public builder listings yet')); assert.equal(v.errors.length, 2); assert(v.errors.some(args=>args.some(value=>value?.code === "42501")), "original query error is logged");
   v.options.rpcError = null; const retry = [...v.dom.window.document.querySelectorAll('button')].find(b => b.textContent.includes('Retry')); assert(retry);
   await React.act(async () => retry.click()); await v.settle(); assert.match(v.text, /No public builder listings yet/);
   assert(!v.text.includes('Nobody')); assert.equal(v.rpcs.length, 2);

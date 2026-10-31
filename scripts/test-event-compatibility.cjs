@@ -16,7 +16,7 @@ const defaultRegistration = { id: 'own-registration', user_id: USER, team_id: nu
 const builder = { user_id: USER, full_name: 'Visible Builder', college: 'College', avatar_url: null, skills: ['react'] };
 
 function fixture(options = {}) {
-  const state = { user: { id: USER }, authError: null, registration: { ...defaultRegistration },
+  const state = { user: { id: USER, email: 'fixture@example.invalid' }, authError: null, registration: { ...defaultRegistration },
     rpcError: null, selfError: null, mutationError: null, discoveryRows: [builder], total: 1,
     counts: { registration_count: 1005, confirmed_count: 900, waitlisted_count: 105 },
     queries: [], rpcs: [], toasts: [], ...options };
@@ -74,7 +74,7 @@ function fixture(options = {}) {
           return { data: state.registration, error: null };
         }
         if (table === 'hackathons' && options.missingEvent) return { data: null, error: { code: 'PGRST116', message: 'No event' } };
-        const rows = { hackathons: [hackathon], partner_configs: [partner], profiles: [{ full_name: 'Current Builder', skills: ['react'] }],
+        const rows = { hackathons: [hackathon], partner_configs: [partner], profiles: [{ id: USER, is_banned:false, onboarding_completed:true, full_name: 'Current Builder', skills: ['react'] }],
           teams: [team], team_hackathons: options.unlinkedTeam ? [] : record.columns.includes('teams') ? [{ team_id: team.id, teams: team }] : [{ team_id: team.id, hackathon_id: EVENT }],
           user_badges: [], saved_hackathons: [], hackathon_resources: [], hackathon_stages: [] }[table];
         assert(rows, 'Unexpected table: ' + table);
@@ -92,8 +92,16 @@ function loadModule(relative, overrides = {}, globals = {}) {
   const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(code, { exports, console: { error() {}, warn() {} }, setTimeout, clearTimeout,
-    require(name) { return Object.hasOwn(overrides, name) ? overrides[name] : require(name); },
+  vm.runInNewContext(code, { exports, URL, console: { error() {}, warn() {} }, setTimeout, clearTimeout,
+    require(name) {
+      if (Object.hasOwn(overrides, name)) return overrides[name];
+      if(name.startsWith('@/') || name.startsWith('.')) {
+        const base=name.startsWith('@/')?path.join(ROOT,'src',name.slice(2)):path.resolve(path.dirname(filename),name);
+        const found=['.ts','.tsx'].map(ext=>base+ext).find(f=>fs.existsSync(f));
+        if(found)return loadModule(path.relative(ROOT,found),overrides,globals);
+      }
+      return require(name);
+    }, setInterval(){return 1;}, clearInterval(){},
     fetch() { throw new Error('Network forbidden'); },
     ...globals,
   }, { filename });
@@ -140,6 +148,7 @@ async function pageHarness(kind, options = {}) {
       jsxs(type, props, key) { if (type === 'button' && props.role === 'tab') controls.push({ ...props, text: plain(props.children) }); return jsxRuntime.jsxs(type, props, key); },
     },
     'next/link': component('Link'), 'lucide-react': icons, '@/lib/supabase': { supabase: fixtureData.client },
+    '@/lib/hackathons/registrationClient': {submitNativeRegistration: (client,id,team)=>require('./ppt-vision-harness.cjs').harness().load('src/lib/hackathons/nativeRegistration.ts').registerNativeEvent(client,id,team,true)},
     '@/lib/hackathons/eventParticipation': api, '@/lib/hackathons/discoveryNavigation': discoveryNavigation, '@/lib/utils': { cn: () => '' },
     '@/lib/partners/rackItUp2026': rackIdentity,
     '@/components/system': system, '@/components/landing/primitives': { Container: component('Container'), Eyebrow: component('Eyebrow') },
@@ -312,14 +321,14 @@ test('native event page still loads self state and safe aggregate counts', async
 });
 test('native registration capacity uses the RPC and records only the signed-in participant', async () => {
   const page = await pageHarness('event', { registration: null, hackathon: { type: 'native', max_participants: 2 } });
-  await page.click('Register'); await page.click('Confirm');
+  await page.click('Review registration'); await page.click('Confirm');
   assert.equal(page.state.registration.user_id, USER); assert.equal(page.state.registration.status, 'waitlisted');
   assert(page.state.rpcs.filter(rpc => rpc.name === 'get_hackathon_registration_counts').length >= 2);
   assert.equal(page.state.queries.filter(query => query.table === 'hackathon_registrations' && query.operation === 'insert').length, 1);
 });
 test('native count failure blocks registration instead of assuming zero capacity usage', async () => {
   const page = await pageHarness('event', { registration: null, hackathon: { type: 'native', max_participants: 2 }, rpcError: { code: 'PGRST202' } });
-  await page.click('Register'); await page.click('Confirm');
+  await page.click('Review registration'); await page.click('Confirm');
   assert.equal(page.state.registration, null);
   assert(page.state.queries.every(query => query.operation !== 'insert'));
 });
@@ -327,7 +336,7 @@ test('external registration opens only the official URL; direct community CTA op
   const page = await pageHarness('event', { registration: null });
   assert(page.controls.some(control => control.text === 'Join community'));
   assert(!page.html.includes('Join the HackerMate event community'));
-  await page.click('Register on event site'); assert.equal(page.state.externalURL, 'https://example.invalid/register');
+  await page.click('View official details'); assert.equal(page.state.externalURL, 'https://example.invalid/register');
   assert(!page.html.includes('Join the HackerMate event community'));
   assert.equal(page.state.registration, null);
   page.state.externalURL = undefined;
@@ -342,7 +351,7 @@ test('external registration opens only the official URL; direct community CTA op
   assert.equal(page.state.registration.team_id, null);
   assert(page.html.includes('Joined HackerMate community'));
   assert(!page.controls.some(control => control.text === 'Join community'));
-  assert(page.controls.some(control => control.text === 'Register on event site'));
+  assert(page.controls.some(control => control.text === 'View official details'));
 });
 
 test('community CTA is absent while loading, signed out, lookup/auth failed, native, or already joined', async () => {
@@ -387,7 +396,7 @@ test('existing community join handler retains capacity, team selection and expir
 test('community join prevents repeat registration and handles a concurrent duplicate without overwriting membership', async () => {
   const page = await pageHarness('event', { registration: null });
   await page.clickExact('Join community'); await page.clickExact('Join community');
-  await page.click('Register on event site');
+  await page.click('View official details');
   assert(!page.controls.some(control => control.text === 'Join community'));
   assert.equal(page.state.queries.filter(query => query.operation === 'insert').length, 1);
   const concurrent = await pageHarness('event', { registration: null });
@@ -400,7 +409,7 @@ test('community join prevents repeat registration and handles a concurrent dupli
 
 test('native registration still uses its existing dialog and never opens an external site', async () => {
   const page = await pageHarness('event', { registration: null, hackathon: { type: 'native' } });
-  await page.clickExact('Register'); await page.click('Confirm');
+  await page.clickExact('Review registration'); await page.click('Confirm');
   assert.equal(page.state.registration.user_id, USER);
   assert.equal(page.state.registration.status, 'confirmed');
   assert.equal(page.state.externalURL, undefined);
@@ -444,7 +453,7 @@ test('event count errors display unavailable, never a zero tally or unregistered
 });
 test('external CTA stays external even after joining community; no verified external claim', async () => {
   const page = await pageHarness('event');
-  assert(page.controls.some(control => control.text === 'Register on event site'));
+  assert(page.controls.some(control => control.text === 'View official details'));
   assert(page.html.includes('Joined HackerMate community')); assert(!page.html.includes('Registered externally'));
   const partnerSource = fs.readFileSync(path.join(ROOT,'src/components/partners/LegacyPartnerPage.tsx'),'utf8');
   assert(partnerSource.includes('hackathon.website_url')); // Existing external link remains.

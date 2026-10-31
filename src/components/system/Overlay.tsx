@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -83,6 +84,7 @@ export function Dialog({
   footer?: ReactNode;
   size?: "sm" | "md" | "lg";
 }) {
+  const titleId = useId();
   const mounted = useMounted();
   const panelRef = useRef<HTMLDivElement>(null);
   useOverlayBehaviour(open, onClose, panelRef);
@@ -105,6 +107,7 @@ export function Dialog({
           <motion.div
             ref={panelRef}
             role="dialog"
+            aria-labelledby={titleId}
             aria-modal="true"
             tabIndex={-1}
             initial={{ opacity: 0, y: 24 }}
@@ -118,7 +121,7 @@ export function Dialog({
           >
             <div className="flex items-start justify-between gap-4 border-b border-line px-5 pb-3.5 pt-4">
               <div className="min-w-0">
-                <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
+                <h2 id={titleId} className="text-[15px] font-semibold text-ink">{title}</h2>
                 {description && <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{description}</p>}
               </div>
               <button
