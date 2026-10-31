@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useInView, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useInView } from "motion/react";
 import { LogoMark } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
@@ -139,6 +139,16 @@ export function usePageVisible() {
   return visible;
 }
 
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+const reducedMotionSnapshot = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Preserve the server markup for hydration; apply the actual preference immediately afterwards.
+const serverMotionSnapshot = () => false;
+
 /**
  * Drives a preview's choreography: `active` is true while the element is on
  * screen, the tab is visible and the user hasn't asked for reduced motion.
@@ -147,7 +157,7 @@ export function useStoryActive<T extends Element>(amount = 0.35) {
   const ref = useRef<T>(null);
   const inView = useInView(ref, { amount });
   const visible = usePageVisible();
-  const reduced = Boolean(useReducedMotion());
+  const reduced = useSyncExternalStore(subscribeReducedMotion, reducedMotionSnapshot, serverMotionSnapshot);
   return { ref, active: inView && visible && !reduced, inView, reduced };
 }
 

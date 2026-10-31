@@ -14,7 +14,7 @@ import { ShellFrame } from "./ShellFrame";
 import { AccountSheet } from "./AccountMenu";
 import { PublicHeader } from "./PublicHeader";
 import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
-import { isBareRoute, isForcedDarkRoute, isMarketingRoute, isCertificateVerificationRoute } from "./navConfig";
+import { isBareRoute, isForcedDarkRoute, isMarketingRoute, isCertificateVerificationRoute, normalizeShellPathname } from "./navConfig";
 
 function applyThemeClass(theme: "dark" | "light") {
   const root = document.documentElement;
@@ -51,7 +51,8 @@ function GuestHackathonShell({ children }: { children: ReactNode }) {
 
 /** A verified guest sees discovery chrome; members retain the full app shell. */
 export default function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname() || "/";
+  const rawPathname = usePathname();
+  const pathname = normalizeShellPathname(rawPathname) || "/";
   if (isCertificateVerificationRoute(pathname)) return <PublicVerificationShell>{children}</PublicVerificationShell>;
   if (!isGuestDiscoverableEventRoute(pathname)) return <AuthenticatedAppShell>{children}</AuthenticatedAppShell>;
   return (
@@ -72,7 +73,8 @@ function PublicVerificationShell({ children }: { children: ReactNode }) {
 }
 
 function AuthenticatedAppShell({ children, expectedUserId }: { children: ReactNode; expectedUserId?: string }) {
-  const pathname = usePathname() || "/";
+  const rawPathname = usePathname();
+  const pathname = normalizeShellPathname(rawPathname) || "/";
   const session = useShellSession(expectedUserId);
   const [themePref, setThemePrefState] = useState<"dark" | "light" | "system">("system");
   const [sysTheme, setSysTheme] = useState<"dark" | "light">("dark");
@@ -135,7 +137,7 @@ function AuthenticatedAppShell({ children, expectedUserId }: { children: ReactNo
     setThemePref(nextPref);
   }, [theme, setThemePref]);
 
-  const openInbox = useCallback(() => setInboxOpen(true), []);
+  const openInbox = useCallback(() => setInboxOpen(true), [setInboxOpen]);
   const requestSignOut = useCallback(() => setSignOutOpen(true), []);
 
   const executeSignOut = useCallback(async () => {

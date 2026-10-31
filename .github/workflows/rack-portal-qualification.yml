@@ -9,15 +9,20 @@ on:
       - 'src/components/partners/**'
       - 'src/lib/partners/**'
       - 'src/app/providers.tsx'
+      - 'src/components/landing/**'
+      - 'src/components/shell/**'
+      - 'src/components/Footer.tsx'
       - 'src/components/hackathons/PublicHackathonDetail.tsx'
       - 'public/partners/rack-it-up-2026/**'
       - 'scripts/test-rack-it-up-2026.cjs'
       - 'scripts/test-rack-conversion-funnel.cjs'
+      - 'scripts/test-homepage-hydration.cjs'
       - 'qa/rack-qualification.cjs'
       - 'qa/test-rack-network-guard.cjs'
       - 'qa/fixtures/rack-*'
       - 'qa/browser/rack-it-up-2026.cjs'
       - 'qa/browser/rack-conversion-funnel.cjs'
+      - 'qa/browser/homepage-hydration.cjs'
       - 'package.json'
       - 'package-lock.json'
 
@@ -66,11 +71,11 @@ jobs:
         if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
         run: |
           node qa/rack-qualification.cjs funnel-browser 2>&1 | tee scratch/rack-ci/funnel.log
-      - name: Production build with synthetic database and offline fonts
+      - name: Production build and real homepage hydration with synthetic data and offline fonts
         if: ${{ !cancelled() && steps.isolation.outcome == 'success' }}
         run: |
           mkdir -p scratch/rack-ci
-          node qa/rack-qualification.cjs build 2>&1 | tee scratch/rack-ci/build.log
+          node qa/rack-qualification.cjs hydration 2>&1 | tee scratch/rack-ci/build.log
       - name: Retain isolated qualification evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -80,5 +85,6 @@ jobs:
             scratch/rack-ci/
             scratch/rack-it-up-preview/
             scratch/rack-funnel/
+            scratch/homepage-hydration/
           retention-days: 7
           if-no-files-found: warn
