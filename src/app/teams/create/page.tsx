@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, Suspense, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lightbulb, Minus, Plus, UserPlus } from "lucide-react";
+import { Minus, Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   Button,
@@ -92,81 +92,6 @@ function CreateTeamForm() {
   const [customCollege, setCustomCollege] = useState("");
   const [collegeSearch, setCollegeSearch] = useState("");
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
-  const [isFromEvaluator, setIsFromEvaluator] = useState(false);
-
-  // Check for prefill from Idea Evaluator or query parameters
-  useEffect(() => {
-    try {
-      const storedSession = sessionStorage.getItem("hackermate_team_prefill");
-      let prefill: any = null;
-      if (storedSession) {
-        prefill = JSON.parse(storedSession);
-        sessionStorage.removeItem("hackermate_team_prefill");
-      }
-
-      const prefillParam = searchParams.get("prefill");
-      const prefillSource = Boolean(prefillParam || prefill);
-
-      if (prefillSource) {
-        setIsFromEvaluator(true);
-      }
-
-      if (prefill) {
-        if (prefill.name) setName(prefill.name);
-        if (prefill.description) setDescription(prefill.description);
-        if (prefill.hackathonId) setHackathonId(prefill.hackathonId);
-        if (Array.isArray(prefill.skills) && prefill.skills.length > 0) {
-          const validSkills = prefill.skills.filter((s: string) => SKILLS.includes(s));
-          if (validSkills.length > 0) {
-            setSelectedSkills((prev) => Array.from(new Set([...prev, ...validSkills])));
-          }
-        }
-        if (Array.isArray(prefill.roles) && prefill.roles.length > 0) {
-          const validRoles = prefill.roles.filter((r: string) => ROLES.includes(r));
-          if (validRoles.length > 0) {
-            setSelectedRoles((prev) => Array.from(new Set([...prev, ...validRoles])));
-          }
-        }
-        if (prefill.name || prefill.description) {
-          showToast("Prefilled team details from your Idea Evaluation", "info");
-        }
-      } else if (prefillParam && prefillParam !== "evaluator") {
-        // Fetch server-side evaluation details by opaque ID
-        (async () => {
-          try {
-            const { data: evalRow } = await supabase
-              .from("user_pitch_evaluations")
-              .select("id, ps_title, evaluation_result")
-              .eq("id", prefillParam)
-              .maybeSingle();
-
-            if (evalRow) {
-              if (evalRow.ps_title) setName(evalRow.ps_title);
-              const res = evalRow.evaluation_result as any;
-              if (res?.recommendedRoles) {
-                const allSuggested = res.recommendedRoles.flatMap((r: any) => r.suggestedSkills || []);
-                const validSkills = allSuggested.filter((s: string) => SKILLS.includes(s));
-                if (validSkills.length > 0) {
-                  setSelectedSkills((prev) => Array.from(new Set([...prev, ...validSkills])));
-                }
-                const rolesNeeded = res.recommendedRoles.map((r: any) => r.role);
-                const validRoles = rolesNeeded.filter((r: string) => ROLES.includes(r));
-                if (validRoles.length > 0) {
-                  setSelectedRoles((prev) => Array.from(new Set([...prev, ...validRoles])));
-                }
-              }
-              showToast("Prefilled team details from your Idea Evaluation", "info");
-            }
-          } catch (err) {
-            console.warn("Could not fetch evaluation prefill:", err);
-          }
-        })();
-      }
-    } catch (err) {
-      console.warn("Could not parse team prefill:", err);
-    }
-  }, [searchParams, showToast]);
-
   useEffect(() => {
     if (hackathonId) {
       supabase
@@ -514,7 +439,7 @@ function CreateTeamForm() {
         meta="Say what you're building and who you need."
       />
 
-      {(inviteUserId || isFromEvaluator) && (
+      {inviteUserId && (
         <div className="mt-1 space-y-2.5">
           {/* Contextual invite banner — shown when coming from post-acceptance prompt */}
           {inviteUserId && (
@@ -522,12 +447,6 @@ function CreateTeamForm() {
               {inviteUserName
                 ? `${inviteUserName} will get an invite as soon as your team is created.`
                 : "An invite will be sent as soon as your team is created."}
-            </Notice>
-          )}
-          {/* Contextual Idea Evaluator banner — shown when prefilled from /evaluator */}
-          {isFromEvaluator && (
-            <Notice icon={<Lightbulb />} title="Prefilled from your idea evaluation">
-              Name, description and skills came from your evaluation report. Review them below.
             </Notice>
           )}
         </div>

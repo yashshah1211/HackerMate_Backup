@@ -1,11 +1,9 @@
-import { CHALLENGE_UPLOAD_ERROR } from "../challenges/challengeEvaluationContract";
 import { TRACK_PROFILES, type JudgingTrackId, type TrackProfile } from "./evaluatorTypes";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const FAILURES = {
   generation_closed: [503, false, "Evaluator generation is currently unavailable. No evaluation was started. History remains available."],
   invalid_input: [400, false, "Check the submission fields and limits, then submit again."],
-  upload_too_large: [413, false, CHALLENGE_UPLOAD_ERROR],
   unsupported_mode: [400, false, "Heuristic scoring is retired for new evaluations. Please use AI evaluation."],
   rubric_unsupported: [400, false, "Custom judging requires four named criteria, each worth 25 points, in the supported JSON format."],
   unauthorized: [401, false, "Your session could not be verified. Sign in again before submitting."],
@@ -18,7 +16,6 @@ const FAILURES = {
   unusable_text: [422, false, "No usable presentation text was available. Supply a text-readable document."],
   blocked_content: [422, false, "The provider could not evaluate this content. No score was generated."],
   admission_limit: [429, false, "Your evaluation allowance has been reserved. Try again after the limit resets."],
-  budget_exhausted: [429, false, "The shared Idea provider-attempt allowance is exhausted. No score was generated."],
   invalid_ai_output: [502, false, "The AI response did not meet the evaluation contract. No score was generated."],
   auth_unavailable: [503, true, "Identity verification is unavailable. No evaluation was started."],
   limiter_unavailable: [503, true, "Evaluation admission is unavailable. No score was generated."],
@@ -90,23 +87,6 @@ export function score(value: unknown, cap: number): number {
   return value;
 }
 
-export function stringList(value: unknown, maxItems = 6): string[] {
-  if (!Array.isArray(value) || value.length > maxItems) throw new EvaluationFailure("invalid_ai_output");
-  return value.map(v => boundedString(v, 160));
-}
-
-export interface GroundedFeedback { text: string; quote: string }
-export function groundedList(value: unknown, source: string, allowEmpty = true): GroundedFeedback[] {
-  if (!Array.isArray(value) || value.length > 6 || (!allowEmpty && !value.length)) throw new EvaluationFailure("invalid_ai_output");
-  return value.map(item => {
-    const record = object(item);
-    const text = boundedString(record.text);
-    const quote = boundedString(record.quote, 400);
-    if (!source.includes(quote)) throw new EvaluationFailure("invalid_ai_output");
-    return { text, quote };
-  });
-}
-
 export interface AnchoredFeedback { text: string; quote?: string; pageNumber?: number; evidence?: string }
 export function anchoredList(value: unknown, source: string, pageCount?: number, allowEmpty = true): AnchoredFeedback[] {
   if (!Array.isArray(value) || value.length > 6 || (!allowEmpty && !value.length)) throw new EvaluationFailure("invalid_ai_output");
@@ -161,7 +141,7 @@ export function logDatabaseFailure(operation: string, error: unknown) {
 }
 
 /** Bound multipart input before the platform buffers and parses it. */
-export async function readEvaluationForm(request: Request, execution: EvaluationExecution, maxBytes = 8 * 1024 * 1024 + 16_384, oversizeCode: "invalid_input" | "upload_too_large" = "invalid_input"): Promise<FormData> {
+export async function readEvaluationForm(request: Request, execution: EvaluationExecution, maxBytes = 8 * 1024 * 1024 + 16_384): Promise<FormData> {
   const reader = request.body?.getReader();
   if (!reader || !request.headers.get("content-type")?.startsWith("multipart/form-data;")) throw new EvaluationFailure("invalid_input");
   const parts: Uint8Array[] = [];
@@ -171,7 +151,7 @@ export async function readEvaluationForm(request: Request, execution: Evaluation
       const next = await withinDeadline(reader.read(), execution, 5_000);
       if (next.done) break;
       size += next.value.byteLength;
-      if (size > maxBytes) throw new EvaluationFailure(oversizeCode);
+      if (size > maxBytes) throw new EvaluationFailure("invalid_input");
       parts.push(next.value);
     }
     return await withinDeadline(new Response(Buffer.concat(parts), { headers: { "content-type": request.headers.get("content-type")! } }).formData(), execution, 5_000);

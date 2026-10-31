@@ -7,15 +7,13 @@ const path = require('node:path');
 const { NextRequest } = require('next/server');
 const { harness, ROOT } = require('./ppt-vision-harness.cjs');
 const pg = require('./test-evaluator-result-authority-pg17.cjs');
-const USER='00000000-0000-4000-8000-000000000001', OTHER='00000000-0000-4000-8000-000000000002';
+const USER='00000000-0000-4000-8000-000000000001';
 const ID='00000000-0000-4000-8000-000000000003', TEAM='00000000-0000-4000-8000-000000000004';
 const PRIVATE='do-not-log-private-fixture-details';
-const normalize=value=>JSON.parse(JSON.stringify(value));
 function setup(options={}) {
   const state={queries:[],writes:[],logs:[],user:USER,owner:USER,member:false,profile:{id:USER,is_banned:false,role:'user'},...options};
-  state.rows={user_pitch_evaluations:[{id:ID,user_id:USER,team_id:null,ps_title:'Synthetic idea',total_score:80,grade:'Strong',evaluation_result:{proof:'fixture'}}],
-    team_ppt_evaluations:[{id:ID,team_id:TEAM,submitted_by:USER,status:'completed',total_score:80,ai_feedback:{analysis:{mode:'text_only'}}}],
-    challenge_submissions:[{id:ID,challenge_id:ID,user_id:USER,team_id:TEAM,ppt_url:'https://example.invalid/deck',status:'completed',total_score:80,ai_raw_feedback:{analysis:{mode:'text_only'}}}]};
+  state.rows={
+    team_ppt_evaluations:[{id:ID,team_id:TEAM,submitted_by:USER,status:'completed',total_score:80,ai_feedback:{analysis:{mode:'text_only'}}}]};
   const client={auth:{async getUser(){if(state.throwAuth)throw Error(PRIVATE);return{data:{user:state.user?{id:state.user}:null},error:state.authError||null}}},from(table){
     let columns,operation='select',payload;const filters=[];
     async function execute(single=false){
@@ -26,7 +24,6 @@ function setup(options={}) {
       if(table==='profiles')rows=state.profile?[state.profile]:[];
       else if(table==='teams')rows=[{id:TEAM,name:'Synthetic team',owner_id:state.owner}];
       else if(table==='team_members')rows=state.member?[{id:ID,team_id:TEAM,user_id:USER}]:[];
-      else if(table==='weekly_challenges')rows=[{id:ID,slug:'fixture',title:'Synthetic challenge'}];
       else {assert(Object.hasOwn(state.rows,table));rows=state.rows[table];}
       rows=rows.filter(row=>filters.every(([key,value])=>row[key]===value));
       if(operation!=='select'){
@@ -50,74 +47,16 @@ function setup(options={}) {
   }
   return{state,loader,call};
 }
-const history='src/app/api/evaluator/history/route.ts';
-test('trusted API attachment changes only team_id despite forged body fields',async()=>{
-  const f=setup(),before=normalize(f.state.rows.user_pitch_evaluations[0]);
-  const result=await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,total_score:100,status:'completed',evaluation_result:{forged:true}});
-  assert.equal(result.status,200);assert.deepEqual(normalize(f.state.writes[0].payload),{team_id:TEAM});
-  assert.deepEqual(normalize(f.state.rows.user_pitch_evaluations[0]),{...before,team_id:TEAM});
-});
-test('destination member retains attachment access',async()=>{
-  const f=setup({owner:OTHER,member:true});assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM})).status,200);
-});
-for(const scenario of ['banned','missing-profile','nonmember','foreign-evaluation','membership-error','team-error','evaluation-error','bad-id'])test('attachment fails closed: '+scenario,async()=>{
-  const f=setup();
-  if(scenario==='banned')f.state.profile.is_banned=true;
-  if(scenario==='missing-profile')f.state.profile=null;
-  if(scenario==='nonmember')f.state.owner=OTHER;
-  if(scenario==='foreign-evaluation')f.state.rows.user_pitch_evaluations[0].user_id=OTHER;
-  if(scenario==='membership-error')f.state.fail='team_members';
-  if(scenario==='team-error')f.state.fail='teams';
-  if(scenario==='evaluation-error')f.state.fail='user_pitch_evaluations';
-  const result=await f.call(history,'PATCH',{evaluationId:scenario==='bad-id'?'invalid':ID,teamId:TEAM});
-  assert([400,403,503].includes(result.status));assert.equal(f.state.writes.length,0);assert(!JSON.stringify({body:result.body,logs:f.state.logs}).includes(PRIVATE));
-  if(scenario.endsWith('error'))assert(f.state.logs.length>0);
-});
-test('lost attachment save never reports confirmed success',async()=>{
-  const f=setup({lostSave:true}),result=await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM});assert.equal(result.status,409);assert.equal(result.body.code,'persistence_uncertain');
-});
-test('existing suspended-account ownership read/delete semantics are preserved',async()=>{
-  const f=setup();f.state.profile.is_banned=true;
-  assert.equal((await f.call(history)).body.history.length,1);
-  assert.equal((await f.call(history,'DELETE',undefined,{},'?id='+ID)).status,200);assert.equal(f.state.rows.user_pitch_evaluations.length,0);
-});
-test('Idea read/delete remains scoped to verified owner',async()=>{
-  const f=setup({user:OTHER});assert.equal((await f.call(history)).body.history.length,0);
-  await f.call(history,'DELETE',undefined,{},'?id='+ID);assert.equal(f.state.rows.user_pitch_evaluations.length,1);
-});
-test('generation closed preserves history, authorized attachment and delete without score changes',async()=>{
-  const f=setup();delete f.loader.env.EVALUATOR_GENERATION_ENABLED;
-  const before=normalize(f.state.rows.user_pitch_evaluations[0]);
-  assert.equal((await f.call(history)).body.history.length,1);
-  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,evaluation_result:{forged:true}})).status,200);
-  assert.deepEqual(normalize(f.state.rows.user_pitch_evaluations[0]),{...before,team_id:TEAM});
-  assert.equal((await f.call(history,'DELETE',undefined,{},'?id='+ID)).status,200);
-  assert.equal(f.state.rows.user_pitch_evaluations.length,0);
-});
-for(const scenario of ['banned','nonmember','foreign-evaluation'])test('generation closed does not relax attachment '+scenario,async()=>{
-  const f=setup();delete f.loader.env.EVALUATOR_GENERATION_ENABLED;
-  if(scenario==='banned')f.state.profile.is_banned=true;
-  if(scenario==='nonmember')f.state.owner=OTHER;
-  if(scenario==='foreign-evaluation')f.state.rows.user_pitch_evaluations[0].user_id=OTHER;
-  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM})).status,403);assert.equal(f.state.writes.length,0);
-});
-test('generation closed preserves authorized PPT and Challenge read/delete routes',async()=>{
+test('generation closed preserves authorized PPT read/delete routes',async()=>{
   const f=setup();f.loader.env.EVALUATOR_GENERATION_ENABLED='false';
-  const ppt='src/app/api/teams/[id]/ppt-evaluations/route.ts',challenge='src/app/api/challenges/[slug]/submissions/[id]/route.ts';
+  const ppt='src/app/api/teams/[id]/ppt-evaluations/route.ts';
   assert.equal((await f.call(ppt,'GET',undefined,{id:TEAM})).body.evaluations.length,1);
-  assert.equal((await f.call(challenge,'GET',undefined,{slug:'fixture',id:ID})).body.submission.total_score,80);
   assert.equal((await f.call(ppt,'DELETE',undefined,{id:TEAM},'?evalId='+ID)).status,200);
-  assert.equal((await f.call(challenge,'DELETE',undefined,{slug:'fixture',id:ID})).status,200);
 });
 test('PPT service read and authorized delete remain functional',async()=>{
   const f=setup(),route='src/app/api/teams/[id]/ppt-evaluations/route.ts';
   assert.equal((await f.call(route,'GET',undefined,{id:TEAM})).body.evaluations.length,1);
   assert.equal((await f.call(route,'DELETE',undefined,{id:TEAM},'?evalId='+ID)).status,200);assert.equal(f.state.rows.team_ppt_evaluations.length,0);
-});
-test('Challenge service detail and author delete remain functional',async()=>{
-  const f=setup(),route='src/app/api/challenges/[slug]/submissions/[id]/route.ts';
-  assert.equal((await f.call(route,'GET',undefined,{slug:'fixture',id:ID})).body.submission.total_score,80);
-  assert.equal((await f.call(route,'DELETE',undefined,{slug:'fixture',id:ID})).status,200);assert.equal(f.state.rows.challenge_submissions.length,0);
 });
 test('profile cancellation preserves the deadline outcome',async()=>{
   const abort=new AbortController();const loader=harness();let reads=0;
@@ -282,41 +221,4 @@ for(const role of ['anon','authenticated'])for(const table of ['challenge_submis
 });
 test('R3 denial definitions reject unsafe identifiers instead of interpolating them',()=>{
   assert.throws(()=>clientDenialDefinitions('postgres','challenge_submissions'));assert.throws(()=>clientDenialDefinitions('anon','challenge_submissions; SELECT 1'));
-});
-for(const method of ['GET','DELETE','PATCH'])test('R3 mocked history rejects missing/invalid identity for '+method,async()=>{
-  for(const options of [{user:null},{authError:{status:401}}]){
-    const f=setup(options),result=await f.call(history,method,method==='PATCH'?{evaluationId:ID,teamId:TEAM}:undefined,{},method==='DELETE'?'?id='+ID:'');
-    assert.equal(result.status,401);assert.equal(f.state.writes.length,0);
-  }
-});
-test('R3 mocked admin cannot attach to an unrelated destination team',async()=>{
-  const f=setup({owner:OTHER,profile:{id:USER,is_banned:false,role:'admin'}});
-  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM})).status,403);assert.equal(f.state.writes.length,0);
-});
-for(const role of ['user','admin'])test('R3 mocked banned '+role+' cannot attach forged score/provenance',async()=>{
-  const f=setup({profile:{id:USER,is_banned:true,role}}),before=normalize(f.state.rows);
-  assert.equal((await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,total_score:100,serverVerified:true})).status,403);
-  assert.deepEqual(normalize(f.state.rows),before);assert.equal(f.state.writes.length,0);
-});
-test('R3 mocked confirmed attachment preserves forged persisted JSON without certifying it',async()=>{
-  const f=setup(),row=f.state.rows.user_pitch_evaluations[0];
-  row.evaluation_result={serverVerified:true,usedAiEngine:true,evaluationMetadata:{requestId:ID,revision:{source:'verified-server'}}};
-  const before=normalize(row);const result=await f.call(history,'PATCH',{evaluationId:ID,teamId:TEAM,evaluation_result:{serverVerified:true},total_score:100});
-  assert.equal(result.status,200);assert.deepEqual(normalize(row),{...before,team_id:TEAM});
-  assert.deepEqual(normalize(f.state.writes[0].payload),{team_id:TEAM});
-  const display=harness().load('src/lib/ppt/analysisMetadata.ts').getAnalysisDisplay(row.evaluation_result);
-  assert.equal(display.label,'Historical provenance unverified');
-});
-
-for(const method of ['GET','DELETE'])for(const scenario of ['query-error','query-throw','auth-throw','missing-config'])test('release history '+method+' sanitizes '+scenario+' without changing records',async()=>{
-  const f=setup(scenario==='query-error'?{fail:'user_pitch_evaluations'}:scenario==='query-throw'?{throwQuery:'user_pitch_evaluations'}:scenario==='auth-throw'?{throwAuth:true}:{});
-  if(scenario==='missing-config')delete f.loader.env.SUPABASE_SERVICE_ROLE_KEY;
-  const before=normalize(f.state.rows);
-  const result=await f.call(history,method,undefined,{},method==='DELETE'?'?id='+ID:'');
-  assert.equal(result.status,500);
-  assert.deepEqual(result.body,{error:method==='GET'?'Unable to fetch evaluation history.':'Unable to delete evaluation history.'});
-  assert(!JSON.stringify(result.body).includes(PRIVATE));
-  assert.equal(f.state.writes.length,0);assert.deepEqual(normalize(f.state.rows),before);
-  assert(f.state.logs.length>0,'Actual failures remain logged server-side');
-  if(scenario!=='missing-config')assert(f.state.logs.flat().some(value=>value?.message===PRIVATE));
 });

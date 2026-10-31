@@ -105,7 +105,7 @@ const MATRIX = [
   ["F-11m", "MANUAL-PRODUCTION-FLOW", "manual", "Send message, react, delete own message, streak widget, connect"],
   ["F-11s", "STAGING-ONLY", "harness staging", "Anon denial per function; authenticated flows work; link join; delete a test account"],
   ["F-12", "PROD-SAFE", "phase1_postcheck.sql + harness prod-safe", "is_admin: anon denied, authenticated true, service_role false"],
-  ["F-12m", "MANUAL-PRODUCTION-FLOW", "manual", "/admin loads for the admin; /challenges loads"],
+  ["F-12m", "MANUAL-PRODUCTION-FLOW", "manual", "/admin loads for the admin; /leaderboard loads"],
   ["F-13", "PROD-SAFE", "phase1_postcheck.sql", "cleanup_lapsed_streaks EXECUTE: service_role only"],
   ["F-13b", "PROD-SAFE", "read-only log inspection", "Next 03:30 UTC cron run: rpc/cleanup_lapsed_streaks 200 as service_role; no streak warning. Never invoked by the harness"],
   ["F-13s", "STAGING-ONLY", "harness staging", "cleanup_lapsed_streaks: authenticated denied, service_role runs"],

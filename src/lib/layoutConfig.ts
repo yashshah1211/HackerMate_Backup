@@ -26,7 +26,6 @@
  * - /admin/* (all tabs)
  * - /hackathons/create
  * - /messages and any DM/chat interfaces
- * - /evaluator, /tools/pitch-evaluator (app-like evaluator tools)
  * - /profile/edit (builder profile edit dashboard)
  * - /login, /signup (custom minimal layout)
  */
@@ -56,10 +55,6 @@ export function shouldRenderFooter(pathname: string | null | undefined): boolean
     normalized.startsWith("/settings/") ||
     normalized === "/onboarding" ||
     normalized.startsWith("/onboarding/") ||
-    normalized === "/evaluator" ||
-    normalized.startsWith("/evaluator/") ||
-    normalized === "/tools/pitch-evaluator" ||
-    normalized.startsWith("/tools/pitch-evaluator/") ||
     normalized === "/profile/edit" ||
     normalized === "/login" ||
     normalized === "/signup"
@@ -74,7 +69,7 @@ export function shouldRenderFooter(pathname: string | null | undefined): boolean
     // pages inside the sidebar layout — Footer should NOT render on these.
     normalized === "/faq" ||
     normalized.startsWith("/faq/") ||
-    (normalized.startsWith("/tools/") && !normalized.startsWith("/tools/pitch-evaluator")) ||
+    normalized.startsWith("/tools/") ||
     normalized === "/terms" ||
     normalized === "/privacy" ||
     normalized === "/contact"

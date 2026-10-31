@@ -313,7 +313,7 @@ function LeaderboardContent() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Practice"
+        eyebrow="Campus leaderboard"
         title="Leaderboard"
         meta="Campus rankings by verified builders and active hackathon squads."
       />

@@ -6,14 +6,12 @@ import {
   Bookmark,
   Handshake,
   Inbox,
-  Lightbulb,
   LogOut,
   Moon,
   PenLine,
   Settings,
   Shield,
   Sun,
-  Swords,
   Trophy,
   UserRound,
 } from "lucide-react";
@@ -29,7 +27,7 @@ type AccountActions = {
   onRequestSignOut: () => void;
 };
 
-function useAccountItems({ viewerId, profile, theme, toggleTheme, onRequestSignOut }: AccountActions, includePractice: boolean): MenuItem[] {
+function useAccountItems({ viewerId, profile, theme, toggleTheme, onRequestSignOut }: AccountActions, includeLeaderboard: boolean): MenuItem[] {
   const router = useRouter();
   const go = (href: string) => () => router.push(href);
   const items: MenuItem[] = [
@@ -39,12 +37,9 @@ function useAccountItems({ viewerId, profile, theme, toggleTheme, onRequestSignO
     { label: "Team invites", icon: <Inbox />, onSelect: go("/invites") },
     { label: "Saved hackathons", icon: <Bookmark />, onSelect: go("/hackathons?tab=saved") },
   ];
-  if (includePractice) {
+  if (includeLeaderboard) {
     items.push(
-      { type: "label", label: "Practice" },
-      { label: "Challenges", icon: <Swords />, onSelect: go("/challenges") },
-      { label: "Leaderboard", icon: <Trophy />, onSelect: go("/leaderboard") },
-      { label: "Idea evaluator", icon: <Lightbulb />, onSelect: go("/evaluator") },
+      { label: "Campus leaderboard", icon: <Trophy />, onSelect: go("/leaderboard") },
     );
   }
   items.push(
@@ -105,7 +100,7 @@ export function AccountMenu(props: AccountActions) {
   );
 }
 
-/** Mobile: the avatar in the top bar opens this bottom sheet (includes Practice). */
+/** Mobile: the avatar in the top bar opens this bottom sheet (includes campus leaderboard). */
 export function AccountSheet({ open, onClose, ...props }: AccountActions & { open: boolean; onClose: () => void }) {
   const items = useAccountItems(props, true);
   return (

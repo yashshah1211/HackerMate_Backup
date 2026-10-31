@@ -40,6 +40,13 @@ jobs:
           node --test --test-concurrency=1 \
             scripts/test-auth-return-paths.cjs \
             scripts/test-evaluator-generation-admission.cjs \
+            scripts/test-feature-retirement.cjs \
+            scripts/test-evaluator-reliability.cjs \
+            scripts/test-evaluator-result-authority.cjs \
+            scripts/test-evaluator-maintenance.cjs \
+            scripts/test-ppt-vision.cjs \
+            scripts/test-ppt-document-identity.cjs \
+            scripts/test-team-creation.cjs \
             scripts/test-squad-matching.cjs \
             scripts/test-partner-presentation.cjs \
             scripts/test-partner-discovery-navigation.cjs \

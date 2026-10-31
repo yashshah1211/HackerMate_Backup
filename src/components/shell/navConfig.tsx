@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { House, MessageSquare, Rocket, Swords, Users, UsersRound } from "lucide-react";
+import { House, MessageSquare, Rocket, Trophy, Users, UsersRound } from "lucide-react";
 
-export type NavSection = "home" | "builders" | "teams" | "hackathons" | "practice" | "messages";
+export type NavSection = "home" | "builders" | "teams" | "hackathons" | "leaderboard" | "messages";
 
 export type NavItem = {
   id: NavSection;
@@ -14,7 +14,7 @@ export type NavItem = {
 
 /**
  * Global navigation. Six destinations, grouped by intent. Sibling routes
- * (connections, my-teams, invites, leaderboard, evaluator…) live as section
+ * (connections, my-teams, invites, leaderboard…) live as section
  * tabs inside these destinations instead of competing in the rail.
  */
 export const NAV_ITEMS: NavItem[] = [
@@ -22,7 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "builders", href: "/developers", label: "Builders", icon: <UsersRound />, mobile: true },
   { id: "teams", href: "/teams", label: "Teams", icon: <Users />, mobile: true },
   { id: "hackathons", href: "/hackathons", label: "Hackathons", icon: <Rocket />, mobile: true },
-  { id: "practice", href: "/challenges", label: "Practice", icon: <Swords />, mobile: false },
+  { id: "leaderboard", href: "/leaderboard", label: "Campus leaderboard", icon: <Trophy />, mobile: false },
   { id: "messages", href: "/messages", label: "Messages", icon: <MessageSquare />, mobile: true },
 ];
 
@@ -33,7 +33,7 @@ export function sectionFor(pathname: string | null): NavSection | null {
   if (p.startsWith("/developers") || p.startsWith("/connections") || p.startsWith("/profile")) return "builders";
   if (p.startsWith("/teams") || p.startsWith("/my-teams") || p.startsWith("/invites")) return "teams";
   if (p.startsWith("/hackathons")) return "hackathons";
-  if (p.startsWith("/challenges") || p.startsWith("/leaderboard") || p.startsWith("/evaluator") || p.startsWith("/tools")) return "practice";
+  if (p.startsWith("/leaderboard")) return "leaderboard";
   if (p.startsWith("/messages")) return "messages";
   return null;
 }
@@ -45,7 +45,6 @@ export function isDetailRoute(pathname: string | null): boolean {
     /^\/profile\/(?!edit)[^/]+$/.test(pathname) ||
     /^\/teams\/(?!create)[^/]+(\/requests)?$/.test(pathname) ||
     /^\/hackathons\/(?!create)[^/]+(\/organizer)?$/.test(pathname) ||
-    /^\/challenges\/[^/]+/.test(pathname) ||
     pathname === "/settings" ||
     pathname === "/notifications" ||
     pathname === "/profile/edit"

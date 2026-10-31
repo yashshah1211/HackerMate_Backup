@@ -216,7 +216,7 @@ function renderEvaluation(feedback, track = 'generic', previousFeedback) {
   };
   const component = tag => ({ children, title }) => React.createElement(tag, title ? { title } : {}, children);
   const system = Object.fromEntries(['Button', 'FieldLabel', 'IconButton', 'Input', 'List', 'Panel', 'Progress', 'Segmented', 'Select', 'Spinner', 'Tape'].map(name => [name, component('div')]));
-  const { load } = harness({ react: fakeReact, '@/components/system': system, '@/lib/supabase': { supabase: {} }, '@/components/LinkedIdeaScorecard': { __esModule: true, default: () => null }, '@/components/ui/PresentationErrorAlert': { __esModule: true, default: () => null } });
+  const { load } = harness({ react: fakeReact, '@/components/system': system, '@/lib/supabase': { supabase: {} }, '@/components/ui/PresentationErrorAlert': { __esModule: true, default: () => null } });
   return renderToStaticMarkup(React.createElement(load('src/components/PPTEvaluatorTab.tsx').default, { teamId: 'team-1' }));
 }
 
@@ -393,6 +393,11 @@ test('declared and streamed byte limits, compressed bodies, and deadlines are en
   }
   const mock = transport([]);
   const stalled = { ...mock.overrides, 'node:dns/promises': { lookup: () => new Promise(() => {}) } };
-  await assert.rejects(harness(stalled).load(downloadPath).downloadPresentation('https://drive.google.com/uc', 100, Date.now() + 10), /timed out/);
+  // Unlike real DNS, this unresolved mock owns no libuv handle. Native
+  // AbortSignal.timeout is unref'ed; keep the fixture alive for its real timeout.
+  const keepAlive = setTimeout(() => {}, 1000);
+  try {
+    await assert.rejects(harness(stalled).load(downloadPath).downloadPresentation('https://drive.google.com/uc', 100, Date.now() + 10), /timed out/);
+  } finally { clearTimeout(keepAlive); }
   assert.equal(mock.calls.length, 0);
 });
