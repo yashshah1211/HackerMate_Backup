@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Mail } from "lucide-react";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
+import { normalizeShellPathname } from "@/components/shell/navConfig";
 
 const PRODUCT = [
   { href: "/developers", label: "Builders" },
@@ -49,7 +50,7 @@ function Column({ title, links }: { title: string; links: { href: string; label:
 
 export default function Footer() {
   // The landing ends on its own full-bleed sign-off; other pages need breathing room.
-  const landing = usePathname() === "/";
+  const landing = normalizeShellPathname(usePathname()) === "/";
   return (
     <footer className={cn("relative z-20 w-full border-t border-line bg-canvas", !landing && "mt-16 md:mt-24")}>
       <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-5 py-12 md:grid-cols-12 md:px-8 md:py-14">

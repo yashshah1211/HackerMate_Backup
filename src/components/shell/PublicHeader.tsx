@@ -7,6 +7,7 @@ import { ButtonLink } from "@/components/system";
 import { LandingScrollProgress, LandingStageNav } from "@/components/landing/LandingStageNav";
 import Logo from "@/components/Logo";
 import { browsingActionHref } from "@/lib/hackathons/publicBrowsing";
+import { normalizeShellPathname } from "./navConfig";
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -26,7 +27,7 @@ function DiscoverySignIn({ pathname }: { pathname: string }) {
  * stage navigation and a reading-progress line.
  */
 export function PublicHeader({ signedIn, onRequestSignOut, discovery = false }: { signedIn: boolean; onRequestSignOut: () => void; discovery?: boolean }) {
-  const pathname = usePathname();
+  const pathname = normalizeShellPathname(usePathname());
   const landing = pathname === "/";
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">

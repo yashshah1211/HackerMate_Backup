@@ -6,7 +6,7 @@
   const { spawn } = await import('node:child_process');
   const { pathToFileURL } = await import('node:url');
   const mode = process.argv[2];
-  if (!['tests', 'browser', 'funnel-browser', 'build'].includes(mode)) throw Error('Choose tests, browser, funnel-browser or build');
+  if (!['tests', 'browser', 'funnel-browser', 'build', 'hydration'].includes(mode)) throw Error('Choose tests, browser, funnel-browser, build or hydration');
   for (const file of ['.env', '.env.local', '.env.production', '.env.production.local', '.env.development', '.env.development.local', '.env.test', '.env.test.local']) {
     if (fs.existsSync(file)) throw Error('Refusing qualification with environment file: ' + file);
   }
@@ -16,7 +16,7 @@
     NODE_OPTIONS: '--import=' + pathToFileURL(path.resolve('qa/fixtures/rack-network-guard.mjs')).href });
   let server, reads = 0, mutations = 0;
   try {
-    if (mode === 'build') {
+    if (mode === 'build' || mode === 'hydration') {
       server = http.createServer((req, res) => {
         res.setHeader('content-type', 'application/json');
         if (!['GET', 'HEAD'].includes(req.method)) { mutations++; res.statusCode = 405; res.end('{}'); return; }
@@ -28,9 +28,9 @@
         NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve('qa/fixtures/rack-font-mock.cjs') });
     }
     const tests = ['scripts/test-rack-it-up-2026.cjs', 'scripts/test-rack-conversion-funnel.cjs', 'scripts/test-partner-presentation.cjs', 'scripts/test-partner-discovery-navigation.cjs', 'scripts/test-partner-admin.cjs', 'scripts/test-partner-authorization.cjs',
-      'scripts/test-auth-return-paths.cjs', 'scripts/test-auth-return-ui.cjs', 'scripts/test-onboarding-submission.cjs', 'scripts/test-public-hackathon-browsing.cjs', 'scripts/test-event-compatibility.cjs'];
+      'scripts/test-auth-return-paths.cjs', 'scripts/test-auth-return-ui.cjs', 'scripts/test-onboarding-submission.cjs', 'scripts/test-public-hackathon-browsing.cjs', 'scripts/test-event-compatibility.cjs', 'scripts/test-homepage-hydration.cjs'];
     const args = mode === 'build' ? ['node_modules/next/dist/bin/next', 'build', '--webpack']
-      : mode === 'browser' ? ['qa/browser/rack-it-up-2026.cjs'] : mode === 'funnel-browser' ? ['qa/browser/rack-conversion-funnel.cjs'] : ['--test', '--test-concurrency=1', ...tests];
+      : mode === 'hydration' ? ['qa/browser/homepage-hydration.cjs'] : mode === 'browser' ? ['qa/browser/rack-it-up-2026.cjs'] : mode === 'funnel-browser' ? ['qa/browser/rack-conversion-funnel.cjs'] : ['--test', '--test-concurrency=1', ...tests];
     const code = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, args, { env, stdio: 'inherit', timeout: 600000 });
       child.on('error', reject); child.on('exit', value => resolve(value ?? 1));

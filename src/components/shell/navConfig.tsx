@@ -26,6 +26,11 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "messages", href: "/messages", label: "Messages", icon: <MessageSquare />, mobile: true },
 ];
 
+/** Homepage ISR HTML can carry /index while the browser pathname is /. */
+export function normalizeShellPathname(pathname: string | null): string | null {
+  return pathname === "/index" ? "/" : pathname;
+}
+
 export function sectionFor(pathname: string | null): NavSection | null {
   if (!pathname) return null;
   const p = pathname;
