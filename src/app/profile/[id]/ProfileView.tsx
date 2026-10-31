@@ -69,7 +69,7 @@ type Props = {
   badges: UserBadge[];
   trackRecord: TrackRecordData | null;
   trackRecordLoading: boolean;
-  stats: { connections: number; teams: number; practice: number; registrations?: number };
+  stats: { connections: number; teams: number; registrations?: number };
   canInvite: boolean;
   alreadyInvited: boolean;
   busy: string | null;
@@ -111,7 +111,6 @@ export function ProfileView(props: Props) {
     { label: "Wins", value: wins, tone: wins > 0 ? "text-warn" : undefined },
     { label: "Teams", value: stats.teams },
     { label: "Connections", value: stats.connections },
-    { label: "Practice", value: stats.practice },
     {
       label: "Member since",
       value: profile.created_at ? new Date(profile.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "—",

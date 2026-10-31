@@ -95,7 +95,7 @@ export default function DevProfile() {
         badges={[{ id: "bd1", user_id: "dev-b-1", badge_type: "winner", badge_name: "Axcentra — Track winner", issuer_name: "Axcentra", rank_title: "1st place", issued_at: "2026-07-05" }]}
         trackRecord={TRACK}
         trackRecordLoading={false}
-        stats={{ connections: 37, teams: 2, practice: 9, registrations: 3 }}
+        stats={{ connections: 37, teams: 2, registrations: 3 }}
         canInvite
         alreadyInvited={false}
         busy={null}

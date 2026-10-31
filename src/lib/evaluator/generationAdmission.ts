@@ -15,6 +15,6 @@ export function closedGenerationResponse(requestId: string): Response | null {
 }
 
 /** Diagnostic version identifiers only; persisted copies never prove provenance. */
-export function evaluationRevision(pipeline: "idea" | "ppt" | "challenge") {
+export function evaluationRevision(pipeline: "ppt") {
   return { prompt: `${pipeline}-prompt-r2-2026-10-25`, rubric: `${pipeline}-v1`, source: "mission05-r2", sourceBase: "df9ac950f67444832e3a221ebb66b1b11576b884" };
 }

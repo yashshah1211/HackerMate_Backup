@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import PitchAnalysisBadge from "@/components/PitchAnalysisBadge";
 import { findEarlierMatchingPdf, getAnalysisDisplay, getPitchCategories, type AnalysisMetadata, type SlideFeedback } from "@/lib/ppt/analysisMetadata";
 import { supabase } from "@/lib/supabase";
-import LinkedIdeaScorecard, { LinkedEvaluationRecord } from "@/components/LinkedIdeaScorecard";
 import PresentationErrorAlert from "@/components/ui/PresentationErrorAlert";
 import {
   JudgingTrackId,
@@ -544,29 +543,6 @@ export default function PPTEvaluatorTab({ teamId }: { teamId: string }) {
           </div>
         </div>
       )}
-
-      {/* Linked Idea Pitch Benchmark from Idea Evaluator */}
-      {canManage && <LinkedIdeaScorecard
-        teamId={teamId}
-        onSelectIdeaTitle={(title) => {
-          if (submitting.current || !canManage) return;
-          if (!psTitle) {
-            setPsTitle(title);
-          }
-        }}
-        onEvaluationLoaded={(evaluation: LinkedEvaluationRecord | null) => {
-          if (submitting.current || !canManage) return;
-          if (evaluation?.track_id && !explicitTrack.current) {
-            const tr = evaluation.track_id as JudgingTrackId;
-            if (["ai_genai", "web_dev"].includes(tr)) {
-              confidentTrack.current = true;
-              setSelectedTrack(tr);
-              setIsAmbiguousFallback(false);
-              setAutoDetectedSource(`Linked Idea Scorecard (${TRACK_PROFILES[tr]?.name || tr})`);
-            }
-          }
-        }}
-      />}
 
       {canManage && <Panel as="section" className="min-w-0">
         <PanelHead icon={<Presentation className="text-ink-3" />} title="Request another review" />

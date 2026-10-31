@@ -216,7 +216,7 @@ function renderEvaluation(feedback, track = 'generic', previousFeedback) {
   };
   const component = tag => ({ children, title }) => React.createElement(tag, title ? { title } : {}, children);
   const system = Object.fromEntries(['Button', 'FieldLabel', 'IconButton', 'Input', 'List', 'Panel', 'Progress', 'Segmented', 'Select', 'Spinner', 'Tape'].map(name => [name, component('div')]));
-  const { load } = harness({ react: fakeReact, '@/components/system': system, '@/lib/supabase': { supabase: {} }, '@/components/LinkedIdeaScorecard': { __esModule: true, default: () => null }, '@/components/ui/PresentationErrorAlert': { __esModule: true, default: () => null } });
+  const { load } = harness({ react: fakeReact, '@/components/system': system, '@/lib/supabase': { supabase: {} }, '@/components/ui/PresentationErrorAlert': { __esModule: true, default: () => null } });
   return renderToStaticMarkup(React.createElement(load('src/components/PPTEvaluatorTab.tsx').default, { teamId: 'team-1' }));
 }
 

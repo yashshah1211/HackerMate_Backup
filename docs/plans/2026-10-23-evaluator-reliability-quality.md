@@ -1,3 +1,5 @@
+> Historical evidence/design: Mission 17 retires Idea Evaluator and Weekly Challenge from active product routes. PPT functionality remains. This document is not a current product guide; see `docs/qa/feature-retirement.md`.
+
 # Mission 05 — AI evaluator reliability and quality
 
 Status: **founder approved, including the retention amendment; isolated implementation authorized**. The founder explicitly approved the scoped implementation and publishing an audited inventory. Production writes, migrations, environment changes, paid model calls, merges and deployment remain prohibited. The retention implementation is authorized offline; its production operating evidence remains a release gate. The original proposal text is retained as the audit record; its former approval checkpoint is satisfied.

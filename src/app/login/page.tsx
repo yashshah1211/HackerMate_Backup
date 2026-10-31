@@ -19,7 +19,6 @@ function destinationLabel(path: string): string | null {
   if (/^\/teams\/[^/]+\/workspace/.test(path)) return "the team workspace";
   if (path.startsWith("/teams/")) return "that team";
   if (path.startsWith("/profile/")) return "that builder's profile";
-  if (path.startsWith("/challenges")) return "the challenge";
   if (path.startsWith("/messages")) return "your messages";
   return null;
 }

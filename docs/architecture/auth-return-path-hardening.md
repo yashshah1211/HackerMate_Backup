@@ -127,10 +127,8 @@ URL construction is outside this narrowly scoped callback correction.
 | `src/app/LandingPageClient.tsx` | Consumes `next`; now uses the same validator before direct navigation or onboarding. Presentation and existing session/onboarding decisions are unchanged. |
 | `src/components/AuthGuard.tsx`, `src/middleware.ts` | Produce login/onboarding URLs from the current local path/query. Middleware constructs redirects from cloned URLs. These are not the callback's concatenation sink. |
 | `src/components/AuthModal.tsx` | Transports `nextUrl` to the now-validated SignInPanel. |
-| `src/app/challenges/[slug]/page.tsx` | Passes generated challenge path/draft destination into AuthModal. Restoring draft state does not submit it. |
 | `src/components/TeamOverviewView.tsx`, `src/app/teams/[id]/workspace/page.tsx` | Generate local team/workspace login handoffs. |
 | `src/app/profile/[id]/ProfileView.tsx`, `src/app/leaderboard/page.tsx`, `src/app/settings/page.tsx` | Generate local profile, leaderboard, or settings login links. |
-| `src/components/PitchEvaluatorClient.tsx` | Generates a local team-create destination with an opaque sessionStorage prefill identifier, or `/evaluator`. |
 | `src/app/partners/[slug]/organizer/page.tsx`, `src/components/partners/OrganizerDashboard.tsx` | Generate local organizer login destinations, including filters. |
 | `src/components/partners/LegacyPartnerPage.tsx`, `src/app/hackathons/[id]/organizer/page.tsx` | Generate `/?next=...&auth=true`; now reach the shared validated landing consumer. |
 | PR #21 `src/lib/hackathons/publicBrowsing.ts` | Generates hackathon-only login/onboarding destinations, preserving filters/tabs. Its narrower helper remains unchanged. |

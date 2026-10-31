@@ -1,4 +1,3 @@
-import type { EvaluationRevision } from "./evaluationProvenance";
 export type JudgingTrackId = "web_dev" | "ai_genai" | "generic" | "specific";
 
 export interface TrackScoreCategories {
@@ -19,73 +18,6 @@ export interface TrackProfile {
   primaryChecks: string[];
   commonRedFlags: string[];
   recommendedRoles: string[];
-}
-
-export interface EvaluationInput {
-  psTitle: string;
-  solutionDescription: string;
-  techStack?: string;
-  architectureDetails?: string;
-  repoUrl?: string;
-  demoUrl?: string;
-  slidesText?: string;
-  trackId: JudgingTrackId;
-  hackathonId?: string;
-  customRubric?: string;
-  isTextOnly?: boolean;
-  teamInfo?: {
-    name?: string;
-    memberCount?: number;
-    hasFemaleMember?: boolean;
-    members?: Array<{ name?: string; skills?: string[] }>;
-  };
-}
-
-export interface TrackSubScores {
-  novelty: number;
-  tech: number;
-  uiUxOrFeasibility: number;
-  impactOrTeam: number;
-}
-
-export interface RecommendedRoleGap {
-  role: string;
-  reason: string;
-  suggestedSkills: string[];
-}
-
-export interface ProjectEvaluationResult {
-  trackId: JudgingTrackId;
-  totalScore: number; // 0-100
-  grade: "Top Tier / Nomination Ready 🏆" | "Strong Contender ✅" | "Needs Iteration ⚠️" | "High Risk / Incomplete 🚨";
-  subScores: TrackSubScores;
-  categoryLabels: {
-    novelty: string;
-    tech: string;
-    uiUxOrFeasibility: string;
-    impactOrTeam: string;
-  };
-  strengths: string[];
-  redFlags: string[];
-  architectureSuggestions: string[];
-  recommendedRoles: RecommendedRoleGap[];
-  usedAiEngine: boolean; // true if Gemini AI was used, false if Heuristic Fallback
-  evaluationTimestamp: string;
-  modelUsed?: string;
-  modelVersion?: string;
-  latencyMs?: number;
-  fallbackReason?: "missing_api_key" | "budget_exhausted" | "gemini_api_error" | "forced_fallback" | null;
-  fallbackDetails?: string | null;
-  evaluationMetadata?: {
-    revision?: EvaluationRevision;
-    schemaVersion: "evaluator-v1";
-    rubricVersion: "idea-v1";
-    mode: "text_only";
-    trackId: JudgingTrackId;
-    attempts: number;
-    providerAttempts: Array<{ model: string; latencyMs: number; code: string; httpStatus?: number }>;
-    evidence: Record<string, Array<{ text: string; quote: string }>>;
-  };
 }
 
 export const TRACK_PROFILES: Record<JudgingTrackId, TrackProfile> = {

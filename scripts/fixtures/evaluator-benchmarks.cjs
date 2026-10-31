@@ -17,10 +17,8 @@ const strongDomains = {
 };
 const sourceFor = (track, quality) => quality === 'strong' ? strongDomains[track] : sources[quality];
 const cases = [];
-for (const track of tracks) for (const quality of qualities) cases.push({ id: `idea-${track}-${quality}`, pipeline: 'idea', track, quality, mode: 'text_only', source: sourceFor(track, quality), customRubric: track === 'specific' ? customRubric : undefined });
 for (const track of tracks) for (const quality of qualities) for (const mode of ['visual_text', 'text_only']) cases.push({ id: `ppt-${track}-${quality}-${mode}`, pipeline: 'ppt', track, quality, mode, source: sourceFor(track, quality), customRubric: track === 'specific' ? customRubric : undefined });
-for (const domain of ['web', 'classifier', 'hardware']) for (const quality of qualities) cases.push({ id: `challenge-${domain}-${quality}`, pipeline: 'challenge', domain, quality, mode: 'text_only', source: sourceFor({ web: 'web_dev', classifier: 'ai_genai', hardware: 'generic' }[domain], quality) });
-module.exports = { cases, customRubric, limitation: '60 synthetic contract/evidence fixtures. Mock responses do not measure live Gemini accuracy, ranking consistency, hallucination rates or repeatability.' };
+module.exports = { cases, customRubric, limitation: '32 synthetic contract/evidence fixtures. Mock responses do not measure live Gemini accuracy, ranking consistency, hallucination rates or repeatability.' };
 
 // Explicit valid provider outputs; individual tests mutate them to exercise rejection.
 function pitchOutput(source, track = 'generic', mode = 'text_only', values) {
@@ -31,13 +29,6 @@ function pitchOutput(source, track = 'generic', mode = 'text_only', values) {
     strengths: [], criticalRisks: [anchor], formatViolations: [],
     scoreDeductions: Object.fromEntries(['novelty', 'tech', 'uiUx', 'team'].map((key, i) => [key, { pointsLost: caps[i] - points[i], feedback: { ...anchor } }])),
     ...(mode === 'visual_text' ? { slideFeedback: [{ slideNumber: 1, title: 'Supplied proposal', observation: source.slice(0, 200), recommendation: 'Distinguish proposed behavior from measured results.' }] } : { slideRecommendations: { technicalApproach: anchor } }),
-  };
-}
-function challengeOutput(source, values = [18, 18, 22, 14]) {
-  const anchor = { text: 'Explain a validation method for this supplied claim.', quote: source.slice(0, 200) };
-  return { scoreProblem: values[0], scoreSolution: values[1], scoreArchitecture: values[2], scoreFeasibilityImpact: values[3],
-    strengths: [], growthAreas: [anchor], formatViolations: [], topActionItem: anchor, slideFeedback: { slide3: anchor },
-    scoreDeductions: Object.fromEntries(['problem', 'solution', 'architecture', 'feasibilityImpact'].map((key, i) => [key, { pointsLost: [25, 25, 30, 20][i] - values[i], feedback: { ...anchor } }])),
   };
 }
 function providerEnvelope(output) { return { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(output) }] } }], modelVersion: 'gemini-3.5-flash-lite-001' }; }
@@ -52,12 +43,11 @@ function presentationSetup(options = {}) {
   const assert = require('node:assert/strict');
   const { harness } = require('../ppt-vision-harness.cjs');
   const { makePitchPdf } = require('./pitch-pdf.cjs');
-  const USER = '00000000-0000-4000-8000-000000000001', TEAM = '00000000-0000-4000-8000-000000000004', CHALLENGE = '00000000-0000-4000-8000-000000000005';
+  const USER = '00000000-0000-4000-8000-000000000001', TEAM = '00000000-0000-4000-8000-000000000004';
   const source = options.source || 'We propose a classifier with a held-out validation set.';
   const state = { source, user: { id: USER }, queries: [], writes: [], calls: [], logs: [], counters: new Map(), ...options };
   state.tables = { teams: [{ id: TEAM, owner_id: USER, team_hackathons: [], team_members: [{ profiles: { skills: ['testing'] } }] }], team_members: [{ id: TEAM, team_id: TEAM, user_id: USER }], profiles: [{ id: USER, role: 'developer', is_banned: false }],
-    weekly_challenges: [{ id: CHALLENGE, slug: 'fixture-challenge', title: 'Fixture challenge', track: 'Open', problem_statement: 'Explain a useful proposed system.', additional_rules: null, constraints: [], slide_template: [], status: 'active', starts_at: new Date(Date.now() - 100000).toISOString(), ends_at: new Date(Date.now() + 86400000).toISOString() }],
-    team_ppt_evaluations: [], challenge_submissions: [], ...options.tables };
+    team_ppt_evaluations: [], ...options.tables };
   const admin = {
     auth: { async getUser() { if (state.authThrows) throw Error('private auth detail'); return { data: { user: state.user }, error: state.authError || null }; } },
     rpc(name, args) { assert.equal(name, 'check_rate_limit'); return { abortSignal() { return { then(resolve, reject) {
@@ -108,12 +98,11 @@ function presentationSetup(options = {}) {
     ...(state.mode === 'visual_text' ? { pdf: { bytes: makePitchPdf(), pageCount: 3, source: 'linked_pdf' } } : {}) };
   const loader = harness({ '@supabase/supabase-js': { createClient: () => admin },
     '@/lib/ppt/presentationExtractor': { ...harness().load('src/lib/ppt/presentationExtractor.ts'), extractPresentationFromUrl: async () => state.extraction || extraction },
-    '@/lib/challenges/challengeExtractor': { extractChallengePresentationFromUrl: async () => state.extraction || extraction, extractChallengeTextFromPDF: async bytes => { state.uploadBytes = bytes.byteLength; return state.extraction || extraction; } },
   }, { fetch: async (url, init) => {
     assert.equal(new URL(url).origin, 'https://generativelanguage.googleapis.com');
     state.calls.push({ url, body: JSON.parse(init.body) });
     if (state.provider) return state.provider(state.calls.length, init);
-    return Response.json(providerEnvelope(state.output || (state.pipeline === 'challenge' ? challengeOutput(source) : pitchOutput(source, state.track || 'generic', state.mode || 'text_only'))));
+    return Response.json(providerEnvelope(state.output || pitchOutput(source, state.track || 'generic', state.mode || 'text_only')));
   }, console: Object.fromEntries(['log', 'warn', 'error'].map(level => [level, (...args) => state.logs.push({ level, args })])) });
   Object.assign(loader.env, { NEXT_PUBLIC_SUPABASE_URL: 'https://fixture.invalid', SUPABASE_SERVICE_ROLE_KEY: 'offline-service-key', ...state.env });
   async function ppt(body = {}, headers = {}, id = TEAM) {
@@ -121,16 +110,6 @@ function presentationSetup(options = {}) {
     const response = await loader.load('src/app/api/teams/[id]/ppt-evaluate/route.ts').POST(req, { params: Promise.resolve({ id }) });
     return { status: response.status, body: await response.json() };
   }
-  async function challenge(body = {}, headers = {}, slug = 'fixture-challenge') {
-    const form = new FormData();
-    for (const [key, value] of Object.entries({ external_link_url: 'https://docs.google.com/presentation/d/fixture/edit', submission_mode: 'solo', ...body })) if (value !== undefined) form.set(key, value);
-    // Serialize as network bytes before delivery. Cancelling Node's lazy FormData
-    // producer mid-Blob can itself reject asynchronously after a route returns.
-    const encoded = new Response(form), bytes = await encoded.arrayBuffer();
-    const req = new Request('https://fixture.invalid/api/challenges/' + slug + '/evaluate', { method: 'POST', headers: { authorization: 'Bearer fixture', 'idempotency-key': 'offline-challenge-token-0001', 'content-type': encoded.headers.get('content-type'), ...headers }, body: bytes });
-    const response = await loader.load('src/app/api/challenges/[slug]/evaluate/route.ts').POST(req, { params: Promise.resolve({ slug }) });
-    return { status: response.status, body: await response.json() };
-  }
-  return { state, loader, admin, ppt, challenge, USER, TEAM, CHALLENGE };
+  return { state, loader, admin, ppt, USER, TEAM };
 }
-Object.assign(module.exports, { pitchOutput, challengeOutput, providerEnvelope, makeBenchmarkPdf, presentationSetup });
+Object.assign(module.exports, { pitchOutput, providerEnvelope, makeBenchmarkPdf, presentationSetup });

@@ -87,7 +87,7 @@ for (const provider of ['Google', 'GitHub']) {
     assert.deepEqual(view.navigation, []); assert.deepEqual(view.reads, []);
   });
   test(`${provider} modal default captures relative current path/query/fragment`, async t => {
-    const path = '/challenges/synthetic?tab=submissions#submit';
+    const path = '/hackathons/synthetic?tab=looking_for_teams#builders';
     const view = await mount(t, { path }); await view.consent(); await view.provider(provider);
     assert.equal(new URL(view.calls[0].options.redirectTo).searchParams.get('next'), path);
   });

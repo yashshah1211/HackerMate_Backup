@@ -14,9 +14,6 @@ const ROOT = path.resolve(__dirname, '..');
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const FOUNDER = 'yashshah7117@gmail.com';
 const REPORT = 'src/app/api/cron/database-activity-report/route.ts';
-const CHALLENGES = 'src/app/api/admin/challenges/route.ts';
-const CHALLENGE = 'src/app/api/admin/challenges/[id]/route.ts';
-const CONTEXT = { params: Promise.resolve({ id: 'throwaway-challenge' }) };
 
 function harness(options = {}) {
   const state = {
@@ -232,29 +229,6 @@ for (const [name, req, options] of [
     const result = await h.load(REPORT).GET(request('api/cron/database-activity-report', req));
     assert([401, 403].includes(result.status));
     assertNoPrivilegedWork(h.state);
-  });
-}
-
-test('cron secret does not grant general admin or challenge access', async () => {
-  const h = harness({ user: null });
-  const result = await h.load(CHALLENGES).GET(request('api/admin/challenges', { token: 'fixture-cron-secret' }));
-  assert.equal(result.status, 403);
-  assertNoPrivilegedWork(h.state);
-});
-
-for (const [file, method] of [[CHALLENGES, 'GET'], [CHALLENGES, 'POST'], [CHALLENGE, 'PATCH'], [CHALLENGE, 'DELETE']]) {
-  for (const [name, options] of denied) {
-    test(`challenge ${method} inherits denial for ${name}`, async () => {
-      const h = harness(options);
-      const result = await h.load(file)[method](request('api/admin/challenges', { method, body: method === 'GET' ? undefined : {} }), CONTEXT);
-      assert.equal(result.status, 403);
-      assertNoPrivilegedWork(h.state);
-    });
-  }
-  test(`challenge ${method} permits authoritative admin`, async () => {
-    const h = harness({ profile: { role: 'admin' } });
-    const result = await h.load(file)[method](request('api/admin/challenges', { method, body: method === 'POST' ? { title: 'Throwaway challenge', problem_statement: 'Local fixture', challenge_number: 1 } : method === 'PATCH' ? { title: 'Local fixture' } : undefined }), CONTEXT);
-    assert.equal(result.status, 200);
   });
 }
 

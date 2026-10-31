@@ -1,3 +1,5 @@
+> Historical evidence/design: Mission 17 retires Idea Evaluator and Weekly Challenge from active product routes. PPT functionality remains. This document is not a current product guide; see `docs/qa/feature-retirement.md`.
+
 # Mission 05 — retention and evaluator reliability QA
 
 Status: **retention, PR A and PR B implemented and validated offline; production release remains blocked on operational evidence and separate explicit approval**. The dated checkpoints below preserve their original evidence; the PR B section records the complete 60-case offline candidate, final inventories and current limitations. This is not a production-ready release.

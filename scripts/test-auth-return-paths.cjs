@@ -31,7 +31,7 @@ const GOOD = [
   '/hackathons?tab=past&q=water+energy&mode=online&source=partner#results',
   '/profile/builder-1', '/developers?skills=React%2CNode.js', '/invites?college=Offline%20Campus#pending',
   '/teams/team-1', '/teams/team-1/workspace?tab=documents#draft', '/teams/create?invite=builder-1',
-  '/partners/synthetic/organizer?tab=participants&pSearch=Builder', '/evaluator', '/challenges/fixture#submit',
+  '/partners/synthetic/organizer?tab=participants&pSearch=Builder', '/teams/create?hackathon=fixture', '/hackathons/fixture#builders',
   '/hackathons?filter=a%26b%3Dc&url=https%3A%2F%2Fexample.invalid%2Fx%3Fa%3D1%26b%3D2#panel',
   '/hackathons?literalPercent=100%25&nested=%252Fhackathons%253Ftab%253Dpast',
   '/hackathons?email=user%40example.invalid&next=%2F%2Fexample.invalid',
