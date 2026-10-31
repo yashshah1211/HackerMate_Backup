@@ -35,6 +35,8 @@ Initial targeted development run: 250/271 passed, 21 failures from stale removed
 
 Final staged review caught unintended text-decoding changes in four test/support files, including an en-dash in a preserved PPT assertion. Each file was reconstructed from exact base UTF-8 bytes with only its intended single retirement edit. No assertion corruption remains. The complete 29-file selection was rerun afterwards: 1,704/1,704 passed; focused lint on these restored files and new tests passed. Earlier results are not substituted for this final rerun.
 
+First Linux CI at `d1b11f42eb7582d14c0597d38994d8e1e0e9540e`: TypeScript passed; offline selection had 781 passed, zero assertion failures and one cancelled test. The existing PPT stalled-DNS test mocked a permanently pending promise with no active handle; native `AbortSignal.timeout` is unref'ed, allowing Node 22 to exit before its deadline. A standalone local probe confirmed that event-loop mechanism, while the same isolated test happened to pass on local Node 24. The test now supplies a bounded 1-second referenced fixture handle with `try/finally` cleanup. Its original 10ms deadline, required timeout rejection, zero transport-call assertion and application download code are unchanged. This is a test-fixture lifetime correction, not a weakened timeout or application fix. Current-head CI results and final commit are recorded in the Draft PR.
+
 ## Fresh validation
 
 | Command | Result |

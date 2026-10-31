@@ -393,6 +393,11 @@ test('declared and streamed byte limits, compressed bodies, and deadlines are en
   }
   const mock = transport([]);
   const stalled = { ...mock.overrides, 'node:dns/promises': { lookup: () => new Promise(() => {}) } };
-  await assert.rejects(harness(stalled).load(downloadPath).downloadPresentation('https://drive.google.com/uc', 100, Date.now() + 10), /timed out/);
+  // Unlike real DNS, this unresolved mock owns no libuv handle. Native
+  // AbortSignal.timeout is unref'ed; keep the fixture alive for its real timeout.
+  const keepAlive = setTimeout(() => {}, 1000);
+  try {
+    await assert.rejects(harness(stalled).load(downloadPath).downloadPresentation('https://drive.google.com/uc', 100, Date.now() + 10), /timed out/);
+  } finally { clearTimeout(keepAlive); }
   assert.equal(mock.calls.length, 0);
 });
