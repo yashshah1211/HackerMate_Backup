@@ -3,6 +3,8 @@
 import { loadTeammateRecommendations } from "@/lib/matchingClient";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { selectPartnerEvents, type PartnerEvent } from "./partnerSpotlight";
+export type { PartnerEvent } from "./partnerSpotlight";
 import { collegeMatchValues } from "@/lib/colleges";
 import { useRouter } from "next/navigation";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
@@ -69,7 +71,6 @@ export type QueueItem =
 
 export type Activity = { id: string; message: string; link: string | null; createdAt: string };
 
-export type PartnerEvent = { slug: string; name: string; logoUrl: string | null; eventName: string | null; endDate: string | null };
 
 export type DashboardData = {
   loading: boolean;
@@ -438,13 +439,11 @@ export function useDashboardData() {
       if (notifs.error) console.error("[dashboard] notifications failed:", notifs.error);
       if (partnersRes.error) console.error("[dashboard] partner_configs failed:", partnersRes.error);
       type PartnerRow = { slug: string; partner_name: string | null; logo_url: string | null; hackathons: { id: string; name: string; end_date: string | null } | { id: string; name: string; end_date: string | null }[] | null };
-      const partners: PartnerEvent[] = ((partnersRes.data || []) as unknown as PartnerRow[])
+      const partners = selectPartnerEvents(((partnersRes.error ? [] : partnersRes.data || []) as unknown as PartnerRow[])
         .map((c) => {
           const h = Array.isArray(c.hackathons) ? c.hackathons[0] : c.hackathons;
           return { slug: c.slug, name: c.partner_name || c.slug, logoUrl: c.logo_url, eventName: h?.name ?? null, endDate: h?.end_date ?? null };
-        })
-        .filter((p) => !p.endDate || p.endDate >= today)
-        .slice(0, 3);
+        }), today);
 
       const comp = calculateProfileCompleteness(profile);
       let yearVisible = false;
