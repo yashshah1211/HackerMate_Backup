@@ -34,7 +34,8 @@
     "svix": "^1.99.1",
     "tailwind-merge": "^3.6.0",
     "tweetnacl": "^1.0.3",
-    "unpdf": "^1.8.1"
+    "unpdf": "^1.8.1",
+    "parse5": "7.3.0"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",

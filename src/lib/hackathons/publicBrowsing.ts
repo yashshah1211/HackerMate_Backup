@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DiscoveryEvent } from "./discovery";
 
 // Application read contract only. The database's broader anonymous grants/RLS are unchanged.
-export const PUBLIC_EVENT_COLUMNS = "id,name,description,tags,start_date,end_date,registration_end,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived";
+export const PUBLIC_EVENT_COLUMNS = "id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived";
 export type PublicEvent = Omit<DiscoveryEvent, "organizer_id"> & {
   max_participants?: number | null;
   rounds_count?: number | null;

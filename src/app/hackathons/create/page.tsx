@@ -7,6 +7,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { useRouter as useAppRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
 import { COLLEGES, collegeMatchesSearch } from "@/lib/colleges";
+import { eventDate } from "@/lib/hackathons/lifecycle";
 import { cn } from "@/lib/utils";
 import { Button, FieldLabel, Input, Page, PageHeader, Select, Tape, Textarea } from "@/components/system";
 
@@ -18,6 +19,8 @@ export default function CreateHackathonPage() {
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [registrationStart, setRegistrationStart] = useState("");
+  const [registrationEnd, setRegistrationEnd] = useState("");
   const [mode, setMode] = useState("online");
   const [location, setLocation] = useState("");
   const [prizePool, setPrizePool] = useState("");
@@ -99,6 +102,11 @@ export default function CreateHackathonPage() {
       return;
     }
 
+    if ((startDate && eventDate(startDate) === null) || (endDate && eventDate(endDate, true) === null)
+      || (startDate && endDate && eventDate(startDate)! >= eventDate(endDate, true)!)
+      || (registrationStart && registrationEnd && eventDate(registrationStart)! >= eventDate(registrationEnd, true)!)) {
+      showToast("Check the event and registration date order.", "warning"); return;
+    }
     setLoading(true);
 
     try {
@@ -135,6 +143,8 @@ export default function CreateHackathonPage() {
           description: description.trim() || null,
           start_date: startDate || null,
           end_date: endDate || null,
+          registration_start: registrationStart ? new Date(eventDate(registrationStart)!).toISOString() : null,
+          registration_end: registrationEnd ? new Date(eventDate(registrationEnd, true)!).toISOString() : null,
           location: mode === "online" ? "Online" : location.trim() || null,
           mode,
           prize_pool: prizePool.trim() || null,
@@ -441,6 +451,11 @@ export default function CreateHackathonPage() {
           {/* Schedule & venue */}
           <FormSection title="Schedule & venue">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="col-span-full grid gap-3 sm:grid-cols-2">
+                <div><FieldLabel htmlFor="hk-registration-start">Registration opens (India date)</FieldLabel><Input id="hk-registration-start" type="date" value={registrationStart} onChange={e => setRegistrationStart(e.target.value)} /></div>
+                <div><FieldLabel htmlFor="hk-registration-end">Registration final day (India date)</FieldLabel><Input id="hk-registration-end" type="date" value={registrationEnd} onChange={e => setRegistrationEnd(e.target.value)} /></div>
+                <p className="col-span-full text-xs text-ink-3">Optional. The final day includes the whole day in India; an event date does not imply registration is open.</p>
+              </div>
               <div>
                 <FieldLabel htmlFor="hk-start">Start date</FieldLabel>
                 <Input id="hk-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />

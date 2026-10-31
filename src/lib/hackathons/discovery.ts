@@ -1,14 +1,17 @@
+import { descriptionText } from "./description";
+import { eventDate, eventState, registrationState } from "./lifecycle";
+export { eventDate, eventState } from "./lifecycle";
 /** Deterministic discovery from listed event metadata; no inferred eligibility or exchange rates. */
 export type DiscoveryEvent = {
   id: string; name: string; description: string | null; tags: string[] | null;
-  start_date: string | null; end_date: string | null; registration_end?: string | null;
+  start_date: string | null; end_date: string | null; registration_end?: string | null; registration_start?: string | null; registration_status?: string | null;
   created_at?: string | null; location: string | null; mode: string | null;
   prize_pool: string | null; currency?: string | null; website_url: string | null;
   type: string | null; organizer_id?: string | null; college?: string | null;
   min_team_size?: number | null; max_team_size?: number | null;
 };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
-export type DiscoveryTab = "recommended" | "upcoming" | "ongoing" | "saved" | "past";
+export type DiscoveryTab = "recommended" | "upcoming" | "ongoing" | "saved" | "past" | "all";
 export type DiscoverySort = "relevant" | "date" | "recent" | "prize-inr" | "prize-usd";
 export type DiscoverySettings = {
   tab: DiscoveryTab; q: string; mode: string; platform: string; topic: string;
@@ -25,28 +28,7 @@ export function eventTopics(event: Pick<DiscoveryEvent, "tags">): string[] {
   return listedTags(event.tags).filter(tag => !GENERIC.has(norm(tag)));
 }
 export function plainEventText(value: string | null | undefined): string {
-  return (value || "").replace(/<[^>]*>/g, " ").replace(/&(?:nbsp|amp|quot|lt|gt|mdash|ndash|rsquo|lsquo|ldquo|rdquo|hellip|middot|bull);/g,
-    entity => ({ '&nbsp;': ' ', '&amp;': '&', '&quot;': '"', '&lt;': '<', '&gt;': '>', '&mdash;': '—', '&ndash;': '–',
-      '&rsquo;': "'", '&lsquo;': "'", '&ldquo;': '"', '&rdquo;': '"', '&hellip;': '...', '&middot;': '·', '&bull;': '•' }[entity] || entity))
-    .replace(/\s+/g, " ").trim();
-}
-/** Calendar-only dates cover the full day in India; timestamps retain their explicit timezone. */
-export function eventDate(value: string | null | undefined, endOfDay = false): number | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(value)) return null;
-  const day = value.slice(0, 10), check = new Date(`${day}T00:00:00Z`);
-  if (!Number.isFinite(check.getTime()) || check.toISOString().slice(0, 10) !== day) return null;
-  if (value.length === 10) return Date.parse(`${day}T00:00:00+05:30`) + (endOfDay ? 86400000 : 0);
-  if (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) return null;
-  const time = Date.parse(value);
-  return Number.isFinite(time) ? time : null;
-}
-export function eventState(event: Pick<DiscoveryEvent, "start_date" | "end_date">, now: number): EventState {
-  const start = eventDate(event.start_date), end = eventDate(event.end_date, true);
-  if ((event.start_date && start === null) || (event.end_date && end === null) || (start !== null && end !== null && end <= start)) return "unknown";
-  if (end !== null && now >= end) return "ended";
-  if (start !== null && now < start) return "upcoming";
-  if (start !== null && end !== null) return "ongoing";
-  return "unknown";
+  return descriptionText(value || "");
 }
 export function eventFormat(mode: string | null): string {
   const value = norm(mode || "");
@@ -105,7 +87,7 @@ export function discoveryReason(event: DiscoveryEvent, skills: string[], now: nu
   if (!listedTags(skills).length) return "Explore this event · add profile skills to personalize the order";
   return eventState(event, now) === "ongoing" ? "Ongoing event · check official registration availability" : "Explore beyond your listed skills";
 }
-const tabs = ["recommended", "upcoming", "ongoing", "saved", "past"];
+const tabs = ["recommended", "upcoming", "ongoing", "saved", "past", "all"];
 const sorts = ["relevant", "date", "recent", "prize-inr", "prize-usd"];
 export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): DiscoverySettings {
   const get = (key: string) => { const values = params.getAll(key); return values.length === 1 ? values[0].trim() : ""; };
@@ -118,7 +100,7 @@ export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): 
     platform: choice("platform", ["native", "unstop", "devfolio", "hack2skill", "other"]), topic: norm(get("topic")),
     sort: (sorts.includes(requestedSort) ? requestedSort : tab === "recommended" ? "relevant" : "date") as DiscoverySort,
     from: date("from"), to: date("to"), participation: choice("participation", ["solo", "team"]),
-    registration: choice("registration", ["not-closed", "recorded"]) };
+    registration: choice("registration", ["not-closed", "recorded", "open", "closed", "unknown", "not-yet-open", "all"]) };
 }
 /** Preserve unrelated query values while writing validated, shareable discovery settings. */
 export function discoveryQuery(params: URLSearchParams, patch: Partial<DiscoverySettings>): string {
@@ -143,8 +125,8 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
   const terms = norm(settings.q).split(/\s+/).filter(Boolean), from = eventDate(settings.from), to = eventDate(settings.to, true);
   const selected = events.filter(event => {
     const state = eventState(event, now);
-    if (settings.tab === "saved" ? !saved.has(event.id) : settings.tab === "recommended" ? state === "ended"
-      : settings.tab === "past" ? state !== "ended" : state !== settings.tab) return false;
+    if (settings.tab !== "all" && (settings.tab === "saved" ? !saved.has(event.id) : settings.tab === "recommended" ? state === "ended"
+      : settings.tab === "past" ? state !== "ended" : state !== settings.tab)) return false;
     if (settings.mode && eventFormat(event.mode) !== settings.mode) return false;
     if (settings.platform && eventPlatform(event) !== settings.platform) return false;
     if (settings.topic && !eventTopics(event).some(tag => norm(tag) === settings.topic)) return false;
@@ -157,6 +139,10 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
       if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || !min || !max || min < 1 || max < min) return false;
       if (settings.participation === "solo" ? min !== 1 : max < 2) return false;
     }
+    const registration = registrationState(event, now);
+    const active = !["saved", "past", "all"].includes(settings.tab);
+    if (active && !settings.registration && registration === "closed") return false;
+    if (["open", "closed", "unknown", "not-yet-open"].includes(settings.registration) && registration !== settings.registration) return false;
     const deadline = eventDate(event.registration_end, true);
     if (settings.registration === "recorded" && deadline === null) return false;
     if (settings.registration === "not-closed" && deadline !== null && now >= deadline) return false;
@@ -170,7 +156,10 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
     return group(a) - group(b) || knownCompare(eventDate(a.start_date), eventDate(b.start_date));
   };
   return selected.sort((a, b) => {
-    let comparison = 0;
+    const active = !["saved", "past", "all"].includes(settings.tab);
+    const rank = (event: DiscoveryEvent) => ({ open: 0, unknown: 1, "not-yet-open": 2, closed: 3 }[registrationState(event, now)]);
+    let comparison = active && settings.registration !== "recorded" ? rank(a) - rank(b) : 0;
+    if (comparison) return comparison;
     if (settings.sort === "relevant") {
       const closed = (event: DiscoveryEvent) => { const deadline = eventDate(event.registration_end, true); return deadline !== null && now >= deadline ? 1 : 0; };
       comparison = closed(a) - closed(b) || skillEvidence(b, skills).length - skillEvidence(a, skills).length;
