@@ -1,0 +1,222 @@
+# Mission 20 C1 — full query inventory
+
+Baseline: `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e`. Initial API/SQL inventory generated before proposed privilege/RLS SQL was written; the final whole-tree text reconciliation is documented below. No live project queries were made.
+
+This entire tracked-tree sweep includes application code, embedded/joined relations, ad-hoc scripts, tests, migrations, rollback SQL and documentation. The JSON companion contains every exact query chain, projection argument and write expression, 332 verbatim SQL review fragments (including requested columns), and 1200 reference lines. It is the exhaustive machine-readable inventory; this view lists each API chain and its requested columns. Implicit `.select()` means all returning columns (`*`), not no columns. Unresolved expressions are retained verbatim for manual review. No SELECT grant is narrowed in this proposal.
+
+- `scripts/check_and_restore_partner_portals.js:39` — `hackathons`; select → eq → maybeSingle.
+  - select: `id, name, type, start_date, end_date`
+- `scripts/check_and_restore_partner_portals.js:49` — `hackathons`; upsert.
+  - upsert: `{ id: axcentraHackathonId, name: "Axcentra x All India Hackathon", description: "The Flagship 72-Hour National Innovation Sprint. Find your team and build the future.", type: "official", // Set type = 'official' so scraper auto-purge NEVER targets it! start_date: "2026-08-01", end_date: "2026-08-31", location: "India / Online", mode: "online", prize_pool: "₹1,00,000+", currency: "INR", website_url: "https://unstop.com/o/1703933", college: "Axcentra National Team", tags: ["Axcentra", "Coding", "Hackathon", "Official Partner"], }`
+- `scripts/check_and_restore_partner_portals.js:72` — `hackathons`; update → eq.
+  - update: `{ type: "official" }`
+- `scripts/check_and_restore_partner_portals.js:105` — `hackathons`; update → in.
+  - update: `{ type: "official" }`
+- `scripts/smoke-test-core-pages.js:219` — `user_badges` joins `hackathons`; select → limit.
+  - select: `id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name, college), hackathons:hackathon_id(name)`
+- `src/app/admin/page.tsx:253` — `hackathons`; select → order.
+  - select: `id, name, website_url`
+- `src/app/api/admin/create-partner-portal/route.ts:51` — `hackathons`; select → eq → maybeSingle.
+  - select: `id`
+- `src/app/api/admin/create-partner-portal/route.ts:63` — `hackathons`; insert → select → single.
+  - insert: `{ name: lead.title, description: 'Official Partner Hackathon — ${lead.title}', website_url: lead.unstop_url, college: lead.college_or_host, mode: null, type: "external", prize_pool: null, start_date: null, }`
+  - select: `(implicit return/default or unresolved expression; inspect exact args)`
+- `src/app/api/admin/hackathons/route.ts:14` — `hackathons`; select → or → order.
+  - select: `*, profiles:organizer_id(id, full_name, email)`
+- `src/app/api/admin/hackathons/route.ts:68` — `hackathon_registrations`; delete → eq.
+  - delete: ``
+- `src/app/api/admin/hackathons/route.ts:70` — `hackathons`; delete → eq.
+  - delete: ``
+- `src/app/api/admin/hackathons/route.ts:87` — `hackathons`; select → eq → single.
+  - select: `id, ai_feedback`
+- `src/app/api/admin/hackathons/route.ts:107` — `hackathons`; update → eq → select → single.
+  - update: `{ ai_feedback: updatedFeedback, status: newStatus, }`
+  - select: `(implicit return/default or unresolved expression; inspect exact args)`
+- `src/app/api/admin/issue-badges/route.ts:124` — `user_badges` joins `hackathons`; select → order.
+  - select: `*, profiles:user_id(full_name, email), hackathons:hackathon_id(name)`
+- `src/app/api/admin/partner-composition/route.ts:21` — `hackathons`; select → eq → single.
+  - select: `id, name, type, mode, prize_pool`
+- `src/app/api/admin/partner-composition/route.ts:34` — `hackathon_registrations`; select → eq → order.
+  - select: ` id, user_id, team_id, looking_for_team, status, created_at, profiles ( id, full_name, email, college, avatar_url, skills ), teams ( id, name ) `
+- `src/app/api/admin/scrape-unstop/route.ts:204` — `hackathons`; select.
+  - select: `id,name,website_url,type,organizer_id,status,archived,registration_start,registration_end,registration_status,ai_feedback`
+- `src/app/api/admin/scrape-unstop/route.ts:507` — `hackathons`; update → eq → eq → eq → eq → is → eq → eq.
+  - update: `{ ...patch.values, ai_feedback: patch.feedback }`
+- `src/app/api/admin/scrape-unstop/route.ts:546` — `hackathons`; upsert.
+  - upsert: `normalizedHackathons, { onConflict: "website_url", ignoreDuplicates: true }`
+- `src/app/api/certificates/verify/[id]/route.ts:24` — `user_badges` joins `hackathons`; select.
+  - select: `id, badge_name, issuer_name, rank_title, issued_at, metadata, profiles:user_id(full_name), hackathons:hackathon_id(name)`
+- `src/app/api/organizer/broadcast/route.ts:41` — `hackathons`; select → eq → single.
+  - select: `id, name, type, organizer_id`
+- `src/app/api/organizer/broadcast/route.ts:113` — `hackathon_registrations`; select → eq.
+  - select: `user_id, profiles:user_id(id, full_name, email)`
+- `src/app/api/teams/[id]/ppt-evaluate/route.ts:41` — `teams` joins `hackathons`; select → eq → abortSignal → maybeSingle.
+  - select: `id, owner_id, hackathon_name, team_hackathons(hackathons(name, description)), team_members(profiles(skills))`
+- `src/app/dashboard/useDashboardData.ts:312` — `hackathons`; select → eq → gte.
+  - select: `id`
+- `src/app/dashboard/useDashboardData.ts:314` — `hackathons`; select → eq → gte → lte.
+  - select: `id`
+- `src/app/dashboard/useDashboardData.ts:322` — `partner_configs` joins `hackathons`; select.
+  - select: `slug, partner_name, logo_url, hackathons(id, name, end_date)`
+- `src/app/dashboard/useDashboardData.ts:377` — `teams` joins `hackathons`; select → in.
+  - select: `id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathon_id, hackathons(id, name, type, tags))`
+- `src/app/hackathons/[id]/organizer/page.tsx:139` — `hackathons`; update → eq → eq → eq → select → maybeSingle.
+  - update: `{ registration_start: start === null ? null : new Date(start).toISOString(), registration_end: end === null ? null : new Date(end).toISOString() }`
+  - select: `id,registration_start,registration_end`
+- `src/app/hackathons/[id]/organizer/page.tsx:190` — `hackathons`; select → eq → single.
+  - select: `*`
+- `src/app/hackathons/[id]/organizer/page.tsx:219` — `hackathon_registrations`; select → eq → order.
+  - select: ` id, user_id, team_id, looking_for_team, status, created_at, profiles ( id, full_name, college, avatar_url, skills, is_available ), teams ( id, name ) `
+- `src/app/hackathons/[id]/page.tsx:342` — `hackathons`; select → eq → eq → eq → single.
+  - select: `id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived,organizer_id`
+- `src/app/hackathons/[id]/page.tsx:625` — `hackathon_registrations`; insert.
+  - insert: `{ hackathon_id: hackathon.id, user_id: currentUserId, team_id: selectedTeam || null, status: regStatus, }`
+- `src/app/hackathons/[id]/page.tsx:738` — `hackathon_registrations`; delete → eq → eq → select.
+  - delete: ``
+  - select: `id`
+- `src/app/hackathons/[id]/page.tsx:957` — `hackathons`; delete → eq.
+  - delete: ``
+- `src/app/hackathons/create/page.tsx:142` — `hackathons`; insert → select → single.
+  - insert: `{ name: name.trim(), description: description.trim() || null, start_date: startDate || null, end_date: endDate || null, registration_start: registrationStartTime !== null ? new Date(registrationStartTime).toISOString() : null, registration_end: registrationEndTime !== null ? new Date(registrationEndTime).toISOString() : null, location: mode === "online" ? "Online" : location.trim() || null, mode, prize_pool: prizePool.trim() || null, currency, website_url: websiteUrl.trim() || null, type, max_participants: maxParticipants ? parseInt(maxParticipants, 10) : null, min_team_size: minTeamSize, max_team_size: maxTeamSize, rounds_count: roundsCount, rounds_info: formattedRounds, tags: tags.length > 0 ? tags : null, organizer_id: user.id, college: college === "Other" ? customCollege.trim() || null : college || null, status: initialStatus, ai_feedback: { status: initialStatus, submitted_at: new Date().toISOString() }, }`
+  - select: `(implicit return/default or unresolved expression; inspect exact args)`
+- `src/app/teams/[id]/page.tsx:245` — `team_hackathons` joins `hackathons`; select → eq.
+  - select: ` hackathon_id, hackathons ( id, name, description, start_date, end_date ) `
+- `src/app/teams/[id]/workspace/page.tsx:134` — `team_hackathons` joins `hackathons`; select → eq.
+  - select: ` hackathon_id, hackathons ( id, name, description, start_date, end_date ) `
+- `src/app/teams/create/page.tsx:115` — `hackathons`; select → eq → order.
+  - select: `id, name, min_team_size, max_team_size, status, end_date`
+- `src/app/teams/create/page.tsx:123` — `hackathons`; select → eq → order.
+  - select: `id, name, status, end_date`
+- `src/app/teams/useTeamsData.ts:63` — `teams` joins `hackathons`; select → order → abortSignal.
+  - select: `*, team_members(id), hackathons!teams_hackathon_id_fkey(id, name, end_date, status, archived), team_hackathons(hackathons(id, name, end_date, status, archived)), team_ppt_evaluations(total_score, grade, status)`
+- `src/components/PPTEvaluatorTab.tsx:160` — `teams` joins `hackathons`; select → eq → abortSignal → maybeSingle.
+  - select: `id, name, owner_id, hackathon_name, team_members(user_id), team_hackathons(hackathons(id, name, description))`
+- `src/components/partners/LegacyPartnerPage.tsx:355` — `hackathons`; select → eq → maybeSingle.
+  - select: `id, name, description, start_date, end_date, location, mode, prize_pool, currency, website_url, tags, type, college, max_participants`
+- `src/components/shell/useShellSession.ts:191` — `teams` joins `hackathons`; select → in.
+  - select: `id, name, hackathon_id, owner_id, team_hackathons(hackathon_id, hackathons(id, name, type, tags))`
+- `src/lib/admin/analyticsSummary.ts:57` — `(dynamic: table)`; select → lte.
+  - select: `id`
+- `src/lib/admin/attentionQueue.ts:96` — `(dynamic: tableFor[category])`; select.
+  - select: `(implicit return/default or unresolved expression; inspect exact args)`
+- `src/lib/admin/databaseActivityReport.ts:232` — `team_hackathons` joins `hackathons`; select → gte → order.
+  - select: `team_id, hackathon_id, created_at, teams(name), hackathons(name)`
+- `src/lib/admin/databaseActivityReport.ts:253` — `hackathons`; select → gte → order.
+  - select: `id, name, start_date, end_date, location, mode, prize_pool, created_at`
+- `src/lib/admin/partnerManagement.ts:55` — `hackathons`; select → eq → maybeSingle.
+  - select: `id, name, type, archived, start_date, end_date, mode, location, min_team_size, max_team_size`
+- `src/lib/admin/partnerManagement.ts:64` — `hackathons`; select.
+  - select: `id, name, type, archived, start_date, end_date, mode, location, min_team_size, max_team_size`
+- `src/lib/discordCommandHelper.ts:196` — `hackathons`; select → limit.
+  - select: `id, title, organizer, mode, start_date, prize_pool`
+- `src/lib/getLandingData.ts:52` — `hackathons`; select → eq → eq.
+  - select: `id`
+- `src/lib/getLandingData.ts:55` — `hackathons`; select → eq → or → eq → gte → order → order → limit.
+  - select: `id, name, mode, start_date, end_date`
+- `src/lib/hackathonRunMode.ts:60` — `hackathons`; select → in.
+  - select: `id, name, start_date, end_date, website_url, rounds_info`
+- `src/lib/hackathons/eventParticipation.ts:89` — `hackathon_registrations`; select → eq → eq → maybeSingle.
+  - select: `id, user_id, team_id, status, looking_for_team, metadata`
+- `src/lib/hackathons/eventParticipation.ts:111` — `hackathon_registrations`; update → eq → eq → select → maybeSingle.
+  - update: `payload`
+  - select: `id, user_id, team_id, status, looking_for_team, metadata`
+- `src/lib/hackathons/eventParticipation.ts:126` — `hackathon_registrations`; insert → select → maybeSingle.
+  - insert: `{ hackathon_id: eventId, user_id: userId, looking_for_team: true, status, ...(options.metadataPatch ? { metadata: options.metadataPatch } : {}), }`
+  - select: `id, user_id, team_id, status, looking_for_team, metadata`
+- `src/lib/hackathons/nativeRegistration.ts:27` — `hackathon_registrations`; select → eq → eq → maybeSingle.
+  - select: `id,status`
+- `src/lib/hackathons/nativeRegistration.ts:53` — `hackathon_registrations`; insert.
+  - insert: `{ hackathon_id: eventId, user_id: user.id, team_id: teamId, status }`
+- `src/lib/hackathons/publicBrowsing.ts:27` — `hackathons`; select → eq → eq → order → limit.
+  - select: `id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived`
+- `src/lib/hackathons/publicBrowsing.ts:55` — `hackathons`; select → eq → eq → eq → maybeSingle.
+  - select: `id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived`
+- `src/lib/partners/eventSeriesPublic.ts:16` — `hackathons`; select → in → eq → eq → limit.
+  - select: `id,name,website_url,mode,location,status,archived`
+- `src/lib/partners/eventSeriesPublic.ts:37` — `hackathons`; select → eq → eq → eq → maybeSingle.
+  - select: `id,name,website_url,mode,location,status,archived`
+- `src/lib/partners/hustleCarnivalPublic.ts:11` — `hackathons`; select → eq → eq → eq → maybeSingle.
+  - select: `id,status,archived,type,start_date,end_date,mode,location,min_team_size,max_team_size,website_url`
+- `src/lib/partners/public.ts:39` — `hackathons`; select → eq → maybeSingle.
+  - select: `id, name, description, start_date, end_date, location, mode, min_team_size, max_team_size, website_url, type, archived, status, approval_status:ai_feedback->>status`
+- `src/lib/partners/requirePartnerAccess.ts:58` — `hackathons`; select → eq → maybeSingle.
+  - select: `id`
+- `src/lib/partners/workspace.ts:48` — `hackathons`; select → eq → maybeSingle.
+  - select: `id, name, start_date, end_date, location, mode, min_team_size, max_team_size, archived, status, type`
+
+## SQL files and exact query context
+
+The companion JSON `sqlFragments` includes the full projection/write context for every SQL file below, including superseded definitions. Semicolon splitting is a review aid, not a SQL parser; function bodies remain authoritative in the original migration.
+
+- `docs/sql/hustle-phase2-production-preflight.sql`
+- `scripts/fixtures/hustle-auth-foundation.sql`
+- `scripts/test-partner-access.sql`
+- `scripts/test-partner-isolation.sql`
+- `scripts/test-registration-privacy.sql`
+- `scripts/test-squad-matching.sql`
+- `supabase/migrations/202607020001_core_security.sql`
+- `supabase/migrations/202607080001_security_and_schema_fixes.sql`
+- `supabase/migrations/202607080006_saved_hackathons_reminder.sql`
+- `supabase/migrations/202607080007_team_multiple_hackathons.sql`
+- `supabase/migrations/202607120003_team_single_active_hackathon.sql`
+- `supabase/migrations/202607150001_fix_hackathon_registrations_rls.sql`
+- `supabase/migrations/202607180002_add_college_to_hackathons.sql`
+- `supabase/migrations/202607180005_high_severity_rls_fixes.sql`
+- `supabase/migrations/202607180006_add_missing_indexes.sql`
+- `supabase/migrations/202607250001_native_hackathon_hosting.sql`
+- `supabase/migrations/202607260001_axcentra_and_partner_engine.sql`
+- `supabase/migrations/202607260002_grant_anon_hackathons_read.sql`
+- `supabase/migrations/202607260003_grant_anon_hackathon_registrations_read.sql`
+- `supabase/migrations/202607270001_registration_capacity_and_status.sql`
+- `supabase/migrations/202607270003_stampers_partner_page.sql`
+- `supabase/migrations/202607270004_merge_stampers_duplicate.sql`
+- `supabase/migrations/202607270005_restore_stampers_unstop_url.sql`
+- `supabase/migrations/202607280003_hackathon_stages.sql`
+- `supabase/migrations/202607280004_hackathon_announcements.sql`
+- `supabase/migrations/202607290001_sih_team_builder.sql`
+- `supabase/migrations/202607300002_hackathons_dedup_unique_index.sql`
+- `supabase/migrations/202608030001_spiderverse_partner_portal.sql`
+- `supabase/migrations/202608030004_add_unique_website_url_to_hackathons.sql`
+- `supabase/migrations/202608040001_morrow_partner_page.sql`
+- `supabase/migrations/202608040002_add_metadata_to_hackathon_registrations.sql`
+- `supabase/migrations/202608070001_team_sizes_and_rounds.sql`
+- `supabase/migrations/202608070004_aethos_partner_portal.sql`
+- `supabase/migrations/202608080003_team_submissions_composite_pk.sql`
+- `supabase/migrations/202608080004_allow_multi_event_team_hackathons.sql`
+- `supabase/migrations/202608080005_hackathon_scoped_github_and_links.sql`
+- `supabase/migrations/20260808175900_add_currency_to_hackathons.sql`
+- `supabase/migrations/20260808181000_builder_track_record_privacy_and_slug.sql`
+- `supabase/migrations/20260808183000_fix_team_submissions_default_and_cleanup.sql`
+- `supabase/migrations/20260808184000_fix_get_public_builder_profile_rpc.sql`
+- `supabase/migrations/202608090001_clean_partner_configs_website_url.sql`
+- `supabase/migrations/202608110003_hackathon_team_sizes_and_status.sql`
+- `supabase/migrations/202608120001_startupx_partner_page.sql`
+- `supabase/migrations/202608120002_update_startupx_official_details.sql`
+- `supabase/migrations/202608120003_cleanup_duplicate_hackathons.sql`
+- `supabase/migrations/202608180002_update_sih_team_size.sql`
+- `supabase/migrations/20260822120000_p0_hot_path_indexes.sql`
+- `supabase/migrations/20260823130000_optimize_rls_initplan.sql`
+- `supabase/migrations/20260928100000_phase1a_definer_function_privileges.sql`
+- `supabase/migrations/20261002160000_add_hackathon_archival.sql`
+- `supabase/migrations/202610060002_partner_organizer_access.sql`
+- `supabase/migrations/202610060003_partner_read_projections.sql`
+- `supabase/migrations/202610060004_partner_registration_privacy.sql`
+- `supabase/migrations/202610090001_squad_matcher.sql`
+- `supabase/migrations/20261018082156_hustle_phase2_shortlist.sql`
+- `supabase/rollback/phase1_prestate.sql`
+
+## Manual closure of dynamic and inherited projections
+
+- `src/lib/admin/analyticsSummary.ts:57` counts `id` from a fixed list: profiles, teams, team_ppt_evaluations. It does not query either target table.
+- `src/lib/admin/attentionQueue.ts:96` takes a projection parameter and uses a fixed category map: profiles, team_join_requests, team_invites. It does not query either target table. Neither dynamic helper is an undiscovered registration writer.
+- Detail `${PUBLIC_EVENT_COLUMNS},organizer_id` is resolved in JSON; PUBLIC_EVENT_COLUMNS includes all listed lifecycle fields. Existing wildcard returns on hackathons remain unchanged, and are explicitly recorded.
+- SQL/functions and fixture branches using dynamic clients are covered by the raw references and full SQL fragments. The scanner also retains test-only dynamic query chains rather than treating them as production writers.
+
+## Whole-tree text reconciliation
+
+A final git-grep cross-check includes every tracked text type, not only TypeScript/SQL/Markdown. The initial API/SQL inventory preceded the proposal; this reconciliation added ancillary workflow/preview and Python fixture sources while all SQL remained review-only. Full embedded-query text, including every requested SQL column, is in JSON otherTextContexts for:
+
+- `.github/workflows/rack-portal-qualification.yml`
+- `docs/qa/rack-it-up-2026-preview.html`
+- `scripts/test-gl-bajaj-college-alias-local.py`
+- `scripts/test-squad-matching-local.py`
