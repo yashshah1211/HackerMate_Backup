@@ -10,6 +10,14 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 async function qualifyHttp(c) {
  const {admin,uid,passed,session,ownedRoot,pgPort,run,connection,SQL}=c;
+ const communityGrant=fs.readFileSync(path.join(SQL,'02-contract.proposed.sql'),'utf8').match(/GRANT INSERT\(hackathon_id, user_id, team_id, status, looking_for_team, metadata, is_hidden\)\s+ON public\.hackathon_registrations TO authenticated;/)?.[0];
+ assert(communityGrant,'reviewed community column grant must match exactly');
+ // The comparator/writer harness re-freezes AFTER its initial contract; 00
+ // revokes column INSERT and 06 only drops the freeze policy. Model the future
+ // final contract (which follows the LAST freeze) before HTTP acceptance.
+ assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
+ await admin.query(communityGrant);
+ assert.equal(await admin.query("SELECT has_table_privilege('authenticated','public.hackathon_registrations','INSERT') OR has_column_privilege('authenticated','public.hackathon_registrations','id','INSERT');"),'f');
  assert.equal(path.dirname(fs.realpathSync(ownedRoot)),fs.realpathSync(require('node:os').tmpdir()));
  assert(path.basename(ownedRoot).startsWith('mission20-c1-pg-'));
  const ephemeral=fs.mkdtempSync(path.join(ownedRoot,'http-'));
@@ -200,15 +208,27 @@ async function qualifyHttp(c) {
   assert.equal(await admin.query(`SELECT (SELECT count(*) FROM public.team_members WHERE team_id='${uid(11170)}')+(SELECT count(*) FROM public.conversations WHERE team_id='${uid(11170)}')+
    (SELECT count(*) FROM public.hackathon_registrations WHERE team_id='${uid(11170)}')+(SELECT count(*) FROM public.team_hackathons WHERE team_id='${uid(11170)}');`),'0');
   denied(await rpc('delete_user_completely',11102,{p_target_user_id:uid(11108)}));
-  ok(await rpc('delete_user_completely',11100,{p_target_user_id:uid(11108)}));
+  ok(await rpc('delete_user_completely',11100,{p_target_user_id:uid(11108)}),204);
   assert.equal(await admin.query(`SELECT count(*) FROM auth.users WHERE id='${uid(11108)}';`),'0');
   check('admin team deletion CASCADE and canonical protected user-deletion authorization');
   // Freeze intentionally pauses BOTH native admission and community INSERT.
   run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(SQL,'00-freeze-admission.proposed.sql')]);
   denied(await rpc('register_native_hackathon',11109,{p_hackathon_id:uid(11157)}));
   denied(await request('/hackathon_registrations',11109,{hackathon_id:uid(11151),user_id:uid(11109)}));
+  assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
+  await admin.query(communityGrant);
+  denied(await request('/hackathon_registrations',11109,{hackathon_id:uid(11151),user_id:uid(11109)}));
   run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(SQL,'06-unfreeze-admission.proposed.sql')]);
+  ok(await request('/hackathon_registrations',11109,{hackathon_id:uid(11151),user_id:uid(11109)}),201);
   check('freeze denies new native AND community rows; reviewed unfreeze restores only final contract');
+  // Syntax/privilege-query rehearsal against this fixture, NOT a live catalog
+  // snapshot. The dummy ledger is not a Supabase project or migration history.
+  await admin.query(`CREATE SCHEMA supabase_migrations;
+   CREATE TABLE supabase_migrations.schema_migrations(version text,name text);
+   INSERT INTO supabase_migrations.schema_migrations VALUES('fixture-only','not-a-deployed-migration');`);
+  const catalog=run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(ROOT,'docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql')]);
+  assert(catalog.includes('fixture-only'));
+  check('SELECT-only catalog request syntax exercised on fixture, including dummy ledger; live parity not inferred');
   console.log(JSON.stringify({postgrest:'16.5',httpChecks,realJwt:true,realPostgrest:true,hostedAuth:false,productionConnections:0}));
  }finally{
   if(child.exitCode===null){child.kill();const ended=await Promise.race([closed.then(()=>true),pause(3000).then(()=>false)]);if(!ended){child.kill('SIGKILL');await closed;}}
