@@ -42,11 +42,14 @@ One absolute **12,000 ms** application budget includes authentication, registrat
 | `22023`, `22P02` / `P0002` | 400 / 404 | Invalid input / unavailable record. |
 | Known `P0001` business rejection / admission freeze | 409 / 503 retryable | Controlled deadline, eligibility, uncertainty consent or freeze message. |
 | `23503`, `23505` | 409 | Dependency/conflict; refresh. |
+| Connection class `08`, `40003`, shutdown/session-loss `57P01`–`57P05` | 503, `outcomeUnknown=true`, no automatic retry | Reconcile the outcome before another explicit action. |
 | Missing/incompatible function or column (`PGRST202`, `PGRST203`, `42883`, `42703`) | 503 | Unsupported database version; no fallback. |
 | Other SQLSTATE | 500 | Database rejection; no private error detail shown. |
 | Transport loss, local deadline/abort, malformed confirmation, account switch after request | 503/504/409, `outcomeUnknown=true` | Commit may already have happened. Reconcile by reads; never automatically repeat destructive actions. |
 
 `retryable` means a later explicit attempt may succeed, not permission for an automatic retry loop. Server routes return controlled status and flags; UI uses controlled messages and logs original errors. A local abort bounds application waiting but **does not prove remote rollback or forcibly stop a committed PostgreSQL transaction**. Underlying auth reads can finish late; no mutation is started after their budget expires. Database transactions guarantee no partial membership/conversation/registration/team state on SQL failure. Lost network responses can hide complete commits. PostgREST/gateway/request-disconnect behavior and database-side outer statement limits remain acceptance gates; no production timeout configuration is changed here.
+
+The browser adapter rechecks the session after asynchronous token verification and before submitting, then checks again before success feedback. Regressions model an old token still verifying as its original user after a local account switch, and ambiguous database connection/completion responses. The latter remain unknown outcomes using the [PostgreSQL 17 error classifications](https://www.postgresql.org/docs/17/errcodes-appendix.html), rather than claiming rollback from an error code alone.
 
 ## Confirmed permission correction and isolated qualification
 

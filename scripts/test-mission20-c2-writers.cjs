@@ -25,6 +25,13 @@ for(const code of ['55P03','40P01','40001','57014','42501','P0001','PGRST202','4
 for(const data of [null,[],{},'wrong',1])test('malformed member confirmation '+JSON.stringify(data),async()=>{
  const f=fixture({run:()=>({data,error:null})});await assert.rejects(api.removeTeamMember(f.client,'team','member','actor'));assert.equal(f.calls.length,1);
 });
+test('connection and transaction-resolution failures preserve ambiguous outcome without replay',async()=>{
+ for(const code of ['08000','08006','08007','08P01','40003','57P01','57P02','57P03','57P04','57P05']){
+  const f=fixture({error:{code,message:'private connection detail'}});
+  await assert.rejects(api.deleteAccount(f.client,'target','actor'),e=>e.status===503&&!e.retryable&&e.outcomeUnknown&&!e.message.includes('private'));
+  assert.equal(f.calls.length,1);assert.deepEqual(f.from,[]);
+ }
+});
 test('project role and admin team delete use separate exact typed contracts',async()=>{
  const f=fixture();await api.setProjectRole(f.client,'team','member','Developer','actor');
  assert.equal(f.calls[0].name,'mission20_set_project_role');assert.equal(f.calls[0].args.p_role,'Developer');

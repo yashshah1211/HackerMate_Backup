@@ -44,6 +44,7 @@ const rejections: Record<string, string> = {
 export function writerFailure(error: unknown): WriterError {
   if (error instanceof WriterError) return error;
   const detail = error && typeof error === "object" ? error as { code?: string; message?: string } : {};
+  if ((typeof detail.code === "string" && detail.code.startsWith("08")) || ["40003", "57P01", "57P02", "57P03", "57P04", "57P05"].includes(detail.code || "")) return new WriterError("Couldn't verify the outcome. Refresh before trying again.", 503, false, true);
   if (["55P03", "40P01", "40001"].includes(detail.code || "")) return new WriterError("The change conflicted with another request. Refresh before trying again.", 503, true);
   if (detail.code === "57014") return new WriterError("The database request timed out and was rolled back. Refresh before trying again.", 504, true);
   if (detail.code === "42501") return new WriterError("You do not have permission to make this change.", 403);
