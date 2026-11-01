@@ -37,7 +37,7 @@ BEGIN
  ) AS required(signature,sha256) LOOP
   SELECT p.*,pg_get_userbyid(p.proowner) AS owner INTO actual FROM pg_proc p WHERE p.oid=to_regprocedure(expected.signature);
   IF NOT FOUND THEN RAISE EXCEPTION 'missing_baseline_function: %',expected.signature; END IF;
-  IF actual.owner<>'postgres' OR NOT actual.prosecdef OR NOT ('search_path=public, pg_temp'=ANY(coalesce(actual.proconfig,'{}'))) OR
+  IF actual.owner<>'postgres' OR NOT actual.prosecdef OR actual.proconfig IS DISTINCT FROM ARRAY['search_path=public, pg_temp']::text[] OR
    encode(sha256(convert_to(actual.prosrc,'UTF8')),'hex')<>expected.sha256 THEN
    RAISE EXCEPTION 'unreviewed_function_variant_stop: %',expected.signature; END IF;
  END LOOP;

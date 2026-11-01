@@ -29,8 +29,10 @@ async function qualifyAtomic(c){
   ['start_date timestamptz, end_date timestamptz,','start_date date, end_date date,']
  ]){assert.equal(seed.split(before).length,2,'exact original fixture DDL');seed=seed.replace(before,after);}
  const baseline=execute(temp('atomic-baseline',seed));
- const baselineAssertions=(baseline.match(/NOTICE:\s+PASS:/g)||[]).length;
- assert(baselineAssertions>=209,'retain complete existing privacy assertions');
+ // VERBOSITY=verbose adds the informational SQLSTATE before the same PASS
+ // label. Retain the original 209 minimum and every original SQL assertion.
+ const baselineAssertions=(baseline.match(/NOTICE:\s+(?:00000:\s+)?PASS:/g)||[]).length;
+ assert(baselineAssertions>=209,`retain complete existing privacy assertions (observed ${baselineAssertions})`);
  await admin.query(`ALTER TABLE public.profiles ADD COLUMN is_available boolean DEFAULT true,ADD COLUMN hackathon_participations integer DEFAULT 0,
   ADD COLUMN hackathon_wins integer DEFAULT 0,ADD COLUMN has_won_hackathon boolean DEFAULT false,ADD COLUMN year_of_study text;
   ALTER TABLE public.teams ADD COLUMN skills text[],ADD COLUMN college text;

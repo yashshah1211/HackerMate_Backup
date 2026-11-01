@@ -104,7 +104,7 @@
       "reason": "qualification-only maintenance prototype; no runtime caller"
     }
   ],
-  "candidateSha256": "62c222d1e2b44d8486a01281c016321e2da459ea0db16fa4064085ea7280b2be",
+  "candidateSha256": "5856a9e1c144d3c747753bbc035e88d739944cb1b494e53f72c70e49d0241630",
   "freeze": "Existing 00, committed separately; pauses native AND external/official INSERT. Founder decision unresolved.",
   "rollback": "Failed transaction rolls back only expansion; prior committed freeze remains. After commit preserve protocol and re-freeze; no destructive downgrade or vulnerable grant restoration."
 }

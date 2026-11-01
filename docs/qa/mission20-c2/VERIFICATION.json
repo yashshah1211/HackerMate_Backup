@@ -13,13 +13,19 @@
     "docs/qa/mission20-c2/REVIEW-FOLLOWUP.md",
     "docs/qa/mission20-c2/VERIFICATION.json",
     "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
     "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
     "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
     "docs/qa/mission20-c2/release/README.md",
     "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
     "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+    "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+    "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+    "docs/qa/mission20-c2/release/atomic/README.md",
     "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
+    "scripts/mission20-atomic-candidate.cjs",
     "scripts/ppt-vision-harness.cjs",
+    "scripts/qualify-mission20-atomic-candidate.cjs",
     "scripts/qualify-mission20-c1-postgres.cjs",
     "scripts/qualify-mission20-c1-writers.cjs",
     "scripts/qualify-mission20-c2-writers.cjs",
@@ -584,5 +590,30 @@
       },
       "metricNote": "ee4e342 logged httpChecks=16 including the catalog SQL group. Final reporting distinguishes 15 real HTTP groups + 1 catalog group without changing any assertion or the total 88."
     }
+  },
+  "atomicCandidateReview": {
+    "status": "NO_GO_PRODUCTION_QUALIFICATION_PENDING",
+    "taskBase": "be38ae6d67c43a850cf6bdf0fa595364c46da3d4",
+    "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json#atomicCandidateReview",
+    "candidateManifest": "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+    "followupFiles": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
+      "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "scripts/mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-c1-postgres.cjs",
+      "scripts/qualify-mission20-release-postgrest.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ]
   }
 }

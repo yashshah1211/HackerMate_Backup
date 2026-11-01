@@ -105,5 +105,93 @@
       "productionConnections": 0
     },
     "metricNote": "ee4e342 logged httpChecks=16 including the catalog SQL group. Final reporting distinguishes 15 real HTTP groups + 1 catalog group without changing any assertion or the total 88."
+  },
+  "atomicCandidateReview": {
+    "status": "NO_GO_PRODUCTION_QUALIFICATION_PENDING",
+    "taskBase": "be38ae6d67c43a850cf6bdf0fa595364c46da3d4",
+    "inventory": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
+      "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "scripts/mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-c1-postgres.cjs",
+      "scripts/qualify-mission20-release-postgrest.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "artifacts": [
+      "release/CATALOG-RECONCILIATION.md",
+      "release/atomic/README.md",
+      "release/atomic/01-final-expansion.review.sql",
+      "release/atomic/CANDIDATE-MANIFEST.json"
+    ],
+    "confirmedLiveSummary": {
+      "postgres": "17.6",
+      "migrations": 147,
+      "latestVersion": "20261025081515",
+      "eventDateTypes": "DATE",
+      "registrationDateTypes": "TIMESTAMPTZ",
+      "eventType": "VARCHAR(50)",
+      "newMission20Objects": "absent",
+      "eventCounts": {
+        "native": 0,
+        "official": 8,
+        "external": 398
+      },
+      "checkedInvalidConfigurations": 0,
+      "checkedOverCapacity": 0,
+      "productionMainSha": "17b78d031e0cc4ee5ace15ab92ca8039e00a4413",
+      "deploymentHoldVerified": false
+    },
+    "bodyGate": "Four normalized baseline matches confirmed; raw-body hashes, hardened add_user_to_team and full dependency/ACL receipts unresolved. Exact-body guard stops unreviewed variants.",
+    "freezeLedger": "147 before freeze; expansion expects 148/latest planned freeze 20261102090000. Candidate writes no ledger rows.",
+    "local": {
+      "typeScript": "passed",
+      "scopedLint": "passed",
+      "artifactTests": 7,
+      "generatorCheck": "passed",
+      "pg17": "not installed; Linux CI qualification required",
+      "pg18Attempt": "initdb failed with Windows WAL rename permission denial; allocated root cleaned; no PG18 qualification claim"
+    },
+    "firstTrial": {
+      "head": "9f3a17f6976eb20cbcb2b8e6618d5d769fbd5dcb",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41326589521",
+      "nativeJob": 124907713333,
+      "conclusion": "failure",
+      "cause": "New fixture attempted ALTER TYPE after dependent policies existed (SQLSTATE 0A000); all existing SQL/concurrency and 15 HTTP groups passed first. Corrected fixture CREATE TABLE types, no policy/assertion weakening. Also corrected planned post-freeze ledger count before next qualification.",
+      "applicationJob": 124907713504,
+      "applicationConclusion": "success"
+    },
+    "unresolved": [
+      "Exact raw function/ACL/dependency and full ledger receipts",
+      "Live hardened add_user_to_team parity",
+      "Final version allocation and independent atomic candidate approval",
+      "External/official community pause founder decision",
+      "Hosted Auth/gateway parity",
+      "Actual backup/restore rehearsal",
+      "Verified Vercel hold, latest-main integration, direct-writer drain and compatible rollback",
+      "Separately authorized migration/deployment/unfreeze"
+    ],
+    "productionConnections": 0,
+    "activeMigrationsCreatedOrApplied": 0,
+    "persistentEnvironmentChanges": 0,
+    "deployments": 0,
+    "merges": 0,
+    "secondTrial": {
+      "head": "7f226a79d9c6d45925b1f3c9cfae5a2ef6cfeb49",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327032897",
+      "nativeJob": 124909023273,
+      "conclusion": "failure",
+      "cause": "New baseline receipt counter did not recognize verbose psql NOTICE: 00000: PASS headers. All existing SQL/concurrency and 15 HTTP groups passed; corrected parser, retaining original 209 assertion minimum and every SQL assertion."
+    }
   }
 }
