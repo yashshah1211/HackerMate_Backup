@@ -541,13 +541,48 @@
     "sourceSqlChanged": false,
     "activeMigrationsCreated": false,
     "hostedAuthAcceptance": false,
-    "actualFinalCi": "Record in PR #96 body/current-head Actions; failed development trials remain in receipt",
+    "actualFinalCi": "Final current-head Actions and PR #96 body; qualified source receipt is also stored under release/ACCEPTANCE-EVIDENCE.json.",
     "blockers": [
       "Fresh live catalog/body/ACL/ledger parity and deployed PostgREST version",
       "Atomic final-protocol migration packaging/version allocation",
       "Hosted Auth/gateway/session acceptance",
       "Community outage/restore ACL decision",
       "Vercel hold, direct-writer drain, backup/restore and founder release approval"
-    ]
+    ],
+    "qualifiedSource": {
+      "head": "ee4e34202d4d3b91bce13473110e8a9f5d04117a",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41323221862",
+      "workflow": "success",
+      "application": {
+        "job": 124897658398,
+        "conclusion": "success",
+        "passed": 1616,
+        "failed": 0,
+        "skipped": 0,
+        "typeScript": "passed",
+        "scopedLint": "passed",
+        "build": "passed",
+        "rackPassed": 32,
+        "rackFailed": 0,
+        "mutations": 0
+      },
+      "native": {
+        "job": 124897658463,
+        "conclusion": "success",
+        "postgres": "17.6",
+        "postgrest": "16.5",
+        "sdkWriterPassed": 51,
+        "sqlAssertionsPerVariant": 279,
+        "totalOrchestrationChecks": 88,
+        "globalChecks": 21,
+        "perTeamChecks": 67,
+        "newGroups": 16,
+        "realHttpGroups": 15,
+        "catalogSyntaxGroups": 1,
+        "ownedClustersCleaned": 2,
+        "productionConnections": 0
+      },
+      "metricNote": "ee4e342 logged httpChecks=16 including the catalog SQL group. Final reporting distinguishes 15 real HTTP groups + 1 catalog group without changing any assertion or the total 88."
+    }
   }
 }

@@ -19,8 +19,8 @@ Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 applicati
 | --- | --- |
 | Independent-review package / source traceability | Candidate complete; source-hashed SQL order, tests and operational prerequisites supplied. No active migrations created. |
 | Existing application/SDK/build/browser baseline | PASS at f918ee0. Existing full-file lint debt 17 errors / 7 warnings remains separately recorded; scoped checks clean. |
-| Native PG17.6 SQL/concurrency | Baseline PASS. Follow-up real HTTP results must be read from the exact receipt/current-head Actions; an initial failed trial is retained explicitly. |
-| Real PostgREST JWT/role/RLS/database boundary | Native 16.5 fixture test added; not a claim that production PostgREST version/config matches. See receipt for actual pass/fail and source SHA. |
+| Native PG17.6 SQL/concurrency | PASS in the [qualified source run](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41323221862): 279 baseline/security assertions per variant, 88 total orchestration checks, two owned clusters cleaned. |
+| Real PostgREST JWT/role/RLS/database boundary | PASS in that fixture run: 15 real HTTP groups plus one catalog-syntax group. Production PostgREST version/config parity remains unsigned. |
 | Hosted Supabase Auth + actual gateway/session lifecycle | **BLOCKED / NOT ESTABLISHED.** No hosted/local GoTrue stack, real login/email/SSO/MFA/revocation or production gateway acceptance. Existing SDK Auth transport is synthetic; local fixture JWTs only prove PostgREST validation/role switching. |
 | Exact live schema/ACL/body/dependency/ledger parity | **BLOCKED.** Six CASCADE facts and selected permissions/triggers are confirmed; a complete current catalog/definition receipt and drift review are absent. |
 | Execution-ready migration packaging | **BLOCKED.** Assign versions after ledger review; atomically package final expansion/protocol/cancellation without exposing comparator intermediates. Existing self-committing proposals are not that atomic bundle. |
@@ -42,6 +42,8 @@ Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 applicati
 ## Important qualification distinctions
 
 The HTTP fixture uses real PostgREST JWT signature/audience/expiry checks and NOINHERIT role switching, real RLS/ACLs, triggers, native admission/capacity, community INSERT, cancellation rollback, role edits, invites/requests, conversation/matchmaking, lock/statement failure, lost committed response and deletion. It uses fake users in a freshly created database with only a modeled schema. It is not a production dump or hosted Supabase project.
+
+**Actual qualified source evidence (ee4e342):** both GitHub jobs succeeded; 1,616/1,616 application/artifact cases, 51/51 SDK/writer cases, PG17.6/PostgREST boundary checks, TypeScript/scoped lint/build and 32 Rack checks passed. Failed development trials are retained with their exact causes/corrections in ACCEPTANCE-EVIDENCE.json. The final reporting-only follow-up separates the 15 HTTP groups from the one catalog SQL group; final current-head job results are recorded in PR #96. This is not production acceptance.
 
 The old psql harness re-freezes after its original contract and thereby removes community column INSERT privileges. The first real HTTP trial correctly failed that positive case. The HTTP end-state fixture now restores **the exact seven-column statement read from reviewed 02**, with assertions that table-level/id INSERT are still denied; this models final contract AFTER the last freeze, not a production permission fix. Freeze/restore/unfreeze is explicitly tested. Rollback recovery cannot simply call 06.
 

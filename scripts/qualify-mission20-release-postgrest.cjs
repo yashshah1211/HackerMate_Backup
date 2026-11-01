@@ -230,8 +230,8 @@ async function qualifyHttp(c) {
    INSERT INTO supabase_migrations.schema_migrations VALUES('fixture-only','not-a-deployed-migration');`);
   const catalog=run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(ROOT,'docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql')]);
   assert(catalog.includes('fixture-only'));
-  check('SELECT-only catalog request syntax exercised on fixture, including dummy ledger; live parity not inferred');
-  console.log(JSON.stringify({postgrest:'16.5',httpChecks,realJwt:true,realPostgrest:true,hostedAuth:false,productionConnections:0}));
+  passed('SELECT-only catalog request syntax exercised on fixture, including dummy ledger; live parity not inferred');
+  console.log(JSON.stringify({postgrest:'16.5',httpChecks,catalogChecks:1,realJwt:true,realPostgrest:true,hostedAuth:false,productionConnections:0}));
  }finally{
   if(child.exitCode===null){child.kill();const ended=await Promise.race([closed.then(()=>true),pause(3000).then(()=>false)]);if(!ended){child.kill('SIGKILL');await closed;}}
   // Files (including the one-off JWT key) live only below ownedRoot; the base
