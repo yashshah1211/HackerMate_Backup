@@ -296,8 +296,18 @@
   },
   "postgres17": {
     "version": "17.6",
-    "local": "BLOCKED: no local native PG17 binary",
-    "ci": "PENDING: exact source-built disposable PG17.6 workflow"
+    "local": "BLOCKED: no local native PG17 binary; no existing/remote substitute used",
+    "ci": "PASS: exact official source-built disposable native PG17.6",
+    "qualifiedHead": "b13892e6186cd74b8385260f6d5a3da9eea1a343",
+    "job": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941/job/124836966203",
+    "variants": 2,
+    "baselineSecurityAssertionsPerVariant": 279,
+    "orchestrationChecks": 72,
+    "globalChecks": 21,
+    "perTeamChecks": 51,
+    "ownedClustersCleaned": 2,
+    "adapterTests": 29,
+    "exit": 0
   },
   "build": {
     "command": "node qa/rack-qualification.cjs build",
@@ -329,7 +339,21 @@
     ],
     "screenshotsCommitted": false
   },
-  "ci": "PENDING: publish stacked Draft PR to run source-built PG17.6 and Linux application qualification",
+  "ci": {
+    "qualifiedHead": "b13892e6186cd74b8385260f6d5a3da9eea1a343",
+    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
+    "nativePg17": "success",
+    "application": "failure: exactly three baseline metadata failures; 1583/1586 pass; TypeScript, scoped adapter lint, guarded build and 32 Rack checks pass",
+    "applicationJob": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941/job/124836965973",
+    "browserArtifact": "mission20-c2-rack-browser",
+    "initialRun": {
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302335491",
+      "nativePg17": "official source build succeeded; scope assertion failed because shallow checkout omitted reviewed base; no SQL qualification executed",
+      "application": "1577/1586 pass: six missing-history errors plus three baseline metadata cases; build and 32 Rack checks passed",
+      "correction": "fetch-depth: 0 in both jobs; all six missing-history errors resolved without assertion changes"
+    },
+    "finalEvidenceCommit": "Documentation-only follow-up to the qualified head; source/test/SQL/workflow trees unchanged. See Draft PR #96 current-head Actions for its automatic rerun."
+  },
   "limitations": [
     "No real JWT/PostgREST/server-disconnect proof from the psql bridge or synthetic SDK/browser tests.",
     "Three unchanged baseline metadata failures; full modified-file lint retains 17 baseline errors and 7 warnings.",
