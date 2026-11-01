@@ -92,7 +92,7 @@ async function qualify(variant, extension) {
       CREATE TABLE IF NOT EXISTS public.team_invites(team_id uuid,invited_user_id uuid,status text);`);
     run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(ROOT,'supabase/migrations/20260925221500_matchmaking_v2_engine.sql')]);
     passed('real matchmaking maintenance functions and membership triggers loaded');
-    const context={admin,run,connection,session:label=>session(connection,label,sessions),uid,identity,passed,ROOT,SQL,variant};
+    const context={admin,run,connection,session:label=>session(connection,label,sessions),uid,identity,passed,ROOT,SQL,variant,ownedRoot:temp,pgPort:port};
     if(extension) await extension.setup(context);
     {
       let gateError;

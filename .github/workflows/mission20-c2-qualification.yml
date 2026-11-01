@@ -26,6 +26,7 @@ jobs:
           'src/app/profile/[id]/useProfileData.ts' scripts/test-mission20-c2-writers.cjs
           scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs
           scripts/test-mission20-native-http-sdk.cjs
+          scripts/qualify-mission20-release-postgrest.cjs scripts/qualify-mission20-c1-postgres.cjs scripts/qualify-mission20-c2-writers.cjs
       - name: Application regressions
         run: >-
           node --test --test-concurrency=1
@@ -83,9 +84,16 @@ jobs:
           make -j2
           make install
           "$GITHUB_WORKSPACE/scratch/pg17/bin/postgres" --version
+      - name: Fetch verified native PostgREST into isolated workspace
+        run: |
+          mkdir -p scratch/postgrest
+          curl --fail --location --retry 2 --output scratch/postgrest/postgrest.tar.xz https://github.com/PostgREST/postgrest/releases/download/v16.5/postgrest-v16.5-linux-static-x86-64.tar.xz
+          echo '5099e7ada38f9f6846cd87c14c5f158b7c165f1e9959665ad412e61f4dceba95  scratch/postgrest/postgrest.tar.xz' | sha256sum --check
+          tar -xJf scratch/postgrest/postgrest.tar.xz -C scratch/postgrest
+          scratch/postgrest/postgrest --version
       - name: TypeScript and adapter tests
         run: |
           npm run typecheck
           node --test scripts/test-mission20-c2-writers.cjs scripts/test-mission20-native-http-sdk.cjs
-      - name: Fresh native PG17.6 C1 and C2 SQL/concurrency qualification
-        run: node scripts/qualify-mission20-c2-writers.cjs --local-pg17-only
+      - name: Fresh native PG17.6 C1/C2 SQL, concurrency and real PostgREST qualification
+        run: node scripts/qualify-mission20-release-postgrest.cjs --local-pg17-only

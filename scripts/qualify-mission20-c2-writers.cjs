@@ -86,4 +86,5 @@ const extension={setup:c1.setup,async qualify(c){
  passed('C2 account adapter preserves canonical admin denial/success and exact void confirmation');
  assert(calls.every(name=>Object.hasOwn(parameters,name)));
 }};
+module.exports={extension};
 if(require.main===module)main(extension).catch(error=>{console.error(error.stack);process.exitCode=1;});
