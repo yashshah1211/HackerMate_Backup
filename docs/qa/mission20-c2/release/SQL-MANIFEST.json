@@ -115,8 +115,9 @@
   ],
   "blockers": [
     "Complete current live catalog/body/ACL/ledger parity unsigned",
-    "Atomic final-protocol migration bundle and unique version allocation not produced/applied",
+    "Atomic review candidate produced; execution approval, raw-body parity and final version allocation remain blocked",
     "Hosted Supabase Auth/gateway acceptance not established",
     "Community pause, timeout and Vercel hold/drain decisions need independent approval"
-  ]
+  ],
+  "atomicCandidate": "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json"
 }

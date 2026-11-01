@@ -1,0 +1,105 @@
+{
+  "status": "REVIEW_ONLY_NOT_ALLOCATED_NOT_AUTHORIZED",
+  "liveLedger": {
+    "count": 147,
+    "latest": "20261025081515",
+    "evidence": "founder independent read-only audit; full ledger receipt not supplied"
+  },
+  "proposedVersions": [
+    {
+      "version": "20261102090000",
+      "stage": "separate-committed-freeze",
+      "source": "freeze"
+    },
+    {
+      "version": "20261102090100",
+      "stage": "atomic-final-expansion",
+      "artifact": "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql"
+    },
+    {
+      "version": "20261102090200",
+      "stage": "contract-after-adapters-and-last-freeze",
+      "source": "contract"
+    },
+    {
+      "version": "20261102090300",
+      "stage": "independently-authorized-unfreeze",
+      "source": "unfreeze"
+    }
+  ],
+  "versionRule": "Tentative only. Re-query complete ledger and branch migration inventory at release; reserve/generate proper migration filenames only under separate authorization. No ledger write or repair here.",
+  "dependencies": [
+    {
+      "signature": "public.accept_team_invite(uuid)",
+      "file": "supabase/migrations/202607020001_core_security.sql",
+      "bodySha256": "ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac"
+    },
+    {
+      "signature": "public.accept_team_join_request(uuid)",
+      "file": "supabase/migrations/202607020001_core_security.sql",
+      "bodySha256": "e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217"
+    },
+    {
+      "signature": "public.ensure_team_conversation(uuid)",
+      "file": "supabase/migrations/202607070001_ensure_team_conversation.sql",
+      "bodySha256": "99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1"
+    },
+    {
+      "signature": "public.delete_user_completely(uuid)",
+      "file": "supabase/migrations/202610060001_restore_safe_user_deletion.sql",
+      "bodySha256": "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe"
+    },
+    {
+      "signature": "public.add_user_to_team(uuid,uuid,text)",
+      "file": "supabase/migrations/20260928100000_phase1a_definer_function_privileges.sql",
+      "bodySha256": "5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4"
+    }
+  ],
+  "sources": [
+    {
+      "id": "expand",
+      "path": "docs/qa/mission20-c1/sql/01-expand.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "6767b8a3266f260762a53c6a16e66cab8bc6789c49f193667c0edc8556c8edf1"
+    },
+    {
+      "id": "per-team",
+      "path": "docs/qa/mission20-c1/sql/05-per-team-roster.alternative.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "8e87e3e4b5740f9edf470dd727d02f81790b48bfcd0fbc3d83ff29fadc46b46a"
+    },
+    {
+      "id": "writer-protocol",
+      "path": "docs/qa/mission20-c1/sql/07-writer-protocol.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "1124b915f8846cc19459eda0de771056741e8f976413fdbd408b2993212e0d8e"
+    },
+    {
+      "id": "existing-writers",
+      "path": "docs/qa/mission20-c1/sql/08-existing-writers.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "1a52b48ce6b2927f0f9a3b60a30dac4259bd2186856ffda80ed946a9e03155fc"
+    },
+    {
+      "id": "cancel",
+      "path": "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "ce4baaaad3344f7d5987e6cfb46a5ddf0aa80bea81c8ff5c69975591e76de3ca"
+    }
+  ],
+  "omitted": [
+    {
+      "source": "writer-protocol",
+      "name": "mission20_private.transfer_members",
+      "reason": "qualification-only maintenance prototype; no runtime caller"
+    }
+  ],
+  "candidateSha256": "1532343f1699cc8b46a1774f75f58100220ed8ed60f85db4702f1a2de212a4cb",
+  "freeze": "Existing 00, committed separately; pauses native AND external/official INSERT. Founder decision unresolved.",
+  "rollback": "Failed transaction rolls back only expansion; prior committed freeze remains. After commit preserve protocol and re-freeze; no destructive downgrade or vulnerable grant restoration."
+}

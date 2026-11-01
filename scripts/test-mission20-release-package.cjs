@@ -26,3 +26,37 @@ test('readiness follow-up does not change application, active migrations, depend
   '.env','.env.local','docs/qa/mission20-c1/sql','docs/qa/mission20-c2/sql'],{encoding:'utf8'});
  assert.equal(diff.trim(),'');
 });
+
+const candidate=require('./mission20-atomic-candidate.cjs');
+test('atomic candidate and manifest are reproducible from unchanged hashed proposals',()=>{
+ const {sql,plan}=candidate.build();
+ assert.equal(fs.readFileSync(candidate.DIR+'/01-final-expansion.review.sql','utf8').replace(/\r\n/g,'\n'),sql);
+ assert.deepEqual(JSON.parse(fs.readFileSync(candidate.DIR+'/CANDIDATE-MANIFEST.json','utf8')),plan);
+ const tx=candidate.statements(sql).map(s=>s.replace(/^(?:\s|--[^\n]*(?:\n|$))+/,'').trim());
+ assert.equal(tx.filter(s=>s==='BEGIN;').length,1);assert.equal(tx.filter(s=>s==='COMMIT;').length,1);
+ assert.equal(tx.at(-1),'COMMIT;');assert(!sql.includes('LOCK TABLE public.team_members'));
+ assert(!sql.includes('CREATE FUNCTION mission20_private.transfer_members'));
+});
+test('candidate emits final NOWAIT functions once without global or blocking comparator definitions',()=>{
+ const {sql}=candidate.build(),parts=candidate.statements(sql);
+ for(const name of ['lock_context','lock_roster_parents','guard_registration_write','register_native']){
+  const defs=parts.filter(s=>new RegExp('CREATE (?:OR REPLACE )?FUNCTION mission20_private\\.'+name+'\\(').test(s));
+  assert.equal(defs.length,1,name);if(['lock_roster_parents','guard_registration_write'].includes(name))assert(defs[0].includes('NOWAIT'));
+ }
+ assert(sql.includes('unreviewed_function_variant_stop'));assert(sql.includes('migration_ledger_drift_stop'));
+ assert(sql.includes('separately_committed_freeze_and_revoked_insert_required'));
+});
+test('latest hardened add-member dependency is not replaced and versions remain tentative',()=>{
+ const {sql,plan}=candidate.build(),dep=plan.dependencies.find(d=>d.signature.startsWith('public.add_user_to_team('));
+ assert(dep.file.includes('20260928100000'));assert(!/CREATE (?:OR REPLACE )?FUNCTION public\.add_user_to_team/.test(sql));
+ assert(candidate.definition(dep.file,'public.add_user_to_team').includes("p_role IS DISTINCT FROM 'member'"));
+ assert.equal(plan.status,'REVIEW_ONLY_NOT_ALLOCATED_NOT_AUTHORIZED');
+ assert.equal(new Set(plan.proposedVersions.map(v=>v.version)).size,4);
+ assert(plan.proposedVersions.every(v=>v.version>plan.liveLedger.latest));
+});
+test('SQL splitter preserves semicolons and comments inside quoted bodies',()=>{
+ const sample="-- heading;\nBEGIN;\nDO $x$ BEGIN RAISE NOTICE 'literal -- ;'; END; $x$;\nSELECT 'a;''b';\nCOMMIT;\n";
+ assert.equal(candidate.statements(sample).length,4);
+ assert(candidate.statements(sample)[1].includes("'literal -- ;'"));
+ assert.throws(()=>candidate.statements("SELECT 'unterminated"),/unterminated/);
+});

@@ -1,0 +1,128 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Fresh owned cluster only; no existing DB inputs. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {main}=require('./qualify-mission20-c1-postgres.cjs');
+const {extension:c2}=require('./qualify-mission20-c2-writers.cjs');
+const {build,definition,dependencies,DIR}=require('./mission20-atomic-candidate.cjs');
+// Inline only known repository fixture includes so temporary scripts retain the
+// original relative-include meaning. Never accepts a user SQL/connection path.
+function expanded(file){return fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(path.dirname(file),f.trim())));}
+async function qualifyAtomic(c){
+ if(c.variant!=='per-team')return;
+ const {ROOT,SQL,ownedRoot,run,uid,identity,passed}=c;
+ const fixture=c.allocateFixtureDatabase('mission20_fixture_atomic');
+ const connection=fixture.connection,admin=fixture.session('atomic_admin');
+ let checks=0;const pass=s=>{checks++;passed('atomic candidate: '+s);};
+ const execute=file=>run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f',file]);
+ const temp=(name,sql)=>{const f=path.join(ownedRoot,name+'.sql');fs.writeFileSync(f,sql);return f;};
+ const source=f=>path.join(ROOT,f);
+ const {sql}=build();assert.equal(fs.readFileSync(source(DIR+'/01-final-expansion.review.sql'),'utf8').replace(/\r\n/g,'\n'),sql);
+ const prefix=fs.readFileSync(path.join(SQL,'04-security-tests.review.sql'),'utf8').split('\\ir 00-preflight.review.sql')[0];
+ // Shared roles were created by the baseline fixture in this same owned
+ // cluster; this second database gets independent schemas, records and ACLs.
+ const seed=prefix.replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(SQL,f.trim())))
+  .replace(/^CREATE ROLE (?:authenticated|anon|service_role) [^\n]+\n/gm,'')
+  .replaceAll('partner_authz_fixture','mission20_fixture_atomic');
+ execute(temp('atomic-baseline',seed));
+ await admin.query(`ALTER TABLE public.hackathons ALTER COLUMN start_date TYPE date USING start_date::date,
+  ALTER COLUMN end_date TYPE date USING end_date::date,ALTER COLUMN type TYPE varchar(50);
+  ALTER TABLE public.profiles ADD COLUMN is_available boolean DEFAULT true,ADD COLUMN hackathon_participations integer DEFAULT 0,
+  ADD COLUMN hackathon_wins integer DEFAULT 0,ADD COLUMN has_won_hackathon boolean DEFAULT false,ADD COLUMN year_of_study text;
+  ALTER TABLE public.teams ADD COLUMN skills text[],ADD COLUMN college text;
+  ALTER TABLE public.team_members ADD COLUMN project_role text;
+  CREATE TABLE public.blocked_users(blocker_id uuid,blocked_id uuid);
+  CREATE TABLE public.team_join_requests(team_id uuid,user_id uuid,status text);
+  CREATE TABLE public.team_invites(team_id uuid,invited_user_id uuid,status text);`);
+ execute(source('supabase/migrations/20260925221500_matchmaking_v2_engine.sql'));
+ execute(temp('atomic-writer-fixture',expanded(path.join(SQL,'09-writer-fixture.review.sql')).replaceAll('partner_authz_fixture','mission20_fixture_atomic')));
+ for(const dep of dependencies)await admin.query(definition(dep.file,dep.signature.split('(')[0]));
+ await admin.query(`REVOKE ALL ON FUNCTION public.add_user_to_team(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+  REVOKE ALL ON FUNCTION public.accept_team_invite(uuid),public.accept_team_join_request(uuid),public.ensure_team_conversation(uuid) FROM PUBLIC,anon,service_role;
+  GRANT EXECUTE ON FUNCTION public.accept_team_invite(uuid),public.accept_team_join_request(uuid),public.ensure_team_conversation(uuid) TO authenticated;
+  ALTER TABLE public.team_hackathons DROP CONSTRAINT team_hackathons_team_id_fkey;
+  ALTER TABLE public.team_hackathons ADD FOREIGN KEY(team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
+  ALTER TABLE public.team_hackathons DROP CONSTRAINT team_hackathons_hackathon_id_fkey;
+  ALTER TABLE public.team_hackathons ADD FOREIGN KEY(hackathon_id) REFERENCES public.hackathons(id) ON DELETE CASCADE;
+  CREATE SCHEMA supabase_migrations;
+  CREATE TABLE supabase_migrations.schema_migrations(version text PRIMARY KEY,name text);
+  INSERT INTO supabase_migrations.schema_migrations SELECT '19000101'||lpad(n::text,6,'0'),'synthetic-ledger' FROM generate_series(1,146)n;
+  INSERT INTO supabase_migrations.schema_migrations VALUES('20261025081515','synthetic-latest-marker');
+  ALTER TABLE public.team_hackathons ENABLE ROW LEVEL SECURITY;
+  GRANT SELECT,DELETE ON public.team_hackathons TO authenticated;
+  CREATE POLICY atomic_link_read ON public.team_hackathons FOR SELECT TO authenticated USING(true);
+  CREATE POLICY atomic_link_delete ON public.team_hackathons FOR DELETE TO authenticated USING(public.is_team_owner(team_id));`);
+ assert.equal(await admin.query(`SELECT string_agg(format_type(atttypid,atttypmod),',' ORDER BY attname) FROM pg_attribute
+  WHERE attrelid='public.hackathons'::regclass AND attname IN('start_date','end_date','registration_start','registration_end','type');`),'date,timestamp with time zone,timestamp with time zone,date,character varying(50)');
+ pass('fresh second database models confirmed DATE/TIMESTAMPTZ/VARCHAR(50), defaults, identity/unique and CASCADE contracts; dummy 147-entry ledger');
+ const absent=async()=>assert.equal(await admin.query("SELECT to_regnamespace('mission20_private') IS NULL AND to_regprocedure('public.register_native_hackathon(uuid,uuid,boolean)') IS NULL;"),'t');
+ const rejected=(file,re)=>{let error;try{execute(file);}catch(e){error=e;}assert.match(error?.message||'',re);};
+ const candidate=source(DIR+'/01-final-expansion.review.sql');
+ rejected(candidate,/separately_committed_freeze/);await absent();
+ execute(path.join(SQL,'00-freeze-admission.proposed.sql'));
+ assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
+ pass('missing freeze rejects install; separately committed freeze removes exposed INSERT columns');
+ const before=await admin.query(`SELECT string_agg(p.oid::text||':'||coalesce(p.proacl::text,'NULL')||':'||p.proowner::text,'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
+ await admin.query(`CREATE OR REPLACE FUNCTION public.add_user_to_team(p_team_id uuid,p_user_id uuid,p_role text DEFAULT 'member') RETURNS void
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ BEGIN RAISE EXCEPTION 'synthetic unreviewed deployed variant'; END; $$;`);
+ rejected(candidate,/unreviewed_function_variant_stop/);await absent();
+ await admin.query(definition(dependencies[4].file,'public.add_user_to_team'));
+ pass('unreviewed add_user_to_team body is never overwritten; exact-body drift fails before any expansion');
+ await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261101000000','synthetic-drift');");
+ rejected(candidate,/migration_ledger_drift_stop/);await absent();
+ await admin.query("DELETE FROM supabase_migrations.schema_migrations WHERE version='20261101000000';");
+ pass('ledger drift rejects install without repairing or writing the ledger');
+ // Fail after all candidate DDL, before its only COMMIT: all function, trigger,
+ // schema and grant writes must roll back, while the earlier freeze survives.
+ const failed=sql.replace(/COMMIT;\n$/,`DO $$ BEGIN RAISE EXCEPTION 'injected_final_install_failure'; END; $$;\nCOMMIT;\n`);
+ rejected(temp('atomic-injected-failure',failed),/injected_final_install_failure/);await absent();
+ assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_release_freeze');"),'t');
+ pass('failure after final DDL rolls back complete install and preserves committed freeze');
+ // Pause before commit in a persistent session; another connection must see
+ // neither namespace nor intermediate/final RPCs until the one commit.
+ const installer=fixture.session('atomic_installer');
+ await installer.query(sql.replace(/COMMIT;\n$/,'SELECT 1;\n'));
+ await absent();await installer.query('COMMIT;');await installer.close();
+ assert.equal(await admin.query("SELECT to_regprocedure('public.mission20_cancel_registration(uuid,uuid)') IS NOT NULL AND position('NOWAIT' in pg_get_functiondef('mission20_private.lock_roster_parents()'::regprocedure))>0;"),'t');
+ assert.equal(await admin.query(`SELECT string_agg(p.oid::text||':'||coalesce(p.proacl::text,'NULL')||':'||p.proowner::text,'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`),before);
+ pass('success publishes only final protocol at one commit, preserving existing function OIDs/owners/ACLs');
+ await admin.query(`INSERT INTO public.hackathons(id,name,type,status,archived,organizer_id,min_team_size,max_team_size,max_participants,registration_start,registration_end,end_date)
+ SELECT public.fixture_id(n),'Synthetic atomic event',CASE n WHEN 12102 THEN 'external' WHEN 12103 THEN 'official' ELSE 'native' END,'approved',false,'${uid(9501)}',1,20,1,
+ clock_timestamp()-interval '2 days',clock_timestamp()+CASE WHEN n IN(12102,12103,12104) THEN interval '-1 day' ELSE interval '1 day' END,current_date+2 FROM generate_series(12101,12104)n;
+ ${identity(9501)} SELECT public.fixture_error('SELECT public.register_native_hackathon(''${uid(12101)}'')','P0001','frozen after expansion'); RESET ROLE;`);
+ rejected(path.join(SQL,'06-unfreeze-admission.proposed.sql'),/per_team_and_contract_release_gate_required/);
+ execute(path.join(SQL,'02-contract.proposed.sql'));
+ assert.equal(await admin.query("SELECT has_column_privilege('authenticated','public.hackathon_registrations','hackathon_id','INSERT') AND NOT has_column_privilege('authenticated','public.hackathon_registrations','id','INSERT') AND NOT has_table_privilege('authenticated','public.hackathon_registrations','INSERT');"),'t');
+ await admin.query(`${identity(9501)} SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(''${uid(12102)}'',''${uid(9501)}'')','42501','contract does not unfreeze community'); RESET ROLE;`);
+ pass('unfreeze fails before contract; contract restores only reviewed columns and keeps native/community frozen');
+ execute(path.join(SQL,'06-unfreeze-admission.proposed.sql'));
+ await admin.query(`${identity(9501)} SELECT public.fixture_assert(public.register_native_hackathon('${uid(12101)}')->>'status'='confirmed','native succeeds');
+ SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(''${uid(12101)}'',''${uid(9501)}'')','42501','direct native denied');
+ SELECT public.fixture_error('SELECT public.register_native_hackathon(''${uid(12104)}'')','P0001','closed admission denied');
+ INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES('${uid(12102)}','${uid(9501)}'),('${uid(12103)}','${uid(9501)}'); RESET ROLE;
+ ${identity(9502)} SELECT public.fixture_assert(public.register_native_hackathon('${uid(12101)}')->>'status'='waitlisted','waitlisted atomically'); RESET ROLE;`);
+ pass('committed candidate admits native/waitlists, denies closed/direct native, preserves expired-deadline external/official community');
+ const reg=await admin.query(`SELECT id FROM public.hackathon_registrations WHERE hackathon_id='${uid(12101)}' AND user_id='${uid(9501)}';`);
+ await admin.query(`${identity(9501)} SELECT public.mission20_cancel_registration('${uid(12101)}','${reg}'); RESET ROLE;
+ ${identity(9503)} SELECT public.fixture_assert(public.register_native_hackathon('${uid(12101)}')->>'status'='confirmed','capacity released'); RESET ROLE;`);
+ pass('candidate cancellation releases capacity without promoting prior waitlist');
+ execute(path.join(SQL,'00-freeze-admission.proposed.sql'));
+ const grant=fs.readFileSync(path.join(SQL,'02-contract.proposed.sql'),'utf8').match(/GRANT INSERT\(hackathon_id, user_id, team_id, status, looking_for_team, metadata, is_hidden\)\s+ON public\.hackathon_registrations TO authenticated;/)[0];
+ assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
+ await admin.query(grant);
+ await admin.query(`${identity(9504)} SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(''${uid(12102)}'',''${uid(9504)}'')','42501','grant alone does not unfreeze'); RESET ROLE;`);
+ execute(path.join(SQL,'06-unfreeze-admission.proposed.sql'));
+ await admin.query(`${identity(9504)} INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES('${uid(12102)}','${uid(9504)}'); RESET ROLE;`);
+ assert.equal(await admin.query("SELECT has_table_privilege('authenticated','public.hackathon_registrations','INSERT') OR has_column_privilege('authenticated','public.hackathon_registrations','id','INSERT');"),'f');
+ pass('second freeze revokes columns; exact reviewed community grant plus separately gated unfreeze restores only community payload, never broad INSERT');
+ execute(path.join(SQL,'03-rollback-freeze.proposed.sql'));
+ assert.equal(await admin.query("SELECT NOT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT') AND NOT has_function_privilege('authenticated','public.register_native_hackathon(uuid,uuid,boolean)','EXECUTE') AND to_regprocedure('public.mission20_cancel_registration(uuid,uuid)') IS NOT NULL;"),'t');
+ pass('postcommit fail-closed rollback revokes admission/INSERT, preserves cancellation and final protocol');
+ // 06 must NOT serve as recovery from 03. Its guard currently checks structural
+ // presence only, so this proves the operational blocker explicitly.
+ rejected(path.join(SQL,'06-unfreeze-admission.proposed.sql'),/mission20_release_freeze.*does not exist/);
+ assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_admission_frozen');"),'t');
+ pass('policy-only unfreeze cannot recover rollback; emergency freeze remains and no unsafe automatic ACL recovery is attempted');
+ const version=await admin.query('SHOW server_version;');
+ await admin.close();console.log(JSON.stringify({atomicCandidate:true,checks,version,productionConnections:0,hostedAuth:false,backupRestore:false}));
+}
+module.exports={qualifyAtomic};
+if(require.main===module)main({setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyAtomic(c);}}).catch(e=>{console.error(e.stack);process.exitCode=1;});

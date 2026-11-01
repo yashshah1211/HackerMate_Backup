@@ -238,7 +238,8 @@ async function qualifyHttp(c) {
   // runner verifies/stops/deletes that exact root in its finally block.
  }
 }
-const extension={setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyHttp(c);}};
+const {qualifyAtomic}=require('./qualify-mission20-atomic-candidate.cjs');
+const extension={setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyHttp(c);await qualifyAtomic(c);}};
 if(require.main===module){
  const probe=spawnSync(executable,['--version'],{encoding:'utf8',windowsHide:true,timeout:5000});
  if(probe.error||probe.status!==0||!/^PostgREST 16\.5\b/i.test(((probe.stdout||'')+(probe.stderr||'')).trim())){console.error('BLOCKED: checksum-pinned native PostgREST 16.5 is absent/not runnable; no existing database fallback.');process.exitCode=1;}

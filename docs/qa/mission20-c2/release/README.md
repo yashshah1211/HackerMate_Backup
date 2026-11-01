@@ -4,6 +4,8 @@
 
 Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 application cases, 51 SDK/writer cases, native PG17.6 SQL/concurrency and 32 Rack checks, TypeScript/scoped lint/build passed. Current follow-up qualification and exact commit/job outcomes are recorded in PR #96; the receipt file records the immutable source run rather than predicting a green result.
 
+New catalog reconciliation and atomic candidate: [confirmed/unresolved/mismatched facts](CATALOG-RECONCILIATION.md) and [review-only final transaction/version plan](atomic/README.md). The latest production main SHA is 17b78d0; no Vercel hold is verified.
+
 ## Package
 
 - [SCHEMA-COMPATIBILITY.md](SCHEMA-COMPATIBILITY.md): exact required contracts, documented facts versus unconfirmed live assumptions, policies/grants, owners/helpers/trigger graph, ledger and packaging blockers.
@@ -22,8 +24,8 @@ Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 applicati
 | Native PG17.6 SQL/concurrency | PASS in the [qualified source run](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41323221862): 279 baseline/security assertions per variant, 88 total orchestration checks, two owned clusters cleaned. |
 | Real PostgREST JWT/role/RLS/database boundary | PASS in that fixture run: 15 real HTTP groups plus one catalog-syntax group. Production PostgREST version/config parity remains unsigned. |
 | Hosted Supabase Auth + actual gateway/session lifecycle | **BLOCKED / NOT ESTABLISHED.** No hosted/local GoTrue stack, real login/email/SSO/MFA/revocation or production gateway acceptance. Existing SDK Auth transport is synthetic; local fixture JWTs only prove PostgREST validation/role switching. |
-| Exact live schema/ACL/body/dependency/ledger parity | **BLOCKED.** Six CASCADE facts and selected permissions/triggers are confirmed; a complete current catalog/definition receipt and drift review are absent. |
-| Execution-ready migration packaging | **BLOCKED.** Assign versions after ledger review; atomically package final expansion/protocol/cancellation without exposing comparator intermediates. Existing self-committing proposals are not that atomic bundle. |
+| Exact live schema/ACL/body/dependency/ledger parity | **BLOCKED.** Confirmed types/default contracts, junction + six CASCADE edges, ledger 147/latest 20261025081515 and four normalized bodies are reconciled. Full raw-body/ACL/dependency/ledger receipts and hardened add-member parity remain absent. |
+| Execution-ready migration packaging | **BLOCKED.** Atomic review candidate and tentative versions now produced; execution approval, raw fingerprint parity, final allocation and matching-schema qualification still required. Comparator intermediates are absent from the candidate. |
 | Freeze scope / recovery ACL decision | **BLOCKED pending founder approval.** Current freeze pauses community joins too. Contract must follow the last freeze; policy-only unfreeze does not restore revoked INSERT columns. |
 | Safe deployed ordering / Vercel hold / client convergence | **BLOCKED.** No verified production automation hold, writer drain, signed deployed SHA/cache or compatible rollback receipt. Main merges can deploy automatically. |
 | Independent release approval | **NO-GO.** Green CI never authorizes a production operation. |
@@ -34,7 +36,7 @@ Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 applicati
 2. Accept the temporary **native AND external/official new-community-write pause**, or commission a separate reviewed native-only freeze design. Do not promise current 00 preserves new community joins.
 3. Approve the explicit postgres-owned privileged worker/trigger boundary and actual deployed existing-function owners/ACLs; private workers stay out of exposed schemas. No broad grants or role escalation to make acceptance pass.
 4. Confirm Asia/Kolkata as the date-only deadline default used by current application/SQL. Per-event timezones need a separately reviewed contract; do not invent one from a missing column.
-5. Resolve every live catalog/body/ledger discrepancy and choose new migration versions/atomic packaging. Decide whether the private, non-client bulk-transfer test prototype belongs in the actual release bundle.
+5. Resolve every live catalog/body/ledger discrepancy and choose new migration versions/atomic packaging. Review the explicit exclusion of the unused private bulk-transfer test prototype from the candidate.
 6. Approve a real isolated Auth/gateway/parity acceptance plan, effective DB/gateway/application timeout budgets, safe identity/test cleanup and realistic concurrency/load thresholds. No new Supabase project, Docker or live registrations are authorized here.
 7. Approve and rehearse Vercel deployment hold/promotion, direct-writer drain, outage messaging, backup/restore, rollback capability and monitoring thresholds. All environment/platform changes need separate authority.
 8. Authorize migration execution and unfreeze as separate future gates only after independent acceptance. No merge/deployment follows automatically from reviewing this package.

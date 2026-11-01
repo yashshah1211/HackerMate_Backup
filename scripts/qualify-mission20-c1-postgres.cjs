@@ -93,6 +93,13 @@ async function qualify(variant, extension) {
     run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(ROOT,'supabase/migrations/20260925221500_matchmaking_v2_engine.sql')]);
     passed('real matchmaking maintenance functions and membership triggers loaded');
     const context={admin,run,connection,session:label=>session(connection,label,sessions),uid,identity,passed,ROOT,SQL,variant,ownedRoot:temp,pgPort:port};
+    // Extra fixtures may be allocated only inside this newly owned cluster.
+    // No caller-supplied host, URL, credentials or pre-existing database path.
+    context.allocateFixtureDatabase=name=>{
+      assert(/^mission20_fixture_[a-z]+$/.test(name));
+      run('createdb',[...host,name]);const local=[...host,'-d',name];
+      return {connection:local,session:label=>session(local,label,sessions)};
+    };
     if(extension) await extension.setup(context);
     {
       let gateError;

@@ -153,3 +153,13 @@ SELECT h.id,h.max_participants,count(r.id) FILTER(WHERE r.status='confirmed') AS
  FROM public.hackathons h LEFT JOIN public.hackathon_registrations r ON r.hackathon_id=h.id
  WHERE h.max_participants IS NOT NULL GROUP BY h.id,h.max_participants
  HAVING count(r.id) FILTER(WHERE r.status='confirmed')>h.max_participants;
+-- Focused raw-body fingerprints: formatting-normalized parity is insufficient
+-- for the candidate's exact-byte allowlist. Save these private audit receipts.
+SELECT p.oid::regprocedure AS signature, pg_get_userbyid(p.proowner) AS owner,
+ p.prosecdef, p.proconfig, p.proacl,
+ encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS raw_body_sha256
+FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public' AND p.proname IN
+ ('accept_team_invite','accept_team_join_request','ensure_team_conversation',
+  'delete_user_completely','add_user_to_team')
+ORDER BY p.oid::regprocedure::text;
