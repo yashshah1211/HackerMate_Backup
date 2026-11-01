@@ -9,7 +9,8 @@ const ROOT = path.resolve(__dirname, '..');
 const SQL = path.join(ROOT, 'docs/qa/mission20-c1/sql');
 const env = {};
 for (const key of ['PATH','SystemRoot','WINDIR','COMSPEC','USERPROFILE','LOCALAPPDATA','TEMP','TMP']) if (process.env[key]) env[key] = process.env[key];
-const binary = name => process.platform === 'win32' ? path.join(process.env.ProgramFiles || 'C:/Program Files', 'PostgreSQL/18/bin', name + '.exe') : name;
+let major = 18;
+const binary = name => process.platform === 'win32' ? path.join(process.env.ProgramFiles || 'C:/Program Files', `PostgreSQL/${major}/bin`, name + '.exe') : major===17 ? `/usr/lib/postgresql/17/bin/${name}` : name;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let passes = 0;
 function passed(label) { passes++; console.log('PASS: ' + label); }
@@ -50,7 +51,7 @@ function session(connection, label, sessions) {
 const uid = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const identity = n => `SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${uid(n)}',false);`;
 
-async function qualify(variant) {
+async function qualify(variant, extension) {
   const firstPass=passes;
   const server = net.createServer();
   await new Promise((resolve,reject) => { server.once('error',reject); server.listen(0,'127.0.0.1',resolve); });
@@ -75,6 +76,7 @@ async function qualify(variant) {
     console.log(`${variant} SQL assertions: ${assertions} (includes unchanged baseline privacy suite).`);
     const admin = session(connection,'admin',sessions);
     const version=await admin.query('SHOW server_version;'); console.log('Local PostgreSQL: '+version);
+    assert.equal(Number(version.split('.')[0]),major,'Only the selected local major qualifies');
     assert.equal(await admin.query("SELECT current_database()='partner_authz_fixture' AND inet_server_addr()='127.0.0.1'::inet AND session_user='postgres';"),'t');
     passed('fresh loopback-only disposable database guard');
     // Fixture additions only; exercise the real repository matchmaking trigger,
@@ -89,12 +91,14 @@ async function qualify(variant) {
       CREATE TABLE IF NOT EXISTS public.team_invites(team_id uuid,invited_user_id uuid,status text);`);
     run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(ROOT,'supabase/migrations/20260925221500_matchmaking_v2_engine.sql')]);
     passed('real matchmaking maintenance functions and membership triggers loaded');
-    if(variant==='global') {
+    const context={admin,run,connection,session:label=>session(connection,label,sessions),uid,identity,passed,ROOT,SQL,variant};
+    if(extension) await extension.setup(context);
+    {
       let gateError;
       try { run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(SQL,'06-unfreeze-admission.proposed.sql')]); }
       catch(error) { gateError=error; }
       assert.match(gateError?.message||'',/per_team_and_contract_release_gate_required/);
-      passed('release gate refuses the global-lock comparator');
+      passed('release gate refuses '+variant+' comparator without the final writer protocol');
     }
     async function seed(event, type='native', team=null) {
       await admin.query(`INSERT INTO public.hackathons(id,name,type,status,archived,organizer_id,min_team_size,max_team_size,max_participants,registration_start,registration_end,end_date)
@@ -277,10 +281,7 @@ async function qualify(variant) {
     else { if(ar.error) throw ar.error; if(br.error) throw br.error; }
     assert.equal(await admin.query(`SELECT count(*)<=1 FROM public.hackathon_registrations WHERE hackathon_id='${uid(9713)}' AND status='confirmed';`),'t');
     passed(variant==='global'?'global/matchmaking cycle reproduced as 40P01; victim rolled back':'per-team schedule completes without the global/matchmaking lock cycle');
-    // Additional TEST-ONLY member-FK variation from the repository matchmaking
-    // fixture. Its live action is unverified; the registration FK stays CASCADE.
-    await admin.query(`ALTER TABLE public.team_members DROP CONSTRAINT team_members_team_id_fkey;
-      ALTER TABLE public.team_members ADD CONSTRAINT team_members_team_id_fkey FOREIGN KEY(team_id) REFERENCES public.teams(id) ON DELETE CASCADE;`);
+    // Both team_id CASCADE actions are independently confirmed in production.
     await seed(9714,'native',9615);
     await admin.query(`INSERT INTO public.team_members(team_id,user_id) VALUES('${uid(9615)}','${uid(9002)}');`);
     const ca=session(connection,'member_cascade_a',sessions),cb=session(connection,'member_cascade_b',sessions);
@@ -292,7 +293,7 @@ async function qualify(variant) {
     assert.equal(await admin.query(`SELECT (SELECT count(*) FROM public.team_members WHERE team_id='${uid(9615)}')+
       (SELECT count(*) FROM public.hackathon_registrations WHERE hackathon_id='${uid(9714)}')+
       (SELECT count(*) FROM matchmaking.team_feature WHERE team_id='${uid(9615)}');`),'0');
-    passed('fixture-only member-CASCADE variation clears roster, registration and real matchmaking cache');
+    passed('confirmed member-CASCADE clears roster, registration and real matchmaking cache');
     if(variant==='per-team') {
       // A BEFORE row trigger runs after DELETE has locked its target tuple.
       // Explicitly retain this residual cycle as a release-qualification limit.
@@ -310,6 +311,10 @@ async function qualify(variant) {
       assert.equal(await admin.query(`SELECT count(*) FROM public.team_members m LEFT JOIN public.teams t ON t.id=m.team_id WHERE t.id IS NULL;`),'0');
       await parent.close(); await child.close();
       passed('per-team residual child-row/cascading-parent 40P01 reproduced; victim rollback leaves no orphan');
+    }
+    if(extension && variant==='per-team') {
+      for(const s of sessions) if(s!==admin) await s.close();
+      await extension.qualify({...context,blocked,seed});
     }
     run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-f',path.join(SQL,'03-rollback-freeze.proposed.sql')]);
     const frozen=session(connection,'frozen',sessions);
@@ -334,11 +339,15 @@ async function qualify(variant) {
   }
   if(failure) throw failure;
 }
-async function main() {
+async function main(extension) {
   // No URL, port, database, credentials, PG variables, SQL path or .env accepted.
-  assert.deepEqual(process.argv.slice(2), ['--local-only'], 'Run only with --local-only; connections are allocated internally.');
-  await qualify('global');
-  await qualify('per-team');
+  const args=process.argv.slice(2);
+  assert(args.length===1 && ['--local-only','--local-pg17-only'].includes(args[0]), 'Run only with --local-only or --local-pg17-only; connections are allocated internally.');
+  major=args[0]==='--local-pg17-only'?17:18;
+  console.log('Selected native binaries: '+run('postgres',['--version']).trim());
+  await qualify('global',extension);
+  await qualify('per-team',extension);
   console.log(JSON.stringify({totalChecks:passes,localOnly:true,releaseApproved:false}));
 }
+module.exports={main};
 if(require.main===module) main().catch(error=>{console.error(error.stack);process.exitCode=1;});

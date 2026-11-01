@@ -1,100 +1,113 @@
-# Mission 20 C1 — corrected review package and evidence
+# Mission 20 C1 — final locking qualification and evidence
 
-**NO-GO for production/staging migration execution or rollout. Keep PRs #92 and #93 Draft.** SQL is review-only, outside the active migration loader. Qualification here executes only in newly allocated disposable local PostgreSQL clusters. No existing database/project, live provider, environment, deployment or production data was modified.
+**Review only. NO-GO for production/staging migration execution or rollout. Keep #92 and #93 Draft.** Proposed SQL remains under docs, outside the migration loader. All SQL qualification here used newly allocated disposable loopback clusters, fake identities and verified cleanup. No existing/project database, live provider, production data, environment or deployment was touched.
 
-Reviewed C1 baseline: `09641f28c2efe4fdc55fd2de448b1503d070f8e0`. This follow-up stays on `design/mission20-c1-database-security`, stacked on unchanged PR #92 at `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e`. Recovery found **13 preserved uncommitted paths**, rather than the preliminary 11; local and remote heads were still the reviewed C1 commit. No reset, stash or cleanup of that work occurred.
+This follow-up starts from PR #93 commit `f7845bc5993a8145782b1d614c62a391c1012081`, stacked on unchanged PR #92 at `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e`. The working tree was clean at recovery. Prior corrections are retained; no reset/stash/clean or force-push.
 
-Read [REVIEW-CORRECTIONS.md](REVIEW-CORRECTIONS.md) for findings and recommendations; [DESIGN.md](DESIGN.md) for reader/writer, approval, native/community and partner/Rack/certificate/team analysis; [TEST-PLAN.md](TEST-PLAN.md) for the full release matrix. [QUERY-INVENTORY.md](QUERY-INVENTORY.md) and [JSON](QUERY-INVENTORY.json) retain the immutable-base inventory: **66 API chains, 332 SQL fragments, 1,200 reference lines**. No application, active migration, dependency, environment or workflow change is included.
+[LOCKING-QUALIFICATION.md](LOCKING-QUALIFICATION.md) contains the current authoritative graph, complete writer audit, protocol, schedule matrix and proposed C2 split. [DESIGN.md](DESIGN.md) retains registration/approval/capacity/partner/Rack/certificate analysis. [TEST-PLAN.md](TEST-PLAN.md) distinguishes executed cases from release gates. [REVIEW-CORRECTIONS.md](REVIEW-CORRECTIONS.md) retains earlier review history with corrected FK facts.
 
-## Corrections and lock decision
+## Corrections and recommendation
 
-- Model the confirmed, named registration/team FK as **ON DELETE CASCADE**. Team deletion deletes linked registrations and releases confirmed row capacity; preservation is not promised. No FK change is proposed. SET NULL changes eligibility/history/access and requires separate review.
-- Reject the global roster SHARE lock for release: the real matchmaking trigger reproduces a **40P01** cycle, and unrelated-team writes block.
-- Recommend per-team locking for further review: parent FOR UPDATE before event, distinct roster UNION owner, a BEFORE membership parent-lock trigger, and an existing-registration retry path. Tested unrelated-team writes finish while admission stays open. The suite also reproduces a residual child-row/cascading-parent cycle; this is not universal deadlock freedom or release approval.
-- Retain `max_participants` as **confirmed registration-row slots**, not humans, distinct teams or all rows. NULL is unlimited, zero waitlists new admissions. No data conversion. Legacy `official` stays community-only pending source-verified review.
-- Freeze new admission before expansion and retain the freeze through per-team installation, adapter convergence and contract. New definer RPC writes also honor the freeze. Unfreeze requires independent release receipts; rollback freezes writes rather than restoring the bypass.
-- Repair the organizer harness with one dependency-map entry loading the real lifecycle module. Every original assertion expression remains identical.
+- Founder confirms production **PostgreSQL 17.6**, both registration/team and member/team **CASCADE**, member/profile CASCADE and the conversation/participant CASCADE graph. The fixture now models these facts before either comparator. No production FK change is proposed.
+- Load actual repository matchmaking, canonical user deletion and profile audit code; model the supplied conversation trigger definitions/behavior. Audit **94 API query chains / 366 SQL contexts**, including **13 direct application mutation chains**, with exact projections/fields/filters in [LOCK-QUERY-INVENTORY.json](LOCK-QUERY-INVENTORY.json). Original registration inventory remains **66 API chains / 332 SQL contexts / 1,200 reference lines**, unchanged.
+- Retain both old `40P01` diagnostics. The member-CASCADE residual cycle is production-relevant, not hypothetical. Neither global SHARE nor a blocking BEFORE member trigger alone is a release recommendation.
+- Review prototype 07/08: writer entry points lock complete sorted team parents, then affected event parents before child DML. Legacy child-first membership writes, registration DELETE and late successor-profile locks use **NOWAIT** and roll back with `55P03`. This bounds the tested risk without claiming zero deadlocks or a universal HTTP deadline.
+- New member/role/team-delete wrappers are **SECURITY INVOKER**, retaining table ACL/RLS. Existing invite/request/ensure/user-deletion checks are preserved and rechecked; source-comparison tests verify this. Broad lock/transfer helpers have no client EXECUTE. **No base-table grant, RLS or FK change is introduced by these writer prototypes.**
+- User deletion now pre-locks non-owned memberships and registration-linked teams/events; existing protected-admin, storage, handover, notification and mandatory audit checks remain. Private bulk transfer uses atomic DELETE+INSERT so existing conversation hooks run; it grants no new user transfer capability.
+- Freeze-first ordering remains mandatory. 07/08 refuse installation without the freeze; unfreeze rejects both old comparator variants. Legacy external/official community behavior and confirmed-registration-row capacity remain intact; no record conversion.
 
-## Review-only SQL and release order
+## Review-only SQL order
 
-| File | Purpose |
+For a future separately approved release: preflight → commit admission freeze → drain/quiesce relevant writers → expansion 01 → per-team 05 → writer corrections **07/08 while frozen** → separately reviewed adapters/version convergence → permission contract 02 → independently gated 06 unfreeze. Rollback 03 freezes writes and fixes forward. Structural SQL markers cannot prove semantic equivalence or adapter convergence; signed operational gates remain mandatory.
+
+Files 04 and 09 are local fixtures, never release migrations. Expansion alone is unsafe/incomplete; old native INSERT endpoints fail closed after contract and must not receive a fallback bypass. No release or application adapter is implemented in C1.
+
+## Verification
+
+| Check | Actual result / scope |
 |---|---|
-| [00 preflight](sql/00-preflight.review.sql) | SELECT-only catalog/ACL/FK capture; local fixture qualified, no project query. |
-| [00 freeze](sql/00-freeze-admission.proposed.sql) | Commit first in a separately authorized release: remove table/column INSERT and restrict new admission; retain reads/preferences/cancellation. |
-| [01 expansion](sql/01-expand.proposed.sql) | Private worker and status/clock/capacity/approval guards. Contains rejected global comparator until 05 replaces it while frozen. |
-| [05 per-team](sql/05-per-team-roster.alternative.sql) | Recommended review prototype; no FK or membership authorization expansion. |
-| Adapter (future C2) | Use RPC without INSERT fallback; handle review/freeze/retry errors; drain old servers and qualify cached clients. Not implemented here. |
-| [02 contract](sql/02-contract.proposed.sql) | Clear table/column INSERT, restore guarded community columns, restrictive native denial. Retains release freeze. |
-| [06 unfreeze](sql/06-unfreeze-admission.proposed.sql) | Structural per-team/contract gate; operator/version-convergence receipts independently mandatory. Global comparator is refused. |
-| [03 rollback](sql/03-rollback-freeze.proposed.sql) | Revoke both RPC entry permissions and direct inserts; preserve records/approval protection; fix forward. |
-| [04 fixture](sql/04-security-tests.review.sql) | Execute only via isolated local runner; unchanged privacy assertions, corrected CASCADE FK and security/release cases. |
-
-Nothing is promoted to `supabase/migrations/`. Admission intentionally pauses during release. Expansion alone is not completed remediation. Quiesce privileged jobs; a client freeze cannot constrain the database owner.
-
-## Verification — corrected working tree
-
-| Check | Result / scope |
-|---|---|
-| Inventory | Reproducible: 66 API chains / 332 SQL fragments / 1,200 reference lines. |
-| C1 artifacts | **12 passed**; intent/scope checks, not SQL execution. |
-| Offline selection | **876 passed, 0 failed/skipped**: 12 artifacts + 864 existing checks, including all 24 organizer cases. Native/create/lifecycle, compatibility, Rack, partner authorization/admin/organizer/CSV, approval, certificates, teams and squad. |
-| Local PostgreSQL | **18.4**, two fresh clusters, **279 SQL assertions per variant**, including unchanged baseline privacy. **41 orchestration checks** (20 global, 21 per-team): real matchmaking hooks; native/community last slot; rollback/idempotency; roster additions/departures; distinct owner count/transfer; cancellation/retry; deadline edits/cutoff; 55P03 rollback; CASCADE/cache cleanup; unrelated-team contention; documented deadlocks; release/rollback gates. |
-| Deadlock diagnostics | Expected 40P01 with victim rollback is a passing diagnostic, **not** release approval. Global is rejected. Per-team residual writer/cascade contention requires review and qualification. |
+| Artifact/design | **16 passed**: immutable inventories, exact source-preservation comparison, no source/active migration/config changes, helper/ACL intent, writer fixture/guard checks. |
+| Explicit application selection | **1,084 passed; 0 failed/skipped**: 16 artifacts + 1,068 existing checks. Includes native/create/lifecycle, compatibility, Rack/partner authorization/admin/organizer/CSV, all 24 organizer harness cases, certificates, team creation/squad/request lifecycle/owner review, invitations and admin authorization/user deletion. |
+| PostgreSQL 18.4 | Two fresh clusters. **279 counted baseline/security SQL assertions per variant**, including unchanged privacy assertions, plus **64 orchestration checks** (21 global / 43 per-team and revised writers), with additional in-database writer/security assertions. Old deadlock diagnostics remain explicit; revised schedules assert completion or exact bounded rollback. Both clusters stopped and exact owned roots removed in finally. |
+| Scope of SQL races | Confirmed conversation/member graph; real matchmaking; native/community last slot, rollback/idempotency, deadline/roster/owner; raw and wrapped deletion, full team/chat CASCADE, participant UPDATE contention, reciprocal bulk transfer/rollback, stale isolation, invite race, native admission, cancellation, user deletion/non-owned teams/successor admission, audit/storage/admin/EXECUTE negatives and freeze/rollback gates. |
+| PostgreSQL 17.6 | **BLOCKED / unexecuted.** Only 18.4 is installed in standard local paths/PATH. `--local-pg17-only` returned missing-binary ENOENT before cluster allocation or SQL. No existing/remote DB, installation, Docker or new Supabase project substituted. PG18 success does not qualify production 17.6. |
 | TypeScript | Full `tsc --noEmit --incremental false --pretty false`: passed. |
-| Scoped ESLint | Four CJS files (inventory, artifact, qualification, organizer harness): **0 errors / 0 warnings**. |
-| Exact Rack browser | `node qa/rack-qualification.cjs funnel-browser`: **32 passed**, 390/1440px, unchanged About this hackathon assertion, synthetic-only, **0 mutations / external requests**. |
-| Diff/scope | Whitespace clean; no application/active migration/config/dependency/workflow edits; original organizer assertion expressions preserved. |
-| Unexecuted | Exact target catalog/version, adapters, partner/access/isolation/metrics/squad SQL runners, live acceptance, 20/100-way stress and full deployed writer/cascade graph. No current-head hosted Linux/SQL CI claimed: workflows target main while this Draft targets PR #92's feature branch. No production build rerun for this documentation/test-only follow-up. |
+| Scoped ESLint | Five changed/new CJS files: **0 errors / 0 warnings**. |
+| Exact Rack browser | **32 passed**, unchanged heading assertion, 390/1440px, synthetic-only, zero mutations/external requests. No browser assertion changed. |
+| Whitespace / source scope | `git diff --check` passed. No edits under src, supabase, .github, package manifests or environment files. No production build rerun for this review-documentation/test-only change. |
+| Hosted CI | No current-head Linux/database qualification is claimed. Existing workflows target main; #93 targets #92's feature branch. Post-push available status is reported in the PR body. |
 
-Local logs outside checkout, parent workspace `audit-artifacts/mission20/`: `c1r-postgres-final.log`, `c1r-regressions-final.log`, `c1r-targeted.log`, `c1r-organizer.log`, `c1r-typecheck.log`, `c1r-lint.json`, `c1r-rack-browser.log`. PostgreSQL output includes server version, counts and cleanup receipts for both owned roots. The runner ignores inherited connection credentials, uses owned empty password/service files, accepts only `--local-only`, and refuses connection overrides before startup.
+**Expected deadlock diagnostics are not rollout approval.** The old global and blocking per-team variants still reproduce `40P01` with victim rollback. Revised raw-child conflicts assert `55P03`; successor contention additionally asserts original SQLSTATE **55P03**, preventing a concealed 40P01 from satisfying that case. Invoker wrappers do not invent a missing member UPDATE policy or admin-team DELETE entitlement; those remain actual-permission acceptance questions.
 
-Eight ignored browser screenshots in `scratch/rack-funnel/`: `portal-390.png`, `guest-390.png`, `member-next-action-390.png`, `incomplete-next-action-390.png` and four corresponding `1440` images. No C1 UI change; PR #92's 768px baseline remains presentation evidence, not SQL qualification. Local Chrome required sandbox escalation; scrubbed environment/network guards remained in place.
+Local evidence outside the checkout, parent workspace `audit-artifacts/mission20/`: `c1-locking-postgres-final.log`, `c1-locking-pg17.log`, `c1-locking-offline-final.log`, `c1-locking-artifacts.log`, `c1-locking-typecheck.log`, `c1-locking-lint.json`, `c1-locking-rack-browser.log`. SQL logs print version, counts and cleanup receipts. The runner accepts only a local-major selection, no host/URL/credentials/SQL-path override; children use a whitelist and owned empty password/service files.
 
-### Historical failures reconciled
+Eight ignored screenshots in `scratch/rack-funnel/`: portal, guest, member-next-action and incomplete-next-action at each of 390/1440px. No UI changed; #92's existing 768px evidence remains baseline presentation evidence, not SQL qualification.
 
-The initial C1 report had five organizer cases fail before assertions due to the missing lifecycle dependency (19 pass / 5 fail on baseline). The one-line repair resolves all five: **24/24 now pass**, included in 876. No assertion changed or was deleted.
+### Failure reconciliation
 
-The original selection accidentally included a database-backed metrics runner; it and its baseline comparison failed in Windows initdb before server startup. That separate runner remains unqualified and is not counted as fixed. During correction-runner development, Windows CRLF initially hid a psql barrier marker after SQL assertions passed. The orchestrator was corrected; final qualification and cleanup passed. Partial logs are superseded by `c1r-postgres-final.log`. No existing or remote database was substituted.
+Initial writer-fixture development hit an existing status-column overlap, then a release-gate regprocedure cast evaluated for a missing function. The fixture overlap and null-safe gate lookup were corrected; original expected-error and behavioral assertions were retained. Final SQL qualification passed and cleanup ran on failed as well as successful attempts.
 
-## Reproduction — explicit selections only
+The first expanded application run reported **1,083 pass / 1 fail**: the inspected synthetic admin-authorization HTTP test could not connect to its own loopback server under the filesystem sandbox (EACCES). Rerunning the exact unchanged selection with local socket access passed **1,084/1,084**; clients remained mocked and external fetch forbidden. Chrome and native PostgreSQL also required sandbox escalation; no target restrictions were bypassed.
+
+The prior five organizer harness failures remain fixed by the existing one-line dependency entry; assertions stay unchanged. The historical separate metrics initdb failure is not claimed as fixed. Other standalone partner/privacy/access/isolation/metrics/squad SQL runners and full post-contract projection replay remain outside the executed selection; the unchanged privacy SQL assertions are included in both current clusters.
+
+## Reproduction — explicit local selections only
 
 ```text
 node scripts/mission20-c1-inventory.cjs --check
-node --test scripts/test-mission20-c1-design.cjs scripts/test-organizer-broadcast-authorization.cjs
-node --test scripts/test-mission20-c1-design.cjs scripts/test-native-registration.cjs scripts/test-hackathon-create-dates.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-authorization.cjs scripts/test-partner-admin.cjs scripts/test-partner-organizer-api.cjs scripts/test-partner-csv.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-admin-hackathon-approval.cjs scripts/test-certificate-id-integrity.cjs scripts/test-certificate-verification-page.cjs scripts/test-team-creation.cjs scripts/test-squad-matching.cjs
-node scripts/qualify-mission20-c1-postgres.cjs --local-only
+node scripts/mission20-c1-locking-inventory.cjs --check
+node scripts/mission20-c1-writer-proposals.cjs --check
+node --test scripts/test-mission20-c1-design.cjs
+node scripts/qualify-mission20-c1-writers.cjs --local-only
+node scripts/qualify-mission20-c1-writers.cjs --local-pg17-only
 node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false
-node node_modules/eslint/bin/eslint.js scripts/mission20-c1-inventory.cjs scripts/test-mission20-c1-design.cjs scripts/qualify-mission20-c1-postgres.cjs scripts/test-organizer-broadcast-authorization.cjs
+node node_modules/eslint/bin/eslint.js scripts/mission20-c1-locking-inventory.cjs scripts/mission20-c1-writer-proposals.cjs scripts/qualify-mission20-c1-postgres.cjs scripts/qualify-mission20-c1-writers.cjs scripts/test-mission20-c1-design.cjs
 node qa/rack-qualification.cjs funnel-browser
 ```
 
-Do not use wildcard CJS selections: several scripts start databases. Do not execute proposed SQL against any existing database. Use installed native PostgreSQL, no Docker/project creation.
+The explicit 1,084-test selection is:
+
+```text
+node --test scripts/test-mission20-c1-design.cjs scripts/test-native-registration.cjs scripts/test-hackathon-create-dates.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-authorization.cjs scripts/test-partner-admin.cjs scripts/test-partner-organizer-api.cjs scripts/test-partner-csv.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-admin-hackathon-approval.cjs scripts/test-certificate-id-integrity.cjs scripts/test-certificate-verification-page.cjs scripts/test-team-creation.cjs scripts/test-squad-matching.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-admin-authorization.cjs scripts/test-admin-delete-user.cjs
+```
+
+No wildcard selection: some scripts start database fixtures. Never point these review SQL files at an existing database. Native PG17 must already be available for the 17-only command; a missing binary is a qualification blocker, not permission to connect elsewhere.
 
 ## Exact file inventory
 
-**15 follow-up paths** relative to 09641f2: 10 modified, five new. **18 total PR paths** relative to PR #92: 17 new C1 files plus the existing organizer harness. Three immutable inventory paths are inherited unchanged.
+**18 paths in this follow-up** from f7845bc: **10 modified / 8 new**. **26 paths in the full PR** relative to #92: 25 new review/tooling files plus the existing isolated organizer harness repair. Eight paths are inherited unchanged from f7845bc.
 
-| Repository-relative file | Follow-up change |
+| Repository-relative file | Final-locking follow-up |
 |---|---|
-| `docs/qa/mission20-c1/README.md` | Modified: recovery, evidence, limits and inventory. |
-| `docs/qa/mission20-c1/DESIGN.md` | Modified: FK, capacity, locking and release contract. |
-| `docs/qa/mission20-c1/TEST-PLAN.md` | Modified: executable strategy / remaining matrix. |
-| `docs/qa/mission20-c1/REVIEW-CORRECTIONS.md` | New: finding analysis and decisions. |
-| `docs/qa/mission20-c1/QUERY-INVENTORY.md` | Inherited unchanged. |
-| `docs/qa/mission20-c1/QUERY-INVENTORY.json` | Inherited unchanged. |
-| `docs/qa/mission20-c1/sql/00-preflight.review.sql` | Modified: FK catalog output. |
-| `docs/qa/mission20-c1/sql/00-freeze-admission.proposed.sql` | New: freeze-first proposal. |
-| `docs/qa/mission20-c1/sql/01-expand.proposed.sql` | Modified: CASCADE, freeze-aware guard, capacity terminology. |
-| `docs/qa/mission20-c1/sql/02-contract.proposed.sql` | Modified: retain freeze. |
-| `docs/qa/mission20-c1/sql/03-rollback-freeze.proposed.sql` | Modified: local versus existing-project execution. |
-| `docs/qa/mission20-c1/sql/04-security-tests.review.sql` | Modified: real FK and release/role/native/community tests. |
-| `docs/qa/mission20-c1/sql/05-per-team-roster.alternative.sql` | New: per-team prototype. |
-| `docs/qa/mission20-c1/sql/06-unfreeze-admission.proposed.sql` | New: structural release gate. |
-| `scripts/mission20-c1-inventory.cjs` | Inherited unchanged. |
-| `scripts/test-mission20-c1-design.cjs` | Modified: 12 artifact/scope/harness checks. |
-| `scripts/qualify-mission20-c1-postgres.cjs` | New: isolated PostgreSQL/concurrency qualification. |
-| `scripts/test-organizer-broadcast-authorization.cjs` | Modified: one dependency-map entry; assertions identical. |
+| docs/qa/mission20-c1/README.md | Modified: current evidence, inventory and blockers. |
+| docs/qa/mission20-c1/DESIGN.md | Modified: confirmed graph, bounded protocol, release order. |
+| docs/qa/mission20-c1/TEST-PLAN.md | Modified: extended schedules / version gate. |
+| docs/qa/mission20-c1/REVIEW-CORRECTIONS.md | Modified: correct prior hypothetical-FK statements. |
+| docs/qa/mission20-c1/LOCKING-QUALIFICATION.md | New: writer/trigger audit, protocol, decisions and C2 split. |
+| docs/qa/mission20-c1/LOCK-QUERY-INVENTORY.json | New: exact 94 API chains / 366 SQL contexts. |
+| docs/qa/mission20-c1/QUERY-INVENTORY.md | Inherited unchanged. |
+| docs/qa/mission20-c1/QUERY-INVENTORY.json | Inherited unchanged. |
+| docs/qa/mission20-c1/sql/00-preflight.review.sql | Modified: full relevant FK/trigger/function/policy capture. |
+| docs/qa/mission20-c1/sql/00-freeze-admission.proposed.sql | Inherited unchanged. |
+| docs/qa/mission20-c1/sql/01-expand.proposed.sql | Modified: require confirmed membership CASCADE. |
+| docs/qa/mission20-c1/sql/02-contract.proposed.sql | Inherited unchanged. |
+| docs/qa/mission20-c1/sql/03-rollback-freeze.proposed.sql | Inherited unchanged. |
+| docs/qa/mission20-c1/sql/04-security-tests.review.sql | Modified: confirmed member FK before comparators; explicit comparator-only unfreeze. |
+| docs/qa/mission20-c1/sql/05-per-team-roster.alternative.sql | Inherited blocking comparator / admission base, unchanged. |
+| docs/qa/mission20-c1/sql/06-unfreeze-admission.proposed.sql | Modified: require final writer helpers/NOWAIT markers. |
+| docs/qa/mission20-c1/sql/07-writer-protocol.proposed.sql | New: parent-first invoker writers, private transfer, legacy NOWAIT backstop. |
+| docs/qa/mission20-c1/sql/08-existing-writers.proposed.sql | New: full generated existing-writer definitions with explicit lock corrections. |
+| docs/qa/mission20-c1/sql/09-writer-fixture.review.sql | New: local-only confirmed graph and supplied trigger models. |
+| scripts/mission20-c1-inventory.cjs | Inherited unchanged. |
+| scripts/mission20-c1-locking-inventory.cjs | New: immutable scanner reuse for locking audit. |
+| scripts/mission20-c1-writer-proposals.cjs | New: deterministic source-preserving SQL generation/check. |
+| scripts/qualify-mission20-c1-postgres.cjs | Modified: local-major selection, safe extension, confirmed FK and stronger gate diagnostics. |
+| scripts/qualify-mission20-c1-writers.cjs | New: explicit local writer/participant/user-deletion concurrency runner. |
+| scripts/test-mission20-c1-design.cjs | Modified: 16 checks, including exact original-function preservation. |
+| scripts/test-organizer-broadcast-authorization.cjs | Inherited one-line repair, unchanged. |
 
-## Decisions before any migration
+## Precise next-phase recommendation
 
-Review per-team ordering and residual child/parent deadlocks, all deployed writers/FKs/triggers, the privileged worker boundary, the retained row-slot interpretation, and freeze/adapter/operator gates. Catalog exceptions, source-verified official classification, stress/transport/workflow qualification and production acceptance remain separate gates. SET NULL needs its own proposal. No execution or rollout approval is implied or requested.
+Review the bounded protocol and proposed C2 writer-adapter split in LOCKING-QUALIFICATION.md. A future `fix/mission20-c2-writer-adapters` branch should preserve UI/DB authorization and exact success confirmation, wire typed RPCs and truthful retry handling, and qualify outer timeout/lost-response behavior before native-adapter rollout design is promoted.
+
+**Still blocked for migration/rollout:** disposable PostgreSQL 17.6 qualification; complete deployed function/ACL/role/dependency comparison; any unresolved UPDATE/admin-team policy entitlement; larger load/bulk/disconnect tests; actual API/JWT/adapter/browser-to-database and production acceptance. Keep admission freeze-first and never restore the unsafe native bypass. C1 does not create or deploy C2, change active permissions, merge either PR or authorize production SQL.

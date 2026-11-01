@@ -20,6 +20,11 @@ ALTER TABLE public.hackathons ADD COLUMN registration_start timestamptz, ADD COL
 -- Confirmed by founder's live read-only audit. No FK change is proposed.
 ALTER TABLE public.hackathon_registrations ADD CONSTRAINT hackathon_registrations_team_id_fkey
   FOREIGN KEY(team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
+-- Membership CASCADE is now independently confirmed too. Fixture correction
+-- only: no proposed production FK replacement or conversion.
+ALTER TABLE public.team_members DROP CONSTRAINT team_members_team_id_fkey;
+ALTER TABLE public.team_members ADD CONSTRAINT team_members_team_id_fkey
+  FOREIGN KEY(team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
 ALTER TABLE public.hackathons ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.hackathons TO authenticated, service_role;
 CREATE POLICY hackathons_read ON public.hackathons FOR SELECT TO authenticated USING (true);
@@ -68,13 +73,10 @@ SELECT set_config('request.jwt.claim.sub',public.fixture_id(9001)::text,false);
 SELECT public.fixture_error('SELECT public.register_native_hackathon(public.fixture_id(9101))','P0001','new RPC cannot bypass release freeze');
 SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(public.fixture_id(9110),auth.uid())','P0001','community cannot bypass release freeze');
 RESET ROLE;
-\if :{?per_team}
-  \ir 06-unfreeze-admission.proposed.sql
-\else
-  -- TEST-ONLY comparator: global is intentionally ineligible for release.
-  -- The executable runner separately asserts that 06 rejects this variant.
-  DROP POLICY mission20_release_freeze ON public.hackathon_registrations;
-\endif
+-- TEST-ONLY comparators: global and old per-team lack the final writer protocol
+-- and are intentionally ineligible for release. Runner asserts 06 rejects both.
+-- Extended writer qualification later installs 07/08 under freeze and tests 06.
+DROP POLICY mission20_release_freeze ON public.hackathon_registrations;
 
 SET TimeZone = 'Pacific/Auckland';
 SELECT public.fixture_assert(mission20_private.boundary('2026-10-31', true) = '2026-10-31T18:30:00Z'::timestamptz, 'inclusive final India day independent of session timezone');

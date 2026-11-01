@@ -15,6 +15,13 @@ DO $$ BEGIN
       AND confrelid='public.teams'::regclass AND confdeltype='c') THEN
     RAISE EXCEPTION 'confirmed_team_cascade_fk_required';
   END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
+    WHERE c.conrelid='public.team_members'::regclass AND c.confrelid='public.teams'::regclass
+      AND c.contype='f' AND c.confdeltype='c' AND c.convalidated
+      AND c.conkey=ARRAY[(SELECT attnum FROM pg_catalog.pg_attribute
+        WHERE attrelid='public.team_members'::regclass AND attname='team_id')]::smallint[]) THEN
+    RAISE EXCEPTION 'confirmed_membership_cascade_fk_required';
+  END IF;
 END; $$;
 
 -- Deliberately fail if this namespace already exists: inspect ownership/drift.

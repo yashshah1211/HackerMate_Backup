@@ -29,7 +29,7 @@ test('design leaves application, active migration, policy and environment files 
   const changed = cp.execFileSync('git', ['diff', base, '--name-only', '--', 'src', 'supabase', '.github', 'package.json', 'package-lock.json', '.env', '.env.local'], { cwd: root, encoding: 'utf8' });
   assert.equal(changed.trim(), '');
   const files = fs.readdirSync(path.join(dir, 'sql'));
-  assert.deepEqual(files.sort(), ['00-freeze-admission.proposed.sql','00-preflight.review.sql','01-expand.proposed.sql','02-contract.proposed.sql','03-rollback-freeze.proposed.sql','04-security-tests.review.sql','05-per-team-roster.alternative.sql','06-unfreeze-admission.proposed.sql']);
+  assert.deepEqual(files.sort(), ['00-freeze-admission.proposed.sql','00-preflight.review.sql','01-expand.proposed.sql','02-contract.proposed.sql','03-rollback-freeze.proposed.sql','04-security-tests.review.sql','05-per-team-roster.alternative.sql','06-unfreeze-admission.proposed.sql','07-writer-protocol.proposed.sql','08-existing-writers.proposed.sql','09-writer-fixture.review.sql']);
   for (const file of files) assert.match(read('sql/' + file), /REVIEW ONLY/);
 });
 
@@ -121,4 +121,59 @@ test('organizer harness repair preserves every pre-review assertion expression',
   const assertions=text=>text.split(/\r?\n/).filter(line=>/\bassert(?:\.|\()/.test(line));
   assert.deepEqual(assertions(current),assertions(before));
   assert.match(current,/'@\/lib\/hackathons\/lifecycle': require\('\.\/ppt-vision-harness\.cjs'\)\.harness\(\)\.load/);
+});
+
+test('locking query inventory reproduces every baseline API projection and SQL context', () => {
+  const output=cp.execFileSync(process.execPath,['scripts/mission20-c1-locking-inventory.cjs','--check'],{cwd:root,encoding:'utf8'});
+  assert.match(output,/94 API chains \/ 366 SQL contexts/);
+  const lock=JSON.parse(read('LOCK-QUERY-INVENTORY.json'));
+  assert.equal(lock.base,'f7845bc5993a8145782b1d614c62a391c1012081');
+  assert.equal(lock.queries.filter(q=>q.file.startsWith('src/')&&q.operations.some(o=>['insert','update','delete','upsert'].includes(o.operation))).length,13);
+});
+
+test('existing writer prototypes preserve all original checks and DML except explicit lock edits', () => {
+  const output=cp.execFileSync(process.execPath,['scripts/mission20-c1-writer-proposals.cjs','--check'],{cwd:root,encoding:'utf8'});
+  assert.match(output,/matches immutable sources/);
+  const {definition}=require('./mission20-c1-writer-proposals.cjs');
+  const proposal=read('sql/08-existing-writers.proposed.sql').replace(/\r/g,'');
+  const normalized=s=>s.replace(/\s+/g,' ').trim().replace(/\bAS \$\$/gi,()=> 'as $$');
+  for(const [file,name] of [
+    ['supabase/migrations/202610060001_restore_safe_user_deletion.sql','public.delete_user_completely'],
+    ['supabase/migrations/202607020001_core_security.sql','public.accept_team_invite'],
+    ['supabase/migrations/202607020001_core_security.sql','public.accept_team_join_request'],
+    ['supabase/migrations/202607070001_ensure_team_conversation.sql','public.ensure_team_conversation'],
+  ]) {
+    const original=definition(file,name),start=proposal.toLowerCase().indexOf('create or replace function '+name);
+    const open=proposal.indexOf('$$',start),end=proposal.indexOf('$$;',open+2);
+    let actual=proposal.slice(start,end+3).replace(/\n\s*-- M20 LOCK BEGIN[\s\S]*?-- M20 LOCK END\n/g,'\n')
+      .replace(/\nSET lock_timeout='3s' SET statement_timeout='15s'/g,'')
+      .replace('LIMIT 1 FOR UPDATE OF m, p NOWAIT;','LIMIT 1 FOR UPDATE OF m, p;');
+    assert.equal(normalized(actual),normalized(original),name+' authorization/behavior drift');
+  }
+});
+
+test('writer protocol adds no base-table authority and bounds legacy child-first conflicts', () => {
+  const sql=read('sql/07-writer-protocol.proposed.sql');
+  assert(!/(?:CREATE|DROP|ALTER) POLICY|GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL) ON public\./i.test(sql));
+  assert.match(sql,/FOR UPDATE NOWAIT/);
+  assert.match(sql,/DELETE FROM public\.team_members[\s\S]*INSERT INTO public\.team_members SELECT \* FROM unnest\(members\)/);
+  for(const name of ['mission20_remove_team_member','mission20_set_project_role','mission20_delete_team']) {
+    const start=sql.indexOf('CREATE FUNCTION public.'+name),end=sql.indexOf('END; $$;',start);
+    const body=sql.slice(start,end);
+    assert.match(body,/SECURITY INVOKER/);assert.match(body,/lock_authorized_team/);
+  }
+  assert.match(read('sql/08-existing-writers.proposed.sql'),/OLD\.hackathon_id FOR UPDATE NOWAIT/);
+  assert.match(read('sql/06-unfreeze-admission.proposed.sql'),/lock_team_parents\(uuid\[\]\)/);
+});
+
+test('writer fixture records confirmed conversation cascades and fail-closed audit behavior', () => {
+  const fixture=read('sql/09-writer-fixture.review.sql');
+  for(const name of ['trg_create_team_conversation','trg_add_member_to_team_conversation','trg_remove_member_from_team_conversation'])assert(fixture.includes(name));
+  assert.match(fixture,/REFERENCES public\.conversations\(id\) ON DELETE CASCADE/);
+  assert.match(fixture,/REFERENCES auth\.users\(id\) ON DELETE CASCADE/);
+  assert.match(fixture,/202608030005_add_deleted_user_logs_audit_trigger\.sql/);
+  assert.match(fixture,/202610060001_restore_safe_user_deletion\.sql/);
+  const runner=fs.readFileSync(path.join(root,'scripts/qualify-mission20-c1-writers.cjs'),'utf8');
+  assert.match(runner,/swallowed audit insert still makes RPC fail/);
+  assert.match(runner,/55P03/);assert(!/process\.env|\.env\.local|supabase\.co/.test(runner));
 });
