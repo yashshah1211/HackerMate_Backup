@@ -27,11 +27,13 @@ jobs:
           scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs
           scripts/test-mission20-native-http-sdk.cjs
           scripts/qualify-mission20-release-postgrest.cjs scripts/qualify-mission20-c1-postgres.cjs scripts/qualify-mission20-c2-writers.cjs
+          scripts/test-mission20-release-package.cjs
       - name: Application regressions
         run: >-
           node --test --test-concurrency=1
           scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs
           scripts/test-mission20-native-http-sdk.cjs
+          scripts/test-mission20-release-package.cjs
           scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs
           scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs
           scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs

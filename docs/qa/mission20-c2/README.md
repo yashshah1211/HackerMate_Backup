@@ -1,5 +1,7 @@
 # Mission 20 C2 — safe writer adapters
 
+The [final release-readiness package](release/README.md) audits schema/ledger/ACL compatibility, supplies independent SELECT-only catalog requests, adds real disposable PostgREST acceptance, and defines the future freeze/deploy/rollback gates. **Production release remains NO-GO** until live parity, atomic migration packaging, hosted Auth/gateway acceptance and independent operational approvals are complete. Nothing here installs the missing production RPCs or authorizes main merges/deployment.
+
 The [independent-review follow-up](REVIEW-FOLLOWUP.md) verifies actual Actions results at a797869 and adds 20 installed-Supabase-SDK/full native HTTP flow tests. That snapshot had three historical metadata failures; the approved Phase B test correction and safe forward synchronization are now recorded in [BASELINE-METADATA.md](BASELINE-METADATA.md). SQL and freeze-first release requirements below remain unchanged.
 
 **Draft implementation for independent review. NO-GO for migration execution, deployment or merge.**

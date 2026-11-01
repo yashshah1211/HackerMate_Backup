@@ -1,0 +1,74 @@
+{
+  "status": "NO_GO_PRODUCTION",
+  "baselineHead": "f918ee08fa6ad1f9f8dbccd8ed853744b55daf6f",
+  "baseline": {
+    "applicationTests": 1613,
+    "sdkWriterTests": 51,
+    "pg17": "17.6 SQL/concurrency passed",
+    "rackBrowser": 32,
+    "typeScript": "passed",
+    "scopedLint": "passed",
+    "build": "passed"
+  },
+  "currentQualification": "See PR #96 body/current-head Actions for exact final job results. This is a source-time receipt; no outcome is predicted.",
+  "local": {
+    "windowsPg17": "not installed",
+    "windowsPostgrest": "official 16.5 archive SHA verified; native --version probe failed before DB allocation (status 3221226105)",
+    "windowsPostgrestArchiveSha256": "17f595b0d8dd37473d0231417dea07c5ac9f791282ff5b017fae51ff29e5de2f",
+    "pg18CatalogSyntax": {
+      "version": "18.4",
+      "sqlAssertionsPerVariant": 279,
+      "orchestrationChecks": 73,
+      "ownedClustersCleaned": 2,
+      "productionConnections": 0,
+      "supplementaryOnly": true
+    },
+    "scopedLint": "passed"
+  },
+  "firstHttpTrial": {
+    "head": "07d14fb5ee538981325bbcf2161d2c957c8b1d50",
+    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41321554169",
+    "nativeJob": 124892689945,
+    "status": "FAILED",
+    "actual": "Existing C1/C2 SQL checks and first three real HTTP security/native checks passed; community POST expected 201 returned 403.",
+    "cause": "Harness re-freezes after original contract, revoking INSERT columns; 06 removes only policy. Restore exact seven-column grant from unchanged reviewed 02 in the disposable final-state fixture. No production permissions changed.",
+    "reconciliation": "Positive community assertion retained. Final contract-after-last-freeze and rollback ACL recovery gates made explicit."
+  },
+  "untested": [
+    "Hosted GoTrue Auth issuance/login/email/SSO/MFA/session revocation",
+    "Actual Supabase API gateway/JWT/cache/config integration",
+    "Exact live schema/RLS/ACL/body/ledger and production-scale parity",
+    "Atomic future migration packaging/install/restore on a matching isolated restored schema",
+    "Actual Vercel deployment hold, writer drain and live application acceptance"
+  ],
+  "liveConnections": 0,
+  "activeMigrationsApplied": 0,
+  "deployed": false,
+  "merged": false,
+  "secondHttpTrial": {
+    "head": "2cb5a0be3b9a1f6ffb572a944e6b87e8b421e758",
+    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41322200548",
+    "nativeJob": 124894602946,
+    "status": "FAILED",
+    "actual": "Community INSERT privilege issue resolved; own-row lookup expected one row but returned two for the event organizer.",
+    "cause": "Existing RLS intentionally allows a native organizer to read participants. The test omitted the application own-user filter.",
+    "reconciliation": "Own lookup now includes exact user_id filter and separately asserts the organizer can still read both participants. Nonorganizer/anonymous privacy assertions remain. No RLS or production code changed."
+  },
+  "followupFiles": [
+    ".github/workflows/mission20-c2-qualification.yml",
+    "docs/qa/mission20-c2/README.md",
+    "docs/qa/mission20-c2/VERIFICATION.json",
+    "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
+    "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+    "docs/qa/mission20-c2/release/README.md",
+    "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+    "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+    "scripts/qualify-mission20-c1-postgres.cjs",
+    "scripts/qualify-mission20-c2-writers.cjs",
+    "scripts/qualify-mission20-release-postgrest.cjs",
+    "scripts/test-mission20-release-package.cjs"
+  ],
+  "persistentEnvironmentChanges": 0,
+  "ephemeralFixtureConfig": "Temporary loopback PostgREST config/role timeouts/JWT key only, deleted with the owned fixture root."
+}

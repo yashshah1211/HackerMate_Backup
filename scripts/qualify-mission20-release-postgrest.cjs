@@ -104,8 +104,10 @@ async function qualifyHttp(c) {
   assert.equal(await admin.query(`SELECT count(*) FROM public.hackathon_registrations WHERE hackathon_id='${uid(11150)}';`),'2');
   check('direct native INSERT and forged community identity denied with no extra rows');
   for(const n of [11151,11152])ok(await request('/hackathon_registrations',11103,{hackathon_id:uid(n),user_id:uid(11103),status:'confirmed'}),201);
-  const own=ok(await request(`/hackathon_registrations?select=id,user_id,status&hackathon_id=eq.${uid(11150)}`,11101));
+  const own=ok(await request(`/hackathon_registrations?select=id,user_id,status&hackathon_id=eq.${uid(11150)}&user_id=eq.${uid(11101)}`,11101));
   assert.equal(own.length,1);assert.equal(own[0].user_id,uid(11101));
+  assert.equal(ok(await request(`/hackathon_registrations?select=id&hackathon_id=eq.${uid(11150)}`,11101)).length,2,
+   'native organizer retains the existing authorized participant read');
   assert.deepEqual(ok(await request(`/hackathon_registrations?select=id&user_id=eq.${uid(11101)}`,11102)),[]);
   denied(await request('/hackathon_registrations?select=id',null));
   check('external/official community joins ignore external registration deadline; private/anonymous reads remain scoped');

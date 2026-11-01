@@ -13,10 +13,17 @@ SELECT nspname, pg_get_userbyid(nspowner) AS owner, nspacl
 
 -- Include the real role graph; never read pg_authid/password hashes.
 SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin,
- rolbypassrls, rolconfig FROM pg_catalog.pg_roles
+ rolbypassrls, ARRAY(SELECT s FROM unnest(rolconfig) s WHERE s LIKE 'statement_timeout=%'
+  OR s LIKE 'lock_timeout=%' OR s LIKE 'search_path=%' OR s LIKE 'default_transaction_isolation=%') AS relevant_settings
+ FROM pg_catalog.pg_roles
  WHERE rolname IN('postgres','authenticator','authenticated','anon','service_role');
 SELECT pg_get_userbyid(member) AS member, pg_get_userbyid(roleid) AS inherited_role,
  admin_option, inherit_option, set_option FROM pg_catalog.pg_auth_members;
+SELECT r.rolname,n.nspname,has_schema_privilege(r.oid,n.oid,'USAGE') AS usage,
+ has_schema_privilege(r.oid,n.oid,'CREATE') AS create_objects
+ FROM pg_catalog.pg_roles r CROSS JOIN pg_catalog.pg_namespace n
+ WHERE r.rolname IN('anon','authenticated','service_role','authenticator')
+ AND n.nspname IN('public','auth','mission20_private','matchmaking') ORDER BY r.rolname,n.nspname;
 -- Role/database settings may contain private deployment values: retain output
 -- privately and redact secrets before review; do not paste into public PRs.
 SELECT coalesce(d.datname,'ALL') AS database_name, coalesce(r.rolname,'ALL') AS role_name,
