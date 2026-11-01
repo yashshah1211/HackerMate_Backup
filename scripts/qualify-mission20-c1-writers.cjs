@@ -67,10 +67,15 @@ const extension={
     await admin.query(`${identity(9502)} SELECT public.fixture_error($q$${remove(authTeam,9501)}$q$,'42501','member cannot remove owner'); RESET ROLE;
       ${identity(9503)} SELECT public.fixture_error($q$${remove(authTeam,9502)}$q$,'42501','outsider cannot remove member'); RESET ROLE;
       ${identity(9502)} SELECT public.fixture_error('SELECT public.mission20_delete_team(''${uid(authTeam)}'')','42501','member cannot delete team'); RESET ROLE;
-      ${identity(9501)} SELECT public.fixture_error($q$SELECT public.mission20_set_project_role('${uid(authTeam)}',${memberId(authTeam,9502)},'Tester')$q$,'42501','no UPDATE policy is bypassed'); RESET ROLE;
+      ${identity(9502)} SELECT public.fixture_error($q$SELECT public.mission20_set_project_role('${uid(authTeam)}',${memberId(authTeam,9502)},'Tester')$q$,'42501','nonowner UPDATE denied'); RESET ROLE;
+      ${identity(9501)} SELECT public.mission20_set_project_role('${uid(authTeam)}',${memberId(authTeam,9502)},'Tester'); RESET ROLE;
+      SELECT public.fixture_assert(NOT has_column_privilege('authenticated','public.team_members','team_id','UPDATE'),'team identity UPDATE remains denied');
       ${identity(9502)} ${remove(authTeam,9502)} RESET ROLE;`);
     await chatMatches(authTeam);
-    passed('invoker writers retain owner/self DELETE and fixture no-UPDATE-policy denial; self leave syncs chat');
+    passed('confirmed owner project-role UPDATE succeeds; nonowner and identity-column UPDATE remain denied; self leave syncs chat');
+    const adminTeam=await team();
+    await admin.query(`${identity(9500)} SELECT public.mission20_delete_team('${uid(adminTeam)}'); RESET ROLE;`);
+    await gone(adminTeam);passed('confirmed nonowner administrator DELETE policy succeeds with full conversation CASCADE');
 
     // Exactly the old residual order: parent held before legacy raw child DML.
     const rawTeam=await team();await event(9501,rawTeam);
@@ -258,4 +263,5 @@ const extension={
     passed('storage blocker, protected administrator and canonical authenticated-only EXECUTE boundary preserved');
   },
 };
+module.exports={extension};
 if(require.main===module)main(extension).catch(error=>{console.error(error.stack);process.exitCode=1;});

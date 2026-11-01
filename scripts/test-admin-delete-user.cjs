@@ -36,6 +36,7 @@ function harness(options = {}) {
   function client(key, cookie = false) {
     return {
       auth: {
+        async getSession(){return {data:{session:{user:state.user,access_token:"fixture-token"}},error:null};},
         async getUser(token) {
           state.events.push(['authenticate']);
           return { data: { user: token === 'fixture-token' || cookie ? state.user : null }, error: state.authError };
@@ -72,13 +73,15 @@ function harness(options = {}) {
         };
         return query;
       },
-      async rpc(name, args) {
+      rpc(name, args) {
+        const query={setHeader(){return query;},retry(){return query;},abortSignal(){return query;},then(resolve,reject){return (async()=>{
         assert.equal(key, 'fake-anon', 'Use the verified caller, not service-role RPC');
         assert.equal(name, 'delete_user_completely');
         assert.deepEqual(JSON.parse(JSON.stringify(args)), { p_target_user_id: TARGET });
         state.events.push(['transaction']);
         if (state.rpcThrows) throw new Error('private transport exception');
         return { data: null, error: state.rpcError };
+        })().then(resolve,reject);}};return query;
       },
     };
   }
@@ -103,7 +106,7 @@ function harness(options = {}) {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText;
     vm.runInNewContext(code, {
-      exports, process: { env },
+      exports, process: { env }, AbortSignal, AbortController, setTimeout, clearTimeout,
       require(name) {
         if (Object.hasOwn(mocks, name)) return mocks[name];
         if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`);
@@ -204,7 +207,7 @@ for (const [name, options, requestOptions] of [
   });
 }
 
-for (const [code, status] of [['42501', 403], ['P0002', 404], ['23503', 409], ['P0001', 409], ['42703', 500], ['XX000', 500]]) {
+for (const [code, status] of [['42501', 403], ['P0002', 404], ['23503', 409], ['P0001', 409], ['42703', 503], ['XX000', 500]]) {
   test(`transaction failure ${code} is safe`, async () => {
     const result = await harness({ rpcError: { code, message: 'private database detail' } }).run();
     assert.equal(result.status, status);
@@ -217,7 +220,9 @@ for (const [code, status] of [['42501', 403], ['P0002', 404], ['23503', 409], ['
 
 test('transport failure does not retry an ambiguous deletion', async () => {
   const result = await harness({ rpcThrows: true }).run();
-  assert.equal(result.status, 500);
+  assert.equal(result.status, 503);
+  assert.equal(result.body.outcomeUnknown, true);
+  assert.equal(result.body.retryable, false);
   assert.match(result.body.error, /confirm|refresh/i);
   assert.equal(result.state.events.filter(([event]) => event === 'transaction').length, 1);
 });

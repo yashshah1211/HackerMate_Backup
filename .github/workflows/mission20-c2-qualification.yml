@@ -1,0 +1,87 @@
+name: Mission 20 C2 isolated qualification
+on:
+  pull_request:
+    branches: [design/mission20-c1-database-security]
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Adapter and route lint
+        run: >-
+          npx eslint src/lib/writers.ts src/lib/hackathons/nativeRegistration.ts src/lib/hackathons/registrationClient.ts
+          src/app/api/admin/delete-user/route.ts 'src/app/api/hackathons/[id]/register/route.ts'
+          'src/app/profile/[id]/useProfileData.ts' scripts/test-mission20-c2-writers.cjs
+          scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs
+      - name: Application regressions (existing metadata failures remain visible)
+        run: >-
+          node --test --test-concurrency=1
+          scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs
+          scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs
+          scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs
+          scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs
+          scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs
+          scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs
+          scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs
+          scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs
+          scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs
+          scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs
+          scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs
+          scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs
+      - name: Guarded production build
+        if: ${{ always() && !cancelled() }}
+        run: node qa/rack-qualification.cjs build
+      - name: Install isolated browser
+        if: ${{ always() && !cancelled() }}
+        run: npx playwright install --with-deps chromium
+      - name: Exact Rack conversion browser
+        if: ${{ always() && !cancelled() }}
+        run: node qa/rack-qualification.cjs funnel-browser
+      - name: Browser evidence
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mission20-c2-rack-browser
+          path: scratch/rack-funnel/
+  native-pg17:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Build official native PostgreSQL 17.6 in isolated workspace
+        shell: bash
+        run: |
+          mkdir -p scratch/pg17-source
+          cd scratch/pg17-source
+          curl --fail --location --retry 2 --output postgresql-17.6.tar.bz2 https://ftp.postgresql.org/pub/source/v17.6/postgresql-17.6.tar.bz2
+          echo 'e0630a3600aea27511715563259ec2111cd5f4353a4b040e0be827f94cd7a8b0  postgresql-17.6.tar.bz2' | sha256sum --check
+          tar -xjf postgresql-17.6.tar.bz2
+          cd postgresql-17.6
+          ./configure --prefix="$GITHUB_WORKSPACE/scratch/pg17" --without-readline --without-zlib --without-icu
+          make -j2
+          make install
+          "$GITHUB_WORKSPACE/scratch/pg17/bin/postgres" --version
+      - name: TypeScript and adapter tests
+        run: |
+          npm run typecheck
+          node --test scripts/test-mission20-c2-writers.cjs
+      - name: Fresh native PG17.6 C1 and C2 SQL/concurrency qualification
+        run: node scripts/qualify-mission20-c2-writers.cjs --local-pg17-only

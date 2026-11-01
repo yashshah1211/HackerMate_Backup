@@ -10,7 +10,8 @@ const SQL = path.join(ROOT, 'docs/qa/mission20-c1/sql');
 const env = {};
 for (const key of ['PATH','SystemRoot','WINDIR','COMSPEC','USERPROFILE','LOCALAPPDATA','TEMP','TMP']) if (process.env[key]) env[key] = process.env[key];
 let major = 18;
-const binary = name => process.platform === 'win32' ? path.join(process.env.ProgramFiles || 'C:/Program Files', `PostgreSQL/${major}/bin`, name + '.exe') : major===17 ? `/usr/lib/postgresql/17/bin/${name}` : name;
+const binary = name => process.platform === 'win32' ? path.join(process.env.ProgramFiles || 'C:/Program Files', `PostgreSQL/${major}/bin`, name + '.exe')
+  : major===17 ? path.join(fs.existsSync(path.join(ROOT,'scratch/pg17/bin/postgres')) ? path.join(ROOT,'scratch/pg17/bin') : '/usr/lib/postgresql/17/bin',name) : name;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let passes = 0;
 function passed(label) { passes++; console.log('PASS: ' + label); }

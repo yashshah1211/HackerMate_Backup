@@ -1,4 +1,5 @@
 "use client";
+import { deleteTeam, writerMessage, WriterBudget } from "@/lib/writers";
 
 import Link from "next/link";
 import { Team } from "../_types";
@@ -27,18 +28,16 @@ export default function TeamsTab({
       message: `Are you sure you want to permanently delete team "${teamName}"? This will purge the team, its members, document pad, tasks, link hub, brainstorm boards, deployments, and all associated messages. This action is irreversible.`,
       confirmText: "Delete Permanently",
       onConfirm: async () => {
-        const { error } = await supabase
-          .from("teams")
-          .delete()
-          .eq("id", teamId);
-
-        if (error) {
-          console.error(error);
-          showToast(error.message, "error");
-        } else {
+        const budget = new WriterBudget();
+        try {
+          const { data: { user }, error } = await budget.run(() => supabase.auth.getUser());
+          if (error) throw error;
+          if (!user) throw new Error("Sign in again.");
+          await deleteTeam(supabase, teamId, user.id, budget);
           showToast(`Team "${teamName}" has been deleted successfully.`, "success");
           await onRefresh();
-        }
+        } catch (error) { console.error("[admin] team deletion failed:", error); showToast(writerMessage(error), "error"); }
+
       },
     });
   }

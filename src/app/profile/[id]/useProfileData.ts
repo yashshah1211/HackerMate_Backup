@@ -1,4 +1,5 @@
 "use client";
+import { deleteAccount as deleteWriterAccount, writerMessage, WriterBudget, WriterError } from "@/lib/writers";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -413,29 +414,26 @@ export function useProfileData(id: string) {
 
   const deleteAccount = useCallback(async () => {
     setBusy("delete");
+    const budget = new WriterBudget();
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await budget.run(() => supabase.auth.getUser());
       if (!user) {
         setBusy(null);
         return;
       }
-      const { error } = await supabase.rpc("delete_user_completely", { p_target_user_id: user.id });
-      if (error) {
-        showToast(error.message, "error");
-        setBusy(null);
-      } else {
-        showToast("Account permanently deleted.", "success");
-        await supabase.auth.signOut();
-        router.push("/");
-      }
+      if (profile?.id !== user.id) throw new WriterError("Your profile changed. Refresh before deleting your account.", 409);
+      await deleteWriterAccount(supabase, user.id, user.id, budget);
+      showToast("Account permanently deleted.", "success");
+      await supabase.auth.signOut();
+      router.push("/");
     } catch (err) {
       console.error(err);
-      showToast(err instanceof Error ? err.message : "Failed to delete account.", "error");
+      showToast(writerMessage(err), "error");
       setBusy(null);
     }
-  }, [router, showToast]);
+  }, [router, showToast, profile]);
 
   const inviteFromPrompt = useCallback(
     async (teamId: string): Promise<boolean> => {

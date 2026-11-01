@@ -1,4 +1,5 @@
 "use client";
+import { ensureTeamConversation, writerMessage, WriterBudget } from "@/lib/writers";
 
 import { useEffect, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
@@ -987,10 +988,13 @@ export default function TeamWorkspaceView({
   };
 
   useEffect(() => {
+    let active = true;
     async function init() {
+      const budget = new WriterBudget();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await budget.run(() => supabase.auth.getUser());
+      if (!active) return;
 
       if (!user) {
         setChatLoading(false);
@@ -999,15 +1003,11 @@ export default function TeamWorkspaceView({
 
       setCurrentUserId(user.id);
 
-      const { data: convId, error: convError } = await supabase
-        .rpc("ensure_team_conversation", { p_team_id: team.id });
-
-      if (convError) {
-        console.error("Failed to ensure team conversation:", convError);
-        setConversationId(null);
-      } else {
-        setConversationId(convId ?? null);
-      }
+      try {
+        const convId = await ensureTeamConversation(supabase, team.id, user.id, budget);
+        if (!active) return;
+        setConversationId(convId);
+      } catch (error) { console.error("Failed to ensure team conversation:", error); if (!active) return; setConversationId(null); showToast(writerMessage(error), "error"); }
 
       // Fetch initial workspace data
       fetchTasks();
@@ -1018,7 +1018,8 @@ export default function TeamWorkspaceView({
       setChatLoading(false);
     }
 
-    init();
+    void init().catch(error => { console.error("[workspace] initialization failed:", error); if (!active) return; setChatLoading(false); showToast(writerMessage(error), "error"); });
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team.id]);
 

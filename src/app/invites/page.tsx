@@ -1,4 +1,5 @@
 "use client";
+import { acceptTeamInvite, writerMessage } from "@/lib/writers";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -32,6 +33,7 @@ export default function InvitesPage() {
   const pendingActions = useRef(new Set<string>());
   const resolvedInvites = useRef(new Set<string>());
   const loadVersion = useRef(0);
+  const viewer = useRef<string | null>(null);
 
   async function loadInvites() {
     const version = ++loadVersion.current;
@@ -53,6 +55,7 @@ export default function InvitesPage() {
         console.error("[invites] load failed:", qErr);
         setError(qErr.message);
       } else {
+        viewer.current = user.id;
         setError(null);
         setInvites(((data as Invite[]) || []).filter(invite => !resolvedInvites.current.has(invite.id)));
       }
@@ -112,11 +115,10 @@ export default function InvitesPage() {
     // Keep a snapshot independent of the pending list and Realtime updates.
     const acceptedTeam = { id: invite.team_id, name: invite.teams?.name || "your team" };
     try {
-      const { error: rpcErr } = await supabase.rpc("accept_team_invite", { p_invite_id: invite.id });
-      if (rpcErr) {
-        showToast(rpcErr.message, "error");
-        return;
-      }
+      const actor = viewer.current;
+      if (!actor) return;
+      await acceptTeamInvite(supabase, invite.id, acceptedTeam.id, actor);
+      if (viewer.current !== actor) return;
       removeResolvedInvite(invite.id);
       setJoinedTeam(acceptedTeam);
       try {
@@ -129,7 +131,7 @@ export default function InvitesPage() {
       loadInvites();
     } catch (err) {
       console.error(err);
-      showToast("Failed to accept invite.", "error");
+      showToast(writerMessage(err), "error");
     } finally {
       finishAction(invite.id);
     }

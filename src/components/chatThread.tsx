@@ -1,4 +1,5 @@
 "use client";
+import { acceptTeamInvite, writerMessage } from "@/lib/writers";
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
@@ -109,16 +110,20 @@ function TeamInviteCard({
   inviteId, 
   teamName, 
   teamId, 
-  isMine
+  isMine,
+  actor
 }: { 
   inviteId: string; 
   teamName: string; 
   teamId: string; 
   isMine: boolean;
+  actor: string;
 }) {
   const [status, setStatus] = useState<string>("loading");
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const actionPending = useRef(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -143,16 +148,12 @@ function TeamInviteCard({
   }, [inviteId]);
 
   const handleAccept = async () => {
-    setActionLoading(true);
-    const { error } = await supabase.rpc("accept_team_invite", {
-      p_invite_id: inviteId,
-    });
-    if (error) {
-      console.error(error);
-    } else {
-      setStatus("accepted");
-    }
-    setActionLoading(false);
+    if (actionPending.current || isMine || status !== "pending") return;
+    actionPending.current = true;
+    setActionLoading(true); setActionError(null);
+    try { await acceptTeamInvite(supabase, inviteId, teamId, actor); setStatus("accepted"); }
+    catch (error) { console.error("[chat] invitation failed:", error); setActionError(writerMessage(error)); }
+    finally { actionPending.current = false; setActionLoading(false); }
   };
 
   const handleDecline = async () => {
@@ -188,6 +189,7 @@ function TeamInviteCard({
 
   return (
     <div className="my-0.5 w-[280px] max-w-full rounded-lg bg-raised p-3.5 ring-1 ring-inset ring-line">
+      {actionError && <p role="alert" className="text-sm text-bad">{actionError}</p>}
       <div className="mb-1.5 flex items-center gap-1.5 caps-label text-ink-3">
         <Mail className="size-3.5" aria-hidden />
         <span>Team invite</span>
@@ -1372,6 +1374,7 @@ export default function ChatThread({
         const payload = JSON.parse(payloadStr);
         return (
           <TeamInviteCard
+            actor={currentUserId}
             inviteId={payload.invite_id}
             teamName={payload.team_name}
             teamId={payload.team_id}

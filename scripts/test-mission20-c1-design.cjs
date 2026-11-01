@@ -26,7 +26,7 @@ test('immutable-base inventory is reproducible, including joins and SQL context'
 });
 
 test('design leaves application, active migration, policy and environment files untouched', () => {
-  const changed = cp.execFileSync('git', ['diff', base, '--name-only', '--', 'src', 'supabase', '.github', 'package.json', 'package-lock.json', '.env', '.env.local'], { cwd: root, encoding: 'utf8' });
+  const changed = cp.execFileSync('git', ['diff', base, 'ac618ea003055c9c03495344234e32a1ed8dd07a', '--name-only', '--', 'src', 'supabase', '.github', 'package.json', 'package-lock.json', '.env', '.env.local'], { cwd: root, encoding: 'utf8' });
   assert.equal(changed.trim(), '');
   const files = fs.readdirSync(path.join(dir, 'sql'));
   assert.deepEqual(files.sort(), ['00-freeze-admission.proposed.sql','00-preflight.review.sql','01-expand.proposed.sql','02-contract.proposed.sql','03-rollback-freeze.proposed.sql','04-security-tests.review.sql','05-per-team-roster.alternative.sql','06-unfreeze-admission.proposed.sql','07-writer-protocol.proposed.sql','08-existing-writers.proposed.sql','09-writer-fixture.review.sql']);

@@ -1,0 +1,339 @@
+{
+  "base": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+  "applicationBase": "4818052a944451c74ae0a7d7c4572f3e7c3d0f8e",
+  "branch": "fix/mission20-c2-safe-writer-adapters",
+  "releaseApproved": false,
+  "productionConnections": 0,
+  "activeMigrationChanges": 0,
+  "inventory": [
+    ".github/workflows/mission20-c2-qualification.yml",
+    "docs/qa/mission20-c1/sql/09-writer-fixture.review.sql",
+    "docs/qa/mission20-c2/README.md",
+    "docs/qa/mission20-c2/VERIFICATION.json",
+    "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
+    "scripts/ppt-vision-harness.cjs",
+    "scripts/qualify-mission20-c1-postgres.cjs",
+    "scripts/qualify-mission20-c1-writers.cjs",
+    "scripts/qualify-mission20-c2-writers.cjs",
+    "scripts/test-admin-delete-user.cjs",
+    "scripts/test-dashboard-join-requests.cjs",
+    "scripts/test-event-compatibility.cjs",
+    "scripts/test-invite-handoff.cjs",
+    "scripts/test-mission20-c1-design.cjs",
+    "scripts/test-mission20-c2-writers.cjs",
+    "scripts/test-native-registration.cjs",
+    "scripts/test-team-owner-review.cjs",
+    "scripts/test-team-request-lifecycle.cjs",
+    "scripts/writer-test-client.cjs",
+    "src/app/admin/_tabs/TeamsTab.tsx",
+    "src/app/api/admin/delete-user/route.ts",
+    "src/app/api/hackathons/[id]/register/route.ts",
+    "src/app/dashboard/useDashboardData.ts",
+    "src/app/hackathons/[id]/page.tsx",
+    "src/app/invites/page.tsx",
+    "src/app/profile/[id]/useProfileData.ts",
+    "src/app/teams/[id]/page.tsx",
+    "src/app/teams/[id]/requests/page.tsx",
+    "src/components/TeamOverviewView.tsx",
+    "src/components/TeamWorkspaceView.tsx",
+    "src/components/chatThread.tsx",
+    "src/components/settings/DeleteAccountSection.tsx",
+    "src/lib/hackathons/nativeRegistration.ts",
+    "src/lib/hackathons/registrationClient.ts",
+    "src/lib/writers.ts"
+  ],
+  "application": {
+    "command": "node --test --test-concurrency=1 scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs",
+    "testFiles": [
+      "scripts/test-mission20-c1-design.cjs",
+      "scripts/test-mission20-c2-writers.cjs",
+      "scripts/test-native-registration.cjs",
+      "scripts/test-hackathon-lifecycle.cjs",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-hackathon-discovery-page.cjs",
+      "scripts/test-hackathon-description.cjs",
+      "scripts/test-hackathon-create-dates.cjs",
+      "scripts/test-team-request-lifecycle.cjs",
+      "scripts/test-team-owner-review.cjs",
+      "scripts/test-invite-handoff.cjs",
+      "scripts/test-dashboard-join-requests.cjs",
+      "scripts/test-admin-delete-user.cjs",
+      "scripts/test-event-compatibility.cjs",
+      "scripts/test-rack-it-up-2026.cjs",
+      "scripts/test-rack-conversion-funnel.cjs",
+      "scripts/test-partner-presentation.cjs",
+      "scripts/test-partner-discovery-navigation.cjs",
+      "scripts/test-partner-admin.cjs",
+      "scripts/test-partner-authorization.cjs",
+      "scripts/test-partner-organizer-api.cjs",
+      "scripts/test-organizer-workspace.cjs",
+      "scripts/test-organizer-broadcast-authorization.cjs",
+      "scripts/test-certificate-verification-page.cjs",
+      "scripts/test-certificate-id-integrity.cjs",
+      "scripts/test-public-hackathon-browsing.cjs",
+      "scripts/test-public-hackathon-data.cjs",
+      "scripts/test-public-hackathon-metadata.cjs",
+      "scripts/test-public-hackathon-shell.cjs",
+      "scripts/test-auth-return-paths.cjs",
+      "scripts/test-auth-return-ui.cjs",
+      "scripts/test-onboarding-submission.cjs"
+    ],
+    "total": 1586,
+    "passed": 1583,
+    "failed": 3,
+    "skipped": 0,
+    "adapterTests": {
+      "passed": 29,
+      "failed": 0
+    },
+    "baselineReproduction": {
+      "head": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+      "command": "node --test scripts/test-public-hackathon-metadata.cjs",
+      "total": 29,
+      "passed": 26,
+      "failed": 3
+    },
+    "remainingFailures": [
+      "approved metadata uses safe projection, visibility filters, anonymous client and canonical event URL",
+      "preview text: malformed formatting",
+      "preview text: headings preserve hashes and numeric entities"
+    ],
+    "action": "Separate metadata contract correction: reconcile old spacing/unclosed markup/numeric entity expectations with the reviewed faithful description renderer. C2 changes neither metadata source nor these assertions."
+  },
+  "typeScript": {
+    "command": "npm run typecheck",
+    "exit": 0
+  },
+  "lint": {
+    "fullModifiedSourceExit": 1,
+    "errors": 17,
+    "warnings": 7,
+    "newDiagnostics": 0,
+    "baselineDiagnostics": [
+      {
+        "file": "app/admin/_tabs/TeamsTab.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "import { Search, Building2, Award, Users } from \"lucide-react\";",
+        "message": "'Users' is defined but never used."
+      },
+      {
+        "file": "app/dashboard/useDashboardData.ts",
+        "rule": "prefer-const",
+        "severity": 2,
+        "source": "let finalCampus: DashBuilder[] = [];",
+        "message": "'finalCampus' is never reassigned. Use 'const' instead."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": ".map((r: any) => r.teams)",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": ".sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": ".sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "allRelations.forEach((rel: any) => {",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "let teamsData: any[] = [];",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [isDescExpanded, setIsDescExpanded] = useState(false);",
+        "message": "'isDescExpanded' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [isDescExpanded, setIsDescExpanded] = useState(false);",
+        "message": "'setIsDescExpanded' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [organizerSearch, setOrganizerSearch] = useState(\"\");",
+        "message": "'organizerSearch' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [organizerSearch, setOrganizerSearch] = useState(\"\");",
+        "message": "'setOrganizerSearch' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "import { getTeamCategoryInfo } from \"@/lib/teamCategory\";",
+        "message": "'getTeamCategoryInfo' is defined but never used."
+      },
+      {
+        "file": "components/chatThread.tsx",
+        "rule": "react-hooks/purity",
+        "severity": 2,
+        "source": "id: `temp-${Date.now()}`,",
+        "message": "Error: Cannot call impure function during render"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "(l: any) => !l.hackathon_id || (currentHackathonId && l.hackathon_id === currentHackathonId)",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "const [commits, setCommits] = useState<any[]>([]);",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "const [taskComments, setTaskComments] = useState<any[]>([]);",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "const userPresences = state[key] as any[];",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "isOwnerOrMember={isOwner || members.some((m) => m.profiles?.id === currentUserId || (m as any).user_id === currentUserId)}",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "members={members as any}",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [timeLeft, setTimeLeft] = useState(\"\");",
+        "message": "'timeLeft' is assigned a value but never used."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "fetchCommits();",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "setTaskComments([]);",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "setTimeLeft(\"\");",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "setWorkspaceTab(initialTab);",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      }
+    ],
+    "cleanAdapterCommand": "node node_modules/eslint/bin/eslint.js src/lib/writers.ts src/lib/hackathons/nativeRegistration.ts src/lib/hackathons/registrationClient.ts src/app/api/admin/delete-user/route.ts src/app/api/hackathons/[id]/register/route.ts src/app/profile/[id]/useProfileData.ts scripts/test-mission20-c2-writers.cjs scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs",
+    "cleanAdapterExit": 0
+  },
+  "postgres18": {
+    "command": "node scripts/qualify-mission20-c2-writers.cjs --local-only",
+    "version": "18.4",
+    "variants": 2,
+    "baselineSecurityAssertionsPerVariant": 279,
+    "orchestrationChecks": 72,
+    "globalChecks": 21,
+    "perTeamChecks": 51,
+    "exit": 0,
+    "ownedClustersCleaned": 2,
+    "historicalDeadlockDiagnostics": "Both old 40P01 schedules explicitly reproduced; revised schedules assert bounded results and rollback."
+  },
+  "postgres17": {
+    "version": "17.6",
+    "local": "BLOCKED: no local native PG17 binary",
+    "ci": "PENDING: exact source-built disposable PG17.6 workflow"
+  },
+  "build": {
+    "command": "node qa/rack-qualification.cjs build",
+    "exit": 0,
+    "syntheticReads": 4,
+    "mutations": 0
+  },
+  "browser": {
+    "command": "node qa/rack-qualification.cjs funnel-browser",
+    "passed": 32,
+    "failed": 0,
+    "widths": [
+      390,
+      1440
+    ],
+    "externalRequests": 0,
+    "mutations": 0,
+    "syntheticOnly": true,
+    "evidenceDirectory": "scratch/rack-funnel",
+    "screenshots": [
+      "guest-1440.png",
+      "guest-390.png",
+      "incomplete-next-action-1440.png",
+      "incomplete-next-action-390.png",
+      "member-next-action-1440.png",
+      "member-next-action-390.png",
+      "portal-1440.png",
+      "portal-390.png"
+    ],
+    "screenshotsCommitted": false
+  },
+  "ci": "PENDING: publish stacked Draft PR to run source-built PG17.6 and Linux application qualification",
+  "limitations": [
+    "No real JWT/PostgREST/server-disconnect proof from the psql bridge or synthetic SDK/browser tests.",
+    "Three unchanged baseline metadata failures; full modified-file lint retains 17 baseline errors and 7 warnings.",
+    "New cancellation function is an additional review-only SQL dependency.",
+    "Mixed old DB/new adapters and old destructive writers are unsupported; preserve freeze-first/drain gates."
+  ]
+}

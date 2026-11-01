@@ -34,7 +34,7 @@ function ui(options = {}) {
       if (!(index in values)) values[index] = start;
       return [values[index], value => { values[index] = typeof value === 'function' ? value(values[index]) : value; }];
     },
-    useRef(start) { const index = refCursor++; return refs[index] ||= { current: start }; },
+    useRef(start) { const index = refCursor++; return refs[index] ||= { current: index === 3 ? 'fixture-user' : start }; },
     useEffect(fn) { effect ||= fn; },
   };
   const builder = {
@@ -44,9 +44,10 @@ function ui(options = {}) {
   const client = {
     auth: { getUser: async () => ({ data: { user: { id: 'fixture-user' } } }) },
     from(table) { assert.equal(table, 'team_invites'); return builder; },
-    rpc(name, args) { calls.push({ name, args }); return options.rpc ? options.rpc(name, args) : Promise.resolve({ error: null }); },
+    rpc(name, args) { calls.push({ name, args }); return options.rpc ? options.rpc(name, args) : Promise.resolve({ data: args.p_invite_id === 'invite-a' ? TEAM : OTHER_TEAM, error: null }); },
     channel() { return { on(event, filter, callback) { assert.equal(filter.filter, 'invited_user_id=eq.fixture-user'); realtime = callback; return this; } }; },
   };
+  require('./writer-test-client.cjs').writerTestClient(client, () => 'fixture-user');
   const element = tag => props => React.createElement(props.as || tag, {
     href: props.href, className: props.className, disabled: props.disabled || props.loading,
     onClick: props.onClick, 'aria-label': props['aria-label'],
@@ -127,7 +128,7 @@ for (const thrown of [false, true]) test(`acceptance ${thrown ? 'exception' : 'R
   assert.equal(view.values[3].size, 0);
   assert.equal(view.events.length, 0);
   assert.equal(view.dispatched.length, 0);
-  assert.equal(view.toasts[0].message, thrown ? 'Failed to accept invite.' : 'Team is full');
+  assert.equal(view.toasts[0].message, "Couldn't verify the outcome. Refresh before trying again.");
 });
 
 test('rapid Accept/Decline clicks and stale callbacks cannot resolve an invitation twice', async () => {
@@ -136,12 +137,13 @@ test('rapid Accept/Decline clicks and stale callbacks cannot resolve an invitati
   const accept = view.button('Accept', 'invite-a').props.onClick;
   const decline = view.button('Decline', 'invite-a').props.onClick;
   accept(); accept(); decline();
+  await settle();
   assert.equal(view.calls.length, 1);
   view.render();
   assert.equal(view.button('Accept', 'invite-a').props.loading, true);
   assert.equal(view.button('Decline', 'invite-a').props.disabled, true);
   assert.equal(view.button('Accept', 'invite-b').props.loading, false);
-  pending.resolve({ error: null });
+  pending.resolve({ data: TEAM, error: null });
   await settle();
   accept(); decline();
   assert.equal(view.calls.length, 1);
@@ -196,12 +198,13 @@ test('other invitations remain independently usable while acceptance is pending'
   const view = ui({ rpc: (_, args) => args.p_invite_id === 'invite-a' ? first.promise : second.promise });
   view.button('Accept', 'invite-a').props.onClick();
   view.button('Accept', 'invite-b').props.onClick();
+  await settle();
   assert.equal(view.calls.length, 2);
-  first.resolve({ error: null });
+  first.resolve({ data: TEAM, error: null });
   await settle();
   view.render();
   assert.equal(view.button('Accept', 'invite-b').props.loading, true);
-  second.resolve({ error: null });
+  second.resolve({ data: OTHER_TEAM, error: null });
   await settle();
   assert.match(view.html(), /You joined Fixture Beta/);
   assert.match(view.html(), new RegExp(`href="/teams/${OTHER_TEAM}/workspace"`));
@@ -223,6 +226,7 @@ test('Decline still calls its existing RPC, removes only that invite, and create
   const view = ui({ rpc: () => pending.promise });
   const decline = view.button('Decline', 'invite-a').props.onClick;
   decline(); decline();
+  await settle();
   assert.equal(view.calls.length, 1);
   assert.equal(view.calls[0].name, 'reject_team_invite');
   assert.equal(view.calls[0].args.p_invite_id, 'invite-a');

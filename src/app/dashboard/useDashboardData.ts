@@ -1,4 +1,5 @@
 "use client";
+import { acceptTeamRequest, acceptTeamInvite, writerMessage, WriterBudget } from "@/lib/writers";
 
 import { loadTeammateRecommendations } from "@/lib/matchingClient";
 
@@ -557,18 +558,19 @@ export function useDashboardData() {
     ++loadGeneration.current;
     patch({ joinBusyId: requestId });
     const current = () => mountedRef.current && joinActionRef.current === action && userIdRef.current === userId;
+    const budget = new WriterBudget();
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await budget.run(() => supabase.auth.getUser());
       if (authError) throw authError;
       if (!current()) return;
       if (user?.id !== userId) throw new Error("Your sign-in changed. Refresh before reviewing requests.");
-      const { data: freshTeam, error: teamError } = await supabase.from("teams")
-        .select("owner_id, max_members, team_members(user_id)").eq("id", team.id).maybeSingle();
+      const { data: freshTeam, error: teamError } = await budget.query(() => supabase.from("teams")
+        .select("owner_id, max_members, team_members(user_id)").eq("id", team.id).maybeSingle());
       if (teamError) throw teamError;
       if (!current()) return;
       if (!freshTeam || freshTeam.owner_id !== userId) throw new Error("Only the current team owner can review requests.");
-      const { data: pending, error: requestError } = await supabase.from("team_join_requests")
-        .select("id, user_id").eq("id", requestId).eq("team_id", team.id).eq("status", "pending").maybeSingle();
+      const { data: pending, error: requestError } = await budget.query(() => supabase.from("team_join_requests")
+        .select("id, user_id").eq("id", requestId).eq("team_id", team.id).eq("status", "pending").maybeSingle());
       if (requestError) throw requestError;
       if (!current()) return;
       if (!pending || pending.user_id !== request.user.id) throw new Error("This request is no longer pending. The list will refresh.");
@@ -577,8 +579,7 @@ export function useDashboardData() {
         if (freshTeam.max_members !== null && members.length >= freshTeam.max_members) throw new Error("This team is full. Free up a seat before accepting.");
         if (members.some((m: { user_id: string }) => m.user_id === pending.user_id)) throw new Error("This builder is already a team member.");
         // The RPC remains authoritative if ownership, membership or capacity changes after these reads.
-        const { data, error } = await supabase.rpc("accept_team_join_request", { p_request_id: requestId });
-        if (error) throw error;
+        const data = await acceptTeamRequest(supabase, requestId, team.id, userId, budget);
         if (!current()) return;
         if (data !== team.id) throw new Error("Acceptance could not be confirmed. Refresh before trying again.");
       } else {
@@ -597,7 +598,7 @@ export function useDashboardData() {
       if (current()) showToast(error instanceof Error ? error.message : (error as { message?: string }).message || "Could not update this request.", "error");
     } finally {
       // Refresh even after uncertain responses; never replay the mutation automatically.
-      if (current()) await loadAll();
+      if (current()) void loadAll();
       if (joinActionRef.current === action) {
         joinActionRef.current = null;
         if (mountedRef.current) patch({ joinBusyId: null });
@@ -608,18 +609,21 @@ export function useDashboardData() {
   const acceptInvite = useCallback(
     async (inviteId: string) => {
       patch({ busyId: inviteId });
-      const { error } = await supabase.rpc("accept_team_invite", { p_invite_id: inviteId });
-      patch({ busyId: null });
-      if (error) {
-        showToast(error.message, "error");
-        return;
-      }
-      showToast("Invite accepted!", "success");
-      removeQueueItem((q) => q.kind === "invite" && q.id === inviteId);
-      window.dispatchEvent(new Event("hm:teams-changed"));
-      loadAll();
+      const actor = userIdRef.current;
+      const invite = state.queue.find(item => item.kind === "invite" && item.id === inviteId);
+      try {
+        if (!actor || !invite || invite.kind !== "invite") return;
+        await acceptTeamInvite(supabase, inviteId, invite.teamId, actor);
+        if (userIdRef.current !== actor || !mountedRef.current) return;
+        showToast("Invite accepted!", "success");
+        removeQueueItem(q => q.kind === "invite" && q.id === inviteId);
+        window.dispatchEvent(new Event("hm:teams-changed"));
+        void loadAll();
+      } catch (error) { console.error("[dashboard] invitation failed:", error); showToast(writerMessage(error), "error"); }
+      finally { patch({ busyId: null }); }
+
     },
-    [loadAll, patch, removeQueueItem, showToast],
+    [loadAll, patch, removeQueueItem, showToast, state.queue],
   );
 
   const declineInvite = useCallback(
