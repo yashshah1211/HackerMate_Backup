@@ -26,7 +26,7 @@ jobs:
           'src/app/profile/[id]/useProfileData.ts' scripts/test-mission20-c2-writers.cjs
           scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs
           scripts/test-mission20-native-http-sdk.cjs
-      - name: Application regressions (existing metadata failures remain visible)
+      - name: Application regressions
         run: >-
           node --test --test-concurrency=1
           scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs

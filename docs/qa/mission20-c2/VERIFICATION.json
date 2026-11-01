@@ -1,5 +1,5 @@
 {
-  "base": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+  "base": "541ed465e7acfbbc0aa258d7712b97b6238d27ab",
   "applicationBase": "4818052a944451c74ae0a7d7c4572f3e7c3d0f8e",
   "branch": "fix/mission20-c2-safe-writer-adapters",
   "releaseApproved": false,
@@ -46,11 +46,12 @@
     "src/lib/writers.ts"
   ],
   "application": {
-    "command": "node --test --test-concurrency=1 scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs",
+    "command": "node --test --test-concurrency=1 scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-mission20-native-http-sdk.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs",
     "testFiles": [
       "scripts/test-mission20-c1-design.cjs",
       "scripts/test-mission20-c2-writers.cjs",
       "scripts/test-native-registration.cjs",
+      "scripts/test-mission20-native-http-sdk.cjs",
       "scripts/test-hackathon-lifecycle.cjs",
       "scripts/test-hackathon-discovery.cjs",
       "scripts/test-hackathon-discovery-page.cjs",
@@ -81,35 +82,14 @@
       "scripts/test-auth-return-ui.cjs",
       "scripts/test-onboarding-submission.cjs"
     ],
-    "total": 1588,
-    "passed": 1585,
-    "failed": 3,
+    "total": 1613,
+    "passed": 1613,
+    "failed": 0,
     "skipped": 0,
-    "adapterTests": {
-      "passed": 31,
-      "failed": 0
-    },
-    "baselineReproduction": {
-      "head": "ac618ea003055c9c03495344234e32a1ed8dd07a",
-      "command": "node --test scripts/test-public-hackathon-metadata.cjs",
-      "total": 29,
-      "passed": 26,
-      "failed": 3
-    },
-    "remainingFailures": [
-      "approved metadata uses safe projection, visibility filters, anonymous client and canonical event URL",
-      "preview text: malformed formatting",
-      "preview text: headings preserve hashes and numeric entities"
-    ],
-    "action": "Separate metadata contract correction: reconcile old spacing/unclosed markup/numeric entity expectations with the reviewed faithful description renderer. C2 changes neither metadata source nor these assertions.",
-    "localPreviousFullSelection": {
-      "head": "33fc25830a421c5c7e77298427afc9d67027843a",
-      "total": 1587,
-      "passed": 1584,
-      "failed": 3
-    },
-    "platform": "Linux current source revision",
-    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b"
+    "platform": "Windows local synchronized C2 merge",
+    "qualifiedHead": "850784d5a39d64b8cbf9e5f742fc8936365f101f",
+    "remainingFailures": [],
+    "resolvedBy": "e2e3643fae9643f92d91cc0e271955449536054a: three approved expected literal updates and five new strict cases; no application source changes"
   },
   "typeScript": {
     "command": "npm run typecheck",
@@ -352,21 +332,7 @@
     "screenshotsCommitted": false
   },
   "ci": {
-    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b",
-    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153",
-    "nativePg17": "success",
-    "application": "failure: exactly three baseline metadata failures; 1585/1588 pass; TypeScript, scoped adapter lint, guarded build and 32 Rack checks pass",
-    "applicationJob": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153/job/124839929245",
-    "browserArtifact": "mission20-c2-rack-browser",
-    "initialRun": {
-      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302335491",
-      "nativePg17": "official source build succeeded; scope assertion failed because shallow checkout omitted reviewed base; no SQL qualification executed",
-      "application": "1577/1586 pass: six missing-history errors plus three baseline metadata cases; build and 32 Rack checks passed",
-      "correction": "fetch-depth: 0 in both jobs; all six missing-history errors resolved without assertion changes"
-    },
-    "finalEvidenceCommit": "Historical a797869 was documentation-only relative to e8a84ee; its completed run 41304144336 is recorded in reviewFollowup. Subsequent follow-up adds tests/CI/docs only.",
-    "previousQualifiedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
-    "finalIdentityChecks": "31/31 adapter cases include local account switch while old token still verifies, and unknown connection/statement-completion responses; no automatic replay."
+    "publicationSnapshot": "Phase B e2e3643 Pull Request Validation passed (run 41318663154); Rack qualification run 41318662993 was running. The final synchronized C2 head will run the unchanged build/browser/native PG17 jobs. Do not infer green from local checks; see current-head Actions/PR bodies for completed results."
   },
   "limitations": [
     "No real JWT/PostgREST/server-disconnect proof from the psql bridge or synthetic SDK/browser tests.",
@@ -440,5 +406,118 @@
     "sourceChanges": 0,
     "sqlChanges": 0,
     "freezeFirstUnchanged": true
+  },
+  "reviewedC1Base": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+  "historicalApplicationQualification": {
+    "command": "node --test --test-concurrency=1 scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs",
+    "testFiles": [
+      "scripts/test-mission20-c1-design.cjs",
+      "scripts/test-mission20-c2-writers.cjs",
+      "scripts/test-native-registration.cjs",
+      "scripts/test-hackathon-lifecycle.cjs",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-hackathon-discovery-page.cjs",
+      "scripts/test-hackathon-description.cjs",
+      "scripts/test-hackathon-create-dates.cjs",
+      "scripts/test-team-request-lifecycle.cjs",
+      "scripts/test-team-owner-review.cjs",
+      "scripts/test-invite-handoff.cjs",
+      "scripts/test-dashboard-join-requests.cjs",
+      "scripts/test-admin-delete-user.cjs",
+      "scripts/test-event-compatibility.cjs",
+      "scripts/test-rack-it-up-2026.cjs",
+      "scripts/test-rack-conversion-funnel.cjs",
+      "scripts/test-partner-presentation.cjs",
+      "scripts/test-partner-discovery-navigation.cjs",
+      "scripts/test-partner-admin.cjs",
+      "scripts/test-partner-authorization.cjs",
+      "scripts/test-partner-organizer-api.cjs",
+      "scripts/test-organizer-workspace.cjs",
+      "scripts/test-organizer-broadcast-authorization.cjs",
+      "scripts/test-certificate-verification-page.cjs",
+      "scripts/test-certificate-id-integrity.cjs",
+      "scripts/test-public-hackathon-browsing.cjs",
+      "scripts/test-public-hackathon-data.cjs",
+      "scripts/test-public-hackathon-metadata.cjs",
+      "scripts/test-public-hackathon-shell.cjs",
+      "scripts/test-auth-return-paths.cjs",
+      "scripts/test-auth-return-ui.cjs",
+      "scripts/test-onboarding-submission.cjs"
+    ],
+    "total": 1588,
+    "passed": 1585,
+    "failed": 3,
+    "skipped": 0,
+    "adapterTests": {
+      "passed": 31,
+      "failed": 0
+    },
+    "baselineReproduction": {
+      "head": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+      "command": "node --test scripts/test-public-hackathon-metadata.cjs",
+      "total": 29,
+      "passed": 26,
+      "failed": 3
+    },
+    "remainingFailures": [
+      "approved metadata uses safe projection, visibility filters, anonymous client and canonical event URL",
+      "preview text: malformed formatting",
+      "preview text: headings preserve hashes and numeric entities"
+    ],
+    "action": "Separate metadata contract correction: reconcile old spacing/unclosed markup/numeric entity expectations with the reviewed faithful description renderer. C2 changes neither metadata source nor these assertions.",
+    "localPreviousFullSelection": {
+      "head": "33fc25830a421c5c7e77298427afc9d67027843a",
+      "total": 1587,
+      "passed": 1584,
+      "failed": 3
+    },
+    "platform": "Linux current source revision",
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b"
+  },
+  "metadataCorrection": {
+    "phaseB": "e2e3643fae9643f92d91cc0e271955449536054a",
+    "c1": "541ed465e7acfbbc0aa258d7712b97b6238d27ab",
+    "c2Synchronization": "850784d5a39d64b8cbf9e5f742fc8936365f101f",
+    "testFile": "scripts/test-public-hackathon-metadata.cjs",
+    "changedExpectedLiterals": 3,
+    "newStrictCases": 5,
+    "correctedMetadataCases": 34,
+    "originalAssertionsPreserved": true,
+    "sourceRenderingChanges": 0,
+    "localMetadataAndDescription": {
+      "passed": 41,
+      "failed": 0
+    },
+    "localC1AndMetadata": {
+      "passed": 50,
+      "failed": 0
+    },
+    "localBroad": {
+      "passed": 1613,
+      "failed": 0
+    },
+    "typeScriptExit": 0,
+    "scopedMetadataLintExit": 0,
+    "sqlAndFreezeFirstUnchanged": true,
+    "forcePush": false,
+    "prMerge": false,
+    "currentHeadEvidence": "Actual post-push workflow/job results and remaining gates are recorded in the three Draft PR bodies and GitHub Actions. Historical red runs below remain explicitly historical."
+  },
+  "historicalCi": {
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b",
+    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153",
+    "nativePg17": "success",
+    "application": "failure: exactly three baseline metadata failures; 1585/1588 pass; TypeScript, scoped adapter lint, guarded build and 32 Rack checks pass",
+    "applicationJob": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153/job/124839929245",
+    "browserArtifact": "mission20-c2-rack-browser",
+    "initialRun": {
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302335491",
+      "nativePg17": "official source build succeeded; scope assertion failed because shallow checkout omitted reviewed base; no SQL qualification executed",
+      "application": "1577/1586 pass: six missing-history errors plus three baseline metadata cases; build and 32 Rack checks passed",
+      "correction": "fetch-depth: 0 in both jobs; all six missing-history errors resolved without assertion changes"
+    },
+    "finalEvidenceCommit": "Historical a797869 was documentation-only relative to e8a84ee; its completed run 41304144336 is recorded in reviewFollowup. Subsequent follow-up adds tests/CI/docs only.",
+    "previousQualifiedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
+    "finalIdentityChecks": "31/31 adapter cases include local account switch while old token still verifies, and unknown connection/statement-completion responses; no automatic replay."
   }
 }

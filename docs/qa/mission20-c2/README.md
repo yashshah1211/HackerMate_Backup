@@ -1,10 +1,10 @@
 # Mission 20 C2 — safe writer adapters
 
-The [independent-review follow-up](REVIEW-FOLLOWUP.md) verifies actual Actions results at a797869 and adds 20 installed-Supabase-SDK/full native HTTP flow tests. The application job remains red for the three unchanged metadata tests; their exact source, intended outputs and separate correction scope are in [BASELINE-METADATA.md](BASELINE-METADATA.md). SQL and freeze-first release requirements below remain unchanged.
+The [independent-review follow-up](REVIEW-FOLLOWUP.md) verifies actual Actions results at a797869 and adds 20 installed-Supabase-SDK/full native HTTP flow tests. That snapshot had three historical metadata failures; the approved Phase B test correction and safe forward synchronization are now recorded in [BASELINE-METADATA.md](BASELINE-METADATA.md). SQL and freeze-first release requirements below remain unchanged.
 
 **Draft implementation for independent review. NO-GO for migration execution, deployment or merge.**
 
-Base: reviewed C1 `ac618ea003055c9c03495344234e32a1ed8dd07a` (Draft #93), containing application baseline `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e` (Draft #92). C2 is a separate stacked branch, `fix/mission20-c2-safe-writer-adapters`. Both parent PRs remain unchanged. C1's [locking qualification](../mission20-c1/LOCKING-QUALIFICATION.md) and review-only 00–09 SQL remain the database specification. This branch does not promote SQL into active migrations.
+Base: reviewed C1 `ac618ea003055c9c03495344234e32a1ed8dd07a` (Draft #93), containing application baseline `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e` (Draft #92). C2 is a separate stacked branch, `fix/mission20-c2-safe-writer-adapters`. The original reviewed baselines remain recorded; the approved metadata-only Phase B correction is now inherited through C1 at 541ed46. C1's [locking qualification](../mission20-c1/LOCKING-QUALIFICATION.md) and review-only 00–09 SQL remain the database specification. This branch does not promote SQL into active migrations.
 
 ## Adapter contract
 

@@ -1,5 +1,7 @@
 # PR #96 independent review follow-up
 
+**Historical snapshot before the approved Phase B metadata correction.** The three metadata expectation failures documented here are now corrected by e2e3643 and safely inherited through the stack; see [BASELINE-METADATA.md](BASELINE-METADATA.md). All original authentication qualification evidence and limits below remain recorded.
+
 Reviewed head: **a7978690e25441025f3e54380e6c6d8ae9ef5604**. SQL remains review-only; production/staging migration, rollout and deployment remain unauthorized. C1's freeze-first release/drain requirements are unchanged.
 
 ## Completed reviewed-head GitHub Actions verification
