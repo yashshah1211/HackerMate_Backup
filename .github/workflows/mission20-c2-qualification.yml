@@ -25,10 +25,12 @@ jobs:
           src/app/api/admin/delete-user/route.ts 'src/app/api/hackathons/[id]/register/route.ts'
           'src/app/profile/[id]/useProfileData.ts' scripts/test-mission20-c2-writers.cjs
           scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs
+          scripts/test-mission20-native-http-sdk.cjs
       - name: Application regressions (existing metadata failures remain visible)
         run: >-
           node --test --test-concurrency=1
           scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs
+          scripts/test-mission20-native-http-sdk.cjs
           scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs
           scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs
           scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs
@@ -84,6 +86,6 @@ jobs:
       - name: TypeScript and adapter tests
         run: |
           npm run typecheck
-          node --test scripts/test-mission20-c2-writers.cjs
+          node --test scripts/test-mission20-c2-writers.cjs scripts/test-mission20-native-http-sdk.cjs
       - name: Fresh native PG17.6 C1 and C2 SQL/concurrency qualification
         run: node scripts/qualify-mission20-c2-writers.cjs --local-pg17-only

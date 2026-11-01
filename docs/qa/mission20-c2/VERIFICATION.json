@@ -8,7 +8,9 @@
   "inventory": [
     ".github/workflows/mission20-c2-qualification.yml",
     "docs/qa/mission20-c1/sql/09-writer-fixture.review.sql",
+    "docs/qa/mission20-c2/BASELINE-METADATA.md",
     "docs/qa/mission20-c2/README.md",
+    "docs/qa/mission20-c2/REVIEW-FOLLOWUP.md",
     "docs/qa/mission20-c2/VERIFICATION.json",
     "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
     "scripts/ppt-vision-harness.cjs",
@@ -21,6 +23,7 @@
     "scripts/test-invite-handoff.cjs",
     "scripts/test-mission20-c1-design.cjs",
     "scripts/test-mission20-c2-writers.cjs",
+    "scripts/test-mission20-native-http-sdk.cjs",
     "scripts/test-native-registration.cjs",
     "scripts/test-team-owner-review.cjs",
     "scripts/test-team-request-lifecycle.cjs",
@@ -361,7 +364,7 @@
       "application": "1577/1586 pass: six missing-history errors plus three baseline metadata cases; build and 32 Rack checks passed",
       "correction": "fetch-depth: 0 in both jobs; all six missing-history errors resolved without assertion changes"
     },
-    "finalEvidenceCommit": "Documentation-only follow-up to the qualified head; source/test/SQL/workflow trees unchanged. See Draft PR #96 current-head Actions for its automatic rerun.",
+    "finalEvidenceCommit": "Historical a797869 was documentation-only relative to e8a84ee; its completed run 41304144336 is recorded in reviewFollowup. Subsequent follow-up adds tests/CI/docs only.",
     "previousQualifiedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
     "finalIdentityChecks": "31/31 adapter cases include local account switch while old token still verifies, and unknown connection/statement-completion responses; no automatic replay."
   },
@@ -370,5 +373,72 @@
     "Three unchanged baseline metadata failures; full modified-file lint retains 17 baseline errors and 7 warnings.",
     "New cancellation function is an additional review-only SQL dependency.",
     "Mixed old DB/new adapters and old destructive writers are unsupported; preserve freeze-first/drain gates."
-  ]
+  ],
+  "reviewFollowup": {
+    "reviewedHead": "a7978690e25441025f3e54380e6c6d8ae9ef5604",
+    "reviewedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41304144336",
+    "workflowConclusion": "failure",
+    "jobs": [
+      {
+        "name": "native-pg17",
+        "id": 124840982744,
+        "conclusion": "success",
+        "version": "17.6",
+        "adapterTests": 31,
+        "sqlAssertionsPerVariant": 279,
+        "checks": 72,
+        "clustersCleaned": 2
+      },
+      {
+        "name": "application",
+        "id": 124840983083,
+        "conclusion": "failure",
+        "passed": 1585,
+        "total": 1588,
+        "failed": 3,
+        "failures": "Exactly the three unchanged metadata cases",
+        "typeScript": "success",
+        "adapterLint": "success",
+        "build": "success",
+        "rackPassed": 32,
+        "rackFailed": 0
+      }
+    ],
+    "sdk": {
+      "supabaseJs": "2.108.2",
+      "authJs": "2.108.2",
+      "command": "node --test scripts/test-mission20-native-http-sdk.cjs",
+      "passed": 20,
+      "failed": 0,
+      "mockedBoundary": "fetch only; actual installed SDK and real native route/preflight/public event reader/writer code",
+      "networkRequests": 0,
+      "productionCredentials": false,
+      "liveServices": false,
+      "limits": "In-memory Auth/PostgREST models do not verify deployed Auth JWT/session behavior or execute RLS/SQL."
+    },
+    "local": {
+      "command": "node --test scripts/test-mission20-native-http-sdk.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-hackathon-description.cjs",
+      "passed": 110,
+      "total": 113,
+      "failed": 3,
+      "typeScriptExit": 0,
+      "fullModifiedSourceLintErrors": 17,
+      "fullModifiedSourceLintWarnings": 7,
+      "newDiagnostics": 0,
+      "newTestLintExit": 0
+    },
+    "metadataCorrection": "docs/qa/mission20-c2/BASELINE-METADATA.md; exact source/current/expected literals and separate correction scope; assertions/renderers unchanged",
+    "followupInventory": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "scripts/test-mission20-native-http-sdk.cjs",
+      "docs/qa/mission20-c2/REVIEW-FOLLOWUP.md",
+      "docs/qa/mission20-c2/BASELINE-METADATA.md",
+      "docs/qa/mission20-c2/README.md",
+      "docs/qa/mission20-c2/VERIFICATION.json"
+    ],
+    "postPushEvidence": "Subsequent follow-up-head job results are recorded in PR #96 body and current-head Actions. This snapshot records the requested reviewed-head run and local follow-up evidence.",
+    "sourceChanges": 0,
+    "sqlChanges": 0,
+    "freezeFirstUnchanged": true
+  }
 }
