@@ -679,6 +679,52 @@
       "scripts/test-mission20-release-package.cjs"
     ],
     "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
-    "completeDeployedInstallation": "UNQUALIFIED"
+    "completeDeployedInstallation": "UNQUALIFIED",
+    "qualifiedSource": {
+      "head": "1e1f91fe71911dd7ac2b04470ea63267d6cef823",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41332969866",
+      "workflow": "success",
+      "application": {
+        "job": 124926750639,
+        "conclusion": "success",
+        "passed": 1625,
+        "failed": 0,
+        "skipped": 0,
+        "typeScript": "passed",
+        "scopedLint": "passed",
+        "build": "passed",
+        "rackPassed": 32,
+        "rackFailed": 0,
+        "browserArtifact": 13094500158
+      },
+      "native": {
+        "job": 124926750892,
+        "conclusion": "success",
+        "postgres": "17.6",
+        "postgrest": "16.5",
+        "sdkWriterPassed": 51,
+        "sqlAssertionsPerVariant": 279,
+        "atomicFixturePrivacyAssertions": 231,
+        "totalOrchestrationChecks": 108,
+        "globalChecks": 21,
+        "perTeamChecks": 87,
+        "atomicGroups": 20,
+        "realHttpGroups": 15,
+        "catalogSyntaxGroups": 1,
+        "exactDeployedFixtures": 4,
+        "completeDeployedBodyInstallation": "UNQUALIFIED",
+        "ownedClustersCleaned": 2,
+        "productionConnections": 0,
+        "hostedAuth": false,
+        "backupRestore": false
+      },
+      "candidateSha256": "e1faf07fb9620c6f2405e13b4adc04a36c27fd605ad3705fe1292163e6560ff7",
+      "qualificationLimits": [
+        "No exact deployed ensure_team_conversation bytes/current private audit bundle",
+        "Digest-only allowlist decisions do not prove installation of unavailable bytes",
+        "No hosted Auth/gateway or actual backup/restore",
+        "No full production schema/ACL/dependency/ledger or migration-loader parity"
+      ]
+    }
   }
 }
