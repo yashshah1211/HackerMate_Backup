@@ -58,7 +58,11 @@ import {
   type MenuItem,
 } from "@/components/system";
 import { cn } from "@/lib/utils";
-import { eventTimeline } from "@/lib/time";
+import { eventState, eventDate, registrationState, nativeRegistrationRestriction, dateLabel } from "@/lib/hackathons/lifecycle";
+import { safeEventUrl } from "@/lib/hackathons/urls";
+import { submitNativeRegistration } from "@/lib/hackathons/registrationClient";
+import RegistrationSummary from "@/components/hackathons/RegistrationSummary";
+import { useHackathonClock } from "@/components/hackathons/useHackathonClock";
 import { getTeamCategoryInfo } from "@/lib/teamCategory";
 
 type RoundInfo = {
@@ -76,6 +80,9 @@ type Hackathon = {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  registration_start?: string | null;
+  registration_end?: string | null;
+  registration_status?: string | null;
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
@@ -131,14 +138,9 @@ type HackathonStage = {
 
 function formatDateRange(start: string | null, end: string | null) {
   if (!start) return "Date TBA";
-  const opts: Intl.DateTimeFormatOptions = {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  };
-  const startStr = new Date(start).toLocaleDateString("en-US", opts);
+  const startStr = dateLabel(start);
   if (!end || end === start) return startStr;
-  const endStr = new Date(end).toLocaleDateString("en-US", opts);
+  const endStr = dateLabel(end);
   return `${startStr} – ${endStr}`;
 }
 
@@ -176,6 +178,7 @@ function isTeamFullAndRegistered(team: Team) {
 
 function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab }) {
   const { showToast, confirm } = useNotification();
+  const now = useHackathonClock();
   const params = useParams();
   const router = useRouter();
   const hackathonId = params.id as string;
@@ -565,44 +568,16 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   async function handleRegisterNatively() {
     if (!currentUserId || !hackathon || isRegistered !== false) return;
     
-    if (hackathon.end_date && new Date() > new Date(hackathon.end_date)) {
-      showToast("Registration is closed. This hackathon has already ended.", "error");
-      return;
-    }
-
+    const restriction = nativeRegistrationRestriction(hackathon, Date.now());
+    if (restriction) { showToast(restriction, "error"); return; }
     setInviteLoading(true);
     try {
-      // 1. Check capacity limit & determine status
-      let regStatus = "confirmed";
-      if (hackathon.max_participants !== null && hackathon.max_participants !== undefined) {
-        const counts = await loadEventRegistrationCounts(supabase, hackathon.id);
-        if (counts.confirmed_count >= hackathon.max_participants) {
-          regStatus = "waitlisted";
-        }
-      }
-
-      // 2. Insert native registration row
-      const { error: regError } = await supabase
-        .from("hackathon_registrations")
-        .insert({
-          hackathon_id: hackathon.id,
-          user_id: currentUserId,
-          team_id: selectedTeam || null,
-          status: regStatus,
-        });
-
-      if (regError) {
-        showToast(regError.message, "error");
-        setInviteLoading(false);
-        return;
-      }
-
+      const result = await submitNativeRegistration(supabase, hackathon.id, selectedTeam || null, registrationState(hackathon, Date.now()) === "unknown", currentUserId);
+      const regStatus = result.status;
       // 3. If registering with a team, update the team's hackathon_id association
       if (selectedTeam) {
-        await supabase
-          .from("teams")
-          .update({ hackathon_id: hackathon.id })
-          .eq("id", selectedTeam);
+        const { error: linkError } = await supabase.from("teams").update({ hackathon_id: hackathon.id }).eq("id", selectedTeam).eq("owner_id", currentUserId);
+        if (linkError) { console.error("Registration saved but team link failed:", linkError); showToast("Registration saved. Your team link could not be updated; retry linking your team.", "warning"); }
       }
 
       if (regStatus === "waitlisted") {
@@ -615,22 +590,23 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
       loadData();
     } catch (err) {
       console.error(err);
-      showToast(err instanceof EventReadError ? err.message : "Failed to register.", "error");
+      showToast(err instanceof Error ? err.message : "Failed to register.", "error");
     }
     setInviteLoading(false);
   }
 
   // Handle External Registration Flow
   function handleRegisterExternally() {
-    if (!hackathon || !hackathon.website_url) return;
-    window.open(hackathon.website_url, "_blank", "noopener,noreferrer");
+    const website = safeEventUrl(hackathon?.website_url);
+    if (!website) return;
+    window.open(website, "_blank", "noopener,noreferrer");
   }
 
   async function handleRegisterExternallyConfirm() {
     if (!currentUserId || !hackathon || isRegistered !== false) return;
 
-    if (hackathon.end_date && new Date() > new Date(hackathon.end_date)) {
-      showToast("Registration is closed. This hackathon has already ended.", "error");
+    if (eventDate(hackathon.end_date, true) !== null && Date.now() >= eventDate(hackathon.end_date, true)!) {
+      showToast("The listed event end has passed. New community participation is closed.", "error");
       return;
     }
 
@@ -1046,7 +1022,10 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   }
 
   // ── Presentational derivations ────────────────────────────────────────
-  const timeline = eventTimeline(hackathon.start_date, hackathon.end_date);
+  const currentState = eventState(hackathon, now);
+  const availability = registrationState(hackathon, now);
+  const registrationRestriction = nativeRegistrationRestriction(hackathon, now);
+  const timeline = { state: currentState === "ongoing" ? "live" : currentState, label: currentState === "unknown" ? "Dates unclear" : currentState, urgent: false };
   const stateLabel =
     timeline.state === "live" ? "Live" : timeline.state === "upcoming" ? "Upcoming" : timeline.state === "ended" ? "Ended" : "Dates TBA";
   const stateTone = timeline.state === "live" ? "ok" : timeline.state === "upcoming" ? "accent" : "neutral";
@@ -1072,7 +1051,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
           ? `Up to ${hackathon.max_team_size} members`
           : hackathon.min_team_size
             ? `At least ${hackathon.min_team_size} members`
-            : "Flexible";
+            : "Not listed";
 
   const linkedTeam = userOwnedTeams.find((t) => t.hackathon_id === hackathon?.id);
   const myRegistration = ownParticipation?.registration;
@@ -1081,16 +1060,17 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   const hasDates = !!hackathon.start_date && !!hackathon.end_date;
   const isNative = hackathon.type === "native";
   // Same visibility as V1: native → modal; external → only when a website URL exists.
-  const canRegister = isRegistered === false && (isNative || !!hackathon.website_url);
+  const canRegister = isRegistered === false && !registrationRestriction && (isNative || !!safeEventUrl(hackathon.website_url));
   const createTeamHref = `/teams/create?hackathon=${hackathon.id}`;
 
-  const primaryAction = ((!isNative && Boolean(hackathon.website_url)) || canRegister) ? (
+  const primaryAction = isNative && registrationRestriction ? <Button variant="secondary" disabled title={registrationRestriction}>{currentState === "ended" ? "Event ended" : availability === "not-yet-open" ? "Registration not yet open" : "Registration closed"}</Button>
+    : ((!isNative && Boolean(safeEventUrl(hackathon.website_url))) || canRegister) ? (
     <Button
       variant="primary"
       icon={isNative ? <CheckCircle2 /> : <ExternalLink />}
       onClick={isNative ? () => setShowRegisterModal(true) : handleRegisterExternally}
     >
-      {isNative ? "Register" : "Register on event site"}
+      {isNative ? availability === "open" ? "Register" : "Review registration" : currentState === "ended" || availability !== "open" ? "View official details" : "Register on event site"}
     </Button>
   ) : (
     <ButtonLink href={createTeamHref} variant="primary" icon={<Plus />}>
@@ -1245,6 +1225,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
           </div>
         </div>
 
+        <div className="mt-5"><RegistrationSummary event={hackathon} now={now} /></div>
         <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-line py-5 sm:grid-cols-4">
           <Stat label="Teams" value={teams.length} />
           <Stat label={isNative ? "Registered" : "Community participants"} value={registrationCounts?.registration_count ?? (countsError ? "Unavailable" : "Loading")} />
@@ -1260,8 +1241,8 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
         {/* ── Main column ───────────────────────────────────────── */}
         <div className="min-w-0 space-y-10">
-          <Section title="About">
-            <StructuredHackathonDescription description={hackathon.description} />
+          <Section title="Organizer information">
+            <StructuredHackathonDescription description={hackathon.description} baseUrl={hackathon.website_url} />
           </Section>
 
           <Section title="Tags" count={hackathon.tags?.length || 0}>
@@ -1281,7 +1262,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
             <Section title="Rounds" count={hackathon.rounds_info.length}>
               <ol>
                 {hackathon.rounds_info.map((rd: RoundInfo, idx: number, all: RoundInfo[]) => {
-                  const state = windowState(rd.start_date, rd.end_date);
+                  const state = windowState(rd.start_date, rd.end_date, now);
                   return (
                     <TimelineItem key={idx} state={state} last={idx === all.length - 1}>
                       <div className="flex flex-wrap items-center gap-2">
@@ -1301,7 +1282,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
                           {rd.end_date && <span>Due {shortDate(rd.end_date)}</span>}
                         </p>
                       )}
-                      {rd.description && <p className="mt-1.5 break-words text-[13.5px] leading-relaxed text-ink-2">{rd.description}</p>}
+                      {rd.description && <StructuredHackathonDescription description={rd.description} baseUrl={hackathon.website_url} className="mt-2" />}
                     </TimelineItem>
                   );
                 })}
@@ -1314,13 +1295,13 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
             <Section title="Schedule" count={stages.length}>
               <ol>
                 {stages.map((stg, idx) => {
-                  const now = new Date();
+                  const stageNow = new Date(now);
                   const startTime = new Date(stg.start_time);
                   const endTime = stg.end_time ? new Date(stg.end_time) : null;
 
-                  const isPast = endTime ? endTime < now : startTime < now;
-                  const isLive = endTime ? startTime <= now && now <= endTime : false;
-                  const isUpcoming = startTime > now;
+                  const isPast = endTime ? endTime < stageNow : startTime < stageNow;
+                  const isLive = endTime ? startTime <= stageNow && stageNow <= endTime : false;
+                  const isUpcoming = startTime > stageNow;
 
                   const stageTone: Record<string, "info" | "neutral" | "bad" | "warn"> = {
                     ceremony: "info",
@@ -1944,6 +1925,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
           </>
         }
       >
+        <RegistrationSummary event={hackathon} now={now} />
         <FieldLabel htmlFor="register-team" hint="optional">
           Register with team
         </FieldLabel>
@@ -2048,19 +2030,13 @@ const CAL_ITEM =
 type WindowState = "past" | "live" | "upcoming" | "unknown";
 
 /** Where "now" sits relative to a round's start/end window (display only). */
-function windowState(start?: string | null, end?: string | null): WindowState {
-  const now = new Date();
-  const s = start ? new Date(start) : null;
-  const e = end ? new Date(end) : null;
-  if (!s && !e) return "unknown";
-  if (e && e < now) return "past";
-  if (s && s > now) return "upcoming";
-  if (s && e) return "live";
-  return s ? "past" : "upcoming";
+function windowState(start?: string | null, end?: string | null, now = Date.now()): WindowState {
+  const state = eventState({ start_date: start, end_date: end }, now);
+  return state === "ended" ? "past" : state === "ongoing" ? "live" : state;
 }
 
 function shortDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return dateLabel(d);
 }
 
 function TimelineItem({ state, last, children }: { state: WindowState; last: boolean; children: ReactNode }) {

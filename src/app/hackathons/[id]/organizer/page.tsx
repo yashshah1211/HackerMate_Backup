@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Download, Megaphone, PenLine, Plus, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { eventDate } from "@/lib/hackathons/lifecycle";
 import AuthGuard from "@/components/AuthGuard";
 import { useNotification } from "@/context/NotificationContext";
 import {
@@ -32,6 +33,9 @@ type Hackathon = {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  registration_start?: string | null;
+  registration_end?: string | null;
+  registration_status?: string | null;
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
@@ -108,12 +112,40 @@ export default function OrganizerPortalPage() {
 
   const [loading, setLoading] = useState(true);
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
+  const [registrationStart, setRegistrationStart] = useState("");
+  const [registrationEnd, setRegistrationEnd] = useState("");
+  const [savingRegistration, setSavingRegistration] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [search, setSearch] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  async function saveRegistrationWindow() {
+    if (!hackathon || !currentUserId || hackathon.organizer_id !== currentUserId || hackathon.type !== "native") return;
+    const start = eventDate(registrationStart), end = eventDate(registrationEnd, true);
+    if ((registrationStart && start === null) || (registrationEnd && end === null) || (start !== null && end !== null && start >= end)) {
+      showToast("Use valid India calendar dates or explicit-offset timestamps in the correct order.", "warning"); return;
+    }
+    setSavingRegistration(true);
+    try {
+      const { data: { user }, error: identityError } = await supabase.auth.getUser();
+      if (identityError) { console.error("Registration-window identity failed:", identityError); throw identityError; }
+      if (user?.id !== currentUserId) throw new Error("Your account changed. Reload before editing.");
+      const { data: allowed, error: accessError } = await supabase.rpc("can_access_partner_event", { p_hackathon_id: hackathon.id });
+      if (accessError) { console.error("Registration-window access failed:", accessError); throw accessError; }
+      if (allowed !== true) throw new Error("Organizer access could not be verified.");
+      const { data, error } = await supabase.from("hackathons").update({ registration_start: start === null ? null : new Date(start).toISOString(), registration_end: end === null ? null : new Date(end).toISOString() })
+        .eq("id", hackathon.id).eq("organizer_id", currentUserId).eq("type", "native").select("id,registration_start,registration_end").maybeSingle();
+      if (error) { console.error("Registration-window update failed:", error); throw error; }
+      if (!data) throw new Error("Registration dates were not saved.");
+      setHackathon({ ...hackathon, ...data });
+      setRegistrationStart(data.registration_start || ""); setRegistrationEnd(data.registration_end || "");
+      showToast("Registration dates saved.", "success");
+    } catch (error) { console.error("Registration-window edit failed:", error); showToast(error instanceof Error ? error.message : "Registration dates could not be saved.", "error"); }
+    finally { setSavingRegistration(false); }
+  }
 
   // Resource modal states
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
@@ -180,6 +212,8 @@ export default function OrganizerPortalPage() {
       }
 
       setHackathon(hackathonData);
+      setRegistrationStart(hackathonData.registration_start || "");
+      setRegistrationEnd(hackathonData.registration_end || "");
 
       // 2. Fetch Registrations joined with Profiles & Teams
       const { data: regData, error: regErr } = await supabase
@@ -597,6 +631,15 @@ export default function OrganizerPortalPage() {
             hint={teamRuleLabel}
           />
         </div>
+
+        {currentUserId === hackathon.organizer_id && hackathon.type === "native" && <Section title="Registration window" className="mt-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><FieldLabel htmlFor="organizer-registration-start">Registration opens</FieldLabel><Input id="organizer-registration-start" value={registrationStart} onChange={e => setRegistrationStart(e.target.value)} placeholder="2026-11-01 or timestamp with offset" /></div>
+            <div><FieldLabel htmlFor="organizer-registration-end">Registration deadline</FieldLabel><Input id="organizer-registration-end" value={registrationEnd} onChange={e => setRegistrationEnd(e.target.value)} placeholder="2026-11-03 or timestamp with offset" /></div>
+          </div>
+          <p className="my-3 text-xs text-ink-3">Calendar dates use the whole India day. Timestamps must include their timezone. Leave unknown dates empty. Event dates are independent.</p>
+          <Button variant="secondary" loading={savingRegistration} onClick={saveRegistrationWindow}>Save registration dates</Button>
+        </Section>}
 
         <div className="mt-8 space-y-12">
           {/* ── Participant roster ─────────────────────────────── */}

@@ -65,6 +65,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 950 }], ['mob
         await sheet.waitFor({ state: 'hidden' });
         assert.equal(new URL(page.url()).searchParams.get('topic'), 'react');
       } else {
+        await page.locator('summary').filter({hasText:'Registration, dates and more filters'}).click();
         await page.getByRole('button', { name: 'Topic / domain: Any listed topic', exact: true }).click();
         await page.getByRole('option', { name: 'React', exact: true }).click();
       }

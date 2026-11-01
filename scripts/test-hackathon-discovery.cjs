@@ -44,9 +44,10 @@ test('For you includes events with missing tags, no overlapping skills and empty
   assert.deepEqual(results(records, '', ['Python']), results(records));
   assert.match(api.discoveryReason(records[0], [], NOW), /specific topic tags not listed/);
 });
-test('relevance prioritizes actual listed skill evidence, demotes known passed deadlines and keeps all candidates', () => {
+test('relevance prioritizes listed skills; explicit include-closed retains historical candidates', () => {
   const records = [event('generic'), event('matched', { tags: ['Python'] }), event('closed', { tags: ['Python'], registration_end: '2026-10-13' })];
-  assert.deepEqual(results(records, '', [' PYTHON ']), ['matched', 'generic', 'closed']);
+  assert.deepEqual(results(records, '', [' PYTHON ']), ['matched', 'generic']);
+  assert.deepEqual(results(records, 'registration=all', [' PYTHON ']), ['matched', 'generic', 'closed']);
   assert.match(api.discoveryReason(records[1], ['python'], NOW), /Tags match your listed skills: Python/);
 });
 test('Upcoming and Ongoing are disjoint; Past excludes unclear windows', () => {

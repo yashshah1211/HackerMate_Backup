@@ -7,6 +7,8 @@ import { Bookmark, CalendarSearch, Plus, SlidersHorizontal, Target, Trophy } fro
 import { supabase } from "@/lib/supabase";
 import BrowsingBoundary from "@/components/hackathons/BrowsingBoundary";
 import { DiscoveryDropdown } from "@/components/hackathons/DiscoveryDropdown";
+import { useHackathonClock } from "@/components/hackathons/useHackathonClock";
+import { registrationState, registrationLabel, dateLabel } from "@/lib/hackathons/lifecycle";
 import { CopyDiscoveryLink } from "@/components/hackathons/CopyDiscoveryLink";
 import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type BrowsingAccess } from "@/lib/hackathons/publicBrowsing";
 import { LogoMark } from "@/components/Logo";
@@ -115,7 +117,7 @@ function HackathonRow({
   return (
     <li className="group relative flex flex-col sm:flex-row gap-4 sm:gap-5 py-5 px-3 sm:px-4 sm:-mx-4 rounded-xl transition-colors hover:bg-hover">
       {/* Date stamp */}
-      <div className="flex w-10 shrink-0 flex-col items-center pt-0.5 font-mono leading-none" aria-hidden>
+      <div className="hidden sm:flex w-10 shrink-0 flex-col items-center pt-0.5 font-mono leading-none" aria-hidden>
         <span className={cn("text-[18px] font-semibold tabular", isEventPast ? "text-ink-3" : "text-ink")}>{d.day}</span>
         <span className="mt-1 text-[11px] uppercase tracking-wider text-ink-3">{d.month}</span>
       </div>
@@ -135,7 +137,7 @@ function HackathonRow({
               <Link
                 href={`/hackathons/${h.id}`}
                 className={cn(
-                  "block truncate text-[15.5px] font-semibold outline-none after:absolute after:inset-0 after:content-[''] hover:underline decoration-line-strong underline-offset-4 focus-visible:ring-2 focus-visible:ring-accent",
+                  "block line-clamp-2 text-[15.5px] font-semibold outline-none after:absolute after:inset-0 after:content-[''] hover:underline decoration-line-strong underline-offset-4 focus-visible:ring-2 focus-visible:ring-accent",
                   isEventPast ? "text-ink-2" : "text-ink",
                 )}
               >
@@ -174,10 +176,13 @@ function HackathonRow({
           </IconButton>
         </div>
 
+        <p className={cn("mt-2 text-[13px] font-semibold", registrationState(h, now) === "open" && !isEventPast ? "text-ok" : registrationState(h, now) === "closed" ? "text-warn" : "text-ink-2")}>
+          {isEventPast ? "Event ended · registration unavailable" : registrationLabel(h, now)}
+        </p>
         <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-relaxed text-ink-2 sm:line-clamp-1">{getPlainPreview(h.description)}</p>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
-          <span className={cn("font-medium", state === "ongoing" ? "text-ok" : "text-ink-3")}>{STATE_LABELS[state]}</span>
+          <span className={cn("font-medium", "text-ink-3")}>{STATE_LABELS[state]}</span>
           <MetaDot />
           <span className="text-ink-3">{formatDateRange(h.start_date, h.end_date)}</span>
 
@@ -196,7 +201,7 @@ function HackathonRow({
             <span className="text-ink-3 truncate">{listedTags(h.tags).slice(0, 3).join(" · ")}{listedTags(h.tags).length > 3 && ` · +${listedTags(h.tags).length - 3}`}</span>
           </>}
         </div>
-        <p className="mt-1 text-[12.5px] text-ink-3">{deadline === null ? "Registration deadline not listed · check the organizer site" : `${now >= deadline ? "Registration deadline passed" : "Registration deadline"}: ${formatDateRange(h.registration_end!, null)}`}</p>
+        <p className="mt-1 text-[12.5px] text-ink-3">{deadline === null ? "Registration deadline not listed · check the organizer site" : `${now >= deadline ? "Registration deadline passed" : "Registration deadline"}: ${dateLabel(h.registration_end)}`}</p>
         {reason && <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-3"><Target className="size-3 shrink-0" aria-hidden />{reason}</p>}
       </div>
       </div>
@@ -220,7 +225,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const loadingRequests = useRef(new Set<AbortController>());
   const saving = useRef(new Set<string>());
   const canParticipate = access.kind === "member" && access.onboarded;
-  const [now, setNow] = useState(() => Date.now());
+  const now = useHackathonClock();
   const searchParams = useSearchParams();
   const settings = readDiscoverySettings(searchParams);
   const { tab: activeTab, q: search, mode: modeFilter, platform: platformFilter, sort: sortBy } = settings;
@@ -233,10 +238,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const setPlatformFilter = (platform: string) => updateSettings({ platform });
   const setSortBy = (sort: string) => updateSettings({ sort: sort as DiscoverySettings["sort"] });
   const setActiveTab = (tab: Tab) => updateSettings({ tab });
-  useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(clock);
-  }, []);
+
 
   async function loadHackathons() {
     loadingRequests.current.forEach(controller => controller.abort());
@@ -351,8 +353,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
   const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  const upcomingCount = hackathons.filter(h => eventState(h, now) === "upcoming").length;
-  const ongoingCount = hackathons.filter(h => eventState(h, now) === "ongoing").length;
+  const upcomingCount = discoverEvents(hackathons, { ...settings, q: "", tab: "upcoming" }, userSkills, savedIds, now).length;
+  const ongoingCount = discoverEvents(hackathons, { ...settings, q: "", tab: "ongoing" }, userSkills, savedIds, now).length;
   const unknownCount = hackathons.filter(h => eventState(h, now) === "unknown").length;
   const defaultSort = activeTab === "recommended" ? "relevant" : "date";
   const activeFilterCount = [search.trim(), modeFilter, platformFilter, settings.topic, settings.from, settings.to,
@@ -368,6 +370,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     { value: "ongoing", label: "Ongoing", count: ongoingCount },
     { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
     { value: "past", label: "Past" },
+    ...(activeTab === "all" ? [{ value: "all" as Tab, label: "All events" }] : []),
   ];
 
   const header = (
@@ -405,7 +408,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><DiscoveryDropdown id={`hk-size-${suffix}`} label="Participation" value={settings.participation} onChange={participation => updateSettings({ participation })}
         options={[{ value: "", label: "Any team size" }, { value: "solo", label: "Solo allowed (listed)" }, { value: "team", label: "Teams allowed (listed)" }]} /></div>
     <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration deadline" value={settings.registration} onChange={registration => updateSettings({ registration })}
-        options={[{ value: "", label: "Any / unknown" }, { value: "not-closed", label: "Exclude known passed deadlines" }, { value: "recorded", label: "Deadline listed" }]} /></div>
+        options={[{ value: "", label: "Discover opportunities" }, { value: "open", label: "Registration open" }, { value: "unknown", label: "Availability unverified" }, { value: "not-yet-open", label: "Not yet open" }, { value: "closed", label: "Registration closed" }, { value: "all", label: "Include closed registrations" }, { value: "not-closed", label: "Exclude known passed deadlines" }, { value: "recorded", label: "Deadline listed" }]} /></div>
   </>;
 
   const filterGroups = (
@@ -484,7 +487,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     : activeTab === "past" ? "No ended events are listed."
     : activeTab === "ongoing" ? "No events with a known ongoing window are listed. Try For you for events with unclear dates."
     : activeTab === "upcoming" ? "No events with a known future start are listed. Check Ongoing or For you."
-    : "No non-ended events are listed right now. Try Past.";
+    : "No opportunities match this view. Include closed registrations in Filters, or choose Past to inspect ended events.";
 
   return (
     <Page>
@@ -573,8 +576,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         </div>
       </div>
 
-      <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
-      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates.</p>
+      <details className="mt-4 hidden lg:block"><summary className="cursor-pointer text-sm text-ink-2">Registration, dates and more filters</summary><div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-5">{extraFilters("desktop")}</div></details>
+      <p className="mt-3 text-[12px] text-ink-3">Closed registrations are hidden in active discovery. Use registration filters to include them; unknown availability requires organizer verification.</p>
       {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 
@@ -595,6 +598,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         )}
       </div>}
 
+      {search.trim() && activeTab !== "all" && <Button variant="ghost" size="sm" onClick={() => updateSettings({ tab: "all", registration: "all" })}>Search all listed events</Button>}
       <CopyDiscoveryLink searchParams={searchParams} />
 
       {loadError && (

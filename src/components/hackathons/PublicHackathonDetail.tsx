@@ -5,17 +5,16 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { browsingActionHref, loadPublicEvent, type PublicEvent } from "@/lib/hackathons/publicBrowsing";
-import { eventDate, eventState, listedTags, prizeLabel } from "@/lib/hackathons/discovery";
+import { eventState, listedTags, prizeLabel } from "@/lib/hackathons/discovery";
+import { dateLabel } from "@/lib/hackathons/lifecycle";
+import RegistrationSummary from "./RegistrationSummary";
+import { useHackathonClock } from "./useHackathonClock";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 import { ButtonLink, EmptyState, ErrorNotice, Page, PageHeader, PageLoader, Section } from "@/components/system";
 import { isRackItUpEvent } from "@/lib/partners/rackItUp2026";
 import { eventDiscoveryTab } from "@/lib/hackathons/discoveryNavigation";
 import RackPublicDiscovery from "@/components/partners/RackPublicDiscovery";
 
-function dateLabel(value: string | null | undefined) {
-  const time = eventDate(value);
-  return time === null ? "Not listed" : new Date(time).toLocaleDateString("en-IN", { dateStyle: "medium", timeZone: "Asia/Kolkata" });
-}
 function publicWebsite(value: string | null): string | null {
   try { const url = new URL(value || ""); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : null; }
   catch { return null; }
@@ -28,11 +27,7 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
   const id = typeof params.id === "string" ? params.id : "";
   const [result, setResult] = useState<{ id: string; event: PublicEvent | null; failed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(clock);
-  }, []);
+  const now = useHackathonClock();
   useEffect(() => {
     let alive = true;
     void loadPublicEvent(supabase, id).then(event => {
@@ -58,22 +53,23 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
   const rackDiscovery = rack && (discoveryTab === "looking_for_teams" || discoveryTab === "builders");
   const actionLabel = rackDiscovery
     ? onboard ? "Complete profile for teammate matching" : "Sign in for teammate matching"
-    : onboard ? "Complete onboarding" : "Sign in to participate";
+    : onboard ? "Complete onboarding" : event.type === "native" ? "Sign in to review registration" : "Sign in for teammate matching";
   return <Page>
     <Link href="/hackathons" className="text-sm text-ink-3 hover:text-ink">← Hackathons</Link>
     <PageHeader title={event.name} meta={`${event.mode || "Format not listed"} · ${event.location || "Location not listed"}`} actions={<ButtonLink href={href}>{actionLabel}</ButtonLink>} />
+    <div className="mt-5 space-y-3"><RegistrationSummary event={event} now={now} />{website && <a href={website} target="_blank" rel="noopener noreferrer" className="inline-flex text-sm font-medium text-ink underline underline-offset-4">View official details ↗</a>}</div>
     <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="min-w-0 space-y-6">
         {rackDiscovery && <RackPublicDiscovery key={event.id} eventId={event.id} signInHref={href} onboard={onboard} />}
-        <Section title="About this hackathon"><StructuredHackathonDescription description={event.description} />
+        <Section title="About this hackathon"><StructuredHackathonDescription description={event.description} baseUrl={event.website_url} />
           <div className="mt-3 flex flex-wrap gap-2">{listedTags(event.tags).map(tag => <span key={tag} className="rounded-md bg-sunken px-2 py-1 text-xs text-ink-2">{tag}</span>)}</div>
         </Section>
         {!!rounds.length && <Section title="Rounds">{rounds.map((round, index) => <div key={index} className="border-b border-line py-3">
           <h3 className="font-medium">{round.name}</h3><p className="text-sm text-ink-3">{dateLabel(round.start_date)} – {dateLabel(round.end_date)}</p>
-          {typeof round.description === "string" && <StructuredHackathonDescription description={round.description} />}
+          {typeof round.description === "string" && <StructuredHackathonDescription description={round.description} baseUrl={event.website_url} />}
         </div>)}</Section>}
         <Section title="Participate on HackerMate">
-          <p className="mb-3 text-sm text-ink-2">{rack ? <>{onboard ? "Complete your profile" : "Sign in free"} to list your profile, save this event or build a team. Official event registration stays on Unstop. Returning here will not perform an action automatically.</> : <>{onboard ? "Complete your profile" : "Sign in"} to register, save this event, discover builders or link your team. Returning here will not register or save anything automatically.</>}</p>
+          <p className="mb-3 text-sm text-ink-2">{rack ? <>{onboard ? "Complete your profile" : "Sign in free"} to list your profile, save this event or build a team. Official event registration stays on Unstop. Returning here will not perform an action automatically.</> : <>{onboard ? "Complete your profile" : "Sign in"} to save this event, discover builders or link your team. Review registration with the organizer. Returning here will not register or save anything automatically.</>}</p>
           <div className="flex flex-wrap gap-2"><ButtonLink href={href}>{actionLabel}</ButtonLink><ButtonLink href={href} variant="secondary">{onboard ? "Complete profile to save" : "Sign in to save"}</ButtonLink></div>
         </Section>
       </div>
@@ -81,12 +77,11 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
         <Section title="Event details"><dl className="space-y-3 text-sm">
           <div><dt className="text-ink-3">Dates</dt><dd>{dateLabel(event.start_date)} – {dateLabel(event.end_date)}</dd></div>
           <div><dt className="text-ink-3">Status</dt><dd>{status === "unknown" ? "Dates unclear" : status === "ended" ? "Ended" : status === "ongoing" ? "Ongoing" : "Upcoming"}</dd></div>
-          <div><dt className="text-ink-3">Registration deadline</dt><dd>{dateLabel(event.registration_end)}</dd></div>
           <div><dt className="text-ink-3">Prizes</dt><dd>{prizeLabel(event)}</dd></div>
           <div><dt className="text-ink-3">Team size</dt><dd>{event.min_team_size != null && event.max_team_size != null ? `${event.min_team_size}–${event.max_team_size}` : "Not listed"}</dd></div>
           {event.college && <div><dt className="text-ink-3">College</dt><dd>{event.college}</dd></div>}
         </dl></Section>
-        {website && <a href={website} target="_blank" rel="noopener noreferrer" className="inline-flex text-sm font-medium text-ink underline">View event website ↗</a>}
+
       </aside>
     </div>
   </Page>;

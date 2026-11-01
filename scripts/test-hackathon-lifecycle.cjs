@@ -1,0 +1,12 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {harness}=require('./ppt-vision-harness.cjs');
+const api=harness().load('src/lib/hackathons/lifecycle.ts');
+const now=Date.parse('2026-10-31T12:00:00+05:30');
+const event={start_date:'2026-11-01',end_date:'2026-11-03',registration_start:'2026-10-01',registration_end:'2026-10-31'};
+for(const [patch,state] of [[{},'open'],[{registration_end:'2026-10-30'},'closed'],[{registration_start:'2026-11-01',registration_end:'2026-11-02'},'not-yet-open'],[{registration_start:null},'unknown'],[{registration_end:null},'unknown'],[{registration_start:'2026-11-02'},'unknown'],[{registration_end:'2026-02-30'},'unknown'],[{registration_status:'closed'},'closed']])test('registration evidence '+JSON.stringify(patch),()=>assert.equal(api.registrationState({...event,...patch},now),state));
+test('closed application does not end a running event',()=>{const e={...event,start_date:'2026-10-30',registration_end:'2026-10-29'};assert.equal(api.eventState(e,now),'ongoing');assert.equal(api.registrationState(e,now),'closed');assert(api.nativeRegistrationRestriction(e,now));});
+test('date-only deadline includes its whole India day; exact timestamps retain their instant',()=>{assert.equal(api.registrationState(event,Date.parse('2026-10-31T23:59:59.999+05:30')),'open');assert.equal(api.registrationState(event,Date.parse('2026-11-01T00:00:00+05:30')),'closed');assert.equal(api.eventDate('2026-10-31T23:59:00+05:30'),api.eventDate('2026-10-31T18:29:00Z'));assert.equal(api.registrationState({...event,registration_end:'2026-10-31T23:59:00+05:30'},Date.parse('2026-10-31T18:29:00Z')),'closed');});
+test('unknown native registration allows explicit review but ended/not-yet-open do not',()=>{assert.equal(api.nativeRegistrationRestriction({},now),null);assert(api.nativeRegistrationRestriction({...event,end_date:'2026-10-30',start_date:'2026-10-29'},now));assert(api.nativeRegistrationRestriction({...event,registration_start:'2026-11-01',registration_end:'2026-11-02'},now));});
+test('impossible/naive dates and contradictory event windows stay unknown',()=>{for(const d of ['2026-02-30','2026-10-31T12:00:00','2026-10-31T12:00:00+24:00'])assert.equal(api.eventDate(d),null);assert.equal(api.eventState({start_date:'2026-11-03',end_date:'2026-11-01'},now),'unknown');});

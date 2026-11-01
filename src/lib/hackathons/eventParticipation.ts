@@ -22,6 +22,7 @@ export class EventReadError extends Error {
   }
 }
 function failure(error: { code?: string } | null, message: string): never {
+  if (error) console.error(message, error);
   throw new EventReadError(error?.code === "42501" ? "unauthorized" : "unavailable",
     error?.code === "42501" ? "This event data is not available to your session." : message);
 }

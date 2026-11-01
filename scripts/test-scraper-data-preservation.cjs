@@ -9,12 +9,13 @@ class FixtureDate extends Date {
   static now() { return Date.parse(NOW); }
 }
 
-function fixture({ failedRead } = {}) {
+function fixture({ failedRead, refresh = false, manual = false, concurrent = false, h2s = false } = {}) {
   const events = [
     { id: 'fixture-ended', name: 'Historical fixture', type: 'external', end_date: '2026-10-14', website_url: 'https://example.invalid/history', archived: false },
     { id: 'fixture-today', name: 'Ending today fixture', type: 'external', end_date: '2026-10-15', website_url: 'https://example.invalid/today', archived: false },
     { id: 'fixture-partner', name: 'Partner fixture', type: 'external', end_date: '2026-10-13', website_url: 'https://example.invalid/partner', archived: false },
   ];
+  if(refresh) events.push({id:'fixture-refresh',name:'Refresh fixture',type:'external',status:'approved',archived:false,organizer_id:null,website_url:'https://example.invalid/active',registration_start:'2026-10-01T00:00:00Z',registration_end:manual?'2026-10-20T00:00:00Z':'2026-10-16T00:00:00Z',registration_status:null,ai_feedback:{editorial:'preserved',lifecycle_ingestion:{version:1,source_url:'https://example.invalid/active',platform:'Unstop',registration_start:'2026-10-01T00:00:00Z',registration_end:'2026-10-16T00:00:00Z',registration_status:null}}});
   const linkedTables = ['team_submissions', 'team_hackathons', 'team_github_repos', 'team_links', 'hackathon_resources', 'hackathon_registrations', 'saved_hackathons'];
   const db = { hackathons: events, organizer_leads: [], partner_configs: [{ hackathon_id: 'fixture-partner', partner_name: 'Partner fixture', features: {} }] };
   for (const table of linkedTables) db[table] = events.map(event => ({ id: `fixture-${table}-${event.id}`, hackathon_id: event.id }));
@@ -24,7 +25,9 @@ function fixture({ failedRead } = {}) {
     let operation = 'select', payload, filters = [];
     const query = {
       select(columns) { reads.push({ table, columns }); return query; },
-      eq(column, value) { filters.push(row => row[column] === value); return query; },
+      eq(column, value) { filters.push(row => column === "ai_feedback" ? JSON.stringify(row[column]) === value : row[column] === value); return query; },
+      limit() { return query; },
+      is(column,value) {filters.push(row=>row[column]===value);return query;},
       in(column, values) { filters.push(row => values.includes(row[column])); return query; },
       delete() { operation = 'delete'; return query; },
       update(value) { operation = 'update'; payload = value; return query; },
@@ -58,7 +61,7 @@ function fixture({ failedRead } = {}) {
     return query;
   } };
   const candidates = [
-    { id: 'fixture-active', title: 'New active fixture', public_url: 'https://example.invalid/active/', start_date: '2026-10-14', end_date: '2026-10-18' },
+    { id: 'fixture-active', title: 'New active fixture', public_url: 'https://example.invalid/active/', start_date: '2026-10-14', end_date: '2026-10-18', prizes:[{cash:50000}] },
     { id: 'fixture-upcoming', title: 'New upcoming fixture', public_url: 'https://example.invalid/upcoming', start_date: '2026-10-20', end_date: '2026-10-22' },
     { id: 'fixture-past-new', title: 'Unseen past fixture', public_url: 'https://example.invalid/unseen-past', start_date: '2026-10-01', end_date: '2026-10-02' },
     { id: 'fixture-partner', title: 'Partner fixture', public_url: 'https://example.invalid/partner', end_date: '2026-10-13' },
@@ -70,10 +73,12 @@ function fixture({ failedRead } = {}) {
       return Response.json({ data: { data: url.searchParams.get('page') === '1' && url.searchParams.get('oppstatus') === 'open' ? candidates : [] } });
     }
     if (url.origin === 'https://unstop.com' && url.pathname.startsWith('/api/public/competition/')) {
-      return Response.json({ data: { contacts: [{ email: 'organizer@example.invalid' }] } });
+      if(concurrent && refresh)db.hackathons.find(e=>e.id==='fixture-refresh').registration_end='2026-10-21T00:00:00Z';
+      return Response.json({ data: { contacts: [{ email: 'organizer@example.invalid' }],regnRequirements:{start_regn_dt:'2026-10-01T00:00:00Z',end_regn_dt:'2026-10-18T00:00:00Z'} } });
     }
     if (url.href === 'https://devfolio.co/hackathons') return new Response('');
-    if (url.origin === 'https://hack2skill.com' && url.pathname.endsWith('/event/list')) return Response.json({ data: {} });
+    if (url.origin === 'https://hack2skill.com' && url.pathname.endsWith('/event/list')) return Response.json({data:h2s?{communityEvents:[{_id:'fixture-h2s',eventUrl:'fixture-h2s',title:'H2S distinct windows',registrationStart:'2026-10-14',registrationEnd:'2026-10-16',startDate:'2026-10-20',endDate:'2026-10-22',tags:{mode:{value:'VIRTUAL'}}}]}:{}});
+    if(url.origin === 'https://hack2skill.com' && url.pathname === '/event/fixture-h2s')return new Response('');
     throw new Error(`Unexpected network request (never forwarded): ${url.origin}${url.pathname}`);
   };
   const overrides = {
@@ -140,7 +145,8 @@ test('routine discovery introduces no automatic archive or other historical-even
 
 for (const failedRead of ['organizer_leads', 'hackathons', 'partner_configs']) {
   test(`a failed ${failedRead} dependency read cannot trigger historical deletion or archival`, async () => {
-    const f = fixture({ failedRead }); await f.run();
+    const f = fixture({ failedRead }); await assert.rejects(f.run(), /could not be verified/);
+    assert.equal(f.writes.length, 0, "Dependency failure prevents all writes");
     assert.equal(f.writes.some(write => write.operation === 'delete' || write.operation === 'update'), false);
     for (const event of f.original.hackathons) assert.deepEqual(f.db.hackathons.find(row => row.id === event.id), event);
     for (const table of f.linkedTables) assert.deepEqual(f.db[table], f.original[table]);
@@ -155,3 +161,14 @@ for (const entry of ['admin', 'cron']) {
     for (const table of f.linkedTables) assert.deepEqual(f.db[table], f.original[table]);
   });
 }
+
+for(const options of [{refresh:true},{refresh:true,manual:true},{refresh:true,concurrent:true}]) test('deadline refresh preserves editorial ownership and concurrent edits '+JSON.stringify(options),async()=>{
+ const f=fixture(options);const result=await f.run();assert(result.skippedInRun>=0);const row=f.db.hackathons.find(e=>e.id==='fixture-refresh');
+ assert.equal(row.registration_end,options.manual?'2026-10-20T00:00:00Z':options.concurrent?'2026-10-21T00:00:00Z':'2026-10-18T00:00:00.000Z');assert.equal(row.ai_feedback.editorial,'preserved');assert.equal(row.status,'approved');assert.equal(row.archived,false);
+ const before=structuredClone(row);await f.run();assert.equal(JSON.stringify(f.db.hackathons.find(e=>e.id==='fixture-refresh')),JSON.stringify(before),'repeat run is idempotent');
+});
+test('new ingestion persists independent registration dates without replacing event dates',async()=>{const f=fixture();await f.run();const row=f.db.hackathons.find(e=>e.website_url==='https://example.invalid/active');assert.equal(row.end_date,'2026-10-18');assert.equal(row.registration_end,'2026-10-18T00:00:00.000Z');assert.equal(row.ai_feedback.lifecycle_ingestion.platform,'Unstop');});
+
+test('Hack2Skill event dates never come from its application window',async()=>{const f=fixture({h2s:true});await f.run();const row=f.db.hackathons.find(e=>e.name==='H2S distinct windows');assert.equal(row.start_date,'2026-10-20');assert.equal(row.end_date,'2026-10-22');assert.equal(row.registration_end,'2026-10-16T18:30:00.000Z');assert.equal(row.prize_pool,null);});
+
+test('an organizer cash amount without currency does not acquire an invented INR claim',async()=>{const f=fixture();await f.run();const row=f.db.hackathons.find(e=>e.website_url==='https://example.invalid/active');assert.equal(row.currency,null);assert(!row.prize_pool.includes('₹'));assert(row.prize_pool.includes('50,000'));});

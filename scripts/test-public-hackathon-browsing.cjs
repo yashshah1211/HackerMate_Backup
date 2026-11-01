@@ -6,9 +6,10 @@ const { createRoot } = require('react-dom/client');
 const { JSDOM } = require('jsdom');
 const { harness } = require('./ppt-vision-harness.cjs');
 const api = harness().load('src/lib/hackathons/publicBrowsing.ts');
+class FixtureDate extends Date { constructor(...args){super(...(args.length?args:['2026-10-31T12:00:00+05:30']));} static now(){return Date.parse('2026-10-31T12:00:00+05:30');} }
 const USER = { id: 'synthetic-member' };
 const event = (id = 'synthetic-event', extra = {}) => ({ id, name: `Public ${id}`, description: '<p>Build useful tools</p>', status: 'approved', archived: false,
-  type: 'external', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
+  type: 'external', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_start: '2026-10-01', registration_end: '2026-11-02',
   prize_pool: 'INR 10000', currency: 'INR', location: 'Mumbai', mode: 'hybrid', website_url: 'https://unstop.com/synthetic', ...extra });
 function client(options = {}) {
   const reads = [], writes = [], listeners = new Set(), signOutCalls = []; let user = options.user ?? null, stopped = 0;
@@ -114,7 +115,7 @@ async function mount(options = {}) {
     'next/navigation': { useParams: () => ({ id: 'synthetic-event' }), useSearchParams: () => new URLSearchParams(dom.window.location.search) },
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {} }) }, '@/components/Logo': { LogoMark: () => null },
-  }, { window: dom.window, URLSearchParams, AbortController, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
+  }, { Date:FixtureDate, window: dom.window, URLSearchParams, AbortController, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
   const Boundary = options.boundary && loader.load('src/components/hackathons/BrowsingBoundary.tsx').default;
   const Component = options.boundary ? () => React.createElement(Boundary, null, access => React.createElement('div', null,
     access.kind === 'guest' ? 'Genuine guest subtree' : `Member subtree ${access.userId} onboarded=${access.onboarded}`))
@@ -145,7 +146,7 @@ test('real public detail effects show description/dates/prizes, safe actions, an
   const view = await mount({ detail: true, query: '?tab=builders' });
   try {
     assert.match(view.html, /Build useful tools/); assert.match(view.html, /10,000/); assert.match(view.html, /Nov/);
-    assert.match(view.html, /Sign in to participate/); assert(view.c.reads.every(read => read.table === 'hackathons'));
+    assert.match(view.html, /Sign in for teammate matching/); assert(view.c.reads.every(read => read.table === 'hackathons'));
     assert.equal(view.c.writes.length, 0); assert(!view.html.includes('Registered'));
     const next = new URL([...view.dom.window.document.querySelectorAll('a')].find(a => a.textContent === 'Sign in to save').href).searchParams.get('next');
     assert.equal(next, '/hackathons/synthetic-event?tab=builders');

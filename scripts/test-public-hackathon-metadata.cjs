@@ -21,7 +21,7 @@ const approved = { id, status: 'approved', archived: false, name: 'Climate & Cod
 test('approved metadata uses safe projection, visibility filters, anonymous client and canonical event URL', async () => {
   const f = fixture(approved), m = await f.metadata(id);
   assert.equal(m.title.absolute, 'Climate & Code | HackerMate');
-  assert.equal(m.description, 'Build climate tools together .');
+  assert.equal(m.description, 'Build climate tools together.');
   assert.equal(m.alternates.canonical, `https://hackermate.in/hackathons/${id}`);
   assert.equal(m.openGraph.url, m.alternates.canonical);
   assert.equal(m.openGraph.title, m.title.absolute); assert.equal(m.twitter.description, m.description);
@@ -75,10 +75,10 @@ test('public fetch explicitly disables caching and bounds request duration', asy
 for (const [label, description, expected] of [
   ['common named entities', 'Build&nbsp;&amp;&nbsp;learn &quot;together&quot; with &lt;code&gt;', 'Build & learn "together" with <code>'],
   ['mixed HTML and Markdown', '<p>**Build** [tools](https://example.com) &amp; ![learn](https://example.com/image)</p>\n> `C++` &lt;3&gt;', 'Build tools & learn C++ <3>'],
-  ['malformed formatting', '**Unclosed [link &amp; <b>bold</b> &unknown; &amp', 'Unclosed [link & bold &unknown; &amp'],
+  ['malformed formatting', '**Unclosed [link &amp; <b>bold</b> &unknown; &amp', 'Unclosed [link & bold &unknown; &'],
   ['literal special characters', 'C++ > 1; "quotes" & ₹500; 2 < 3', 'C++ > 1; "quotes" & ₹500; 2 < 3'],
   ['non-string description', { toString() { throw Error('Do not coerce input'); } }, 'Explore Climate & Code on HackerMate. Discover event details and find teammates.'],
-  ['headings preserve hashes and numeric entities', '# Build C# &amp; tools &#35; &#x3c;literal&#x3e;', 'Build C# & tools &#35; &#x3c;literal&#x3e;'],
+  ['headings preserve hashes and numeric entities', '# Build C# &amp; tools &#35; &#x3c;literal&#x3e;', 'Build C# & tools # <literal>'],
   ['control characters', 'Build\u0000&nbsp;&amp;\u007f learn', 'Build & learn'],
   ['decode once', '&amp;lt;literal&amp;gt;', '&lt;literal&gt;'],
   ['hostile encoded text', '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;', '<script>alert("x")</script>'],
@@ -91,4 +91,19 @@ test('event titles reuse entity handling and remain plain metadata strings', asy
   const m = await fixture({ ...approved, name: 'Build &amp; &quot;Learn&quot; &lt;2026&gt;' }).metadata(id);
   assert.equal(m.title.absolute, 'Build & "Learn" <2026> | HackerMate');
   assert.equal(m.openGraph.title, m.title.absolute); assert.equal(m.twitter.title, m.title.absolute);
+});
+
+for (const [label, description, expected] of [
+  ['inline punctuation', '<p>Build <b>together</b>, then <i>ship</i>!</p>', 'Build together, then ship!'],
+  ['unknown entity stays literal', '<p>Keep &unknown; literal.</p>', 'Keep &unknown; literal.'],
+  ['terminal legacy entity', '<p>Legacy &amp</p>', 'Legacy &'],
+  ['decimal and hexadecimal numeric entities', '<p>&#35; &#x23; &#8377; &#x3c;literal&#x3e;</p>', '# # ₹ <literal>'],
+  ['no second entity decode', '<p>&amp;lt;script&amp;gt; &amp;#35;</p>', '&lt;script&gt; &#35;'],
+]) test(`Phase B parser and metadata fidelity: ${label}`, async () => {
+  const f = fixture({ ...approved, description });
+  assert.equal(f.loader.load('src/lib/hackathons/description.ts').descriptionText(description), expected);
+  const m = await f.metadata(id);
+  assert.equal(m.description, expected);
+  assert.equal(m.openGraph.description, expected);
+  assert.equal(m.twitter.description, expected);
 });

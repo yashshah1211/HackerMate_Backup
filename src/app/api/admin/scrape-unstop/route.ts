@@ -1,3 +1,5 @@
+import { eventState } from "@/lib/hackathons/lifecycle";
+import { sourceDate, ingestionSnapshot, deadlineRefresh, REGISTRATION_FIELDS, registrationInstant } from "@/lib/hackathons/ingestion";
 import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -57,8 +59,10 @@ async function fetchUnstopCandidates(): Promise<any[]> {
                 opp.organisation_name ||
                 opp.organisation?.title ||
                 "College / Institution",
-              startDate: opp.start_date || opp.regnRequirements?.start_regn_dt || null,
-              endDate: opp.end_date || opp.regnRequirements?.end_regn_dt || null,
+              startDate: sourceDate(opp.start_date),
+              registrationStart: sourceDate(opp.regnRequirements?.start_regn_dt),
+              registrationEnd: sourceDate(opp.regnRequirements?.end_regn_dt),
+              endDate: sourceDate(opp.end_date),
               details: opp.details,
               locations: opp.locations,
               subtype: opp.subtype,
@@ -115,8 +119,8 @@ async function fetchDevfolioCandidates(): Promise<any[]> {
         url: `https://${opp.slug}.devfolio.co`,
         title: opp.name,
         college: "Devfolio Partner",
-        startDate: opp.starts_at || null,
-        endDate: opp.ends_at || null,
+        startDate: sourceDate(opp.starts_at),
+        endDate: sourceDate(opp.ends_at),
         isOnline: opp.is_online,
         city: opp.city,
         country: opp.country,
@@ -169,8 +173,10 @@ async function fetchHack2SkillCandidates(): Promise<any[]> {
         url,
         title: opp.title,
         college: "Hack2Skill Partner",
-        startDate: opp.registrationStart || opp.startDate || null,
-        endDate: opp.registrationEnd || opp.endDate || null,
+        startDate: sourceDate(opp.startDate),
+        registrationStart: sourceDate(opp.registrationStart),
+        registrationEnd: sourceDate(opp.registrationEnd),
+        endDate: sourceDate(opp.endDate),
         mode: opp.tags?.mode?.value === "VIRTUAL" ? "online" : "in-person",
       });
     }
@@ -195,14 +201,19 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
   // 1. Fetch all previously scraped URLs & names from DB (organizer_leads + hackathons + partner_configs) for deduplication
   const [existingLeadsRes, existingHackathonsRes, partnerConfigsRes] = await Promise.all([
     supabaseAdmin.from("organizer_leads").select("unstop_url"),
-    supabaseAdmin.from("hackathons").select("name, website_url"),
-    supabaseAdmin.from("partner_configs").select("partner_name, features"),
+    supabaseAdmin.from("hackathons").select("id,name,website_url,type,organizer_id,status,archived,registration_start,registration_end,registration_status,ai_feedback"),
+    supabaseAdmin.from("partner_configs").select("hackathon_id,partner_name,features"),
   ]);
 
   if (existingLeadsRes.error) {
     console.error("[Scraper] Error fetching existing leads:", existingLeadsRes.error);
   }
 
+  for (const result of [existingHackathonsRes, partnerConfigsRes]) if (result.error) {
+    console.error("Scraper ownership lookup failed:", result.error);
+    throw new Error("Catalog ownership could not be verified; no writes attempted.");
+  }
+  if (existingLeadsRes.error) throw new Error("Lead deduplication could not be verified; no writes attempted.");
   const existingUrlsSet = new Set<string>([
     ...(existingLeadsRes.data || []).map((l) => normalizeUrl(l.unstop_url)).filter(Boolean),
     ...(existingHackathonsRes.data || []).map((h) => normalizeUrl(h.website_url)).filter(Boolean),
@@ -257,7 +268,14 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
     return true;
   });
 
-  if (freshCandidates.length === 0) {
+  const partnerIds = new Set((partnerConfigsRes.data || []).map(p => p.hackathon_id));
+  const refreshRows = new Map((existingHackathonsRes.data || []).filter(row => row.id && row.type === "external" && !row.organizer_id
+    && row.status === "approved" && row.archived === false && !partnerIds.has(row.id)
+    && !(partnerConfigsRes.data || []).some(p => normalizeUrl(p.features?.website_url) === normalizeUrl(row.website_url) || normalizeNameForDedup(p.partner_name) === normalizeNameForDedup(row.name))
+    && row.ai_feedback?.lifecycle_ingestion?.version === 1).map(row => [normalizeUrl(row.website_url), row]));
+  const refreshCandidates = [...new Map(allCandidates.filter(opp => refreshRows.has(normalizeUrl(opp.url)))
+    .map(opp => [normalizeUrl(opp.url), opp])).values()].slice(0, 20);
+  if (freshCandidates.length === 0 && refreshCandidates.length === 0) {
     return {
       message: `Checked ${allCandidates.length} hackathons across Unstop, Devfolio & Hack2Skill. All active/past hackathons have already been processed!`,
       count: 0,
@@ -268,8 +286,8 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
   // 4. Cap per invocation & Batch detail-fetches sequentially with polite delay to ensure legal & respectful scraping
   const MAX_PER_RUN = 50;
-  const candidatesToFetch = freshCandidates.slice(0, MAX_PER_RUN);
-  const skippedInRunCount = freshCandidates.length - candidatesToFetch.length;
+  const candidatesToFetch = [...freshCandidates.slice(0, MAX_PER_RUN), ...refreshCandidates];
+  const skippedInRunCount = Math.max(0, freshCandidates.length - MAX_PER_RUN);
 
   const BATCH_SIZE = 5;
   const resolvedItems: any[] = [];
@@ -281,18 +299,15 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
         try {
           let organizer_email: string | null = null;
           let description = `${opp.title} hosted on ${opp.platform}.`;
-          let location = opp.mode === "online" ? "Online" : "Venue in India";
-          let mode = opp.mode || "online";
-          let prize_pool = "Certificate & Perks";
-          let currency = "INR";
+          let location: string | null = opp.mode === "online" ? "Online" : null;
+          let mode: string | null = opp.mode || null;
+          let prize_pool: string | null = null;
+          let currency: string | null = null;
 
-          let isEnded =
-            opp.status === "ended" ||
-            opp.status === "closed" ||
-            (opp.endDate && new Date(opp.endDate) < new Date());
-
-          let actualEndDate = opp.endDate || null;
-
+          const isEnded = eventState({ start_date: opp.startDate, end_date: opp.endDate }, Date.now()) === "ended";
+          let registration_start = sourceDate(opp.registrationStart);
+          let registration_end = sourceDate(opp.registrationEnd);
+          let registration_status: string | null = null;
           if (opp.platform === "Unstop") {
             if (opp.id) {
               try {
@@ -341,21 +356,14 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
                   }
 
                   const regReq = comp.regnRequirements || {};
-                  if (regReq.end_regn_dt) {
-                    actualEndDate = regReq.end_regn_dt;
-                  }
-                  if (
-                    regReq.reg_status === "FINISHED" ||
-                    regReq.remain_days === "Ended" ||
-                    (regReq.end_regn_dt && new Date(regReq.end_regn_dt) < new Date())
-                  ) {
-                    isEnded = true;
-                  }
+                  registration_start = sourceDate(regReq.start_regn_dt) || registration_start;
+                  registration_end = sourceDate(regReq.end_regn_dt) || registration_end;
+                  registration_status = regReq.reg_status === "FINISHED" ? "closed" : regReq.reg_status === "OPEN" ? "open" : null;
                 }
               } catch (e) {}
             }
             if (opp.details) {
-              description = opp.details.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+              description = opp.details;
             }
             if (opp.locations && opp.locations.length > 0) {
               location = opp.locations.join(", ");
@@ -372,11 +380,11 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               } else if (pCode === "INR" || pSym === "₹" || pCurrName.includes("rupee")) {
                 currency = "INR";
               } else {
-                currency = "INR";
+                currency = null;
               }
 
               if (prizeObj.cash) {
-                const symbol = currency === "USD" ? "$" : "₹";
+                const symbol = currency === "USD" ? "$" : currency === "INR" ? "₹" : "";
                 const numVal = Number(prizeObj.cash);
                 prize_pool = `${symbol} ${numVal.toLocaleString(currency === "USD" ? "en-US" : "en-IN")}`;
               }
@@ -397,7 +405,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
                   const json = JSON.parse(match[1]);
                   const detail = json.props?.pageProps?.hackathon || json.props?.pageProps?.dehydratedState?.queries?.[0]?.state?.data || {};
                   if (detail.desc) {
-                    description = detail.desc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+                    description = detail.desc;
                   } else if (detail.tagline) {
                     description = detail.tagline;
                   }
@@ -426,6 +434,8 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
             } catch (e) {}
           }
 
+          registration_start = registrationInstant(registration_start);
+          registration_end = registrationInstant(registration_end, true);
           const event_date = opp.startDate
             ? new Date(opp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : "Upcoming";
@@ -444,7 +454,9 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
               name: opp.title,
               description,
               start_date: opp.startDate || null,
-              end_date: actualEndDate || opp.endDate || null,
+              end_date: opp.endDate || null,
+              registration_start, registration_end, registration_status,
+              ai_feedback: { lifecycle_ingestion: ingestionSnapshot(normalizeUrl(opp.url), opp.platform, { registration_start, registration_end, registration_status }) },
               location,
               mode,
               prize_pool,
@@ -470,23 +482,35 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
   // 5. ORGANIZER OUTREACH LEADS: Strict email constraint (only save leads with valid organizer email)
   const validLeadsToUpsert = validProcessedItems
+    .filter(item => !refreshRows.has(normalizeUrl(item.hackathonRecord.website_url)))
     .map((item) => item.lead)
     .filter((lead) => lead.organizer_email && lead.organizer_email.trim().length > 0);
 
   // 6. MAIN HACKATHONS TAB: ZERO email constraint! All live/upcoming hackathons appear for student team-building
-  const todayStr = new Date().toISOString().split("T")[0];
   const activeHackathonsToUpsert = validProcessedItems
-    .filter((item) => !item.isEnded)
+    .filter((item) => !item.isEnded && !refreshRows.has(normalizeUrl(item.hackathonRecord.website_url)))
     .map((item) => item.hackathonRecord)
     .filter((h) => {
       if (!h.website_url) return false;
-      // Ingest only active/upcoming candidates; retain existing events for Past discovery.
-      if (h.end_date) {
-        const endDateStr = new Date(h.end_date).toISOString().split("T")[0];
-        if (endDateStr < todayStr) return false;
-      }
       return true;
     });
+
+  for (const item of validProcessedItems) {
+    const row = refreshRows.get(normalizeUrl(item.hackathonRecord.website_url));
+    if (!row) continue;
+    const { data: protectedPartners, error: partnerCheckError } = await supabaseAdmin.from("partner_configs").select("hackathon_id").eq("hackathon_id", row.id).limit(1);
+    if (partnerCheckError) { console.error("Scraper partner refresh guard failed:", partnerCheckError); continue; }
+    if (!Array.isArray(protectedPartners) || protectedPartners.length) continue;
+    const patch = deadlineRefresh(row, item.hackathonRecord.ai_feedback.lifecycle_ingestion);
+    if (!patch) continue;
+    // Compare-and-set protects editorial changes made while the provider request was in flight.
+    let query = supabaseAdmin.from("hackathons").update({ ...patch.values, ai_feedback: patch.feedback })
+      .eq("id", row.id).eq("type", "external").eq("status", row.status).eq("archived", false)
+      .is("organizer_id", null).eq("website_url", row.website_url).eq("ai_feedback", JSON.stringify(row.ai_feedback));
+    for (const field of REGISTRATION_FIELDS) query = row[field] == null ? query.is(field, null) : query.eq(field, row[field]);
+    const { error } = await query;
+    if (error) console.error("Scraper deadline refresh failed:", error);
+  }
 
   let insertedLeadsCount = 0;
   let insertedData: any[] = [];
@@ -521,7 +545,7 @@ export async function runMultiPlatformScraper(supabaseAdmin: SupabaseClient) {
 
     const { error: hackathonsDbErr } = await supabaseAdmin
       .from("hackathons")
-      .upsert(normalizedHackathons, { onConflict: "website_url" });
+      .upsert(normalizedHackathons, { onConflict: "website_url", ignoreDuplicates: true });
 
     if (hackathonsDbErr) {
       console.error("[Scraper] Error upserting active hackathons to public.hackathons:", hackathonsDbErr);

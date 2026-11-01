@@ -67,10 +67,10 @@ export async function POST(req: NextRequest) {
           description: `Official Partner Hackathon — ${lead.title}`,
           website_url: lead.unstop_url,
           college: lead.college_or_host,
-          mode: "online",
+          mode: null,
           type: "external",
-          prize_pool: "Certificate & Perks",
-          start_date: new Date().toISOString(),
+          prize_pool: null,
+          start_date: null,
         })
         .select()
         .single();
