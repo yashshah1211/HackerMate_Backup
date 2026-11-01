@@ -120,6 +120,19 @@ async function qualifyAtomic(c){
  await rejectMutation('CREATE SCHEMA mission20_private;',/mission20_namespace_drift_stop/);
  await rejectMutation("CREATE FUNCTION public.register_native_hackathon(uuid,uuid,boolean) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb; $$;",/register_native_hackathon.*already exists/);
  pass('partial namespace or stray public RPC cannot be overwritten; failed probes leave only the committed freeze');
+ // Also model previously COMMITTED partial state, not only transactional
+ // probes. Failed candidate execution must preserve that exact prior object.
+ await admin.query("CREATE SCHEMA mission20_private; COMMENT ON SCHEMA mission20_private IS 'synthetic committed partial marker';");
+ rejected(candidate,/mission20_namespace_drift_stop/);
+ assert.equal(await admin.query("SELECT obj_description(oid,'pg_namespace') FROM pg_namespace WHERE nspname='mission20_private';"),'synthetic committed partial marker');
+ await admin.query('DROP SCHEMA mission20_private;'); // Empty, fixture-owned; no CASCADE.
+ await admin.query("CREATE FUNCTION public.register_native_hackathon(uuid,uuid,boolean) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{\"fixture\":true}'::jsonb; $$;");
+ const partial=()=>admin.query("SELECT oid::text||':'||encode(sha256(convert_to(pg_get_functiondef(oid),'UTF8')),'hex')||':'||coalesce(proacl::text,'NULL') FROM pg_proc WHERE oid='public.register_native_hackathon(uuid,uuid,boolean)'::regprocedure;");
+ const savedPartial=await partial();rejected(candidate,/register_native_hackathon.*already exists/);
+ assert.equal(await partial(),savedPartial);
+ assert.equal(await admin.query("SELECT to_regnamespace('mission20_private') IS NULL;"),'t');
+ await admin.query('DROP FUNCTION public.register_native_hackathon(uuid,uuid,boolean);');await absent();
+ pass('committed partial namespace/RPC survive failed install unchanged; no automatic overwrite, cleanup or ledger repair');
  for(const dep of dependencies)await admin.query(withBody(dep,selectedBody(dep)));
  // Existing historical audit grants for these three trusted service callers
  // are preserved, never added by the candidate. Only this fake DB gets them.
