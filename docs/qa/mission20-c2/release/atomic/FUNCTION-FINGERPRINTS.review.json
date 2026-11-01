@@ -1,0 +1,78 @@
+{
+  "status": "REVIEW_ONLY_EXACT_VARIANTS_NO_EXECUTION_AUTHORIZATION",
+  "taskBase": "89cda40f270e73b6952c29336212a1c69856f4cc",
+  "evidence": "Founder independent read-only PG17.6 audit supplied exact hashes; all five matched reviewed definitions after whitespace normalization and corresponding trimmed lines. Owner postgres, SECURITY DEFINER, search_path public, pg_temp and hardened helper EXECUTE restrictions independently confirmed. No new database query performed.",
+  "rawBodyQualification": "UNQUALIFIED_COMPLETE_DEPLOYED_INSTALLATION: four byte-matching historical local fixtures available; exact deployed ensure_team_conversation bytes/current private audit bundle unavailable. No reconstruction or hash-function mocking.",
+  "runtimeRule": "Exact per-signature SHA256 allowlist only, plus metadata/ACL checks. No runtime normalization or arbitrary whitespace-equivalent acceptance.",
+  "functions": [
+    {
+      "signature": "public.accept_team_invite(uuid)",
+      "sourceFile": "supabase/migrations/202607020001_core_security.sql",
+      "sourceBodySha256": "ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac",
+      "liveBodySha256": "5cda72e78872633f23754f53027b34cb0aa34feabfe6b9aaf44496eb484a2963",
+      "approvedBodySha256": [
+        "ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac",
+        "5cda72e78872633f23754f53027b34cb0aa34feabfe6b9aaf44496eb484a2963"
+      ],
+      "functionalChangeAuthorized": false,
+      "rawFixtureAvailable": true,
+      "serviceExecuteAllowed": true,
+      "authenticatedExecuteRequired": true
+    },
+    {
+      "signature": "public.accept_team_join_request(uuid)",
+      "sourceFile": "supabase/migrations/202607020001_core_security.sql",
+      "sourceBodySha256": "e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217",
+      "liveBodySha256": "20cbbea56deecc735f80e018978975912278a74557dac129b6acb7087ad4eaed",
+      "approvedBodySha256": [
+        "e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217",
+        "20cbbea56deecc735f80e018978975912278a74557dac129b6acb7087ad4eaed"
+      ],
+      "functionalChangeAuthorized": false,
+      "rawFixtureAvailable": true,
+      "serviceExecuteAllowed": true,
+      "authenticatedExecuteRequired": true
+    },
+    {
+      "signature": "public.ensure_team_conversation(uuid)",
+      "sourceFile": "supabase/migrations/202607070001_ensure_team_conversation.sql",
+      "sourceBodySha256": "99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1",
+      "liveBodySha256": "9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b",
+      "approvedBodySha256": [
+        "99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1",
+        "9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b"
+      ],
+      "functionalChangeAuthorized": false,
+      "rawFixtureAvailable": false,
+      "serviceExecuteAllowed": true,
+      "authenticatedExecuteRequired": true
+    },
+    {
+      "signature": "public.delete_user_completely(uuid)",
+      "sourceFile": "supabase/migrations/202610060001_restore_safe_user_deletion.sql",
+      "sourceBodySha256": "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe",
+      "liveBodySha256": "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe",
+      "approvedBodySha256": [
+        "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe"
+      ],
+      "functionalChangeAuthorized": false,
+      "rawFixtureAvailable": true,
+      "serviceExecuteAllowed": false,
+      "authenticatedExecuteRequired": true
+    },
+    {
+      "signature": "public.add_user_to_team(uuid,uuid,text)",
+      "sourceFile": "supabase/migrations/20260928100000_phase1a_definer_function_privileges.sql",
+      "sourceBodySha256": "5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4",
+      "liveBodySha256": "11919942fa8c526386b3dbe5ada6c37e0fa8ca0198395b807d7c80780beda500",
+      "approvedBodySha256": [
+        "5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4",
+        "11919942fa8c526386b3dbe5ada6c37e0fa8ca0198395b807d7c80780beda500"
+      ],
+      "functionalChangeAuthorized": false,
+      "rawFixtureAvailable": true,
+      "serviceExecuteAllowed": false,
+      "authenticatedExecuteRequired": false
+    }
+  ]
+}

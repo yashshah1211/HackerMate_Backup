@@ -37,29 +37,75 @@
     {
       "signature": "public.accept_team_invite(uuid)",
       "file": "supabase/migrations/202607020001_core_security.sql",
-      "bodySha256": "ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac"
+      "bodySha256": "ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac",
+      "approvedBodySha256": [
+        "ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac",
+        "5cda72e78872633f23754f53027b34cb0aa34feabfe6b9aaf44496eb484a2963"
+      ],
+      "deployedBodySha256": "5cda72e78872633f23754f53027b34cb0aa34feabfe6b9aaf44496eb484a2963",
+      "authenticatedExecuteRequired": true,
+      "serviceExecuteAllowed": true
     },
     {
       "signature": "public.accept_team_join_request(uuid)",
       "file": "supabase/migrations/202607020001_core_security.sql",
-      "bodySha256": "e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217"
+      "bodySha256": "e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217",
+      "approvedBodySha256": [
+        "e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217",
+        "20cbbea56deecc735f80e018978975912278a74557dac129b6acb7087ad4eaed"
+      ],
+      "deployedBodySha256": "20cbbea56deecc735f80e018978975912278a74557dac129b6acb7087ad4eaed",
+      "authenticatedExecuteRequired": true,
+      "serviceExecuteAllowed": true
     },
     {
       "signature": "public.ensure_team_conversation(uuid)",
       "file": "supabase/migrations/202607070001_ensure_team_conversation.sql",
-      "bodySha256": "99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1"
+      "bodySha256": "99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1",
+      "approvedBodySha256": [
+        "99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1",
+        "9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b"
+      ],
+      "deployedBodySha256": "9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b",
+      "authenticatedExecuteRequired": true,
+      "serviceExecuteAllowed": true
     },
     {
       "signature": "public.delete_user_completely(uuid)",
       "file": "supabase/migrations/202610060001_restore_safe_user_deletion.sql",
-      "bodySha256": "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe"
+      "bodySha256": "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe",
+      "approvedBodySha256": [
+        "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe"
+      ],
+      "deployedBodySha256": "ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe",
+      "authenticatedExecuteRequired": true,
+      "serviceExecuteAllowed": false
     },
     {
       "signature": "public.add_user_to_team(uuid,uuid,text)",
       "file": "supabase/migrations/20260928100000_phase1a_definer_function_privileges.sql",
-      "bodySha256": "5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4"
+      "bodySha256": "5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4",
+      "approvedBodySha256": [
+        "5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4",
+        "11919942fa8c526386b3dbe5ada6c37e0fa8ca0198395b807d7c80780beda500"
+      ],
+      "deployedBodySha256": "11919942fa8c526386b3dbe5ada6c37e0fa8ca0198395b807d7c80780beda500",
+      "authenticatedExecuteRequired": false,
+      "serviceExecuteAllowed": false
     }
   ],
+  "fingerprintEvidence": {
+    "path": "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+    "sha256": "f1b80a78e586fda99ba3f82425945b2c42375167d5a2da54eeecc96233b24d37",
+    "runtime": "exact SHA256 membership only; no normalization",
+    "completeDeployedInstallation": "UNQUALIFIED"
+  },
+  "availableBodyFixtures": {
+    "path": "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
+    "sha256": "db83ef62e296a56b0d4b63024ce0a1961dda2bbdfcb99c4decb739d2741ea7b3",
+    "count": 4,
+    "neverPromote": true
+  },
   "sources": [
     {
       "id": "expand",
@@ -104,7 +150,7 @@
       "reason": "qualification-only maintenance prototype; no runtime caller"
     }
   ],
-  "candidateSha256": "5856a9e1c144d3c747753bbc035e88d739944cb1b494e53f72c70e49d0241630",
+  "candidateSha256": "e1faf07fb9620c6f2405e13b4adc04a36c27fd605ad3705fe1292163e6560ff7",
   "freeze": "Existing 00, committed separately; pauses native AND external/official INSERT. Founder decision unresolved.",
   "rollback": "Failed transaction rolls back only expansion; prior committed freeze remains. After commit preserve protocol and re-freeze; no destructive downgrade or vulnerable grant restoration."
 }

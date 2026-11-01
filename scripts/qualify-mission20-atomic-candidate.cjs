@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {main}=require('./qualify-mission20-c1-postgres.cjs');
 const {extension:c2}=require('./qualify-mission20-c2-writers.cjs');
-const {build,definition,dependencies,DIR}=require('./mission20-atomic-candidate.cjs');
+const {build,definition,body,dependencies,DIR}=require('./mission20-atomic-candidate.cjs');
 // Inline only known repository fixture includes so temporary scripts retain the
 // original relative-include meaning. Never accepts a user SQL/connection path.
 function expanded(file){return fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(path.dirname(file),f.trim())));}
@@ -23,6 +23,12 @@ async function qualifyAtomic(c){
   RAISE EXCEPTION 'expected exact admission freeze rejection';
  END; $atomic_frozen$; RESET ROLE;`;
  const {sql}=build();assert.equal(fs.readFileSync(source(DIR+'/01-final-expansion.review.sql'),'utf8').replace(/\r\n/g,'\n'),sql);
+ const rawFixtures=JSON.parse(fs.readFileSync(source(DIR+'/deployed-body-fixtures.review.json'),'utf8')).functions;
+ const withBody=(dep,prosrc)=>{
+  const original=definition(dep.file,dep.signature.split('(')[0]),start=original.match(/\bAS\s+(\$(?:\w+)?\$)/i).index;
+  assert(!prosrc.includes('$atomic_body$'));return original.slice(0,start)+'AS $atomic_body$'+prosrc+'$atomic_body$;';
+ };
+ const selectedBody=dep=>rawFixtures.find(f=>f.signature===dep.signature)?.prosrc||body(definition(dep.file,dep.signature.split('(')[0]));
  const prefix=fs.readFileSync(path.join(SQL,'04-security-tests.review.sql'),'utf8').split('\\ir 00-preflight.review.sql')[0];
  // Shared roles were created by the baseline fixture in this same owned
  // cluster; this second database gets independent schemas, records and ACLs.
@@ -78,13 +84,55 @@ async function qualifyAtomic(c){
  await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261102090000','synthetic-freeze-loader-receipt');");
  assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
  pass('missing freeze rejects install; separately committed freeze removes exposed INSERT columns');
+ // Exercise the actual emitted exact-digest predicate, including all supplied
+ // live hashes. This is NOT installation proof for a missing raw byte fixture.
+ const values=sql.match(/\(VALUES\n([\s\S]+?)\n \) AS required\(signature,sha256,authenticated_execute,service_execute_allowed\)/)[1];
+ assert.equal(await admin.query(`WITH required(signature,sha256,authenticated_execute,service_execute_allowed) AS (VALUES ${values})
+  SELECT bool_and(array_length(sha256,1) BETWEEN 1 AND 2 AND '${'0'.repeat(64)}'<>ALL(sha256)) FROM required;`),'t');
+ pass('emitted exact-digest sets contain only source/live hashes and reject an unknown digest; missing conversation bytes remain UNQUALIFIED');
+ execute(temp('atomic-source-positive-rollback',sql.replace(/COMMIT;\n$/,'ROLLBACK;\n')));await absent();
+ pass('complete source-only approved body bundle installs successfully inside a rolled-back transaction');
+ let probe=0;
+ const rejectMutation=async(mutation,re)=>{
+  const changed=sql.replace('\nBEGIN;\n','\nBEGIN;\n'+mutation+'\n');assert.notEqual(changed,sql);
+  rejected(temp('atomic-negative-'+ ++probe,changed),re);await absent();
+  assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_release_freeze');"),'t');
+ };
+ for(const dep of dependencies){
+  await rejectMutation(withBody(dep,"\nBEGIN RAISE EXCEPTION 'synthetic third-party writer'; END;\n"),/unreviewed_function_variant_stop/);
+  await rejectMutation(withBody(dep,body(definition(dep.file,dep.signature.split('(')[0]))+'\n '),/unreviewed_function_variant_stop/);
+ }
+ pass('all five unknown third-party and whitespace-only third bodies reject byte-exactly before expansion, with full probe rollback');
+ for(const role of ['PUBLIC','anon','authenticated','service_role'])await rejectMutation(`GRANT EXECUTE ON FUNCTION public.add_user_to_team(uuid,uuid,text) TO ${role};`,/function_acl_drift_stop/);
+ for(const role of ['PUBLIC','anon'])await rejectMutation(`GRANT EXECUTE ON FUNCTION public.accept_team_invite(uuid) TO ${role};`,/function_acl_drift_stop/);
+ await rejectMutation('CREATE ROLE mission20_fixture_unexpected NOLOGIN; GRANT EXECUTE ON FUNCTION public.ensure_team_conversation(uuid) TO mission20_fixture_unexpected;',/function_acl_drift_stop/);
+ await rejectMutation('GRANT EXECUTE ON FUNCTION public.accept_team_invite(uuid) TO authenticated WITH GRANT OPTION;',/function_acl_drift_stop/);
+ await rejectMutation('REVOKE EXECUTE ON FUNCTION public.ensure_team_conversation(uuid) FROM authenticated;',/function_acl_drift_stop/);
+ await rejectMutation('GRANT EXECUTE ON FUNCTION public.delete_user_completely(uuid) TO service_role;',/function_acl_drift_stop/);
+ pass('helper/PUBLIC/anon/unknown-role/grant-option ACL expansion and required-client EXECUTE revocation all reject without altering saved ACLs');
+ await rejectMutation('CREATE ROLE mission20_fixture_owner NOLOGIN; ALTER FUNCTION public.accept_team_invite(uuid) OWNER TO mission20_fixture_owner;',/unreviewed_function_variant_stop/);
+ await rejectMutation('ALTER FUNCTION public.add_user_to_team(uuid,uuid,text) RENAME TO mission20_fixture_hidden_helper;',/missing_baseline_function/);
+ for(const dep of dependencies){
+  await rejectMutation(`ALTER FUNCTION ${dep.signature} SET search_path=public;`,/unreviewed_function_variant_stop/);
+  await rejectMutation(`ALTER FUNCTION ${dep.signature} SECURITY INVOKER;`,/unreviewed_function_variant_stop/);
+ }
+ pass('unexpected owner, missing helper, altered search_path and SECURITY INVOKER drift reject before any replacement');
+ await rejectMutation('CREATE SCHEMA mission20_private;',/mission20_namespace_drift_stop/);
+ await rejectMutation("CREATE FUNCTION public.register_native_hackathon(uuid,uuid,boolean) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb; $$;",/register_native_hackathon.*already exists/);
+ pass('partial namespace or stray public RPC cannot be overwritten; failed probes leave only the committed freeze');
+ for(const dep of dependencies)await admin.query(withBody(dep,selectedBody(dep)));
+ // Existing historical audit grants for these three trusted service callers
+ // are preserved, never added by the candidate. Only this fake DB gets them.
+ await admin.query(`GRANT EXECUTE ON FUNCTION public.accept_team_invite(uuid),public.accept_team_join_request(uuid),public.ensure_team_conversation(uuid) TO service_role;`);
+ for(const raw of rawFixtures)assert.equal(await admin.query(`SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='${raw.signature}'::regprocedure;`),raw.bodySha256);
+ pass('four available exact deployed-byte fixtures match supplied hashes; existing optional trusted service EXECUTE retained, complete deployed set UNQUALIFIED');
  const before=await admin.query(`SELECT string_agg(p.oid::text||':'||coalesce(p.proacl::text,'NULL')||':'||p.proowner::text,'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
  const bodies=()=>admin.query(`SELECT string_agg(encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
  const originalBodies=await bodies();
  await admin.query(`CREATE OR REPLACE FUNCTION public.add_user_to_team(p_team_id uuid,p_user_id uuid,p_role text DEFAULT 'member') RETURNS void
   LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ BEGIN RAISE EXCEPTION 'synthetic unreviewed deployed variant'; END; $$;`);
  rejected(candidate,/unreviewed_function_variant_stop/);await absent();
- await admin.query(definition(dependencies[4].file,'public.add_user_to_team'));
+ await admin.query(withBody(dependencies[4],selectedBody(dependencies[4])));
  pass('unreviewed add_user_to_team body is never overwritten; exact-body drift fails before any expansion');
  await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261102090001','synthetic-drift');");
  rejected(candidate,/migration_ledger_drift_stop/);await absent();
@@ -149,7 +197,8 @@ async function qualifyAtomic(c){
  assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_admission_frozen');"),'t');
  pass('policy-only unfreeze cannot recover rollback; emergency freeze remains and no unsafe automatic ACL recovery is attempted');
  const version=await admin.query('SHOW server_version;');
- await admin.close();console.log(JSON.stringify({atomicCandidate:true,checks,baselineAssertions,version,productionConnections:0,hostedAuth:false,backupRestore:false}));
+ await admin.close();console.log(JSON.stringify({atomicCandidate:true,checks,baselineAssertions,version,exactDeployedFixtures:rawFixtures.length,
+  completeDeployedBodyInstallation:'UNQUALIFIED',productionConnections:0,hostedAuth:false,backupRestore:false}));
 }
 module.exports={qualifyAtomic};
 if(require.main===module)main({setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyAtomic(c);}}).catch(e=>{console.error(e.stack);process.exitCode=1;});

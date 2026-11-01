@@ -62,3 +62,57 @@ test('SQL splitter preserves semicolons and comments inside quoted bodies',()=>{
  assert(candidate.statements(sample)[1].includes("'literal -- ;'"));
  assert.throws(()=>candidate.statements("SELECT 'unterminated"),/unterminated/);
 });
+
+test('reviewed exact live hashes are narrowly allowlisted per signature, with unchanged source hashes',()=>{
+ const expected={
+  'public.accept_team_invite(uuid)':'5cda72e78872633f23754f53027b34cb0aa34feabfe6b9aaf44496eb484a2963',
+  'public.accept_team_join_request(uuid)':'20cbbea56deecc735f80e018978975912278a74557dac129b6acb7087ad4eaed',
+  'public.ensure_team_conversation(uuid)':'9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b',
+  'public.delete_user_completely(uuid)':'ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe',
+  'public.add_user_to_team(uuid,uuid,text)':'11919942fa8c526386b3dbe5ada6c37e0fa8ca0198395b807d7c80780beda500'
+ };
+ const {sql,plan}=candidate.build();let hashes=0;
+ for(const dep of plan.dependencies){
+  assert.equal(dep.deployedBodySha256,expected[dep.signature]);
+  assert.deepEqual(dep.approvedBodySha256,[...new Set([dep.bodySha256,expected[dep.signature]])]);hashes+=dep.approvedBodySha256.length;
+  assert(!dep.approvedBodySha256.includes(createHash('sha256').update(candidate.body(candidate.definition(dep.file,dep.signature.split('(')[0]))+'\n ').digest('hex')));
+ }
+ assert.equal(hashes,9);
+ const guard=sql.slice(0,sql.indexOf('END; $mission20_preflight$;'));
+ assert(guard.includes('=ANY(expected.sha256)'));assert(!/regexp_replace|btrim|\btrim\s*\(/i.test(guard));
+ assert.equal(plan.fingerprintEvidence.completeDeployedInstallation,'UNQUALIFIED');
+});
+
+test('available deployed fixtures preserve protected literals and trimmed logic lines without reconstructing missing bytes',()=>{
+ const fixtures=JSON.parse(fs.readFileSync(candidate.DIR+'/deployed-body-fixtures.review.json','utf8'));
+ const review=JSON.parse(fs.readFileSync(candidate.DIR+'/FUNCTION-FINGERPRINTS.review.json','utf8'));
+ assert.equal(fixtures.functions.length,4);assert.equal(review.functions.length,5);
+ assert(!fixtures.functions.some(f=>f.signature==='public.ensure_team_conversation(uuid)'));
+ for(const f of fixtures.functions){
+  const d=review.functions.find(d=>d.signature===f.signature);assert(d);
+  assert.equal(createHash('sha256').update(f.prosrc).digest('hex'),d.liveBodySha256);
+  const original=candidate.body(candidate.definition(d.sourceFile,d.signature.split('(')[0]));
+  assert.deepEqual(candidate.bodyTokens(f.prosrc),candidate.bodyTokens(original));
+  assert.deepEqual(f.prosrc.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),original.split(/\r?\n/).map(s=>s.trim()).filter(Boolean));
+ }
+ assert(review.rawBodyQualification.includes('UNQUALIFIED'));
+ assert(review.functions.every(f=>f.functionalChangeAuthorized===false));
+});
+
+test('offline formatting comparison never erases literal content or token boundaries',()=>{
+ assert.deepEqual(candidate.bodyTokens("BEGIN\n PERFORM 'a b';\nEND;"),candidate.bodyTokens("BEGIN PERFORM 'a b'; END;"));
+ assert.notDeepEqual(candidate.bodyTokens("PERFORM 'a b';"),candidate.bodyTokens("PERFORM 'ab';"));
+ assert.notDeepEqual(candidate.bodyTokens('PERFORM "a b";'),candidate.bodyTokens('PERFORM "ab";'));
+ assert.notDeepEqual(candidate.bodyTokens('a b'),candidate.bodyTokens('ab'));
+ assert.notDeepEqual(candidate.bodyTokens('a > = b'),candidate.bodyTokens('a >= b'));
+ assert.notDeepEqual(candidate.bodyTokens('PERFORM $x$a b$x$;'),candidate.bodyTokens('PERFORM $x$ab$x$;'));
+});
+
+test('candidate checks ACL drift without rewriting existing grants, with unchanged release boundaries',()=>{
+ const {sql,plan}=candidate.build(),guard=sql.slice(0,sql.indexOf('END; $mission20_preflight$;')).replace(/--[^\n]*/g,'');
+ assert(guard.includes('function_acl_drift_stop'));assert(guard.includes('a.is_grantable'));assert(guard.includes('has_function_privilege'));
+ assert(!/\b(?:GRANT|REVOKE|ALTER\s+FUNCTION)\b/.test(guard));
+ assert.equal(plan.proposedVersions[0].stage,'separate-committed-freeze');
+ assert.equal(plan.proposedVersions.at(-1).stage,'independently-authorized-unfreeze');
+ assert.equal(plan.availableBodyFixtures.neverPromote,true);
+});

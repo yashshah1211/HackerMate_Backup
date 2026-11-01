@@ -29,17 +29,29 @@ BEGIN
  OR NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version::text='20261025081515') THEN
   RAISE EXCEPTION 'migration_ledger_drift_stop'; END IF;
  FOR expected IN SELECT * FROM (VALUES
- ('public.accept_team_invite(uuid)','ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac'),
- ('public.accept_team_join_request(uuid)','e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217'),
- ('public.ensure_team_conversation(uuid)','99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1'),
- ('public.delete_user_completely(uuid)','ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe'),
- ('public.add_user_to_team(uuid,uuid,text)','5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4')
- ) AS required(signature,sha256) LOOP
+ ('public.accept_team_invite(uuid)',ARRAY['ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac','5cda72e78872633f23754f53027b34cb0aa34feabfe6b9aaf44496eb484a2963']::text[],true,true),
+ ('public.accept_team_join_request(uuid)',ARRAY['e758a8ec46db28b3b1af658eeea8b31c8b533523f82c0998d3c227377d0c7217','20cbbea56deecc735f80e018978975912278a74557dac129b6acb7087ad4eaed']::text[],true,true),
+ ('public.ensure_team_conversation(uuid)',ARRAY['99583e20dfeb8bb970fd948811f9438f90f7dbec3daf7ab0f0a5f4031f8e07b1','9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b']::text[],true,true),
+ ('public.delete_user_completely(uuid)',ARRAY['ea2036ee96a7fac12b49c330bc6d292716cd853763bd956be912a63981291cfe']::text[],true,false),
+ ('public.add_user_to_team(uuid,uuid,text)',ARRAY['5b5c5ce785d0226bd86f6eb33749ed7af4fd4ddd563650c5735700099df508b4','11919942fa8c526386b3dbe5ada6c37e0fa8ca0198395b807d7c80780beda500']::text[],false,false)
+ ) AS required(signature,sha256,authenticated_execute,service_execute_allowed) LOOP
   SELECT p.*,pg_get_userbyid(p.proowner) AS owner INTO actual FROM pg_proc p WHERE p.oid=to_regprocedure(expected.signature);
   IF NOT FOUND THEN RAISE EXCEPTION 'missing_baseline_function: %',expected.signature; END IF;
   IF actual.owner<>'postgres' OR NOT actual.prosecdef OR actual.proconfig IS DISTINCT FROM ARRAY['search_path=public, pg_temp']::text[] OR
-   encode(sha256(convert_to(actual.prosrc,'UTF8')),'hex')<>expected.sha256 THEN
+   NOT (encode(sha256(convert_to(actual.prosrc,'UTF8')),'hex')=ANY(expected.sha256)) THEN
    RAISE EXCEPTION 'unreviewed_function_variant_stop: %',expected.signature; END IF;
+  -- Validate the reviewed EXECUTE envelope; preserve existing ACLs, never grant
+  -- or revoke them here. Historical invite/request/ensure service callers are
+  -- permitted, not required. Canonical deletion/helper do not admit that role.
+  IF has_function_privilege('anon',expected.signature,'EXECUTE') OR
+   has_function_privilege('authenticated',expected.signature,'EXECUTE') IS DISTINCT FROM expected.authenticated_execute OR
+   (NOT expected.service_execute_allowed AND has_function_privilege('service_role',expected.signature,'EXECUTE')) OR
+   EXISTS(SELECT 1 FROM aclexplode(coalesce(actual.proacl,acldefault('f',actual.proowner))) a
+    WHERE a.grantor<>actual.proowner OR (a.grantee<>actual.proowner AND
+      (a.is_grantable OR NOT
+       ((a.grantee=(SELECT oid FROM pg_roles WHERE rolname='authenticated') AND expected.authenticated_execute) OR
+        (a.grantee=(SELECT oid FROM pg_roles WHERE rolname='service_role') AND expected.service_execute_allowed))))) THEN
+   RAISE EXCEPTION 'function_acl_drift_stop: %',expected.signature; END IF;
  END LOOP;
  IF has_function_privilege('anon','public.add_user_to_team(uuid,uuid,text)','EXECUTE') OR
  has_function_privilege('authenticated','public.add_user_to_team(uuid,uuid,text)','EXECUTE') OR

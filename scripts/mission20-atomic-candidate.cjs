@@ -34,9 +34,51 @@ const dependencies=[
  ['public.delete_user_completely(uuid)','supabase/migrations/202610060001_restore_safe_user_deletion.sql'],
  ['public.add_user_to_team(uuid,uuid,text)','supabase/migrations/20260928100000_phase1a_definer_function_privileges.sql']
 ].map(([signature,file])=>({signature,file,bodySha256:hash(body(definition(file,signature.split('(')[0])))}));
+// Offline review aid only. Literals/quoted identifiers/dollar strings remain
+// byte-exact tokens; corresponding nonempty trimmed lines must also match.
+// This is never emitted into the runtime fingerprint guard.
+function bodyTokens(sql){
+ const tokens=[];let i=0;
+ while(i<sql.length){
+  if(/\s/.test(sql[i])){i++;continue;}
+  if(sql.startsWith('--',i)){const end=sql.indexOf('\n',i);tokens.push(sql.slice(i,end<0?sql.length:end).trim());i=end<0?sql.length:end;continue;}
+  if(sql.startsWith('/*',i)){const start=i;let depth=1;i+=2;while(i<sql.length&&depth){if(sql.startsWith('/*',i)){depth++;i+=2;}else if(sql.startsWith('*/',i)){depth--;i+=2;}else i++;}assert.equal(depth,0);tokens.push(sql.slice(start,i));continue;}
+  const dollar=sql.slice(i).match(/^\$(?:[a-zA-Z_][a-zA-Z_0-9]*)?\$/);
+  if(dollar){const end=sql.indexOf(dollar[0],i+dollar[0].length);assert(end>=0);tokens.push(sql.slice(i,end+dollar[0].length));i=end+dollar[0].length;continue;}
+  if(sql[i]==="'"||sql[i]==='"'){
+   const start=i,q=sql[i++],escape=q==="'"&&/[eE]/.test(sql[start-1]||'')&&!/[a-zA-Z_0-9$]/.test(sql[start-2]||'');let closed=false;
+   while(i<sql.length){if(escape&&sql[i]==='\\'){i+=2;continue;}if(sql[i++]===q){if(sql[i]===q){i++;continue;}closed=true;break;}}
+   assert(closed,'unterminated protected token');tokens.push(sql.slice(start,i));continue;
+  }
+  const word=sql.slice(i).match(/^(?:[a-zA-Z_][a-zA-Z_0-9$]*|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|::|:=|<>|!=|<=|>=|=>|\|\||->>|->|#>>|#>|\?&|\?\|)/);
+  const token=word?.[0]||sql[i];tokens.push(token);i+=token.length;
+ }
+ return tokens;
+}
+const trimmedLines=s=>s.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
 function build(){
  const manifest=JSON.parse(read('docs/qa/mission20-c2/release/SQL-MANIFEST.json'));
  for(const f of manifest.files)assert.equal(hash(read(f.path)),f.sha256,f.path);
+ const evidenceFile=DIR+'/FUNCTION-FINGERPRINTS.review.json',fixtureFile=DIR+'/deployed-body-fixtures.review.json';
+ const evidence=JSON.parse(read(evidenceFile)),fixtures=JSON.parse(read(fixtureFile));
+ assert.equal(evidence.functions.length,dependencies.length);
+ const guarded=dependencies.map(dep=>{
+  const approved=evidence.functions.find(f=>f.signature===dep.signature);assert(approved,dep.signature);
+  assert.equal(approved.sourceBodySha256,dep.bodySha256);assert.equal(approved.sourceFile,dep.file);
+  assert.match(approved.liveBodySha256,/^[a-f0-9]{64}$/);assert.equal(approved.functionalChangeAuthorized,false);
+  assert.equal(approved.authenticatedExecuteRequired,!dep.signature.startsWith('public.add_user_to_team('));
+  assert.equal(approved.serviceExecuteAllowed,['public.accept_team_invite(uuid)','public.accept_team_join_request(uuid)','public.ensure_team_conversation(uuid)'].includes(dep.signature));
+  assert.deepEqual(approved.approvedBodySha256,[...new Set([dep.bodySha256,approved.liveBodySha256])]);
+  return {...dep,approvedBodySha256:approved.approvedBodySha256,deployedBodySha256:approved.liveBodySha256,
+   authenticatedExecuteRequired:approved.authenticatedExecuteRequired,serviceExecuteAllowed:approved.serviceExecuteAllowed};
+ });
+ for(const fixture of fixtures.functions){
+  const dep=guarded.find(d=>d.signature===fixture.signature);assert(dep);
+  assert.equal(hash(fixture.prosrc),dep.deployedBodySha256);assert.equal(fixture.bodySha256,dep.deployedBodySha256);
+  const original=body(definition(dep.file,dep.signature.split('(')[0]));
+  assert.deepEqual(bodyTokens(fixture.prosrc),bodyTokens(original),dep.signature+' protected tokens differ');
+  assert.deepEqual(trimmedLines(fixture.prosrc),trimmedLines(original),dep.signature+' trimmed lines differ');
+ }
  const ids=['expand','per-team','writer-protocol','existing-writers','cancel'];
  const sources=ids.map(id=>manifest.files.find(f=>f.id===id));
  const chunks=sources.flatMap(f=>statements(read(f.path)).map(sql=>({sql,source:f.id})));
@@ -75,13 +117,25 @@ function build(){
  OR NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version::text='20261025081515') THEN
   RAISE EXCEPTION 'migration_ledger_drift_stop'; END IF;
  FOR expected IN SELECT * FROM (VALUES
- ${dependencies.map(d=>`('${d.signature}','${d.bodySha256}')`).join(',\n ')}
- ) AS required(signature,sha256) LOOP
+ ${guarded.map(d=>`('${d.signature}',ARRAY[${d.approvedBodySha256.map(h=>`'${h}'`).join(',')}]::text[],${d.authenticatedExecuteRequired},${d.serviceExecuteAllowed})`).join(',\n ')}
+ ) AS required(signature,sha256,authenticated_execute,service_execute_allowed) LOOP
   SELECT p.*,pg_get_userbyid(p.proowner) AS owner INTO actual FROM pg_proc p WHERE p.oid=to_regprocedure(expected.signature);
   IF NOT FOUND THEN RAISE EXCEPTION 'missing_baseline_function: %',expected.signature; END IF;
   IF actual.owner<>'postgres' OR NOT actual.prosecdef OR actual.proconfig IS DISTINCT FROM ARRAY['search_path=public, pg_temp']::text[] OR
-   encode(sha256(convert_to(actual.prosrc,'UTF8')),'hex')<>expected.sha256 THEN
+   NOT (encode(sha256(convert_to(actual.prosrc,'UTF8')),'hex')=ANY(expected.sha256)) THEN
    RAISE EXCEPTION 'unreviewed_function_variant_stop: %',expected.signature; END IF;
+  -- Validate the reviewed EXECUTE envelope; preserve existing ACLs, never grant
+  -- or revoke them here. Historical invite/request/ensure service callers are
+  -- permitted, not required. Canonical deletion/helper do not admit that role.
+  IF has_function_privilege('anon',expected.signature,'EXECUTE') OR
+   has_function_privilege('authenticated',expected.signature,'EXECUTE') IS DISTINCT FROM expected.authenticated_execute OR
+   (NOT expected.service_execute_allowed AND has_function_privilege('service_role',expected.signature,'EXECUTE')) OR
+   EXISTS(SELECT 1 FROM aclexplode(coalesce(actual.proacl,acldefault('f',actual.proowner))) a
+    WHERE a.grantor<>actual.proowner OR (a.grantee<>actual.proowner AND
+      (a.is_grantable OR NOT
+       ((a.grantee=(SELECT oid FROM pg_roles WHERE rolname='authenticated') AND expected.authenticated_execute) OR
+        (a.grantee=(SELECT oid FROM pg_roles WHERE rolname='service_role') AND expected.service_execute_allowed))))) THEN
+   RAISE EXCEPTION 'function_acl_drift_stop: %',expected.signature; END IF;
  END LOOP;
  IF has_function_privilege('anon','public.add_user_to_team(uuid,uuid,text)','EXECUTE') OR
  has_function_privilege('authenticated','public.add_user_to_team(uuid,uuid,text)','EXECUTE') OR
@@ -110,11 +164,13 @@ END; $mission20_final$;`;
    {version:'20261102090200',stage:'contract-after-adapters-and-last-freeze',source:'contract'},
    {version:'20261102090300',stage:'independently-authorized-unfreeze',source:'unfreeze'}],
   versionRule:'Tentative only. Re-query complete ledger and branch migration inventory at release; reserve/generate proper migration filenames only under separate authorization. No ledger write or repair here.',
-  dependencies,sources,omitted,candidateSha256:hash(sql),freeze:'Existing 00, committed separately; pauses native AND external/official INSERT. Founder decision unresolved.',
+  dependencies:guarded,fingerprintEvidence:{path:evidenceFile,sha256:hash(read(evidenceFile)),runtime:'exact SHA256 membership only; no normalization',completeDeployedInstallation:'UNQUALIFIED'},
+  availableBodyFixtures:{path:fixtureFile,sha256:hash(read(fixtureFile)),count:fixtures.functions.length,neverPromote:true},
+  sources,omitted,candidateSha256:hash(sql),freeze:'Existing 00, committed separately; pauses native AND external/official INSERT. Founder decision unresolved.',
   rollback:'Failed transaction rolls back only expansion; prior committed freeze remains. After commit preserve protocol and re-freeze; no destructive downgrade or vulnerable grant restoration.'};
  return {sql,plan};
 }
 if(require.main===module){const {sql,plan}=build();const outputs=[[DIR+'/01-final-expansion.review.sql',sql],[DIR+'/CANDIDATE-MANIFEST.json',JSON.stringify(plan,null,2)+'\n']];
  if(process.argv.includes('--write')){fs.mkdirSync(path.join(ROOT,DIR),{recursive:true});for(const [f,s] of outputs)fs.writeFileSync(path.join(ROOT,f),s);}
  else {assert(process.argv.includes('--check'));for(const [f,s] of outputs)assert.equal(read(f),s,f);console.log('Atomic candidate and manifest match source hashes and final-only selection.');}}
-module.exports={build,statements,definition,body,dependencies,DIR};
+module.exports={build,statements,definition,body,dependencies,bodyTokens,DIR};

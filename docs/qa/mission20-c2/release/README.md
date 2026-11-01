@@ -6,6 +6,8 @@ Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 applicati
 
 Atomic candidate qualification passed on PG17.6 at [e566788 / run 41327981723](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327981723): 12 new atomic groups and 231 privacy assertions; full run 1,620 application cases / 51 SDK cases / 100 orchestration checks / 32 Rack checks, TypeScript/scoped lint/build passed. This is isolated acceptance, not execution approval.
 
+Exact fingerprint follow-up: [source/live table, allowlist and qualification boundary](atomic/FUNCTION-FINGERPRINTS.md). The five supplied digests are explicit candidates, not runtime normalization. Complete deployed-body installation remains **UNQUALIFIED**.
+
 New catalog reconciliation and atomic candidate: [confirmed/unresolved/mismatched facts](CATALOG-RECONCILIATION.md) and [review-only final transaction/version plan](atomic/README.md). The latest production main SHA is 17b78d0; no Vercel hold is verified.
 
 ## Package
@@ -26,7 +28,7 @@ New catalog reconciliation and atomic candidate: [confirmed/unresolved/mismatche
 | Native PG17.6 SQL/concurrency | PASS in the [qualified source run](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41323221862): 279 baseline/security assertions per variant, 88 total orchestration checks, two owned clusters cleaned. |
 | Real PostgREST JWT/role/RLS/database boundary | PASS in that fixture run: 15 real HTTP groups plus one catalog-syntax group. Production PostgREST version/config parity remains unsigned. |
 | Hosted Supabase Auth + actual gateway/session lifecycle | **BLOCKED / NOT ESTABLISHED.** No hosted/local GoTrue stack, real login/email/SSO/MFA/revocation or production gateway acceptance. Existing SDK Auth transport is synthetic; local fixture JWTs only prove PostgREST validation/role switching. |
-| Exact live schema/ACL/body/dependency/ledger parity | **BLOCKED.** Confirmed types/default contracts, junction + six CASCADE edges, ledger 147/latest 20261025081515 and four normalized bodies are reconciled. Full raw-body/ACL/dependency/ledger receipts and hardened add-member parity remain absent. |
+| Exact live schema/ACL/body/dependency/ledger parity | **BLOCKED.** Confirmed types/default contracts, junction + six CASCADE edges, ledger 147/latest 20261025081515 and four normalized bodies are reconciled. Full raw-body/ACL/dependency/ledger receipts and the private deployed-body artifact remain release gates; hardened helper equivalence/digest/metadata are now independently confirmed. |
 | Execution-ready migration packaging | **BLOCKED.** Atomic review candidate and tentative versions now produced; execution approval, raw fingerprint parity, final allocation and matching-schema qualification still required. Comparator intermediates are absent from the candidate. |
 | Freeze scope / recovery ACL decision | **BLOCKED pending founder approval.** Current freeze pauses community joins too. Contract must follow the last freeze; policy-only unfreeze does not restore revoked INSERT columns. |
 | Safe deployed ordering / Vercel hold / client convergence | **BLOCKED.** No verified production automation hold, writer drain, signed deployed SHA/cache or compatible rollback receipt. Main merges can deploy automatically. |

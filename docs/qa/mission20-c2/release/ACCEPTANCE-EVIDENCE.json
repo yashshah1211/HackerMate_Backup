@@ -245,5 +245,64 @@
         "No actual backup/restore or Vercel hold rehearsal"
       ]
     }
+  },
+  "functionFingerprintReview": {
+    "status": "NO_GO_PRODUCTION",
+    "taskBase": "89cda40f270e73b6952c29336212a1c69856f4cc",
+    "inventory": [
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
+      "scripts/mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "sourceCandidateSha256": "5856a9e1c144d3c747753bbc035e88d739944cb1b494e53f72c70e49d0241630",
+    "revisedCandidateSha256": "e1faf07fb9620c6f2405e13b4adc04a36c27fd605ad3705fe1292163e6560ff7",
+    "evidenceTable": "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+    "reviewData": {
+      "path": "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+      "sha256": "f1b80a78e586fda99ba3f82425945b2c42375167d5a2da54eeecc96233b24d37",
+      "runtime": "exact SHA256 membership only; no normalization",
+      "completeDeployedInstallation": "UNQUALIFIED"
+    },
+    "fixtureData": {
+      "path": "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
+      "sha256": "db83ef62e296a56b0d4b63024ce0a1961dda2bbdfcb99c4decb739d2741ea7b3",
+      "count": 4,
+      "neverPromote": true
+    },
+    "rawBodyInstallation": "UNQUALIFIED_COMPLETE_DEPLOYED_SET",
+    "qualificationBoundary": "Four existing historical byte fixtures match supplied current hashes and reviewed protected tokens/trimmed lines. No raw deployed ensure_team_conversation body/current private audit bundle available. Digest predicate tests are not represented as exact-byte installation. No reconstruction, hash mocking or production queries.",
+    "runtime": "Exact source/live per-signature SHA256 sets only, plus metadata/ACL checks; no runtime normalization. No function logic or original proposal changed.",
+    "acl": "Read-only preflight envelope; existing authenticated and optional trusted service callers retained where reviewed, helper/canonical deletion service restrictions retained. No production grant change.",
+    "local": {
+      "artifactTests": 11,
+      "scopedLint": "passed",
+      "generatorCheck": "passed"
+    },
+    "qualification": "Current-head GitHub Actions/PR #96 will supply actual results; none predicted.",
+    "remaining": [
+      "Missing exact deployed conversation body and complete current private audit artifact",
+      "Full live schema/ACL/dependency/ledger and migration-loader qualification",
+      "Community-pause approval",
+      "Verified Vercel hold/direct-writer drain and compatible rollback",
+      "Hosted Auth/gateway parity",
+      "Actual backup/restore rehearsal",
+      "Independent migration/deployment/unfreeze authority"
+    ],
+    "productionConnections": 0,
+    "activeMigrationChanges": 0,
+    "persistentConfigurationChanges": 0,
+    "merged": false,
+    "deployed": false
   }
 }

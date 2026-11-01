@@ -21,7 +21,10 @@
     "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
     "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
     "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+    "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+    "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
     "docs/qa/mission20-c2/release/atomic/README.md",
+    "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
     "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
     "scripts/mission20-atomic-candidate.cjs",
     "scripts/ppt-vision-harness.cjs",
@@ -655,5 +658,27 @@
         "No actual backup/restore or Vercel hold rehearsal"
       ]
     }
+  },
+  "functionFingerprintReview": {
+    "status": "NO_GO_PRODUCTION",
+    "taskBase": "89cda40f270e73b6952c29336212a1c69856f4cc",
+    "followupFiles": [
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
+      "scripts/mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "completeDeployedInstallation": "UNQUALIFIED"
   }
 }
