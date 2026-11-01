@@ -1,4 +1,4 @@
-# Atomic expansion candidate — review only
+# Atomic expansion candidate â€” review only
 
 **NO-GO for operator execution.** This is a deterministic candidate outside `supabase/migrations`, not an applied migration or release authorization. [Catalog reconciliation](../CATALOG-RECONCILIATION.md) distinguishes independently confirmed facts from missing evidence.
 
@@ -37,3 +37,7 @@ node --test scripts/test-mission20-release-package.cjs
 ```
 
 Real qualification runs only through the existing native fixture infrastructure. Hosted Auth/gateway and actual backup/restore remain **BLOCKED**, regardless of green fixture CI. Independent review must approve the candidate, raw live body parity, complete dependencies, migration allocation, community pause, Vercel deployment hold, writer drain and rollback receipts before any operator execution.
+
+## Observed qualified source
+
+[GitHub run 41327981723](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327981723) at `e5667889b62baa11a05a9504d0795fc3f00b58c7` reports both jobs successful: 1,620 application/package tests, TypeScript/scoped lint/build, 32 Rack checks, 51 SDK/writer tests, 279 SQL assertions per original variant and 100 orchestration checks. The added atomic fixture passed all 12 groups plus 231 original privacy assertions on PG17.6; both owned clusters were cleaned. The 15 real HTTP groups remain fixture acceptance, not hosted Auth. Three development failures and their exact corrections remain in ACCEPTANCE-EVIDENCE.json; none is hidden as an expected failure. Final current-head reporting-only CI is recorded in PR #96. Production execution remains NO-GO.

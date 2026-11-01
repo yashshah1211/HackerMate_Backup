@@ -614,6 +614,46 @@
       "scripts/qualify-mission20-c1-postgres.cjs",
       "scripts/qualify-mission20-release-postgrest.cjs",
       "scripts/test-mission20-release-package.cjs"
-    ]
+    ],
+    "qualifiedSource": {
+      "head": "e5667889b62baa11a05a9504d0795fc3f00b58c7",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327981723",
+      "workflow": "success",
+      "application": {
+        "job": 124911857315,
+        "conclusion": "success",
+        "passed": 1620,
+        "failed": 0,
+        "skipped": 0,
+        "typeScript": "passed",
+        "scopedLint": "passed",
+        "build": "passed",
+        "rackPassed": 32,
+        "rackFailed": 0
+      },
+      "native": {
+        "job": 124911857652,
+        "conclusion": "success",
+        "postgres": "17.6",
+        "postgrest": "16.5",
+        "sdkWriterPassed": 51,
+        "sqlAssertionsPerVariant": 279,
+        "totalOrchestrationChecks": 100,
+        "existingChecks": 88,
+        "atomicCandidateGroups": 12,
+        "atomicFixturePrivacyAssertions": 231,
+        "realHttpGroups": 15,
+        "catalogSyntaxGroups": 1,
+        "ownedClustersCleaned": 2,
+        "productionConnections": 0
+      },
+      "candidateSha256": "5856a9e1c144d3c747753bbc035e88d739944cb1b494e53f72c70e49d0241630",
+      "limits": [
+        "No hosted Auth/gateway acceptance",
+        "No production dump/full schema parity",
+        "Synthetic freeze ledger receipt only, actual migration loader atomicity unqualified",
+        "No actual backup/restore or Vercel hold rehearsal"
+      ]
+    }
   }
 }

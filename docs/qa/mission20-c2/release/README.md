@@ -4,6 +4,8 @@
 
 Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 application cases, 51 SDK/writer cases, native PG17.6 SQL/concurrency and 32 Rack checks, TypeScript/scoped lint/build passed. Current follow-up qualification and exact commit/job outcomes are recorded in PR #96; the receipt file records the immutable source run rather than predicting a green result.
 
+Atomic candidate qualification passed on PG17.6 at [e566788 / run 41327981723](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327981723): 12 new atomic groups and 231 privacy assertions; full run 1,620 application cases / 51 SDK cases / 100 orchestration checks / 32 Rack checks, TypeScript/scoped lint/build passed. This is isolated acceptance, not execution approval.
+
 New catalog reconciliation and atomic candidate: [confirmed/unresolved/mismatched facts](CATALOG-RECONCILIATION.md) and [review-only final transaction/version plan](atomic/README.md). The latest production main SHA is 17b78d0; no Vercel hold is verified.
 
 ## Package
@@ -13,7 +15,7 @@ New catalog reconciliation and atomic candidate: [confirmed/unresolved/mismatche
 - [SQL-MANIFEST.json](SQL-MANIFEST.json): normalized source hashes for every proposed C1/C2 SQL artifact, stage order and fixtures excluded from promotion. Review filenames are not migration versions.
 - [DEPLOYMENT-RUNBOOK.md](DEPLOYMENT-RUNBOOK.md): eight explicit future approval boundaries, Vercel automatic-deployment hold, native/community freeze scope, old clients, contract ordering, acceptance, unfreeze and fail-closed recovery.
 - [ACCEPTANCE-EVIDENCE.json](ACCEPTANCE-EVIDENCE.json): exact observed qualification and limitations. No hosted-service acceptance is inferred from mocks.
-- `scripts/qualify-mission20-release-postgrest.cjs`: all existing C1/C2 tests, then real native PostgREST 16.5 → fresh PG17.6 (CI), short-lived locally signed JWTs, unprivileged authenticator role switching and real database transactions. Existing native runner owns allocation/cleanup; no host/URL/project/credential CLI overrides.
+- `scripts/qualify-mission20-release-postgrest.cjs`: all existing C1/C2 tests, then real native PostgREST 16.5 â†’ fresh PG17.6 (CI), short-lived locally signed JWTs, unprivileged authenticator role switching and real database transactions. Existing native runner owns allocation/cleanup; no host/URL/project/credential CLI overrides.
 
 ## Concise go/no-go matrix
 
