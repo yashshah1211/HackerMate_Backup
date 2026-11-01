@@ -78,12 +78,12 @@
       "scripts/test-auth-return-ui.cjs",
       "scripts/test-onboarding-submission.cjs"
     ],
-    "total": 1586,
-    "passed": 1583,
+    "total": 1588,
+    "passed": 1585,
     "failed": 3,
     "skipped": 0,
     "adapterTests": {
-      "passed": 29,
+      "passed": 31,
       "failed": 0
     },
     "baselineReproduction": {
@@ -98,7 +98,15 @@
       "preview text: malformed formatting",
       "preview text: headings preserve hashes and numeric entities"
     ],
-    "action": "Separate metadata contract correction: reconcile old spacing/unclosed markup/numeric entity expectations with the reviewed faithful description renderer. C2 changes neither metadata source nor these assertions."
+    "action": "Separate metadata contract correction: reconcile old spacing/unclosed markup/numeric entity expectations with the reviewed faithful description renderer. C2 changes neither metadata source nor these assertions.",
+    "localPreviousFullSelection": {
+      "head": "33fc25830a421c5c7e77298427afc9d67027843a",
+      "total": 1587,
+      "passed": 1584,
+      "failed": 3
+    },
+    "platform": "Linux current source revision",
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b"
   },
   "typeScript": {
     "command": "npm run typecheck",
@@ -292,21 +300,22 @@
     "perTeamChecks": 51,
     "exit": 0,
     "ownedClustersCleaned": 2,
-    "historicalDeadlockDiagnostics": "Both old 40P01 schedules explicitly reproduced; revised schedules assert bounded results and rollback."
+    "historicalDeadlockDiagnostics": "Both old 40P01 schedules explicitly reproduced; revised schedules assert bounded results and rollback.",
+    "qualifiedHead": "b7dfc293292aab85f54d39560b629451abbfc7a1"
   },
   "postgres17": {
     "version": "17.6",
     "local": "BLOCKED: no local native PG17 binary; no existing/remote substitute used",
     "ci": "PASS: exact official source-built disposable native PG17.6",
-    "qualifiedHead": "b13892e6186cd74b8385260f6d5a3da9eea1a343",
-    "job": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941/job/124836966203",
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b",
+    "job": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153/job/124839929405",
     "variants": 2,
     "baselineSecurityAssertionsPerVariant": 279,
     "orchestrationChecks": 72,
     "globalChecks": 21,
     "perTeamChecks": 51,
     "ownedClustersCleaned": 2,
-    "adapterTests": 29,
+    "adapterTests": 31,
     "exit": 0
   },
   "build": {
@@ -340,11 +349,11 @@
     "screenshotsCommitted": false
   },
   "ci": {
-    "qualifiedHead": "b13892e6186cd74b8385260f6d5a3da9eea1a343",
-    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b",
+    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153",
     "nativePg17": "success",
-    "application": "failure: exactly three baseline metadata failures; 1583/1586 pass; TypeScript, scoped adapter lint, guarded build and 32 Rack checks pass",
-    "applicationJob": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941/job/124836965973",
+    "application": "failure: exactly three baseline metadata failures; 1585/1588 pass; TypeScript, scoped adapter lint, guarded build and 32 Rack checks pass",
+    "applicationJob": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153/job/124839929245",
     "browserArtifact": "mission20-c2-rack-browser",
     "initialRun": {
       "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302335491",
@@ -352,7 +361,9 @@
       "application": "1577/1586 pass: six missing-history errors plus three baseline metadata cases; build and 32 Rack checks passed",
       "correction": "fetch-depth: 0 in both jobs; all six missing-history errors resolved without assertion changes"
     },
-    "finalEvidenceCommit": "Documentation-only follow-up to the qualified head; source/test/SQL/workflow trees unchanged. See Draft PR #96 current-head Actions for its automatic rerun."
+    "finalEvidenceCommit": "Documentation-only follow-up to the qualified head; source/test/SQL/workflow trees unchanged. See Draft PR #96 current-head Actions for its automatic rerun.",
+    "previousQualifiedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
+    "finalIdentityChecks": "31/31 adapter cases include local account switch while old token still verifies, and unknown connection/statement-completion responses; no automatic replay."
   },
   "limitations": [
     "No real JWT/PostgREST/server-disconnect proof from the psql bridge or synthetic SDK/browser tests.",
