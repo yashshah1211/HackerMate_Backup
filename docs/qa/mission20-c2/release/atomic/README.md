@@ -19,6 +19,8 @@ The founder confirmed four deployed bodies only **after formatting normalization
 
 These numbers exceed the reported latest ledger version but are **not reserved** or added to active migrations. Recheck the complete ledger, pending branches, production SHA and object snapshot before allocation under separate authority. No migration ledger INSERT/repair is part of the SQL candidate. Emergency 03 remains a separate incident action, never an automatic fifth rollout step. Freeze/community outage remains an unresolved founder decision.
 
+The rehearsal executes candidate SQL with psql and models the prior freeze loader receipt synthetically. It does **not** qualify an actual Supabase migration loader's schema-plus-ledger atomicity. Before promotion, independently select/rehearse the exact loader and its transaction ownership: do not put this explicit COMMIT inside an assumed outer transaction or allow ledger failure to be mistaken for a schema rollback. Wrapper adaptation belongs to the reviewed future migration packaging. If schema and ledger disagree, STOP and inspect; do not repair history or retry an existing namespace blindly.
+
 ## Qualification and rollback contract
 
 `scripts/qualify-mission20-atomic-candidate.cjs` allocates a second fresh database inside the existing disposable native cluster; it accepts no connection input. The fixture runs the existing privacy assertions, models DATE event dates, TIMESTAMPTZ registration dates, VARCHAR(50) type, confirmed defaults/identity/uniqueness/CASCADE, actual repository matchmaking, reviewed conversation hooks and canonical deletion. A synthetic 147-row baseline ledger plus the future freeze loader receipt models count/latest metadata only; it is not a copy of production migration history.

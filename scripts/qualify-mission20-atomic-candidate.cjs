@@ -15,6 +15,13 @@ async function qualifyAtomic(c){
  const execute=file=>run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f',file]);
  const temp=(name,sql)=>{const f=path.join(ownedRoot,name+'.sql');fs.writeFileSync(f,sql);return f;};
  const source=f=>path.join(ROOT,f);
+ const frozenInsert=(event,actor)=>`${identity(actor)} DO $atomic_frozen$ BEGIN
+  BEGIN INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES('${uid(event)}','${uid(actor)}');
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+   IF SQLERRM='new_admission_frozen' THEN RETURN; END IF; RAISE;
+  END;
+  RAISE EXCEPTION 'expected exact admission freeze rejection';
+ END; $atomic_frozen$; RESET ROLE;`;
  const {sql}=build();assert.equal(fs.readFileSync(source(DIR+'/01-final-expansion.review.sql'),'utf8').replace(/\r\n/g,'\n'),sql);
  const prefix=fs.readFileSync(path.join(SQL,'04-security-tests.review.sql'),'utf8').split('\\ir 00-preflight.review.sql')[0];
  // Shared roles were created by the baseline fixture in this same owned
@@ -105,7 +112,8 @@ async function qualifyAtomic(c){
  rejected(path.join(SQL,'06-unfreeze-admission.proposed.sql'),/per_team_and_contract_release_gate_required/);
  execute(path.join(SQL,'02-contract.proposed.sql'));
  assert.equal(await admin.query("SELECT has_column_privilege('authenticated','public.hackathon_registrations','hackathon_id','INSERT') AND NOT has_column_privilege('authenticated','public.hackathon_registrations','id','INSERT') AND NOT has_table_privilege('authenticated','public.hackathon_registrations','INSERT');"),'t');
- await admin.query(`${identity(9501)} SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(''${uid(12102)}'',''${uid(9501)}'')','42501','contract does not unfreeze community'); RESET ROLE;`);
+ await admin.query(frozenInsert(12102,9501));
+ assert.equal(await admin.query(`SELECT count(*) FROM public.hackathon_registrations WHERE hackathon_id='${uid(12102)}';`),'0');
  pass('unfreeze fails before contract; contract restores only reviewed columns and keeps native/community frozen');
  execute(path.join(SQL,'06-unfreeze-admission.proposed.sql'));
  await admin.query(`${identity(9501)} SELECT public.fixture_assert(public.register_native_hackathon('${uid(12101)}')->>'status'='confirmed','native succeeds');
@@ -122,7 +130,8 @@ async function qualifyAtomic(c){
  const grant=fs.readFileSync(path.join(SQL,'02-contract.proposed.sql'),'utf8').match(/GRANT INSERT\(hackathon_id, user_id, team_id, status, looking_for_team, metadata, is_hidden\)\s+ON public\.hackathon_registrations TO authenticated;/)[0];
  assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
  await admin.query(grant);
- await admin.query(`${identity(9504)} SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(''${uid(12102)}'',''${uid(9504)}'')','42501','grant alone does not unfreeze'); RESET ROLE;`);
+ await admin.query(frozenInsert(12102,9504));
+ assert.equal(await admin.query(`SELECT count(*) FROM public.hackathon_registrations WHERE hackathon_id='${uid(12102)}' AND user_id='${uid(9504)}';`),'0');
  execute(path.join(SQL,'06-unfreeze-admission.proposed.sql'));
  await admin.query(`${identity(9504)} INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES('${uid(12102)}','${uid(9504)}'); RESET ROLE;`);
  assert.equal(await admin.query("SELECT has_table_privilege('authenticated','public.hackathon_registrations','INSERT') OR has_column_privilege('authenticated','public.hackathon_registrations','id','INSERT');"),'f');

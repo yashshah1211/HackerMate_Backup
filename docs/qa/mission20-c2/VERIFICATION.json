@@ -592,7 +592,7 @@
     }
   },
   "atomicCandidateReview": {
-    "status": "NO_GO_PRODUCTION_QUALIFICATION_PENDING",
+    "status": "NO_GO_PRODUCTION",
     "taskBase": "be38ae6d67c43a850cf6bdf0fa595364c46da3d4",
     "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json#atomicCandidateReview",
     "candidateManifest": "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",

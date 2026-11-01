@@ -107,7 +107,7 @@
     "metricNote": "ee4e342 logged httpChecks=16 including the catalog SQL group. Final reporting distinguishes 15 real HTTP groups + 1 catalog group without changing any assertion or the total 88."
   },
   "atomicCandidateReview": {
-    "status": "NO_GO_PRODUCTION_QUALIFICATION_PENDING",
+    "status": "NO_GO_PRODUCTION",
     "taskBase": "be38ae6d67c43a850cf6bdf0fa595364c46da3d4",
     "inventory": [
       ".github/workflows/mission20-c2-qualification.yml",
@@ -192,6 +192,14 @@
       "nativeJob": 124909023273,
       "conclusion": "failure",
       "cause": "New baseline receipt counter did not recognize verbose psql NOTICE: 00000: PASS headers. All existing SQL/concurrency and 15 HTTP groups passed; corrected parser, retaining original 209 assertion minimum and every SQL assertion."
-    }
+    },
+    "thirdTrial": {
+      "head": "873c0194b3e558c5e23881fdee790155955122a1",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327521395",
+      "nativeJob": 124910482283,
+      "conclusion": "failure",
+      "cause": "Candidate creation, rollback, visibility and preserved OID/owner/ACL groups passed. Newly added frozen-community assertion expected RLS 42501, but the existing BEFORE trigger correctly raises P0001 new_admission_frozen first. Test now requires exact SQLSTATE and message and verifies no inserted row; no source SQL or existing assertion changed."
+    },
+    "qualification": "Final exact current-head qualification results must be reconciled in PR #96 and immutable source receipt; no green result is predicted."
   }
 }
