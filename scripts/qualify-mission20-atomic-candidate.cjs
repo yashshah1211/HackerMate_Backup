@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {main}=require('./qualify-mission20-c1-postgres.cjs');
 const {extension:c2}=require('./qualify-mission20-c2-writers.cjs');
-const {build,definition,body,dependencies,DIR}=require('./mission20-atomic-candidate.cjs');
+const {build,definition,body,dependencies,injectFixtureMutation,DIR}=require('./mission20-atomic-candidate.cjs');
 // Inline only known repository fixture includes so temporary scripts retain the
 // original relative-include meaning. Never accepts a user SQL/connection path.
 function expanded(file){return fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(path.dirname(file),f.trim())));}
@@ -94,7 +94,7 @@ async function qualifyAtomic(c){
  pass('complete source-only approved body bundle installs successfully inside a rolled-back transaction');
  let probe=0;
  const rejectMutation=async(mutation,re)=>{
-  const changed=sql.replace('\nBEGIN;\n','\nBEGIN;\n'+mutation+'\n');assert.notEqual(changed,sql);
+  const changed=injectFixtureMutation(sql,mutation);assert.notEqual(changed,sql);
   rejected(temp('atomic-negative-'+ ++probe,changed),re);await absent();
   assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_release_freeze');"),'t');
  };

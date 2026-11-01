@@ -285,7 +285,7 @@
     "runtime": "Exact source/live per-signature SHA256 sets only, plus metadata/ACL checks; no runtime normalization. No function logic or original proposal changed.",
     "acl": "Read-only preflight envelope; existing authenticated and optional trusted service callers retained where reviewed, helper/canonical deletion service restrictions retained. No production grant change.",
     "local": {
-      "artifactTests": 11,
+      "artifactTests": 12,
       "scopedLint": "passed",
       "generatorCheck": "passed"
     },
@@ -303,6 +303,16 @@
     "activeMigrationChanges": 0,
     "persistentConfigurationChanges": 0,
     "merged": false,
-    "deployed": false
+    "deployed": false,
+    "firstTrial": {
+      "head": "121aa0bce56ae82683b078b676925d22699fcc31",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41332377841",
+      "applicationJob": 124924991237,
+      "applicationConclusion": "success",
+      "applicationPassed": 1624,
+      "nativeJob": 124924991076,
+      "nativeConclusion": "failure",
+      "cause": "New partial-RPC probe used a JavaScript replacement string, turning SQL $$ into $. All earlier source/digest/body/ACL/owner/helper/search_path/definer groups passed. Callback insertion now preserves literal bytes; collision assertion retained and a regression added. Candidate SQL/guard logic unchanged by the fix."
+    }
   }
 }

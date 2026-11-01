@@ -56,6 +56,9 @@ function bodyTokens(sql){
  return tokens;
 }
 const trimmedLines=s=>s.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+// Fixture-only probe insertion. A callback preserves SQL $$/$&/$`/$' bytes;
+// String.replace replacement-string expansion must never rewrite the probe.
+const injectFixtureMutation=(sql,mutation)=>sql.replace('\nBEGIN;\n',()=> '\nBEGIN;\n'+mutation+'\n');
 function build(){
  const manifest=JSON.parse(read('docs/qa/mission20-c2/release/SQL-MANIFEST.json'));
  for(const f of manifest.files)assert.equal(hash(read(f.path)),f.sha256,f.path);
@@ -173,4 +176,4 @@ END; $mission20_final$;`;
 if(require.main===module){const {sql,plan}=build();const outputs=[[DIR+'/01-final-expansion.review.sql',sql],[DIR+'/CANDIDATE-MANIFEST.json',JSON.stringify(plan,null,2)+'\n']];
  if(process.argv.includes('--write')){fs.mkdirSync(path.join(ROOT,DIR),{recursive:true});for(const [f,s] of outputs)fs.writeFileSync(path.join(ROOT,f),s);}
  else {assert(process.argv.includes('--check'));for(const [f,s] of outputs)assert.equal(read(f),s,f);console.log('Atomic candidate and manifest match source hashes and final-only selection.');}}
-module.exports={build,statements,definition,body,dependencies,bodyTokens,DIR};
+module.exports={build,statements,definition,body,dependencies,bodyTokens,injectFixtureMutation,DIR};

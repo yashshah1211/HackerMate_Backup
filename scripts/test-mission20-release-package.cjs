@@ -116,3 +116,9 @@ test('candidate checks ACL drift without rewriting existing grants, with unchang
  assert.equal(plan.proposedVersions.at(-1).stage,'independently-authorized-unfreeze');
  assert.equal(plan.availableBodyFixtures.neverPromote,true);
 });
+
+test('adversarial fixture insertion preserves dollar-quoted SQL and replacement-like literal bytes',()=>{
+ const original='-- review\nBEGIN;\nSELECT 1;\nCOMMIT;\n';
+ const mutation="CREATE FUNCTION fixture() RETURNS text AS $$ SELECT '$& $` $'''; $$ LANGUAGE sql;";
+ assert.equal(candidate.injectFixtureMutation(original,mutation),'-- review\nBEGIN;\n'+mutation+'\nSELECT 1;\nCOMMIT;\n');
+});
