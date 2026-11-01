@@ -1,5 +1,6 @@
 -- REVIEW ONLY. Availability rollback by write freeze; NEVER restore the bypass.
--- Run only in a separately authorized release response, not during C1.
+-- Local disposable qualification is permitted. Any existing-project execution
+-- requires a separately authorized release response; none is authorized in C1.
 BEGIN;
 SET LOCAL lock_timeout = '3s';
 REVOKE EXECUTE ON FUNCTION public.register_native_hackathon(uuid, uuid, boolean) FROM authenticated;

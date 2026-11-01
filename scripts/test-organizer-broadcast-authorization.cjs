@@ -105,6 +105,7 @@ function nativePortalHarness({ access = true, error = null, type = 'native', own
     'next/link': { default: component },
     'lucide-react': new Proxy({}, { get: () => component }),
     '@/lib/supabase': { supabase: client },
+    '@/lib/hackathons/lifecycle': require('./ppt-vision-harness.cjs').harness().load('src/lib/hackathons/lifecycle.ts'),
     '@/components/AuthGuard': { default: component },
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {} }) },
     '@/components/system': new Proxy({}, { get: () => component }),

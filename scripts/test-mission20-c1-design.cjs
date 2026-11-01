@@ -29,8 +29,7 @@ test('design leaves application, active migration, policy and environment files 
   const changed = cp.execFileSync('git', ['diff', base, '--name-only', '--', 'src', 'supabase', '.github', 'package.json', 'package-lock.json', '.env', '.env.local'], { cwd: root, encoding: 'utf8' });
   assert.equal(changed.trim(), '');
   const files = fs.readdirSync(path.join(dir, 'sql'));
-  assert.equal(files.length, 5);
-  assert(files.every(file => /\.(proposed|review)\.sql$/.test(file)));
+  assert.deepEqual(files.sort(), ['00-freeze-admission.proposed.sql','00-preflight.review.sql','01-expand.proposed.sql','02-contract.proposed.sql','03-rollback-freeze.proposed.sql','04-security-tests.review.sql','05-per-team-roster.alternative.sql','06-unfreeze-admission.proposed.sql']);
   for (const file of files) assert.match(read('sql/' + file), /REVIEW ONLY/);
 });
 
@@ -68,8 +67,9 @@ test('candidate retains the concurrency and legacy-delete design safeguards', ()
   assert.match(expand, /UNION SELECT v_owner/);
   assert.match(expand, /clock_timestamp\(\)/);
   assert.match(expand, /NEW\.status := CASE/);
-  assert.match(expand, /NEW\.team_id IS NULL AND OLD\.team_id IS NOT NULL/);
-  assert.match(expand, /NOT EXISTS\(SELECT 1 FROM public\.teams t WHERE t\.id = OLD\.team_id\)/);
+  assert.match(expand, /confdeltype='c'/);
+  assert.match(read('sql/04-security-tests.review.sql'), /REFERENCES public\.teams\(id\) ON DELETE CASCADE/);
+  assert(!/ON DELETE SET NULL/.test(read('sql/04-security-tests.review.sql')));
   assert.match(expand, /v_role text := current_setting\('role', true\)/);
 });
 
@@ -90,4 +90,35 @@ test('future SQL tests reuse the existing privacy suite and refuse arbitrary dat
   assert.match(tests, /\\ir .*scripts\/test-registration-privacy\.sql/);
   assert.match(tests, /\\quit 3/);
   for (const term of ['SQL', 'not', 'C1']) assert(read('TEST-PLAN.md').includes(term));
+});
+
+test('per-team prototype locks affected parents before the event and never takes the global roster lock', () => {
+  const sql=read('sql/05-per-team-roster.alternative.sql');
+  assert.match(sql,/BEFORE INSERT OR UPDATE OR DELETE ON public\.team_members/);
+  assert.match(sql,/SELECT DISTINCT x\.id FROM unnest\(ids\) x\(id\) ORDER BY x\.id/);
+  assert(!/LOCK TABLE public\.team_members/.test(sql));
+  assert(sql.indexOf('WHERE t.id = p_team_id FOR UPDATE')<sql.indexOf('WHERE h.id = p_event_id FOR UPDATE'));
+  assert.match(sql,/REVOKE ALL ON FUNCTION mission20_private\.lock_roster_parents\(\)/);
+});
+
+test('release freeze covers new RPC writes and contract never unfreezes on its own', () => {
+  assert.match(read('sql/00-freeze-admission.proposed.sql'),/AS RESTRICTIVE\s+FOR INSERT TO authenticated WITH CHECK\(false\)/);
+  assert.match(expand,/policyname IN \('mission20_release_freeze','mission20_admission_frozen'\)/);
+  assert(!/DROP POLICY mission20_release_freeze/.test(contract));
+  assert.match(read('sql/06-unfreeze-admission.proposed.sql'),/per_team_and_contract_release_gate_required/);
+});
+
+test('PostgreSQL runner refuses caller-supplied connections before starting a cluster', () => {
+  const r=cp.spawnSync(process.execPath,['scripts/qualify-mission20-c1-postgres.cjs','--host=example.invalid'],{cwd:root,encoding:'utf8',timeout:3000});
+  assert.equal(r.status,1); assert.match(r.stderr,/Run only with --local-only/);
+  assert(!r.stdout.includes('SQL assertions:'));
+});
+
+test('organizer harness repair preserves every pre-review assertion expression', () => {
+  const file='scripts/test-organizer-broadcast-authorization.cjs';
+  const before=cp.execFileSync('git',['show','09641f28c2efe4fdc55fd2de448b1503d070f8e0:'+file],{cwd:root,encoding:'utf8'});
+  const current=fs.readFileSync(path.join(root,file),'utf8');
+  const assertions=text=>text.split(/\r?\n/).filter(line=>/\bassert(?:\.|\()/.test(line));
+  assert.deepEqual(assertions(current),assertions(before));
+  assert.match(current,/'@\/lib\/hackathons\/lifecycle': require\('\.\/ppt-vision-harness\.cjs'\)\.harness\(\)\.load/);
 });

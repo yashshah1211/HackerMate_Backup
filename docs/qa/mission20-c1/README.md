@@ -1,76 +1,100 @@
-# Mission 20 C1 — review package and evidence
+# Mission 20 C1 — corrected review package and evidence
 
-**Design only. Not a production remediation. Do not apply or deploy.**
+**NO-GO for production/staging migration execution or rollout. Keep PRs #92 and #93 Draft.** SQL is review-only, outside the active migration loader. Qualification here executes only in newly allocated disposable local PostgreSQL clusters. No existing database/project, live provider, environment, deployment or production data was modified.
 
-Baseline: reviewed PR #92 commit `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e`; local branch `design/mission20-c1-database-security`, isolated worktree `mission20-c1-database-security-design`. PR #92 was rechecked as open, Draft, unmerged and still at that exact head. The C1 Draft is stacked on its feature branch so the new diff contains only this design package. No application, existing test, active migration, environment, dependency or workflow file changes.
+Reviewed C1 baseline: `09641f28c2efe4fdc55fd2de448b1503d070f8e0`. This follow-up stays on `design/mission20-c1-database-security`, stacked on unchanged PR #92 at `4818052a944451c74ae0a7d7c4572f3e7c3d0f8e`. Recovery found **13 preserved uncommitted paths**, rather than the preliminary 11; local and remote heads were still the reviewed C1 commit. No reset, stash or cleanup of that work occurred.
 
-Read [DESIGN.md](DESIGN.md) for the exact writer/reader analysis, proposed authorization and concurrency boundary, legacy official compatibility, partner/Rack/certificate/team review, adapter contract, rollout/rollback and unresolved decisions. Read [TEST-PLAN.md](TEST-PLAN.md) for the sequential, concurrent, abuse and production acceptance matrix. [QUERY-INVENTORY.md](QUERY-INVENTORY.md) and its [JSON companion](QUERY-INVENTORY.json) provide every baseline query chain/projection/write argument and SQL context.
+Read [REVIEW-CORRECTIONS.md](REVIEW-CORRECTIONS.md) for findings and recommendations; [DESIGN.md](DESIGN.md) for reader/writer, approval, native/community and partner/Rack/certificate/team analysis; [TEST-PLAN.md](TEST-PLAN.md) for the full release matrix. [QUERY-INVENTORY.md](QUERY-INVENTORY.md) and [JSON](QUERY-INVENTORY.json) retain the immutable-base inventory: **66 API chains, 332 SQL fragments, 1,200 reference lines**. No application, active migration, dependency, environment or workflow change is included.
 
-## Proposed SQL, all review-only and unexecuted
+## Corrections and lock decision
+
+- Model the confirmed, named registration/team FK as **ON DELETE CASCADE**. Team deletion deletes linked registrations and releases confirmed row capacity; preservation is not promised. No FK change is proposed. SET NULL changes eligibility/history/access and requires separate review.
+- Reject the global roster SHARE lock for release: the real matchmaking trigger reproduces a **40P01** cycle, and unrelated-team writes block.
+- Recommend per-team locking for further review: parent FOR UPDATE before event, distinct roster UNION owner, a BEFORE membership parent-lock trigger, and an existing-registration retry path. Tested unrelated-team writes finish while admission stays open. The suite also reproduces a residual child-row/cascading-parent cycle; this is not universal deadlock freedom or release approval.
+- Retain `max_participants` as **confirmed registration-row slots**, not humans, distinct teams or all rows. NULL is unlimited, zero waitlists new admissions. No data conversion. Legacy `official` stays community-only pending source-verified review.
+- Freeze new admission before expansion and retain the freeze through per-team installation, adapter convergence and contract. New definer RPC writes also honor the freeze. Unfreeze requires independent release receipts; rollback freezes writes rather than restoring the bypass.
+- Repair the organizer harness with one dependency-map entry loading the real lifecycle module. Every original assertion expression remains identical.
+
+## Review-only SQL and release order
 
 | File | Purpose |
 |---|---|
-| [00 preflight](sql/00-preflight.review.sql) | SELECT-only future metadata/legacy readiness capture; not run against any project. |
-| [01 expansion](sql/01-expand.proposed.sql) | Hardened private worker/public native RPC, canonical status/locking trigger, owner/approval guard, exact date helpers. No data rewrite. |
-| [02 contract](sql/02-contract.proposed.sql) | Clear table and explicit column INSERT grants, restore only guarded community payload, restrictive native denial and event ownership/state policies. Requires adapter cutover. |
-| [03 rollback freeze](sql/03-rollback-freeze.proposed.sql) | Fail-closed rollback: freeze native RPC/community INSERT while retaining readers, preferences, cancellation, records and approval protection. |
-| [04 security tests](sql/04-security-tests.review.sql) | Future isolated local SQL assertions, reusing the existing privacy fixture unchanged, fake IDs only, database/loopback/session guards. Not an executable C1 runner. |
+| [00 preflight](sql/00-preflight.review.sql) | SELECT-only catalog/ACL/FK capture; local fixture qualified, no project query. |
+| [00 freeze](sql/00-freeze-admission.proposed.sql) | Commit first in a separately authorized release: remove table/column INSERT and restrict new admission; retain reads/preferences/cancellation. |
+| [01 expansion](sql/01-expand.proposed.sql) | Private worker and status/clock/capacity/approval guards. Contains rejected global comparator until 05 replaces it while frozen. |
+| [05 per-team](sql/05-per-team-roster.alternative.sql) | Recommended review prototype; no FK or membership authorization expansion. |
+| Adapter (future C2) | Use RPC without INSERT fallback; handle review/freeze/retry errors; drain old servers and qualify cached clients. Not implemented here. |
+| [02 contract](sql/02-contract.proposed.sql) | Clear table/column INSERT, restore guarded community columns, restrictive native denial. Retains release freeze. |
+| [06 unfreeze](sql/06-unfreeze-admission.proposed.sql) | Structural per-team/contract gate; operator/version-convergence receipts independently mandatory. Global comparator is refused. |
+| [03 rollback](sql/03-rollback-freeze.proposed.sql) | Revoke both RPC entry permissions and direct inserts; preserve records/approval protection; fix forward. |
+| [04 fixture](sql/04-security-tests.review.sql) | Execute only via isolated local runner; unchanged privacy assertions, corrected CASCADE FK and security/release cases. |
 
-None is in `supabase/migrations/` or imported by an active migration/CI runner. Promotion requires a separately approved implementation/release and real generated migration filenames. Applying expansion alone leaves a transitional direct-native-write policy; it is not the finished remediation.
+Nothing is promoted to `supabase/migrations/`. Admission intentionally pauses during release. Expansion alone is not completed remediation. Quiesce privileged jobs; a client freeze cannot constrain the database owner.
 
-## Verification evidence
+## Verification — corrected working tree
 
-| Check | Actual result and scope |
+| Check | Result / scope |
 |---|---|
-| Inventory reproducibility | Matches exact baseline: **66 API chains, 332 SQL fragments, 1,200 reference lines**, including every requested projection and all 11 raw registration application queries. Initial API/SQL inventory preceded proposed permission SQL; final whole-tree reconciliation adds full Python/HTML/YAML context. |
-| C1 artifact checks | **8 passed**, repeated after final SQL edits. Only file/scope/ACL-intent checks; **not a SQL parser or PostgreSQL qualification**. |
-| Final offline selection | **848 passed, zero failed/skipped**: eight artifact checks plus 840 existing in-memory application regressions across lifecycle, native/create, event compatibility, Rack, partner auth/admin/organizer API/CSV, approval, certificates and teams. Does not include the unresolved baseline portal harness below. |
-| TypeScript | Full `tsc --noEmit --incremental false --pretty false` passed. |
-| Scoped ESLint | Two new CJS files: **0 errors, 0 warnings**. |
-| Exact Rack browser journey | **32 passed**, 390/1440px, unchanged heading assertion, synthetic providers, **0 mutations / 0 external requests**. Chrome required filesystem-sandbox escalation, retaining qualification's scrubbed environment and network guard. |
-| Scope / whitespace | No changes under src, supabase, .github, package manifests or environment files; `git diff --check` passed. Existing assertions were not changed or weakened. |
-| Database / live acceptance | **Not performed.** No proposed SQL, migration or fixture SQL file executed; no production/staging connection, schema/RLS/privilege/data change, live integration, scraping, deployment or merge. |
+| Inventory | Reproducible: 66 API chains / 332 SQL fragments / 1,200 reference lines. |
+| C1 artifacts | **12 passed**; intent/scope checks, not SQL execution. |
+| Offline selection | **876 passed, 0 failed/skipped**: 12 artifacts + 864 existing checks, including all 24 organizer cases. Native/create/lifecycle, compatibility, Rack, partner authorization/admin/organizer/CSV, approval, certificates, teams and squad. |
+| Local PostgreSQL | **18.4**, two fresh clusters, **279 SQL assertions per variant**, including unchanged baseline privacy. **41 orchestration checks** (20 global, 21 per-team): real matchmaking hooks; native/community last slot; rollback/idempotency; roster additions/departures; distinct owner count/transfer; cancellation/retry; deadline edits/cutoff; 55P03 rollback; CASCADE/cache cleanup; unrelated-team contention; documented deadlocks; release/rollback gates. |
+| Deadlock diagnostics | Expected 40P01 with victim rollback is a passing diagnostic, **not** release approval. Global is rejected. Per-team residual writer/cascade contention requires review and qualification. |
+| TypeScript | Full `tsc --noEmit --incremental false --pretty false`: passed. |
+| Scoped ESLint | Four CJS files (inventory, artifact, qualification, organizer harness): **0 errors / 0 warnings**. |
+| Exact Rack browser | `node qa/rack-qualification.cjs funnel-browser`: **32 passed**, 390/1440px, unchanged About this hackathon assertion, synthetic-only, **0 mutations / external requests**. |
+| Diff/scope | Whitespace clean; no application/active migration/config/dependency/workflow edits; original organizer assertion expressions preserved. |
+| Unexecuted | Exact target catalog/version, adapters, partner/access/isolation/metrics/squad SQL runners, live acceptance, 20/100-way stress and full deployed writer/cascade graph. No current-head hosted Linux/SQL CI claimed: workflows target main while this Draft targets PR #92's feature branch. No production build rerun for this documentation/test-only follow-up. |
 
-Raw local logs are outside the Git checkout under the parent workspace's `audit-artifacts/mission20/`: `c1-artifacts-final.log`, `c1-offline-final.log`, `c1-typecheck.log`, `c1-lint.json`, `c1-rack-browser.log`, `c1-regressions.log`, `c1-baseline-failures.log` and `c1-organizer-baseline.log`. Rack screenshots/results are under ignored `scratch/rack-funnel/` and reproducible with the exact command below. C1 changes no UI; the three-width screenshots in PR #92 remain baseline presentation evidence, not evidence that proposed database SQL works.
+Local logs outside checkout, parent workspace `audit-artifacts/mission20/`: `c1r-postgres-final.log`, `c1r-regressions-final.log`, `c1r-targeted.log`, `c1r-organizer.log`, `c1r-typecheck.log`, `c1r-lint.json`, `c1r-rack-browser.log`. PostgreSQL output includes server version, counts and cleanup receipts for both owned roots. The runner ignores inherited connection credentials, uses owned empty password/service files, accepts only `--local-only`, and refuses connection overrides before startup.
 
-### Failures and attempted-run reconciliation
+Eight ignored browser screenshots in `scratch/rack-funnel/`: `portal-390.png`, `guest-390.png`, `member-next-action-390.png`, `incomplete-next-action-390.png` and four corresponding `1440` images. No C1 UI change; PR #92's 768px baseline remains presentation evidence, not SQL qualification. Local Chrome required sandbox escalation; scrubbed environment/network guards remained in place.
 
-The initial expanded selection produced **867 passes / 6 failures**. Five failures are `scripts/test-organizer-broadcast-authorization.cjs`'s native owner portal cases. They throw **Unmocked portal dependency @/lib/hackathons/lifecycle** at the harness's require map (`:115`) before executing their assertions. Running that unchanged file on the original PR #92 worktree at `4818052` reproduced **19 passes / 5 failures**. These are an unresolved baseline coverage gap requiring a separately scoped harness update/requalification. C1 does not weaken those assertions or claim these cases pass. The failing labels cover banned/revoked identity, event predicate error, external owner, wrong native owner and positive scoped native owner reads.
+### Historical failures reconciled
 
-The sixth failure was a mistakenly included **database-backed** `scripts/test-partner-metrics.cjs`, not an in-memory test. The initial selection and its baseline comparison both attempted a new temporary local initdb. Windows denied WAL file creation/rename; initdb exited before pg_ctl/server startup, createdb or psql. The runner's failure path and finally cleanup ran; both temporary roots were subsequently verified absent. No existing/project database was contacted and no migration, fixture or proposed SQL file was executed. No escalation/retry to run that database fixture was made. It remains unqualified in C1; all further database runners were excluded from execution and are listed for later authorized qualification. This failed bootstrap is recorded explicitly rather than presented as a successful SQL test.
+The initial C1 report had five organizer cases fail before assertions due to the missing lifecycle dependency (19 pass / 5 fail on baseline). The one-line repair resolves all five: **24/24 now pass**, included in 876. No assertion changed or was deleted.
 
-The final green selection deliberately omits those two files; their unresolved/failure states above remain part of this report. Existing SQL privacy/access/isolation runners, squad local SQL, candidate SQL and concurrency cases were not run. Baseline PR #92's historical Linux CI success is not being reused as proof for the C1 proposal. The stacked Draft's base is a feature branch, while existing hosted workflows target main; no current-head hosted C1/database validation is claimed.
+The original selection accidentally included a database-backed metrics runner; it and its baseline comparison failed in Windows initdb before server startup. That separate runner remains unqualified and is not counted as fixed. During correction-runner development, Windows CRLF initially hid a psql barrier marker after SQL assertions passed. The orchestrator was corrected; final qualification and cleanup passed. Partial logs are superseded by `c1r-postgres-final.log`. No existing or remote database was substituted.
 
-## Reproduction (offline only)
+## Reproduction — explicit selections only
 
 ```text
 node scripts/mission20-c1-inventory.cjs --check
-node --test scripts/test-mission20-c1-design.cjs
-node --test scripts/test-mission20-c1-design.cjs scripts/test-native-registration.cjs scripts/test-hackathon-create-dates.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-authorization.cjs scripts/test-partner-admin.cjs scripts/test-partner-organizer-api.cjs scripts/test-partner-csv.cjs scripts/test-admin-hackathon-approval.cjs scripts/test-certificate-id-integrity.cjs scripts/test-certificate-verification-page.cjs scripts/test-team-creation.cjs scripts/test-squad-matching.cjs
+node --test scripts/test-mission20-c1-design.cjs scripts/test-organizer-broadcast-authorization.cjs
+node --test scripts/test-mission20-c1-design.cjs scripts/test-native-registration.cjs scripts/test-hackathon-create-dates.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-authorization.cjs scripts/test-partner-admin.cjs scripts/test-partner-organizer-api.cjs scripts/test-partner-csv.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-admin-hackathon-approval.cjs scripts/test-certificate-id-integrity.cjs scripts/test-certificate-verification-page.cjs scripts/test-team-creation.cjs scripts/test-squad-matching.cjs
+node scripts/qualify-mission20-c1-postgres.cjs --local-only
 node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false
-node node_modules/eslint/bin/eslint.js scripts/mission20-c1-inventory.cjs scripts/test-mission20-c1-design.cjs
+node node_modules/eslint/bin/eslint.js scripts/mission20-c1-inventory.cjs scripts/test-mission20-c1-design.cjs scripts/qualify-mission20-c1-postgres.cjs scripts/test-organizer-broadcast-authorization.cjs
 node qa/rack-qualification.cjs funnel-browser
 ```
 
-The baseline-only failing portal harness can be reproduced separately with `node --test scripts/test-organizer-broadcast-authorization.cjs`. Do not run a wildcard selection: several existing CJS files launch PostgreSQL, and are not offline source tests. Do not execute the SQL files during C1 review.
+Do not use wildcard CJS selections: several scripts start databases. Do not execute proposed SQL against any existing database. Use installed native PostgreSQL, no Docker/project creation.
 
-## Exact C1 file inventory
+## Exact file inventory
 
-All 12 files are new; no pre-existing changes were included.
+**15 follow-up paths** relative to 09641f2: 10 modified, five new. **18 total PR paths** relative to PR #92: 17 new C1 files plus the existing organizer harness. Three immutable inventory paths are inherited unchanged.
 
-1. `docs/qa/mission20-c1/README.md` — evidence, failure reconciliation and inventory.
-2. `docs/qa/mission20-c1/DESIGN.md` — remediation, compatibility, ordering, rollback and decisions.
-3. `docs/qa/mission20-c1/TEST-PLAN.md` — concurrency, abuse and acceptance matrix.
-4. `docs/qa/mission20-c1/QUERY-INVENTORY.md` — readable full query/projection inventory.
-5. `docs/qa/mission20-c1/QUERY-INVENTORY.json` — exact immutable-base queries and SQL context.
-6. `docs/qa/mission20-c1/sql/00-preflight.review.sql` — future read-only preflight.
-7. `docs/qa/mission20-c1/sql/01-expand.proposed.sql` — proposed atomic mechanism and guards.
-8. `docs/qa/mission20-c1/sql/02-contract.proposed.sql` — proposed grant/RLS contract.
-9. `docs/qa/mission20-c1/sql/03-rollback-freeze.proposed.sql` — safe rollback proposal.
-10. `docs/qa/mission20-c1/sql/04-security-tests.review.sql` — future local SQL assertions.
-11. `scripts/mission20-c1-inventory.cjs` — deterministic immutable-base inventory generator/checker.
-12. `scripts/test-mission20-c1-design.cjs` — offline review-artifact/scope checks, no database connection.
+| Repository-relative file | Follow-up change |
+|---|---|
+| `docs/qa/mission20-c1/README.md` | Modified: recovery, evidence, limits and inventory. |
+| `docs/qa/mission20-c1/DESIGN.md` | Modified: FK, capacity, locking and release contract. |
+| `docs/qa/mission20-c1/TEST-PLAN.md` | Modified: executable strategy / remaining matrix. |
+| `docs/qa/mission20-c1/REVIEW-CORRECTIONS.md` | New: finding analysis and decisions. |
+| `docs/qa/mission20-c1/QUERY-INVENTORY.md` | Inherited unchanged. |
+| `docs/qa/mission20-c1/QUERY-INVENTORY.json` | Inherited unchanged. |
+| `docs/qa/mission20-c1/sql/00-preflight.review.sql` | Modified: FK catalog output. |
+| `docs/qa/mission20-c1/sql/00-freeze-admission.proposed.sql` | New: freeze-first proposal. |
+| `docs/qa/mission20-c1/sql/01-expand.proposed.sql` | Modified: CASCADE, freeze-aware guard, capacity terminology. |
+| `docs/qa/mission20-c1/sql/02-contract.proposed.sql` | Modified: retain freeze. |
+| `docs/qa/mission20-c1/sql/03-rollback-freeze.proposed.sql` | Modified: local versus existing-project execution. |
+| `docs/qa/mission20-c1/sql/04-security-tests.review.sql` | Modified: real FK and release/role/native/community tests. |
+| `docs/qa/mission20-c1/sql/05-per-team-roster.alternative.sql` | New: per-team prototype. |
+| `docs/qa/mission20-c1/sql/06-unfreeze-admission.proposed.sql` | New: structural release gate. |
+| `scripts/mission20-c1-inventory.cjs` | Inherited unchanged. |
+| `scripts/test-mission20-c1-design.cjs` | Modified: 12 artifact/scope/harness checks. |
+| `scripts/qualify-mission20-c1-postgres.cjs` | New: isolated PostgreSQL/concurrency qualification. |
+| `scripts/test-organizer-broadcast-authorization.cjs` | Modified: one dependency-map entry; assertions identical. |
 
-## Decisions remaining for independent review
+## Decisions before any migration
 
-Approve or revise the one-row capacity unit/waitlist behavior, privileged worker ownership and global roster-lock trade-off; classify legacy official/NULL statuses and ambiguous deadlines; confirm actual production metadata/role graph/FK actions and external writer dependencies; decide deployment ordering; resolve the baseline portal harness and qualify all SQL/races. These are gates for a future implementation/release, not permission requested to execute anything now. Keep both PRs Draft and stop for independent review.
+Review per-team ordering and residual child/parent deadlocks, all deployed writers/FKs/triggers, the privileged worker boundary, the retained row-slot interpretation, and freeze/adapter/operator gates. Catalog exceptions, source-verified official classification, stress/transport/workflow qualification and production acceptance remain separate gates. SET NULL needs its own proposal. No execution or rollout approval is implied or requested.

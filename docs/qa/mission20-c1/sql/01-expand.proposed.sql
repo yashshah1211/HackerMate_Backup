@@ -1,4 +1,5 @@
--- REVIEW ONLY. NOT A MIGRATION. NOT EXECUTED. See DESIGN.md and TEST-PLAN.md.
+-- REVIEW ONLY. NOT AN ACTIVE MIGRATION. Local disposable-fixture execution only.
+-- Global roster lock is an evaluation baseline, not the recommended release.
 -- A later approved release must generate real migration filenames and rehearse
 -- these objects against an isolated PostgreSQL fixture before any promotion.
 BEGIN;
@@ -7,6 +8,12 @@ SET LOCAL statement_timeout = '15s';
 DO $$ BEGIN
   IF current_user <> 'postgres' OR current_setting('server_version_num')::integer < 150000 THEN
     RAISE EXCEPTION 'reviewed_postgres_owner_and_version_required';
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint
+    WHERE conrelid='public.hackathon_registrations'::regclass
+      AND conname='hackathon_registrations_team_id_fkey'
+      AND confrelid='public.teams'::regclass AND confdeltype='c') THEN
+    RAISE EXCEPTION 'confirmed_team_cascade_fk_required';
   END IF;
 END; $$;
 
@@ -136,7 +143,7 @@ $$;
 CREATE FUNCTION mission20_private.guard_registration_write()
 RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = '' SET lock_timeout = '3s' SET statement_timeout = '15s' AS $$
-DECLARE v_event public.hackathons%ROWTYPE; v_confirmed bigint; v_native boolean;
+DECLARE v_event public.hackathons%ROWTYPE; v_confirmed_rows bigint; v_native boolean;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     -- Includes cancellations/admin cascades; never blocks leaving an ended event.
@@ -147,27 +154,30 @@ BEGIN
     -- Preserve preferences, hidden state and guarded track metadata after closure.
     -- No existing writer edits admission identity/status. Future promotions need
     -- a separately reviewed, event-locked mechanism, not a privileged raw UPDATE.
-    IF (NEW.id, NEW.hackathon_id, NEW.user_id, NEW.status, NEW.created_at)
-      IS DISTINCT FROM (OLD.id, OLD.hackathon_id, OLD.user_id, OLD.status, OLD.created_at)
-      OR (NEW.team_id IS DISTINCT FROM OLD.team_id AND NOT (
-        NEW.team_id IS NULL AND OLD.team_id IS NOT NULL
-        AND NOT EXISTS(SELECT 1 FROM public.teams t WHERE t.id = OLD.team_id))) THEN
+    IF (NEW.id, NEW.hackathon_id, NEW.user_id, NEW.team_id, NEW.status, NEW.created_at)
+      IS DISTINCT FROM (OLD.id, OLD.hackathon_id, OLD.user_id, OLD.team_id, OLD.status, OLD.created_at) THEN
       RAISE EXCEPTION 'registration_identity_and_status_immutable' USING ERRCODE = '42501';
     END IF;
-    -- Permit a genuine FK ON DELETE SET NULL after its parent disappeared.
-    -- Column ACLs still forbid callers from manually changing team_id.
+    -- Confirmed production FK is ON DELETE CASCADE, not SET NULL. Parent team
+    -- deletion takes the DELETE branch and removes the registration row.
     RETURN NEW;
+  END IF;
+  IF EXISTS(SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname='public'
+    AND tablename='hackathon_registrations' AND policyname IN ('mission20_release_freeze','mission20_admission_frozen')) THEN
+    RAISE EXCEPTION 'new_admission_frozen' USING ERRCODE='P0001';
   END IF;
   IF NEW.user_id IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'registration_identity_mismatch' USING ERRCODE = '42501';
   END IF;
   SELECT h.type = 'native' INTO v_native FROM public.hackathons h WHERE h.id = NEW.hackathon_id;
   v_event := mission20_private.lock_context(NEW.hackathon_id, NEW.team_id, coalesce(v_native, false), true);
+  -- Compatibility contract: max_participants is enforced as a limit on
+  -- confirmed REGISTRATION ROWS, not teams or distinct human participants.
   -- Separate SQL command after acquiring the event lock: fresh READ COMMITTED
   -- snapshot sees the previous registrant's committed insertion.
-  SELECT count(*) INTO v_confirmed FROM public.hackathon_registrations r
+  SELECT count(*) INTO v_confirmed_rows FROM public.hackathon_registrations r
     WHERE r.hackathon_id = NEW.hackathon_id AND r.status = 'confirmed';
-  NEW.status := CASE WHEN v_event.max_participants IS NOT NULL AND v_confirmed >= v_event.max_participants
+  NEW.status := CASE WHEN v_event.max_participants IS NOT NULL AND v_confirmed_rows >= v_event.max_participants
     THEN 'waitlisted' ELSE 'confirmed' END;
   PERFORM mission20_private.assert_window(to_jsonb(v_event), coalesce(v_native, false), true);
   RETURN NEW;
@@ -206,7 +216,7 @@ DECLARE
   -- current_user inside a definer would always be postgres: NEVER use it here.
   v_role text := current_setting('role', true);
   v_trusted boolean;
-  v_confirmed bigint;
+  v_confirmed_rows bigint;
 BEGIN
   v_trusted := v_role = 'service_role' OR (v_role = 'none' AND session_user = 'postgres');
   IF NEW.max_participants < 0 THEN RAISE EXCEPTION 'invalid_capacity' USING ERRCODE = '22023'; END IF;
@@ -216,9 +226,9 @@ BEGIN
     END IF;
     -- Explicitly take the admission lock before a separate fresh count query.
     PERFORM 1 FROM public.hackathons h WHERE h.id = OLD.id FOR UPDATE;
-    SELECT count(*) INTO v_confirmed FROM public.hackathon_registrations r
+    SELECT count(*) INTO v_confirmed_rows FROM public.hackathon_registrations r
       WHERE r.hackathon_id = OLD.id AND r.status = 'confirmed';
-    IF NEW.max_participants < v_confirmed THEN
+    IF NEW.max_participants < v_confirmed_rows THEN
       RAISE EXCEPTION 'capacity_below_existing_confirmed' USING ERRCODE = 'P0001';
     END IF;
   END IF;

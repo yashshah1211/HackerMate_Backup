@@ -1,4 +1,5 @@
--- REVIEW ONLY. NOT EXECUTED. Requires expansion, adapter cutover and acceptance.
+-- REVIEW ONLY. Local fixture qualification only. Release requires expansion,
+-- adapter cutover and separate acceptance; never executed on an existing project.
 BEGIN;
 SET LOCAL lock_timeout = '3s';
 SET LOCAL statement_timeout = '15s';
@@ -12,9 +13,10 @@ DO $$ BEGIN
   END IF;
   IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_trigger WHERE tgrelid = 'public.hackathon_registrations'::regclass
     AND tgname = 'mission20_registration_write' AND tgenabled = 'O')
-    OR (SELECT count(*) FROM pg_catalog.pg_policies WHERE schemaname = 'public' AND tablename = 'hackathon_registrations') <> 4
+    OR (SELECT count(*) FROM pg_catalog.pg_policies WHERE schemaname = 'public' AND tablename = 'hackathon_registrations'
+      AND policyname <> 'mission20_release_freeze') <> 4
     OR EXISTS(SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'public' AND tablename = 'hackathon_registrations'
-      AND policyname NOT IN ('registrations_read_scoped', 'registrations_create_self', 'registrations_update_self', 'registrations_delete_self')) THEN
+      AND policyname NOT IN ('registrations_read_scoped', 'registrations_create_self', 'registrations_update_self', 'registrations_delete_self','mission20_release_freeze')) THEN
     RAISE EXCEPTION 'review_expansion_and_registration_policy_drift_before_contract';
   END IF;
 END; $$;
@@ -51,6 +53,8 @@ FOR INSERT TO authenticated WITH CHECK (
 );
 -- Existing private SELECT, guarded preference UPDATE, self DELETE and service
 -- ACLs are unchanged. The insert trigger derives status for every role.
+-- Do not remove the release freeze here: adapters, negative tests and operator
+-- gates must pass before 06-unfreeze-admission.proposed.sql is considered.
 
 CREATE POLICY mission20_hackathon_create ON public.hackathons AS RESTRICTIVE
 FOR INSERT TO authenticated WITH CHECK (

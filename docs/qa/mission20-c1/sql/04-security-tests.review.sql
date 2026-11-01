@@ -1,7 +1,7 @@
--- REVIEW ONLY: future local fixture assertions, NOT executed in C1.
+-- REVIEW ONLY: executable only in the isolated local qualification runner.
 -- Reuse scripts/test-registration-privacy.cjs's isolated-cluster lifecycle,
 -- but initialize its owner as postgres. Accept NO existing DB/URL/.env input.
--- This file must never be run by ordinary CI or the migration loader.
+-- Never run against an existing database or by the migration loader.
 \set ON_ERROR_STOP on
 SELECT current_database() = 'partner_authz_fixture' AND inet_server_addr() = '127.0.0.1'::inet
   AND session_user = 'postgres' AS local_fixture \gset
@@ -17,10 +17,9 @@ ALTER TABLE auth.users ADD COLUMN is_anonymous boolean NOT NULL DEFAULT false,
 ALTER TABLE public.profiles ADD COLUMN onboarding_completed boolean NOT NULL DEFAULT true;
 ALTER TABLE public.hackathons ADD COLUMN registration_start timestamptz, ADD COLUMN registration_end timestamptz,
   ADD COLUMN registration_status text, ADD COLUMN max_participants integer;
--- Preserve existing fixture rows while adding the actual deleted-team behavior
--- for new C1 rows. Verify this action against future deployed FK preflight.
-ALTER TABLE public.hackathon_registrations ADD CONSTRAINT c1_fixture_team_fk
-  FOREIGN KEY(team_id) REFERENCES public.teams(id) ON DELETE SET NULL NOT VALID;
+-- Confirmed by founder's live read-only audit. No FK change is proposed.
+ALTER TABLE public.hackathon_registrations ADD CONSTRAINT hackathon_registrations_team_id_fkey
+  FOREIGN KEY(team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
 ALTER TABLE public.hackathons ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.hackathons TO authenticated, service_role;
 CREATE POLICY hackathons_read ON public.hackathons FOR SELECT TO authenticated USING (true);
@@ -57,8 +56,25 @@ UPDATE public.hackathons SET end_date = clock_timestamp() - interval '1 second' 
 UPDATE public.hackathons SET type = CASE WHEN id = public.fixture_id(9110) THEN 'official' ELSE 'external' END,
   min_team_size = 2, registration_end = clock_timestamp() - interval '1 day'
 WHERE id IN (public.fixture_id(9110),public.fixture_id(9111));
+\ir 00-preflight.review.sql
+\ir 00-freeze-admission.proposed.sql
 \ir 01-expand.proposed.sql
+\if :{?per_team}
+  \ir 05-per-team-roster.alternative.sql
+\endif
 \ir 02-contract.proposed.sql
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub',public.fixture_id(9001)::text,false);
+SELECT public.fixture_error('SELECT public.register_native_hackathon(public.fixture_id(9101))','P0001','new RPC cannot bypass release freeze');
+SELECT public.fixture_error('INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES(public.fixture_id(9110),auth.uid())','P0001','community cannot bypass release freeze');
+RESET ROLE;
+\if :{?per_team}
+  \ir 06-unfreeze-admission.proposed.sql
+\else
+  -- TEST-ONLY comparator: global is intentionally ineligible for release.
+  -- The executable runner separately asserts that 06 rejects this variant.
+  DROP POLICY mission20_release_freeze ON public.hackathon_registrations;
+\endif
 
 SET TimeZone = 'Pacific/Auckland';
 SELECT public.fixture_assert(mission20_private.boundary('2026-10-31', true) = '2026-10-31T18:30:00Z'::timestamptz, 'inclusive final India day independent of session timezone');
@@ -121,7 +137,12 @@ SET ROLE service_role;
 UPDATE public.hackathons SET status='approved', ai_feedback='{"status":"approved","reviewed_by":"synthetic-admin"}' WHERE id=public.fixture_id(9302);
 RESET ROLE;
 DELETE FROM public.teams WHERE id=public.fixture_id(9202);
-SELECT public.fixture_assert((SELECT team_id IS NULL FROM public.hackathon_registrations WHERE hackathon_id=public.fixture_id(9112)),'FK SET NULL retains registration after real team deletion');
+SELECT public.fixture_assert(NOT EXISTS(SELECT 1 FROM public.hackathon_registrations WHERE hackathon_id=public.fixture_id(9112)),'confirmed FK CASCADE deletes linked registration');
+SELECT public.fixture_assert(EXISTS(SELECT 1 FROM public.hackathon_registrations WHERE hackathon_id=public.fixture_id(9107)),'team deletion leaves other registration records intact');
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub',public.fixture_id(9002)::text,false);
+SELECT public.fixture_assert(public.register_native_hackathon(public.fixture_id(9112))->>'status'='confirmed','team cascade releases a confirmed registration-row slot');
+RESET ROLE;
 SELECT public.fixture_assert((SELECT status='approved' FROM public.hackathons WHERE id=public.fixture_id(9302)),'existing admin service-role approval preserved');
 -- The isolated runner must destroy the entire cluster in finally on pass/fail.
 -- Additional two-session races and fresh post-contract privacy replay are

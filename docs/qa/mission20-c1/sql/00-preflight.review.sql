@@ -1,4 +1,4 @@
--- REVIEW ONLY. SELECT-only future preflight; not executed during C1.
+-- REVIEW ONLY. SELECT-only preflight; qualified only on disposable local fixtures.
 -- Capture output privately under separate read-only approval before rollout.
 SELECT version(), current_user, session_user, current_setting('transaction_isolation'), current_setting('TimeZone');
 SELECT nspname, pg_get_userbyid(nspowner), nspacl FROM pg_catalog.pg_namespace
@@ -22,7 +22,8 @@ SELECT r.rolname, r.rolsuper, r.rolinherit, r.rolbypassrls,
 FROM pg_catalog.pg_roles r WHERE r.rolname IN ('anon', 'authenticated', 'service_role');
 SELECT pg_get_userbyid(m.member) AS member, pg_get_userbyid(m.roleid) AS inherited_role
 FROM pg_catalog.pg_auth_members m WHERE pg_get_userbyid(m.member) IN ('anon', 'authenticated', 'service_role', 'authenticator');
-SELECT conrelid::regclass, conname, pg_get_constraintdef(oid)
+-- Confirmed registration team FK must remain confdeltype='c' (CASCADE).
+SELECT conrelid::regclass, conname, confdeltype, convalidated, pg_get_constraintdef(oid)
 FROM pg_catalog.pg_constraint WHERE conrelid IN ('public.hackathon_registrations'::regclass, 'public.hackathons'::regclass, 'public.team_members'::regclass);
 SELECT tgrelid::regclass, tgname, tgenabled, pg_get_triggerdef(oid)
 FROM pg_catalog.pg_trigger WHERE NOT tgisinternal AND tgrelid IN
