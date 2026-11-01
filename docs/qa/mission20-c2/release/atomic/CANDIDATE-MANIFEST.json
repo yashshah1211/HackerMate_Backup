@@ -5,6 +5,11 @@
     "latest": "20261025081515",
     "evidence": "founder independent read-only audit; full ledger receipt not supplied"
   },
+  "expansionExpectedLedger": {
+    "count": 148,
+    "latest": "20261102090000",
+    "reason": "147 baseline plus separately committed freeze migration; loader records it outside this candidate"
+  },
   "proposedVersions": [
     {
       "version": "20261102090000",
@@ -99,7 +104,7 @@
       "reason": "qualification-only maintenance prototype; no runtime caller"
     }
   ],
-  "candidateSha256": "1532343f1699cc8b46a1774f75f58100220ed8ed60f85db4702f1a2de212a4cb",
+  "candidateSha256": "62c222d1e2b44d8486a01281c016321e2da459ea0db16fa4064085ea7280b2be",
   "freeze": "Existing 00, committed separately; pauses native AND external/official INSERT. Founder decision unresolved.",
   "rollback": "Failed transaction rolls back only expansion; prior committed freeze remains. After commit preserve protocol and re-freeze; no destructive downgrade or vulnerable grant restoration."
 }

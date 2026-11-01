@@ -19,13 +19,19 @@ async function qualifyAtomic(c){
  const prefix=fs.readFileSync(path.join(SQL,'04-security-tests.review.sql'),'utf8').split('\\ir 00-preflight.review.sql')[0];
  // Shared roles were created by the baseline fixture in this same owned
  // cluster; this second database gets independent schemas, records and ACLs.
- const seed=prefix.replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(SQL,f.trim())))
+ let seed=prefix.replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(SQL,f.trim())))
   .replace(/^CREATE ROLE (?:authenticated|anon|service_role) [^\n]+\n/gm,'')
   .replaceAll('partner_authz_fixture','mission20_fixture_atomic');
- execute(temp('atomic-baseline',seed));
- await admin.query(`ALTER TABLE public.hackathons ALTER COLUMN start_date TYPE date USING start_date::date,
-  ALTER COLUMN end_date TYPE date USING end_date::date,ALTER COLUMN type TYPE varchar(50);
-  ALTER TABLE public.profiles ADD COLUMN is_available boolean DEFAULT true,ADD COLUMN hackathon_participations integer DEFAULT 0,
+ // Establish confirmed types at CREATE TABLE, before dependent policies are
+ // installed. Never drop/relax policies to accommodate a fixture ALTER TYPE.
+ for(const [before,after] of [
+  ['organizer_id uuid REFERENCES public.profiles(id), type text,','organizer_id uuid REFERENCES public.profiles(id), type varchar(50),'],
+  ['start_date timestamptz, end_date timestamptz,','start_date date, end_date date,']
+ ]){assert.equal(seed.split(before).length,2,'exact original fixture DDL');seed=seed.replace(before,after);}
+ const baseline=execute(temp('atomic-baseline',seed));
+ const baselineAssertions=(baseline.match(/NOTICE:\s+PASS:/g)||[]).length;
+ assert(baselineAssertions>=209,'retain complete existing privacy assertions');
+ await admin.query(`ALTER TABLE public.profiles ADD COLUMN is_available boolean DEFAULT true,ADD COLUMN hackathon_participations integer DEFAULT 0,
   ADD COLUMN hackathon_wins integer DEFAULT 0,ADD COLUMN has_won_hackathon boolean DEFAULT false,ADD COLUMN year_of_study text;
   ALTER TABLE public.teams ADD COLUMN skills text[],ADD COLUMN college text;
   ALTER TABLE public.team_members ADD COLUMN project_role text;
@@ -58,22 +64,28 @@ async function qualifyAtomic(c){
  const candidate=source(DIR+'/01-final-expansion.review.sql');
  rejected(candidate,/separately_committed_freeze/);await absent();
  execute(path.join(SQL,'00-freeze-admission.proposed.sql'));
+ // Model the future migration loader's separately committed freeze receipt.
+ // This is synthetic fixture history, never an operator ledger repair.
+ await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261102090000','synthetic-freeze-loader-receipt');");
  assert.equal(await admin.query("SELECT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT');"),'f');
  pass('missing freeze rejects install; separately committed freeze removes exposed INSERT columns');
  const before=await admin.query(`SELECT string_agg(p.oid::text||':'||coalesce(p.proacl::text,'NULL')||':'||p.proowner::text,'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
+ const bodies=()=>admin.query(`SELECT string_agg(encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
+ const originalBodies=await bodies();
  await admin.query(`CREATE OR REPLACE FUNCTION public.add_user_to_team(p_team_id uuid,p_user_id uuid,p_role text DEFAULT 'member') RETURNS void
   LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ BEGIN RAISE EXCEPTION 'synthetic unreviewed deployed variant'; END; $$;`);
  rejected(candidate,/unreviewed_function_variant_stop/);await absent();
  await admin.query(definition(dependencies[4].file,'public.add_user_to_team'));
  pass('unreviewed add_user_to_team body is never overwritten; exact-body drift fails before any expansion');
- await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261101000000','synthetic-drift');");
+ await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261102090001','synthetic-drift');");
  rejected(candidate,/migration_ledger_drift_stop/);await absent();
- await admin.query("DELETE FROM supabase_migrations.schema_migrations WHERE version='20261101000000';");
+ await admin.query("DELETE FROM supabase_migrations.schema_migrations WHERE version='20261102090001';");
  pass('ledger drift rejects install without repairing or writing the ledger');
  // Fail after all candidate DDL, before its only COMMIT: all function, trigger,
  // schema and grant writes must roll back, while the earlier freeze survives.
  const failed=sql.replace(/COMMIT;\n$/,`DO $$ BEGIN RAISE EXCEPTION 'injected_final_install_failure'; END; $$;\nCOMMIT;\n`);
  rejected(temp('atomic-injected-failure',failed),/injected_final_install_failure/);await absent();
+ assert.equal(await bodies(),originalBodies,'failed installation restores every original body/configuration');
  assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_release_freeze');"),'t');
  pass('failure after final DDL rolls back complete install and preserves committed freeze');
  // Pause before commit in a persistent session; another connection must see
@@ -115,6 +127,10 @@ async function qualifyAtomic(c){
  pass('second freeze revokes columns; exact reviewed community grant plus separately gated unfreeze restores only community payload, never broad INSERT');
  execute(path.join(SQL,'03-rollback-freeze.proposed.sql'));
  assert.equal(await admin.query("SELECT NOT has_any_column_privilege('authenticated','public.hackathon_registrations','INSERT') AND NOT has_function_privilege('authenticated','public.register_native_hackathon(uuid,uuid,boolean)','EXECUTE') AND to_regprocedure('public.mission20_cancel_registration(uuid,uuid)') IS NOT NULL;"),'t');
+ const rollbackRegistration=await admin.query(`SELECT id FROM public.hackathon_registrations WHERE hackathon_id='${uid(12101)}' AND user_id='${uid(9503)}';`);
+ await admin.query(`${identity(9503)} UPDATE public.hackathon_registrations SET looking_for_team=true WHERE id='${rollbackRegistration}';
+  SELECT public.mission20_cancel_registration('${uid(12101)}','${rollbackRegistration}'); RESET ROLE;`);
+ assert.equal(await admin.query(`SELECT count(*) FROM public.hackathon_registrations WHERE id='${rollbackRegistration}';`),'0');
  pass('postcommit fail-closed rollback revokes admission/INSERT, preserves cancellation and final protocol');
  // 06 must NOT serve as recovery from 03. Its guard currently checks structural
  // presence only, so this proves the operational blocker explicitly.
@@ -122,7 +138,7 @@ async function qualifyAtomic(c){
  assert.equal(await admin.query("SELECT EXISTS(SELECT 1 FROM pg_policies WHERE policyname='mission20_admission_frozen');"),'t');
  pass('policy-only unfreeze cannot recover rollback; emergency freeze remains and no unsafe automatic ACL recovery is attempted');
  const version=await admin.query('SHOW server_version;');
- await admin.close();console.log(JSON.stringify({atomicCandidate:true,checks,version,productionConnections:0,hostedAuth:false,backupRestore:false}));
+ await admin.close();console.log(JSON.stringify({atomicCandidate:true,checks,baselineAssertions,version,productionConnections:0,hostedAuth:false,backupRestore:false}));
 }
 module.exports={qualifyAtomic};
 if(require.main===module)main({setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyAtomic(c);}}).catch(e=>{console.error(e.stack);process.exitCode=1;});

@@ -22,8 +22,11 @@ BEGIN
  OR (SELECT format_type(atttypid,atttypmod) FROM pg_attribute WHERE attrelid='public.hackathons'::regclass AND attname='type') IS DISTINCT FROM 'character varying(50)' THEN
   RAISE EXCEPTION 'confirmed_event_column_types_required'; END IF;
  IF to_regclass('supabase_migrations.schema_migrations') IS NULL THEN RAISE EXCEPTION 'reviewed_ledger_required'; END IF;
- IF (SELECT count(*) FROM supabase_migrations.schema_migrations)<>147 OR
- (SELECT max(version::text) FROM supabase_migrations.schema_migrations) IS DISTINCT FROM '20261025081515' THEN
+ -- The separately committed freeze is a future migration, so expansion sees
+ -- baseline 147 + the freeze ledger entry. This candidate never writes it.
+ IF (SELECT count(*) FROM supabase_migrations.schema_migrations)<>148 OR
+ (SELECT max(version::text) FROM supabase_migrations.schema_migrations) IS DISTINCT FROM '20261102090000'
+ OR NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version::text='20261025081515') THEN
   RAISE EXCEPTION 'migration_ledger_drift_stop'; END IF;
  FOR expected IN SELECT * FROM (VALUES
  ('public.accept_team_invite(uuid)','ec636cb3bef80b67420d7967c3ac72c33017e550816b8257a16e956d4eb92cac'),

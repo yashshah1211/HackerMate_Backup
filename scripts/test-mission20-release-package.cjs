@@ -53,6 +53,8 @@ test('latest hardened add-member dependency is not replaced and versions remain 
  assert.equal(plan.status,'REVIEW_ONLY_NOT_ALLOCATED_NOT_AUTHORIZED');
  assert.equal(new Set(plan.proposedVersions.map(v=>v.version)).size,4);
  assert(plan.proposedVersions.every(v=>v.version>plan.liveLedger.latest));
+ assert.equal(plan.expansionExpectedLedger.count,plan.liveLedger.count+1);
+ assert.equal(plan.expansionExpectedLedger.latest,plan.proposedVersions[0].version);
 });
 test('SQL splitter preserves semicolons and comments inside quoted bodies',()=>{
  const sample="-- heading;\nBEGIN;\nDO $x$ BEGIN RAISE NOTICE 'literal -- ;'; END; $x$;\nSELECT 'a;''b';\nCOMMIT;\n";
