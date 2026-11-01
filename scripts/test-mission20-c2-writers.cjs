@@ -50,6 +50,15 @@ test('ensure conversation requires a UUID rather than a success-like string',asy
 test('account switching before mutation prevents submission',async()=>{
  const f=fixture();f.actor('replacement');await assert.rejects(api.removeTeamMember(f.client,'team','member','actor'));assert.equal(f.calls.length,0);
 });
+test('account switching during token verification prevents the old-token mutation',async()=>{
+ const f=fixture();let finish;
+ f.client.auth.getUser=()=>new Promise(resolve=>{finish=resolve;});
+ const result=api.deleteTeam(f.client,'team','actor');
+ while(!finish)await new Promise(resolve=>setImmediate(resolve));
+ f.actor('replacement');finish({data:{user:{id:'actor'}},error:null});
+ await assert.rejects(result,e=>e.status===401&&!e.outcomeUnknown);
+ assert.equal(f.calls.length,0);
+});
 test('account switching during a confirmed request suppresses success without replay',async()=>{
  let finish;const f=fixture({run:()=>new Promise(resolve=>{finish=resolve;})});const result=api.deleteTeam(f.client,'team','actor');
  while(!finish)await new Promise(resolve=>setImmediate(resolve));f.actor('replacement');finish({data:'team',error:null});

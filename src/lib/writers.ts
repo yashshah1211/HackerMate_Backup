@@ -91,6 +91,12 @@ async function identity(client: SupabaseClient, expected: string, budget: Writer
 export async function writerRpc<K extends keyof Contract>(client: SupabaseClient, name: K, args: Contract[K], expectedUserId: string, budget = new WriterBudget(), pinnedToken?: string): Promise<unknown> {
   try {
     const token = await identity(client, expectedUserId, budget, pinnedToken);
+    if (!pinnedToken) {
+      // Verification may wait on the network while local sign-in changes.
+      const current = await budget.run(() => client.auth.getSession());
+      if (current.error) console.error("[writer] pre-submit session failed:", current.error);
+      if (current.error || current.data.session?.user.id !== expectedUserId) throw new WriterError("Your account changed. Refresh before trying again.", 401);
+    }
     const { data, error } = await budget.query(() => client.rpc(name, args).setHeader("Authorization", `Bearer ${token}`));
     if (error) { console.error("[writer] RPC failed:", name, error); throw writerFailure(error); }
     budget.check();
