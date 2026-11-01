@@ -1,5 +1,7 @@
 # Mission 20 release-readiness gate
 
+**Latest private qualification:** the supplied exact conversation body has now been SHA-verified and the five-body mixed set replayed successfully on disposable local native PG17.6. [Private qualification scope, counts and privacy controls](atomic/PRIVATE-QUALIFICATION.md). This closes that isolated raw-body replay gap only. Public CI intentionally still has four body fixtures and never receives the private input. Production remains NO-GO; broader platform/catalog/loader/restore/release gates remain open.
+
 **Decision: NO-GO for production/staging migration, merge, deployment or unfreeze.** Candidate documentation/acceptance package is ready for independent review; it is not an execution-ready, live-compatible migration certification. Founder confirms new RPCs/policies are absent in production. C2 cannot safely be deployed there yet. All three PRs remain Draft.
 
 Baseline: #92 e2e3643, #93 541ed46, #96 f918ee0. Baseline CI has 1,613 application cases, 51 SDK/writer cases, native PG17.6 SQL/concurrency and 32 Rack checks, TypeScript/scoped lint/build passed. Current follow-up qualification and exact commit/job outcomes are recorded in PR #96; the receipt file records the immutable source run rather than predicting a green result.

@@ -3,10 +3,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {main}=require('./qualify-mission20-c1-postgres.cjs');
 const {extension:c2}=require('./qualify-mission20-c2-writers.cjs');
 const {build,definition,body,dependencies,injectFixtureMutation,DIR}=require('./mission20-atomic-candidate.cjs');
+const {validatePrivateFixture,losslessLocalStatement}=require('./mission20-private-audit.cjs');
 // Inline only known repository fixture includes so temporary scripts retain the
 // original relative-include meaning. Never accepts a user SQL/connection path.
 function expanded(file){return fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(path.dirname(file),f.trim())));}
-async function qualifyAtomic(c){
+async function qualifyAtomic(c,options={}){
+ const privateFixture=options.privateFixture?validatePrivateFixture(options.privateFixture):null;
  if(c.variant!=='per-team')return;
  const {ROOT,SQL,ownedRoot,run,uid,identity,passed}=c;
  const fixture=c.allocateFixtureDatabase('mission20_fixture_atomic');
@@ -24,6 +26,7 @@ async function qualifyAtomic(c){
  END; $atomic_frozen$; RESET ROLE;`;
  const {sql}=build();assert.equal(fs.readFileSync(source(DIR+'/01-final-expansion.review.sql'),'utf8').replace(/\r\n/g,'\n'),sql);
  const rawFixtures=JSON.parse(fs.readFileSync(source(DIR+'/deployed-body-fixtures.review.json'),'utf8')).functions;
+ if(privateFixture)rawFixtures.push(privateFixture); // In memory only; never write the fixture JSON.
  const withBody=(dep,prosrc)=>{
   const original=definition(dep.file,dep.signature.split('(')[0]),start=original.match(/\bAS\s+(\$(?:\w+)?\$)/i).index;
   assert(!prosrc.includes('$atomic_body$'));return original.slice(0,start)+'AS $atomic_body$'+prosrc+'$atomic_body$;';
@@ -89,7 +92,7 @@ async function qualifyAtomic(c){
  const values=sql.match(/\(VALUES\n([\s\S]+?)\n \) AS required\(signature,sha256,authenticated_execute,service_execute_allowed\)/)[1];
  assert.equal(await admin.query(`WITH required(signature,sha256,authenticated_execute,service_execute_allowed) AS (VALUES ${values})
   SELECT bool_and(array_length(sha256,1) BETWEEN 1 AND 2 AND '${'0'.repeat(64)}'<>ALL(sha256)) FROM required;`),'t');
- pass('emitted exact-digest sets contain only source/live hashes and reject an unknown digest; missing conversation bytes remain UNQUALIFIED');
+ pass('emitted exact-digest sets contain only source/live hashes and reject an unknown digest; digest-only checks are not raw-body installation evidence');
  execute(temp('atomic-source-positive-rollback',sql.replace(/COMMIT;\n$/,'ROLLBACK;\n')));await absent();
  pass('complete source-only approved body bundle installs successfully inside a rolled-back transaction');
  let probe=0;
@@ -133,19 +136,39 @@ async function qualifyAtomic(c){
  assert.equal(await admin.query("SELECT to_regnamespace('mission20_private') IS NULL;"),'t');
  await admin.query('DROP FUNCTION public.register_native_hackathon(uuid,uuid,boolean);');await absent();
  pass('committed partial namespace/RPC survive failed install unchanged; no automatic overwrite, cleanup or ledger repair');
- for(const dep of dependencies)await admin.query(withBody(dep,selectedBody(dep)));
+ if(privateFixture){
+  const dep=dependencies.find(d=>d.signature===privateFixture.signature);
+  await admin.query(withBody(dep,privateFixture.prosrc));
+  const plainSha=await admin.query(`SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='${dep.signature}'::regprocedure;`);
+  assert.equal(plainSha,dep.bodySha256,'controlled plaintext transport reproduces LF normalization');
+  assert.notEqual(plainSha,privateFixture.bodySha256,'normalized text is not exact deployed-byte evidence');
+  pass('plaintext psql CRLF normalization detected and rejected as exact-byte evidence; lossless local transport required');
+ }
+ const installSelected=async dep=>{const statement=withBody(dep,selectedBody(dep));
+  await admin.query(privateFixture?losslessLocalStatement(statement):statement);
+ };
+ for(const dep of dependencies)await installSelected(dep);
  // Existing historical audit grants for these three trusted service callers
  // are preserved, never added by the candidate. Only this fake DB gets them.
  await admin.query(`GRANT EXECUTE ON FUNCTION public.accept_team_invite(uuid),public.accept_team_join_request(uuid),public.ensure_team_conversation(uuid) TO service_role;`);
  for(const raw of rawFixtures)assert.equal(await admin.query(`SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='${raw.signature}'::regprocedure;`),raw.bodySha256);
- pass('four available exact deployed-byte fixtures match supplied hashes; existing optional trusted service EXECUTE retained, complete deployed set UNQUALIFIED');
+ pass(`${rawFixtures.length} exact deployed-byte fixtures match supplied hashes; existing optional trusted service EXECUTE retained; ${privateFixture?'private isolated body-set replay':'complete deployed set UNQUALIFIED'}`);
+ if(privateFixture){
+  await admin.query(`INSERT INTO public.teams(id,name,owner_id,max_members) VALUES('${uid(12220)}','Synthetic private audit','${uid(9501)}',20);
+   INSERT INTO public.team_members(team_id,user_id,role) VALUES('${uid(12220)}','${uid(9501)}','owner');
+   DELETE FROM public.conversations WHERE team_id='${uid(12220)}';
+   ${identity(9501)} SELECT public.ensure_team_conversation('${uid(12220)}'); SELECT public.ensure_team_conversation('${uid(12220)}'); RESET ROLE;
+   ${identity(9503)} SELECT public.fixture_error('SELECT public.ensure_team_conversation(''${uid(12220)}'')','P0001','private deployed body denies outsider'); RESET ROLE;`);
+  assert.equal(await admin.query(`SELECT count(*) FROM public.conversation_participants p JOIN public.conversations c ON c.id=p.conversation_id WHERE c.team_id='${uid(12220)}';`),'1');
+  pass('private exact deployed conversation body creates/ensures one participant idempotently and denies outsider before replacement');
+ }
  const before=await admin.query(`SELECT string_agg(p.oid::text||':'||coalesce(p.proacl::text,'NULL')||':'||p.proowner::text,'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
  const bodies=()=>admin.query(`SELECT string_agg(encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`);
  const originalBodies=await bodies();
  await admin.query(`CREATE OR REPLACE FUNCTION public.add_user_to_team(p_team_id uuid,p_user_id uuid,p_role text DEFAULT 'member') RETURNS void
   LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ BEGIN RAISE EXCEPTION 'synthetic unreviewed deployed variant'; END; $$;`);
  rejected(candidate,/unreviewed_function_variant_stop/);await absent();
- await admin.query(withBody(dependencies[4],selectedBody(dependencies[4])));
+ await installSelected(dependencies[4]);
  pass('unreviewed add_user_to_team body is never overwritten; exact-body drift fails before any expansion');
  await admin.query("INSERT INTO supabase_migrations.schema_migrations VALUES('20261102090001','synthetic-drift');");
  rejected(candidate,/migration_ledger_drift_stop/);await absent();
@@ -166,6 +189,12 @@ async function qualifyAtomic(c){
  assert.equal(await admin.query("SELECT to_regprocedure('public.mission20_cancel_registration(uuid,uuid)') IS NOT NULL AND position('NOWAIT' in pg_get_functiondef('mission20_private.lock_roster_parents()'::regprocedure))>0;"),'t');
  assert.equal(await admin.query(`SELECT string_agg(p.oid::text||':'||coalesce(p.proacl::text,'NULL')||':'||p.proowner::text,'|' ORDER BY p.oid) FROM pg_proc p WHERE p.oid IN(${dependencies.map(d=>`'${d.signature}'::regprocedure`).join(',')});`),before);
  pass('success publishes only final protocol at one commit, preserving existing function OIDs/owners/ACLs');
+ if(privateFixture){
+  await admin.query(`${identity(9501)} SELECT public.ensure_team_conversation('${uid(12220)}'); RESET ROLE;
+   ${identity(9503)} SELECT public.fixture_error('SELECT public.ensure_team_conversation(''${uid(12220)}'')','P0001','parent-locked replacement denies outsider'); RESET ROLE;`);
+  assert.equal(await admin.query(`SELECT count(*) FROM public.conversation_participants p JOIN public.conversations c ON c.id=p.conversation_id WHERE c.team_id='${uid(12220)}';`),'1');
+  pass('installed parent-before-child replacement preserves authorized conversation identity/idempotence and outsider denial');
+ }
  await admin.query(`INSERT INTO public.hackathons(id,name,type,status,archived,organizer_id,min_team_size,max_team_size,max_participants,registration_start,registration_end,end_date)
  SELECT public.fixture_id(n),'Synthetic atomic event',CASE n WHEN 12102 THEN 'external' WHEN 12103 THEN 'official' ELSE 'native' END,'approved',false,'${uid(9501)}',1,20,1,
  clock_timestamp()-interval '2 days',clock_timestamp()+CASE WHEN n IN(12102,12103,12104) THEN interval '-1 day' ELSE interval '1 day' END,current_date+2 FROM generate_series(12101,12104)n;
@@ -211,7 +240,8 @@ async function qualifyAtomic(c){
  pass('policy-only unfreeze cannot recover rollback; emergency freeze remains and no unsafe automatic ACL recovery is attempted');
  const version=await admin.query('SHOW server_version;');
  await admin.close();console.log(JSON.stringify({atomicCandidate:true,checks,baselineAssertions,version,exactDeployedFixtures:rawFixtures.length,
-  completeDeployedBodyInstallation:'UNQUALIFIED',productionConnections:0,hostedAuth:false,backupRestore:false}));
+  completeDeployedBodyInstallation:privateFixture?'QUALIFIED_ISOLATED_BODY_SET_ONLY':'UNQUALIFIED',privateInput:!!privateFixture,
+  productionConnections:0,hostedAuth:false,backupRestore:false}));
 }
 module.exports={qualifyAtomic};
 if(require.main===module)main({setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyAtomic(c);}}).catch(e=>{console.error(e.stack);process.exitCode=1;});

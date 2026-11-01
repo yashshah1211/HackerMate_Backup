@@ -5,12 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
 const { spawn, spawnSync } = require('node:child_process');
+const {randomBytes}=require('node:crypto');
 const ROOT = path.resolve(__dirname, '..');
 const SQL = path.join(ROOT, 'docs/qa/mission20-c1/sql');
 const env = {};
 for (const key of ['PATH','SystemRoot','WINDIR','COMSPEC','USERPROFILE','LOCALAPPDATA','TEMP','TMP']) if (process.env[key]) env[key] = process.env[key];
 let major = 18;
-const binary = name => process.platform === 'win32' ? path.join(process.env.ProgramFiles || 'C:/Program Files', `PostgreSQL/${major}/bin`, name + '.exe')
+const binary = name => process.platform === 'win32' ? path.join(major===17&&fs.existsSync(path.join(ROOT,'scratch/pg17/bin/postgres.exe')) ? path.join(ROOT,'scratch/pg17/bin') : path.join(process.env.ProgramFiles || 'C:/Program Files', `PostgreSQL/${major}/bin`), name + '.exe')
   : major===17 ? path.join(fs.existsSync(path.join(ROOT,'scratch/pg17/bin/postgres')) ? path.join(ROOT,'scratch/pg17/bin') : '/usr/lib/postgresql/17/bin',name) : name;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let passes = 0;
@@ -53,6 +54,7 @@ const uid = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const identity = n => `SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${uid(n)}',false);`;
 
 async function qualify(variant, extension) {
+  if(extension?.privateInput)assert(process.env.CI===undefined&&process.env.GITHUB_ACTIONS===undefined,'private_audit_forbidden_in_ci');
   const firstPass=passes;
   const server = net.createServer();
   await new Promise((resolve,reject) => { server.once('error',reject); server.listen(0,'127.0.0.1',resolve); });
@@ -62,10 +64,17 @@ async function qualify(variant, extension) {
   const cluster = path.join(temp,'cluster'), sessions = [];
   // Do not consult a per-user password/service file even for loopback trust.
   env.PGPASSFILE=path.join(temp,'empty-pgpass'); env.PGSERVICEFILE=path.join(temp,'empty-pgservice');
-  fs.writeFileSync(env.PGPASSFILE,''); fs.writeFileSync(env.PGSERVICEFILE,'');
+  fs.writeFileSync(env.PGPASSFILE,'',{mode:0o600}); fs.writeFileSync(env.PGSERVICEFILE,'',{mode:0o600});
   let started = false, failure;
   try {
-    run('initdb',['-D',cluster,'-U','postgres','-A','trust','--no-locale','-E','UTF8']);
+    const authentication=['-A','trust'];
+    if(extension?.privateInput){
+      const secret=randomBytes(32).toString('base64url'),pwfile=path.join(temp,'initdb-password');
+      fs.writeFileSync(pwfile,secret+'\n',{mode:0o600});
+      fs.writeFileSync(env.PGPASSFILE,`127.0.0.1:${port}:*:postgres:${secret}\n`,{mode:0o600});
+      authentication.splice(0,authentication.length,'-A','scram-sha-256','--pwfile',pwfile);
+    }
+    run('initdb',['-D',cluster,'-U','postgres',...authentication,'--no-locale','-E','UTF8']);
     run('pg_ctl',['-D',cluster,'-l',path.join(temp,'postgres.log'),'-w','start','-o',`-h 127.0.0.1 -p ${port} -F -c max_connections=20 -c shared_buffers=32MB`]);
     started = true;
     const host = ['-h','127.0.0.1','-p',String(port),'-U','postgres'];
@@ -347,9 +356,8 @@ async function qualify(variant, extension) {
   }
   if(failure) throw failure;
 }
-async function main(extension) {
+async function main(extension, args=process.argv.slice(2)) {
   // No URL, port, database, credentials, PG variables, SQL path or .env accepted.
-  const args=process.argv.slice(2);
   assert(args.length===1 && ['--local-only','--local-pg17-only'].includes(args[0]), 'Run only with --local-only or --local-pg17-only; connections are allocated internally.');
   major=args[0]==='--local-pg17-only'?17:18;
   console.log('Selected native binaries: '+run('postgres',['--version']).trim());

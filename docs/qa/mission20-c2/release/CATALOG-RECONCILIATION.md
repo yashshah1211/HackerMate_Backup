@@ -1,5 +1,7 @@
 # Final catalog reconciliation
 
+**Latest private qualification:** the supplied exact conversation body has now been SHA-verified and the five-body mixed set replayed successfully on disposable local native PG17.6. [Private qualification scope, counts and privacy controls](atomic/PRIVATE-QUALIFICATION.md). This closes that isolated raw-body replay gap only. Public CI intentionally still has four body fixtures and never receives the private input. Production remains NO-GO; broader platform/catalog/loader/restore/release gates remain open.
+
 **NO-GO for production migration/deployment.** Source baseline: PR #96 `be38ae6d67c43a850cf6bdf0fa595364c46da3d4`. Evidence below is the founder's independently supplied read-only audit, not a new Codex database session. No credentials, full private catalog or raw function bodies were supplied. Capture release-time drift and private fingerprints independently before execution.
 
 | Requirement | Classification | Reconciliation / remaining action |
@@ -34,4 +36,4 @@ The reported production SHA is later than #92's original base. The GitHub compar
 
 No verified Vercel hold exists. Main merge/push can publish automatically; keep all three PRs Draft. Future alternatives: authorize and rehearse a project-level Git deployment hold with explicit immutable-build promotion; or keep code unmerged until a separately reviewed compatible bridge and controlled cutover exist. If hold/promotion cannot be proven, **STOP**, do not replace it with a Draft flag or paused GitHub CI. Rollback to the reported production build is functionally safe only if its writers are compatible with the installed DB or relevant writes remain frozen/maintained; never restore vulnerable native direct INSERT to make an old build work.
 
-Later exact fingerprint evidence supersedes the raw-source-only mismatch classification above: see [FUNCTION-FINGERPRINTS.md](atomic/FUNCTION-FINGERPRINTS.md). Only deletion has identical source/live bytes; four differing raw hashes are explicitly listed. Full deployed-body installation remains UNQUALIFIED, with exact conversation bytes unavailable.
+Later exact fingerprint evidence supersedes the raw-source-only mismatch classification above: see [FUNCTION-FINGERPRINTS.md](atomic/FUNCTION-FINGERPRINTS.md). Only deletion has identical source/live bytes; four differing raw hashes are explicitly listed. That historical public-fixture snapshot was UNQUALIFIED. The subsequently supplied private conversation bytes now complete a PASS local PG17.6 exact-five-body replay; public CI still excludes the private input. See atomic/PRIVATE-QUALIFICATION.md for scope and remaining production gates.

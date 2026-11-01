@@ -369,5 +369,97 @@
         "No full production schema/ACL/dependency/ledger or migration-loader parity"
       ]
     }
+  },
+  "privateFunctionAuditReview": {
+    "status": "NO_GO_PRODUCTION_ISOLATED_BODY_SET_PASS",
+    "taskBase": "c83d6ae4a62b291acd195d2935ed03f9351f4b0e",
+    "inventory": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+      "docs/qa/mission20-c2/release/atomic/PRIVATE-QUALIFICATION.md",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "scripts/mission20-private-audit.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-c1-postgres.cjs",
+      "scripts/qualify-mission20-private-audit.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "privateBody": {
+      "signature": "public.ensure_team_conversation(uuid)",
+      "sha256": "9ad2c3551805a161decbae3b842f4ac7356b1dc250f81718fadfd6f7db60464b",
+      "utf8Bytes": 1120,
+      "crlfCount": 38,
+      "canonicalBase64AndUtf8Verified": true,
+      "protectedTokensAndTrimmedLinesMatchSource": true,
+      "bodyCommitted": false,
+      "bodyUploaded": false
+    },
+    "qualification": {
+      "location": "local Windows native disposable PG17.6, loopback only",
+      "exitCode": 0,
+      "originalSqlAssertionsPerVariant": 279,
+      "atomicFixturePrivacyAssertions": 231,
+      "orchestrationChecks": 95,
+      "globalChecks": 21,
+      "perTeamChecks": 74,
+      "atomicGroups": 23,
+      "exactDeployedFixtures": 5,
+      "bodySetStatus": "QUALIFIED_ISOLATED_BODY_SET_ONLY",
+      "preAndPostReplacementConversationAuthorizationIdempotence": "passed",
+      "ownedClustersCleaned": 2,
+      "clusterAuthentication": "ephemeral SCRAM-SHA-256, checked pg_hba_file_rules",
+      "hostedAuth": false,
+      "hostedGateway": false,
+      "productionConnections": 0,
+      "backupRestore": false,
+      "privatePostgrestReplay": false
+    },
+    "safeReceiptSha256": "2469e567611f3351b146275d9be6b4dee6811398a63d9c4373d7139d60867d2d",
+    "qualifiedCodeSha256Lf": {
+      "scripts/mission20-private-audit.cjs": "c75865b58ade5e233ba0ab2b1af23709b17e1056eaca91751bf44998782b3a0e",
+      "scripts/qualify-mission20-private-audit.cjs": "f82bfb3d2cd806565b41f161ac30298851aae16c86138f6f3c7e7f17fd6a5103",
+      "scripts/qualify-mission20-c1-postgres.cjs": "dc15c3c680e2da88f9c9f689b019e1cde9637fc784e5fad3ad4ae497e62c93f6",
+      "scripts/qualify-mission20-atomic-candidate.cjs": "a7bb9c2f6155e845ea0058b46998f3a1e4a74b78ded6898920e8f6ca304b6b8c"
+    },
+    "toolchain": {
+      "postgres": "17.6",
+      "psql": "17.6",
+      "archive": "postgresql-17.6-1-windows-x64-binaries.zip",
+      "sha256": "d378882abd001a186735acd6f6ba716bca6ccd192e800412d4fd15ed25376b3e",
+      "publisherReceipt": "https://github.com/EnterpriseDB/edb-installers/issues/744",
+      "installation": "ignored scratch only; no service/PATH/system/production configuration change"
+    },
+    "failedLocalTrials": [
+      {
+        "transport": "plaintext psql input",
+        "outcome": "exact body checkpoint failed; diagnostics redacted; both clusters cleaned"
+      },
+      {
+        "transport": "lossless private body but plaintext historical CRLF variants",
+        "outcome": "exact mixed-set checkpoint failed; diagnostics redacted; both clusters cleaned"
+      }
+    ],
+    "reconciliation": "Controlled diagnostic proves Windows plaintext psql normalized CRLF to LF; all selected mixed-set definitions/helper restoration now decode inside PostgreSQL from in-memory base64, retaining exact catalog SHA checks. No body guard was weakened.",
+    "closedGap": "Missing exact conversation bytes and isolated exact-five-body mixed installation replay",
+    "publicCi": "Intentionally receives no private bytes; public fixture remains four-body/UNQUALIFIED for full-body replay. Current-head public CI results in PR #96 supplement this separate private receipt.",
+    "remainingGates": [
+      "Full current production schema/RLS/ACL/index/trigger/dependency/ledger parity",
+      "Actual migration-loader/schema-plus-ledger atomicity",
+      "Hosted Auth/gateway/session/timeout acceptance and platform parity",
+      "Actual backup/PITR restore rehearsal",
+      "Verified Vercel hold/promotion, direct-writer drain/stale-client convergence and compatible rollback",
+      "Founder community-pause decision",
+      "Independent release/migration/deployment/unfreeze authority"
+    ],
+    "candidateSqlAndManifest": "unchanged",
+    "activeMigrationChanges": 0,
+    "configurationChanges": "ephemeral local fixture only; no persistent or project setting change",
+    "merged": false,
+    "deployed": false
   }
 }

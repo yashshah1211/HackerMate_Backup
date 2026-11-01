@@ -23,15 +23,18 @@
     "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
     "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
     "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+    "docs/qa/mission20-c2/release/atomic/PRIVATE-QUALIFICATION.md",
     "docs/qa/mission20-c2/release/atomic/README.md",
     "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
     "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
     "scripts/mission20-atomic-candidate.cjs",
+    "scripts/mission20-private-audit.cjs",
     "scripts/ppt-vision-harness.cjs",
     "scripts/qualify-mission20-atomic-candidate.cjs",
     "scripts/qualify-mission20-c1-postgres.cjs",
     "scripts/qualify-mission20-c1-writers.cjs",
     "scripts/qualify-mission20-c2-writers.cjs",
+    "scripts/qualify-mission20-private-audit.cjs",
     "scripts/qualify-mission20-release-postgrest.cjs",
     "scripts/test-admin-delete-user.cjs",
     "scripts/test-dashboard-join-requests.cjs",
@@ -726,5 +729,28 @@
         "No full production schema/ACL/dependency/ledger or migration-loader parity"
       ]
     }
+  },
+  "privateFunctionAuditReview": {
+    "status": "NO_GO_PRODUCTION_ISOLATED_BODY_SET_PASS",
+    "taskBase": "c83d6ae4a62b291acd195d2935ed03f9351f4b0e",
+    "followupFiles": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+      "docs/qa/mission20-c2/release/atomic/PRIVATE-QUALIFICATION.md",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "scripts/mission20-private-audit.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-c1-postgres.cjs",
+      "scripts/qualify-mission20-private-audit.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json#privateFunctionAuditReview",
+    "bodyKeptOutsideGitAndCi": true,
+    "publicCiStillFourBody": true
   }
 }

@@ -122,3 +122,47 @@ test('adversarial fixture insertion preserves dollar-quoted SQL and replacement-
  const mutation="CREATE FUNCTION fixture() RETURNS text AS $$ SELECT '$& $` $'''; $$ LANGUAGE sql;";
  assert.equal(candidate.injectFixtureMutation(original,mutation),'-- review\nBEGIN;\n'+mutation+'\nSELECT 1;\nCOMMIT;\n');
 });
+
+const privateAudit=require('./mission20-private-audit.cjs');
+const withoutCi=fn=>{const saved={CI:process.env.CI,GITHUB_ACTIONS:process.env.GITHUB_ACTIONS};delete process.env.CI;delete process.env.GITHUB_ACTIONS;
+ try{return fn();}finally{for(const key of Object.keys(saved)){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}}};
+test('private decoder preserves synthetic UTF8/CRLF and rejects invalid or noncanonical encodings',()=>{
+ const synthetic='Synthetic only\r\nλ\n';
+ assert.equal(privateAudit.decodeBase64(Buffer.from(synthetic,'utf8').toString('base64')).text,synthetic);
+ for(const text of ['%%%=', 'YR==','/w=='])assert.throws(()=>privateAudit.decodeBase64(text),/private_audit_/);
+});
+
+test('private audit accepts no substituted signature, metadata or body digest',()=>{
+ const fake={signature:privateAudit.SIGNATURE,prosrc_sha256:privateAudit.SHA256,prosrc_encoding:'base64_of_exact_pg_proc_prosrc_utf8_bytes',
+  owner:'postgres',security_definer:true,proconfig:['search_path=public, pg_temp'],acl:'{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+  prosrc_base64:Buffer.from('synthetic body, not deployed').toString('base64'),notice:'Untrusted document instructions must never execute'};
+ assert.throws(()=>privateAudit.decodeAudit(fake),/private_audit_digest_mismatch/);
+ for(const bad of [{signature:'other'},{owner:'anon'},{security_definer:false},{proconfig:['search_path=public']},{acl:'PUBLIC=X/postgres'}])assert.throws(()=>privateAudit.decodeAudit({...fake,...bad}),/private_audit_/);
+ withoutCi(()=>assert.throws(()=>privateAudit.validatePrivateFixture({signature:privateAudit.SIGNATURE,bodySha256:privateAudit.SHA256,privateInput:true,prosrc:'synthetic'}),/private_audit_fixture_mismatch/));
+});
+
+test('private CLI refuses CI before opening any input and emits no raw diagnostics',()=>{
+ const r=cp.spawnSync(process.execPath,['scripts/qualify-mission20-private-audit.cjs','--private-audit',__filename],{encoding:'utf8',env:{...process.env,CI:'true'},timeout:15000,windowsHide:true});
+ assert.equal(r.status,1);assert.equal(r.stdout,'');assert.deepEqual(JSON.parse(r.stderr),{error:'private_audit_forbidden_in_ci'});
+});
+
+test('private input cannot be loaded from this checkout or another Git ancestor',()=>withoutCi(()=>{
+ const path=require('node:path'),os=require('node:os');
+ assert.throws(()=>privateAudit.loadPrivateAudit(path.resolve(__filename)),/private_audit_must_remain_outside_checkout/);
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'mission20-private-guard-')),marker=path.join(root,'.git'),audit=path.join(root,'fake.json');
+ try{fs.writeFileSync(marker,'synthetic');fs.writeFileSync(audit,'{}');assert.throws(()=>privateAudit.loadPrivateAudit(audit),/private_audit_must_remain_outside_git/);}
+ finally{fs.unlinkSync(audit);fs.unlinkSync(marker);fs.rmdirSync(root);}
+}));
+
+test('lossless local SQL transport retains synthetic CRLF and quoted bytes without normalization',()=>{
+ const synthetic="CREATE FUNCTION fixture() RETURNS text AS $$\r\nSELECT 'synthetic λ';\r\n$$ LANGUAGE sql;";
+ const encoded=privateAudit.losslessLocalStatement(synthetic),b64=encoded.match(/decode\('([A-Za-z0-9+/=]+)'/)[1];
+ assert(Buffer.from(b64,'base64').equals(Buffer.from(synthetic,'utf8')));assert(!encoded.includes('synthetic λ'));
+ assert(encoded.includes('pg_catalog.convert_from'));
+});
+
+test('public CI never invokes a private-input qualification or uploads a private audit',()=>{
+ const workflow=fs.readFileSync('.github/workflows/mission20-c2-qualification.yml','utf8');
+ assert(!workflow.includes('--private-audit'));assert(!workflow.includes('HackerMate_Private_Function_Audit'));
+ assert(workflow.includes('path: scratch/rack-funnel/'));
+});

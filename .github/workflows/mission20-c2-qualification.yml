@@ -29,6 +29,7 @@ jobs:
           scripts/qualify-mission20-release-postgrest.cjs scripts/qualify-mission20-c1-postgres.cjs scripts/qualify-mission20-c2-writers.cjs
           scripts/test-mission20-release-package.cjs
           scripts/mission20-atomic-candidate.cjs scripts/qualify-mission20-atomic-candidate.cjs
+          scripts/mission20-private-audit.cjs scripts/qualify-mission20-private-audit.cjs
       - name: Application regressions
         run: >-
           node --test --test-concurrency=1
