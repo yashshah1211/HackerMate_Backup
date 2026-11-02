@@ -7,9 +7,10 @@
     "draftReview": "GO",
     "productionRelease": "NO-GO"
   },
-  "fileCount": 47,
+  "fileCount": 50,
   "inventory": [
     ".github/workflows/aggregator-qualification.yml",
+    "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
     "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json",
     "docs/qa/aggregator-repair/INVESTIGATION-AND-PLAN.md",
     "docs/qa/aggregator-repair/README.md",
@@ -20,6 +21,7 @@
     "docs/qa/aggregator-repair/screenshots/guest-active-768.png",
     "docs/qa/aggregator-repair/screenshots/member-active-1440.png",
     "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+    "docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql",
     "qa/fixtures/aggregator/provider-facts.cjs",
     "qa/fixtures/mission20-hotfix-browser.jsx",
     "scripts/aggregator-local-db.cjs",
@@ -55,7 +57,8 @@
     "src/lib/hackathons/source.ts",
     "src/lib/hackathons/sourceTransport.ts",
     "src/lib/hackathons/synchronize.ts",
-    "src/types/supabase.ts"
+    "src/types/supabase.ts",
+    "supabase/migrations/20261102123742_hackathon_source_sync.sql"
   ],
   "sourceHashes": {
     ".github/workflows/aggregator-qualification.yml": {
@@ -71,7 +74,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/README.md": {
-      "sha256": "6539b19cb771aefc11fcacbae562c1c388dedbbb9a03654888d93750e9934871",
+      "sha256": "15fe8c8cc83151a9427b129eb010dec5500d37c5daceb0630830ebb055eee694",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
@@ -123,7 +126,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-postgres.cjs": {
-      "sha256": "b91af8fa3475108465efc13645c1e2274e2cc636f5b34f17802a3d32184df802",
+      "sha256": "ef84ea729f42d8b1bf6821db26b67142f5985c145a3e179cd1b3a8ba96a8c91f",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-sources.cjs": {
@@ -241,9 +244,21 @@
     "src/types/supabase.ts": {
       "sha256": "fae0feba494046f9a66418d6a34ec131b72ede0d930ce22e8ed90f31be9c223d",
       "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/ADOPTION-REVIEW.json": {
+      "sha256": "be6391bff24a423c205753432ee6d22e0a7480fd7ef823bda6dfbe68f44eb0c3",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql": {
+      "sha256": "e3a3611305d50e90f47792f1837c00a3d17df16b632c8ad14e6389b86473e04d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "supabase/migrations/20261102123742_hackathon_source_sync.sql": {
+      "sha256": "04a9a6218df5963e3d88c10df547596f28e04561b4f6375556824724b24e0352",
+      "encoding": "UTF-8, CRLF normalized to LF"
     }
   },
-  "sourceTreeSha256": "5efea7ffa8d41c3585f6b0deceb0305d86d5b00f945fe8beed3fa054e57c4c08",
+  "sourceTreeSha256": "d84a7045ef21308269cc9c61304fe7150ce68718390dc5a7cacb109332e0d20f",
   "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
   "checks": {
     "application": {
@@ -352,7 +367,7 @@
     "expressions": 190
   },
   "ci": {
-    "status": "Readiness follow-up current-head qualification pending publication; previous qualified head is recorded separately",
+    "status": "d075c84372acc3f84ad93cbafe33736aded4fdd8 four workflows passed; new release-preparation package remains unpublished and unqualified by current-head CI",
     "expectedWorkflows": [
       "Pull Request Validation",
       "Rack portal isolated qualification",
@@ -387,32 +402,32 @@
         "reason": "Unreferenced AbortSignal timeout allowed Linux fixture event loop to exit. PG17.6/Chrome steps were skipped."
       }
     ],
-    "lastQualifiedHead": "5a34087470f13156ae84cc8b6a312020ba2bd8b5",
+    "lastQualifiedHead": "d075c84372acc3f84ad93cbafe33736aded4fdd8",
     "lastQualifiedResults": [
       {
         "workflow": "Pull Request Validation",
-        "run": 41466011388,
+        "run": 41472500713,
         "conclusion": "success"
       },
       {
         "workflow": "Rack portal isolated qualification",
-        "run": 41466011191,
+        "run": 41472500705,
         "conclusion": "success"
       },
       {
         "workflow": "Mission 20 discovery hotfix qualification",
-        "run": 41466011234,
+        "run": 41472500779,
         "conclusion": "success"
       },
       {
         "workflow": "Aggregator isolated qualification",
-        "run": 41466011198,
+        "run": 41472500777,
         "conclusion": "success"
       }
     ]
   },
   "boundaries": {
-    "activeMigrations": 0,
+    "activeMigrations": 1,
     "sqlProposal": "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
     "productionOrStagingMutations": 0,
     "deploymentsInitiated": 0,
@@ -424,17 +439,20 @@
       92,
       93,
       96
-    ]
+    ],
+    "activeMigrationFilesPrepared": 1,
+    "migrationsApplied": 0,
+    "migrationExecutionAuthorized": false
   },
   "remainingGates": [
-    "Independent code/SQL review and current-head Linux CI",
-    "Fresh live schema/grant/trigger/ledger acceptance by separately authorized operator",
-    "Verified deployment/cron hold before database/application transition",
-    "Separately authorized additive migration; no active migration in this package",
-    "Fresh field-level legacy adoption/backfill approval and backup/recovery acceptance",
-    "Hosted Supabase/PostgREST schema-cache and no-email acceptance",
-    "Bounded daily coverage/backlog and provider-change operational acceptance",
-    "Explicit founder release/unfreeze approval"
+    "Independent current-package SQL review; read-only live full schema/grant/trigger/ledger validation",
+    "Explicit existing Vercel deployment/writer-hold approval and live verification/drain",
+    "Separately authorized exact additive SQL installation with no-backup risk acknowledged",
+    "Hosted source projection/ACL/schema-cache/no-outreach acceptance",
+    "Separate fresh field-level approval for individual historical candidates (0 approved)",
+    "Existing-project unaliased hosted candidate acceptance before public cutover",
+    "Actual coverage/first-refresh measurement and explicit best-effort daily decision",
+    "Founder public cutover/merge approvals, then separate writer/cron unfreeze approval"
   ],
   "evidence": {
     "application-release.log": {
@@ -548,6 +566,14 @@
     "readiness-lint.log": {
       "path": "scratch/aggregator-audit/readiness-lint.log",
       "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "release-preparation-postgres.log": {
+      "path": "scratch/aggregator-audit/release-preparation-postgres.log",
+      "sha256": "b50ed8ca7d9d311101a1ade852a7a6a63b12b5dc3c1c4040df32dcdd4e1893df"
+    },
+    "release-preparation-lint.log": {
+      "path": "scratch/aggregator-audit/release-preparation-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   },
   "followup": {
@@ -571,7 +597,7 @@
     "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
     "inventoryUnchanged": true
   },
-  "updatedAt": "2026-11-02T15:31:19.090Z",
+  "updatedAt": "2026-11-02T16:05:08.895Z",
   "reviewFollowup": {
     "base": "ce82618a815527327f256c3599cca2c00a013e4d",
     "files": [
@@ -734,5 +760,140 @@
     "providerCollectionRepeated": false,
     "sqlChanged": false,
     "schedulingConfigurationChanged": false
+  },
+  "releasePreparation": {
+    "base": "d075c84372acc3f84ad93cbafe33736aded4fdd8",
+    "files": [
+      "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql",
+      "scripts/test-aggregator-postgres.cjs",
+      "supabase/migrations/20261102123742_hackathon_source_sync.sql"
+    ],
+    "scope": "Prepared unapplied atomic migration, SELECT-only operator preflight, report-derived pending adoption review, existing runbook and focused isolated checks; application implementation unchanged.",
+    "founderConstraints": {
+      "newBackups": 0,
+      "newDumps": 0,
+      "newDatabaseSnapshots": 0,
+      "Docker": false,
+      "newSupabaseProjectOrBranch": false,
+      "paidInfrastructure": false,
+      "newCloudServices": false,
+      "overridesPriorBackupGates": true
+    },
+    "founderReportedBaseline": {
+      "project": "rhryjrbebfrrfhtyyzbs",
+      "postgres": "17.6",
+      "ledgerEntries": 147,
+      "productionCommit": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
+      "vercelProject": "hacker-mate-backup",
+      "plan": "Hobby",
+      "publicHackathons": 410,
+      "registrations": 8,
+      "linkedTeams": 4,
+      "saved": 2,
+      "partnerConfigs": 7,
+      "sourceNamesConflict": false,
+      "independentlyQueriedThisFollowup": false
+    },
+    "migration": {
+      "path": "supabase/migrations/20261102123742_hackathon_source_sync.sql",
+      "version": "20261102123742",
+      "name": "hackathon_source_sync",
+      "source": "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+      "sourceBusinessLogicChanged": false,
+      "ddlSha256": "3e3a67ba70a926703efd206ae0cc65d37d1d53aa64f63f95089f97a2da91e946",
+      "schemaAndLedgerSameTransaction": true,
+      "ledgerStatements": "Exact reviewed DDL array",
+      "expectedLedgerBefore": 147,
+      "expectedLedgerAfter": 148,
+      "lockTimeoutSeconds": 2,
+      "statementTimeoutSeconds": 30,
+      "loader": "Single exact file via existing native psql ON_ERROR_STOP=1; entire-file existing SQL Editor alternative only after separate authorization. No directory db push or separate ledger repair.",
+      "installed": false,
+      "executionAuthorized": false
+    },
+    "compatibility": {
+      "confirmedByFounder": [
+        "PG17.6",
+        "147 live ledger entries",
+        "410/8/4/2/7 aggregate baseline",
+        "source object names absent"
+      ],
+      "isolatedQualified": [
+        "Reviewed DDL unchanged",
+        "DATE/TIMESTAMPTZ/varchar fixture",
+        "atomic schema plus ledger",
+        "late failure and disconnected installer rollback",
+        "replay denial",
+        "existing 18 authority/adoption/concurrency checks",
+        "pinned production public reader against migrated synthetic database"
+      ],
+      "pendingLive": [
+        "Exact latest ledger version and ledger column shape",
+        "Full projected table columns/defaults/nullability/constraints/indexes",
+        "Effective service-role/anon/authenticated grants and RLS",
+        "Trigger/hook dependency review for no-outreach",
+        "Existing project function owner/settings/ACL/cache acceptance",
+        "Current deployment IDs/aliases/rollback eligibility and free hold controls"
+      ]
+    },
+    "adoption": {
+      "manifest": "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
+      "sourceReportUnchanged": true,
+      "historicalCandidates": 116,
+      "approvedForWrite": 0,
+      "unresolvedHeld": 86,
+      "endedNotSelected": 208,
+      "noExecutor": true,
+      "noNewRowExport": true,
+      "freshCheckRequiredBeforeApprovalAndApply": true
+    },
+    "deployment": {
+      "automaticBuildHold": "Proposed project Ignored Build Step: node -e \"process.exit(0)\"; only local exit code tested. Saved setting and ignored/cancelled build still require authorized live verification.",
+      "writerHold": "Proposed existing project Disable Cron Jobs plus one free Custom Rule denying both old scraper/cron paths, with precedence/host/bypass/quota checks and in-flight drain. No live setting changed.",
+      "publicSiteRemainsOnBaseline": true,
+      "rollback": "Hobby immediately-previous production deployment only. Pinned old public reader database compatibility passed; live alias switch/eligibility/full old application unqualified.",
+      "newServices": 0,
+      "settingsChanged": 0
+    },
+    "focusedTests": {
+      "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+      "postgres": "17.6",
+      "checks": 27,
+      "groups": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "disposableLoopback": true,
+      "cleanupFinally": true,
+      "newChecks": 9,
+      "preservedExistingChecks": 18,
+      "sourceInstallAndPartialFailureTested": true,
+      "pinnedProductionReaderTested": true,
+      "hostedVercelRollbackTested": false,
+      "productionOrStagingConnections": 0
+    },
+    "lint": {
+      "command": "node node_modules/eslint/bin/eslint.js scripts/test-aggregator-postgres.cjs",
+      "newErrors": 0,
+      "newWarnings": 0
+    },
+    "qualificationNote": "No new broad local application/build/browser cycle: application code unchanged, d075c84 current-head four-workflow success remains prior-head evidence; new-head CI pending publication.",
+    "approvalsRequired": [
+      "Read-only live preflight execution/comparison",
+      "Deployment/Git-build and old-writer hold settings plus drain",
+      "Exact additive SQL installation",
+      "Individually reviewed fresh legacy adoption",
+      "Unaliased hosted candidate deployment/acceptance",
+      "Controlled catalog-only refresh measurement and best-effort daily decision",
+      "Public cutover (and any merge separately)",
+      "Cron/manual-writer unfreeze and later restoration of Git-build settings"
+    ],
+    "risk": "No recoverable backup is assumed. Uncommitted SQL can roll back, but application rollback cannot recover committed factual/editorial changes, deletions or external effects. Existing report is not database recovery.",
+    "publication": "Exact-six-file commit and push authorized by founder; current-head CI must be recorded after publication",
+    "productionOperations": 0,
+    "providerRequests": 0
   }
 }

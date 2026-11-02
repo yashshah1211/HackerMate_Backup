@@ -19,7 +19,28 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  GRANT SELECT ON hackathons TO anon;GRANT SELECT,INSERT,UPDATE ON hackathons TO authenticated;GRANT ALL ON hackathons,partner_configs TO service_role;
  INSERT INTO hackathons(id,name,type,website_url) VALUES('${uid(10)}','Legacy source','official','https://unstop.com/hackathons/legacy-1000');
  INSERT INTO hackathon_registrations(hackathon_id)VALUES('${uid(10)}');INSERT INTO team_hackathons(hackathon_id)VALUES('${uid(10)}');INSERT INTO saved_hackathons(hackathon_id)VALUES('${uid(10)}');`);
- db.sql(fs.readFileSync(path.join(db.root,'docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql'),'utf8'));pass('actual migration syntax/install on production-equivalent DATE/TIMESTAMPTZ/varchar and owner policies');
+ db.sql(`CREATE SCHEMA supabase_migrations;CREATE TABLE supabase_migrations.schema_migrations(version text PRIMARY KEY,name text,statements text[]);
+ INSERT INTO supabase_migrations.schema_migrations(version,name) SELECT (20261001000000+n)::text,'synthetic_prior_migration' FROM generate_series(1,147)n;`);
+ const migration=fs.readFileSync(path.join(db.root,'supabase/migrations/20261102123742_hackathon_source_sync.sql'),'utf8').replace(/\r\n/g,'\n');
+ const proposal=fs.readFileSync(path.join(db.root,'docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql'),'utf8').replace(/\r\n/g,'\n');
+ const ddl=proposal.slice(proposal.indexOf('BEGIN;')+6,proposal.lastIndexOf('COMMIT;')).trim()+'\n';
+ assert.equal(migration.split('$hm_source$')[1],ddl);pass('packaged migration preserves exact reviewed source DDL');
+ const pristine=()=>{
+  assert.equal(db.sql("SELECT count(*) FROM supabase_migrations.schema_migrations"),'147');
+  assert.equal(db.sql("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='hackathons' AND column_name='source_metadata'"),'0');
+  assert.equal(db.sql("SELECT count(*) FROM pg_proc WHERE proname IN ('guard_hackathon_source_metadata','begin_hackathon_source_check','apply_hackathon_source_check')"),'0');
+  for(const table of ['hackathon_registrations','team_hackathons','saved_hackathons'])assert.equal(db.sql(`SELECT count(*) FROM ${table} WHERE hackathon_id='${uid(10)}'`),'1');
+ };
+ db.sql(fs.readFileSync(path.join(db.root,'docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql'),'utf8'));pass('SELECT-only catalog/ACL/ledger preflight parses before installation');
+ assert.throws(()=>db.sql(migration.replace('<> 147','<> 148')),/ledger differs/);pristine();pass('unexpected ledger aborts without schema or record changes');
+ assert.throws(()=>db.sql(migration.replace('ADD COLUMN source_metadata jsonb','ADD COLUMN source_metadata text')),/hash mismatch/);pristine();pass('unreviewed DDL body fails exact hash guard');
+ assert.throws(()=>db.sql(migration.replace("NOTIFY pgrst, 'reload schema';",'SELECT 1/0;')),/division by zero/);pristine();pass('late installation failure rolls back all DDL and ledger together');
+ assert.throws(()=>db.sql(migration.replace("NOTIFY pgrst, 'reload schema';",'SELECT pg_terminate_backend(pg_backend_pid());')),/terminating connection|server closed|connection.*closed/i);pristine();pass('lost installer connection before commit leaves no partial installation or ledger');
+ db.sql(migration);pass('actual migration syntax/install on production-equivalent DATE/TIMESTAMPTZ/varchar and owner policies');
+ assert.equal(db.sql("SELECT count(*) FROM supabase_migrations.schema_migrations"),'148');
+ assert.equal(db.sql("SELECT (name='hackathon_source_sync' AND statements=ARRAY["+"$reviewed$"+ddl+"$reviewed$"+"]) FROM supabase_migrations.schema_migrations WHERE version='20261102123742'"),'t');
+ assert.throws(()=>db.sql(migration),/ledger differs/);assert.equal(db.sql("SELECT count(*) FROM supabase_migrations.schema_migrations"),'148');
+ pass('single-file install records exact version/name/DDL atomically; replay fails closed');
  const identity={provider:'unstop',provider_id:'1001',canonical_url:'https://unstop.com/hackathons/synthetic-1001'},attempt=uid(101);
  function observation(i=identity){const now=new Date();return {version:1,...i,checked_at:now.toISOString(),expires_at:new Date(+now+26*3600000).toISOString(),check_status:'ok',category:'hackathon',event_status:'upcoming',source_hash:'a'.repeat(64),parser_version:'fixture',facts:{name:'Synthetic source hackathon',description:'Original factual summary.',website_url:i.canonical_url,start_date:'2027-01-01T00:00:00+05:30',end_date:'2027-01-02T12:00:00+05:30',registration_start:now.toISOString(),registration_end:'2027-01-01T00:00:00+05:30',registration_status:'open',min_team_size:1,max_team_size:1,rounds_info:[],college:null,location:null,mode:'online',prize_pool:null,currency:null,eligibility:null},issues:[],evidence:{dates:'published fields'}};}
  function patch(o){return {...o.facts,start_date:'2027-01-01',end_date:'2027-01-02',eligibility:undefined,rounds_count:null,tags:['unstop','Hackathon']};}
@@ -93,6 +114,22 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  assert.equal(db.sql("SELECT count(*) FROM hackathons WHERE source_metadata->>'provider_id'='9876'"),'1');
  const detail=await loadPublicEvent(api,actual.id);assert.equal(detail.id,actual.id);assert.equal(detail.start_date,futureStart);assert.equal(detail.registration_end,futureDeadline);
  pass('complete actual parser/SDK/orchestrator/PG17.6 writer/public detail chain creates then refreshes one source identity');
+ // Application rollback compatibility, not a live Vercel routing/rollback claim.
+ const {execFileSync}=require('node:child_process'),vm=require('node:vm'),ts=require('typescript');
+ assert.equal(execFileSync(process.execPath,['-e','process.exit(0)'],{encoding:'utf8'}),'');pass('proposed Ignored Build Step command returns documented skip exit code locally');
+ const baseline=execFileSync('git',['show','3a0b4d0488128fe730607ae1ef024a3bf52992e1:src/lib/hackathons/publicBrowsing.ts'],{cwd:db.root,encoding:'utf8'}),old={};
+ vm.runInNewContext(ts.transpileModule(baseline,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:old,console,URL});
+ const rollbackClient=createClient('https://rollback.invalid','synthetic-only',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(input,init)=>{
+  const u=new URL(typeof input==='string'?input:input.url);assert.equal(u.origin,'https://rollback.invalid');assert.equal(init?.method||'GET','GET');
+  assert.equal(u.pathname,'/rest/v1/hackathons');assert.equal(u.searchParams.get('select'),old.PUBLIC_EVENT_COLUMNS);
+  assert.equal(u.searchParams.get('status'),'eq.approved');assert.equal(u.searchParams.get('archived'),'eq.false');
+  const filter=u.searchParams.get('id');let extra='';if(filter){assert.match(filter,/^(gt|eq)\.[0-9a-f-]{36}$/);extra=` AND id${filter.startsWith('gt.')?'>':'='}'${filter.slice(3)}'`;}
+  const data=JSON.parse(db.sql(`SET ROLE anon;SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM(SELECT ${old.PUBLIC_EVENT_COLUMNS} FROM hackathons WHERE status='approved' AND NOT archived ${extra} ORDER BY id LIMIT 250)x;`));
+  const single=String(init?.headers?.get?.('Accept')||'').includes('object');return Response.json(single?data[0]||null:data);
+ }}});
+ assert((await old.loadPublicEvents(rollbackClient)).some(r=>r.id===uid(10)));assert.equal((await old.loadPublicEvent(rollbackClient,uid(10))).id,uid(10));
+ for(const table of ['hackathon_registrations','team_hackathons','saved_hackathons'])assert.equal(db.sql(`SELECT count(*) FROM ${table} WHERE hackathon_id='${uid(10)}'`),'1');
+ pass('pinned production reader still lists/direct-loads original IDs after additive install and synthetic adoption; links survive app rollback');
  console.log(JSON.stringify({postgres:'17.6',passed,productionConnections:0,productionWrites:0}));
  }finally{await db.close();}
 });
