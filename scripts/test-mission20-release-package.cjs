@@ -28,6 +28,33 @@ test('readiness follow-up does not change application, active migrations, depend
 });
 
 const candidate=require('./mission20-atomic-candidate.cjs');
+const loader=require('./mission20-loader-package.cjs');
+test('CLI packaging preserves every nontransaction statement and immutable source hashes',()=>{
+ const {files,manifest}=loader.loaderPackage();
+ assert.equal(files.length,4);assert.equal(manifest.cli,'2.75.0');
+ assert.deepEqual(JSON.parse(fs.readFileSync(loader.OUT+'/LOADER-MANIFEST.json','utf8')),manifest);
+ for(const f of files){
+  const source=fs.readFileSync(f.source,'utf8').replace(/\r\n/g,'\n');
+  assert.equal(fs.readFileSync(f.path,'utf8').replace(/\r\n/g,'\n'),f.sql);
+  assert.deepEqual(candidate.statements(f.sql).map(s=>s.trim()),candidate.statements(source).slice(1,-1).map(s=>s.trim()));
+  assert.equal(createHash('sha256').update(source).digest('hex'),f.sourceSha256);
+  assert.equal(createHash('sha256').update(f.sql).digest('hex'),f.sha256);
+ }
+});
+test('loader packaging rejects unexpected transaction boundaries instead of silently changing SQL',()=>{
+ for(const sql of ['SELECT 1;','BEGIN; SELECT 1; COMMIT; BEGIN; COMMIT;','BEGIN; SELECT 1; ROLLBACK;'])assert.throws(()=>loader.forLoader(sql));
+ const sql="BEGIN;\nDO $$ BEGIN RAISE NOTICE 'BEGIN; COMMIT;'; END; $$;\nCOMMIT;\n";
+ assert.equal(candidate.statements(loader.forLoader(sql)).length,1);
+ assert(loader.forLoader(sql).includes("'BEGIN; COMMIT;'"));
+});
+test('full catalog closure capture contains SELECTs only with dependency and effective permission coverage',()=>{
+ const original=fs.readFileSync('docs/qa/mission20-c2/release/CATALOG-CLOSURE.select-only.sql','utf8');
+ const sql=original.replace(/--[^\r\n]*/g,'').replace(/'(?:''|[^'])*'/g,"''");
+ for(const s of sql.split(';').map(s=>s.trim()).filter(Boolean)){
+  assert.match(s,/^SELECT\b/);assert(!/\b(?:INSERT|UPDATE|DELETE|TRUNCATE|CREATE|ALTER|DROP|GRANT|REVOKE|DO|CALL|COPY|SET|set_config|pg_terminate_backend|pg_read_file|dblink|lo_import)\b/i.test(s));
+ }
+ for(const key of ['pg_depend','pg_get_functiondef','has_column_privilege','pg_policies','pg_trigger','pg_sequence','pg_extension'])assert(original.includes(key));
+});
 test('atomic candidate and manifest are reproducible from unchanged hashed proposals',()=>{
  const {sql,plan}=candidate.build();
  assert.equal(fs.readFileSync(candidate.DIR+'/01-final-expansion.review.sql','utf8').replace(/\r\n/g,'\n'),sql);

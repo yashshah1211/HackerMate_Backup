@@ -1,0 +1,42 @@
+{
+  "status": "REVIEW_ONLY_NOT_ALLOCATED_NOT_AUTHORIZED",
+  "cli": "2.75.0",
+  "windowsArchiveSha256": "c6e3a97a70fbb76b7b1b87c02b4c4d9ddaf69d264e1ae94c054222b25ab22173",
+  "linuxArchiveSha256": "e5597462f865d5ac72af0453358e37ecb0d85962ad6914a114a53de847303bde",
+  "transactionOwner": "Supabase CLI ExecBatch: one file DDL plus ledger INSERT in one implicit transaction",
+  "invocationBoundaries": "Separate invocation and independent gate for freeze, expansion, contract, unfreeze; never queue all stages together",
+  "files": [
+    {
+      "stage": "freeze",
+      "source": "docs/qa/mission20-c1/sql/00-freeze-admission.proposed.sql",
+      "sourceSha256": "8873e37592d0441c9110bba1809b5f13682e2039ac0448f03e4c72b322cc8940",
+      "version": "20261102090000",
+      "path": "docs/qa/mission20-c2/release/loader/freeze.review.sql",
+      "sha256": "7b6bfd2c591408aa0df29696296ecc37f47c1669292d23b04417d5652f34520b"
+    },
+    {
+      "stage": "expansion",
+      "source": "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "sourceSha256": "e1faf07fb9620c6f2405e13b4adc04a36c27fd605ad3705fe1292163e6560ff7",
+      "version": "20261102090100",
+      "path": "docs/qa/mission20-c2/release/loader/expansion.review.sql",
+      "sha256": "8ae4ca787e2d719eb176cf40e5588595c93561575e3b8a58d5ffabe4a0c951e4"
+    },
+    {
+      "stage": "contract",
+      "source": "docs/qa/mission20-c1/sql/02-contract.proposed.sql",
+      "sourceSha256": "22ad9fc015cd71a4b51172bd623221231d7b7bb8cb202bbb85d7bde41c66d397",
+      "version": "20261102090200",
+      "path": "docs/qa/mission20-c2/release/loader/contract.review.sql",
+      "sha256": "866a9e219ca051569586f4b3b56285b24758070d4491fe6a571876a64ee2c60b"
+    },
+    {
+      "stage": "unfreeze",
+      "source": "docs/qa/mission20-c1/sql/06-unfreeze-admission.proposed.sql",
+      "sourceSha256": "3c003c6259aaf7bc5d24d6cf5adfbbc135c40280372fa837c56684c3594e06f4",
+      "version": "20261102090300",
+      "path": "docs/qa/mission20-c2/release/loader/unfreeze.review.sql",
+      "sha256": "22b7ce63cb544d283a418174329c3360fb556a9966b14fba4cc7134461bd266c"
+    }
+  ]
+}

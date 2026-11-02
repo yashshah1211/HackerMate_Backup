@@ -4,6 +4,8 @@
 
 Every step needs a named operator, independent reviewer, exact commit + normalized SQL manifest hashes, timestamp and saved receipt. A failed or missing receipt means STOP, keep admission frozen and affected writers drained; do not advance because CI is green.
 
+**Latest offline qualification / proposed mechanism:** [OFFLINE-REHEARSAL.md](OFFLINE-REHEARSAL.md) and `loader/LOADER-MANIFEST.json` specify Supabase CLI 2.75.0-owned transactions including ledger recording, one separately gated stage per invocation. Do **not** feed the original explicit-COMMIT candidate to that CLI: an injected ledger failure demonstrably leaves its DDL committed without a receipt. The loader files preserve all nontransaction SQL and strict guards. [VERCEL-HOLD.md](VERCEL-HOLD.md) adds the concrete future containment/verification procedure; no actual hold/configuration change is authorized or verified. [CATALOG-COMPARISON.md](CATALOG-COMPARISON.md) enumerates missing live evidence. These qualify the mechanism on a synthetic fixture only.
+
 ## 1. Preflight, backup and deployed-version receipt
 
 1. Record current production Git SHA, deployment ID/build, production branch, Supabase project/database version, PostgREST/gateway version/config, applied migration ledger and all schema/ACL/function/trigger evidence from SCHEMA-COMPATIBILITY.md. Do not print keys or user data into GitHub.
@@ -27,7 +29,7 @@ Release alternatives require explicit approval: hold automatic production deploy
 
 ## 3. Install final expansion/protocol atomically while frozen
 
-After separate approval install the source-hashed atomic candidate under atomic/, selecting the final definitions from **01 → 05 → 07 → 08 → C2 cancellation**; its raw-body/ledger/type guard must pass without ad hoc edits. Keep the freeze committed throughout. The global SHARE and blocking row-hook variants are comparators, not an exposed production intermediate. An outer transaction around the unmodified files is insufficient because they contain COMMIT.
+After separate approval install the source-hashed final definitions from **01 → 05 → 07 → 08 → C2 cancellation** through the exact **loader-specific expansion** artifact; its raw-body/ledger/type guard must pass without ad hoc edits. The original `atomic/` file remains the standalone psql transaction specification, not the CLI migration payload. Keep the freeze committed throughout. The global SHARE and blocking row-hook variants are comparators, not an exposed production intermediate. An outer transaction around the unmodified proposal files is insufficient because they contain COMMIT. The pinned CLI instead owns the transaction around the packaged statements and its own ledger INSERT.
 
 On success capture new function owner/security/search_path/EXECUTE, trigger/policy states and exact body fingerprints. Verify no global SHARE remains in final lock_context, complete sorted parent-before-child ordering and NOWAIT legacy backstops, cancellation atomicity and preserved six-edge CASCADE behavior. Any lock/statement failure aborts this boundary; inspect actual object/ledger state rather than assuming all statements applied or rerunning CREATE blindly.
 

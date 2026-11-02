@@ -7,37 +7,19 @@ const {validatePrivateFixture,losslessLocalStatement}=require('./mission20-priva
 // Inline only known repository fixture includes so temporary scripts retain the
 // original relative-include meaning. Never accepts a user SQL/connection path.
 function expanded(file){return fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(path.dirname(file),f.trim())));}
-async function qualifyAtomic(c,options={}){
- const privateFixture=options.privateFixture?validatePrivateFixture(options.privateFixture):null;
- if(c.variant!=='per-team')return;
- const {ROOT,SQL,ownedRoot,run,uid,identity,passed}=c;
- const fixture=c.allocateFixtureDatabase('mission20_fixture_atomic');
+async function seedAtomicFixture(c,name='mission20_fixture_atomic'){
+ const {ROOT,SQL,ownedRoot,run}=c;
+ const fixture=c.allocateFixtureDatabase(name);
  const connection=fixture.connection,admin=fixture.session('atomic_admin');
- let checks=0;const pass=s=>{checks++;passed('atomic candidate: '+s);};
  const execute=file=>run('psql',[...connection,'-X','-w','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f',file]);
  const temp=(name,sql)=>{const f=path.join(ownedRoot,name+'.sql');fs.writeFileSync(f,sql);return f;};
  const source=f=>path.join(ROOT,f);
- const frozenInsert=(event,actor)=>`${identity(actor)} DO $atomic_frozen$ BEGIN
-  BEGIN INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES('${uid(event)}','${uid(actor)}');
-  EXCEPTION WHEN SQLSTATE 'P0001' THEN
-   IF SQLERRM='new_admission_frozen' THEN RETURN; END IF; RAISE;
-  END;
-  RAISE EXCEPTION 'expected exact admission freeze rejection';
- END; $atomic_frozen$; RESET ROLE;`;
- const {sql}=build();assert.equal(fs.readFileSync(source(DIR+'/01-final-expansion.review.sql'),'utf8').replace(/\r\n/g,'\n'),sql);
- const rawFixtures=JSON.parse(fs.readFileSync(source(DIR+'/deployed-body-fixtures.review.json'),'utf8')).functions;
- if(privateFixture)rawFixtures.push(privateFixture); // In memory only; never write the fixture JSON.
- const withBody=(dep,prosrc)=>{
-  const original=definition(dep.file,dep.signature.split('(')[0]),start=original.match(/\bAS\s+(\$(?:\w+)?\$)/i).index;
-  assert(!prosrc.includes('$atomic_body$'));return original.slice(0,start)+'AS $atomic_body$'+prosrc+'$atomic_body$;';
- };
- const selectedBody=dep=>rawFixtures.find(f=>f.signature===dep.signature)?.prosrc||body(definition(dep.file,dep.signature.split('(')[0]));
  const prefix=fs.readFileSync(path.join(SQL,'04-security-tests.review.sql'),'utf8').split('\\ir 00-preflight.review.sql')[0];
  // Shared roles were created by the baseline fixture in this same owned
  // cluster; this second database gets independent schemas, records and ACLs.
  let seed=prefix.replace(/^\\ir (.+)$/gm,(_,f)=>expanded(path.resolve(SQL,f.trim())))
   .replace(/^CREATE ROLE (?:authenticated|anon|service_role) [^\n]+\n/gm,'')
-  .replaceAll('partner_authz_fixture','mission20_fixture_atomic');
+  .replaceAll('partner_authz_fixture',name);
  // Establish confirmed types at CREATE TABLE, before dependent policies are
  // installed. Never drop/relax policies to accommodate a fixture ALTER TYPE.
  for(const [before,after] of [
@@ -57,7 +39,7 @@ async function qualifyAtomic(c,options={}){
   CREATE TABLE public.team_join_requests(team_id uuid,user_id uuid,status text);
   CREATE TABLE public.team_invites(team_id uuid,invited_user_id uuid,status text);`);
  execute(source('supabase/migrations/20260925221500_matchmaking_v2_engine.sql'));
- execute(temp('atomic-writer-fixture',expanded(path.join(SQL,'09-writer-fixture.review.sql')).replaceAll('partner_authz_fixture','mission20_fixture_atomic')));
+ execute(temp('atomic-writer-fixture',expanded(path.join(SQL,'09-writer-fixture.review.sql')).replaceAll('partner_authz_fixture',name)));
  for(const dep of dependencies)await admin.query(definition(dep.file,dep.signature.split('(')[0]));
  await admin.query(`REVOKE ALL ON FUNCTION public.add_user_to_team(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
   REVOKE ALL ON FUNCTION public.accept_team_invite(uuid),public.accept_team_join_request(uuid),public.ensure_team_conversation(uuid) FROM PUBLIC,anon,service_role;
@@ -76,6 +58,30 @@ async function qualifyAtomic(c,options={}){
   CREATE POLICY atomic_link_delete ON public.team_hackathons FOR DELETE TO authenticated USING(public.is_team_owner(team_id));`);
  assert.equal(await admin.query(`SELECT string_agg(format_type(atttypid,atttypmod),',' ORDER BY attname) FROM pg_attribute
   WHERE attrelid='public.hackathons'::regclass AND attname IN('start_date','end_date','registration_start','registration_end','type');`),'date,timestamp with time zone,timestamp with time zone,date,character varying(50)');
+ return {fixture,connection,admin,execute,temp,source,baselineAssertions};
+
+}
+async function qualifyAtomic(c,options={}){
+ const privateFixture=options.privateFixture?validatePrivateFixture(options.privateFixture):null;
+ if(c.variant!=='per-team')return;
+ const {SQL,uid,identity,passed}=c;
+ let checks=0;const pass=s=>{checks++;passed('atomic candidate: '+s);};
+ const {fixture,admin,execute,temp,source,baselineAssertions}=await seedAtomicFixture(c);
+ const {sql}=build();assert.equal(fs.readFileSync(source(DIR+'/01-final-expansion.review.sql'),'utf8').replace(/\r\n/g,'\n'),sql);
+ const rawFixtures=JSON.parse(fs.readFileSync(source(DIR+'/deployed-body-fixtures.review.json'),'utf8')).functions;
+ if(privateFixture)rawFixtures.push(privateFixture); // In memory only; never write the fixture JSON.
+ const withBody=(dep,prosrc)=>{
+  const original=definition(dep.file,dep.signature.split('(')[0]),start=original.match(/\bAS\s+(\$(?:\w+)?\$)/i).index;
+  assert(!prosrc.includes('$atomic_body$'));return original.slice(0,start)+'AS $atomic_body$'+prosrc+'$atomic_body$;';
+ };
+ const selectedBody=dep=>rawFixtures.find(f=>f.signature===dep.signature)?.prosrc||body(definition(dep.file,dep.signature.split('(')[0]));
+ const frozenInsert=(event,actor)=>`${identity(actor)} DO $atomic_frozen$ BEGIN
+  BEGIN INSERT INTO public.hackathon_registrations(hackathon_id,user_id) VALUES('${uid(event)}','${uid(actor)}');
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+   IF SQLERRM='new_admission_frozen' THEN RETURN; END IF; RAISE;
+  END;
+  RAISE EXCEPTION 'expected exact admission freeze rejection';
+ END; $atomic_frozen$; RESET ROLE;`;
  pass('fresh second database models confirmed DATE/TIMESTAMPTZ/VARCHAR(50), defaults, identity/unique and CASCADE contracts; dummy 147-entry ledger');
  const absent=async()=>assert.equal(await admin.query("SELECT to_regnamespace('mission20_private') IS NULL AND to_regprocedure('public.register_native_hackathon(uuid,uuid,boolean)') IS NULL;"),'t');
  const rejected=(file,re)=>{let error;try{execute(file);}catch(e){error=e;}assert.match(error?.message||'',re);};
@@ -243,5 +249,5 @@ async function qualifyAtomic(c,options={}){
   completeDeployedBodyInstallation:privateFixture?'QUALIFIED_ISOLATED_BODY_SET_ONLY':'UNQUALIFIED',privateInput:!!privateFixture,
   productionConnections:0,hostedAuth:false,backupRestore:false}));
 }
-module.exports={qualifyAtomic};
+module.exports={qualifyAtomic,seedAtomicFixture};
 if(require.main===module)main({setup:c2.setup,async qualify(c){await c2.qualify(c);await qualifyAtomic(c);}}).catch(e=>{console.error(e.stack);process.exitCode=1;});

@@ -461,5 +461,11 @@
     "configurationChanges": "ephemeral local fixture only; no persistent or project setting change",
     "merged": false,
     "deployed": false
+  },
+  "offlineReleaseRehearsal": {
+    "path": "docs/qa/mission20-c2/release/OFFLINE-EVIDENCE.json",
+    "loader": "Supabase CLI 2.75.0, transaction-owner packaging",
+    "backup": "Synthetic logical restore only; not hosted/PITR/cross-cluster durability qualification",
+    "privateFiveBodyReview": "Accepted independent review retained; no private input in offline rehearsal"
   }
 }

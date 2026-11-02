@@ -30,6 +30,7 @@ jobs:
           scripts/test-mission20-release-package.cjs
           scripts/mission20-atomic-candidate.cjs scripts/qualify-mission20-atomic-candidate.cjs
           scripts/mission20-private-audit.cjs scripts/qualify-mission20-private-audit.cjs
+          scripts/mission20-loader-package.cjs scripts/qualify-mission20-offline-release.cjs
       - name: Application regressions
         run: >-
           node --test --test-concurrency=1
@@ -99,5 +100,13 @@ jobs:
         run: |
           npm run typecheck
           node --test scripts/test-mission20-c2-writers.cjs scripts/test-mission20-native-http-sdk.cjs
+      - name: Fetch checksum-pinned native Supabase migration loader
+        run: |
+          mkdir -p scratch/supabase-cli
+          curl --fail --location --retry 2 --output scratch/supabase-cli/archive.tar.gz https://github.com/supabase/cli/releases/download/v2.75.0/supabase_linux_amd64.tar.gz
+          echo 'e5597462f865d5ac72af0453358e37ecb0d85962ad6914a114a53de847303bde  scratch/supabase-cli/archive.tar.gz' | sha256sum --check
+          tar -xzf scratch/supabase-cli/archive.tar.gz -C scratch/supabase-cli supabase
       - name: Fresh native PG17.6 C1/C2 SQL, concurrency and real PostgREST qualification
         run: node scripts/qualify-mission20-release-postgrest.cjs --local-pg17-only
+      - name: Actual migration-loader transactions and synthetic logical backup recovery
+        run: node scripts/qualify-mission20-offline-release.cjs
