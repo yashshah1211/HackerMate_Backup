@@ -13,7 +13,7 @@ class BrowsingClock extends Date {
   static now() { return Date.parse('2026-10-14T12:00:00Z'); }
 }
 const event = (id = 'synthetic-event', extra = {}) => ({ id, name: `Public ${id}`, description: '<p>Build useful tools</p>', status: 'approved', archived: false,
-  type: 'external', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
+  type: 'native', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
   prize_pool: 'INR 10000', currency: 'INR', location: 'Mumbai', mode: 'hybrid', website_url: 'https://unstop.com/synthetic', ...extra });
 function client(options = {}) {
   const reads = [], writes = [], listeners = new Set(), signOutCalls = []; let user = options.user ?? null, stopped = 0;
@@ -138,7 +138,7 @@ async function mount(options = {}) {
 test('real directory effects: guests browse/filter, Saved and bookmarks offer sign-in, no private reads or writes', async () => {
   const view = await mount({ query: '?tab=upcoming&q=Public&mode=hybrid&source=partner' });
   try {
-    assert.match(view.html, /Public synthetic-event/); assert.match(view.html, /Discover/); assert(!view.html.includes('0 saved'));
+    assert.match(view.html, /Public synthetic-event/); assert.match(view.html, /Opportunities/); assert(!view.html.includes('0 saved'));
     await view.click('Save hackathon');
     const link = [...view.dom.window.document.querySelectorAll('a')].find(a => a.textContent === 'Sign in');
     assert(link); assert.equal(new URL(link.href).searchParams.get('next'), '/hackathons?tab=upcoming&q=Public&mode=hybrid&source=partner');
@@ -181,7 +181,7 @@ test('account transitions discard stale private renders and unsubscribe on unmou
   try {
     assert(view.c.reads.some(r => r.table === 'saved_hackathons'));
     await view.change(() => view.c.signOut()); assert.match(view.html, /Account verification unavailable/);
-    await view.click('Sign out and browse public events'); assert.match(view.html, /Discover/);
+    await view.click('Sign out and browse public events'); assert.match(view.html, /Opportunities/);
     assert(!view.html.includes('0 saved')); assert.equal(view.c.listeners.size, 1);
   } finally { await view.close(); }
   assert.equal(view.c.listeners.size, 0); assert.equal(view.c.stopped, 1);

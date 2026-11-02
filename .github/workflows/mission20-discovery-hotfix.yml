@@ -8,6 +8,10 @@ on:
       - 'src/components/hackathons/**'
       - 'src/lib/hackathons/**'
       - 'src/lib/getLandingData.ts'
+      - 'src/components/landing/LandingHero.tsx'
+      - 'src/app/LandingPageClient.tsx'
+      - 'scripts/test-mission20-unverified-opportunities.cjs'
+      - 'qa/fixtures/mission20-unverified/**'
       - 'scripts/test-*hackathon*.cjs'
       - 'scripts/test-event-compatibility.cjs'
       - 'scripts/*mission20*hotfix*.cjs'
@@ -37,11 +41,11 @@ jobs:
         run: node scripts/lint-mission20-discovery-hotfix.cjs
       - name: Relevant discovery, visibility, membership and navigation regressions
         run: >-
-          node --test --test-concurrency=1 scripts/test-mission20-discovery-hotfix.cjs
+          node --test --test-concurrency=1 scripts/test-mission20-unverified-opportunities.cjs scripts/test-mission20-discovery-hotfix.cjs
           scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs
           scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs
           scripts/test-public-hackathon-metadata.cjs scripts/test-event-compatibility.cjs
-          scripts/test-rack-conversion-funnel.cjs
+          scripts/test-rack-conversion-funnel.cjs scripts/test-auth-return-ui.cjs
       - name: Verify outbound application request guard
         run: node qa/test-rack-network-guard.cjs
       - name: Guest and authenticated browser checks at 390, 768 and 1440px

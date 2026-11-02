@@ -1,5 +1,5 @@
-import { eventDate, eventState, registrationState } from "./lifecycle";
-export { eventDate, eventState } from "./lifecycle";
+import { eventDate, eventState, registrationState, listedEventState, activeOpportunity } from "./lifecycle";
+export { eventDate, eventState, listedEventState } from "./lifecycle";
 /** Deterministic discovery from listed event metadata; no inferred eligibility or exchange rates. */
 export type DiscoveryEvent = {
   id: string; name: string; description: string | null; tags: string[] | null;
@@ -10,7 +10,7 @@ export type DiscoveryEvent = {
   min_team_size?: number | null; max_team_size?: number | null;
 };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
-export type DiscoveryTab = "recommended" | "upcoming" | "ongoing" | "saved" | "past";
+export type DiscoveryTab = "recommended" | "upcoming" | "ongoing" | "saved" | "past" | "all";
 export type DiscoverySort = "relevant" | "date" | "recent" | "prize-inr" | "prize-usd";
 export type DiscoverySettings = {
   tab: DiscoveryTab; q: string; mode: string; platform: string; topic: string;
@@ -89,11 +89,11 @@ export function discoveryReason(event: DiscoveryEvent, skills: string[], now: nu
   if (!listedTags(skills).length) return "Explore this event · add profile skills to personalize the order";
   return eventState(event, now) === "ongoing" ? "Ongoing event · check official registration availability" : "Explore beyond your listed skills";
 }
-const tabs = ["recommended", "upcoming", "ongoing", "saved", "past"];
+const tabs = ["recommended", "upcoming", "ongoing", "saved", "past", "all"];
 const sorts = ["relevant", "date", "recent", "prize-inr", "prize-usd"];
 export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): DiscoverySettings {
   const get = (key: string) => { const values = params.getAll(key); return values.length === 1 ? values[0].trim() : ""; };
-  const tab = (tabs.includes(get("tab")) ? get("tab") : "recommended") as DiscoveryTab;
+  const tab = (tabs.includes(get("tab")) ? get("tab") : "all") as DiscoveryTab;
   const choice = (key: string, options: string[]) => options.includes(get(key)) ? get(key) : "";
   const date = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(get(key)) && eventDate(get(key)) !== null ? get(key) : "";
   const requestedSort = get("sort") === "prize" ? "prize-inr" : get("sort");
@@ -109,7 +109,7 @@ export function discoveryQuery(params: URLSearchParams, patch: Partial<Discovery
   const settings = { ...readDiscoverySettings(params), ...patch };
   if (patch.tab && !params.has("sort") && !patch.sort) settings.sort = patch.tab === "recommended" ? "relevant" : "date";
   const defaults = readDiscoverySettings(new URLSearchParams(`tab=${settings.tab}`));
-  defaults.tab = "recommended";
+  defaults.tab = "all";
   const output = new URLSearchParams(params);
   for (const [key, value] of Object.entries(settings)) {
     output.delete(key);
@@ -127,8 +127,8 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
   const terms = norm(settings.q).split(/\s+/).filter(Boolean), from = eventDate(settings.from), to = eventDate(settings.to, true);
   const selected = events.filter(event => {
     const state = eventState(event, now);
-    if (settings.tab === "saved" ? !saved.has(event.id) : settings.tab === "recommended" ? state === "ended"
-      : settings.tab === "past" ? state !== "ended" : state !== settings.tab) return false;
+    if (settings.tab !== "all" && (settings.tab === "saved" ? !saved.has(event.id) : settings.tab === "recommended" ? state === "ended"
+      : settings.tab === "past" ? listedEventState(event, now) !== "ended" : state !== settings.tab)) return false;
     if (settings.mode && eventFormat(event.mode) !== settings.mode) return false;
     if (settings.platform && eventPlatform(event) !== settings.platform) return false;
     if (settings.topic && !eventTopics(event).some(tag => norm(tag) === settings.topic)) return false;
@@ -142,8 +142,8 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
       if (settings.participation === "solo" ? min !== 1 : max < 2) return false;
     }
     const registration = registrationState(event, now);
-    const active = !["saved", "past"].includes(settings.tab);
-    if (active && !settings.registration && registration === "closed") return false;
+    const active = !["saved", "past", "all"].includes(settings.tab);
+    if (active && !activeOpportunity(event, now)) return false;
     if (["open", "closed", "unknown", "not-yet-open"].includes(settings.registration) && registration !== settings.registration) return false;
     const deadline = eventDate(event.registration_end, true);
     if (settings.registration === "recorded" && deadline === null) return false;
@@ -158,7 +158,7 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
     return group(a) - group(b) || knownCompare(eventDate(a.start_date), eventDate(b.start_date));
   };
   return selected.sort((a, b) => {
-    const active = !["saved", "past"].includes(settings.tab);
+    const active = !["saved", "past", "all"].includes(settings.tab);
     const rank = (event: DiscoveryEvent) => ({ open: 0, unknown: 1, "not-yet-open": 2, closed: 3 }[registrationState(event, now)]);
     let comparison = active && settings.registration !== "recorded" ? rank(a) - rank(b) : 0;
     if (comparison) return comparison;

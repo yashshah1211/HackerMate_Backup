@@ -54,7 +54,7 @@ async function mount(t, { path = '/login', next, login = false, landing = false,
       if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
     }
   });
-  await React.act(async () => root.render(React.createElement(Component, landing ? { initialData: { builderCount: 10, teamCount: 2, hackathonCount: 3, upcoming: [] } } : login ? {} : { nextUrl: next })));
+  await React.act(async () => root.render(React.createElement(Component, landing ? { initialData: { builderCount: 10, teamCount: 2, upcoming: [] } } : login ? {} : { nextUrl: next })));
   const consent = async () => {
     const input = dom.window.document.querySelector('input[type="checkbox"]');
     const props = input[Object.keys(input).find(key => key.startsWith('__reactProps$'))];
@@ -177,7 +177,7 @@ for (const authError of [null, { message: 'offline' }, new Error('offline')]) te
   const doc = view.dom.window.document;
   assert.equal(doc.querySelector('main').className, 'relative flex min-h-screen flex-col overflow-x-clip bg-canvas text-ink');
   assert.deepEqual([...doc.querySelectorAll('[data-section]')].map(node => node.dataset.section), ['LandingHero', 'ScrambleSection', 'FindSection', 'ReviewSection', 'MergeSection', 'BuildSection', 'LandingFaq']);
-  assert.deepEqual(JSON.parse(doc.querySelector('[data-section="LandingHero"]').textContent), { builderCount: 10, teamCount: 2, hackathonCount: 3, upcoming: [] });
+  assert.deepEqual(JSON.parse(doc.querySelector('[data-section="LandingHero"]').textContent), { builderCount: 10, teamCount: 2, upcoming: [] });
   assert.match(doc.querySelector('[role="alert"]').textContent, /Sign-in didn.t finish/);
   assert.equal(doc.querySelector('[role="alert"] a').getAttribute('href'), '/login');
   await React.act(async () => [...doc.querySelectorAll('button')].find(button => button.textContent === 'Organizer details').click());

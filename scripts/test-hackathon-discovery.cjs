@@ -7,8 +7,8 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 const event = (id, fields = {}) => ({ id, name: `Event ${id}`, description: 'Build useful tools', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', registration_end: null, created_at: '2026-10-01T00:00:00Z',
   location: 'Venue in India', mode: 'Online', prize_pool: 'Certificate & Perks', currency: null, website_url: 'https://unstop.com/event',
-  type: 'external', organizer_id: null, college: null, ...fields });
-const settings = query => api.readDiscoverySettings(new URLSearchParams(query));
+  type: 'native', organizer_id: null, college: null, ...fields });
+const settings = query => { const params = new URLSearchParams(query); if (!params.has('tab')) params.set('tab', 'recommended'); return api.readDiscoverySettings(params); };
 const results = (events, query = '', skills = [], saved = new Set()) => api.discoverEvents(events, settings(query), skills, saved, NOW).map(h => h.id);
 const plain = value => JSON.parse(JSON.stringify(value));
 
@@ -44,10 +44,11 @@ test('For you includes events with missing tags, no overlapping skills and empty
   assert.deepEqual(results(records, '', ['Python']), results(records));
   assert.match(api.discoveryReason(records[0], [], NOW), /specific topic tags not listed/);
 });
-test('relevance prioritizes listed skills and excludes closed registrations unless explicitly requested', () => {
+test('relevance prioritizes listed skills and never bypasses closed admission in Opportunities', () => {
   const records = [event('generic'), event('matched', { tags: ['Python'] }), event('closed', { tags: ['Python'], registration_end: '2026-10-13' })];
   assert.deepEqual(results(records, '', [' PYTHON ']), ['matched', 'generic']);
-  assert.deepEqual(results(records, 'registration=all', [' PYTHON ']), ['matched', 'generic', 'closed']);
+  assert.deepEqual(results(records, 'registration=all', [' PYTHON ']), ['matched', 'generic']);
+  assert.deepEqual(results(records, 'tab=all&registration=all&sort=relevant', [' PYTHON ']), ['matched', 'generic', 'closed']);
   assert.match(api.discoveryReason(records[1], ['python'], NOW), /Tags match your listed skills: Python/);
 });
 test('Upcoming and Ongoing are disjoint; Past excludes unclear windows', () => {
@@ -62,11 +63,11 @@ test('search matches title, plain descriptions, tags, college and known location
   assert.deepEqual(results([event('placeholder')], 'q=venue'), []);
 });
 test('platform hostnames and normalized hybrid/offline formats drive combined filters', () => {
-  const h = event('valid', { mode: ' HYBRID ', tags: ['Web3'], website_url: 'https://apply.devfolio.co/event' });
-  assert.deepEqual(results([h], 'mode=hybrid&platform=devfolio&topic=web3'), ['valid']);
-  assert.deepEqual(results([h], 'mode=online'), []);
+  const h = event('valid', { type: 'external', mode: ' HYBRID ', tags: ['Web3'], website_url: 'https://apply.devfolio.co/event' });
+  assert.deepEqual(results([h], 'tab=all&mode=hybrid&platform=devfolio&topic=web3'), ['valid']);
+  assert.deepEqual(results([h], 'tab=all&mode=online'), []);
   assert.equal(api.eventFormat(' Offline '), 'in-person'); assert.equal(api.eventFormat('in-person'), 'in-person');
-  assert.equal(api.eventPlatform(event('fake', { website_url: 'https://unstop.com.evil.example/event?site=devfolio.co' })), 'other');
+  assert.equal(api.eventPlatform(event('fake', { type: 'external', website_url: 'https://unstop.com.evil.example/event?site=devfolio.co' })), 'other');
   assert.equal(api.eventPlatform(event('native', { type: 'native' })), 'native');
 });
 test('date window, topic and participation constraints require actual recorded fields', () => {
@@ -79,7 +80,8 @@ test('date window, topic and participation constraints require actual recorded f
 test('event start never substitutes for registration deadline; unknown deadlines remain available', () => {
   const records = [event('unknown', { start_date: '2026-10-12' }), event('open', { registration_end: '2026-10-14' }), event('closed', { registration_end: '2026-10-13' })];
   assert.deepEqual(results(records, 'registration=not-closed'), ['open', 'unknown']);
-  assert.deepEqual(results(records, 'registration=recorded'), ['open', 'closed']);
+  assert.deepEqual(results(records, 'registration=recorded'), ['open']);
+  assert.deepEqual(results(records, 'tab=all&registration=recorded&sort=relevant'), ['open', 'closed']);
 });
 for (const [text, currency, amount, unit] of [
   ['₹1,50,000', null, 150000, 'INR'], ['INR 2.5 lakh', null, 250000, 'INR'], ['Rs. 1.2 crore', 'INR', 12000000, 'INR'],
@@ -112,7 +114,7 @@ test('Saved retains ended and unknown events and still respects explicit filters
 });
 test('shareable settings validate enums, duplicate parameters, dates and preserve unrelated query context', () => {
   const invalid = settings('tab=bad&mode=bad&sort=bad&from=2026-02-30&q=one&q=two');
-  assert.equal(invalid.tab, 'recommended'); assert.equal(invalid.mode, ''); assert.equal(invalid.from, ''); assert.equal(invalid.q, '');
+  assert.equal(invalid.tab, 'all'); assert.equal(invalid.mode, ''); assert.equal(invalid.from, ''); assert.equal(invalid.q, '');
   const first = new URLSearchParams(api.discoveryQuery(new URLSearchParams('source=partner'), { tab: 'ongoing', mode: 'hybrid', topic: 'Web3', q: ' climate ', sort: 'prize-usd' }));
   assert.equal(first.get('source'), 'partner'); assert.equal(settings(first.toString()).tab, 'ongoing'); assert.equal(settings(first.toString()).topic, 'web3');
   const reset = new URLSearchParams(api.discoveryQuery(first, { q: '', mode: '', topic: '', sort: 'date' }));

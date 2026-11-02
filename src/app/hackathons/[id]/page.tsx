@@ -58,7 +58,7 @@ import {
   type MenuItem,
 } from "@/components/system";
 import { cn } from "@/lib/utils";
-import { eventState, registrationState, registrationLabel, dateLabel } from "@/lib/hackathons/lifecycle";
+import { eventState, registrationState, registrationLabel, dateLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
 import { getTeamCategoryInfo } from "@/lib/teamCategory";
 
 type RoundInfo = {
@@ -1056,7 +1056,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   // ── Presentational derivations ────────────────────────────────────────
   const state = eventState(hackathon, now);
   const registration = registrationState(hackathon, now);
-  const stateLabel = { upcoming: "Upcoming", ongoing: "Ongoing", ended: "Ended", unknown: "Dates unclear" }[state];
+  const stateLabel = eventStateLabel(hackathon, now);
   const stateTone = state === "ongoing" ? "ok" : state === "upcoming" ? "accent" : "neutral";
   const eventTone = "hack";
 
@@ -1232,7 +1232,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
               </p>
             )}
             <p className="mt-1 font-mono text-[12.5px] text-ink-3 tabular">
-              {formatDateRange(hackathon.start_date, hackathon.end_date)}
+              {scheduleIsUnverified(hackathon) && "Listed dates, unverified: "}{formatDateRange(hackathon.start_date, hackathon.end_date)}
 
             </p>
             <p className="mt-2 text-sm font-medium text-ink-2">{registrationLabel(hackathon, now)}</p>
@@ -1674,14 +1674,14 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         <aside className="min-w-0 space-y-9">
           <Section title="At a glance">
             <dl className="divide-y divide-line rounded-lg border border-line">
-              <Fact label="Dates" value={<span className="font-mono tabular">{formatDateRange(hackathon.start_date, hackathon.end_date)}</span>} stacked />
+              <Fact label={scheduleIsUnverified(hackathon) ? "Listed dates (unverified)" : "Dates"} value={<span className="font-mono tabular">{formatDateRange(hackathon.start_date, hackathon.end_date)}</span>} stacked />
               {hackathon.mode && <Fact label="Mode" value={<span className="capitalize">{hackathon.mode}</span>} />}
               {showLocation && <Fact label="Location" value={hackathon.location || "TBA"} stacked />}
               {organizerName && <Fact label={organizerLabel} value={organizerName} stacked />}
               {hackathon.prize_pool && (
                 <Fact label="Prize pool" value={<span className="whitespace-pre-wrap">{formatPrizeDisplay(hackathon.prize_pool, hackathon.currency)}</span>} stacked />
               )}
-              <Fact label="Team size" value={teamSizeLabel} />
+              <Fact label={scheduleIsUnverified(hackathon) ? "Listed team size (unverified)" : "Team size"} value={teamSizeLabel} />
               {!!hackathon.rounds_count && hackathon.rounds_count > 0 && (
                 <Fact label="Rounds" value={<span className="font-mono tabular">{hackathon.rounds_count}</span>} />
               )}

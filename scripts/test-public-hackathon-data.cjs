@@ -8,7 +8,7 @@ const loader = harness();
 const api = loader.load('src/lib/hackathons/publicBrowsing.ts');
 const discovery = loader.load('src/lib/hackathons/discovery.ts');
 const id = index => `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
-const event = (index, extra = {}) => ({ id: id(index), name: `Synthetic ${index}`, description: 'Build tools', type: 'external', status: 'approved', archived: false,
+const event = (index, extra = {}) => ({ id: id(index), name: `Synthetic ${index}`, description: 'Build tools', type: 'native', status: 'approved', archived: false,
   start_date: '2028-11-01', end_date: '2028-11-03', registration_end: '2028-10-30', created_at: '2026-10-01',
   mode: 'online', location: 'Mumbai', tags: ['React'], prize_pool: 'INR 1000', currency: 'INR', website_url: null, ...extra });
 function paged({ records = [], caps = [], respond } = {}) {
@@ -131,10 +131,10 @@ function landingFixture(records, options = {}) {
   const getLandingData = harness({ '@supabase/supabase-js': { createClient: () => client } }, { Date: LandingClock, console: { error: (...args) => errors.push(args) } }).load('src/lib/getLandingData.ts').getLandingData;
   return { reads, errors, getLandingData };
 }
-for (const type of ['native', 'external', null]) test(`landing visibility and public-detail agreement: ${type}`, async () => {
+for (const type of ['native', 'official', 'external', null]) test(`landing visibility and public-detail agreement: ${type}`, async () => {
   const records = [event(1, { type }), ...['pending', 'rejected', null, undefined].map((status, i) => event(i + 2, { type, status, ai_feedback: { status: 'approved' } })), event(9, { type, archived: true }), event(10, { type, archived: null })];
   const fixture = landingFixture(records), result = await fixture.getLandingData();
-  assert.equal(result.hackathonCount, 1); assert.deepEqual(Array.from(result.upcoming, row => row.id), [id(1)]);
+  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.deepEqual(Array.from(result.upcoming, row => row.id), type==='native'?[id(1)]:[]);
   assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3);
   for (const read of fixture.reads.filter(read => read.table === 'hackathons')) {
     assert(read.equals.some(([key, value]) => key === 'status' && value === 'approved'));
@@ -148,16 +148,16 @@ for (const type of ['native', 'external', null]) test(`landing visibility and pu
   }
 });
 test('landing projections, eight-event limit, sorting, date/Unstop exceptions and builder/team counts are preserved', async () => {
-  const records = Array.from({ length: 12 }, (_, i) => event(i + 1, { start_date: `2028-11-${String(12 - i).padStart(2, '0')}` }));
+  const records = Array.from({ length: 12 }, (_, i) => event(i + 1, { start_date: `2028-11-${String(12 - i).padStart(2, '0')}`, end_date: '2028-11-30' }));
   records.push(event(30, { website_url: 'https://UNSTOP.com/synthetic' }), event(31, { start_date: '2025-01-01' }));
   const fixture = landingFixture(records), result = await fixture.getLandingData();
-  assert.equal(result.hackathonCount, 14); assert.equal(result.upcoming.length, 8);
+  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.equal(result.upcoming.length, 8);
   assert(!result.upcoming.some(row => [id(30), id(31)].includes(row.id)));
   assert.deepEqual(Array.from(result.upcoming, row => row.start_date), [...result.upcoming].map(row => row.start_date).sort());
-  assert.deepEqual(fixture.reads.map(read => read.columns), ['id', 'id', 'id', 'id, name, mode, start_date, end_date, registration_start, registration_end, registration_status']);
-  assert.equal(fixture.reads[3].from, '2026-10-15');
-  assert.deepEqual(fixture.reads[3].orders, [['start_date', true], ['name', true]]); assert.equal(fixture.reads[3].limit, 8);
-  assert.deepEqual(fixture.reads[0].equals, [['is_banned', false]]); assert.deepEqual(fixture.reads[2].equals, []);
+  assert.deepEqual(fixture.reads.map(read => read.columns), ['id', 'id', 'id, name, type, mode, start_date, end_date, registration_start, registration_end, registration_status']);
+  assert.equal(fixture.reads[2].from, '2026-10-15');
+  assert.deepEqual(fixture.reads[2].orders, [['start_date', true], ['name', true]]); assert.equal(fixture.reads[2].limit, 8);
+  assert.deepEqual(fixture.reads[0].equals, [['is_banned', false]]); assert.deepEqual(fixture.reads[1].equals, []);
   const Hero = harness({ '@/components/system': { ButtonLink: ({ href, children }) => React.createElement('a', { href }, children) }, './primitives': { Container: ({ children }) => React.createElement('div', null, children) }, 'next/link': ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children), './HeroPipeline': { HeroPipeline: () => null } }).load('src/components/landing/LandingHero.tsx').LandingHero;
   const html = renderToStaticMarkup(React.createElement(Hero, result));
   const links = [...html.matchAll(/href="\/hackathons\/([^"/]+)"/g)].map(match => match[1]);
@@ -166,15 +166,15 @@ test('landing projections, eight-event limit, sorting, date/Unstop exceptions an
 });
 test('landing existing query-error and thrown-failure fallbacks remain intact and logged', async () => {
   const fixture = landingFixture([event(1)], { errorTable: 'hackathons' }), result = await fixture.getLandingData();
-  assert.equal(result.hackathonCount, 0); assert.equal(result.upcoming.length, 0); assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3); assert.equal(fixture.errors.length, 2);
+  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.equal(result.upcoming.length, 0); assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3); assert.equal(fixture.errors.length, 1);
   const thrown = landingFixture([event(1)], { throwQuery: true }), fallback = await thrown.getLandingData();
-  assert.deepEqual(JSON.parse(JSON.stringify(fallback)), { builderCount: 0, hackathonCount: 0, teamCount: 0, upcoming: [] }); assert(thrown.errors.length);
+  assert.deepEqual(JSON.parse(JSON.stringify(fallback)), { builderCount: 0, teamCount: 0, upcoming: [] }); assert(thrown.errors.length);
 });
 
 test('landing active strip omits confirmed closed applications while preserving public totals and unknown availability',async()=>{
  const fixture=landingFixture([event(1),event(2,{registration_end:'2026-10-14'}),
   event(3,{registration_status:'closed'}),event(4,{registration_start:null,registration_end:null})]);
  const result=await fixture.getLandingData();
- assert.equal(result.hackathonCount,4);
+ assert.equal(Object.hasOwn(result,'hackathonCount'),false);
  assert.deepEqual(Array.from(result.upcoming,row=>row.id),[id(1),id(4)]);
 });

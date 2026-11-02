@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { registrationState, type RegistrationDates } from "./hackathons/lifecycle";
+import { activeOpportunity, eventState, type RegistrationDates } from "./hackathons/lifecycle";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rhryjrbebfrrfhtyyzbs.supabase.co";
@@ -24,8 +24,6 @@ export type UpcomingHackathon = {
 export type LandingData = {
   /** Registered builders: every profile the Builders directory lists (all sign-ups, minus banned accounts). */
   builderCount: number;
-  /** Publicly listed hackathons, past and upcoming (the /hackathons visibility rule). */
-  hackathonCount: number;
   /** Teams created on HackerMate (every team the /teams directory lists). */
   teamCount: number;
   upcoming: UpcomingHackathon[];
@@ -44,18 +42,16 @@ export async function getLandingData(): Promise<LandingData> {
   // Event dates are calendar dates in India, where HackerMate's events run.
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   try {
-    const [builders, hackathons, teams, upcoming] = await Promise.all([
+    const [builders, teams, upcoming] = await Promise.all([
       // Every account gets a profile row at sign-up; the product counts all of them as builders
       // (dashboard "Builders", the Builders directory, analytics and the daily report). Banned
       // accounts are hidden from other users by RLS, so they are excluded here as well.
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_banned", false),
-      // Match the public directory/detail contract, including when this client bypasses RLS.
-      supabaseAdmin.from("hackathons").select("id", { count: "exact", head: true }).eq("status", "approved").eq("archived", false),
       // The /teams directory lists every team, including ones still recruiting their first teammate.
       supabaseAdmin.from("teams").select("id", { count: "exact", head: true }),
       supabaseAdmin
         .from("hackathons")
-        .select("id, name, mode, start_date, end_date, registration_start, registration_end, registration_status")
+        .select("id, name, type, mode, start_date, end_date, registration_start, registration_end, registration_status")
         .eq("status", "approved")
         .or(HAS_EVENT_START_DATE)
         .eq("archived", false)
@@ -66,20 +62,18 @@ export async function getLandingData(): Promise<LandingData> {
     ]);
 
     if (builders.error) console.error("[landing] builder count failed:", builders.error);
-    if (hackathons.error) console.error("[landing] hackathon count failed:", hackathons.error);
     if (teams.error) console.error("[landing] team count failed:", teams.error);
     if (upcoming.error) console.error("[landing] upcoming hackathons failed:", upcoming.error);
 
     // A failed count comes back as 0, and the hero hides zero values instead of printing them.
     return {
       builderCount: builders.count ?? 0,
-      hackathonCount: hackathons.count ?? 0,
       teamCount: teams.count ?? 0,
       upcoming: ((upcoming.data as (UpcomingHackathon & RegistrationDates)[] | null) ?? [])
-        .filter(event => registrationState(event, new Date().getTime()) !== "closed"),
+        .filter(event => eventState(event, new Date().getTime()) === "upcoming" && activeOpportunity(event, new Date().getTime())),
     };
   } catch (err) {
     console.error("Error fetching landing data on server:", err);
-    return { builderCount: 0, hackathonCount: 0, teamCount: 0, upcoming: [] };
+    return { builderCount: 0, teamCount: 0, upcoming: [] };
   }
 }

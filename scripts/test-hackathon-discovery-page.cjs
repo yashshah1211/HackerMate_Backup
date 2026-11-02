@@ -8,7 +8,7 @@ const { harness } = require('./ppt-vision-harness.cjs');
 const NOW = Date.parse('2026-10-14T12:00:00Z'), USER = 'offline-user';
 const event = (id, extra = {}) => ({ id, name: `Event ${id}`, description: '<p>Build clean tools</p>', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', location: 'Venue in India', mode: 'offline', prize_pool: 'Certificate & Perks',
-  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'external', organizer_id: null, ...extra });
+  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'native', organizer_id: null, ...extra });
 const text = node => node == null || typeof node === 'boolean' ? '' : Array.isArray(node) ? node.map(text).join('') : typeof node === 'object' ? text(node.props?.children) : String(node);
 async function page(options = {}) {
   let cursor = 0, html, clock = NOW, tick; const slots = [], effects = [], dependencies = [], controls = [], writes = [], toasts = [], reads = [];
@@ -84,7 +84,7 @@ async function page(options = {}) {
   };
 }
 test('real For you page includes empty-profile and generic-tag events with honest date/location/prize labels', async () => {
-  const view = await page(); assert.deepEqual(view.ids(), ['future', 'ongoing', 'unknown']);
+  const view = await page({ query: 'tab=recommended' }); assert.deepEqual(view.ids(), ['future', 'ongoing', 'unknown']);
   assert.match(view.html, /Ongoing/); assert.match(view.html, /Dates unclear/); assert.match(view.html, /Location not specified/);
   assert(!view.html.includes('Venue in India')); assert(!view.html.includes('₹0'));
   assert.match(view.html, /Registration deadline not listed/); assert.match(view.html, /specific topic tags not listed/);
@@ -105,7 +105,7 @@ test('combined desktop filters have correct counts, empty-state guidance and res
   assert.equal(new URLSearchParams(view.location.search).get('source'), 'partner');
 });
 test('mobile sheet offers the same filters and reset clears the search too', async () => {
-  const view = await page(); await view.search('future'); await view.click('1'); // Filters button carries active count.
+  const view = await page({ query: 'tab=recommended' }); await view.search('future'); await view.click('1'); // Filters button carries active count.
   await view.choose('hk-topic-mobile', 'react'); assert.deepEqual(view.ids(), []);
   await view.click('Reset'); assert.equal(new URLSearchParams(view.location.search).has('q'), false); assert.deepEqual(view.ids(), ['future', 'ongoing', 'unknown']);
 });
@@ -132,7 +132,7 @@ test('search preserves a trailing space while typing and still trims for matchin
 });
 
 test('the existing display timer removes a newly closed registration without another database read',async()=>{
- const view=await page({events:[event('deadline',{registration_start:'2026-10-01',registration_end:'2026-10-14T13:00:00Z'})]});
+ const view=await page({query:'tab=recommended',events:[event('deadline',{registration_start:'2026-10-01',registration_end:'2026-10-14T13:00:00Z'})]});
  assert.deepEqual(view.ids(),['deadline']);const reads=view.reads.length;
  await view.advance(Date.parse('2026-10-14T13:00:00Z'));
  assert.deepEqual(view.ids(),[]);assert.equal(view.reads.length,reads);
