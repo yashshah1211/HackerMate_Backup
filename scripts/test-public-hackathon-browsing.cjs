@@ -7,6 +7,11 @@ const { JSDOM } = require('jsdom');
 const { harness } = require('./ppt-vision-harness.cjs');
 const api = harness().load('src/lib/hackathons/publicBrowsing.ts');
 const USER = { id: 'synthetic-member' };
+// Stable browsing clock keeps auth/bookmark fixtures in their intended upcoming window.
+class BrowsingClock extends Date {
+  constructor(...args) { super(...(args.length ? args : ['2026-10-14T12:00:00Z'])); }
+  static now() { return Date.parse('2026-10-14T12:00:00Z'); }
+}
 const event = (id = 'synthetic-event', extra = {}) => ({ id, name: `Public ${id}`, description: '<p>Build useful tools</p>', status: 'approved', archived: false,
   type: 'external', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
   prize_pool: 'INR 10000', currency: 'INR', location: 'Mumbai', mode: 'hybrid', website_url: 'https://unstop.com/synthetic', ...extra });
@@ -114,7 +119,7 @@ async function mount(options = {}) {
     'next/navigation': { useParams: () => ({ id: 'synthetic-event' }), useSearchParams: () => new URLSearchParams(dom.window.location.search) },
     'next/link': props => React.createElement('a', { href: props.href }, props.children),
     '@/context/NotificationContext': { useNotification: () => ({ showToast() {} }) }, '@/components/Logo': { LogoMark: () => null },
-  }, { window: dom.window, URLSearchParams, AbortController, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
+  }, { Date: BrowsingClock, window: dom.window, URLSearchParams, AbortController, setInterval, clearInterval, console: { ...console, error: (...args) => errors.push(args) } });
   const Boundary = options.boundary && loader.load('src/components/hackathons/BrowsingBoundary.tsx').default;
   const Component = options.boundary ? () => React.createElement(Boundary, null, access => React.createElement('div', null,
     access.kind === 'guest' ? 'Genuine guest subtree' : `Member subtree ${access.userId} onboarded=${access.onboarded}`))

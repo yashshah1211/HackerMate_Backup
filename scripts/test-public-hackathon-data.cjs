@@ -154,7 +154,7 @@ test('landing projections, eight-event limit, sorting, date/Unstop exceptions an
   assert.equal(result.hackathonCount, 14); assert.equal(result.upcoming.length, 8);
   assert(!result.upcoming.some(row => [id(30), id(31)].includes(row.id)));
   assert.deepEqual(Array.from(result.upcoming, row => row.start_date), [...result.upcoming].map(row => row.start_date).sort());
-  assert.deepEqual(fixture.reads.map(read => read.columns), ['id', 'id', 'id', 'id, name, mode, start_date, end_date']);
+  assert.deepEqual(fixture.reads.map(read => read.columns), ['id', 'id', 'id', 'id, name, mode, start_date, end_date, registration_start, registration_end, registration_status']);
   assert.equal(fixture.reads[3].from, '2026-10-15');
   assert.deepEqual(fixture.reads[3].orders, [['start_date', true], ['name', true]]); assert.equal(fixture.reads[3].limit, 8);
   assert.deepEqual(fixture.reads[0].equals, [['is_banned', false]]); assert.deepEqual(fixture.reads[2].equals, []);
@@ -169,4 +169,12 @@ test('landing existing query-error and thrown-failure fallbacks remain intact an
   assert.equal(result.hackathonCount, 0); assert.equal(result.upcoming.length, 0); assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3); assert.equal(fixture.errors.length, 2);
   const thrown = landingFixture([event(1)], { throwQuery: true }), fallback = await thrown.getLandingData();
   assert.deepEqual(JSON.parse(JSON.stringify(fallback)), { builderCount: 0, hackathonCount: 0, teamCount: 0, upcoming: [] }); assert(thrown.errors.length);
+});
+
+test('landing active strip omits confirmed closed applications while preserving public totals and unknown availability',async()=>{
+ const fixture=landingFixture([event(1),event(2,{registration_end:'2026-10-14'}),
+  event(3,{registration_status:'closed'}),event(4,{registration_start:null,registration_end:null})]);
+ const result=await fixture.getLandingData();
+ assert.equal(result.hackathonCount,4);
+ assert.deepEqual(Array.from(result.upcoming,row=>row.id),[id(1),id(4)]);
 });

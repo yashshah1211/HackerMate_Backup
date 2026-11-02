@@ -130,3 +130,12 @@ test('search preserves a trailing space while typing and still trims for matchin
   await view.search('water '); assert.equal(new URLSearchParams(view.location.search).get('q'), 'water ');
   await view.search('water energy'); assert.deepEqual(view.ids(), ['clean']);
 });
+
+test('the existing display timer removes a newly closed registration without another database read',async()=>{
+ const view=await page({events:[event('deadline',{registration_start:'2026-10-01',registration_end:'2026-10-14T13:00:00Z'})]});
+ assert.deepEqual(view.ids(),['deadline']);const reads=view.reads.length;
+ await view.advance(Date.parse('2026-10-14T13:00:00Z'));
+ assert.deepEqual(view.ids(),[]);assert.equal(view.reads.length,reads);
+ await view.navigate('registration=closed');assert.deepEqual(view.ids(),['deadline']);
+ assert.match(view.html,/Registration closed/);
+});

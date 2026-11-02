@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { registrationState, type RegistrationDates } from "./hackathons/lifecycle";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rhryjrbebfrrfhtyyzbs.supabase.co";
@@ -54,7 +55,7 @@ export async function getLandingData(): Promise<LandingData> {
       supabaseAdmin.from("teams").select("id", { count: "exact", head: true }),
       supabaseAdmin
         .from("hackathons")
-        .select("id, name, mode, start_date, end_date")
+        .select("id, name, mode, start_date, end_date, registration_start, registration_end, registration_status")
         .eq("status", "approved")
         .or(HAS_EVENT_START_DATE)
         .eq("archived", false)
@@ -74,7 +75,8 @@ export async function getLandingData(): Promise<LandingData> {
       builderCount: builders.count ?? 0,
       hackathonCount: hackathons.count ?? 0,
       teamCount: teams.count ?? 0,
-      upcoming: (upcoming.data as UpcomingHackathon[] | null) ?? [],
+      upcoming: ((upcoming.data as (UpcomingHackathon & RegistrationDates)[] | null) ?? [])
+        .filter(event => registrationState(event, new Date().getTime()) !== "closed"),
     };
   } catch (err) {
     console.error("Error fetching landing data on server:", err);

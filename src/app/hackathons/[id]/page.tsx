@@ -58,7 +58,7 @@ import {
   type MenuItem,
 } from "@/components/system";
 import { cn } from "@/lib/utils";
-import { eventTimeline } from "@/lib/time";
+import { eventState, registrationState, registrationLabel, dateLabel } from "@/lib/hackathons/lifecycle";
 import { getTeamCategoryInfo } from "@/lib/teamCategory";
 
 type RoundInfo = {
@@ -76,6 +76,9 @@ type Hackathon = {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  registration_start?: string | null;
+  registration_end?: string | null;
+  registration_status?: string | null;
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
@@ -179,6 +182,11 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   const params = useParams();
   const router = useRouter();
   const hackathonId = params.id as string;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const clock = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(clock);
+  }, []);
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [partnerConfig, setPartnerConfig] = useState<{ slug: string; partner_name: string } | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -1046,10 +1054,10 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   }
 
   // ── Presentational derivations ────────────────────────────────────────
-  const timeline = eventTimeline(hackathon.start_date, hackathon.end_date);
-  const stateLabel =
-    timeline.state === "live" ? "Live" : timeline.state === "upcoming" ? "Upcoming" : timeline.state === "ended" ? "Ended" : "Dates TBA";
-  const stateTone = timeline.state === "live" ? "ok" : timeline.state === "upcoming" ? "accent" : "neutral";
+  const state = eventState(hackathon, now);
+  const registration = registrationState(hackathon, now);
+  const stateLabel = { upcoming: "Upcoming", ongoing: "Ongoing", ended: "Ended", unknown: "Dates unclear" }[state];
+  const stateTone = state === "ongoing" ? "ok" : state === "upcoming" ? "accent" : "neutral";
   const eventTone = "hack";
 
   const showLocation = !(
@@ -1080,8 +1088,10 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   const recruitingTeams = teams.filter((t) => t.is_recruiting === true && !isTeamFullAndRegistered(t));
   const hasDates = !!hackathon.start_date && !!hackathon.end_date;
   const isNative = hackathon.type === "native";
-  // Same visibility as V1: native → modal; external → only when a website URL exists.
-  const canRegister = isRegistered === false && (isNative || !!hackathon.website_url);
+  // Presentation-only guard; existing registration/community writers are unchanged.
+  const canRegister = isRegistered === false && (isNative
+    ? state !== "ended" && registration !== "closed" && registration !== "not-yet-open"
+    : !!hackathon.website_url);
   const createTeamHref = `/teams/create?hackathon=${hackathon.id}`;
 
   const primaryAction = ((!isNative && Boolean(hackathon.website_url)) || canRegister) ? (
@@ -1090,7 +1100,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
       icon={isNative ? <CheckCircle2 /> : <ExternalLink />}
       onClick={isNative ? () => setShowRegisterModal(true) : handleRegisterExternally}
     >
-      {isNative ? "Register" : "Register on event site"}
+      {isNative ? registration === "unknown" ? "Review registration" : "Register" : "View official event site"}
     </Button>
   ) : (
     <ButtonLink href={createTeamHref} variant="primary" icon={<Plus />}>
@@ -1194,7 +1204,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Tape tone={stateTone} dot={timeline.state === "live"}>
+              <Tape tone={stateTone} dot={state === "ongoing"}>
                 {stateLabel}
               </Tape>
               <Tape tone={eventTone}>Hackathon</Tape>
@@ -1223,13 +1233,13 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
             )}
             <p className="mt-1 font-mono text-[12.5px] text-ink-3 tabular">
               {formatDateRange(hackathon.start_date, hackathon.end_date)}
-              {timeline.state !== "unknown" && (
-                <>
-                  <span className="mx-1.5 text-ink-4">·</span>
-                  <span className={timeline.urgent ? "text-warn" : undefined}>{timeline.label}</span>
-                </>
-              )}
+
             </p>
+            <p className="mt-2 text-sm font-medium text-ink-2">{registrationLabel(hackathon, now)}</p>
+            <p className="mt-1 text-sm text-ink-3">Registration deadline: {dateLabel(hackathon.registration_end)}</p>
+            <p className="mt-1 max-w-prose text-sm leading-relaxed text-ink-2">{isNative
+              ? registration === "unknown" ? "Availability could not be verified. Review the event details before proceeding; successful registration is not guaranteed." : "Registration availability is separate from the event schedule."
+              : "Check the official site for current registration availability. A listed link does not guarantee registration; HackerMate community membership is separate."}</p>
           </div>
           <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 md:flex">
             {primaryAction}

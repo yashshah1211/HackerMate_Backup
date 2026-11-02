@@ -20,7 +20,7 @@ function fixture(options = {}) {
     rpcError: null, selfError: null, mutationError: null, discoveryRows: [builder], total: 1,
     counts: { registration_count: 1005, confirmed_count: 900, waitlisted_count: 105 },
     queries: [], rpcs: [], toasts: [], ...options };
-  const hackathon = { status: 'approved', archived: false, id: EVENT, name: 'Legacy Event', description: 'Build together', type: 'external',
+  const hackathon = { status: 'approved', archived: false, id: EVENT, registration_status: 'open', name: 'Legacy Event', description: 'Build together', type: 'external',
     start_date: '2028-01-01', end_date: '2028-01-03', website_url: 'https://example.invalid/register',
     tags: [], min_team_size: 1, max_team_size: 4, max_participants: null, location: null, mode: 'online',
     organizer_id: null, prize_pool: null, ...options.hackathon };
@@ -100,6 +100,7 @@ function loadModule(relative, overrides = {}, globals = {}) {
   return exports;
 }
 const api = loadModule('src/lib/hackathons/eventParticipation.ts');
+const lifecycle = loadModule('src/lib/hackathons/lifecycle.ts');
 const discoveryNavigation = loadModule('src/lib/hackathons/discoveryNavigation.ts');
 const publicBrowsing = loadModule('src/lib/hackathons/publicBrowsing.ts');
 const rackIdentity = loadModule('src/lib/partners/rackItUp2026.ts', {}, { URL });
@@ -141,7 +142,7 @@ async function pageHarness(kind, options = {}) {
     },
     'next/link': component('Link'), 'lucide-react': icons, '@/lib/supabase': { supabase: fixtureData.client },
     '@/lib/hackathons/eventParticipation': api, '@/lib/hackathons/discoveryNavigation': discoveryNavigation, '@/lib/utils': { cn: () => '' },
-    '@/lib/partners/rackItUp2026': rackIdentity,
+    '@/lib/partners/rackItUp2026': rackIdentity, '@/lib/hackathons/lifecycle': lifecycle,
     '@/components/system': system, '@/components/landing/primitives': { Container: component('Container'), Eyebrow: component('Eyebrow') },
     '@/context/NotificationContext': { useNotification: () => ({ showToast(text, tone) { fixtureData.state.toasts.push({ text, tone }); }, confirm(value) { fixtureData.state.confirmation = value; } }) },
     '@/components/hackathons/BrowsingBoundary': props => props.children({ kind: 'member', userId: USER, onboarded: true }),
@@ -149,7 +150,7 @@ async function pageHarness(kind, options = {}) {
     '@/components/CertificateModal': () => null, '@/components/ShareModal': () => null, '@/components/VerifiedBuilderBadge': () => null,
     '@/components/StructuredHackathonDescription': () => null, '@/lib/hackathons/prizeDisplay': { formatPrizeDisplay: () => null },
     '@/lib/time': { eventTimeline: () => ({ state: 'upcoming' }) }, '@/lib/teamCategory': { getTeamCategoryInfo: () => ({}) },
-  }, { window: { location: { origin: 'https://app.example.invalid' }, open(url) { fixtureData.state.externalURL = url; } } });
+  }, { setInterval: () => 1, clearInterval() {}, window: { location: { origin: 'https://app.example.invalid' }, open(url) { fixtureData.state.externalURL = url; } } });
   function render() { index = 0; controls.length = 0; return renderToStaticMarkup(React.createElement(page.default)); }
   let html = render();
   const initialHtml = html;
@@ -327,7 +328,7 @@ test('external registration opens only the official URL; direct community CTA op
   const page = await pageHarness('event', { registration: null });
   assert(page.controls.some(control => control.text === 'Join community'));
   assert(!page.html.includes('Join the HackerMate event community'));
-  await page.click('Register on event site'); assert.equal(page.state.externalURL, 'https://example.invalid/register');
+  await page.click('View official event site'); assert.equal(page.state.externalURL, 'https://example.invalid/register');
   assert(!page.html.includes('Join the HackerMate event community'));
   assert.equal(page.state.registration, null);
   page.state.externalURL = undefined;
@@ -342,7 +343,7 @@ test('external registration opens only the official URL; direct community CTA op
   assert.equal(page.state.registration.team_id, null);
   assert(page.html.includes('Joined HackerMate community'));
   assert(!page.controls.some(control => control.text === 'Join community'));
-  assert(page.controls.some(control => control.text === 'Register on event site'));
+  assert(page.controls.some(control => control.text === 'View official event site'));
 });
 
 test('community CTA is absent while loading, signed out, lookup/auth failed, native, or already joined', async () => {
@@ -387,7 +388,7 @@ test('existing community join handler retains capacity, team selection and expir
 test('community join prevents repeat registration and handles a concurrent duplicate without overwriting membership', async () => {
   const page = await pageHarness('event', { registration: null });
   await page.clickExact('Join community'); await page.clickExact('Join community');
-  await page.click('Register on event site');
+  await page.click('View official event site');
   assert(!page.controls.some(control => control.text === 'Join community'));
   assert.equal(page.state.queries.filter(query => query.operation === 'insert').length, 1);
   const concurrent = await pageHarness('event', { registration: null });
@@ -444,7 +445,7 @@ test('event count errors display unavailable, never a zero tally or unregistered
 });
 test('external CTA stays external even after joining community; no verified external claim', async () => {
   const page = await pageHarness('event');
-  assert(page.controls.some(control => control.text === 'Register on event site'));
+  assert(page.controls.some(control => control.text === 'View official event site'));
   assert(page.html.includes('Joined HackerMate community')); assert(!page.html.includes('Registered externally'));
   const partnerSource = fs.readFileSync(path.join(ROOT,'src/components/partners/LegacyPartnerPage.tsx'),'utf8');
   assert(partnerSource.includes('hackathon.website_url')); // Existing external link remains.
@@ -529,3 +530,14 @@ for (const extra of [{ status: 'pending' }, { status: 'rejected' }, { archived: 
     assert(!page.html.includes('Build together'));
   });
 }
+
+for(const [name,fields,label] of [
+ ['closed',{registration_status:'closed'},'Registration closed'],
+ ['unknown',{registration_status:null,registration_start:null,registration_end:null},'Registration availability unverified'],
+])test('native '+name+' presentation preserves the existing writer without promising admission',async()=>{
+ const page=await pageHarness('event',{registration:null,hackathon:{type:'native',...fields}});
+ assert.match(page.html,new RegExp(label));
+ assert.equal(page.controls.some(c=>c.name==='Button'&&c.text==='Register'),false);
+ assert.equal(page.controls.some(c=>c.name==='Button'&&c.text==='Review registration'),name==='unknown');
+ assert.equal(page.state.registration,null);
+});
