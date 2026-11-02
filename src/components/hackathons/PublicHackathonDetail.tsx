@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { browsingActionHref, loadPublicEvent, type PublicEvent } from "@/lib/hackathons/publicBrowsing";
 import { eventDate, eventState, listedTags, prizeLabel } from "@/lib/hackathons/discovery";
+import { registrationLabel } from "@/lib/hackathons/lifecycle";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 import { ButtonLink, EmptyState, ErrorNotice, Page, PageHeader, PageLoader, Section } from "@/components/system";
 import { isRackItUpEvent } from "@/lib/partners/rackItUp2026";
@@ -73,7 +74,7 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
           {typeof round.description === "string" && <StructuredHackathonDescription description={round.description} />}
         </div>)}</Section>}
         <Section title="Participate on HackerMate">
-          <p className="mb-3 text-sm text-ink-2">{rack ? <>{onboard ? "Complete your profile" : "Sign in free"} to list your profile, save this event or build a team. Official event registration stays on Unstop. Returning here will not perform an action automatically.</> : <>{onboard ? "Complete your profile" : "Sign in"} to register, save this event, discover builders or link your team. Returning here will not register or save anything automatically.</>}</p>
+          <p className="mb-3 text-sm text-ink-2">{rack ? <>{onboard ? "Complete your profile" : "Sign in free"} to list your profile, save this event or build a team. Official event registration stays on Unstop. Returning here will not perform an action automatically.</> : <>{onboard ? "Complete your profile" : "Sign in"} to save this event, discover builders or link your team. Registration availability must be checked separately. Returning here will not register or save anything automatically.</>}</p>
           <div className="flex flex-wrap gap-2"><ButtonLink href={href}>{actionLabel}</ButtonLink><ButtonLink href={href} variant="secondary">{onboard ? "Complete profile to save" : "Sign in to save"}</ButtonLink></div>
         </Section>
       </div>
@@ -81,11 +82,13 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
         <Section title="Event details"><dl className="space-y-3 text-sm">
           <div><dt className="text-ink-3">Dates</dt><dd>{dateLabel(event.start_date)} – {dateLabel(event.end_date)}</dd></div>
           <div><dt className="text-ink-3">Status</dt><dd>{status === "unknown" ? "Dates unclear" : status === "ended" ? "Ended" : status === "ongoing" ? "Ongoing" : "Upcoming"}</dd></div>
+          <div><dt className="text-ink-3">Registration availability</dt><dd>{registrationLabel(event, now)}</dd></div>
           <div><dt className="text-ink-3">Registration deadline</dt><dd>{dateLabel(event.registration_end)}</dd></div>
           <div><dt className="text-ink-3">Prizes</dt><dd>{prizeLabel(event)}</dd></div>
           <div><dt className="text-ink-3">Team size</dt><dd>{event.min_team_size != null && event.max_team_size != null ? `${event.min_team_size}–${event.max_team_size}` : "Not listed"}</dd></div>
           {event.college && <div><dt className="text-ink-3">College</dt><dd>{event.college}</dd></div>}
         </dl></Section>
+        <p className="text-sm leading-relaxed text-ink-2">Official registration is separate from the HackerMate community. Check the organizer’s site for current availability; a listed link does not guarantee registration.</p>
         {website && <a href={website} target="_blank" rel="noopener noreferrer" className="inline-flex text-sm font-medium text-ink underline">View event website ↗</a>}
       </aside>
     </div>

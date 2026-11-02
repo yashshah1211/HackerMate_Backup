@@ -1,0 +1,60 @@
+name: Mission 20 discovery hotfix qualification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/mission20-discovery-hotfix.yml'
+      - 'src/app/hackathons/**'
+      - 'src/components/hackathons/**'
+      - 'src/lib/hackathons/**'
+      - 'src/lib/getLandingData.ts'
+      - 'scripts/test-*hackathon*.cjs'
+      - 'scripts/test-event-compatibility.cjs'
+      - 'scripts/*mission20*hotfix*.cjs'
+      - 'qa/fixtures/mission20-hotfix-browser.jsx'
+permissions:
+  contents: read
+concurrency:
+  group: mission20-discovery-hotfix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  hotfix-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - name: Strict scoped lint and unchanged legacy diagnostic comparison
+        run: node scripts/lint-mission20-discovery-hotfix.cjs
+      - name: Relevant discovery, visibility, membership and navigation regressions
+        run: >-
+          node --test --test-concurrency=1 scripts/test-mission20-discovery-hotfix.cjs
+          scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs
+          scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs
+          scripts/test-public-hackathon-metadata.cjs scripts/test-event-compatibility.cjs
+          scripts/test-rack-conversion-funnel.cjs
+      - name: Verify outbound application request guard
+        run: node qa/test-rack-network-guard.cjs
+      - name: Guest and authenticated browser checks at 390, 768 and 1440px
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs
+      - name: Production build with synthetic database and offline fonts
+        run: node qa/rack-qualification.cjs build
+      - name: Exact existing Rack browser journey
+        run: node qa/rack-qualification.cjs funnel-browser
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: mission20-discovery-hotfix-browser-${{ github.event.pull_request.head.sha }}
+          path: |
+            scratch/hotfix-browser/
+            scratch/rack-funnel/
+          retention-days: 7

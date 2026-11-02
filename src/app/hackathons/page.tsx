@@ -12,6 +12,7 @@ import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type Browsi
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
 
+import { registrationLabel } from "@/lib/hackathons/lifecycle";
 import { cn } from "@/lib/utils";
 import { discoverEvents, readDiscoverySettings, discoveryQuery, eventState, eventDate, eventFormat,
   eventPlatform, knownLocation, eventTopics, listedTags, plainEventText, prizeLabel, discoveryReason,
@@ -196,6 +197,7 @@ function HackathonRow({
             <span className="text-ink-3 truncate">{listedTags(h.tags).slice(0, 3).join(" · ")}{listedTags(h.tags).length > 3 && ` · +${listedTags(h.tags).length - 3}`}</span>
           </>}
         </div>
+        <p className="mt-2 text-[13px] font-medium text-ink-2">{registrationLabel(h, now)}</p>
         <p className="mt-1 text-[12.5px] text-ink-3">{deadline === null ? "Registration deadline not listed · check the organizer site" : `${now >= deadline ? "Registration deadline passed" : "Registration deadline"}: ${formatDateRange(h.registration_end!, null)}`}</p>
         {reason && <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-3"><Target className="size-3 shrink-0" aria-hidden />{reason}</p>}
       </div>
@@ -351,8 +353,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
   const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  const upcomingCount = hackathons.filter(h => eventState(h, now) === "upcoming").length;
-  const ongoingCount = hackathons.filter(h => eventState(h, now) === "ongoing").length;
+  const upcomingCount = discoverEvents(hackathons, { ...settings, tab: "upcoming" }, userSkills, savedIds, now).length;
+  const ongoingCount = discoverEvents(hackathons, { ...settings, tab: "ongoing" }, userSkills, savedIds, now).length;
   const unknownCount = hackathons.filter(h => eventState(h, now) === "unknown").length;
   const defaultSort = activeTab === "recommended" ? "relevant" : "date";
   const activeFilterCount = [search.trim(), modeFilter, platformFilter, settings.topic, settings.from, settings.to,
@@ -404,8 +406,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     <div><FieldLabel htmlFor={`hk-to-${suffix}`}>Starts by</FieldLabel><input id={`hk-to-${suffix}`} type="date" value={settings.to} onChange={e => updateSettings({ to: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
     <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><DiscoveryDropdown id={`hk-size-${suffix}`} label="Participation" value={settings.participation} onChange={participation => updateSettings({ participation })}
         options={[{ value: "", label: "Any team size" }, { value: "solo", label: "Solo allowed (listed)" }, { value: "team", label: "Teams allowed (listed)" }]} /></div>
-    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration deadline</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration deadline" value={settings.registration} onChange={registration => updateSettings({ registration })}
-        options={[{ value: "", label: "Any / unknown" }, { value: "not-closed", label: "Exclude known passed deadlines" }, { value: "recorded", label: "Deadline listed" }]} /></div>
+    <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration availability</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration availability" value={settings.registration} onChange={registration => updateSettings({ registration })}
+        options={[{ value: "", label: "Default for this view" }, { value: "open", label: "Registration confirmed open" }, { value: "closed", label: "Registration closed" }, { value: "unknown", label: "Availability unverified" }, { value: "not-yet-open", label: "Not yet open" }, { value: "all", label: "Include closed registrations" }, { value: "not-closed", label: "Exclude confirmed closed" }, { value: "recorded", label: "Deadline listed (including closed)" }]} /></div>
   </>;
 
   const filterGroups = (

@@ -1,0 +1,189 @@
+{
+  "status": "QUALIFIED_LOCALLY_PENDING_LINUX_CI_AND_INDEPENDENT_REVIEW",
+  "base": "17b78d031e0cc4ee5ace15ab92ca8039e00a4413",
+  "branch": "hotfix/mission20-discovery-accuracy",
+  "taskInventory": [
+    ".github/workflows/mission20-discovery-hotfix.yml",
+    "docs/qa/mission20-discovery-hotfix/README.md",
+    "docs/qa/mission20-discovery-hotfix/VERIFICATION.json",
+    "qa/fixtures/mission20-hotfix-browser.jsx",
+    "scripts/lint-mission20-discovery-hotfix.cjs",
+    "scripts/test-event-compatibility.cjs",
+    "scripts/test-hackathon-discovery-page.cjs",
+    "scripts/test-hackathon-discovery.cjs",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs",
+    "scripts/test-mission20-discovery-hotfix.cjs",
+    "scripts/test-public-hackathon-browsing.cjs",
+    "scripts/test-public-hackathon-data.cjs",
+    "src/app/hackathons/[id]/page.tsx",
+    "src/app/hackathons/page.tsx",
+    "src/components/hackathons/PublicHackathonDetail.tsx",
+    "src/lib/getLandingData.ts",
+    "src/lib/hackathons/discovery.ts",
+    "src/lib/hackathons/lifecycle.ts",
+    "src/lib/hackathons/publicBrowsing.ts"
+  ],
+  "sourceSha256": {
+    ".github/workflows/mission20-discovery-hotfix.yml": "0c487ec414c4a89fbc03880a19ce45b31afe59fc50dd86077f4a57b44335184f",
+    "qa/fixtures/mission20-hotfix-browser.jsx": "6ec15e249acc9fa83d329b65ffe6e60f0141335c3c0dbbc9fda09492eeb722bb",
+    "scripts/lint-mission20-discovery-hotfix.cjs": "3f7858b492067df10330cf922d268723cd3f54fd60b5d3235be744c7d21b933d",
+    "scripts/test-event-compatibility.cjs": "c22da8ad645bf21a4ecd7476ab40b80d50b42d705a3e923cf9bab2f27a065a6a",
+    "scripts/test-hackathon-discovery-page.cjs": "5b616c60140b23f91fac4d26dd91d89a819b4a306e138f2909e2d2fca8f913cb",
+    "scripts/test-hackathon-discovery.cjs": "df31989c8320bb5538c18415de875a9ca9dba907a9ce7aa8b8d08f6034abf383",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": "e1e0f94434eb1623396803f94a6d87d69865775bd73abaf264bc22de6e502134",
+    "scripts/test-mission20-discovery-hotfix.cjs": "f909f54c410a8c8b6612c9f3e0b9735f38644445035eb564e8b9cdbd780a22cb",
+    "scripts/test-public-hackathon-browsing.cjs": "4c5d0f65dcc7ba45507e4e97683829f723cb6649556c92748b9b22e26e31bc09",
+    "scripts/test-public-hackathon-data.cjs": "8beafa7472f31088a37a960510e033f84744766e65876405542940348ee32491",
+    "src/app/hackathons/[id]/page.tsx": "3cbaa581462eadf26e2c0c8da5669ebe80c4dba687b8316d162b00d433fc5043",
+    "src/app/hackathons/page.tsx": "2a3e08a4ddb177242b9f490fcbbc26c94b0adfe82081f061fb8b2c3abe58caea",
+    "src/components/hackathons/PublicHackathonDetail.tsx": "efd0f230bc663c5111517d4cb4c7ed3a8a59ada286b56007a40aae79ec6a43a3",
+    "src/lib/getLandingData.ts": "c25e5ce74e830aa0c321b6d2b6db39d4b56578e2ef671e22daf1c434ef05c8ca",
+    "src/lib/hackathons/discovery.ts": "602f8267e6b92488073071ca31f758423d2c7879c2401fbd5a7903b1dee95509",
+    "src/lib/hackathons/lifecycle.ts": "81765ee36bc35f5710d681298c2f039e3da9695d5ce464d4523283d556dec500",
+    "src/lib/hackathons/publicBrowsing.ts": "e67287cc38968c2d30648df76eb4e115c1ddada86f8919bf13b5dac325ef442f"
+  },
+  "checks": {
+    "application": {
+      "passed": 273,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "6524998d0075b77b8b19715264385c44a83055bae9388e2e6e8e40b933d9f419"
+    },
+    "browser": {
+      "viewportJourneys": 3,
+      "widths": [
+        390,
+        768,
+        1440
+      ],
+      "roles": [
+        "guest",
+        "member"
+      ],
+      "failed": 0,
+      "skipped": 0,
+      "syntheticOnly": true,
+      "mutations": 0,
+      "logSha256": "a115d247338930fe34ee464724dcb88f14906de816558f8c120cf6bdef3b3747"
+    },
+    "rackBrowser": {
+      "passed": 32,
+      "failed": 0,
+      "mutations": 0,
+      "unchangedAssertions": true,
+      "logSha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+    },
+    "typeScript": "PASS",
+    "scopedLint": {
+      "newErrors": 0,
+      "newWarnings": 0,
+      "legacyDetailBaselineErrors": 5,
+      "legacyDetailBaselineWarnings": 5,
+      "unchangedDiagnostics": true,
+      "allOtherModifiedTestsAndFixture": "PASS"
+    },
+    "productionBuild": {
+      "status": "PASS",
+      "syntheticReads": 4,
+      "mutations": 0,
+      "logSha256": "4b1e8f83f2c41a5dd5da6e623a8c7de0637d37198fbd94e1d6e141b0ae3bb8ae"
+    }
+  },
+  "screenshots": {
+    "directory": "scratch/hotfix-browser (ignored, CI artifact)",
+    "visuallyInspectedWidths": [
+      390,
+      768,
+      1440
+    ],
+    "files": [
+      {
+        "file": "guest-closed-detail-1440.png",
+        "sha256": "2fc77a0cb4d2a638d9b934618390a3a0c9a7c4b0ea9273a16b5194abe1ec8600"
+      },
+      {
+        "file": "guest-closed-detail-390.png",
+        "sha256": "0e070d938f552668ffc2b45c68e16cc2ee6395f7017301561f90e1ee9942ce6e"
+      },
+      {
+        "file": "guest-closed-detail-768.png",
+        "sha256": "084f00e949046c6fc1665539504512fcb05eb44f70208910defa681136ba5a7a"
+      },
+      {
+        "file": "guest-discovery-1440.png",
+        "sha256": "c6777095dafe434eb69294bc7c1d19dbc3128decd5a23e834e22f63945c4fcd5"
+      },
+      {
+        "file": "guest-discovery-390.png",
+        "sha256": "879ecff325a3bbe16bf21a8174f00f8a9f7f9d2c230b7f678e6946954eb01d8c"
+      },
+      {
+        "file": "guest-discovery-768.png",
+        "sha256": "51f138e38c14b8ac13e5584bad7aff448ecadc8a6f1bf188fd09b6ec96e8031c"
+      },
+      {
+        "file": "member-closed-detail-1440.png",
+        "sha256": "156383170f55a989e9f349dfb648d476af702e796b9268e33856e2933e381ded"
+      },
+      {
+        "file": "member-closed-detail-390.png",
+        "sha256": "68f88b36c1f86d58f73330dbfaf9dcbdaa659ca64230a5736a8f8faf57106395"
+      },
+      {
+        "file": "member-closed-detail-768.png",
+        "sha256": "e1d500060284a4882cef6f8bba5a867b7174bd5442c4be2d43ae7ebe31a7076a"
+      },
+      {
+        "file": "member-discovery-1440.png",
+        "sha256": "00f57ff7b70103db9bcfbf3be55c4dbf1b354960b960f3dc6a659c79a7988ba6"
+      },
+      {
+        "file": "member-discovery-390.png",
+        "sha256": "0e92ee0c050bb388aca0b4013a15d9e067a4642dceeb967c0d667747eaf9ee44"
+      },
+      {
+        "file": "member-discovery-768.png",
+        "sha256": "ee2d8241910648e128e957eb7f8133e97fd61df39f0297168a18beada9eb73f0"
+      }
+    ]
+  },
+  "compatibility": {
+    "migrationRequired": false,
+    "newRpcRequired": false,
+    "existingProjectionAdditions": [
+      "hackathons.registration_start",
+      "hackathons.registration_status"
+    ],
+    "currentMainSchemaTypesVerified": true,
+    "productionConnectionPerformed": false,
+    "publicApprovalAndArchiveFiltersPreserved": true,
+    "communityAndRegistrationWritersUnchanged": true,
+    "privateAuditReadOrCopied": false
+  },
+  "unchangedStack": [
+    {
+      "pr": 92,
+      "head": "e2e3643fae9643f92d91cc0e271955449536054a"
+    },
+    {
+      "pr": 93,
+      "head": "541ed465e7acfbbc0aa258d7712b97b6238d27ab"
+    },
+    {
+      "pr": 96,
+      "head": "59db5271e7bd187eb00c06a7708d3bc836b3520e"
+    }
+  ],
+  "limitations": [
+    "External provider availability is not independently verified; stale or missing metadata remains a source limitation.",
+    "Existing display-clock refresh can lag a cutoff by up to 60 seconds; fresh loads classify immediately.",
+    "Landing still filters only its existing eight candidates and may display fewer cards.",
+    "No ingestion repair, backend admission security boundary, migration, new privilege or native API is part of this hotfix.",
+    "No hosted/live-data acceptance, merge or deployment performed."
+  ],
+  "ci": {
+    "statusAtPublication": "PENDING",
+    "rule": "Record actual final current-head job/run results in the new Draft PR; do not infer workflow success."
+  },
+  "recommendation": "GO for standalone migration-free hotfix after green current-head CI and independent founder review; no automatic merge/deployment authorization."
+}

@@ -1,7 +1,9 @@
+import { eventDate, eventState, registrationState } from "./lifecycle";
+export { eventDate, eventState } from "./lifecycle";
 /** Deterministic discovery from listed event metadata; no inferred eligibility or exchange rates. */
 export type DiscoveryEvent = {
   id: string; name: string; description: string | null; tags: string[] | null;
-  start_date: string | null; end_date: string | null; registration_end?: string | null;
+  start_date: string | null; end_date: string | null; registration_end?: string | null; registration_start?: string | null; registration_status?: string | null;
   created_at?: string | null; location: string | null; mode: string | null;
   prize_pool: string | null; currency?: string | null; website_url: string | null;
   type: string | null; organizer_id?: string | null; college?: string | null;
@@ -29,24 +31,6 @@ export function plainEventText(value: string | null | undefined): string {
     entity => ({ '&nbsp;': ' ', '&amp;': '&', '&quot;': '"', '&lt;': '<', '&gt;': '>', '&mdash;': '—', '&ndash;': '–',
       '&rsquo;': "'", '&lsquo;': "'", '&ldquo;': '"', '&rdquo;': '"', '&hellip;': '...', '&middot;': '·', '&bull;': '•' }[entity] || entity))
     .replace(/\s+/g, " ").trim();
-}
-/** Calendar-only dates cover the full day in India; timestamps retain their explicit timezone. */
-export function eventDate(value: string | null | undefined, endOfDay = false): number | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(value)) return null;
-  const day = value.slice(0, 10), check = new Date(`${day}T00:00:00Z`);
-  if (!Number.isFinite(check.getTime()) || check.toISOString().slice(0, 10) !== day) return null;
-  if (value.length === 10) return Date.parse(`${day}T00:00:00+05:30`) + (endOfDay ? 86400000 : 0);
-  if (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) return null;
-  const time = Date.parse(value);
-  return Number.isFinite(time) ? time : null;
-}
-export function eventState(event: Pick<DiscoveryEvent, "start_date" | "end_date">, now: number): EventState {
-  const start = eventDate(event.start_date), end = eventDate(event.end_date, true);
-  if ((event.start_date && start === null) || (event.end_date && end === null) || (start !== null && end !== null && end <= start)) return "unknown";
-  if (end !== null && now >= end) return "ended";
-  if (start !== null && now < start) return "upcoming";
-  if (start !== null && end !== null) return "ongoing";
-  return "unknown";
 }
 export function eventFormat(mode: string | null): string {
   const value = norm(mode || "");
@@ -118,7 +102,7 @@ export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): 
     platform: choice("platform", ["native", "unstop", "devfolio", "hack2skill", "other"]), topic: norm(get("topic")),
     sort: (sorts.includes(requestedSort) ? requestedSort : tab === "recommended" ? "relevant" : "date") as DiscoverySort,
     from: date("from"), to: date("to"), participation: choice("participation", ["solo", "team"]),
-    registration: choice("registration", ["not-closed", "recorded"]) };
+    registration: choice("registration", ["not-closed", "recorded", "open", "closed", "unknown", "not-yet-open", "all"]) };
 }
 /** Preserve unrelated query values while writing validated, shareable discovery settings. */
 export function discoveryQuery(params: URLSearchParams, patch: Partial<DiscoverySettings>): string {
@@ -157,9 +141,13 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
       if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || !min || !max || min < 1 || max < min) return false;
       if (settings.participation === "solo" ? min !== 1 : max < 2) return false;
     }
+    const registration = registrationState(event, now);
+    const active = !["saved", "past"].includes(settings.tab);
+    if (active && !settings.registration && registration === "closed") return false;
+    if (["open", "closed", "unknown", "not-yet-open"].includes(settings.registration) && registration !== settings.registration) return false;
     const deadline = eventDate(event.registration_end, true);
     if (settings.registration === "recorded" && deadline === null) return false;
-    if (settings.registration === "not-closed" && deadline !== null && now >= deadline) return false;
+    if (settings.registration === "not-closed" && registration === "closed") return false;
     return true;
   });
   const compareId = (a: DiscoveryEvent, b: DiscoveryEvent) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -170,7 +158,10 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
     return group(a) - group(b) || knownCompare(eventDate(a.start_date), eventDate(b.start_date));
   };
   return selected.sort((a, b) => {
-    let comparison = 0;
+    const active = !["saved", "past"].includes(settings.tab);
+    const rank = (event: DiscoveryEvent) => ({ open: 0, unknown: 1, "not-yet-open": 2, closed: 3 }[registrationState(event, now)]);
+    let comparison = active && settings.registration !== "recorded" ? rank(a) - rank(b) : 0;
+    if (comparison) return comparison;
     if (settings.sort === "relevant") {
       const closed = (event: DiscoveryEvent) => { const deadline = eventDate(event.registration_end, true); return deadline !== null && now >= deadline ? 1 : 0; };
       comparison = closed(a) - closed(b) || skillEvidence(b, skills).length - skillEvidence(a, skills).length;
