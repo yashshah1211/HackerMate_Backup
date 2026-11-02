@@ -42,7 +42,7 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  assert.throws(()=>db.sql(migration),/ledger differs/);assert.equal(db.sql("SELECT count(*) FROM supabase_migrations.schema_migrations"),'148');
  pass('single-file install records exact version/name/DDL atomically; replay fails closed');
  const identity={provider:'unstop',provider_id:'1001',canonical_url:'https://unstop.com/hackathons/synthetic-1001'},attempt=uid(101);
- function observation(i=identity){const now=new Date();return {version:1,...i,checked_at:now.toISOString(),expires_at:new Date(+now+26*3600000).toISOString(),check_status:'ok',category:'hackathon',event_status:'upcoming',source_hash:'a'.repeat(64),parser_version:'fixture',facts:{name:'Synthetic source hackathon',description:'Original factual summary.',website_url:i.canonical_url,start_date:'2027-01-01T00:00:00+05:30',end_date:'2027-01-02T12:00:00+05:30',registration_start:now.toISOString(),registration_end:'2027-01-01T00:00:00+05:30',registration_status:'open',min_team_size:1,max_team_size:1,rounds_info:[],college:null,location:null,mode:'online',prize_pool:null,currency:null,eligibility:null},issues:[],evidence:{dates:'published fields'}};}
+ function observation(i=identity){const now=new Date();return {version:1,...i,checked_at:now.toISOString(),expires_at:new Date(+now+26*3600000).toISOString(),check_status:'ok',category:'hackathon',event_status:'upcoming',source_hash:'a'.repeat(64),parser_version:'fixture',facts:{name:'Synthetic source hackathon',description:'Original factual summary.',website_url:i.canonical_url,start_date:'2027-01-01T00:00:00+05:30',end_date:'2027-01-02T12:00:00+05:30',registration_start:now.toISOString(),registration_end:'2027-01-01T00:00:00+05:30',registration_status:'open',min_team_size:1,max_team_size:1,rounds_info:[],college:null,location:null,mode:'online',prize_pool:null,currency:null,eligibility:null},issues:[],evidence:{dates:'published fields',event_date_basis:'published_hackathon_build_stage'}};}
  function patch(o){return {...o.facts,start_date:'2027-01-01',end_date:'2027-01-02',eligibility:undefined,rounds_count:null,tags:['unstop','Hackathon']};}
  function apply({id=null,i=identity,o=observation(i),p=patch(o),expected=null,a=attempt,failure=null,adopt=null,role='service_role'}={}){return JSON.parse(db.sql(`SET ROLE ${role}; SELECT public.apply_hackathon_source_check(${id?"'"+id+"'":'NULL'},${q(i)},${o?q(o):'NULL'},${q(p)},${expected?q(expected):'NULL'},'${a}',${failure?"'"+failure+"'":'NULL'},${adopt?"ARRAY["+adopt.map(s=>"'"+s+"'").join(',')+"]":'NULL'});`));}
  assert.equal(db.sql("SELECT has_function_privilege('authenticated','public.apply_hackathon_source_check(uuid,jsonb,jsonb,jsonb,jsonb,uuid,text,text[])','execute') OR has_function_privilege('anon','public.begin_hackathon_source_check(uuid,uuid)','execute')"),'f');pass('anonymous/authenticated cannot execute source writers');
@@ -97,13 +97,14 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
   }catch(e){return Response.json({message:e.message,code:'FIXTURE_SQL'},{status:400});}
  }}});
  const futureStart=new Date(Date.now()+2*86400000).toISOString(),futureEnd=new Date(Date.now()+3*86400000).toISOString(),futureDeadline=new Date(Date.now()+86400000).toISOString();
+ let verifiedBuildWindow=true;
  const fetchSource=async input=>{const u=new URL(input);
   if(u.pathname==='/robots.txt')return new Response('User-agent: *\nAllow: /');
   if(u.pathname.endsWith('search-result'))return Response.json({data:{data:u.searchParams.get('page')==='1'&&u.searchParams.get('oppstatus')==='open'?[{id:9876,public_url:'hackathons/synthetic-9876'}]:[]}});
   if(u.hostname==='devfolio.co')return new Response('<script id="__NEXT_DATA__">'+JSON.stringify({props:{pageProps:{dehydratedState:{queries:[{queryKey:'fetchAllHackathonTypes',state:{data:{open_hackathons:[],upcoming_hackathons:[]}}}]}}}})+'</script>');
   if(u.pathname.endsWith('/event/list'))return Response.json({data:{flagshipEvents:[],communityEvents:[]}});
   const raw=JSON.parse(JSON.stringify(require('../qa/fixtures/aggregator/provider-facts.cjs').unstop));
-  raw.data.competition.id=Number(u.pathname.split('/').at(-1));raw.data.competition.start_date=futureStart;raw.data.competition.end_date=futureEnd;
+  raw.data.competition.id=Number(u.pathname.split('/').at(-1));raw.data.competition.start_date=futureStart;raw.data.competition.end_date=futureEnd;raw.data.competition.rounds=verifiedBuildWindow?[require('../qa/fixtures/aggregator/provider-facts.cjs').buildStage(futureStart,futureEnd)]:[];
   raw.data.competition.regnRequirements={start_regn_dt:'2026-01-01T00:00:00+05:30',end_regn_dt:futureDeadline,min_team_size:1,max_team_size:2};return Response.json(raw);
  };
  const syncOptions=()=>({dryRun:false,transport:new SourceTransport(fetchSource,240000,0)});
@@ -114,6 +115,11 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  assert.equal(db.sql("SELECT count(*) FROM hackathons WHERE source_metadata->>'provider_id'='9876'"),'1');
  const detail=await loadPublicEvent(api,actual.id);assert.equal(detail.id,actual.id);assert.equal(detail.start_date,futureStart);assert.equal(detail.registration_end,futureDeadline);
  pass('complete actual parser/SDK/orchestrator/PG17.6 writer/public detail chain creates then refreshes one source identity');
+ verifiedBuildWindow=false;const unknownSchedule=await synchronizeCatalog(api,syncOptions());assert(unknownSchedule.results.some(r=>r.id===actual.id&&r.status==='refreshed'));
+ const unknownDetail=await loadPublicEvent(api,actual.id);assert.equal(unknownDetail.start_date,null);assert.equal(unknownDetail.end_date,null);
+ assert.equal(activeOpportunity(unknownDetail,Date.now()),true);assert.equal(registrationState(unknownDetail,Date.now()),'open');
+ assert.equal(db.sql(`SELECT start_date IS NOT NULL AND end_date IS NOT NULL FROM hackathons WHERE id='${actual.id}'`),'t');
+ pass('installed v1 metadata supports unknown event dates without erasing existing DATE columns or losing confirmed open registration');
  // Application rollback compatibility, not a live Vercel routing/rollback claim.
  const {execFileSync}=require('node:child_process'),vm=require('node:vm'),ts=require('typescript');
  assert.equal(execFileSync(process.execPath,['-e','process.exit(0)'],{encoding:'utf8'}),'');pass('proposed Ignored Build Step command returns documented skip exit code locally');

@@ -1,6 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Read-only public-source reconciliation; no database client or credentials. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {harness}=require('./ppt-vision-harness.cjs');
+const offline=harness({}, {URLSearchParams}).load('src/lib/hackathons/synchronize.ts');
+function reinterpretRetained(row,result){
+ if(!result.evidence)return result;
+ const current=offline.reconciliation(row,result.evidence);
+ return {...result,original_classification:result.original_classification||result.classification,
+  classification:current.classification,changes:current.changes,
+  retainedInterpretation:'Original observation/check time retained; classification and patch re-evaluated under current evidence rules, not freshly verified.'};
+}
 async function main(){
  const args=process.argv.slice(2),get=k=>args[args.indexOf(k)+1];
  if(!args.includes('--snapshot')||!args.includes('--output')||!args.includes('--allow-public-fetch'))throw Error('Requires --snapshot FILE --output FILE --allow-public-fetch; never connects to a database.');
@@ -15,7 +23,7 @@ async function main(){
  const retained=new Map((prior?.results||[]).filter(r=>resumeKey==='--recheck-status-from'?!r.evidence?.issues?.includes('not_publicly_live'):!['registration_open','ongoing_registration_closed','ongoing'].includes(r.classification)).map(r=>[r.id,r]));
  const results=[],startedAt=new Date().toISOString();
  for(let i=0;i<rows.length;i++){
-  const row=rows[i];if(retained.has(row.id)){results.push(retained.get(row.id));continue;}
+  const row=rows[i];if(retained.has(row.id)){results.push(reinterpretRetained(row,retained.get(row.id)));continue;}
   const identity=identifySource(row.website_url);
   if(!identity){results.push({id:row.id,name:row.name,status:'unresolved',classification:'unresolved',reason:'unsupported_source_identity',changes:{},requires_adoption:true});continue;}
   if(transport.remaining()<15000){await new Promise(r=>setTimeout(r,1000));transport=new SourceTransport(fetch);}
@@ -31,4 +39,4 @@ async function main(){
  console.log(JSON.stringify({output,counts:report.counts,records:rows.length,productionWrites:0,emails:0}));
 }
 if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});
-module.exports={main};
+module.exports={main,reinterpretRetained};

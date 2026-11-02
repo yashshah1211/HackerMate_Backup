@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identifySource, parseDevfolio, parseHack2skill, parseUnstop, type Observation, type SourceIdentity } from "./providers";
-import { object, sourceMetadata, text } from "./source";
+import { hasEventScheduleEvidence, object, sourceMetadata, text } from "./source";
 import { discoverSources, SourceTransport } from "./sourceTransport";
 import { eventDate, listedEventState, registrationState } from "./lifecycle";
 
@@ -26,12 +26,13 @@ export function sourcePatch(observation: Observation): Record<string, unknown> {
   const f = observation.facts, patch: Record<string, unknown> = {};
   for (const field of fields) {
     if (field === "tags" || field === "rounds_count") continue;
+    if ((field === "start_date" || field === "end_date") && !hasEventScheduleEvidence(observation)) continue;
     const value = object(f)[field];
     if (value === null || value === undefined || field === "registration_status" && value === "unknown" || field === "rounds_info" && !f.rounds_info.length) continue;
     patch[field] = value;
   }
-  if (f.start_date) patch.start_date = calendar(f.start_date);
-  if (f.end_date) patch.end_date = calendar(f.end_date);
+  if (f.start_date && hasEventScheduleEvidence(observation)) patch.start_date = calendar(f.start_date);
+  if (f.end_date && hasEventScheduleEvidence(observation)) patch.end_date = calendar(f.end_date);
   if (f.registration_end) patch.registration_end = deadline(f.registration_end);
   if (f.registration_start?.length === 10) patch.registration_start = new Date(f.registration_start + "T00:00:00+05:30").toISOString();
   if (f.rounds_info.length) patch.rounds_count = f.rounds_info.length;
@@ -44,7 +45,7 @@ export function reconciliation(record: CatalogRecord | undefined, observation: O
     const before = record?.[key] ?? null;
     if (JSON.stringify(before) !== JSON.stringify(value)) changes[key] = { before: key === "description" ? "[existing text; protected pending review]" : before, after: value };
   }
-  const state = observation.event_status, registration = observation.facts.registration_status;
+  const state = hasEventScheduleEvidence(observation) ? observation.event_status : "unknown", registration = observation.facts.registration_status;
   const classification = observation.check_status !== "ok" ? "unresolved" : state === "ended" ? "confirmed_ended_propose_suppression" : observation.category !== "hackathon" ? "unresolved"
     : registration === "open" ? "registration_open" : state === "ongoing" ? registration === "closed" ? "ongoing_registration_closed" : "ongoing" : "unresolved";
   return { id: record?.id || null, name: observation.facts.name, provider: observation.provider, status: "dry_run", classification, changes,
@@ -99,9 +100,9 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
   // Give confirmed current/near-term hackathons priority, then rotate the remaining backlog by check time.
   // Cached facts only order checks; they never establish fresh admission without a successful recheck.
   const relevant = (row: CatalogRecord) => { const m = sourceMetadata(row.source_metadata);
-    if (!m || m.protected_fields?.length || m.category !== "hackathon" || m.check_status !== "ok" || m.event_status === "ended") return false;
-    const facts = m.facts, clock = Date.now(), state = listedEventState(facts, clock);
-    if (state === "ended") return false;
+    if (!m || m.protected_fields?.length || m.category !== "hackathon" || m.check_status !== "ok") return false;
+    const facts = m.facts, clock = Date.now(), verifiedSchedule = hasEventScheduleEvidence(m), state = verifiedSchedule ? listedEventState(facts, clock) : "unknown";
+    if (verifiedSchedule && (m.event_status === "ended" || state === "ended")) return false;
     return state === "ongoing" || registrationState({ ...facts, type: "native" }, clock) === "open"
       || (eventDate(facts.registration_start) ?? 0) > clock && (eventDate(facts.registration_start) ?? Infinity) < clock + 86400000;
   };

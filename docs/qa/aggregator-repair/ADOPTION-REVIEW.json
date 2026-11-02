@@ -2,22 +2,21 @@
   "mode": "REVIEW_ONLY_NOT_EXECUTABLE",
   "sourceReport": "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
   "sourceReportSha256": "0a0c99b06493ba19736e14f0446133ae04a826fdafbb3ecf9ead4250cdebc603",
-  "applicationBaseline": "d075c84372acc3f84ad93cbafe33736aded4fdd8",
+  "reassessment": "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json",
+  "supersedes": "The previous 116-candidate shortlist relied partly on unsupported ongoing claims.",
   "counts": {
-    "historicalCandidates": 116,
+    "historicalCandidates": 84,
     "approvedForWrite": 0,
-    "unresolvedHeld": 86,
-    "endedNotSelected": 208,
-    "totalPublicPlanningInput": 410
+    "originalUnresolvedHeld": 86,
+    "originalEndedClaims": 208,
+    "originalActiveClaims": 116
   },
   "rules": [
-    "Not current-active proof: every candidate requires a new provider check immediately before approval and apply.",
-    "No new database copy/snapshot; entries reference existing report proposals without copying historical row values.",
-    "Confirm original UUID, current controls, partner/organizer protection and per-field editorial ownership.",
-    "Keep complete expected row only in the approved transaction context; do not export a database snapshot.",
-    "Approve only individually reviewed fields; do not auto-approve all proposed fields.",
-    "Fresh source evidence must be <=5 minutes old at apply; changed facts require renewed approval.",
-    "No automatic executor, backfill, outreach or approval is enabled."
+    "Fresh category, actual schedule uncertainty, registration, cancellation/completion and mode/team evidence must be reviewed before approval.",
+    "No target count; no automatic adoption. Retain original UUIDs, editorial controls, registrations, teams, Saved and partner links.",
+    "Unstop start_date/end_date proposals from the historical report are withdrawn, not approved for writing or clearing.",
+    "All candidates require complete current in-memory expected fields and individual field ownership/approval; never replay the historical report.",
+    "Apply requires separately authorized server context and evidence checked within five minutes. No database snapshot/export is created."
   ],
   "candidates": [
     {
@@ -28,6 +27,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:35:57.838Z",
       "reportSourceHash": "1a5efd7ab5a9439357595158d07aeebff17c1757bb40a988cb7b2b4f370deb9e",
+      "actualEventSchedule": "REQUIRES_FRESH_PROVIDER_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -53,69 +53,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:35:58.338Z",
       "reportSourceHash": "d9454b19f9bb196eb4cd47e74c1bff11cea6c2105cd125f9e5734942735f7f13",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "01fc4147-5daf-4d62-b829-e093e12e6b74",
-      "provider": "unstop",
-      "provider_id": "1768100",
-      "canonical_url": "https://unstop.com/hackathons/ooty-hacks-hackhere-1768100",
-      "reportClassification": "registration_open",
-      "reportCheckedAt": "2026-11-02T13:35:59.280Z",
-      "reportSourceHash": "c0a5b8a2d7e01ff14efeaf7b042a2bca4caf6cbf1b943731528adc8b4582f277",
-      "proposedFieldsForReview": [
-        "description",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "mode",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "02d75b2d-d46e-43c2-b893-8ec1fd29e808",
-      "provider": "unstop",
-      "provider_id": "1776773",
-      "canonical_url": "https://unstop.com/hackathons/portfolio-design-hackathon-2026-build-deploy-showcase-your-creative-skillinf-1776773",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:00.260Z",
-      "reportSourceHash": "9ee5ee85fd8cb38e7db719a7797fa1642a57815483008a131871fbb5f0b41bd3",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "max_team_size",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -137,38 +83,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:01.414Z",
       "reportSourceHash": "9fce6912e165f9c8aa1b18cfddfb60fef2e12b356ee2ccaebb947653ba7f32e7",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "max_team_size",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "0491fde4-7a08-46d9-bfa7-0d91f34ecb7b",
-      "provider": "unstop",
-      "provider_id": "1769004",
-      "canonical_url": "https://unstop.com/hackathons/kannada-digital-innovation-hackathon-2026-the-national-institute-of-engineering-karnataka-1769004",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:02.497Z",
-      "reportSourceHash": "dde6fc7c63b7671088b11eefa30c1fe0971d8f149d4f53e42e647753fc0239aa",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -195,42 +112,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:03.318Z",
       "reportSourceHash": "225393f38c3856fcb90577597bbaef047651227e4a6443a29795ba60f72d4afa",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "086d54e9-b736-454e-b6ce-d998c5613cbd",
-      "provider": "unstop",
-      "provider_id": "1765224",
-      "canonical_url": "https://unstop.com/hackathons/indiathon-powered-by-e-cell-iiit-bhubaneswar-co-powered-by-learnapart-international-institute-of-information--1765224",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:04.459Z",
-      "reportSourceHash": "8ba9328abd2c11edceece8f9030af14e1a2786283716c1726f6f098755f3fd7f",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -252,10 +142,10 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:05.516Z",
       "reportSourceHash": "0224358bdec5b3952344f482bf5890194eebc35c4c332fe52f0a5a76b3eb815c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -281,6 +171,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:06.361Z",
       "reportSourceHash": "4a0c196d458d75eecb102bf46c0c59ae110ef139498e1138c49ff69031a48a8c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
@@ -312,9 +203,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:07.432Z",
       "reportSourceHash": "d769d22a644da5a2e01d3eafb24101848289ad818793d527bed69e5d5d638684",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -342,9 +233,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:08.345Z",
       "reportSourceHash": "48d9c33a9ccfe23e1fb573753a143bb7e165b37d22c7a4634fa45a0d25ba9889",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -371,10 +262,10 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:09.058Z",
       "reportSourceHash": "0c459b49001f20a1a1cbf349fe474328b576b4ea96fdde05ed49a4c789071e59",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -400,9 +291,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:10.292Z",
       "reportSourceHash": "b2588f8301bfc5724e1efbc152cc1675f2f93794cdb55806336676aa8dd5fe6f",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -428,6 +319,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:11.386Z",
       "reportSourceHash": "d34c2066e90be1bf7f9396d32b5b52befc2b45d0cb911e7fcfcfd7a88d8a5136",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -455,9 +347,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:12.443Z",
       "reportSourceHash": "0e9525d1e7a05e05129413a12ee662e27d7672469a99cd44a249c19b6f88292c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -482,9 +374,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:13.304Z",
       "reportSourceHash": "847391bf3b9accb64598522f8e99740823af66a909558128cbe60e5df201593f",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -512,6 +404,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:14.336Z",
       "reportSourceHash": "f6f6afb857c7cc42a268f7aefa86192eef77210966ca88d0d33c156ef76332c5",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -531,62 +424,6 @@
       "freshEvidenceVerified": false
     },
     {
-      "id": "1f0db1fe-a16f-43e9-9287-ff1048efc56f",
-      "provider": "unstop",
-      "provider_id": "1776287",
-      "canonical_url": "https://unstop.com/hackathons/zeckathon-indian-institute-of-technology-iit-patna-1776287",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:15.654Z",
-      "reportSourceHash": "1ce9c7a4c1a192a27f72ee8501018dac02f80252cfc2fdf8a538784dbc8d341a",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "21b944f8-98dd-4a2d-8e72-4029b79ceae8",
-      "provider": "unstop",
-      "provider_id": "1762774",
-      "canonical_url": "https://unstop.com/hackathons/deepfake-ml-hackathon-synergy-26-international-institute-of-information-technology-iiit-bangalore-1762774",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:16.572Z",
-      "reportSourceHash": "13c0ffff0f65ae3b5a2adc12e89a18c9f6714826dd2cceb1c584c94530a235d4",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
       "id": "280e4627-ae1a-4595-9fc5-d87aba1cf654",
       "provider": "unstop",
       "provider_id": "1763561",
@@ -594,9 +431,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:17.586Z",
       "reportSourceHash": "cf517f29a9cc6635be447a3adf8c995ca0ab5ba9bfd530913e784532bae739e0",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -623,9 +460,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:18.606Z",
       "reportSourceHash": "fbe8752d27e17f1c28bd04e23ca95032b80e0b47d05a3101f95f0c89311e86e4",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -652,9 +489,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:19.568Z",
       "reportSourceHash": "eaf6dfc4c15aa61b65011d8c38c46bea53bf8c9e55b1a57277637071adbdc678",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -681,10 +518,10 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:20.339Z",
       "reportSourceHash": "8a6c4ac7d3e1ac95a400bd33945d52a6a9a34006c73580ce03ce1f0e2d3db600",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "college",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -710,9 +547,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:21.538Z",
       "reportSourceHash": "3df58d6c7269f849e3d51f1a2a98ec0b2a35eb67ca986483a623c440f1d1aace",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -739,9 +576,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:22.422Z",
       "reportSourceHash": "68f40fd1eb1f3033ff02a47ed8b3ed4d144bf155c1db819a0b73efaf5a756c42",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -767,9 +604,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:23.416Z",
       "reportSourceHash": "a193b628531ce7b2a46eabf567df705ee395fd62a7bbf77691650b6731ba5150",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -795,9 +632,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:24.497Z",
       "reportSourceHash": "235bc63d1ca82a719c5931dce439de90670753114d48dac28a5ba90d66e15514",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -824,9 +661,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:25.693Z",
       "reportSourceHash": "51b0585872fffd4395b3f9d92a9239712a9edc26ed4ce2bb0a10015a594be736",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -851,9 +688,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:28.698Z",
       "reportSourceHash": "2d87a0b11dd1eaa7c39af38c0225ff65b51aac09f526db3ba5fad0b40d4fab4e",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -879,9 +716,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:33.338Z",
       "reportSourceHash": "3ef712c976883b4ea474948aec091169081f9c9648afc49e72d5c631f4826f11",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -907,98 +744,12 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:34.042Z",
       "reportSourceHash": "e8b6e2ee5ac4b46615e435816e355a2feea79d88bdcb389685d90e17336ef742",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
         "registration_end",
         "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "45c1eced-05ca-4a86-9076-6db5ee767588",
-      "provider": "unstop",
-      "provider_id": "1760472",
-      "canonical_url": "https://unstop.com/hackathons/codestar-30-national-level-hackathon-wecodecoders-1760472",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:41.689Z",
-      "reportSourceHash": "0947644e0988eac02f00f6ac0b6052e1e8b4614dd4bedfa08e8d78c06e4351a0",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "4733a2f6-d14d-48e1-a492-c02f52e99f8f",
-      "provider": "unstop",
-      "provider_id": "1775961",
-      "canonical_url": "https://unstop.com/hackathons/hackcelestia-international-hackathon-banasthali-vidyapith-bu-jaipur-1775961",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:42.262Z",
-      "reportSourceHash": "de0cc9b7afd4f2a2492a94923ed38ef4ddc3a68115953ecdb478831a28a97607",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "max_team_size",
-        "mode",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "48578e2f-0012-4357-b610-d6a4af17f961",
-      "provider": "unstop",
-      "provider_id": "1745762",
-      "canonical_url": "https://unstop.com/hackathons/craft-n-code-karnataka-international-institute-of-information-technology-iiit-bhubaneswar-1745762",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:43.348Z",
-      "reportSourceHash": "d908eb82b6d8d5ed3a1a21171c50856a954471150be3404e5487afea3c2393b4",
-      "proposedFieldsForReview": [
-        "description",
-        "start_date",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -1020,42 +771,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:44.258Z",
       "reportSourceHash": "68857b1c0e250b68324f5bdb1e9bcb5a0c412f876648ab384ec716e41a286a9e",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "4cc51faf-9e9f-415a-9365-98ea50413c64",
-      "provider": "unstop",
-      "provider_id": "1772304",
-      "canonical_url": "https://unstop.com/hackathons/code-conqueror-india-2026-national-hackathon-wecodecoders-1772304",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:45.281Z",
-      "reportSourceHash": "e8c6b9b2442f868fe52adf7f8e7ad893e36aae075dabe202c5d62c5c49d4ad22",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -1077,47 +801,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:46.289Z",
       "reportSourceHash": "21f661006a879c9c1b844e0fe9ef8eae240580a36f7f143d3cd7bfd7fc72f1bb",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "max_team_size",
         "mode",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "4ecca53d-2716-45b4-94fa-07bb34d1e710",
-      "provider": "unstop",
-      "provider_id": "1758795",
-      "canonical_url": "https://unstop.com/hackathons/hackathon-phase-1-qiskit-fall-fest-2026-srm-university-ap-1758795",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:47.895Z",
-      "reportSourceHash": "43671888eb70f1a48e53242723ec0128e598539309ed2124c40cf969a0c6418c",
-      "proposedFieldsForReview": [
-        "name",
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "max_team_size",
-        "mode",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -1139,11 +831,10 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:48.584Z",
       "reportSourceHash": "50ffa836b039b9aa0d2d90749a51d5bd682363ca3485cd8b5f720527a4da13f9",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "start_date",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1171,9 +862,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:49.688Z",
       "reportSourceHash": "a095ca767f7461ca849fe74eba3f696e572abf9e0b6f640cb49a13f59373cc90",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1201,9 +892,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:50.493Z",
       "reportSourceHash": "d532f89f7067717f1d22d91547f04d2de7abd504ebef648c3b6cb8d9820d5526",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1229,10 +920,10 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:51.755Z",
       "reportSourceHash": "696532f5465695b369fac60c6864afafa2a854bfc4c838bc3e6bc2d3b4e51926",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "college",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1260,9 +951,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:52.532Z",
       "reportSourceHash": "c8ada77bc243390660194778bb78b2267522994bba691af481aa57bac40413ec",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1288,9 +979,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:53.572Z",
       "reportSourceHash": "13e41042d8a7f82f81044b80a80396ae7bc8f91573f11eaa03e1db9cad8db968",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1317,41 +1008,14 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:54.485Z",
       "reportSourceHash": "c759e01cff7ca690c28db3795db0c368e814e0dfd341a3b9788073180cbd8435",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "67e37fb5-053f-4273-b35c-4c2e23c55102",
-      "provider": "unstop",
-      "provider_id": "1763003",
-      "canonical_url": "https://unstop.com/hackathons/codeverse-india-national-level-hackathon-wecodecoders-1763003",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:36:55.400Z",
-      "reportSourceHash": "f9852bfb4cb2b91278561d0c3292b8813f83777e8f08638c6d9ad22c4e56684d",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -1373,9 +1037,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:56.512Z",
       "reportSourceHash": "15d436ed57f742205646a36ce8a3554d7781591129ec414fe60187a684117e77",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1404,9 +1068,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:57.716Z",
       "reportSourceHash": "b2c5f9bb2687d29ff32f1f5de5ba14f52dc34cbbf540eb3cf8b09691baa056bb",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1434,9 +1098,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:58.378Z",
       "reportSourceHash": "69a06cebc31acfd1da69eb3bf7bb89ab449d99b38dc94cff1fe41411f9451049",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1463,41 +1127,14 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:36:59.444Z",
       "reportSourceHash": "32df291d0cfc15c5c219e7b1afa7e9e2d26c1edbfe924482be1bd5273b0e456c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "max_team_size",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "6f65e947-52b3-43f5-81b5-e3a5b43fa130",
-      "provider": "unstop",
-      "provider_id": "1764747",
-      "canonical_url": "https://unstop.com/hackathons/codenexus-india-2026-national-hackathon-wecodecoders-1764747",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:00.632Z",
-      "reportSourceHash": "31156d0799e0e2e47ff1acad88c1bebfed4f797a96490165506c591db17c8c4a",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -1519,42 +1156,13 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:01.508Z",
       "reportSourceHash": "435658b3d5b9662dc7385c71a277340d3a92523fccedf7e00e87a958a8a4918b",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "start_date",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "723149e7-7592-4d06-b4ca-396b1c0ef034",
-      "provider": "unstop",
-      "provider_id": "1771441",
-      "canonical_url": "https://unstop.com/hackathons/codequest-national-tech-hackathon-2026-dotrepo-1771441",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:02.486Z",
-      "reportSourceHash": "cb0fe44721593fc7a71a50ba1d0fbe4fb3c7920b6efd7fb8efa4e25cb8870fe6",
-      "proposedFieldsForReview": [
-        "description",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "max_team_size",
         "prize_pool",
         "rounds_info",
         "rounds_count",
@@ -1577,6 +1185,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:03.303Z",
       "reportSourceHash": "7dff8fd8924c9de6d506d930ccd08e6546cb0d5cfe4fc71c6fb9641b5e285c27",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
@@ -1604,9 +1213,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:04.540Z",
       "reportSourceHash": "f48acb359b2dc8fe7d0808331a64843a0c1e9055b12cbb6d7acf8c461d03216a",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1633,6 +1242,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:05.124Z",
       "reportSourceHash": "1002058f7ba13a1ca8498e75c900ed4097275fad1a2e1f020c0a81fa404133aa",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
@@ -1660,9 +1270,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:06.513Z",
       "reportSourceHash": "e0aa866a0f7a92b1ebafb6cef4695c2c91c75b789a3e587ee82dd10c46f265d0",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1690,45 +1300,13 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:07.545Z",
       "reportSourceHash": "8254287cf1c9e47ac8370816ad9e341e884cb28b54de0f5a56c886d4ac92485a",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "805586fd-506c-417f-b2ac-4662eac11f2e",
-      "provider": "unstop",
-      "provider_id": "1759829",
-      "canonical_url": "https://unstop.com/hackathons/devhack-2026-devhost-2026-sahyadri-open-source-community-1759829",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:08.456Z",
-      "reportSourceHash": "0ffda102cf04dd77c2e0232b6b323cc80e235321cec78889253f887ff749e6b2",
-      "proposedFieldsForReview": [
-        "name",
-        "description",
-        "college",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "mode",
         "prize_pool",
         "rounds_info",
         "rounds_count",
@@ -1751,10 +1329,10 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:09.633Z",
       "reportSourceHash": "f3720b1aba71cdc59b55da5d008eaf7923779cc5e1b2518ad592efce5e9649d7",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1782,6 +1360,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:10.634Z",
       "reportSourceHash": "843fb2e4b5f68a65e531c07af0e339f28e531d74956056c751c159e3822a7542",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -1808,9 +1387,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:11.223Z",
       "reportSourceHash": "a7927492ab68b96a1244fd18f874de97619849ae8a31433346b3cc7b07f14b61",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1838,6 +1417,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:12.524Z",
       "reportSourceHash": "6307f2181daeb2723beb832059f0de791e9209474b969142ae9b82a062dd7351",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -1861,35 +1441,6 @@
       "freshEvidenceVerified": false
     },
     {
-      "id": "8ce3d8e1-1591-4c88-8bb6-9ca7c7f5c6e0",
-      "provider": "unstop",
-      "provider_id": "1769712",
-      "canonical_url": "https://unstop.com/hackathons/ai-sansad-technical-mun-on-ai-innovation-bharati-vidyapeeths-college-of-engineering-1769712",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:13.610Z",
-      "reportSourceHash": "560a2c0b69b0069704159024eb4e737b673304461ce30382bc49aaaab556e4bc",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "mode",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
       "id": "8d8e3f05-3fa6-46bb-89ae-a3cff4d6c5e9",
       "provider": "unstop",
       "provider_id": "1772164",
@@ -1897,9 +1448,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:14.680Z",
       "reportSourceHash": "f46089d8a4b658096c9d680c1ad5a39432bc628190622f7aab9c948fe582f745",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1927,9 +1478,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:15.781Z",
       "reportSourceHash": "1b1811beea75c7ef56174604efd8d6a9f3030fa0e3aefd8ac435a857c757cc31",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -1954,6 +1505,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:16.511Z",
       "reportSourceHash": "c3c188c6e9787dc2c81b5cbea282ecccd12ea5b728d5d0a9c493902776ce39ce",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -1980,9 +1532,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:17.730Z",
       "reportSourceHash": "cdbce0c5c2bd57cfe3b21d05466a0700f004329a347996278d2ff1e352adb8a2",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2008,9 +1560,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:18.597Z",
       "reportSourceHash": "114e3dc5d0853f34c53a80ecfa372499184252b90228650adea8d4697438cfa6",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2034,9 +1586,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:19.838Z",
       "reportSourceHash": "51d3d82c7e381e856c1afd9cf9440827b0379fcc0017315636b07610c7ddd74a",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2064,41 +1616,12 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:20.562Z",
       "reportSourceHash": "ea6df04b1fb18d101ecf5bf21e3e3da7745c825bcb8bcbcb27a03afe2c554b97",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "a2e53ccc-9f90-45c0-935d-08660929038d",
-      "provider": "unstop",
-      "provider_id": "1764222",
-      "canonical_url": "https://unstop.com/hackathons/codebreaker-inderprastha-engineering-college-ipec-ghaziabad-1764222",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:21.684Z",
-      "reportSourceHash": "767e88f7e13f7bca01dc2821045cd540d60be552d486f6b93338851930500929",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2120,42 +1643,14 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:22.557Z",
       "reportSourceHash": "05079fcb0dbd0c26cf18792be888682f5e42320a22f3b2381ef19b6495bcf8bd",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "max_team_size",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "a3dc27ba-c02e-4996-b5b9-9ca2ec129351",
-      "provider": "unstop",
-      "provider_id": "1771905",
-      "canonical_url": "https://unstop.com/hackathons/hack-the-circle-maharaja-agrasen-institute-of-technology-mait-1771905",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:23.863Z",
-      "reportSourceHash": "21daf21a60ffc8893b36a1e3ef63c4d62ebd8910d74fa75083411647329ce0d3",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "mode",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2177,42 +1672,12 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:24.656Z",
       "reportSourceHash": "5f648724a0275b330afb48bfede9cf06821d924a89405bfc2f96402cacf91572",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "a7fb9984-35cb-431a-87a8-bf34af31765c",
-      "provider": "unstop",
-      "provider_id": "1771647",
-      "canonical_url": "https://unstop.com/hackathons/celestia-hyprlan-1771647",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:25.598Z",
-      "reportSourceHash": "f8320feb8e8469714232f28cf0186f2bb99ab1f39ebee7a866f6a63e152fd29c",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "mode",
         "prize_pool",
         "rounds_info",
         "rounds_count",
@@ -2235,6 +1700,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:26.632Z",
       "reportSourceHash": "05e8f29c56c30c0385c5ab95538f6c31ce558c0fbe61756855b599672fde94ff",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -2242,33 +1708,6 @@
         "registration_status",
         "mode",
         "prize_pool",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "a92dfbef-b907-44b0-8d78-1972ce74f0dc",
-      "provider": "unstop",
-      "provider_id": "1774353",
-      "canonical_url": "https://unstop.com/hackathons/hack-to-ween-2026-halloween-hackathon-indian-institute-of-technology-iit-jodhpur-1774353",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:27.773Z",
-      "reportSourceHash": "16590ffe394776870175416d38f4dc7a2b06cbee2ccac6799b8b667ebfc0d429",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "rounds_info",
-        "rounds_count",
         "tags"
       ],
       "approval": {
@@ -2288,45 +1727,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:28.748Z",
       "reportSourceHash": "e623a156a9d6da4f632b6b1d3ff4c84480873c1b8d3628fe88aa4cda9218dcdb",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "af282d20-c9f9-477b-943b-efa300ef0064",
-      "provider": "unstop",
-      "provider_id": "1770159",
-      "canonical_url": "https://unstop.com/hackathons/build-with-bharat-50-codeverse-1770159",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:29.626Z",
-      "reportSourceHash": "29de2526871777a2c9ac19258971d462446ea11f2636c989c76f917349eacea8",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "max_team_size",
-        "mode",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2348,43 +1757,13 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:30.646Z",
       "reportSourceHash": "0031a6d29acab9192e580b8ac0b2844b73a2ad60f8aa9282839a68391f84544c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "name",
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "b063f831-9fdf-4a1e-8692-d28d472e80f6",
-      "provider": "unstop",
-      "provider_id": "1760916",
-      "canonical_url": "https://unstop.com/hackathons/axis-hacksprint-20-axis-institute-of-technology-management-1760916",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:31.787Z",
-      "reportSourceHash": "98cf10848f8082597ae5319545423c6c54b7ad78ea69ab1d1d4a8b490adb1b00",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "mode",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2406,6 +1785,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:32.900Z",
       "reportSourceHash": "b157ec4b3c76fabe30949cd9369604e98fb71241426ebd491398b84c5e6d4870",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -2434,43 +1814,14 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:33.765Z",
       "reportSourceHash": "e364b207b3ceb873a49e314e37c774cc7f887771a0f6c7c64f0ebe0a5c15dd29",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "b63a73ba-4648-4022-8c76-276b10c2e073",
-      "provider": "unstop",
-      "provider_id": "1766839",
-      "canonical_url": "https://unstop.com/hackathons/code-kernel-26-gokaraju-rangaraju-institute-of-engineering-and-technology-griet-hyderabad-1766839",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:34.727Z",
-      "reportSourceHash": "f43ea31ea655984e43c2d2b1d792cd9a30871de39027fa31d67b9115f84a8ddb",
-      "proposedFieldsForReview": [
-        "name",
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "prize_pool",
         "rounds_info",
         "rounds_count",
@@ -2493,9 +1844,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:35.714Z",
       "reportSourceHash": "b90dff352cfab28def6ac5e86f1654df426a9d20924a8952d92743b547c402ee",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2521,9 +1872,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:36.925Z",
       "reportSourceHash": "95178f896838951f69bebdb1bba369891206eaca32deaed693965cdeca03dcd4",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2548,6 +1899,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:37.697Z",
       "reportSourceHash": "fac23e44deea405b1ac2629113bdd7af9e2ef2969e0fd987f3250c8c4a23e47c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -2576,9 +1928,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:38.860Z",
       "reportSourceHash": "85b7f79e43f1f67f93fc927cab1309e007a0df95d15b4ba763ae2a1f77903e15",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2606,41 +1958,13 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:39.667Z",
       "reportSourceHash": "48938cfb7623349838518b7b30a21e2628e4f7d511a464ce853d7cf12c00f2fe",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "bff78b03-da15-44b6-bd4c-8b2983513853",
-      "provider": "unstop",
-      "provider_id": "1756040",
-      "canonical_url": "https://unstop.com/hackathons/wcc-forge-48-wecodecoders-1756040",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:40.805Z",
-      "reportSourceHash": "0cedc3528cee3576cd29e9b1c55a8f1a9a4f211eee89dd3ff83be148b2377367",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "prize_pool",
         "rounds_info",
         "rounds_count",
@@ -2663,42 +1987,12 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:42.144Z",
       "reportSourceHash": "79cff8082c02feeb04f73fc96593f9c86f762c07a3b5be706e338c404a1401a6",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "c505739b-c905-45c6-831a-a422b301caeb",
-      "provider": "unstop",
-      "provider_id": "1767548",
-      "canonical_url": "https://unstop.com/hackathons/build-for-bharat-2026-software-hardware-hackathon-kiet-group-of-institutions-delhi-ncr-1767548",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:42.829Z",
-      "reportSourceHash": "15b72693a311ad27542a4d9aea80423520a04e4f943a4c1dee98c1e1f256dcad",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "mode",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2720,9 +2014,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:43.412Z",
       "reportSourceHash": "83a7b7be0fe4e86b36a93f6d12fac304a17b2c702824069036ca5f82f67d0730",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2748,9 +2042,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:45.166Z",
       "reportSourceHash": "11413bfc28f44e9ade1541ae66d2725b0951a8d5f086896e64ca3c625e925965",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2778,40 +2072,13 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:46.234Z",
       "reportSourceHash": "b3d8cb9b3242f84cdb4553fdc866df1ec41ec5f37c41a1b635d84d820e6dc4cc",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "max_team_size",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "d5b5d763-77b3-4eed-bbbc-ce2a38dbb7e0",
-      "provider": "unstop",
-      "provider_id": "1762158",
-      "canonical_url": "https://unstop.com/hackathons/codehack-india-national-level-hackathon-wecodecoders-1762158",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:46.991Z",
-      "reportSourceHash": "cd3d7e96697c9f1a04814d5451a7fa4ee9f853fb19323560b802e0aeaca2983a",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2833,9 +2100,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:47.868Z",
       "reportSourceHash": "66ea510194b5775a3a55c031e79e4e60a3002d3897d04602bf571e13d3c98c55",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2860,42 +2127,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:49.029Z",
       "reportSourceHash": "fa257f62522c3306cf5f824304f593b35f9767a8ba17b0eab11646a26daa5d93",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "d7be5785-e62f-4ee6-846d-cb0bbb1c3d03",
-      "provider": "unstop",
-      "provider_id": "1758538",
-      "canonical_url": "https://unstop.com/hackathons/codeaxis-hackathon-wecodecoders-1758538",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:49.819Z",
-      "reportSourceHash": "d1c38180d34a2ed075a13f016cfe647a11cd11dc5a2d5a3dcd8370ff772f3d28",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -2917,9 +2157,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:51.145Z",
       "reportSourceHash": "e1bc7d2dcb467bc65840ff1bd034496a10a5a4d32882802b69df31712459999e",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2945,9 +2185,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:51.841Z",
       "reportSourceHash": "58c4f2e4f2a9fa16ab9daf89e41bfa80a89521bb20be1c2f818487325c04fc72",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -2973,42 +2213,15 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:53.061Z",
       "reportSourceHash": "6287a237213e394abfc5926be0e9921c466b1420cec674b7523cef4862adebf8",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
         "min_team_size",
         "mode",
         "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "e857d276-a318-48b6-887c-6b221c0c85cc",
-      "provider": "unstop",
-      "provider_id": "1768863",
-      "canonical_url": "https://unstop.com/hackathons/nexhack-30-build-whats-next-nexhack-30-build-whats-next-nexhack-1768863",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:37:53.934Z",
-      "reportSourceHash": "545cbf1cd39ff89b50b4023e47b229e5e313a0f901419d1ac1bdbd714076ac0b",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
         "rounds_info",
         "rounds_count",
         "tags"
@@ -3030,6 +2243,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:54.788Z",
       "reportSourceHash": "182c9081218a701b788ea5e2ca2a034ef24bae3d29a08ea7d608566e01d18686",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -3057,9 +2271,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:56.022Z",
       "reportSourceHash": "94df7c6916261c2bbf52e4e0f00de0aba747936d6f0d7fadebce08e4e1453561",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -3085,6 +2299,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:57.007Z",
       "reportSourceHash": "55b63bec783101de9978276ece1d5db7d56488a011782d766a88cbe71b94abae",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -3111,6 +2326,7 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:57.937Z",
       "reportSourceHash": "d9667127e3292002327025a0eb164e1167eab0da14034995ad9ca934a47dd6ad",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
         "registration_start",
@@ -3140,9 +2356,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:58.966Z",
       "reportSourceHash": "f22c9652e9c37783a93dca3f4006aa897008dbde797f6b8b67e5501c97e1d9f2",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -3170,67 +2386,9 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:37:59.983Z",
       "reportSourceHash": "653f9438222b5141b0c22256237593b5adc654566c8f8655b5e743a78234a2c8",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "start_date",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "min_team_size",
-        "mode",
-        "prize_pool",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "f5c3172d-05b4-434a-b5f2-108db1e04e7f",
-      "provider": "unstop",
-      "provider_id": "1772647",
-      "canonical_url": "https://unstop.com/hackathons/codeodyssey-26-jecrc-university-jecrcu-vidhani-jaipur-rajasthan-1772647",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:38:01.050Z",
-      "reportSourceHash": "779e411586cb0f36e23ba8bd36f08c62ea6a73ca04682217322a6b34aa8e448e",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "max_team_size",
-        "prize_pool",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "f8d8c0be-3408-4b17-85aa-e0daf49644a3",
-      "provider": "unstop",
-      "provider_id": "1767506",
-      "canonical_url": "https://unstop.com/hackathons/colossus-3o-dr-ambedkar-institute-of-technology-dr-ait-bangalore-1767506",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:38:02.260Z",
-      "reportSourceHash": "37dabed5ee335c70ded1ca83553990ce1a9553f011b25c58c324bf57b2168708",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
@@ -3258,68 +2416,12 @@
       "reportClassification": "registration_open",
       "reportCheckedAt": "2026-11-02T13:38:02.616Z",
       "reportSourceHash": "448e09b5893da71bf820f18dc93661f3cf05f54de0d09f6b4feb8ef01c33e3f3",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
       "proposedFieldsForReview": [
         "description",
-        "start_date",
-        "end_date",
         "registration_start",
         "registration_end",
         "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "fa82d969-e506-42de-aef4-3a70dc3bd52d",
-      "provider": "unstop",
-      "provider_id": "1761082",
-      "canonical_url": "https://unstop.com/hackathons/codex-48-national-level-hackathon-wecodecoders-1761082",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:38:03.962Z",
-      "reportSourceHash": "3b748e57de687a36d936aa608d88cdc99ce70bad212ec91ae933eb3442f7a425",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "rounds_info",
-        "rounds_count",
-        "tags"
-      ],
-      "approval": {
-        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
-        "approvedFields": [],
-        "approver": null,
-        "approvedAt": null
-      },
-      "controlsVerified": false,
-      "freshEvidenceVerified": false
-    },
-    {
-      "id": "fb02315e-e6b6-4202-b87b-3891f2f39cc5",
-      "provider": "unstop",
-      "provider_id": "1765313",
-      "canonical_url": "https://unstop.com/hackathons/dataops-innovation-hackathon-hackthecore-1765313",
-      "reportClassification": "ongoing_registration_closed",
-      "reportCheckedAt": "2026-11-02T13:38:04.980Z",
-      "reportSourceHash": "31c082715fe38cb083262225f0d2e7ace3a00ccfa3bebeb3288510297116dcdb",
-      "proposedFieldsForReview": [
-        "description",
-        "end_date",
-        "registration_start",
-        "registration_end",
-        "registration_status",
-        "prize_pool",
         "rounds_info",
         "rounds_count",
         "tags"

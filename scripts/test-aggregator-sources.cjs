@@ -7,25 +7,25 @@ const observe=(patch={})=>{const raw=clone(fixture.unstop);Object.assign(raw.dat
 const event=(m=observe())=>({...record,id:'synthetic',name:m.facts.name,source_metadata:m});
 const list=(rows,q='',clock=now)=>Array.from(d.discoverEvents(rows,d.readDiscoverySettings(new URLSearchParams(q)),[],new Set(rows.map(r=>r.id)),clock),r=>r.id);
 const html=x=>'<script id="__NEXT_DATA__" type="application/json">'+JSON.stringify(x)+'</script>';
-test('exact AlgoRush evidence corrects event/stage/deadline/team independently, never promotes it',()=>{
+test('AlgoRush keeps stage/deadline/team facts without turning its competition or contest window into event completion',()=>{
  const m=p.parseUnstop(p.identifySource(record.website_url),fixture.algorush,now,hash),row=event(m),effective=s.synchronizedEvent(row);
- assert.equal(effective.end_date,'2026-08-30T07:05:00+05:30');assert.equal(effective.registration_end,'2026-08-15T22:51:56+05:30');assert.equal(effective.max_team_size,1);
- assert.equal(m.facts.rounds_info[0].start_date,'2026-08-16T07:05:00+05:30');assert.equal(life.eventState(row,now),'ended');assert.equal(life.registrationState(row,now),'closed');assert.deepEqual(list([row]),[]);
- assert.equal(list([row],'tab=all').length,1);assert.equal(list([row],'tab=saved').length,1);assert.equal(sync.reconciliation(record,m).classification,'confirmed_ended_propose_suppression');
+ assert.equal(effective.start_date,null);assert.equal(effective.end_date,null);assert.equal(effective.registration_end,'2026-08-15T22:51:56+05:30');assert.equal(effective.max_team_size,1);
+ assert.equal(m.facts.rounds_info[0].start_date,'2026-08-16T07:05:00+05:30');assert.equal(life.eventState(row,now),'unknown');assert.equal(life.registrationState(row,now),'closed');assert.deepEqual(list([row]),[]);
+ assert.equal(list([row],'tab=all').length,1);assert.equal(list([row],'tab=saved').length,1);assert.equal(sync.reconciliation(record,m).classification,'unresolved');
 });
 test('new source-verified future open hackathon appears; imported physical dates are not substituted',()=>{
  const row=event();assert.deepEqual(list([row]),['synthetic']);assert.deepEqual(list([row],'tab=open'),['synthetic']);assert.equal(life.eventState(row,now),'upcoming');assert.equal(life.registrationState(row,now),'open');
  assert.equal(s.synchronizedEvent(row).start_date,'2026-11-06T09:00:00+05:30');assert.equal(sync.sourcePatch(row.source_metadata).start_date,'2026-11-06');
 });
 test('ongoing with provider-closed registration stays active without reopening applications',()=>{
- const m=observe({start_date:'2026-11-01T09:00:00+05:30',regnRequirements:{...fixture.unstop.data.competition.regnRequirements,reg_status:'FINISHED'}}),row=event(m);
+ const m=observe({rounds:[fixture.buildStage('2026-11-01T09:00:00+05:30','2026-11-07T18:00:00+05:30')],regnRequirements:{...fixture.unstop.data.competition.regnRequirements,reg_status:'FINISHED'}}),row=event(m);
  assert.equal(life.registrationState(row,now),'closed');assert.equal(life.eventState(row,now),'ongoing');assert.deepEqual(list([row]),['synthetic']);assert.deepEqual(list([row],'tab=ongoing'),['synthetic']);assert.deepEqual(list([row],'tab=open'),[]);
  for(const tab of ['active','open','ongoing'])for(const status of ['open','unknown','closed','all'])assert.equal(list([{...record}],`tab=${tab}&registration=${status}`).length,0);
 });
 test('deadlines and final event instant recalculate without a scrape, using inclusive India date-only days',()=>{
  const raw=clone(fixture.unstop);raw.data.competition.regnRequirements.end_regn_dt='2026-11-02';const row=event(p.parseUnstop(u,raw,now,hash));
  const last=Date.parse('2026-11-02T23:59:59.999+05:30');assert.equal(life.registrationState(row,last),'open');assert.equal(life.registrationState(row,last+1),'closed');assert.deepEqual(list([row],'',last+1),[]);
- const ongoing=event(observe({start_date:'2026-11-02T10:00:00+05:30',end_date:'2026-11-02T13:00:00+05:30'}));
+ const ongoing=event(observe({rounds:[fixture.buildStage('2026-11-02T10:00:00+05:30','2026-11-02T13:00:00+05:30')]}));
  assert.equal(list([ongoing],'',Date.parse('2026-11-02T13:00:00+05:30')-1).length,1);assert.deepEqual(list([ongoing],'',Date.parse('2026-11-02T13:00:00+05:30')),[]);
  assert.equal(life.eventDate('2026-11-02T12:00:00+05:30'),life.eventDate('2026-11-02T06:30:00Z'));
 });
@@ -34,7 +34,7 @@ test('missed daily check expires at 26h even if deadline is still future; forged
  const m=observe();for(const bad of [{...m,expires_at:new Date(now+27*3600000).toISOString()},{...m,checked_at:new Date(now+120000).toISOString()},{...m,protected_fields:['name']}])assert.equal(life.activeOpportunity(event(bad),now),false);
  assert.equal(life.activeOpportunity(event(m),now+26*3600000-1),true);assert.equal(life.activeOpportunity(event(m),now+26*3600000),false);
 });
-for(const patch of [{type:'workshops'}, {details:'A hackathon bootcamp workshop.'},{details:'Case study challenge.'},{start_date:'2026-02-30'}, {start_date:'2026-11-08',end_date:'2026-11-07'},{regnRequirements:{start_regn_dt:'2026-11-10',end_regn_dt:'2026-11-01'}},{regnRequirements:{min_team_size:4,max_team_size:1}}])test('ambiguous/contradictory publication cannot promote '+JSON.stringify(patch),()=>assert.deepEqual(list([event(observe(patch))]),[]));
+for(const patch of [{type:'workshops'}, {details:'A hackathon bootcamp workshop.'},{details:'Case study challenge.'},{rounds:[fixture.buildStage('2026-02-30','2026-11-07')]}, {rounds:[fixture.buildStage('2026-11-08','2026-11-07')]},{regnRequirements:{start_regn_dt:'2026-11-10',end_regn_dt:'2026-11-01'}},{regnRequirements:{min_team_size:4,max_team_size:1}}])test('ambiguous/contradictory publication cannot promote '+JSON.stringify(patch),()=>assert.deepEqual(list([event(observe(patch))]),[]));
 test('Devfolio real settings separate registration from event and preserve stable UUID, team size and official external action',()=>{
  const input=clone(fixture.devfolio);input.props.pageProps.hackathon.settings.external_apply_url='https://example.invalid/apply';
  const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(input),now,hash);
@@ -83,7 +83,79 @@ test('an unresolved source observation is not promoted to confirmed-ended merely
  const m=observe({status:'UNPUBLISHED',start_date:'2026-08-01',end_date:'2026-08-02'});assert.equal(m.check_status,'unresolved');assert.equal(sync.reconciliation(record,m).classification,'unresolved');
 });
 
-test('actual Unstop FINISHED publication is valid historical evidence when its event end is past; it cannot override a contradictory future event window',()=>{
- const id=p.identifySource(record.website_url),past=p.parseUnstop(id,fixture.algorush,now,hash);assert.equal(past.check_status,'ok');assert.equal(past.evidence.publication_status,'FINISHED');assert.equal(sync.reconciliation(record,past).classification,'confirmed_ended_propose_suppression');
- const conflict=observe({status:'FINISHED'});assert.equal(conflict.check_status,'unresolved');assert.deepEqual(list([event(conflict)]),[]);
+test('FINISHED publication never establishes actual event completion or contradicts an independently supported future build',()=>{
+ const past=p.parseUnstop(p.identifySource(record.website_url),fixture.algorush,now,hash);assert.equal(past.check_status,'ok');assert.equal(past.evidence.publication_status,'FINISHED');assert.equal(sync.reconciliation(record,past).classification,'unresolved');
+ const future=observe({status:'FINISHED'});assert.equal(future.check_status,'ok');assert.equal(life.eventState(event(future),now),'upcoming');assert.deepEqual(list([event(future)]),['synthetic']);
+});
+
+for(const item of fixture.unstopDiscrepancies)test('real discrepancy '+item.id+' never uses competition/assessment dates as the hackathon window',()=>{
+ const raw={data:{competition:{...item,type:'hackathons',status:'LIVE',regnRequirements:{start_regn_dt:item.start_date,end_regn_dt:item.end_date,reg_status:'STARTED',min_team_size:item.min,max_team_size:item.max}}}};
+ const m=p.parseUnstop(p.identifySource('https://unstop.com/hackathons/synthetic-'+item.id),raw,now,hash),row=event(m);
+ assert.equal(m.facts.start_date,null);assert.equal(m.facts.end_date,null);assert.equal(life.eventState(row,now),'unknown');assert.equal(life.eventStateLabel(row,now),'Event schedule unverified');assert.deepEqual(list([row],'tab=ongoing'),[]);
+ assert.equal(m.facts.min_team_size,item.min);assert.equal(m.facts.max_team_size,item.max);assert.equal(m.facts.registration_end,item.end_date);
+ assert(!Object.hasOwn(sync.sourcePatch(m),'start_date'));assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));
+ if(item.id===1768100){assert(m.issues.includes('mode_contradiction'));assert.equal(m.facts.mode,null);assert.deepEqual(list([row]),[]);}else{assert.equal(m.check_status,'ok');assert.equal(life.registrationState(row,now),'open');assert.deepEqual(list([row]),['synthetic']);}
+});
+
+test('past competition end and closed registration alone leave actual event unknown, not ended',()=>{
+ const m=observe({rounds:[],start_date:'2026-10-01',end_date:'2026-11-01',status:'FINISHED',regnRequirements:{start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-01',reg_status:'FINISHED'}});
+ assert.equal(m.event_status,'unknown');assert.equal(m.facts.start_date,null);assert.equal(m.facts.registration_status,'closed');assert.equal(sync.reconciliation(record,m).classification,'unresolved');assert.deepEqual(list([event(m)]),[]);
+});
+test('old Unstop observations cannot promote unsafe dates, label ongoing/ended or patch event dates',()=>{
+ const m=observe();delete m.evidence.event_date_basis;m.event_status='ended';m.parser_version='aggregator-4';
+ assert.equal(life.eventState(event(m),now),'unknown');assert.equal(s.synchronizedEvent(event(m)).start_date,null);assert(!Object.hasOwn(sync.sourcePatch(m),'start_date'));assert.equal(sync.reconciliation(record,m).classification,'registration_open');
+ m.facts.registration_status='closed';assert.deepEqual(list([event(m)]),[]);
+});
+for(const field of ['is_hidden','is_inactive','status','entity_type'])test('unsupported/private/draft stage cannot establish actual dates: '+field,()=>{
+ const stage=fixture.buildStage('2026-11-01','2026-11-07');stage[field]=field==='status'?'DRAFT':field==='entity_type'?'App\\Model\\Rounds':1;
+ const m=observe({rounds:[stage]});assert.equal(m.facts.start_date,null);assert.equal(life.eventState(event(m),now),'unknown');
+});
+test('multiple build stages are ambiguous, and conflicting labeled team bounds are held',()=>{
+ const multiple=observe({rounds:[fixture.buildStage('2026-11-01','2026-11-02'),fixture.buildStage('2026-11-06','2026-11-07')]});assert.equal(multiple.check_status,'unresolved');assert.equal(multiple.facts.start_date,null);
+ const team=observe({details:'A hackathon. Team Size: 1–4.'});assert(team.issues.includes('team_size_contradiction'));assert.equal(team.facts.min_team_size,null);assert.deepEqual(list([event(team)]),[]);
+});
+
+test('a typed stage mentioning a hackathon is insufficient, and unreconciled prose/later-stage dates are held',()=>{
+ const stage=fixture.buildStage('2026-11-01','2026-11-07');stage.details[0].display_text='Briefing before the final hackathon.';
+ assert.equal(observe({rounds:[stage]}).facts.start_date,null);
+ const text=observe({details:'A hackathon. Event Dates: 19–20 December 2026.'});assert.equal(text.facts.start_date,null);assert(text.issues.includes('event_schedule_requires_reconciliation'));
+ const later=observe({rounds:[fixture.buildStage('2026-11-01','2026-11-07'),{is_hidden:0,is_inactive:0,details:[{title:'Future stage',end_date:'2026-11-08'}]}]});assert.equal(later.facts.start_date,null);assert.equal(later.check_status,'unresolved');
+ const reversed=observe({rounds:[fixture.buildStage('2026-11-08','2026-11-07')]});assert.equal(reversed.facts.start_date,null);assert.equal(reversed.facts.end_date,null);assert(reversed.issues.includes('event_window_contradiction'));assert(!Object.hasOwn(sync.sourcePatch(reversed),'start_date'));
+});
+
+test('actual build dates include the full India final calendar day and preserve explicit timezone instants',()=>{
+ const m=observe({rounds:[fixture.buildStage('2026-11-02','2026-11-02')]});
+ m.checked_at='2026-11-01T23:59:00+05:30';m.expires_at='2026-11-03T01:59:00+05:30';
+ for(const [time,state]of [['2026-11-01T23:59:59.999+05:30','upcoming'],['2026-11-02T00:00:00+05:30','ongoing'],['2026-11-02T23:59:59.999+05:30','ongoing'],['2026-11-03T00:00:00+05:30','ended']])assert.equal(life.eventState(event(m),Date.parse(time)),state);
+ const offset=observe({rounds:[fixture.buildStage('2026-11-02T18:30:00Z','2026-11-03T01:00:00+05:30')]});assert.equal(life.eventState(event(offset),Date.parse('2026-11-03T00:00:00+05:30')),'ongoing');
+});
+
+test('Devfolio and Hack2Skill retain genuine event windows, independently of closed registration',()=>{
+ const dev=clone(fixture.devfolio);dev.props.pageProps.hackathon.starts_at='2026-11-01';dev.props.pageProps.hackathon.ends_at='2026-11-03';dev.props.pageProps.hackathon.settings.registration_status='CLOSED';
+ const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(dev),now,hash);assert.equal(life.eventState(event(m),now),'ongoing');assert.equal(life.registrationState(event(m),now),'closed');assert.equal(life.activeOpportunity(event(m),now),true);
+ const h=clone(fixture.bootcamps);Object.assign(h.data,{type:'HACKATHON',startDate:'2026-11-01',endDate:'2026-11-03',registrationStatus:'CLOSED'});
+ const hm=p.parseHack2skill({...p.identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},h,now,hash);assert.equal(life.eventState(event(hm),now),'ongoing');assert.equal(life.activeOpportunity(event(hm),now),true);
+});
+
+test('source uncertainty and contradictory mode/team notices render without implying registration or schedule verification',()=>{
+ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');const Info=loader.load('src/components/hackathons/SourceInformation.tsx').default;
+ const m=observe({rounds:[],details:'A hackathon. Mode: Online. Team Size: 1–4.'});const markup=renderToStaticMarkup(React.createElement(Info,{event:event(m),now}));
+ assert.match(markup,/Actual event dates unverified/);assert.match(markup,/Registration timing is assessed separately/);assert.match(markup,/Source facts conflict/);assert(!markup.includes('Source checked:'));
+});
+
+test('offline audit derivation withdraws unsupported lifecycle claims without mutating original evidence or approving adoption',()=>{
+ const fs=require('node:fs'),crypto=require('node:crypto'),{reassess,adoption}=require('./reassess-aggregator-lifecycle.cjs');const bytes=fs.readFileSync('docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json'),r=JSON.parse(bytes),original=JSON.stringify(r);
+ const a=reassess(r,crypto.createHash('sha256').update(bytes.toString('utf8').replace(/\r\n/g,'\n')).digest('hex'));assert.equal(JSON.stringify(r),original);
+ assert.equal(a.withdrawnClaims.unstopOngoing,115);assert.equal(a.withdrawnClaims.unstopEnded,204);assert.equal(a.reproducedIndiaCalendarComparisons.activeBothBoundariesEqual,20);assert.equal(a.reproducedIndiaCalendarComparisons.unstopEndedEndEqualsRegistrationDeadline,82);
+ assert.equal(a.derivedHistoricalCounts.historical_registration_open_candidate,84);assert.equal(a.derivedHistoricalCounts.historical_supported_event_end,4);assert.equal(a.derivedHistoricalCounts.requires_fresh_evidence,322);assert.equal(a.currentVerifiedCounts,null);
+ const shortlist=adoption(a);assert.equal(shortlist.candidates.length,84);assert.equal(new Set(shortlist.candidates.map(r=>r.id)).size,84);assert.equal(shortlist.counts.approvedForWrite,0);
+ for(const c of shortlist.candidates){assert.equal(c.approval.approvedFields.length,0);assert.equal(c.freshEvidenceVerified,false);if(c.provider==='unstop')assert(!c.proposedFieldsForReview.some(k=>['start_date','end_date'].includes(k)));}
+ assert.deepEqual(JSON.parse(fs.readFileSync('docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json','utf8')),a);assert.deepEqual(JSON.parse(fs.readFileSync('docs/qa/aggregator-repair/ADOPTION-REVIEW.json','utf8')),shortlist);
+});
+
+test('partial reconciliation resume cannot retain obsolete Unstop ended classifications or event-date write proposals',()=>{
+ const {reinterpretRetained}=require('./reconcile-hackathon-catalog.cjs');const m=JSON.parse(JSON.stringify(observe()));delete m.evidence.event_date_basis;m.event_status='ended';m.facts.registration_status='closed';
+ const prior={id:'same-id',classification:'confirmed_ended_propose_suppression',evidence:m,changes:{end_date:{before:'2026-12-18',after:'2026-11-07'}}},before=JSON.stringify(prior);
+ const out=reinterpretRetained({id:'same-id',name:'Original'},prior);assert.equal(out.id,prior.id);assert.equal(out.evidence,prior.evidence);assert.equal(JSON.stringify(prior),before);
+ assert.equal(out.classification,'unresolved');assert.equal(out.original_classification,'confirmed_ended_propose_suppression');assert(!Object.hasOwn(out.changes,'end_date'));assert.equal(out.evidence.checked_at,m.checked_at);
 });

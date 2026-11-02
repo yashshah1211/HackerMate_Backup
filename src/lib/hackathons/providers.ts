@@ -1,9 +1,9 @@
 import { eventDate } from "./lifecycle";
-import { array, integer, object, text, SOURCE_MAX_AGE_MS, type Provider, type SourceFacts, type SourceMetadata } from "./source";
+import { array, integer, object, text, SOURCE_MAX_AGE_MS, UNSTOP_EVENT_DATE_BASIS, type Provider, type SourceFacts, type SourceMetadata } from "./source";
 
 export type SourceIdentity = { provider: Provider; provider_id: string; canonical_url: string; slug?: string };
 export type Observation = SourceMetadata;
-export const PARSER_VERSION = "aggregator-4";
+export const PARSER_VERSION = "aggregator-5";
 const plain = (v: unknown, limit = 1000) => (text(v) || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, limit);
 const timestamp = (v: unknown): string | null => { const s = text(v); return s && eventDate(s) !== null ? s : null; };
 
@@ -69,10 +69,31 @@ function finish(identity: SourceIdentity, f: SourceFacts, category: Observation[
 
 export function parseUnstop(identity: SourceIdentity, payload: unknown, now: number, hash: string): Observation {
   const data = object(object(payload).data), c = object(data.competition || data), reg = object(c.regnRequirements), f = base(identity), issues: string[] = [];
-  issues.push(...invalidDates([c.start_date,c.end_date,reg.start_regn_dt,reg.end_regn_dt]));
+  issues.push(...invalidDates([reg.start_regn_dt,reg.end_regn_dt]));
   if (String(c.id) !== identity.provider_id) throw new Error("Provider identity mismatch");
   f.name = plain(c.title, 200); f.college = plain(object(c.organisation).name, 200) || null;
-  f.start_date = timestamp(c.start_date); f.end_date = timestamp(c.end_date);
+  // The provider's competition window can span registration/assessments, not the actual build.
+  // Accept only one public typed offline stage explicitly described as the actual/final hackathon.
+  // A generic round merely mentioning a hackathon is not whole-event schedule evidence.
+  const buildStages = array(c.rounds).map(object).filter(r => r.entity_type === "App\\Model\\OfflineRound"
+    && r.is_hidden === 0 && r.is_inactive === 0 && ["LIVE", "STARTED", "UPCOMING", "FINISHED"].includes(String(r.status)))
+    .flatMap(r => array(r.details).map(object)).filter(r => /\b(?:actual|final)\b[^.!?]{0,150}\bhackathons?\b/i.test(plain(r.display_text, 20000))
+      && !/\b(?:not|before|after)\b[^.!?]{0,80}\bhackathons?\b/i.test(plain(r.display_text, 20000))
+      && !/\b(?:screening|registration|assessment|submission|presentation|pitch|judging|results?)\b/i.test(plain(r.title, 200)));
+  if (buildStages.length === 1) {
+    const stage = buildStages[0];
+    issues.push(...invalidDates([stage.start_date,stage.end_date]));
+    const start = timestamp(stage.start_date), end = timestamp(stage.end_date);
+    // Do not automatically reconcile prose dates or envelope multiple stages into an event.
+    const otherEnds = array(c.rounds).map(object).filter(r => r.is_hidden === 0 && r.is_inactive === 0)
+      .flatMap(r => array(r.details).map(object)).filter(r => r !== stage)
+      .some(r => end && (eventDate(timestamp(r.end_date), true) ?? -Infinity) > (eventDate(end, true) ?? Infinity));
+    if (otherEnds || /\bEvent Dates?\s*:/i.test(plain(c.details, 20000))) issues.push("event_schedule_requires_reconciliation");
+    else if (start && end) {
+      if (eventDate(end, true)! <= eventDate(start)!) issues.push("event_window_contradiction");
+      else { f.start_date = start; f.end_date = end; }
+    }
+  } else if (buildStages.length > 1) issues.push("ambiguous_hackathon_build_stages");
   f.registration_start = timestamp(reg.start_regn_dt); f.registration_end = timestamp(reg.end_regn_dt);
   f.min_team_size = integer(reg.min_team_size); f.max_team_size = integer(reg.max_team_size);
   f.mode = ["online", "offline", "hybrid"].includes(String(c.region)) ? c.region === "offline" ? "in-person" : String(c.region) : null;
@@ -87,12 +108,26 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   }));
   // Taxonomy plus an organizer's explicit description, not title/URL keywords or a listing bucket.
   const body = plain(c.details, 20000), declared = c.type === "hackathons" && /\bhackathon\b/i.test(body);
+  const claims = body.replace(/&(?:ndash|mdash);/gi, "-");
+  const modes = [...claims.matchAll(/\bMode\s*:\s*(offline|online|hybrid)\b/gi)].map(m => m[1].toLowerCase() === "offline" ? "in-person" : m[1].toLowerCase());
+  if (modes.some(mode => f.mode !== null && mode !== f.mode) || new Set(modes).size > 1) { f.mode = null; issues.push("mode_contradiction"); }
+  const teams = [...claims.matchAll(/\bTeam Size\s*:\s*(\d+)\s*[-–—]\s*(\d+)\b/gi)];
+  if (teams.some(m => f.min_team_size !== null && Number(m[1]) !== f.min_team_size || f.max_team_size !== null && Number(m[2]) !== f.max_team_size)) {
+    f.min_team_size = null; f.max_team_size = null; issues.push("team_size_contradiction");
+  }
   const contradictoryFormat = /\b(?:workshops?|bootcamps?|case study|case challenge|coding contest|capture the flag)\b/i.test(body);
   const category = declared && !contradictoryFormat ? "hackathon" : "unknown";
-  if (!["LIVE", "FINISHED", "ENDED", "COMPLETED"].includes(String(c.status))) issues.push("not_publicly_live");
-  if (["FINISHED", "ENDED", "COMPLETED"].includes(String(c.status)) && (eventDate(f.end_date, true) === null || eventDate(f.end_date, true)! > now)) issues.push("finished_source_conflicts_with_event_window");
+  if (!["LIVE", "FINISHED", "ENDED", "COMPLETED"].includes(String(c.status).toUpperCase())) issues.push("not_publicly_live");
+  if (/CANCELLED|CANCELED/i.test(String(c.event_status))) issues.push("unrecognized_or_cancelled_event_status");
   registration(f, reg.reg_status, now);
-  return finish(identity, f, category, c.event_status, now, hash, { event_dates: "competition.start_date/end_date", registration: "competition.regnRequirements", publication_status: String(c.status || "not published"), published_registration_status: String(reg.reg_status || "not published"), team_size: "competition.regnRequirements.min_team_size/max_team_size", category: "competition.type plus organizer details", stages: "competition.rounds[].details[]" }, issues);
+  return finish(identity, f, category, null, now, hash, {
+    event_dates: f.start_date && f.end_date ? "single public OfflineRound explicitly describing the actual/final hackathon; competition window ignored" : "actual event dates unverified; competition window and generic stages ignored",
+    event_date_basis: f.start_date && f.end_date ? UNSTOP_EVENT_DATE_BASIS : "unverified",
+    competition_window: "not an actual event schedule; never used for lifecycle",
+    registration: "competition.regnRequirements", publication_status: String(c.status || "not published"),
+    published_registration_status: String(reg.reg_status || "not published"), team_size: "competition.regnRequirements.min_team_size/max_team_size; labeled contradictions held",
+    mode: "competition.region; labeled organizer contradictions held", category: "competition.type plus organizer details", stages: "competition.rounds[].details[]; generic dates are stage-only",
+  }, issues);
 }
 
 export function parseDevfolio(identity: SourceIdentity, html: string, now: number, hash: string): Observation {

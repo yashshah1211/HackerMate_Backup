@@ -1,4 +1,4 @@
-import { sourceMetadata, sourceFresh, synchronizedEvent } from "./source";
+import { hasEventScheduleEvidence, sourceMetadata, sourceFresh, synchronizedEvent } from "./source";
 export type EventDates = { type?: string | null; source_metadata?: unknown; start_date?: string | null; end_date?: string | null };
 export type RegistrationDates = EventDates & { registration_start?: string | null; registration_end?: string | null; registration_status?: string | null };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
@@ -55,7 +55,9 @@ export function listedEventState(event: EventDates, now: number): EventState {
 /** Native schedules describe events hosted here. Non-native classifications, including official,
  * need protected provider evidence; an official classification alone establishes no freshness or category. */
 export function scheduleIsUnverified(event: Pick<EventDates, "type" | "source_metadata">, now = Date.now()): boolean {
-  return event.type !== "native" && !sourceFresh(sourceMetadata(event.source_metadata), now);
+  if (event.type === "native") return false;
+  const metadata = sourceMetadata(event.source_metadata);
+  return !sourceFresh(metadata, now) || !hasEventScheduleEvidence(metadata);
 }
 export function eventState(event: EventDates, now: number): EventState {
   if (scheduleIsUnverified(event, now)) return "unknown";

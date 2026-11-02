@@ -77,12 +77,14 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    await page.goto(BASE+'/hackathons?tab=all&registration=closed&role='+role);
    await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
    const row=page.locator('li').filter({has:page.getByRole('link',{name:algorush.name,exact:true})});
-   assert(await row.getByText('Ended',{exact:true}).isVisible());
+   assert(await row.getByText('Event schedule unverified',{exact:true}).isVisible());
+   assert.equal(await row.getByText('Ended',{exact:true}).count(),0);
    assert.equal(await row.getByText('Ongoing',{exact:true}).count(),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-algorush-explicit-${width}.png`),fullPage:true});
    await page.goto(BASE+`/hackathons/${algorush.id}?role=${role}`);
    await page.getByRole('heading',{name:algorush.name,exact:true}).waitFor();
-   assert(await page.getByText('Ended',{exact:true}).isVisible());
+   assert(await page.getByText('Event schedule unverified',{exact:true}).isVisible());
+   assert.equal(await page.getByText('Ended',{exact:true}).count(),0);
    assert(await page.getByText('Source ID: 1737089',{exact:true}).isVisible());
    assert(await page.getByText(/Hackathon category unverified/).isVisible());
    assert(await page.getByText(role==='guest'?'1–1':'Solo',{exact:true}).isVisible());

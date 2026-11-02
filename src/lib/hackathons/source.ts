@@ -21,10 +21,17 @@ export type SourceMetadata = {
   last_values?: Record<string, unknown>; protected_fields?: string[]; attempt_id?: string;
 };
 export const SOURCE_MAX_AGE_MS = 26 * 60 * 60 * 1000;
+export const UNSTOP_EVENT_DATE_BASIS = "published_hackathon_build_stage";
 export const object = (v: unknown): Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export const text = (v: unknown): string | null => typeof v === "string" && v.trim() ? v.trim() : null;
 export const array = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const integer = (v: unknown): number | null => typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= 10000 ? v : null;
+
+/** Unstop competition windows and generic rounds are not an actual hackathon schedule.
+ * Older observations remain useful for registration, never for inferred event timing. */
+export function hasEventScheduleEvidence(m: SourceMetadata): boolean {
+  return m.provider !== "unstop" || object(m.evidence).event_date_basis === UNSTOP_EVENT_DATE_BASIS;
+}
 
 export function sourceMetadata(v: unknown): SourceMetadata | null {
   const m = object(v), f = object(m.facts);
@@ -67,6 +74,7 @@ export function synchronizedEvent<T extends { type?: string | null; source_metad
     "registration_status", "min_team_size", "max_team_size", "mode", "location", "prize_pool", "currency", "rounds_info"]) {
     facts[key] = object(m.facts)[key];
   }
+  if (!hasEventScheduleEvidence(m)) { facts.start_date = null; facts.end_date = null; }
   // Never overlay identity, approval, ownership, archival or community fields from JSON.
   return { ...event, ...facts };
 }
