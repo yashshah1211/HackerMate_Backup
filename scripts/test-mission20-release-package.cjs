@@ -29,6 +29,13 @@ test('readiness follow-up does not change application, active migrations, depend
 
 const candidate=require('./mission20-atomic-candidate.cjs');
 const loader=require('./mission20-loader-package.cjs');
+test('offline receipt source hashes use normalized UTF8 bytes, including non-ASCII test literals',()=>{
+ const receipt=JSON.parse(fs.readFileSync('docs/qa/mission20-c2/release/OFFLINE-EVIDENCE.json','utf8'));
+ for(const [file,expected] of Object.entries(receipt.localSourceSha256)){
+  const utf8=fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n');
+  assert.equal(createHash('sha256').update(utf8,'utf8').digest('hex'),expected,file);
+ }
+});
 test('CLI packaging preserves every nontransaction statement and immutable source hashes',()=>{
  const {files,manifest}=loader.loaderPackage();
  assert.equal(files.length,4);assert.equal(manifest.cli,'2.75.0');

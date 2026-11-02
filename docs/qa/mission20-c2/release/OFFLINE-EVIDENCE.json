@@ -55,16 +55,16 @@
     "scripts/mission20-loader-package.cjs": "d41db34112eaa7064c994163c6dfbb127449729fb9eb64868d96b1368b7cf246",
     "scripts/qualify-mission20-atomic-candidate.cjs": "d109ad7eba990ad825049f1308735ba261ae711e6bac74f36fa6e16aadaeaf97",
     "scripts/qualify-mission20-offline-release.cjs": "f866b5857ffaa58115e915376eef3916b80a0934a18304caaf2f5e3ca3d0ebbf",
-    "scripts/test-mission20-release-package.cjs": "1741abb6d6fd37992ee7d4b25bad93573068cc981d953422df11929d204404b7"
+    "scripts/test-mission20-release-package.cjs": "d57315f2d05788b44db52509ef26ebf0185e49ace5f994413ee85d03c70647dd"
   },
   "redactedLocalLogSha256": "b222f038b34bbb0c273b35864a4bdfefb27ffe5da78991bd774046293578b949",
   "localOtherChecks": {
     "scopedTests": {
-      "passed": 114,
+      "passed": 115,
       "failed": 0,
       "skipped": 0
     },
-    "packageTests": 21,
+    "packageTests": 22,
     "typeScript": "PASS",
     "scopedLint": "PASS; zero new errors/warnings",
     "existingLintDebt": {
@@ -86,6 +86,10 @@
       "result": "PASS earlier rehearsal",
       "checks": 10,
       "superseded": "Final run adds complete catalog packet syntax, graph restore and exact writer metadata rollback assertions."
+    },
+    {
+      "result": "Publication metadata audit corrected",
+      "cause": "Windows cp1252 default decoding miscomputed a source receipt hash for existing synthetic lambda literals; corrected explicit UTF8 encoding and added a real receipt-integrity regression. SQL and PG17.6 source/qualification unchanged."
     }
   ],
   "publicCI": {
