@@ -8,7 +8,7 @@ const loader = harness();
 const api = loader.load('src/lib/hackathons/publicBrowsing.ts');
 const discovery = loader.load('src/lib/hackathons/discovery.ts');
 const id = index => `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
-const event = (index, extra = {}) => ({ id: id(index), name: `Synthetic ${index}`, description: 'Build tools', type: 'official', status: 'approved', archived: false,
+const event = (index, extra = {}) => ({ id: id(index), name: `Synthetic ${index}`, description: 'Build tools', type: 'native', status: 'approved', archived: false,
   start_date: '2028-11-01', end_date: '2028-11-03', registration_end: '2028-10-30', created_at: '2026-10-01',
   mode: 'online', location: 'Mumbai', tags: ['React'], prize_pool: 'INR 1000', currency: 'INR', website_url: null, ...extra });
 function paged({ records = [], caps = [], respond } = {}) {
@@ -134,7 +134,7 @@ function landingFixture(records, options = {}) {
 for (const type of ['native', 'official', 'external', null]) test(`landing visibility and public-detail agreement: ${type}`, async () => {
   const records = [event(1, { type }), ...['pending', 'rejected', null, undefined].map((status, i) => event(i + 2, { type, status, ai_feedback: { status: 'approved' } })), event(9, { type, archived: true }), event(10, { type, archived: null })];
   const fixture = landingFixture(records), result = await fixture.getLandingData();
-  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.deepEqual(Array.from(result.upcoming, row => row.id), ['native','official'].includes(type)?[id(1)]:[]);
+  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.deepEqual(Array.from(result.upcoming, row => row.id), type==='native'?[id(1)]:[]);
   assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3);
   for (const read of fixture.reads.filter(read => read.table === 'hackathons')) {
     assert(read.equals.some(([key, value]) => key === 'status' && value === 'approved'));

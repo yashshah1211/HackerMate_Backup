@@ -407,7 +407,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><DiscoveryDropdown id={`hk-size-${suffix}`} label="Participation" value={settings.participation} onChange={participation => updateSettings({ participation })}
         options={[{ value: "", label: "Any team size" }, { value: "solo", label: "Solo allowed (listed)" }, { value: "team", label: "Teams allowed (listed)" }]} /></div>
     <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration availability</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration availability" value={settings.registration} onChange={registration => updateSettings({ registration })}
-        options={[{ value: "", label: "Default for this view" }, { value: "open", label: "Registration confirmed open" }, { value: "closed", label: "Registration closed" }, { value: "unknown", label: "Availability unverified" }, { value: "not-yet-open", label: "Not yet open" }, { value: "all", label: "Include closed registrations" }, { value: "not-closed", label: "Exclude confirmed closed" }, { value: "recorded", label: "Deadline listed (including closed)" }]} /></div>
+        options={[{ value: "", label: "Default for this view" }, { value: "open", label: "Registration listed as open" }, { value: "closed", label: "Registration closed" }, { value: "unknown", label: "Availability unverified" }, { value: "not-yet-open", label: "Not yet open" }, { value: "all", label: "Include closed registrations" }, { value: "not-closed", label: "Exclude confirmed closed" }, { value: "recorded", label: "Deadline listed (including closed)" }]} /></div>
   </>;
 
   const filterGroups = (
@@ -484,10 +484,10 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const emptyBody = hasAnyFilter ? "No events match these settings. Clear filters to explore more events."
     : activeTab === "saved" ? "You haven't saved any listed events yet. Use a bookmark to keep an event here."
     : activeTab === "past" ? "No listings with past dates match this view. Imported schedules remain unverified."
-    : activeTab === "ongoing" ? "No verified ongoing events match this view. Use All / Unverified to review imported listings."
-    : activeTab === "upcoming" ? "No verified upcoming events match this view. Use All / Unverified to review imported listings."
+    : activeTab === "ongoing" ? "No native ongoing events match this view. Use All / Unverified to review imported listings."
+    : activeTab === "upcoming" ? "No native upcoming events match this view. Use All / Unverified to review imported listings."
     : activeTab === "all" ? "No public listings match this view."
-    : "No current registration listings match this view. Browse All / Unverified to review other events.";
+    : "No opportunities with sufficient verification match this view. Browse All / Unverified to review public listings.";
 
   return (
     <Page>
@@ -577,7 +577,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
       </div>
 
       <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
-      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates. Imported schedules are unverified; use All / Unverified for listings without confirmed registration availability.</p>
+      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates. Non-native schedules and event categories are unverified, including official imports. Review them in All / Unverified; listed registration metadata does not establish a verified hackathon opportunity.</p>
       {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 

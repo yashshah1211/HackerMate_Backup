@@ -30,27 +30,38 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   const fit=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
   for(const role of ['guest','member']){
    await page.goto(BASE+'/hackathons?role='+role);
-   await page.getByRole('link',{name:'Confirmed open event',exact:true}).waitFor();
+   await page.getByText('No events found',{exact:true}).waitFor();
    assert.equal(await page.getByRole('link',{name:'Closed applications future event',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ended event',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:algorush.name,exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Unverified availability event',exact:true}).count(),0);
-   assert(await page.getByRole('link',{name:'Trusted official ongoing event',exact:true}).isVisible());
+   assert.equal(await page.getByRole('link',{name:'Imported registration window',exact:true}).count(),0);
+   assert.equal(await page.getByRole('link',{name:'Build with AI: Bootcamps',exact:true}).count(),0);
+   for(let n=1;n<=8;n++)assert.equal(await page.getByRole('link',{name:'Official import '+n,exact:true}).count(),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-discovery-${width}.png`),fullPage:true});
    if(role==='guest'){
     assert(await page.evaluate(()=>window.fixtureReads.every(r=>r.table==='hackathons')));
-    await page.getByRole('button',{name:'Save hackathon',exact:true}).first().click();
-    assert(await page.getByRole('link',{name:'Sign in',exact:true}).isVisible());
    }else{
     await page.getByRole('tab',{name:/^Saved/}).click();
     await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();
     assert(await page.getByRole('link',{name:'Ended event',exact:true}).isVisible());
     assert(await page.getByRole('link',{name:algorush.name,exact:true}).isVisible());
+    assert(await page.getByRole('link',{name:'Official import 1',exact:true}).isVisible());
+    assert(await page.getByRole('link',{name:'Build with AI: Bootcamps',exact:true}).isVisible());
    }
    await page.getByRole('tab',{name:'All / Unverified',exact:true}).click();
    await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
    assert.equal(new URL(page.url()).searchParams.get('tab'),'all');
+   for(const name of [...Array.from({length:8},(_,i)=>'Official import '+(i+1)),'Build with AI: Bootcamps']){
+    const imported=page.locator('li').filter({has:page.getByRole('link',{name,exact:true})});
+    assert(await imported.getByText('Event schedule unverified',{exact:true}).isVisible());
+    assert.equal(await imported.getByText('Ongoing',{exact:true}).count(),0);
+   }
+   if(role==='guest'){
+    await page.getByRole('button',{name:'Save hackathon',exact:true}).first().click();
+    assert(await page.getByRole('link',{name:'Sign in',exact:true}).isVisible());
+   }
    await page.goto(BASE+'/hackathons?tab=all&registration=unknown&role='+role);
    await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
    const row=page.locator('li').filter({has:page.getByRole('link',{name:algorush.name,exact:true})});
@@ -65,6 +76,18 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    if(role==='guest')assert.equal(await page.getByRole('link',{name:/View event website/}).getAttribute('href'),algorush.website_url);
    assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-algorush-detail-${width}.png`),fullPage:true});
+   for(const [n,name]of [[9,'Official import 1'],[30,'Build with AI: Bootcamps']]){
+    await page.goto(BASE+`/hackathons/${id(n)}?role=${role}`);
+    await page.getByRole('heading',{name,exact:true}).waitFor();
+    assert(await page.getByText('Event schedule unverified',{exact:true}).isVisible());
+    if(role==='guest')assert(await page.getByRole('link',{name:/View event website/}).isVisible());
+    else {
+     assert(await page.getByRole('button',{name:'View official event site',exact:true}).filter({visible:true}).isVisible());
+     assert(await page.getByRole('button',{name:'Join community',exact:true}).isVisible());
+    }
+    await fit();await page.screenshot({path:path.join(OUT,role+'-unverified-'+n+'-'+width+'.png'),fullPage:true});
+    assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
+   }
    await page.goto(BASE+`/hackathons/${id(3)}?role=${role}`);
    await page.getByRole('heading',{name:'Closed applications future event',exact:true}).waitFor();
    assert(await page.getByText('Registration closed',{exact:true}).isVisible());
@@ -82,7 +105,9 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   assert.equal(await page.getByText(/hackathons listed|All \d+ listed/).count(),0);
   await fit();await page.screenshot({path:path.join(OUT,`hero-${width}.png`),fullPage:true});
   await page.getByRole('link',{name:'Browse hackathons',exact:true}).click();
-  await page.getByRole('link',{name:'Confirmed open event',exact:true}).waitFor();
+  await page.getByText('No events found',{exact:true}).waitFor();
+  await page.goto(BASE+'/hackathons?case=native');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
+  await page.goto(BASE+'/hackathons?case=native');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
   await page.goto(BASE+'/hackathons?registration=closed');
   await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();
   assert(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).isVisible());

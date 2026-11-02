@@ -48,10 +48,10 @@ export function listedEventState(event: EventDates, now: number): EventState {
   return "unknown";
 }
 
-/** Only existing curated native/official classifications supply schedule authority.
- * Imported/unknown origins lack field provenance; their dates alone prove no live event state. */
+/** Native schedules describe events hosted here. Non-native classifications, including official,
+ * provide no independently verified source freshness or hackathon category in the current schema. */
 export function scheduleIsUnverified(event: Pick<EventDates, "type">): boolean {
-  return event.type !== "native" && event.type !== "official";
+  return event.type !== "native";
 }
 export function eventState(event: EventDates, now: number): EventState {
   return scheduleIsUnverified(event) ? "unknown" : listedEventState(event, now);
@@ -62,7 +62,6 @@ export function eventStateLabel(event: EventDates, now: number): string {
 }
 export function activeOpportunity(event: RegistrationDates, now: number): boolean {
   const registration = registrationState(event, now);
-  // An unbounded imported "open" string cannot keep an opportunity promoted indefinitely.
-  return registration !== "closed" && (!scheduleIsUnverified(event)
-    || (registration === "open" && eventDate(event.registration_end, true) !== null));
+  // Imported dates/status, an organizer ID and keywords cannot establish verified admission or event category.
+  return !scheduleIsUnverified(event) && registration !== "closed";
 }

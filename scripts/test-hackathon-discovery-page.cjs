@@ -8,7 +8,7 @@ const { harness } = require('./ppt-vision-harness.cjs');
 const NOW = Date.parse('2026-10-14T12:00:00Z'), USER = 'offline-user';
 const event = (id, extra = {}) => ({ id, name: `Event ${id}`, description: '<p>Build clean tools</p>', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', location: 'Venue in India', mode: 'offline', prize_pool: 'Certificate & Perks',
-  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'official', organizer_id: null, ...extra });
+  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'native', organizer_id: null, ...extra });
 const text = node => node == null || typeof node === 'boolean' ? '' : Array.isArray(node) ? node.map(text).join('') : typeof node === 'object' ? text(node.props?.children) : String(node);
 async function page(options = {}) {
   let cursor = 0, html, clock = NOW, tick; const slots = [], effects = [], dependencies = [], controls = [], writes = [], toasts = [], reads = [];

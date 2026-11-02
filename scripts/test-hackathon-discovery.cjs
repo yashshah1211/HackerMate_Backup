@@ -7,7 +7,7 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 const event = (id, fields = {}) => ({ id, name: `Event ${id}`, description: 'Build useful tools', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', registration_end: null, created_at: '2026-10-01T00:00:00Z',
   location: 'Venue in India', mode: 'Online', prize_pool: 'Certificate & Perks', currency: null, website_url: 'https://unstop.com/event',
-  type: 'official', organizer_id: null, college: null, ...fields });
+  type: 'native', organizer_id: null, college: null, ...fields });
 const settings = query => api.readDiscoverySettings(new URLSearchParams(query));
 const results = (events, query = '', skills = [], saved = new Set()) => api.discoverEvents(events, settings(query), skills, saved, NOW).map(h => h.id);
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -62,11 +62,11 @@ test('search matches title, plain descriptions, tags, college and known location
   assert.deepEqual(results([event('placeholder')], 'q=venue'), []);
 });
 test('platform hostnames and normalized hybrid/offline formats drive combined filters', () => {
-  const h = event('valid', { mode: ' HYBRID ', tags: ['Web3'], website_url: 'https://apply.devfolio.co/event' });
-  assert.deepEqual(results([h], 'mode=hybrid&platform=devfolio&topic=web3'), ['valid']);
-  assert.deepEqual(results([h], 'mode=online'), []);
+  const h = event('valid', { type: 'external', mode: ' HYBRID ', tags: ['Web3'], website_url: 'https://apply.devfolio.co/event' });
+  assert.deepEqual(results([h], 'tab=all&mode=hybrid&platform=devfolio&topic=web3'), ['valid']);
+  assert.deepEqual(results([h], 'tab=all&mode=online'), []);
   assert.equal(api.eventFormat(' Offline '), 'in-person'); assert.equal(api.eventFormat('in-person'), 'in-person');
-  assert.equal(api.eventPlatform(event('fake', { website_url: 'https://unstop.com.evil.example/event?site=devfolio.co' })), 'other');
+  assert.equal(api.eventPlatform(event('fake', { type: 'external', website_url: 'https://unstop.com.evil.example/event?site=devfolio.co' })), 'other');
   assert.equal(api.eventPlatform(event('native', { type: 'native' })), 'native');
 });
 test('date window, topic and participation constraints require actual recorded fields', () => {

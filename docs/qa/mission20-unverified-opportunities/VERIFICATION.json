@@ -1,5 +1,5 @@
 {
-  "status": "QUALIFIED_LOCALLY_PENDING_CURRENT_HEAD_CI_AND_REVIEW",
+  "status": "QUALIFIED_LOCALLY_PENDING_FOLLOWUP_HEAD_CI_AND_REVIEW",
   "base": "afcc0da97b8d39cc7a9f202431e19c39d4f4bc69",
   "branch": "hotfix/mission20-unverified-opportunities",
   "inventory": [
@@ -28,25 +28,25 @@
   ],
   "sourceSha256": {
     ".github/workflows/mission20-discovery-hotfix.yml": "5ced36cb9221ca5c9c27e82e59faffe2b1d80b08d74d534b54fd977d6d0a82b2",
-    "qa/fixtures/mission20-hotfix-browser.jsx": "c619cdf14bbebc4bacb6a59adbd78c63a3cac0c0e6fd2d3eefc734be875c8475",
+    "qa/fixtures/mission20-hotfix-browser.jsx": "6dcc94de57800ca582331ad92b44155f28480a4f4a7650ae8b68cadced4da944",
     "qa/fixtures/mission20-unverified/algorush.json": "d6da63314c979dee655e8b4c236f5e1b7f135e6f7efdf519e56a32aa899ebd34",
     "scripts/lint-mission20-discovery-hotfix.cjs": "7abc5599ebef0c72a8979f4618c2542934d12094862b06c9d0d5d19605189847",
     "scripts/test-auth-return-ui.cjs": "55817b5640d524b434dd1905ab134453a3866b5179d4ae5cdf078f57200e4a9b",
-    "scripts/test-hackathon-discovery-page.cjs": "0b7c4336f1398fb25b9dbd0d5c582718a0bbe447702af2c75944a0b5fba4a6a1",
-    "scripts/test-hackathon-discovery.cjs": "bebec7f53a452cd135f6febbb46a146160d5939e87094384c40e06c75f2f9049",
-    "scripts/test-mission20-discovery-hotfix-browser.cjs": "813c46e7e69f2a34bb5c88874c2c95f7621e4d045173607be92a8961a2728c15",
-    "scripts/test-mission20-discovery-hotfix.cjs": "f310f5a1be309f16ce84bdcfa8e2cbaafb300224922ff759420c4537ed63602f",
-    "scripts/test-mission20-unverified-opportunities.cjs": "e2f4be406afbb102849465714999c448f5f8ac05b12f4c61fc7b25e8325be3ba",
-    "scripts/test-public-hackathon-browsing.cjs": "772cae0b43fc84162983fe21ff1967edebe3e68c79e00d1e1551390ebd8f0146",
-    "scripts/test-public-hackathon-data.cjs": "3e84fd77caa09fdf375c63972f9b94020c41aaa03f7f89841e93b541c831f4ac",
+    "scripts/test-hackathon-discovery-page.cjs": "425490a818732aed7c74aae15548f875deffc5371ea5f24c94620d81502f3a23",
+    "scripts/test-hackathon-discovery.cjs": "a4e1e50f607efbc41ae53107e6f9466451bd355f89d65bf4188292ef8aa805a4",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": "9bf7d23928740201ebb7a52d9b9ea9bb0c3cf380864492042f2ff1498bb0e685",
+    "scripts/test-mission20-discovery-hotfix.cjs": "24697f28f2af57cbf02aebad8e73fa44eada7f0a0884df33f20f0653373eb78c",
+    "scripts/test-mission20-unverified-opportunities.cjs": "ac6c3821f91ec5eaba65b783239e758e39f06c8792c51d805b53b770b83ffcf7",
+    "scripts/test-public-hackathon-browsing.cjs": "2652cce697d6a1bf4603999f2cf78e5711bb9f4920cb89d23cd4816fe57629d4",
+    "scripts/test-public-hackathon-data.cjs": "3efef8a243f6f2df1728afcb588865d155cdbea255bf104622119fa22e00daf7",
     "src/app/LandingPageClient.tsx": "dd5e8bde7b886ed40b40a6c3c688dd41fdc88375d1948a87a0b357014293a8e5",
     "src/app/hackathons/[id]/page.tsx": "d0850cfd5a9feef54f2edfd8af965998e66846194f1e08878f0027eb0e825e57",
-    "src/app/hackathons/page.tsx": "3ccd9631509c444db635e3f3d42e90b3e619503dbdf39a140508b859899f3fed",
+    "src/app/hackathons/page.tsx": "3b6f9f9d22bb7f57b984ad872082255b0bfadd6c121496c08895abc56a428a07",
     "src/components/hackathons/PublicHackathonDetail.tsx": "5406043b832b6f6cc512ee42927b3a9c8d1ca0a564d81e6bd3321b34eb1f273a",
     "src/components/landing/LandingHero.tsx": "eb8a361bbf7bd2f1df676cc92a2c68cb8f292b96a18b38da5876a1dcd1af1b1c",
     "src/lib/getLandingData.ts": "92c9059107bb8650d9e6ee5fa7210e4349d630e54da3232466cef1bd3a897638",
     "src/lib/hackathons/discovery.ts": "fdc1b9cc0d1586c9bcd0dcc3288888929e181e440c218776f3dd9546201f1863",
-    "src/lib/hackathons/lifecycle.ts": "c50db22d53d7f0997613110e12ccc3ed1692d6260504199332ff9d2e03d96075"
+    "src/lib/hackathons/lifecycle.ts": "d8bbb8a191b36ad486d39fbc18d5aa80352706aee066a678e5fba28a81ecc1fc"
   },
   "reproduction": {
     "unchangedMain": true,
@@ -58,7 +58,7 @@
   },
   "checks": {
     "application": {
-      "passed": 397,
+      "passed": 400,
       "failed": 0,
       "skipped": 0
     },
@@ -79,7 +79,13 @@
       "syntheticOnly": true,
       "mutations": 0,
       "realAllTabClick": true,
-      "realBrowseLinkClick": true
+      "realBrowseLinkClick": true,
+      "defaultDatasetEntirelyNonNative": true,
+      "officialImports": 8,
+      "workshopRetainedUnverified": true,
+      "nativePositiveFixture": true,
+      "savedOfficialAndWorkshop": true,
+      "communityEntryControls": true
     },
     "rackBrowser": {
       "passed": 32,
@@ -102,32 +108,40 @@
   },
   "logSha256": {
     "before": {
-      "file": "scratch/unverified/before-fix.log",
-      "sha256": "b5c70fdb895339327cf9073884e93242128033db276418dc8a89c959ed300838"
+      "file": "scratch/unverified/trust-before.log",
+      "sha256": "07f691276698a4e0e8f7a102ca4f993f97a0cbabefb3b0ac54cbc664423143e5"
     },
     "after": {
-      "file": "scratch/unverified/tests-final.log",
-      "sha256": "65cd7881010996854559604b0dfd5a95f4e01328472127dcf544f070f6e2be72"
+      "file": "scratch/unverified/trust-tests-final-pass.log",
+      "sha256": "407d90a6c9efef25dd0aaa0aa7d54c41d2f02aac4583698c7ad9e14918ffed87"
     },
     "browser": {
-      "file": "scratch/unverified/browser-qualified.log",
-      "sha256": "40d92cfba9340844545190facaf1022fc96b95075158d531f6669325397cf047"
+      "file": "scratch/unverified/trust-browser-qualified.log",
+      "sha256": "4cbb1659a4a7df4800aa82d64bad5b11ff9256653afb63d052b07194979034a0"
     },
     "build": {
-      "file": "scratch/unverified/build-final.log",
-      "sha256": "b126807960bc00aa03febc40c938d55a72a8e9c734122ebf0aca1467799599d3"
+      "file": "scratch/unverified/trust-build-qualified.log",
+      "sha256": "69cccacb4c404a287f7a8716982f53209b78e271799635fe8a24a528a45c5012"
     },
     "rack": {
-      "file": "scratch/unverified/rack-final.log",
+      "file": "scratch/unverified/trust-rack.log",
       "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
     },
     "lint": {
-      "file": "scratch/unverified/lint-publication.log",
+      "file": "scratch/unverified/trust-lint-final.log",
       "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
     },
     "typeScript": {
-      "file": "scratch/unverified/typecheck-final.log",
+      "file": "scratch/unverified/trust-typecheck.log",
       "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "additionalLint": {
+      "file": "scratch/unverified/trust-other-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sandboxBuildFailure": {
+      "file": "scratch/unverified/trust-build.log",
+      "sha256": "be2590b7cbce9bf8d6847638e8cbc7811f337b8c9c6ea1f93b6c061c592dd08d"
     }
   },
   "screenshots": {
@@ -146,15 +160,15 @@
       },
       {
         "file": "guest-algorush-explicit-1440.png",
-        "sha256": "48912e8eba9dbae7dfb27e9801528d6a109628ff7ecfaab6f596e99ba04262a7"
+        "sha256": "354eb57a21cc55cd60d07d39db0566ec9560c3f4cea110343cbfed88abb23154"
       },
       {
         "file": "guest-algorush-explicit-390.png",
-        "sha256": "03693f648e0e7f0835627af5eb781e9bda21220653f4cc71f78fe6ef88ed13d1"
+        "sha256": "bd4e4cf44c318ea5c89357c5b4813d982f51c7997e743b037df8d08085c620b8"
       },
       {
         "file": "guest-algorush-explicit-768.png",
-        "sha256": "c0f2950bb345287942743eed4794780268b583bd729d9ac8ac8677ffe514e234"
+        "sha256": "a8fe123b2ebda03c75c76afa7352814c6e63ec49349880b7045676638643add8"
       },
       {
         "file": "guest-closed-detail-1440.png",
@@ -170,15 +184,39 @@
       },
       {
         "file": "guest-discovery-1440.png",
-        "sha256": "cffb051d78640dd30de206b81bbccb99d1811c8835f1b438a8159f475e0b34a9"
+        "sha256": "749bde010ef6f0f349c49e3d7420ee2ada2bda2e012c975d789ccba58bffa4b9"
       },
       {
         "file": "guest-discovery-390.png",
-        "sha256": "aae0e554f5ae90fb17bf8572594c84fb9c38453b45381a52b02862955c084721"
+        "sha256": "eb35a3c963d580a2bd8adbcec65e24a1aef88480a6e95eebae6dfe25737ba38b"
       },
       {
         "file": "guest-discovery-768.png",
-        "sha256": "6463ef8e49274ad7f49257b38beb296482e09ffcab0da6825a77a5ef949add1c"
+        "sha256": "42b5f8faf8d5e9125deedb8017293f3227e4ac02996a694e6a315b62e746473f"
+      },
+      {
+        "file": "guest-unverified-30-1440.png",
+        "sha256": "4d5fcac488c236b61015dc478d61305fc5d8d384abbc326200d800abf0c4f81c"
+      },
+      {
+        "file": "guest-unverified-30-390.png",
+        "sha256": "911b2ef6af179782f848e70cfd7efc020808c7f30ed0bbe928ee3da01d0be70a"
+      },
+      {
+        "file": "guest-unverified-30-768.png",
+        "sha256": "91b4f2d4d2582a56990783b2b32cc301d25f5e81a0a42ec99bd83fe9cb6f93ca"
+      },
+      {
+        "file": "guest-unverified-9-1440.png",
+        "sha256": "54de0c7d2212110f2ccf7a3b4e9b0e1891adac36639a6e7f6403cd1a4b453af2"
+      },
+      {
+        "file": "guest-unverified-9-390.png",
+        "sha256": "590bb6a7cc9468ea0c868a99eb2d25db3cfb24fb15028d583e4448bca00ea05b"
+      },
+      {
+        "file": "guest-unverified-9-768.png",
+        "sha256": "8fb4d136bc6eaf434ef7df1aeb1e77815f5ebb11be12db36a1b18f447f447341"
       },
       {
         "file": "hero-1440.png",
@@ -206,15 +244,15 @@
       },
       {
         "file": "member-algorush-explicit-1440.png",
-        "sha256": "5e626b90b2f093ef02ea65a9dd98880ab86d175fad548eb93859480e239cc48b"
+        "sha256": "800e32fc2faf61925d5043d44f4c0a864a0d9f41516f6eab1da86eff1c1dd4be"
       },
       {
         "file": "member-algorush-explicit-390.png",
-        "sha256": "54fec65fa2b44489b1d35db902e2dc179837bd75028e72cf522e49b4e1df27a3"
+        "sha256": "67011dcd057b4d39655a578478a6341bc88f9379eccbe45a106712543af436b9"
       },
       {
         "file": "member-algorush-explicit-768.png",
-        "sha256": "8da2b01fd68825b2d53d66afdd014d9c01a981e77c9cfc7141b3219721788d7a"
+        "sha256": "2176b71d126e1f74d9ddda7eac545c82cb5ee1ee027f47f1f1c6748d1e203e48"
       },
       {
         "file": "member-closed-detail-1440.png",
@@ -230,15 +268,39 @@
       },
       {
         "file": "member-discovery-1440.png",
-        "sha256": "4de18b71b1fb97c59d51452911c6fa563b1120235e1f3fc63870af3bccc5a1c1"
+        "sha256": "99c1ba59c05f78074036de3b9efa4fe018ba0de99e91ccb5182ab9af49c96852"
       },
       {
         "file": "member-discovery-390.png",
-        "sha256": "c7b17e69e584196a3d927928b2e45e48195573c44cb27b48f066461132573a97"
+        "sha256": "2310cf1d6313f0cf712999bfbea96872835b1f7323bbf5ce0e9f400a04b122a0"
       },
       {
         "file": "member-discovery-768.png",
-        "sha256": "5c06a2fb0fda92202e255cbe2929fa7d4ae3d9bed2372da3e00105d45e1a1a5b"
+        "sha256": "7e74129c1ab3d7a40a4ef148f9521536705182bae7a1e61bf28a8c577d3a0364"
+      },
+      {
+        "file": "member-unverified-30-1440.png",
+        "sha256": "c40ab05b6ec9994dace0dbca35f1dca4ef41ba8cda1be54516bf543a4948aaac"
+      },
+      {
+        "file": "member-unverified-30-390.png",
+        "sha256": "1ba18effd3503273b4a069846256dfcd571c619cad4ade33227a17620912755f"
+      },
+      {
+        "file": "member-unverified-30-768.png",
+        "sha256": "b9c18b05f8c069cb2e3d1689443f6c0473f2d242683507410cc0cb6b76f4a7cd"
+      },
+      {
+        "file": "member-unverified-9-1440.png",
+        "sha256": "929f3faae82cc06ed7fe599772ffaba5a3954960a4f2a39d88fa142cd77839e7"
+      },
+      {
+        "file": "member-unverified-9-390.png",
+        "sha256": "1279cee41196ca7f46be48394bf5d09de6e53de2e8c256d2732eb1aa5f105647"
+      },
+      {
+        "file": "member-unverified-9-768.png",
+        "sha256": "1dc252e857e3e5f8a956ed2447c03b65f87b9fdb5cd29f2de1397e9f91351439"
       }
     ],
     "visuallyInspected": [
@@ -267,20 +329,109 @@
     "migrationRequired": false,
     "registrationWritersChanged": false,
     "communityParticipationPreserved": true,
-    "officialNativeClassificationPreserved": true,
     "partnerPortalImplementationChanged": false,
     "productionConnections": 0,
     "productionWrites": 0,
     "merges": 0,
-    "deployments": 0
+    "deployments": 0,
+    "storedTypesChanged": false,
+    "officialAutomaticScheduleTrustRemoved": true
   },
   "limits": [
-    "Curated trust uses existing native/official classification; imported/unknown schedules are unverified.",
-    "Positive imported admission evidence must have a finite valid future deadline; freshness/provenance is still a separate design.",
+    "Native hosted schedule behavior remains. Every non-native classification, including official, is unverified.",
+    "Bounded imported registration evidence is listed metadata only; no imported recommendation is promoted by default.",
     "No official provider raw response independently extracted; founder supplied official AlgoRush findings.",
     "No AlgoRush date/team data is corrected in production. Source origin of the December date remains unproven.",
     "Existing 60-second refresh and bounded landing candidate query remain.",
     "Current-head CI results must be reported separately; local pass is not a green workflow."
   ],
-  "recommendation": "GO for independent review of immediate presentation correction after green current-head CI; NO_GO for source refresh or backfill without separate evidence/design/authorization."
+  "recommendation": "GO for independent review of the strict non-native-unverified presentation correction after green follow-up-head CI; NO_GO for source refresh/backfill or release execution without separate approval.",
+  "priorQualifiedHead": "5a9808e5cbb05e7a03d2ccdb592dbd055c12bb20",
+  "followup": {
+    "reason": "Independent review: official import label and bounded registration metadata provide no independent source freshness or hackathon category.",
+    "reviewedHead": "5a9808e5cbb05e7a03d2ccdb592dbd055c12bb20",
+    "approval": "Founder approved conservative non-native-unverified plan and supplied November 2 aggregate.",
+    "productionSnapshot": {
+      "source": "Founder independent read-only production query November 2, 2026; not queried by Codex",
+      "publicApprovedUnarchived": 410,
+      "native": 0,
+      "official": 8,
+      "external": 402,
+      "boundedExternalRegistration": 2
+    },
+    "expectedCounts": {
+      "defaultDiscover": 0,
+      "upcoming": 0,
+      "ongoing": 0,
+      "landingOpportunities": 0,
+      "allUnverified": 410,
+      "unverifiedSchedules": 410,
+      "officialRetained": 8,
+      "externalRetained": 402,
+      "saved": "User-specific public subset unchanged",
+      "past": "Listed-date filter; exact live count not supplied"
+    },
+    "reproduction": {
+      "cases": 13,
+      "passed": 10,
+      "failedAsExpected": 3,
+      "fixture": "Synthetic official/workshop/aggregate patterns, not exact live raw bodies or provider payloads"
+    },
+    "logSha256": {
+      "before": {
+        "file": "scratch/unverified/trust-before.log",
+        "sha256": "07f691276698a4e0e8f7a102ca4f993f97a0cbabefb3b0ac54cbc664423143e5"
+      },
+      "after": {
+        "file": "scratch/unverified/trust-tests-final-pass.log",
+        "sha256": "407d90a6c9efef25dd0aaa0aa7d54c41d2f02aac4583698c7ad9e14918ffed87"
+      },
+      "browser": {
+        "file": "scratch/unverified/trust-browser-qualified.log",
+        "sha256": "4cbb1659a4a7df4800aa82d64bad5b11ff9256653afb63d052b07194979034a0"
+      },
+      "build": {
+        "file": "scratch/unverified/trust-build-qualified.log",
+        "sha256": "69cccacb4c404a287f7a8716982f53209b78e271799635fe8a24a528a45c5012"
+      },
+      "rack": {
+        "file": "scratch/unverified/trust-rack.log",
+        "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+      },
+      "lint": {
+        "file": "scratch/unverified/trust-lint-final.log",
+        "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
+      },
+      "typeScript": {
+        "file": "scratch/unverified/trust-typecheck.log",
+        "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+      },
+      "additionalLint": {
+        "file": "scratch/unverified/trust-other-lint.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "sandboxBuildFailure": {
+        "file": "scratch/unverified/trust-build.log",
+        "sha256": "be2590b7cbce9bf8d6847638e8cbc7811f337b8c9c6ea1f93b6c061c592dd08d"
+      }
+    },
+    "inventory": [
+      "docs/qa/mission20-unverified-opportunities/README.md",
+      "docs/qa/mission20-unverified-opportunities/VERIFICATION.json",
+      "qa/fixtures/mission20-hotfix-browser.jsx",
+      "scripts/test-hackathon-discovery-page.cjs",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "scripts/test-mission20-discovery-hotfix.cjs",
+      "scripts/test-mission20-unverified-opportunities.cjs",
+      "scripts/test-public-hackathon-browsing.cjs",
+      "scripts/test-public-hackathon-data.cjs",
+      "src/app/hackathons/page.tsx",
+      "src/lib/hackathons/lifecycle.ts"
+    ],
+    "sourceException": false,
+    "productionConnections": 0,
+    "productionWrites": 0,
+    "importerChanged": false
+  }
 }

@@ -29,16 +29,17 @@ test('a synthetic 132-record missing-deadline cohort is never promoted even with
  const rows=Array.from({length:132},(_,i)=>({...record,id:'synthetic-unverified-'+i,registration_status:i%2?'open':null}));
  assert.deepEqual(list(rows),[]);assert.equal(list(rows,'tab=all').length,132);
 });
-test('genuine recorded registration windows can be recommended without claiming their external event schedule is verified',()=>{
+test('recorded external registration windows remain explicit metadata, not default promotion',()=>{
  const open={...record,id:'synthetic-open',registration_start:'2026-10-01',registration_end:'2026-11-03'};
  const closed={...record,id:'synthetic-closed',registration_status:'closed'};
- assert.deepEqual(list([record,open,closed]),['synthetic-open']);
+ assert.deepEqual(list([record,open,closed]),[]);
+ assert.deepEqual(list([open],'tab=all&registration=open'),['synthetic-open']);
  assert.equal(life.eventState(open,now),'unknown');assert.equal(life.registrationState(open,now),'open');
  assert.equal(life.registrationLabel(open,now),'Registration listed as open');
  assert.deepEqual(list([closed],'tab=all&registration=closed'),['synthetic-closed']);
 });
-test('trusted official/native schedules and existing unknown registration review behavior are retained',()=>{
- for(const type of ['official','native']){
+test('native schedules and existing unknown registration review behavior are retained',()=>{
+ for(const type of ['native']){
   const trusted={...record,id:'synthetic-'+type,type};
   assert.equal(life.eventState(trusted,now),'ongoing');assert.deepEqual(list([trusted]),[trusted.id]);
  }
@@ -69,4 +70,31 @@ test('hero removes event total and numeric footer but keeps builders, teams and 
  const html=renderToStaticMarkup(React.createElement(Hero,{builderCount:321,teamCount:17,hackathonCount:410,upcoming:[]}));
  assert.match(html,/registered builders/);assert.match(html,/teams created/);assert.match(html,/321/);assert.match(html,/>17</);
  assert(!/hackathons? listed|All 410 listed|410/.test(html));assert.match(html,/href="\/hackathons"[^>]*>Browse hackathons/);
+});
+
+
+test('all eight reported official-pattern imports remain unverified regardless of bounded dates or owner metadata',()=>{
+ const rows=Array.from({length:8},(_,i)=>({...record,id:'synthetic-official-'+i,name:'Synthetic imported record '+i,type:'official',organizer_id:null,website_url:'https://unstop.com/synthetic-'+i}));
+ for(const row of rows){assert.equal(life.scheduleIsUnverified(row),true);assert.equal(life.eventState(row,now),'unknown');assert.equal(life.eventStateLabel(row,now),'Event schedule unverified');}
+ assert.deepEqual(list(rows),[]);assert.deepEqual(list(rows,'tab=ongoing'),[]);assert.equal(list(rows,'tab=all').length,8);
+ const bounded={...rows[0],organizer_id:'synthetic-owner',registration_start:'2026-10-01',registration_end:'2026-12-01',registration_status:'open',updated_at:'2026-11-02T06:29:59Z'};
+ assert.equal(life.activeOpportunity(bounded,now),false);assert.equal(life.scheduleIsUnverified(bounded),true);
+});
+
+test('Bootcamps category ambiguity is not resolved by a bounded imported window, keywords, freshness or a title exception',()=>{
+ // Founder reports Build with AI: Bootcamps is an educational workshop. Dates below are synthetic; no raw provider response is claimed.
+ for(const type of ['external','official'])for(const name of ['Build with AI: Bootcamps','Different synthetic title']){
+  const row={...record,id:'synthetic-workshop',type,name,description:'Educational workshop',tags:['AI','Hackathon'],registration_start:'2026-10-01',registration_end:'2026-12-01',registration_status:'open',updated_at:'2026-11-02T06:29:59Z'};
+  assert.equal(life.registrationState(row,now),'open');assert.equal(life.activeOpportunity(row,now),false);assert.deepEqual(list([row]),[]);
+  assert.deepEqual(list([row],'tab=all'),[row.id]);assert.deepEqual(list([row],'tab=saved',new Set([row.id])),[row.id]);
+ }
+});
+
+test('November 2 founder aggregate: 410 public listings, 0 native, 8 official and 402 external produce zero default opportunities',()=>{
+ // Metadata-pattern cohort matching the independently supplied aggregate, not a live catalog replica.
+ const rows=Array.from({length:410},(_,i)=>({...record,id:'synthetic-public-'+i,name:'Public record '+i,type:i<8?'official':'external',organizer_id:null,registration_start:i>=8&&i<10?'2026-10-01':null,registration_end:i>=8&&i<10?'2026-12-01':null}));
+ assert.equal(rows.filter(r=>r.type==='official').length,8);assert.equal(rows.filter(r=>r.type==='external').length,402);
+ for(const tab of ['recommended','upcoming','ongoing'])assert.deepEqual(list(rows,'tab='+tab),[]);
+ assert.equal(list(rows,'tab=all').length,410);assert.equal(rows.filter(r=>life.eventState(r,now)==='unknown').length,410);
+ const saved=new Set([rows[0].id,rows[8].id,rows[409].id]);assert.deepEqual(new Set(list(rows,'tab=saved',saved)),saved);
 });
