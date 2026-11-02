@@ -96,11 +96,13 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     return identity ? [[identity.provider + ":" + identity.provider_id, r] as const] : [];
   }));
   const work: { record?: CatalogRecord; identity: SourceIdentity }[] = [];
-  // Give current/near-term source candidates priority, then rotate the remaining backlog by check time.
+  // Give confirmed current/near-term hackathons priority, then rotate the remaining backlog by check time.
   // Cached facts only order checks; they never establish fresh admission without a successful recheck.
-  const relevant = (row: CatalogRecord) => { const m = sourceMetadata(row.source_metadata); if (!m || m.protected_fields?.length) return false;
-    const facts = m.facts, clock = Date.now();
-    return listedEventState(facts, clock) === "ongoing" || registrationState({ ...facts, type: "native" }, clock) === "open"
+  const relevant = (row: CatalogRecord) => { const m = sourceMetadata(row.source_metadata);
+    if (!m || m.protected_fields?.length || m.category !== "hackathon" || m.check_status !== "ok" || m.event_status === "ended") return false;
+    const facts = m.facts, clock = Date.now(), state = listedEventState(facts, clock);
+    if (state === "ended") return false;
+    return state === "ongoing" || registrationState({ ...facts, type: "native" }, clock) === "open"
       || (eventDate(facts.registration_start) ?? 0) > clock && (eventDate(facts.registration_start) ?? Infinity) < clock + 86400000;
   };
   const ordered = [...records].sort((a, b) => {

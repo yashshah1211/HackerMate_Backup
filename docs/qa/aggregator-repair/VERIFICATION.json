@@ -71,7 +71,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/README.md": {
-      "sha256": "ebb905cdd4b2acfd9d77c5c89d4cef5ffddf61cc4caa6a56529326a5d3a91166",
+      "sha256": "6539b19cb771aefc11fcacbae562c1c388dedbbb9a03654888d93750e9934871",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
@@ -171,7 +171,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-scraper-data-preservation.cjs": {
-      "sha256": "e20d5dc1976ee8bb29b7be1d0cb260db0ce6bd508f2f824153f5f0bff641df3a",
+      "sha256": "e28dded00c3d088d92854f3f0106f20a7a68ea51f2914b981c0719a81d855cff",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/app/admin/_tabs/OutreachTab.tsx": {
@@ -235,7 +235,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/synchronize.ts": {
-      "sha256": "32040d93bbf36f97108db886529a0467b938b3e932c5f89b9d32bb4a484b80f2",
+      "sha256": "27b332ddb37dff8e4e4b5be653e7ee678e38baadb0c91ba1ff78973fd8fa3364",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/types/supabase.ts": {
@@ -243,7 +243,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     }
   },
-  "sourceTreeSha256": "f749456349184b048ad91f835d27a0723498f54d23beb1af7dd544475853a26a",
+  "sourceTreeSha256": "5efea7ffa8d41c3585f6b0deceb0305d86d5b00f945fe8beed3fa054e57c4c08",
   "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
   "checks": {
     "application": {
@@ -352,7 +352,7 @@
     "expressions": 190
   },
   "ci": {
-    "status": "Follow-up current-head qualification pending; do not infer success from local checks",
+    "status": "Readiness follow-up current-head qualification pending publication; previous qualified head is recorded separately",
     "expectedWorkflows": [
       "Pull Request Validation",
       "Rack portal isolated qualification",
@@ -385,6 +385,29 @@
         "failed": 0,
         "cancelled": 1,
         "reason": "Unreferenced AbortSignal timeout allowed Linux fixture event loop to exit. PG17.6/Chrome steps were skipped."
+      }
+    ],
+    "lastQualifiedHead": "5a34087470f13156ae84cc8b6a312020ba2bd8b5",
+    "lastQualifiedResults": [
+      {
+        "workflow": "Pull Request Validation",
+        "run": 41466011388,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Rack portal isolated qualification",
+        "run": 41466011191,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Mission 20 discovery hotfix qualification",
+        "run": 41466011234,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Aggregator isolated qualification",
+        "run": 41466011198,
+        "conclusion": "success"
       }
     ]
   },
@@ -509,6 +532,22 @@
     "robots-build.log": {
       "path": "scratch/aggregator-audit/robots-build.log",
       "sha256": "c69250dfc7605e9a015c365baed71403ae84ff6e1855152cf23850804b7a0a96"
+    },
+    "readiness-queue-before.log": {
+      "path": "scratch/aggregator-audit/readiness-queue-before.log",
+      "sha256": "0a2c49006857566ce1064af8356d96c62297045d7f4200f9c5b34790d20ec731"
+    },
+    "readiness-queue-after.log": {
+      "path": "scratch/aggregator-audit/readiness-queue-after.log",
+      "sha256": "4e7ea48c70f1e3756fc8150cb4e8189157787e33ee15f6ddceb3fbb635ce2c29"
+    },
+    "readiness-typecheck.log": {
+      "path": "scratch/aggregator-audit/readiness-typecheck.log",
+      "sha256": "2712bcfedaa448473286eb8eddfafbd140e5f86179ad29c81a1b1c5232e67fa0"
+    },
+    "readiness-lint.log": {
+      "path": "scratch/aggregator-audit/readiness-lint.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
     }
   },
   "followup": {
@@ -532,7 +571,7 @@
     "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
     "inventoryUnchanged": true
   },
-  "updatedAt": "2026-11-02T14:50:44.028Z",
+  "updatedAt": "2026-11-02T15:31:19.090Z",
   "reviewFollowup": {
     "base": "ce82618a815527327f256c3599cca2c00a013e4d",
     "files": [
@@ -581,5 +620,119 @@
     "productionOperations": 0,
     "publication": "Pending exact-file staging/publication approval",
     "ci": "Pending new-head workflows after publication"
+  },
+  "readinessFollowup": {
+    "base": "5a34087470f13156ae84cc8b6a312020ba2bd8b5",
+    "files": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "scripts/test-scraper-data-preservation.cjs",
+      "src/lib/hackathons/synchronize.ts"
+    ],
+    "rootCause": "Queue priority used cached dates without category or check_status eligibility, admitting 82 unresolved/non-hackathon observations alongside 116 historical eligible candidates.",
+    "change": "Require confirmed hackathon, successful check, no protected fields and non-ended facts before current/near-term refresh priority; preserve lower oldest-check rechecks.",
+    "boundariesUnchanged": [
+      "150-check cap",
+      "4:1 refresh/discovery interleave",
+      "provider round-robin discovery",
+      "240-second total budget",
+      "15-second start reserve",
+      "26-hour evidence lifetime",
+      "provider rate/robots/origin/redirect/size/timeout controls",
+      "failure receipts and fail-closed serving",
+      "no outreach",
+      "review-only SQL"
+    ],
+    "controlledClock": {
+      "syntheticTransports": true,
+      "realInstalledSdk": true,
+      "realOrchestratorAndTransport": true,
+      "hostedPerformanceEvidence": false,
+      "eligibleRecords": 116,
+      "olderUnresolvedRecords": 82,
+      "newDiscoveryCandidates": 180,
+      "initialOverheadMs": 15000,
+      "dbWorkPerCheckMs": 200,
+      "reproducedBefore": {
+        "detailMs": 1200,
+        "totalChecks": 150,
+        "eligibleSuccesses": 38,
+        "unresolvedRechecks": 82,
+        "discoveryChecks": 30,
+        "virtualElapsedMs": 225000,
+        "lastEligibleFinishedMs": 223600
+      },
+      "after": [
+        {
+          "detailMs": 1200,
+          "totalChecks": 150,
+          "eligibleAttempts": 116,
+          "eligibleSuccesses": 116,
+          "unresolvedRechecks": 4,
+          "discoveryChecks": 30,
+          "virtualElapsedMs": 225000,
+          "lastEligibleFinishedMs": 216600
+        },
+        {
+          "detailMs": 1600,
+          "totalChecks": 117,
+          "eligibleAttempts": 94,
+          "eligibleSuccesses": 94,
+          "unresolvedRechecks": 0,
+          "discoveryChecks": 23,
+          "virtualElapsedMs": 225600
+        },
+        {
+          "detailMs": 9800,
+          "totalChecks": 22,
+          "eligibleAttempts": 18,
+          "eligibleSuccesses": 18,
+          "unresolvedRechecks": 0,
+          "discoveryChecks": 4,
+          "virtualElapsedMs": 235000
+        }
+      ],
+      "providerFailure": {
+        "eligibleAttempts": 116,
+        "eligibleSuccesses": 115,
+        "failedEvidenceNotServed": true
+      },
+      "expiredEvidenceRecovery": true,
+      "reportedAndDatedEndedRemainLowerRecheck": true
+    },
+    "localChecks": {
+      "focused": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-scraper-data-preservation.cjs",
+        "passed": 17,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "added": 6,
+        "initialRegressionsFailedBeforeFix": 5
+      },
+      "typescript": {
+        "command": "npm run typecheck -- --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "newErrors": 0,
+        "newWarnings": 0,
+        "baselinesUnchanged": true
+      },
+      "broadChecks": "Not repeated locally for this bounded scheduling follow-up; existing four workflows will qualify the published head."
+    },
+    "operatorChecklist": "Existing README checklist tightened: hold/drain, SQL preflight/authorized ledgered installation, 410 adopt/hold decisions, fresh per-record adoption/readback, hosted positive-cohort acceptance, capacity/first-refresh gate, promote last/unfreeze and safe rollback.",
+    "limitations": [
+      "No guarantee of complete 26-hour refresh coverage at slower durations or >120 eligible refresh demand with discovery backlog.",
+      "Four lower refresh slots/day with a fixed 116-priority cohort imply at least 74 invocations for 294 remaining records before failures/growth.",
+      "Controlled clocks establish queue/budget behavior, not hosted latency, cron punctuality or service parity."
+    ],
+    "publication": "Exact-four-file commit/push authorized by founder; current-head CI must be reconciled after publication",
+    "ci": "Pending published current-head workflows",
+    "productionOperations": 0,
+    "providerCollectionRepeated": false,
+    "sqlChanged": false,
+    "schedulingConfigurationChanged": false
   }
 }
