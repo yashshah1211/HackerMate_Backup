@@ -38,6 +38,15 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    await page.getByRole('tab',{name:role==='guest'?'Opportunities':'For you',exact:true}).click();
    assert.equal(new URL(page.url()).searchParams.get('tab'),'recommended');
    await page.getByText('No events found',{exact:true}).waitFor();
+   for(const registration of ['unknown','open','all','closed']){
+    await page.goto(BASE+'/hackathons?tab=recommended&registration='+registration+'&role='+role);
+    await page.getByText('No events found',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('link',{name:algorush.name,exact:true}).count(),0);
+    assert.equal(await page.getByRole('link',{name:'Imported registration window',exact:true}).count(),0);
+    assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
+   }
+   await page.goto(BASE+'/hackathons?tab=recommended&role='+role);
+   await page.getByText('No events found',{exact:true}).waitFor();
    assert.equal(await page.getByRole('link',{name:'Closed applications future event',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ended event',exact:true}).count(),0);

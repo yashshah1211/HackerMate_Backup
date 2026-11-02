@@ -23,7 +23,7 @@ Native denotes events hosted here; it is not a guarantee of independently verifi
 
 Exact current inventory, source/log/screenshot hashes and publication-time results: [VERIFICATION.json](VERIFICATION.json). Final-head CI results are recorded in the new Draft PR rather than predicted from local success.
 
-Local application selection: **402/402** passed, zero failed/skipped. It includes the exact record, all three provider origins, null origin, positive bounded registration, confirmed closure, missing-provider metadata, the synthetic 132-record cohort, native behavior and unverified official imports, raw-calendar history, public direct lookup, hero count/footer removal, existing metadata/visibility/auth/navigation/bookmark/community cases and India deadline boundaries.
+Local application selection: **465/465** passed, zero failed/skipped. It includes the exact record, all three provider origins, null origin, positive bounded registration, confirmed closure, missing-provider metadata, the synthetic 132-record cohort, native behavior and unverified official imports, raw-calendar history, public direct lookup, hero count/footer removal, existing metadata/visibility/auth/navigation/bookmark/community cases and India deadline boundaries.
 
 Existing calendar/ranking/auth fixtures now explicitly identify their native calendar contract. New imported-provider cases assert uncertainty and exclusion instead of preserving the erroneous assumption that external dates are trusted. No assertion is deleted/relaxed to hide a failure; existing native/community identity/status/capacity/record-preservation assertions remain strict.
 
@@ -68,6 +68,18 @@ Expected homepage journey for the founder's November 2 snapshot: **Browse hackat
 Two new tests fail against b7bb9dc (15 cases: 13 pass / 2 fail), reproducing the wrong default and missing explicit recommended URL. Final focused selection is 402/402. Existing opportunity-only tests explicitly select tab=recommended rather than asserting their old rules against general browsing. New general tests use bare URLs and retain closed/uncertain records. Explicit all/recommended/upcoming/ongoing/saved/past, search/filter values, unrelated source context and invalid-tab fallback round-trip correctly. Real browser journeys at 390/768/1440px click the hero link, confirm a populated general view with the warning, switch to empty Opportunities/For you with an explicit URL, reload it, and use Back/Forward through a direct event link. Existing Saved, guest/member direct views, native cutoff and exact Rack checks are retained.
 
 Only discovery defaults/labels, focused tests and this evidence change. The lifecycle trust helper, importer, event records, registration writers and partner implementation are unchanged. Current-head CI is recorded on PR #98 after publication.
+
+## Registration-filter admission guard follow-up
+
+Reviewed head: `d8a165095704ede34a3ac62f30bbaa278dad4625`. The opportunity guard previously ran only when no registration filter was selected. Explicit filters could therefore admit non-native unknown/open/closed metadata in recommended, or closed native registration in active tabs. The sole production change is the requested unconditional guard: `if (active && !activeOpportunity(event, now)) return false;`.
+
+Admission is always required in recommended, upcoming and ongoing, before applying any explicit registration filter. All / Unverified, Saved and Past retain their explicit registration filters, including closed records. The existing default All browsing UX, homepage destination, native unknown/review semantics, lifecycle trust helper, database readers/writers and partner/community functionality remain unchanged.
+
+A 63-case matrix covers all seven registration filters across three active tabs for non-native and genuine native rows, plus all seven filters in All/Saved/Past. It reproduces 16 failures before the guard fix (78 focused cases: 62 pass / 16 fail). Final relevant application selection is 465 cases. Legacy assertions that allowed closed native registrations in active views are corrected to reject them there and explicitly prove continued All access; no assertion is weakened or removed to mask a failure.
+
+The actual browser journey additionally visits recommended with unknown/open/all/closed filters for guests and members at 390/768/1440px, expecting zero imported opportunities and zero writes. Existing homepage-to-All, explicit URLs, Saved, direct access, Back/Forward, native India boundary and exact Rack assertions remain intact. An initial new browser matrix left its final closed filter in the URL for the following general-browsing scenario; the test now explicitly resets the URL between independent scenarios, preserving filter persistence. Its failed log is retained separately from final qualification.
+
+Expected founder-snapshot counts are unchanged: default general browsing / All **410**; Opportunities / For you **0**, now also with unknown/open/all/closed filters; Upcoming/Ongoing/landing strip **0**. No production query or write was performed. Final exact-head CI is recorded on PR #98 after publication.
 
 ## Separately scoped source-refresh work
 

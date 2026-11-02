@@ -44,10 +44,11 @@ test('For you includes events with missing tags, no overlapping skills and empty
   assert.deepEqual(results(records, '', ['Python']), results(records));
   assert.match(api.discoveryReason(records[0], [], NOW), /specific topic tags not listed/);
 });
-test('relevance prioritizes listed skills and excludes closed registrations unless explicitly requested', () => {
+test('relevance prioritizes listed skills and never bypasses closed admission in Opportunities', () => {
   const records = [event('generic'), event('matched', { tags: ['Python'] }), event('closed', { tags: ['Python'], registration_end: '2026-10-13' })];
   assert.deepEqual(results(records, '', [' PYTHON ']), ['matched', 'generic']);
-  assert.deepEqual(results(records, 'registration=all', [' PYTHON ']), ['matched', 'generic', 'closed']);
+  assert.deepEqual(results(records, 'registration=all', [' PYTHON ']), ['matched', 'generic']);
+  assert.deepEqual(results(records, 'tab=all&registration=all&sort=relevant', [' PYTHON ']), ['matched', 'generic', 'closed']);
   assert.match(api.discoveryReason(records[1], ['python'], NOW), /Tags match your listed skills: Python/);
 });
 test('Upcoming and Ongoing are disjoint; Past excludes unclear windows', () => {
@@ -79,7 +80,8 @@ test('date window, topic and participation constraints require actual recorded f
 test('event start never substitutes for registration deadline; unknown deadlines remain available', () => {
   const records = [event('unknown', { start_date: '2026-10-12' }), event('open', { registration_end: '2026-10-14' }), event('closed', { registration_end: '2026-10-13' })];
   assert.deepEqual(results(records, 'registration=not-closed'), ['open', 'unknown']);
-  assert.deepEqual(results(records, 'registration=recorded'), ['open', 'closed']);
+  assert.deepEqual(results(records, 'registration=recorded'), ['open']);
+  assert.deepEqual(results(records, 'tab=all&registration=recorded&sort=relevant'), ['open', 'closed']);
 });
 for (const [text, currency, amount, unit] of [
   ['₹1,50,000', null, 150000, 'INR'], ['INR 2.5 lakh', null, 250000, 'INR'], ['Rs. 1.2 crore', 'INR', 12000000, 'INR'],

@@ -116,3 +116,30 @@ test('default All and explicit Opportunities round-trip tab URLs, search, filter
  }
  assert.equal(discovery.readDiscoverySettings(new URLSearchParams('tab=bad')).tab,'all');
 });
+
+
+const admissionFilters=['unknown','open','all','closed','recorded','not-closed','not-yet-open'];
+function admissionRows(type,tab){
+ const base={...record,type,start_date:tab==='ongoing'?'2026-11-01':tab==='past'?'2026-09-01':'2026-11-05',end_date:tab==='past'?'2026-09-02':'2026-11-07'};
+ return [
+  {...base,id:type+'-open',registration_start:'2026-10-01',registration_end:'2026-11-03',registration_status:null},
+  {...base,id:type+'-unknown',registration_start:null,registration_end:null,registration_status:null},
+  {...base,id:type+'-closed',registration_start:'2026-10-01',registration_end:'2026-11-03',registration_status:'closed'},
+  {...base,id:type+'-not-yet-open',registration_start:'2026-11-04',registration_end:'2026-11-05',registration_status:null},
+ ];
+}
+for(const tab of ['recommended','upcoming','ongoing'])for(const registration of admissionFilters){
+ test('non-native admission cannot bypass '+tab+' with registration='+registration,()=>{
+  const rows=['external','official'].flatMap(type=>admissionRows(type,tab));
+  assert.deepEqual(list(rows,'tab='+tab+'&registration='+registration),[]);
+ });
+ test('genuine native '+tab+' applies admission before registration='+registration,()=>{
+  const rows=admissionRows('native',tab),expected=registration==='closed'?[]:registration==='all'||registration==='not-closed'?['native-open','native-unknown','native-not-yet-open']:registration==='recorded'?['native-open','native-not-yet-open']:['native-'+registration];
+  assert.deepEqual(new Set(list(rows,'tab='+tab+'&registration='+registration)),new Set(expected));
+ });
+}
+for(const tab of ['all','saved','past'])for(const registration of admissionFilters)test('explicit '+tab+' browsing retains registration='+registration,()=>{
+ const rows=['external','official','native'].flatMap(type=>admissionRows(type,tab)),saved=new Set(rows.map(r=>r.id));
+ const expected=rows.filter(r=>registration==='all'||registration==='not-closed'&&life.registrationState(r,now)!=='closed'||registration==='recorded'&&r.registration_end!==null||life.registrationState(r,now)===registration).map(r=>r.id);
+ assert.deepEqual(new Set(list(rows,'tab='+tab+'&registration='+registration,saved)),new Set(expected));
+});

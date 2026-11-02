@@ -17,18 +17,20 @@ for(const [patch,expected] of [
 test('event dates never prove registration availability or change a closed deadline',()=>{
  const ongoing=event('ongoing',{start_date:'2026-11-01',registration_end:'2026-10-31'});
  assert.equal(life.eventState(ongoing,now),'ongoing');assert.equal(life.registrationState(ongoing,now),'closed');
- assert.deepEqual(results([ongoing],'tab=ongoing'),[]);assert.deepEqual(results([ongoing],'tab=ongoing&registration=closed'),['ongoing']);
+ assert.deepEqual(results([ongoing],'tab=ongoing'),[]);assert.deepEqual(results([ongoing],'tab=ongoing&registration=closed'),[]);
+ assert.deepEqual(results([ongoing],'tab=all&registration=closed'),['ongoing']);
  assert.equal(life.registrationState(event('unknown',{registration_start:null,registration_end:null}),now),'unknown');
  assert.equal(life.registrationLabel({},now),'Registration availability unverified');
 });
-test('default active discovery excludes closed; explicit filters, Saved and Past retain access',()=>{
+test('active discovery always excludes closed; All, Saved and Past retain filtered access',()=>{
  const rows=[event('open'),event('closed',{registration_status:'closed'}),event('unknown',{registration_start:null}),
   event('ongoing',{start_date:'2026-11-01'}),event('ended',{start_date:'2026-10-01',end_date:'2026-10-02',registration_end:'2026-09-30'})];
  assert.deepEqual(results(rows),['open','ongoing','unknown']);
  assert.deepEqual(results(rows,'registration=open'),['open','ongoing']);
  assert.deepEqual(results(rows,'registration=unknown'),['unknown']);
- assert.deepEqual(results(rows,'registration=closed'),['closed']);
- assert.deepEqual(results(rows,'registration=all'),['open','ongoing','unknown','closed']);
+ assert.deepEqual(results(rows,'registration=closed'),[]);
+ assert.deepEqual(results(rows,'tab=all&registration=closed'),['closed','ended']);
+ assert.deepEqual(results(rows,'registration=all'),['open','ongoing','unknown']);
  assert.deepEqual(results(rows,'registration=not-closed'),['open','ongoing','unknown']);
  assert.deepEqual(results(rows,'tab=saved',new Set(['closed','ended'])),['closed','ended']);
  assert.deepEqual(results(rows,'tab=past'),['ended']);

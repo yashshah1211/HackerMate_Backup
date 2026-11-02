@@ -1,5 +1,5 @@
 {
-  "status": "QUALIFIED_LOCALLY_PENDING_EXPLORE_HEAD_CI_AND_REVIEW",
+  "status": "QUALIFIED_LOCALLY_PENDING_GUARD_HEAD_CI_AND_REVIEW",
   "base": "afcc0da97b8d39cc7a9f202431e19c39d4f4bc69",
   "branch": "hotfix/mission20-unverified-opportunities",
   "inventory": [
@@ -33,10 +33,10 @@
     "scripts/lint-mission20-discovery-hotfix.cjs": "7abc5599ebef0c72a8979f4618c2542934d12094862b06c9d0d5d19605189847",
     "scripts/test-auth-return-ui.cjs": "55817b5640d524b434dd1905ab134453a3866b5179d4ae5cdf078f57200e4a9b",
     "scripts/test-hackathon-discovery-page.cjs": "229a6252d2951dce38b2c3f53dbe7383ae5eab2b7d6e051b31516dd43f89a44e",
-    "scripts/test-hackathon-discovery.cjs": "c3024252cd0e4e17daed30f1567cba63c8fa99da1afea8a356a9af081b108137",
-    "scripts/test-mission20-discovery-hotfix-browser.cjs": "657d27834f913d4f25169580bdcb7f2a7d77b7594bb8bbb0b1b0758f867d1a9f",
-    "scripts/test-mission20-discovery-hotfix.cjs": "57bf453b566f0dab27190af045763c0832031e5665e06fc13bf62cf736d72d67",
-    "scripts/test-mission20-unverified-opportunities.cjs": "11b9ed67b67a3debda99425eb22403f4433149dbb4afb5bf81df28f438734a8f",
+    "scripts/test-hackathon-discovery.cjs": "56a8428e5fa8d201b088b39ec9a822e4ee80d17408b63e525e12367a6eda398d",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": "d3e0a7e0f561287547c3a9cfd830d037610bc8c4869553820153d8369d69df97",
+    "scripts/test-mission20-discovery-hotfix.cjs": "cff58fedb862ecf3aac1d02642e013939374fe3f554b4b3da5b177d4a4cf0b40",
+    "scripts/test-mission20-unverified-opportunities.cjs": "f3430a26082a384db12659112efe26af6f829407f6ccad9b8d35473d80d49844",
     "scripts/test-public-hackathon-browsing.cjs": "907cb390ca41299d440f7cd6c928fefad7265ea2e10fed906fe886ac73993027",
     "scripts/test-public-hackathon-data.cjs": "3efef8a243f6f2df1728afcb588865d155cdbea255bf104622119fa22e00daf7",
     "src/app/LandingPageClient.tsx": "dd5e8bde7b886ed40b40a6c3c688dd41fdc88375d1948a87a0b357014293a8e5",
@@ -45,20 +45,19 @@
     "src/components/hackathons/PublicHackathonDetail.tsx": "5406043b832b6f6cc512ee42927b3a9c8d1ca0a564d81e6bd3321b34eb1f273a",
     "src/components/landing/LandingHero.tsx": "eb8a361bbf7bd2f1df676cc92a2c68cb8f292b96a18b38da5876a1dcd1af1b1c",
     "src/lib/getLandingData.ts": "92c9059107bb8650d9e6ee5fa7210e4349d630e54da3232466cef1bd3a897638",
-    "src/lib/hackathons/discovery.ts": "287c700d94ce15487f7888b1118e73e0fd4e2994925f6f7c60588ebabf68252a",
+    "src/lib/hackathons/discovery.ts": "597125c2a260eb1ff1898d59c661edc9d50844c7921c37a6ffcffa08a4fc7427",
     "src/lib/hackathons/lifecycle.ts": "d8bbb8a191b36ad486d39fbc18d5aa80352706aee066a678e5fba28a81ecc1fc"
   },
   "reproduction": {
-    "unchangedMain": true,
-    "initialCases": 6,
-    "failedAsExpected": 4,
-    "primaryActual": "AlgoRush eventState ongoing and default recommendations contain supplied UUID",
-    "primaryExpected": "unknown, absent by default",
-    "caseSpecificProductionException": false
+    "reviewedHead": "d8a165095704ede34a3ac62f30bbaa278dad4625",
+    "cases": 78,
+    "passed": 62,
+    "failedAsExpected": 16,
+    "defect": "Explicit registration filter bypasses unconditional active admission"
   },
   "checks": {
     "application": {
-      "passed": 402,
+      "passed": 465,
       "failed": 0,
       "skipped": 0
     },
@@ -90,7 +89,14 @@
       "opportunitiesExplicitAndEmpty": true,
       "homepageToPopulatedBrowse": true,
       "backForwardVerified": true,
-      "reloadExplicitRecommended": true
+      "reloadExplicitRecommended": true,
+      "explicitOpportunityFilters": [
+        "unknown",
+        "open",
+        "all",
+        "closed"
+      ],
+      "unverifiedFilterBypassDenied": true
     },
     "rackBrowser": {
       "passed": 32,
@@ -113,40 +119,44 @@
   },
   "logSha256": {
     "before": {
-      "file": "scratch/unverified/explore-before.log",
-      "sha256": "8ae82ecf82d20cfb33f207274e2278047551df5def87accb259a72dba4f5c91e"
+      "file": "scratch/unverified/guard-before.log",
+      "sha256": "c3b9f33a7f4e306f04be7d5fa71005fb8c0734685be29490e1ccbb6a096702ac"
     },
     "after": {
-      "file": "scratch/unverified/explore-tests-qualified.log",
-      "sha256": "626db42f07fb73b86505e37a6e8024a33f91b784fdd522877c50a845f2e63bf7"
+      "file": "scratch/unverified/guard-tests.log",
+      "sha256": "c7c0c2f926bfdad0f3702f6c89f840317d6c89e509975c20c40a2094b67bdca3"
     },
     "browser": {
-      "file": "scratch/unverified/explore-browser-qualified.log",
-      "sha256": "c07ed0b7ab9491a1d7b9881cf9ee2d3067b4d1b0b1cc8cad3bdfdc2c962586b5"
+      "file": "scratch/unverified/guard-browser-qualified.log",
+      "sha256": "cc7cfdcc96121629370b0d2a54c7fa847f64e2579b97668d08d8d6a4c86a6119"
     },
     "build": {
-      "file": "scratch/unverified/explore-build.log",
-      "sha256": "3bf498c695d7402177bdf98b0740c4d4f12535a7a2224baaf6006aaa9802ff93"
+      "file": "scratch/unverified/guard-build.log",
+      "sha256": "e777ae8b15f2df1f3afc15a720b638eaedbc87e9172f9f272566974c078e4baf"
     },
     "rack": {
-      "file": "scratch/unverified/explore-rack.log",
+      "file": "scratch/unverified/guard-rack.log",
       "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
     },
     "lint": {
-      "file": "scratch/unverified/explore-lint-qualified.log",
+      "file": "scratch/unverified/guard-lint-qualified.log",
       "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
     },
     "typeScript": {
-      "file": "scratch/unverified/explore-typecheck.log",
+      "file": "scratch/unverified/guard-typecheck.log",
       "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
     },
     "additionalLint": {
-      "file": "scratch/unverified/explore-other-lint.log",
+      "file": "scratch/unverified/guard-other-lint.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "sandboxBuildFailure": {
       "file": "scratch/unverified/trust-build.log",
       "sha256": "be2590b7cbce9bf8d6847638e8cbc7811f337b8c9c6ea1f93b6c061c592dd08d"
+    },
+    "initialBrowserScenarioFailure": {
+      "file": "scratch/unverified/guard-browser.log",
+      "sha256": "2257f57ff0d806accd51c471003b47c4537522c07572d61e62fe3bf99b3fda9b"
     }
   },
   "screenshots": {
@@ -189,7 +199,7 @@
       },
       {
         "file": "guest-discovery-1440.png",
-        "sha256": "75fd1479bdf8adef003f5ef5ba1530e3dc905591a33503df73212adc9b094f97"
+        "sha256": "ecd8ff123b54ed77efb215d9a1c0ce0c733361157263aa901e9d9e69270322e7"
       },
       {
         "file": "guest-discovery-390.png",
@@ -201,7 +211,7 @@
       },
       {
         "file": "guest-explore-1440.png",
-        "sha256": "517057e7c5627939c4a62d26403fc789cb85fa04d47fb5879750c00f030ef507"
+        "sha256": "98b4d22f34a79593b71f441da59649b39f98a596cef0369426b69e546364c29f"
       },
       {
         "file": "guest-explore-390.png",
@@ -209,7 +219,7 @@
       },
       {
         "file": "guest-explore-768.png",
-        "sha256": "d1ac5fadbfaa8cb995356ced03642b63464a191f936aca1e6e2bef92c9eb1a26"
+        "sha256": "0fed5ef9eeafe3800c1a6dde1ae745415f2f04bfebb291f4a4422ea323ab9c50"
       },
       {
         "file": "guest-unverified-30-1440.png",
@@ -245,7 +255,7 @@
       },
       {
         "file": "hero-768.png",
-        "sha256": "93df6735f94fd1e9c01dab8bebdca43226b4ddab85ece8cbe7f369b619cb0b73"
+        "sha256": "52500215a5188b678fd0a88cdc8d127dc46e6b12e1def99b292587b4e2a2a053"
       },
       {
         "file": "member-algorush-detail-1440.png",
@@ -281,11 +291,11 @@
       },
       {
         "file": "member-closed-detail-768.png",
-        "sha256": "30277b43f1cfb0301f7c2c969b2f04ce44706f0c512c3118a2a6764c92d5895e"
+        "sha256": "66c7d849e52cb55e0655b0d4e654218f8feac45a5f037a360651ae6ffe138cc3"
       },
       {
         "file": "member-discovery-1440.png",
-        "sha256": "1d7307d48b51d940bc285869ef963974d7423e2fa206490695c7922899cf795f"
+        "sha256": "b1493f51b77e2ec58661ff933b3853f4b81907ff7cc72e7f213668c9eec2302d"
       },
       {
         "file": "member-discovery-390.png",
@@ -297,7 +307,7 @@
       },
       {
         "file": "member-explore-1440.png",
-        "sha256": "6703fbad0866bd84458763074f6606899cfcc862a9e0d8860905f454130677e2"
+        "sha256": "50b905308e4480d3cc06235e4eda3e730c85ed0bb269d7510fb9296691706f77"
       },
       {
         "file": "member-explore-390.png",
@@ -309,11 +319,11 @@
       },
       {
         "file": "member-unverified-30-1440.png",
-        "sha256": "ceb13eab3b11c56693ee442493e8a2589d93ce5848a56e5e60fabf29ccfe779b"
+        "sha256": "c40ab05b6ec9994dace0dbca35f1dca4ef41ba8cda1be54516bf543a4948aaac"
       },
       {
         "file": "member-unverified-30-390.png",
-        "sha256": "8e77042ab5a7c05b3a5e1b48b323d419135fcf380e5173d5225a37277429d3b3"
+        "sha256": "1ba18effd3503273b4a069846256dfcd571c619cad4ade33227a17620912755f"
       },
       {
         "file": "member-unverified-30-768.png",
@@ -325,11 +335,11 @@
       },
       {
         "file": "member-unverified-9-390.png",
-        "sha256": "35f734f414422399644f02448a407db076f17bc5de9a22538ec0532602bb86a0"
+        "sha256": "1279cee41196ca7f46be48394bf5d09de6e53de2e8c256d2732eb1aa5f105647"
       },
       {
         "file": "member-unverified-9-768.png",
-        "sha256": "89454180288bed9f3baead01627b07ae4ebd96957ff80768a6755ea25e7d69d5"
+        "sha256": "1dc252e857e3e5f8a956ed2447c03b65f87b9fdb5cd29f2de1397e9f91351439"
       }
     ],
     "visuallyInspected": [
@@ -374,8 +384,8 @@
     "Existing 60-second refresh and bounded landing candidate query remain.",
     "Current-head CI results must be reported separately; local pass is not a green workflow."
   ],
-  "recommendation": "GO for independent review after exact-head CI: general browsing defaults to All, opportunity trust is unchanged. No execution/merge/deployment authorized.",
-  "priorQualifiedHead": "b7bb9dc225a39297eeccec497ac5a9cfcf19bc3b",
+  "recommendation": "GO for independent review after exact-head CI: active admission is unconditional, general All browsing and the existing trust policy are preserved. No merge/deployment authorized.",
+  "priorQualifiedHead": "d8a165095704ede34a3ac62f30bbaa278dad4625",
   "followup": {
     "reason": "Independent review: official import label and bounded registration metadata provide no independent source freshness or hackathon category.",
     "reviewedHead": "5a9808e5cbb05e7a03d2ccdb592dbd055c12bb20",
@@ -474,7 +484,8 @@
     "unverifiedSchedules": 410,
     "officialRetained": 8,
     "externalRetained": 402,
-    "snapshotSource": "Founder independent read-only November 2, 2026 aggregate; no production query by Codex"
+    "snapshotSource": "Founder independent read-only November 2, 2026 aggregate; no production query by Codex",
+    "opportunitiesWithAnyRegistrationFilter": 0
   },
   "exploreFollowup": {
     "reviewedHead": "b7bb9dc225a39297eeccec497ac5a9cfcf19bc3b",
@@ -544,5 +555,96 @@
     "deployment": false,
     "productionConnections": 0,
     "productionWrites": 0
+  },
+  "historicalAlgoRushReproduction": {
+    "unchangedMain": true,
+    "initialCases": 6,
+    "failedAsExpected": 4,
+    "primaryActual": "AlgoRush eventState ongoing and default recommendations contain supplied UUID",
+    "primaryExpected": "unknown, absent by default",
+    "caseSpecificProductionException": false,
+    "log": {
+      "file": "scratch/unverified/before-fix.log",
+      "sha256": "b5c70fdb895339327cf9073884e93242128033db276418dc8a89c959ed300838"
+    }
+  },
+  "admissionGuardFollowup": {
+    "reviewedHead": "d8a165095704ede34a3ac62f30bbaa278dad4625",
+    "inventory": [
+      "docs/qa/mission20-unverified-opportunities/README.md",
+      "docs/qa/mission20-unverified-opportunities/VERIFICATION.json",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "scripts/test-mission20-discovery-hotfix.cjs",
+      "scripts/test-mission20-unverified-opportunities.cjs",
+      "src/lib/hackathons/discovery.ts"
+    ],
+    "productionChange": "if (active && !activeOpportunity(event, now)) return false;",
+    "activeTabs": [
+      "recommended",
+      "upcoming",
+      "ongoing"
+    ],
+    "unrestrictedExplicitBrowsingTabs": [
+      "all",
+      "saved",
+      "past"
+    ],
+    "matrixCases": 63,
+    "filters": [
+      "unknown",
+      "open",
+      "all",
+      "closed",
+      "recorded",
+      "not-closed",
+      "not-yet-open"
+    ],
+    "logSha256": {
+      "before": {
+        "file": "scratch/unverified/guard-before.log",
+        "sha256": "c3b9f33a7f4e306f04be7d5fa71005fb8c0734685be29490e1ccbb6a096702ac"
+      },
+      "after": {
+        "file": "scratch/unverified/guard-tests.log",
+        "sha256": "c7c0c2f926bfdad0f3702f6c89f840317d6c89e509975c20c40a2094b67bdca3"
+      },
+      "browser": {
+        "file": "scratch/unverified/guard-browser-qualified.log",
+        "sha256": "cc7cfdcc96121629370b0d2a54c7fa847f64e2579b97668d08d8d6a4c86a6119"
+      },
+      "build": {
+        "file": "scratch/unverified/guard-build.log",
+        "sha256": "e777ae8b15f2df1f3afc15a720b638eaedbc87e9172f9f272566974c078e4baf"
+      },
+      "rack": {
+        "file": "scratch/unverified/guard-rack.log",
+        "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+      },
+      "lint": {
+        "file": "scratch/unverified/guard-lint-qualified.log",
+        "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
+      },
+      "typeScript": {
+        "file": "scratch/unverified/guard-typecheck.log",
+        "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+      },
+      "additionalLint": {
+        "file": "scratch/unverified/guard-other-lint.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "initialBrowserScenarioFailure": {
+        "file": "scratch/unverified/guard-browser.log",
+        "sha256": "2257f57ff0d806accd51c471003b47c4537522c07572d61e62fe3bf99b3fda9b"
+      }
+    },
+    "lifecycleTrustHelperChanged": false,
+    "defaultAllAndHomepageChanged": false,
+    "registrationWritersChanged": false,
+    "initialBrowserFailure": "Matrix retained closed filter into independent All scenario; explicit scenario reset added. Original assertions retained; final run passes.",
+    "productionConnections": 0,
+    "productionWrites": 0,
+    "merge": false,
+    "deployment": false
   }
 }

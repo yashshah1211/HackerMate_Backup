@@ -143,7 +143,7 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
     }
     const registration = registrationState(event, now);
     const active = !["saved", "past", "all"].includes(settings.tab);
-    if (active && !settings.registration && !activeOpportunity(event, now)) return false;
+    if (active && !activeOpportunity(event, now)) return false;
     if (["open", "closed", "unknown", "not-yet-open"].includes(settings.registration) && registration !== settings.registration) return false;
     const deadline = eventDate(event.registration_end, true);
     if (settings.registration === "recorded" && deadline === null) return false;
