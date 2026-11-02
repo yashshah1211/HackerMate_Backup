@@ -1,4 +1,4 @@
-export type EventDates = { start_date?: string | null; end_date?: string | null };
+export type EventDates = { type?: string | null; start_date?: string | null; end_date?: string | null };
 export type RegistrationDates = EventDates & { registration_start?: string | null; registration_end?: string | null; registration_status?: string | null };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
 export type RegistrationState = "open" | "closed" | "not-yet-open" | "unknown";
@@ -18,6 +18,7 @@ export function registrationState(event: RegistrationDates, now: number): Regist
 
 export function registrationLabel(event: RegistrationDates, now: number): string {
   const state = registrationState(event, now);
+  if (state === "open" && scheduleIsUnverified(event)) return "Registration listed as open";
   return { open: "Registration open", closed: "Registration closed", "not-yet-open": "Registration not yet open", unknown: "Registration availability unverified" }[state];
 }
 
@@ -37,11 +38,31 @@ export function eventDate(value: string | null | undefined, endOfDay = false): n
   const time = Date.parse(value);
   return Number.isFinite(time) ? time : null;
 }
-export function eventState(event: EventDates, now: number): EventState {
+/** Raw listed calendar window: useful for explicit historical browsing, never evidence of provider verification. */
+export function listedEventState(event: EventDates, now: number): EventState {
   const start = eventDate(event.start_date), end = eventDate(event.end_date, true);
   if ((event.start_date && start === null) || (event.end_date && end === null) || (start !== null && end !== null && end <= start)) return "unknown";
   if (end !== null && now >= end) return "ended";
   if (start !== null && now < start) return "upcoming";
   if (start !== null && end !== null) return "ongoing";
   return "unknown";
+}
+
+/** Only existing curated native/official classifications supply schedule authority.
+ * Imported/unknown origins lack field provenance; their dates alone prove no live event state. */
+export function scheduleIsUnverified(event: Pick<EventDates, "type">): boolean {
+  return event.type !== "native" && event.type !== "official";
+}
+export function eventState(event: EventDates, now: number): EventState {
+  return scheduleIsUnverified(event) ? "unknown" : listedEventState(event, now);
+}
+export function eventStateLabel(event: EventDates, now: number): string {
+  if (scheduleIsUnverified(event)) return "Event schedule unverified";
+  return { upcoming: "Upcoming", ongoing: "Ongoing", ended: "Ended", unknown: "Dates unclear" }[eventState(event, now)];
+}
+export function activeOpportunity(event: RegistrationDates, now: number): boolean {
+  const registration = registrationState(event, now);
+  // An unbounded imported "open" string cannot keep an opportunity promoted indefinitely.
+  return registration !== "closed" && (!scheduleIsUnverified(event)
+    || (registration === "open" && eventDate(event.registration_end, true) !== null));
 }

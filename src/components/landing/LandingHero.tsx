@@ -29,12 +29,10 @@ function modeLabel(mode: string | null) {
 export function LandingHero({
   builderCount,
   teamCount,
-  hackathonCount,
   upcoming,
 }: {
   builderCount: number;
   teamCount: number;
-  hackathonCount: number;
   upcoming: UpcomingHackathon[];
 }) {
   // Real platform totals from getLandingData (server snapshot, refreshed every minute).
@@ -43,7 +41,6 @@ export function LandingHero({
   const totals = [
     { value: builderCount, label: builderCount === 1 ? "registered builder" : "registered builders" },
     { value: teamCount, label: teamCount === 1 ? "team created" : "teams created" },
-    { value: hackathonCount, label: hackathonCount === 1 ? "hackathon listed" : "hackathons listed" },
   ].filter((t) => t.value > 0);
   return (
     <section aria-labelledby="hero-title" className="relative border-b border-line">
@@ -99,13 +96,12 @@ export function LandingHero({
         </div>
       </Container>
 
-      {upcoming.length > 0 && (
         <div className="border-t border-line">
           <Container className="flex items-stretch gap-0 px-0 md:px-8">
-            <p className="hidden shrink-0 items-center border-r border-line pr-5 caps-label text-ink-3 md:flex">Upcoming on HackerMate</p>
+            <p className="hidden shrink-0 items-center border-r border-line pr-5 caps-label text-ink-3 md:flex">{upcoming.length ? "Upcoming on HackerMate" : "Explore hackathons"}</p>
             <div className="relative min-w-0 flex-1">
               <ul className="flex snap-x overflow-x-auto scroll-px-5 scrollbar-none md:scroll-px-0" aria-label="Upcoming hackathons on HackerMate">
-                <li className="flex shrink-0 items-center pl-5 pr-3 caps-label text-ink-3 md:hidden">Upcoming</li>
+                <li className="flex shrink-0 items-center pl-5 pr-3 caps-label text-ink-3 md:hidden">{upcoming.length ? "Upcoming" : "Explore"}</li>
                 {upcoming.map((h) => {
                   const d = dayStamp(h.start_date);
                   return (
@@ -130,7 +126,7 @@ export function LandingHero({
                 })}
                 <li className="shrink-0 snap-start">
                   <Link href="/hackathons" className="flex h-14 items-center gap-1.5 px-5 text-[13px] font-medium text-ink-2 transition-colors hover:bg-hover hover:text-ink">
-                    {hackathonCount > 0 ? `All ${hackathonCount.toLocaleString("en-IN")} listed` : "All hackathons"}
+                    Browse hackathons
                     <ArrowRight className="size-3.5" aria-hidden />
                   </Link>
                 </li>
@@ -139,7 +135,6 @@ export function LandingHero({
             </div>
           </Container>
         </div>
-      )}
     </section>
   );
 }

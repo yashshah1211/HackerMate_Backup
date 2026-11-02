@@ -13,7 +13,7 @@ class BrowsingClock extends Date {
   static now() { return Date.parse('2026-10-14T12:00:00Z'); }
 }
 const event = (id = 'synthetic-event', extra = {}) => ({ id, name: `Public ${id}`, description: '<p>Build useful tools</p>', status: 'approved', archived: false,
-  type: 'external', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
+  type: 'official', tags: ['React'], start_date: '2026-11-01', end_date: '2026-11-03', registration_end: '2026-10-30',
   prize_pool: 'INR 10000', currency: 'INR', location: 'Mumbai', mode: 'hybrid', website_url: 'https://unstop.com/synthetic', ...extra });
 function client(options = {}) {
   const reads = [], writes = [], listeners = new Set(), signOutCalls = []; let user = options.user ?? null, stopped = 0;

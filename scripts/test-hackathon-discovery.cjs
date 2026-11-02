@@ -7,7 +7,7 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 const event = (id, fields = {}) => ({ id, name: `Event ${id}`, description: 'Build useful tools', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', registration_end: null, created_at: '2026-10-01T00:00:00Z',
   location: 'Venue in India', mode: 'Online', prize_pool: 'Certificate & Perks', currency: null, website_url: 'https://unstop.com/event',
-  type: 'external', organizer_id: null, college: null, ...fields });
+  type: 'official', organizer_id: null, college: null, ...fields });
 const settings = query => api.readDiscoverySettings(new URLSearchParams(query));
 const results = (events, query = '', skills = [], saved = new Set()) => api.discoverEvents(events, settings(query), skills, saved, NOW).map(h => h.id);
 const plain = value => JSON.parse(JSON.stringify(value));

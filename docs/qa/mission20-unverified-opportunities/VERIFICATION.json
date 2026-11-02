@@ -1,0 +1,286 @@
+{
+  "status": "QUALIFIED_LOCALLY_PENDING_CURRENT_HEAD_CI_AND_REVIEW",
+  "base": "afcc0da97b8d39cc7a9f202431e19c39d4f4bc69",
+  "branch": "hotfix/mission20-unverified-opportunities",
+  "inventory": [
+    ".github/workflows/mission20-discovery-hotfix.yml",
+    "docs/qa/mission20-unverified-opportunities/README.md",
+    "docs/qa/mission20-unverified-opportunities/VERIFICATION.json",
+    "qa/fixtures/mission20-hotfix-browser.jsx",
+    "qa/fixtures/mission20-unverified/algorush.json",
+    "scripts/lint-mission20-discovery-hotfix.cjs",
+    "scripts/test-auth-return-ui.cjs",
+    "scripts/test-hackathon-discovery-page.cjs",
+    "scripts/test-hackathon-discovery.cjs",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs",
+    "scripts/test-mission20-discovery-hotfix.cjs",
+    "scripts/test-mission20-unverified-opportunities.cjs",
+    "scripts/test-public-hackathon-browsing.cjs",
+    "scripts/test-public-hackathon-data.cjs",
+    "src/app/LandingPageClient.tsx",
+    "src/app/hackathons/[id]/page.tsx",
+    "src/app/hackathons/page.tsx",
+    "src/components/hackathons/PublicHackathonDetail.tsx",
+    "src/components/landing/LandingHero.tsx",
+    "src/lib/getLandingData.ts",
+    "src/lib/hackathons/discovery.ts",
+    "src/lib/hackathons/lifecycle.ts"
+  ],
+  "sourceSha256": {
+    ".github/workflows/mission20-discovery-hotfix.yml": "5ced36cb9221ca5c9c27e82e59faffe2b1d80b08d74d534b54fd977d6d0a82b2",
+    "qa/fixtures/mission20-hotfix-browser.jsx": "c619cdf14bbebc4bacb6a59adbd78c63a3cac0c0e6fd2d3eefc734be875c8475",
+    "qa/fixtures/mission20-unverified/algorush.json": "d6da63314c979dee655e8b4c236f5e1b7f135e6f7efdf519e56a32aa899ebd34",
+    "scripts/lint-mission20-discovery-hotfix.cjs": "7abc5599ebef0c72a8979f4618c2542934d12094862b06c9d0d5d19605189847",
+    "scripts/test-auth-return-ui.cjs": "55817b5640d524b434dd1905ab134453a3866b5179d4ae5cdf078f57200e4a9b",
+    "scripts/test-hackathon-discovery-page.cjs": "0b7c4336f1398fb25b9dbd0d5c582718a0bbe447702af2c75944a0b5fba4a6a1",
+    "scripts/test-hackathon-discovery.cjs": "bebec7f53a452cd135f6febbb46a146160d5939e87094384c40e06c75f2f9049",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": "813c46e7e69f2a34bb5c88874c2c95f7621e4d045173607be92a8961a2728c15",
+    "scripts/test-mission20-discovery-hotfix.cjs": "f310f5a1be309f16ce84bdcfa8e2cbaafb300224922ff759420c4537ed63602f",
+    "scripts/test-mission20-unverified-opportunities.cjs": "e2f4be406afbb102849465714999c448f5f8ac05b12f4c61fc7b25e8325be3ba",
+    "scripts/test-public-hackathon-browsing.cjs": "772cae0b43fc84162983fe21ff1967edebe3e68c79e00d1e1551390ebd8f0146",
+    "scripts/test-public-hackathon-data.cjs": "3e84fd77caa09fdf375c63972f9b94020c41aaa03f7f89841e93b541c831f4ac",
+    "src/app/LandingPageClient.tsx": "dd5e8bde7b886ed40b40a6c3c688dd41fdc88375d1948a87a0b357014293a8e5",
+    "src/app/hackathons/[id]/page.tsx": "d0850cfd5a9feef54f2edfd8af965998e66846194f1e08878f0027eb0e825e57",
+    "src/app/hackathons/page.tsx": "3ccd9631509c444db635e3f3d42e90b3e619503dbdf39a140508b859899f3fed",
+    "src/components/hackathons/PublicHackathonDetail.tsx": "5406043b832b6f6cc512ee42927b3a9c8d1ca0a564d81e6bd3321b34eb1f273a",
+    "src/components/landing/LandingHero.tsx": "eb8a361bbf7bd2f1df676cc92a2c68cb8f292b96a18b38da5876a1dcd1af1b1c",
+    "src/lib/getLandingData.ts": "92c9059107bb8650d9e6ee5fa7210e4349d630e54da3232466cef1bd3a897638",
+    "src/lib/hackathons/discovery.ts": "fdc1b9cc0d1586c9bcd0dcc3288888929e181e440c218776f3dd9546201f1863",
+    "src/lib/hackathons/lifecycle.ts": "c50db22d53d7f0997613110e12ccc3ed1692d6260504199332ff9d2e03d96075"
+  },
+  "reproduction": {
+    "unchangedMain": true,
+    "initialCases": 6,
+    "failedAsExpected": 4,
+    "primaryActual": "AlgoRush eventState ongoing and default recommendations contain supplied UUID",
+    "primaryExpected": "unknown, absent by default",
+    "caseSpecificProductionException": false
+  },
+  "checks": {
+    "application": {
+      "passed": 397,
+      "failed": 0,
+      "skipped": 0
+    },
+    "browser": {
+      "viewports": [
+        390,
+        768,
+        1440
+      ],
+      "journeys": 3,
+      "roles": [
+        "guest",
+        "member"
+      ],
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "syntheticOnly": true,
+      "mutations": 0,
+      "realAllTabClick": true,
+      "realBrowseLinkClick": true
+    },
+    "rackBrowser": {
+      "passed": 32,
+      "failed": 0,
+      "unchangedAssertions": true,
+      "mutations": 0
+    },
+    "typeScript": "PASS",
+    "scopedLint": {
+      "newErrors": 0,
+      "newWarnings": 0,
+      "unchangedLegacyErrors": 5,
+      "unchangedLegacyWarnings": 5
+    },
+    "build": {
+      "status": "PASS",
+      "syntheticReads": 3,
+      "mutations": 0
+    }
+  },
+  "logSha256": {
+    "before": {
+      "file": "scratch/unverified/before-fix.log",
+      "sha256": "b5c70fdb895339327cf9073884e93242128033db276418dc8a89c959ed300838"
+    },
+    "after": {
+      "file": "scratch/unverified/tests-final.log",
+      "sha256": "65cd7881010996854559604b0dfd5a95f4e01328472127dcf544f070f6e2be72"
+    },
+    "browser": {
+      "file": "scratch/unverified/browser-qualified.log",
+      "sha256": "40d92cfba9340844545190facaf1022fc96b95075158d531f6669325397cf047"
+    },
+    "build": {
+      "file": "scratch/unverified/build-final.log",
+      "sha256": "b126807960bc00aa03febc40c938d55a72a8e9c734122ebf0aca1467799599d3"
+    },
+    "rack": {
+      "file": "scratch/unverified/rack-final.log",
+      "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+    },
+    "lint": {
+      "file": "scratch/unverified/lint-publication.log",
+      "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
+    },
+    "typeScript": {
+      "file": "scratch/unverified/typecheck-final.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    }
+  },
+  "screenshots": {
+    "files": [
+      {
+        "file": "guest-algorush-detail-1440.png",
+        "sha256": "991833788a71486002b7c1e4c23175948d421f805d32907cfe7cfe26c9c49730"
+      },
+      {
+        "file": "guest-algorush-detail-390.png",
+        "sha256": "efe9f14bff6d444ecf3bc9b27754b71ee245f3cbbacafd1db1cea891c3eca9d7"
+      },
+      {
+        "file": "guest-algorush-detail-768.png",
+        "sha256": "088745bf0fcb3ae719be14c8c73d333c98ed15fbba4d61987095daec8b028124"
+      },
+      {
+        "file": "guest-algorush-explicit-1440.png",
+        "sha256": "48912e8eba9dbae7dfb27e9801528d6a109628ff7ecfaab6f596e99ba04262a7"
+      },
+      {
+        "file": "guest-algorush-explicit-390.png",
+        "sha256": "03693f648e0e7f0835627af5eb781e9bda21220653f4cc71f78fe6ef88ed13d1"
+      },
+      {
+        "file": "guest-algorush-explicit-768.png",
+        "sha256": "c0f2950bb345287942743eed4794780268b583bd729d9ac8ac8677ffe514e234"
+      },
+      {
+        "file": "guest-closed-detail-1440.png",
+        "sha256": "79a321905d112fb1c824763bd3cf7ecba011e90fe1b3f5af6b9d3608344b2e98"
+      },
+      {
+        "file": "guest-closed-detail-390.png",
+        "sha256": "cdab36c4f091320b03e7dbb170e846b1409fd0a9fbb31b83414d0045c1a41407"
+      },
+      {
+        "file": "guest-closed-detail-768.png",
+        "sha256": "4c024579ed74ae715be024908f23d474e9e0530cb271d1eb15c98db2189234d7"
+      },
+      {
+        "file": "guest-discovery-1440.png",
+        "sha256": "cffb051d78640dd30de206b81bbccb99d1811c8835f1b438a8159f475e0b34a9"
+      },
+      {
+        "file": "guest-discovery-390.png",
+        "sha256": "aae0e554f5ae90fb17bf8572594c84fb9c38453b45381a52b02862955c084721"
+      },
+      {
+        "file": "guest-discovery-768.png",
+        "sha256": "6463ef8e49274ad7f49257b38beb296482e09ffcab0da6825a77a5ef949add1c"
+      },
+      {
+        "file": "hero-1440.png",
+        "sha256": "099b754285ebb08f033851074593190cd1b7c8cbe65d0fa9160faa9871adbf3b"
+      },
+      {
+        "file": "hero-390.png",
+        "sha256": "87895e9b351e56b807a012d20f194b7f0566556d1d28445e880288a2c770371c"
+      },
+      {
+        "file": "hero-768.png",
+        "sha256": "52500215a5188b678fd0a88cdc8d127dc46e6b12e1def99b292587b4e2a2a053"
+      },
+      {
+        "file": "member-algorush-detail-1440.png",
+        "sha256": "2476f69d26954fa867bb344c194e99871009a74f71f52e4c834f751e47e707a4"
+      },
+      {
+        "file": "member-algorush-detail-390.png",
+        "sha256": "c8c75f92fec1417fe153d2ec79e8f7eeb2a08010021a266b2bd8c8fb221d90d3"
+      },
+      {
+        "file": "member-algorush-detail-768.png",
+        "sha256": "65c4233249128397abdfd6c5f587d19244c7d271656aaeb39c3ea13e1d30c983"
+      },
+      {
+        "file": "member-algorush-explicit-1440.png",
+        "sha256": "5e626b90b2f093ef02ea65a9dd98880ab86d175fad548eb93859480e239cc48b"
+      },
+      {
+        "file": "member-algorush-explicit-390.png",
+        "sha256": "54fec65fa2b44489b1d35db902e2dc179837bd75028e72cf522e49b4e1df27a3"
+      },
+      {
+        "file": "member-algorush-explicit-768.png",
+        "sha256": "8da2b01fd68825b2d53d66afdd014d9c01a981e77c9cfc7141b3219721788d7a"
+      },
+      {
+        "file": "member-closed-detail-1440.png",
+        "sha256": "b2568780d1d7c043832074252cf4deb651c94656027156108aab732e3659b335"
+      },
+      {
+        "file": "member-closed-detail-390.png",
+        "sha256": "42bda1631a4e76a2d3318518c235e0a7838436f3d41229e652186696d9ec73af"
+      },
+      {
+        "file": "member-closed-detail-768.png",
+        "sha256": "66c7d849e52cb55e0655b0d4e654218f8feac45a5f037a360651ae6ffe138cc3"
+      },
+      {
+        "file": "member-discovery-1440.png",
+        "sha256": "4de18b71b1fb97c59d51452911c6fa563b1120235e1f3fc63870af3bccc5a1c1"
+      },
+      {
+        "file": "member-discovery-390.png",
+        "sha256": "c7b17e69e584196a3d927928b2e45e48195573c44cb27b48f066461132573a97"
+      },
+      {
+        "file": "member-discovery-768.png",
+        "sha256": "5c06a2fb0fda92202e255cbe2929fa7d4ae3d9bed2372da3e00105d45e1a1a5b"
+      }
+    ],
+    "visuallyInspected": [
+      390,
+      768,
+      1440
+    ],
+    "syntheticOnly": true
+  },
+  "sourceRefresh": {
+    "separatelyScoped": true,
+    "implementationChanged": false,
+    "auditPath": "C:/Users/yashs/OneDrive/Desktop/HackerMate_Backup/audit-artifacts/mission20-source-refresh-afcc0da",
+    "offlineDiagnosticTests": 4,
+    "passed": 4,
+    "realProviderFetches": 0,
+    "realDatabaseCalls": 0,
+    "realEmails": 0,
+    "reportSha256": "c3434d7f5c6030140b49d3e19dd0d6a133f9ec8d43cf6f805a5e59e2c21e94d3",
+    "proposedCorrectionSetSha256": "bd1a03df0c427dbec9c86ad40e8c4688ef4ba8fd8caa969faf9b8f92742d6f79",
+    "decision": "NO_GO_FOR_IMPLEMENTATION_CORRECTION_BACKFILL_OR_ENDPOINT_EXECUTION"
+  },
+  "compatibility": {
+    "newDatabaseColumns": false,
+    "newRpc": false,
+    "migrationRequired": false,
+    "registrationWritersChanged": false,
+    "communityParticipationPreserved": true,
+    "officialNativeClassificationPreserved": true,
+    "partnerPortalImplementationChanged": false,
+    "productionConnections": 0,
+    "productionWrites": 0,
+    "merges": 0,
+    "deployments": 0
+  },
+  "limits": [
+    "Curated trust uses existing native/official classification; imported/unknown schedules are unverified.",
+    "Positive imported admission evidence must have a finite valid future deadline; freshness/provenance is still a separate design.",
+    "No official provider raw response independently extracted; founder supplied official AlgoRush findings.",
+    "No AlgoRush date/team data is corrected in production. Source origin of the December date remains unproven.",
+    "Existing 60-second refresh and bounded landing candidate query remain.",
+    "Current-head CI results must be reported separately; local pass is not a green workflow."
+  ],
+  "recommendation": "GO for independent review of immediate presentation correction after green current-head CI; NO_GO for source refresh or backfill without separate evidence/design/authorization."
+}

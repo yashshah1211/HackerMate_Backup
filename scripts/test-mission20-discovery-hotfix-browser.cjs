@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Actual components, synthetic transport and denied external requests. */
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const esbuild=require('esbuild'),postcss=require('postcss'),tailwind=require('@tailwindcss/postcss'),{chromium}=require('@playwright/test');
+const {record:algorush}=require('../qa/fixtures/mission20-unverified/algorush.json');
 const ROOT=path.resolve(__dirname,'..'),OUT=path.join(ROOT,'scratch/hotfix-browser'),BASE='http://fixture.invalid';
 const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 async function assets(){
  const fixture=path.join(ROOT,'qa/fixtures/mission20-hotfix-browser.jsx');
- const bundle=await esbuild.build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import Directory from './src/app/hackathons/page';import Detail from './src/app/hackathons/[id]/page';createRoot(document.getElementById('root')).render(location.pathname==='/hackathons'?<Directory/>:<Detail/>);`,resolveDir:ROOT,loader:'tsx'},
+ const bundle=await esbuild.build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import Directory from './src/app/hackathons/page';import Detail from './src/app/hackathons/[id]/page';import{LandingHero}from'./src/components/landing/LandingHero';createRoot(document.getElementById('root')).render(location.pathname==='/'?<LandingHero builderCount={321} teamCount={17} upcoming={[]}/>:location.pathname==='/hackathons'?<Directory/>:<Detail/>);`,resolveDir:ROOT,loader:'tsx'},
   bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},
   plugins:[{name:'offline-transport',setup(build){build.onResolve({filter:/^(next\/(link|navigation)|@\/lib\/supabase|@\/context\/NotificationContext)$/},()=>({path:fixture}));}}]});
  const css=await postcss([tailwind()]).process(fs.readFileSync(path.join(ROOT,'src/app/globals.css'),'utf8'),{from:path.join(ROOT,'src/app/globals.css')});
@@ -33,7 +34,9 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    assert.equal(await page.getByRole('link',{name:'Closed applications future event',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ended event',exact:true}).count(),0);
-   assert(await page.getByText('Registration availability unverified',{exact:true}).isVisible());
+   assert.equal(await page.getByRole('link',{name:algorush.name,exact:true}).count(),0);
+   assert.equal(await page.getByRole('link',{name:'Unverified availability event',exact:true}).count(),0);
+   assert(await page.getByRole('link',{name:'Trusted official ongoing event',exact:true}).isVisible());
    await fit();await page.screenshot({path:path.join(OUT,`${role}-discovery-${width}.png`),fullPage:true});
    if(role==='guest'){
     assert(await page.evaluate(()=>window.fixtureReads.every(r=>r.table==='hackathons')));
@@ -43,7 +46,25 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
     await page.getByRole('tab',{name:/^Saved/}).click();
     await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();
     assert(await page.getByRole('link',{name:'Ended event',exact:true}).isVisible());
+    assert(await page.getByRole('link',{name:algorush.name,exact:true}).isVisible());
    }
+   await page.getByRole('tab',{name:'All / Unverified',exact:true}).click();
+   await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
+   assert.equal(new URL(page.url()).searchParams.get('tab'),'all');
+   await page.goto(BASE+'/hackathons?tab=all&registration=unknown&role='+role);
+   await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
+   const row=page.locator('li').filter({has:page.getByRole('link',{name:algorush.name,exact:true})});
+   assert(await row.getByText('Event schedule unverified',{exact:true}).isVisible());
+   assert.equal(await row.getByText('Ongoing',{exact:true}).count(),0);
+   await fit();await page.screenshot({path:path.join(OUT,`${role}-algorush-explicit-${width}.png`),fullPage:true});
+   await page.goto(BASE+`/hackathons/${algorush.id}?role=${role}`);
+   await page.getByRole('heading',{name:algorush.name,exact:true}).waitFor();
+   assert(await page.getByText('Event schedule unverified',{exact:true}).isVisible());
+   assert(await page.getByText('Listed team size (unverified)',{exact:true}).isVisible());
+   assert.equal(await page.getByText('Ongoing',{exact:true}).count(),0);
+   if(role==='guest')assert.equal(await page.getByRole('link',{name:/View event website/}).getAttribute('href'),algorush.website_url);
+   assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
+   await fit();await page.screenshot({path:path.join(OUT,`${role}-algorush-detail-${width}.png`),fullPage:true});
    await page.goto(BASE+`/hackathons/${id(3)}?role=${role}`);
    await page.getByRole('heading',{name:'Closed applications future event',exact:true}).waitFor();
    assert(await page.getByText('Registration closed',{exact:true}).isVisible());
@@ -54,6 +75,14 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    await fit();await page.screenshot({path:path.join(OUT,`${role}-closed-detail-${width}.png`),fullPage:true});
    assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
   }
+  await page.goto(BASE+'/');
+  await page.getByRole('link',{name:'Browse hackathons',exact:true}).waitFor();
+  assert(await page.getByText('registered builders',{exact:true}).isVisible());
+  assert(await page.getByText('teams created',{exact:true}).isVisible());
+  assert.equal(await page.getByText(/hackathons listed|All \d+ listed/).count(),0);
+  await fit();await page.screenshot({path:path.join(OUT,`hero-${width}.png`),fullPage:true});
+  await page.getByRole('link',{name:'Browse hackathons',exact:true}).click();
+  await page.getByRole('link',{name:'Confirmed open event',exact:true}).waitFor();
   await page.goto(BASE+'/hackathons?registration=closed');
   await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();
   assert(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).isVisible());

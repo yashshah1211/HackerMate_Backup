@@ -4,7 +4,7 @@ const {harness}=require('./ppt-vision-harness.cjs');
 const loader=harness(),life=loader.load('src/lib/hackathons/lifecycle.ts'),discovery=loader.load('src/lib/hackathons/discovery.ts');
 const now=Date.parse('2026-11-02T12:00:00+05:30');
 const event=(id,extra={})=>({id,name:id,description:null,tags:[],start_date:'2026-11-05',end_date:'2026-11-07',
- registration_start:'2026-10-01',registration_end:'2026-11-03',location:null,mode:'online',prize_pool:null,website_url:'https://example.invalid/official',type:'external',...extra});
+ registration_start:'2026-10-01',registration_end:'2026-11-03',location:null,mode:'online',prize_pool:null,website_url:'https://example.invalid/official',type:'official',...extra});
 const results=(rows,q='',saved=new Set(),clock=now)=>Array.from(discovery.discoverEvents(rows,discovery.readDiscoverySettings(new URLSearchParams(q)),[],saved,clock),r=>r.id);
 for(const [patch,expected] of [
  [{},'open'],[{registration_end:'2026-11-01'},'closed'],[{registration_start:null},'unknown'],

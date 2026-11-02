@@ -12,7 +12,7 @@ import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type Browsi
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
 
-import { registrationLabel } from "@/lib/hackathons/lifecycle";
+import { registrationLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
 import { cn } from "@/lib/utils";
 import { discoverEvents, readDiscoverySettings, discoveryQuery, eventState, eventDate, eventFormat,
   eventPlatform, knownLocation, eventTopics, listedTags, plainEventText, prizeLabel, discoveryReason,
@@ -61,7 +61,6 @@ function dayStamp(iso: string | null) {
 /** Display label for where the event is hosted (mirrors the platform filter buckets). */
 const PLATFORM_LABELS: Record<string, string> = { native: "HackerMate", unstop: "Unstop", hack2skill: "Hack2skill", devfolio: "Devfolio", other: "External" };
 const FORMAT_LABELS: Record<string, string> = { online: "Online", "in-person": "In person", hybrid: "Hybrid" };
-const STATE_LABELS = { upcoming: "Upcoming", ongoing: "Ongoing", ended: "Ended", unknown: "Dates unclear" };
 const SORT_OPTIONS = [
   { value: "relevant", label: "Relevant events first" }, { value: "date", label: "Nearest start (past: latest end)" },
   { value: "recent", label: "Recently added" }, { value: "prize-inr", label: "Cash prize: INR (highest)" }, { value: "prize-usd", label: "Cash prize: USD (highest)" },
@@ -178,9 +177,9 @@ function HackathonRow({
         <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-relaxed text-ink-2 sm:line-clamp-1">{getPlainPreview(h.description)}</p>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
-          <span className={cn("font-medium", state === "ongoing" ? "text-ok" : "text-ink-3")}>{STATE_LABELS[state]}</span>
+          <span className={cn("font-medium", state === "ongoing" ? "text-ok" : "text-ink-3")}>{eventStateLabel(h, now)}</span>
           <MetaDot />
-          <span className="text-ink-3">{formatDateRange(h.start_date, h.end_date)}</span>
+          <span className="text-ink-3">{scheduleIsUnverified(h) && "Listed dates, unverified: "}{formatDateRange(h.start_date, h.end_date)}</span>
 
           {prizeShort && (
             <>
@@ -370,6 +369,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     { value: "ongoing", label: "Ongoing", count: ongoingCount },
     { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
     { value: "past", label: "Past" },
+    { value: "all", label: "All / Unverified" },
   ];
 
   const header = (
@@ -384,7 +384,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           <>
             <span className="font-medium text-ink-2 tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
             <span className="font-medium text-ink-2 tabular-nums">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
-            <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} dates unclear{access.kind === "member" && !personalError ? ` · ${savedIds.size} saved` : ""}
+            <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} schedules unverified or unclear{access.kind === "member" && !personalError ? ` · ${savedIds.size} saved` : ""}
           </>
         )
       }
@@ -483,10 +483,11 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
 
   const emptyBody = hasAnyFilter ? "No events match these settings. Clear filters to explore more events."
     : activeTab === "saved" ? "You haven't saved any listed events yet. Use a bookmark to keep an event here."
-    : activeTab === "past" ? "No ended events are listed."
-    : activeTab === "ongoing" ? "No events with a known ongoing window are listed. Try For you for events with unclear dates."
-    : activeTab === "upcoming" ? "No events with a known future start are listed. Check Ongoing or For you."
-    : "No non-ended events are listed right now. Try Past.";
+    : activeTab === "past" ? "No listings with past dates match this view. Imported schedules remain unverified."
+    : activeTab === "ongoing" ? "No verified ongoing events match this view. Use All / Unverified to review imported listings."
+    : activeTab === "upcoming" ? "No verified upcoming events match this view. Use All / Unverified to review imported listings."
+    : activeTab === "all" ? "No public listings match this view."
+    : "No current registration listings match this view. Browse All / Unverified to review other events.";
 
   return (
     <Page>
@@ -576,7 +577,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
       </div>
 
       <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
-      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates.</p>
+      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates. Imported schedules are unverified; use All / Unverified for listings without confirmed registration availability.</p>
       {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 

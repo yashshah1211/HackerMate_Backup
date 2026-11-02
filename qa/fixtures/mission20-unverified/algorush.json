@@ -1,0 +1,33 @@
+{
+  "record": {
+    "id": "b2c91f89-6c96-4e4f-b5c3-9b2ef3e0a8a6",
+    "name": "CodeNeuraX: AlgoRush",
+    "website_url": "https://unstop.com/hackathons/codeneurax-algorush-codeneurax-1737089",
+    "start_date": "2026-08-15",
+    "end_date": "2026-12-18",
+    "registration_start": null,
+    "registration_end": null,
+    "registration_status": null,
+    "min_team_size": 1,
+    "max_team_size": 4,
+    "type": "external",
+    "status": "approved",
+    "archived": false,
+    "description": "Synthetic replay of founder-supplied public event metadata; no live records accessed.",
+    "tags": [
+      "Coding",
+      "Hackathon"
+    ],
+    "mode": "online",
+    "location": null,
+    "prize_pool": null
+  },
+  "sourceReview": {
+    "evidence": "Founder independent production/official-site acceptance supplied in this task; live body not fetched by the test",
+    "registration_status": "closed",
+    "registration_deadline": "2026-08-15T22:51:00+05:30",
+    "participation": "individual",
+    "contestStages": "August 2026; no exact event end date supplied",
+    "automaticCorrectionAuthorized": false
+  }
+}

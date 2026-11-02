@@ -1,5 +1,6 @@
 // Synthetic browser transport only: no credentials, hosted services or writes.
 import {useSyncExternalStore} from 'react';
+import {record as algorush} from './mission20-unverified/algorush.json';
 export default function Link({href,children,...props}) { return <a href={href} {...props}>{children}</a>; }
 const replace=history.replaceState.bind(history);
 history.replaceState=(...args)=>{replace(...args);window.dispatchEvent(new Event('popstate'));};
@@ -21,7 +22,9 @@ const rows=[event(2,'Confirmed open event'),event(3,'Closed applications future 
  event(5,'Ongoing event closed applications',{start_date:'2026-11-01',registration_end:'2026-10-31'}),
  event(6,'Ended event',{start_date:'2026-10-01',end_date:'2026-10-02',registration_end:'2026-09-30'}),
  event(7,'Registration opens later',{registration_start:'2026-11-04',registration_end:'2026-11-05'}),
- event(8,'India final day deadline',{registration_end:'2026-11-02'})];
+ event(8,'India final day deadline',{registration_end:'2026-11-02'}),
+ event(9,'Trusted official ongoing event',{type:'official',start_date:'2026-11-01',registration_start:null,registration_end:null}),
+ {...event(10,'AlgoRush replay'),...algorush}];
 const params=new URLSearchParams(location.search),member=params.get('role')==='member';
 const visible=params.get('case')==='boundary'?rows.filter(r=>r.id===id(8)):rows;
 const user=member?{id:userId,email:'synthetic@example.invalid'}:null;
@@ -42,7 +45,7 @@ export const supabase={auth:{getSession:async()=>({data:{session:user?{user}:nul
    }
    if(!member)throw Error('Guest private read: '+table);
    if(table==='profiles')return {data:{id:userId,is_banned:false,onboarding_completed:true,skills:['React']},error:null};
-   if(table==='saved_hackathons')return {data:[{hackathon_id:id(3)},{hackathon_id:id(6)}],error:null};
+   if(table==='saved_hackathons')return {data:[{hackathon_id:id(3)},{hackathon_id:id(6)},{hackathon_id:algorush.id}],error:null};
    if(!['hackathon_registrations','teams','team_hackathons','partner_configs','hackathon_resources','hackathon_stages'].includes(table))throw Error('Unexpected table: '+table);
    return {data:single?null:[],error:null};
   };

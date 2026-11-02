@@ -77,7 +77,6 @@ export function LandingPageClient({ initialData }: LandingPageClientProps) {
       <LandingHero
         builderCount={initialData.builderCount}
         teamCount={initialData.teamCount}
-        hackathonCount={initialData.hackathonCount}
         upcoming={initialData.upcoming}
       />
       <ScrambleSection />
