@@ -90,7 +90,11 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
   const discovery = await discoverSources(transport), results: Reconciliation[] = [];
   const byUrl = new Map(discovery.identities.map(i => [i.canonical_url, i]));
   const discoveredIds = new Map(discovery.identities.map(i => [i.provider + ":" + i.provider_id, i]));
-  const knownIds = new Map(records.flatMap(r => { const m = sourceMetadata(r.source_metadata); return m ? [[m.provider + ":" + m.provider_id, r] as const] : []; }));
+  const knownIds = new Map(records.flatMap(r => {
+    const m = sourceMetadata(r.source_metadata), legacy = identifySource(r.website_url);
+    const identity = m || (legacy?.provider === "unstop" ? legacy : null);
+    return identity ? [[identity.provider + ":" + identity.provider_id, r] as const] : [];
+  }));
   const work: { record?: CatalogRecord; identity: SourceIdentity }[] = [];
   // Give current/near-term source candidates priority, then rotate the remaining backlog by check time.
   // Cached facts only order checks; they never establish fresh admission without a successful recheck.
@@ -107,7 +111,8 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     if (record.organizer_id || !["external", "official"].includes(String(record.type)) || protectedIds.has(record.id) || protectedUrls.has(record.website_url)) continue;
     const meta = sourceMetadata(record.source_metadata), inferred = identifySource(meta?.canonical_url || record.website_url);
     if (!inferred) { results.push({ id: record.id, name: record.name, provider: null, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: !meta, reason: "unsupported_source_identity" }); continue; }
-    const identity = (meta && discoveredIds.get(meta.provider + ":" + meta.provider_id)) || byUrl.get(inferred.canonical_url) || (meta ? { ...inferred, provider_id: meta.provider_id } : inferred);
+    const knownIdentity = meta || (inferred.provider === "unstop" ? inferred : null);
+    const identity = (knownIdentity && discoveredIds.get(knownIdentity.provider + ":" + knownIdentity.provider_id)) || byUrl.get(inferred.canonical_url) || (meta ? { ...inferred, provider_id: meta.provider_id } : inferred);
     // Routine cron must not perform the unapproved legacy backfill, including metadata adoption.
     if (!dryRun && !meta) { results.push({ id: record.id, name: record.name, provider: identity.provider, status: "requires_adoption", classification: "unresolved", changes: {}, requires_adoption: true }); continue; }
     work.push({ record, identity });

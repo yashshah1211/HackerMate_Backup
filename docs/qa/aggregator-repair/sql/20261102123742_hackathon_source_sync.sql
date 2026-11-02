@@ -84,6 +84,7 @@ BEGIN
   IF jsonb_typeof(p_identity) IS DISTINCT FROM 'object' OR NOT p_identity ?& ARRAY['provider','provider_id','canonical_url'] OR provider IS NULL OR provider NOT IN ('unstop','devfolio','hack2skill') OR provider_id IS NULL
     OR provider_id !~ '^[a-zA-Z0-9_-]{1,200}$' OR canonical IS NULL OR length(canonical)>2048
     OR (provider='unstop' AND canonical !~ '^https://unstop[.]com/(hackathons|competitions|o)/[a-zA-Z0-9_/-]+$')
+    OR (provider='unstop' AND substring(canonical from '([0-9]+)$') IS DISTINCT FROM provider_id)
     OR (provider='devfolio' AND canonical !~ '^https://[a-z0-9-]+[.]devfolio[.]co$')
     OR (provider='hack2skill' AND canonical !~ '^https://hack2skill[.]com/event/[a-zA-Z0-9_-]+$') THEN
     RAISE EXCEPTION 'Invalid source identity' USING ERRCODE='22023';
@@ -91,10 +92,14 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('hackathon-source:'||provider||':'||provider_id,0));
   SELECT count(*) INTO matches FROM public.hackathons WHERE id=p_id
     OR (source_metadata->>'provider'=provider AND source_metadata->>'provider_id'=provider_id)
+    OR (provider='unstop' AND website_url ~* '^https://unstop[.]com/(hackathons|competitions|o)/'
+      AND substring(rtrim(split_part(split_part(website_url,'?',1),'#',1),'/') from '([0-9]+)$')=provider_id)
     OR rtrim(website_url,'/')=canonical;
   IF matches>1 THEN RAISE EXCEPTION 'Source identity conflict' USING ERRCODE='23505'; END IF;
   SELECT * INTO h FROM public.hackathons WHERE id=p_id
     OR (source_metadata->>'provider'=provider AND source_metadata->>'provider_id'=provider_id)
+    OR (provider='unstop' AND website_url ~* '^https://unstop[.]com/(hackathons|competitions|o)/'
+      AND substring(rtrim(split_part(split_part(website_url,'?',1),'#',1),'/') from '([0-9]+)$')=provider_id)
     OR rtrim(website_url,'/')=canonical FOR UPDATE;
   IF FOUND THEN
     IF h.organizer_id IS NOT NULL OR coalesce(h.type,'') NOT IN ('external','official')

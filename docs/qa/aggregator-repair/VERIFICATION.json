@@ -2,7 +2,7 @@
   "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
   "branch": "fix/hackathon-aggregator-sync",
   "createdAt": "2026-11-02T13:58:57.987Z",
-  "publication": "PENDING exact-inventory authorization; no commit/push yet",
+  "publication": "Draft PR #99; current-head GitHub checks are external evidence and must be reconciled after publication.",
   "recommendation": {
     "draftReview": "GO",
     "productionRelease": "NO-GO"
@@ -71,7 +71,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/README.md": {
-      "sha256": "cd24e81aef9f83090faa4df372f1167c16dd55f1b2e3e9b6df0d581396e62560",
+      "sha256": "b16741c5ceb2366fa998673761285bc8c7232a20974db5de2a6fae33ec725110",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
@@ -95,7 +95,7 @@
       "encoding": "raw binary"
     },
     "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql": {
-      "sha256": "7ad4632806e87bde5ac05ade03f33f9a9103ee45b2b7466d8f8a5d3f6fda1b5a",
+      "sha256": "1e23fe412f1cdcbc6e5f87ac07784b8479bcc44ac085262a7337c16a8a9fcefe",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "qa/fixtures/aggregator/provider-facts.cjs": {
@@ -123,7 +123,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-postgres.cjs": {
-      "sha256": "9a29d8abee024e9979a9fd97189776a2a17ce4baa6ab31e52eaf696947fce754",
+      "sha256": "b91af8fa3475108465efc13645c1e2274e2cc636f5b34f17802a3d32184df802",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-sources.cjs": {
@@ -171,7 +171,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-scraper-data-preservation.cjs": {
-      "sha256": "62c7e3720070177b1b46c7d6a7560918471769ac76a9c7d83e84bc9f5572eaea",
+      "sha256": "e20d5dc1976ee8bb29b7be1d0cb260db0ce6bd508f2f824153f5f0bff641df3a",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/app/admin/_tabs/OutreachTab.tsx": {
@@ -235,7 +235,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/synchronize.ts": {
-      "sha256": "f2bddcfe310e1af2e244a70bbdc5bef49ef2f7f6180d62da5ad6ee76e02b983e",
+      "sha256": "32040d93bbf36f97108db886529a0467b938b3e932c5f89b9d32bb4a484b80f2",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/types/supabase.ts": {
@@ -243,7 +243,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     }
   },
-  "sourceTreeSha256": "0122e373d630680d259eb1065cfaba29ffabda86bf978c225c70be222a2f3648",
+  "sourceTreeSha256": "a94ba1f75195165748489e1a35138d96873be34fd73f2343083d05c22156f32c",
   "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
   "checks": {
     "application": {
@@ -257,7 +257,7 @@
       "command": "AGGREGATOR_TEST_PG_BIN=<native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
       "version": "17.6",
       "groups": 1,
-      "checks": 17,
+      "checks": 18,
       "failed": 0,
       "disposable": true
     },
@@ -352,14 +352,41 @@
     "expressions": 190
   },
   "ci": {
-    "status": "NOT RUN: unpublished branch; local success is not GitHub success",
+    "status": "Follow-up current-head qualification pending; do not infer success from local checks",
     "expectedWorkflows": [
       "Pull Request Validation",
       "Rack portal isolated qualification",
       "Mission 20 discovery hotfix qualification",
       "Aggregator isolated qualification"
     ],
-    "currentHeadResultsMustBeReportedAfterPublication": true
+    "currentHeadResultsMustBeReportedAfterPublication": true,
+    "initialHead": "9ab2c43d0b04530634999c125d47262fdbc9e7f0",
+    "initialResults": [
+      {
+        "workflow": "Pull Request Validation",
+        "run": 41458033089,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Rack portal isolated qualification",
+        "run": 41458032974,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Mission 20 discovery hotfix qualification",
+        "run": 41458033092,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Aggregator isolated qualification",
+        "run": 41458033144,
+        "conclusion": "failure",
+        "passed": 1650,
+        "failed": 0,
+        "cancelled": 1,
+        "reason": "Unreferenced AbortSignal timeout allowed Linux fixture event loop to exit. PG17.6/Chrome steps were skipped."
+      }
+    ]
   },
   "boundaries": {
     "activeMigrations": 0,
@@ -422,6 +449,56 @@
     "reconciliation-finished.log": {
       "path": "scratch/aggregator-audit/reconciliation-finished.log",
       "sha256": "c7751e239fb0f2f946a2487f0918fbdd5a1778043dc3c1b7b0d4b6f31183768e"
+    },
+    "legacy-alias-before.log": {
+      "path": "scratch/aggregator-audit/legacy-alias-before.log",
+      "sha256": "21278fe72ef3e34a34a501ce77aa84fa389dc42ab6b9829822cff3a29d9e9e05"
+    },
+    "followup-sdk.log": {
+      "path": "scratch/aggregator-audit/followup-sdk.log",
+      "sha256": "c01e5b3a5060e7cf23cbd25e9f2883cf6ea0e80f73a2575ac2ec5c5dc0377ee0"
+    },
+    "followup-application.log": {
+      "path": "scratch/aggregator-audit/followup-application.log",
+      "sha256": "23376911e6add5bdd7e632d05430cb462946c30fddaf02e369a034e3f918df28"
+    },
+    "followup-postgres.log": {
+      "path": "scratch/aggregator-audit/followup-postgres.log",
+      "sha256": "d5739aac5afd2d9e9ae03862e3dd42de0655193a3bae129d5f9275e133f15717"
+    },
+    "followup-typecheck.log": {
+      "path": "scratch/aggregator-audit/followup-typecheck.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "followup-lint.log": {
+      "path": "scratch/aggregator-audit/followup-lint.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "followup-build.log": {
+      "path": "scratch/aggregator-audit/followup-build.log",
+      "sha256": "6f119fcc2fa6becf12358b68c456771d8e8d9fd5af446e42d4a8b7d1324a635b"
     }
-  }
+  },
+  "followup": {
+    "parent": "9ab2c43d0b04530634999c125d47262fdbc9e7f0",
+    "reason": [
+      "Linux timeout fixture keeps a bounded referenced timer and clears it in finally; assertions unchanged",
+      "Reproduced legacy canonical URL alias duplication; match stable numeric identity in application and SQL, requiring legacy adoption"
+    ],
+    "files": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-scraper-data-preservation.cjs",
+      "src/lib/hackathons/synchronize.ts"
+    ],
+    "applicationPassed": 1651,
+    "applicationFailed": 0,
+    "applicationCancelled": 0,
+    "postgresChecks": 18,
+    "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
+    "inventoryUnchanged": true
+  },
+  "updatedAt": "2026-11-02T14:16:27.423Z"
 }

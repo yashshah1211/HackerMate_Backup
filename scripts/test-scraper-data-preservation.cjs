@@ -27,7 +27,7 @@ function fixture({failedRead,providerFailure,missingWriter}={}){
   const cursor=url.searchParams.get('id');return Response.json(table==='hackathons'?rows.filter(r=>!cursor||r.id>cursor.slice(3)):db.partner_configs);
  }}});
  const fetcher=async input=>{const url=new URL(input);sources.push(url.href);if(url.pathname==='/robots.txt')return new Response('User-agent: *\nAllow: /');
-  if(url.pathname.endsWith('search-result'))return Response.json({data:{data:url.searchParams.get('page')==='1'&&url.searchParams.get('oppstatus')==='open'?[{id:1234,public_url:'hackathons/synthetic-1234'}]:[]}});
+  if(url.pathname.endsWith('search-result'))return Response.json({data:{data:url.searchParams.get('page')==='1'&&url.searchParams.get('oppstatus')==='open'?[{id:1234,public_url:'hackathons/synthetic-1234'},{id:1000,public_url:'hackathons/renamed-1000'}]:[]}});
   if(url.hostname==='devfolio.co')return new Response('<script id="__NEXT_DATA__">'+JSON.stringify({props:{pageProps:{dehydratedState:{queries:[{queryKey:'fetchAllHackathonTypes',state:{data:{open_hackathons:[],upcoming_hackathons:[]}}}]}}}})+'</script>');
   if(url.pathname.endsWith('/event/list'))return Response.json({data:{flagshipEvents:[],communityEvents:[]}});
   if(url.pathname.includes('/competition/')){if(providerFailure)return new Response('Unavailable',{status:503});const data=structuredClone(facts.unstop);data.data.competition.id=Number(url.pathname.split('/').at(-1));return Response.json(data);}
@@ -58,5 +58,6 @@ test('catalog dependency graph has no lead/email/Gmail dispatch or unsafe direct
 test('complete database snapshot timeout is bounded before any provider or writer operation',async()=>{
  const h=harness({}, {URLSearchParams}),{synchronizeCatalog}=h.load('src/lib/hackathons/synchronize.ts');let requests=0;
  const client=createClient('https://timeout.invalid','synthetic-only',{auth:{persistSession:false},global:{fetch:async(input,init)=>{requests++;assert.equal(new URL(input).hostname,'timeout.invalid');return new Promise((resolve,reject)=>{const abort=()=>reject(new DOMException('Synthetic aborted request','AbortError'));if(init.signal.aborted)abort();else init.signal.addEventListener('abort',abort,{once:true});});}}});
- const start=Date.now();await assert.rejects(synchronizeCatalog(client,{dryRun:false,transport:{remaining:()=>30}}));assert(Date.now()-start<1000);assert.equal(requests,1);
+ const keepAlive=setTimeout(()=>{},1000); // AbortSignal.timeout is unreferenced on Linux; keep the simulated network request alive.
+ try{const start=Date.now();await assert.rejects(synchronizeCatalog(client,{dryRun:false,transport:{remaining:()=>30}}));assert(Date.now()-start<1000);assert.equal(requests,1);}finally{clearTimeout(keepAlive);}
 });
