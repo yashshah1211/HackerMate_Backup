@@ -6,6 +6,32 @@ for(const [body,path,allowed] of [
  ['User-agent: *\nDisallow: /\nUser-agent: HackerMate-Catalog\nAllow: /','/event/a',true],['User-agent: OtherBot\nDisallow: /','/event/a',true],
  ['User-agent: *\nDisallow: /*?private=*','/event/a?private=true',false],['User-agent: *\nDisallow:','/event/a',true],
 ])test('robots longest/specific matching '+JSON.stringify([body,path]),()=>assert.equal(robotsAllowed(body,path),allowed));
+
+const precedenceCases = [
+ ['shorter Allow cannot override longer Disallow', '/event/', '/event/private/', '/event/private/entry', false],
+ ['longer Allow overrides shorter Disallow', '/event/public/', '/event/', '/event/public/entry', true],
+ ['longer wildcard Disallow overrides shorter Allow', '/event/', '/event/*/private/', '/event/series/private/entry', false],
+ ['longer wildcard Allow overrides shorter Disallow', '/event/*/public/', '/event/*/', '/event/series/public/entry', true],
+ ['wildcard characters do not inflate specificity', '/event/********', '/event/private/', '/event/private/entry', false],
+ ['identical Allow and Disallow tie permits access', '/event/entry', '/event/entry', '/event/entry', true],
+ ['equal literal-length wildcard tie permits access', '/a/*/c', '/a/b/*', '/a/b/c', true],
+ ['anchored Allow does not permit a longer path', '/event/open$', '/event/', '/event/open/entry', false],
+];
+for (const [name, allow, disallow, path, expected] of precedenceCases) for (const allowFirst of [true, false]) {
+ test('robots precedence: '+name+'; Allow first='+allowFirst,()=>{
+  const rules=['Allow: '+allow,'Disallow: '+disallow];
+  if(!allowFirst)rules.reverse();
+  assert.equal(robotsAllowed('User-agent: *\n'+rules.join('\n'),path),expected);
+ });
+}
+
+test('longer canonical-path Disallow stops detail requests despite a shorter Allow',async()=>{
+ const calls=[],transport=new SourceTransport(async url=>{
+  calls.push(url);return new Response('User-agent: *\nAllow: /event/\nDisallow: /event/private');
+ },10000,0);
+ await assert.rejects(transport.detail(identifySource('https://hack2skill.com/event/private-entry')),/disallows/);
+ assert.deepEqual(calls,['https://hack2skill.com/robots.txt']);
+});
 test('source detail checks both canonical event robots and API rules before requesting data',async()=>{
  const calls=[],t=new SourceTransport(async url=>{calls.push(url);return new Response('User-agent: *\nDisallow: /event/blocked');},10000,0);
  await assert.rejects(t.detail(identifySource('https://hack2skill.com/event/blocked')),/disallows/);assert.deepEqual(calls,['https://hack2skill.com/robots.txt']);

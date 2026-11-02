@@ -21,11 +21,16 @@ export function robotsAllowed(body: string, path: string): boolean {
   groups.push(current);
   const specific = groups.filter(g => g.agents.some(a => a !== "*" && "hackermate-catalog".startsWith(a)));
   const chosen = specific.length ? specific : groups.filter(g => g.agents.includes("*"));
+  const specificity = (rule: Rule) => rule.pattern.replaceAll("*", "").length;
   const matching = chosen.flatMap(g => g.rules).filter(r => {
     const end = r.pattern.endsWith("$"), pattern = end ? r.pattern.slice(0, -1) : r.pattern;
     const escaped = pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*");
     return new RegExp("^" + escaped + (end ? "$" : "")).test(path);
-  }).sort((a, b) => b.pattern.replaceAll("*", "").length - a.pattern.replaceAll("*", "").length || Number(b.allow) - Number(a.allow));
+  }).sort((left, right) => {
+    const bySpecificity = specificity(right) - specificity(left);
+    if (bySpecificity !== 0) return bySpecificity;
+    return Number(right.allow) - Number(left.allow);
+  });
   return matching[0]?.allow ?? true;
 }
 

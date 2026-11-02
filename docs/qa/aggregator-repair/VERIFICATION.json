@@ -71,7 +71,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/README.md": {
-      "sha256": "b16741c5ceb2366fa998673761285bc8c7232a20974db5de2a6fae33ec725110",
+      "sha256": "ebb905cdd4b2acfd9d77c5c89d4cef5ffddf61cc4caa6a56529326a5d3a91166",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
@@ -131,7 +131,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-transport.cjs": {
-      "sha256": "cd9c563c64151450c6669a26bb5e5cd3c53a0be6e8b280dbfdf32a74d4208bf2",
+      "sha256": "1960d4f98835528b7aa8b2034769b40fd4e109ca55ddf0b0db034904980b50c9",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-email-reliability.cjs": {
@@ -231,7 +231,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/sourceTransport.ts": {
-      "sha256": "2b71be376721c8c4e77929fdf262caa45f0da4dffc3114c1b58d5160fb47fcc2",
+      "sha256": "3794974e64ab2a4af150c9302c95f4a07f369d3dca92308f23f8e563796c58ad",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/synchronize.ts": {
@@ -243,13 +243,13 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     }
   },
-  "sourceTreeSha256": "a94ba1f75195165748489e1a35138d96873be34fd73f2343083d05c22156f32c",
+  "sourceTreeSha256": "f749456349184b048ad91f835d27a0723498f54d23beb1af7dd544475853a26a",
   "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
   "checks": {
     "application": {
       "command": "node scripts/qualify-aggregator.cjs",
       "selectedFiles": 31,
-      "passed": 1651,
+      "passed": 1668,
       "failed": 0,
       "skipped": 0
     },
@@ -477,6 +477,38 @@
     "followup-build.log": {
       "path": "scratch/aggregator-audit/followup-build.log",
       "sha256": "6f119fcc2fa6becf12358b68c456771d8e8d9fd5af446e42d4a8b7d1324a635b"
+    },
+    "robots-baseline.log": {
+      "path": "scratch/aggregator-audit/robots-baseline.log",
+      "sha256": "c20280af500e33ed62cdf9075bd761932a275cbdb84e3d6af4012529d685624b"
+    },
+    "robots-after.log": {
+      "path": "scratch/aggregator-audit/robots-after.log",
+      "sha256": "f9be3a9bcefaeb2dffafdbf32316a155639d45982e44f7ccfebf657e020cfe2a"
+    },
+    "robots-mutant.log": {
+      "path": "scratch/aggregator-audit/robots-mutant.log",
+      "sha256": "24948978a83fd581be0ce83de4a55c1606e768c2b2cf86feb335423486962302"
+    },
+    "robots-capacity.json": {
+      "path": "scratch/aggregator-audit/robots-capacity.json",
+      "sha256": "c602990d20285ded346b3ff0e6c5eb71f3b34c45125c7bd69ed3f45b8fa57679"
+    },
+    "robots-application.log": {
+      "path": "scratch/aggregator-audit/robots-application.log",
+      "sha256": "3d48a425105957fbe332acc433569fc5d4cebf34b0001a5d505671a2324cdf71"
+    },
+    "robots-typecheck.log": {
+      "path": "scratch/aggregator-audit/robots-typecheck.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "robots-lint.log": {
+      "path": "scratch/aggregator-audit/robots-lint.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "robots-build.log": {
+      "path": "scratch/aggregator-audit/robots-build.log",
+      "sha256": "c69250dfc7605e9a015c365baed71403ae84ff6e1855152cf23850804b7a0a96"
     }
   },
   "followup": {
@@ -500,5 +532,54 @@
     "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
     "inventoryUnchanged": true
   },
-  "updatedAt": "2026-11-02T14:16:27.423Z"
+  "updatedAt": "2026-11-02T14:50:44.028Z",
+  "reviewFollowup": {
+    "base": "ce82618a815527327f256c3599cca2c00a013e4d",
+    "files": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "scripts/test-aggregator-transport.cjs",
+      "src/lib/hackathons/sourceTransport.ts"
+    ],
+    "reviewedComparator": "Already b-minus-a in immutable local and GitHub source; no self-subtraction reproduced",
+    "change": "Explicit right-minus-left specificity; Allow considered only at equal specificity",
+    "transportTests": {
+      "before": 37,
+      "after": 37,
+      "added": 17,
+      "failed": 0
+    },
+    "mutationProof": {
+      "inMemoryOnly": true,
+      "selfSubtractionFailedTests": 7,
+      "sourceModifiedByMutation": false
+    },
+    "requestControlsUnchanged": true,
+    "capacity": {
+      "hypotheticalOnly": true,
+      "source": "saved reconciliation, no new provider/DB operation",
+      "clock": "2026-11-02T13:52:27.990Z",
+      "checks": 150,
+      "refreshSlots": 120,
+      "discoverySlots": 30,
+      "publicEligible": 116,
+      "slotHeadroomOnlyIfPriorityCohortIs116": 4,
+      "lastRefreshCheckPosition": 144,
+      "totalBudgetSeconds": 240,
+      "startReserveSeconds": 15,
+      "illustrativeOverheadSeconds": 15,
+      "requiredMeanSecondsFor144CheckPrefix": 1.4583333333333333,
+      "hypotheticalPriorityRowsIfAllSupportedObservationsAdopted": 198,
+      "excludedPublicRowsStillInPriority": 82,
+      "consistentFreshnessQualified": false
+    },
+    "legacyAdoption": "Future per-record approved adoption before public application promotion, exact read-back and positive-cohort/first-refresh gates; no executor/bulk write added",
+    "sqlChanged": false,
+    "schedulingChanged": false,
+    "evidenceAgeChanged": false,
+    "providerCollectionRepeated": false,
+    "productionOperations": 0,
+    "publication": "Pending exact-file staging/publication approval",
+    "ci": "Pending new-head workflows after publication"
+  }
 }
