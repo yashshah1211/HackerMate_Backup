@@ -1,5 +1,5 @@
 {
-  "status": "QUALIFIED_LOCALLY_PENDING_FOLLOWUP_HEAD_CI_AND_REVIEW",
+  "status": "QUALIFIED_LOCALLY_PENDING_EXPLORE_HEAD_CI_AND_REVIEW",
   "base": "afcc0da97b8d39cc7a9f202431e19c39d4f4bc69",
   "branch": "hotfix/mission20-unverified-opportunities",
   "inventory": [
@@ -32,20 +32,20 @@
     "qa/fixtures/mission20-unverified/algorush.json": "d6da63314c979dee655e8b4c236f5e1b7f135e6f7efdf519e56a32aa899ebd34",
     "scripts/lint-mission20-discovery-hotfix.cjs": "7abc5599ebef0c72a8979f4618c2542934d12094862b06c9d0d5d19605189847",
     "scripts/test-auth-return-ui.cjs": "55817b5640d524b434dd1905ab134453a3866b5179d4ae5cdf078f57200e4a9b",
-    "scripts/test-hackathon-discovery-page.cjs": "425490a818732aed7c74aae15548f875deffc5371ea5f24c94620d81502f3a23",
-    "scripts/test-hackathon-discovery.cjs": "a4e1e50f607efbc41ae53107e6f9466451bd355f89d65bf4188292ef8aa805a4",
-    "scripts/test-mission20-discovery-hotfix-browser.cjs": "9bf7d23928740201ebb7a52d9b9ea9bb0c3cf380864492042f2ff1498bb0e685",
-    "scripts/test-mission20-discovery-hotfix.cjs": "24697f28f2af57cbf02aebad8e73fa44eada7f0a0884df33f20f0653373eb78c",
-    "scripts/test-mission20-unverified-opportunities.cjs": "ac6c3821f91ec5eaba65b783239e758e39f06c8792c51d805b53b770b83ffcf7",
-    "scripts/test-public-hackathon-browsing.cjs": "2652cce697d6a1bf4603999f2cf78e5711bb9f4920cb89d23cd4816fe57629d4",
+    "scripts/test-hackathon-discovery-page.cjs": "229a6252d2951dce38b2c3f53dbe7383ae5eab2b7d6e051b31516dd43f89a44e",
+    "scripts/test-hackathon-discovery.cjs": "c3024252cd0e4e17daed30f1567cba63c8fa99da1afea8a356a9af081b108137",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": "657d27834f913d4f25169580bdcb7f2a7d77b7594bb8bbb0b1b0758f867d1a9f",
+    "scripts/test-mission20-discovery-hotfix.cjs": "57bf453b566f0dab27190af045763c0832031e5665e06fc13bf62cf736d72d67",
+    "scripts/test-mission20-unverified-opportunities.cjs": "11b9ed67b67a3debda99425eb22403f4433149dbb4afb5bf81df28f438734a8f",
+    "scripts/test-public-hackathon-browsing.cjs": "907cb390ca41299d440f7cd6c928fefad7265ea2e10fed906fe886ac73993027",
     "scripts/test-public-hackathon-data.cjs": "3efef8a243f6f2df1728afcb588865d155cdbea255bf104622119fa22e00daf7",
     "src/app/LandingPageClient.tsx": "dd5e8bde7b886ed40b40a6c3c688dd41fdc88375d1948a87a0b357014293a8e5",
     "src/app/hackathons/[id]/page.tsx": "d0850cfd5a9feef54f2edfd8af965998e66846194f1e08878f0027eb0e825e57",
-    "src/app/hackathons/page.tsx": "3b6f9f9d22bb7f57b984ad872082255b0bfadd6c121496c08895abc56a428a07",
+    "src/app/hackathons/page.tsx": "bad176b68b55eaef5c3b3d4ef862616d3fbd2bc693e923709e932c98fc2b0074",
     "src/components/hackathons/PublicHackathonDetail.tsx": "5406043b832b6f6cc512ee42927b3a9c8d1ca0a564d81e6bd3321b34eb1f273a",
     "src/components/landing/LandingHero.tsx": "eb8a361bbf7bd2f1df676cc92a2c68cb8f292b96a18b38da5876a1dcd1af1b1c",
     "src/lib/getLandingData.ts": "92c9059107bb8650d9e6ee5fa7210e4349d630e54da3232466cef1bd3a897638",
-    "src/lib/hackathons/discovery.ts": "fdc1b9cc0d1586c9bcd0dcc3288888929e181e440c218776f3dd9546201f1863",
+    "src/lib/hackathons/discovery.ts": "287c700d94ce15487f7888b1118e73e0fd4e2994925f6f7c60588ebabf68252a",
     "src/lib/hackathons/lifecycle.ts": "d8bbb8a191b36ad486d39fbc18d5aa80352706aee066a678e5fba28a81ecc1fc"
   },
   "reproduction": {
@@ -58,7 +58,7 @@
   },
   "checks": {
     "application": {
-      "passed": 400,
+      "passed": 402,
       "failed": 0,
       "skipped": 0
     },
@@ -85,7 +85,12 @@
       "workshopRetainedUnverified": true,
       "nativePositiveFixture": true,
       "savedOfficialAndWorkshop": true,
-      "communityEntryControls": true
+      "communityEntryControls": true,
+      "defaultView": "All / Unverified",
+      "opportunitiesExplicitAndEmpty": true,
+      "homepageToPopulatedBrowse": true,
+      "backForwardVerified": true,
+      "reloadExplicitRecommended": true
     },
     "rackBrowser": {
       "passed": 32,
@@ -108,35 +113,35 @@
   },
   "logSha256": {
     "before": {
-      "file": "scratch/unverified/trust-before.log",
-      "sha256": "07f691276698a4e0e8f7a102ca4f993f97a0cbabefb3b0ac54cbc664423143e5"
+      "file": "scratch/unverified/explore-before.log",
+      "sha256": "8ae82ecf82d20cfb33f207274e2278047551df5def87accb259a72dba4f5c91e"
     },
     "after": {
-      "file": "scratch/unverified/trust-tests-final-pass.log",
-      "sha256": "407d90a6c9efef25dd0aaa0aa7d54c41d2f02aac4583698c7ad9e14918ffed87"
+      "file": "scratch/unverified/explore-tests-qualified.log",
+      "sha256": "626db42f07fb73b86505e37a6e8024a33f91b784fdd522877c50a845f2e63bf7"
     },
     "browser": {
-      "file": "scratch/unverified/trust-browser-qualified.log",
-      "sha256": "4cbb1659a4a7df4800aa82d64bad5b11ff9256653afb63d052b07194979034a0"
+      "file": "scratch/unverified/explore-browser-qualified.log",
+      "sha256": "c07ed0b7ab9491a1d7b9881cf9ee2d3067b4d1b0b1cc8cad3bdfdc2c962586b5"
     },
     "build": {
-      "file": "scratch/unverified/trust-build-qualified.log",
-      "sha256": "69cccacb4c404a287f7a8716982f53209b78e271799635fe8a24a528a45c5012"
+      "file": "scratch/unverified/explore-build.log",
+      "sha256": "3bf498c695d7402177bdf98b0740c4d4f12535a7a2224baaf6006aaa9802ff93"
     },
     "rack": {
-      "file": "scratch/unverified/trust-rack.log",
+      "file": "scratch/unverified/explore-rack.log",
       "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
     },
     "lint": {
-      "file": "scratch/unverified/trust-lint-final.log",
+      "file": "scratch/unverified/explore-lint-qualified.log",
       "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
     },
     "typeScript": {
-      "file": "scratch/unverified/trust-typecheck.log",
+      "file": "scratch/unverified/explore-typecheck.log",
       "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
     },
     "additionalLint": {
-      "file": "scratch/unverified/trust-other-lint.log",
+      "file": "scratch/unverified/explore-other-lint.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "sandboxBuildFailure": {
@@ -160,15 +165,15 @@
       },
       {
         "file": "guest-algorush-explicit-1440.png",
-        "sha256": "354eb57a21cc55cd60d07d39db0566ec9560c3f4cea110343cbfed88abb23154"
+        "sha256": "4e543d375bd072c629f2fb0b9313f8884659859c92ec858f817338b9c83590cc"
       },
       {
         "file": "guest-algorush-explicit-390.png",
-        "sha256": "bd4e4cf44c318ea5c89357c5b4813d982f51c7997e743b037df8d08085c620b8"
+        "sha256": "a9ae489f2e015d51efdfc7006eb88f932cbe48fc54a8d305980ee8d62f2570ac"
       },
       {
         "file": "guest-algorush-explicit-768.png",
-        "sha256": "a8fe123b2ebda03c75c76afa7352814c6e63ec49349880b7045676638643add8"
+        "sha256": "a77e31e7e5d203dc948baad40158417c50c253ef816b0c912bba8b22db8f2f3d"
       },
       {
         "file": "guest-closed-detail-1440.png",
@@ -184,15 +189,27 @@
       },
       {
         "file": "guest-discovery-1440.png",
-        "sha256": "749bde010ef6f0f349c49e3d7420ee2ada2bda2e012c975d789ccba58bffa4b9"
+        "sha256": "75fd1479bdf8adef003f5ef5ba1530e3dc905591a33503df73212adc9b094f97"
       },
       {
         "file": "guest-discovery-390.png",
-        "sha256": "eb35a3c963d580a2bd8adbcec65e24a1aef88480a6e95eebae6dfe25737ba38b"
+        "sha256": "dad05bc4acc51a4b396bba3b7fd072e0ae05e5505c5cd2bf295c09e7159ce61a"
       },
       {
         "file": "guest-discovery-768.png",
-        "sha256": "42b5f8faf8d5e9125deedb8017293f3227e4ac02996a694e6a315b62e746473f"
+        "sha256": "1b0d02940f4de20b31516895dc13f18d91655dee826048b5ffe613b0d92c0360"
+      },
+      {
+        "file": "guest-explore-1440.png",
+        "sha256": "517057e7c5627939c4a62d26403fc789cb85fa04d47fb5879750c00f030ef507"
+      },
+      {
+        "file": "guest-explore-390.png",
+        "sha256": "41d62e04fcf3e4a45759c04a444a60cb3c75af913e77c16c468e95075c0f4d57"
+      },
+      {
+        "file": "guest-explore-768.png",
+        "sha256": "d1ac5fadbfaa8cb995356ced03642b63464a191f936aca1e6e2bef92c9eb1a26"
       },
       {
         "file": "guest-unverified-30-1440.png",
@@ -228,7 +245,7 @@
       },
       {
         "file": "hero-768.png",
-        "sha256": "52500215a5188b678fd0a88cdc8d127dc46e6b12e1def99b292587b4e2a2a053"
+        "sha256": "93df6735f94fd1e9c01dab8bebdca43226b4ddab85ece8cbe7f369b619cb0b73"
       },
       {
         "file": "member-algorush-detail-1440.png",
@@ -244,15 +261,15 @@
       },
       {
         "file": "member-algorush-explicit-1440.png",
-        "sha256": "800e32fc2faf61925d5043d44f4c0a864a0d9f41516f6eab1da86eff1c1dd4be"
+        "sha256": "c5929edc726128e8e8b3c473ba0230fc125a49641c4883a13e30a0d68536bb0a"
       },
       {
         "file": "member-algorush-explicit-390.png",
-        "sha256": "67011dcd057b4d39655a578478a6341bc88f9379eccbe45a106712543af436b9"
+        "sha256": "11bdfe52559053441e4d1a47f15dd3b0ba9c8fe9c5208e8978422c5792358eb5"
       },
       {
         "file": "member-algorush-explicit-768.png",
-        "sha256": "2176b71d126e1f74d9ddda7eac545c82cb5ee1ee027f47f1f1c6748d1e203e48"
+        "sha256": "8ac6586026649c245741b835d61f22a0d1c2c04ce0b9b4f59788c1b0943688c1"
       },
       {
         "file": "member-closed-detail-1440.png",
@@ -264,27 +281,39 @@
       },
       {
         "file": "member-closed-detail-768.png",
-        "sha256": "66c7d849e52cb55e0655b0d4e654218f8feac45a5f037a360651ae6ffe138cc3"
+        "sha256": "30277b43f1cfb0301f7c2c969b2f04ce44706f0c512c3118a2a6764c92d5895e"
       },
       {
         "file": "member-discovery-1440.png",
-        "sha256": "99c1ba59c05f78074036de3b9efa4fe018ba0de99e91ccb5182ab9af49c96852"
+        "sha256": "1d7307d48b51d940bc285869ef963974d7423e2fa206490695c7922899cf795f"
       },
       {
         "file": "member-discovery-390.png",
-        "sha256": "2310cf1d6313f0cf712999bfbea96872835b1f7323bbf5ce0e9f400a04b122a0"
+        "sha256": "389577a5d386503fc7f54c20139de71c8f0e968f63ef4003d7590e8f79e07979"
       },
       {
         "file": "member-discovery-768.png",
-        "sha256": "7e74129c1ab3d7a40a4ef148f9521536705182bae7a1e61bf28a8c577d3a0364"
+        "sha256": "5cb45515ee3924f8f4905a6d9654d012fadbc29716779eaa02bd2dec3ee243b7"
+      },
+      {
+        "file": "member-explore-1440.png",
+        "sha256": "6703fbad0866bd84458763074f6606899cfcc862a9e0d8860905f454130677e2"
+      },
+      {
+        "file": "member-explore-390.png",
+        "sha256": "216988b096ece576df5b3c19833caae0a33d7086842380d6bd48d3a5e9f300c1"
+      },
+      {
+        "file": "member-explore-768.png",
+        "sha256": "15e306350b891cd9f5f8238573cb90c4d843398231b4582c2ecbd9d658e11e3c"
       },
       {
         "file": "member-unverified-30-1440.png",
-        "sha256": "c40ab05b6ec9994dace0dbca35f1dca4ef41ba8cda1be54516bf543a4948aaac"
+        "sha256": "ceb13eab3b11c56693ee442493e8a2589d93ce5848a56e5e60fabf29ccfe779b"
       },
       {
         "file": "member-unverified-30-390.png",
-        "sha256": "1ba18effd3503273b4a069846256dfcd571c619cad4ade33227a17620912755f"
+        "sha256": "8e77042ab5a7c05b3a5e1b48b323d419135fcf380e5173d5225a37277429d3b3"
       },
       {
         "file": "member-unverified-30-768.png",
@@ -296,11 +325,11 @@
       },
       {
         "file": "member-unverified-9-390.png",
-        "sha256": "1279cee41196ca7f46be48394bf5d09de6e53de2e8c256d2732eb1aa5f105647"
+        "sha256": "35f734f414422399644f02448a407db076f17bc5de9a22538ec0532602bb86a0"
       },
       {
         "file": "member-unverified-9-768.png",
-        "sha256": "1dc252e857e3e5f8a956ed2447c03b65f87b9fdb5cd29f2de1397e9f91351439"
+        "sha256": "89454180288bed9f3baead01627b07ae4ebd96957ff80768a6755ea25e7d69d5"
       }
     ],
     "visuallyInspected": [
@@ -345,8 +374,8 @@
     "Existing 60-second refresh and bounded landing candidate query remain.",
     "Current-head CI results must be reported separately; local pass is not a green workflow."
   ],
-  "recommendation": "GO for independent review of the strict non-native-unverified presentation correction after green follow-up-head CI; NO_GO for source refresh/backfill or release execution without separate approval.",
-  "priorQualifiedHead": "5a9808e5cbb05e7a03d2ccdb592dbd055c12bb20",
+  "recommendation": "GO for independent review after exact-head CI: general browsing defaults to All, opportunity trust is unchanged. No execution/merge/deployment authorized.",
+  "priorQualifiedHead": "b7bb9dc225a39297eeccec497ac5a9cfcf19bc3b",
   "followup": {
     "reason": "Independent review: official import label and bounded registration metadata provide no independent source freshness or hackathon category.",
     "reviewedHead": "5a9808e5cbb05e7a03d2ccdb592dbd055c12bb20",
@@ -432,6 +461,88 @@
     "sourceException": false,
     "productionConnections": 0,
     "productionWrites": 0,
-    "importerChanged": false
+    "importerChanged": false,
+    "supersededDirectoryDefault": "Expected counts here describe the prior b7bb9dc default; current directory behavior is under exploreFollowup and expectedCounts."
+  },
+  "expectedCounts": {
+    "defaultDirectoryExplore": 410,
+    "opportunitiesForYou": 0,
+    "upcoming": 0,
+    "ongoing": 0,
+    "landingOpportunities": 0,
+    "allUnverified": 410,
+    "unverifiedSchedules": 410,
+    "officialRetained": 8,
+    "externalRetained": 402,
+    "snapshotSource": "Founder independent read-only November 2, 2026 aggregate; no production query by Codex"
+  },
+  "exploreFollowup": {
+    "reviewedHead": "b7bb9dc225a39297eeccec497ac5a9cfcf19bc3b",
+    "scope": "Minimal shared default/URL serialization, tab order/label and uncertainty notice; trust/writers unchanged.",
+    "inventory": [
+      "docs/qa/mission20-unverified-opportunities/README.md",
+      "docs/qa/mission20-unverified-opportunities/VERIFICATION.json",
+      "scripts/test-hackathon-discovery-page.cjs",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "scripts/test-mission20-discovery-hotfix.cjs",
+      "scripts/test-mission20-unverified-opportunities.cjs",
+      "scripts/test-public-hackathon-browsing.cjs",
+      "src/app/hackathons/page.tsx",
+      "src/lib/hackathons/discovery.ts"
+    ],
+    "reproduction": {
+      "cases": 15,
+      "passed": 13,
+      "failedAsExpected": 2,
+      "defects": [
+        "Bare directory chooses empty recommended instead of general All",
+        "Recommended URL omitted rather than explicitly round-tripped"
+      ]
+    },
+    "logSha256": {
+      "before": {
+        "file": "scratch/unverified/explore-before.log",
+        "sha256": "8ae82ecf82d20cfb33f207274e2278047551df5def87accb259a72dba4f5c91e"
+      },
+      "after": {
+        "file": "scratch/unverified/explore-tests-qualified.log",
+        "sha256": "626db42f07fb73b86505e37a6e8024a33f91b784fdd522877c50a845f2e63bf7"
+      },
+      "browser": {
+        "file": "scratch/unverified/explore-browser-qualified.log",
+        "sha256": "c07ed0b7ab9491a1d7b9881cf9ee2d3067b4d1b0b1cc8cad3bdfdc2c962586b5"
+      },
+      "build": {
+        "file": "scratch/unverified/explore-build.log",
+        "sha256": "3bf498c695d7402177bdf98b0740c4d4f12535a7a2224baaf6006aaa9802ff93"
+      },
+      "rack": {
+        "file": "scratch/unverified/explore-rack.log",
+        "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+      },
+      "lint": {
+        "file": "scratch/unverified/explore-lint-qualified.log",
+        "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
+      },
+      "typeScript": {
+        "file": "scratch/unverified/explore-typecheck.log",
+        "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+      },
+      "additionalLint": {
+        "file": "scratch/unverified/explore-other-lint.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "trustPolicyUnchanged": true,
+    "trustPolicySha256": "d8bbb8a191b36ad486d39fbc18d5aa80352706aee066a678e5fba28a81ecc1fc",
+    "homepageToDirectory": "Browse hackathons -> /hackathons -> All / Unverified selected -> all 410 public listings from founder snapshot",
+    "explicitRecommendedUrl": "tab=recommended",
+    "explicitAllUrlAccepted": true,
+    "backForwardVerified": true,
+    "merge": false,
+    "deployment": false,
+    "productionConnections": 0,
+    "productionWrites": 0
   }
 }

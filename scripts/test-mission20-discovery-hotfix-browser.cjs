@@ -30,6 +30,13 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   const fit=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
   for(const role of ['guest','member']){
    await page.goto(BASE+'/hackathons?role='+role);
+   await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
+   assert.equal(await page.getByRole('tab',{name:'All / Unverified',exact:true}).getAttribute('aria-selected'),'true');
+   assert(await page.getByText(/Imported listings, including official imports, have unverified schedules, categories and registration availability/).isVisible());
+   assert(await page.getByRole('link',{name:'Closed applications future event',exact:true}).isVisible());
+   await fit();await page.screenshot({path:path.join(OUT,role+'-explore-'+width+'.png'),fullPage:true});
+   await page.getByRole('tab',{name:role==='guest'?'Opportunities':'For you',exact:true}).click();
+   assert.equal(new URL(page.url()).searchParams.get('tab'),'recommended');
    await page.getByText('No events found',{exact:true}).waitFor();
    assert.equal(await page.getByRole('link',{name:'Closed applications future event',exact:true}).count(),0);
    assert.equal(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).count(),0);
@@ -52,7 +59,7 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    }
    await page.getByRole('tab',{name:'All / Unverified',exact:true}).click();
    await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
-   assert.equal(new URL(page.url()).searchParams.get('tab'),'all');
+   assert.equal(new URL(page.url()).searchParams.get('tab'),null);
    for(const name of [...Array.from({length:8},(_,i)=>'Official import '+(i+1)),'Build with AI: Bootcamps']){
     const imported=page.locator('li').filter({has:page.getByRole('link',{name,exact:true})});
     assert(await imported.getByText('Event schedule unverified',{exact:true}).isVisible());
@@ -105,14 +112,26 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   assert.equal(await page.getByText(/hackathons listed|All \d+ listed/).count(),0);
   await fit();await page.screenshot({path:path.join(OUT,`hero-${width}.png`),fullPage:true});
   await page.getByRole('link',{name:'Browse hackathons',exact:true}).click();
-  await page.getByText('No events found',{exact:true}).waitFor();
-  await page.goto(BASE+'/hackathons?case=native');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
-  await page.goto(BASE+'/hackathons?case=native');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
+  await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
+  assert.equal(new URL(page.url()).pathname,'/hackathons');
+  assert.equal(new URL(page.url()).searchParams.get('tab'),null);
+  assert.equal(await page.getByRole('tab',{name:'All / Unverified',exact:true}).getAttribute('aria-selected'),'true');
+  await page.getByRole('link',{name:algorush.name,exact:true}).click();
+  await page.getByRole('heading',{name:algorush.name,exact:true}).waitFor();
+  await page.goBack();await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
+  assert.equal(await page.getByRole('tab',{name:'All / Unverified',exact:true}).getAttribute('aria-selected'),'true');
+  await page.goForward();await page.getByRole('heading',{name:algorush.name,exact:true}).waitFor();
+  await page.goBack();await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
+  await page.getByRole('tab',{name:'Opportunities',exact:true}).click();
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'recommended');
+  await page.reload();await page.getByText('No events found',{exact:true}).waitFor();
+  await page.goto(BASE+'/hackathons?case=native&tab=recommended');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
+  await page.goto(BASE+'/hackathons?case=native&tab=recommended');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
   await page.goto(BASE+'/hackathons?registration=closed');
   await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();
   assert(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).isVisible());
   await page.goto(BASE+'/hackathons?tab=past');await page.getByRole('link',{name:'Ended event',exact:true}).waitFor();
-  await page.goto(BASE+'/hackathons?case=boundary');await page.getByRole('link',{name:'India final day deadline',exact:true}).waitFor();
+  await page.goto(BASE+'/hackathons?case=boundary&tab=recommended');await page.getByRole('link',{name:'India final day deadline',exact:true}).waitFor();
   await page.clock.setFixedTime(new Date('2026-11-02T23:59:59.999+05:30'));await page.reload();
   await page.getByRole('link',{name:'India final day deadline',exact:true}).waitFor();
   await page.clock.setFixedTime(new Date('2026-11-03T00:00:00+05:30'));await page.reload();

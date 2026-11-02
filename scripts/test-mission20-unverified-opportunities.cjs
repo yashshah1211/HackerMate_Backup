@@ -2,9 +2,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {harness}=require('./ppt-vision-harness.cjs');
 const {record}=require('../qa/fixtures/mission20-unverified/algorush.json');
-const loader=harness(),life=loader.load('src/lib/hackathons/lifecycle.ts'),discovery=loader.load('src/lib/hackathons/discovery.ts');
+const loader=harness({}, {URLSearchParams}),life=loader.load('src/lib/hackathons/lifecycle.ts'),discovery=loader.load('src/lib/hackathons/discovery.ts');
 const now=Date.parse('2026-11-02T12:00:00+05:30');
-const list=(rows,query='',saved=new Set())=>Array.from(discovery.discoverEvents(rows,discovery.readDiscoverySettings(new URLSearchParams(query)),[],saved,now),r=>r.id);
+const list=(rows,query='tab=recommended',saved=new Set())=>Array.from(discovery.discoverEvents(rows,discovery.readDiscoverySettings(new URLSearchParams(query)),[],saved,now),r=>r.id);
 test('exact AlgoRush imported dates do not establish an ongoing event',()=>{
  assert.equal(life.eventState(record,now),'unknown');
  assert.equal(life.registrationState(record,now),'unknown');
@@ -97,4 +97,22 @@ test('November 2 founder aggregate: 410 public listings, 0 native, 8 official an
  for(const tab of ['recommended','upcoming','ongoing'])assert.deepEqual(list(rows,'tab='+tab),[]);
  assert.equal(list(rows,'tab=all').length,410);assert.equal(rows.filter(r=>life.eventState(r,now)==='unknown').length,410);
  const saved=new Set([rows[0].id,rows[8].id,rows[409].id]);assert.deepEqual(new Set(list(rows,'tab=saved',saved)),saved);
+});
+
+
+test('bare directory opens general All browsing without changing imported trust or opportunity eligibility',()=>{
+ const rows=[record,{...record,id:'synthetic-closed-general',registration_status:'closed'},{...record,id:'synthetic-official-general',type:'official'}];
+ assert.equal(discovery.readDiscoverySettings(new URLSearchParams()).tab,'all');
+ assert.equal(list(rows,'').length,3);assert.equal(list(rows,'tab=recommended').length,0);
+ assert.equal(life.eventState(record,now),'unknown');assert.equal(life.activeOpportunity(record,now),false);
+ assert.deepEqual(list(rows,'q=AlgoRush&registration=unknown'),[record.id,'synthetic-official-general']);
+});
+
+test('default All and explicit Opportunities round-trip tab URLs, search, filters and unrelated navigation context',()=>{
+ for(const tab of ['all','recommended','upcoming','ongoing','saved','past']){
+  const next=new URLSearchParams(discovery.discoveryQuery(new URLSearchParams('source=partner&q=water&mode=online'),{tab}));
+  assert.equal(discovery.readDiscoverySettings(next).tab,tab);assert.equal(next.get('source'),'partner');assert.equal(next.get('q'),'water');assert.equal(next.get('mode'),'online');
+  if(tab==='recommended')assert.equal(next.get('tab'),'recommended');
+ }
+ assert.equal(discovery.readDiscoverySettings(new URLSearchParams('tab=bad')).tab,'all');
 });

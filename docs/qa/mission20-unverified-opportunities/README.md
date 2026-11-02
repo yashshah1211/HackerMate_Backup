@@ -12,8 +12,8 @@ Against unchanged main, the initial six acceptance cases produced **four failure
 
 - Homepage removes the event total from the hero, its client props/server data and the count query. Registered-builder and team-record counts remain. Numeric “All N listed” becomes **Browse hackathons**, available even when the opportunity strip is empty.
 - `listedEventState` performs only raw calendar classification for explicit historical browsing. `eventState` no longer treats imported/null/unknown origins as verified upcoming/ongoing/ended schedules. Only native events retain their hosted schedule behavior. Official is a legacy non-native classification, not a verification signal; no stored type is changed and official remains community participation.
-- Default opportunities exclude **every non-native listing**, including official and bounded imported registration windows. The deployed schema does not establish independent source freshness or a verified hackathon category. Organizer IDs, source URLs, keywords, recent row timestamps and dates do not resolve that gap. No missing value is converted to a guessed closed status or invented event end.
-- **All / Unverified** is an explicit, shareable tab (`tab=all`), retaining open, closed and uncertain public records. Saved, direct links and explicit registration filters still work. Past uses listed past dates as a browsing filter, while imported cards continue to say their schedule is unverified.
+- Opportunities / For you excludes **every non-native listing**, including official and bounded imported registration windows. The deployed schema does not establish independent source freshness or a verified hackathon category. Organizer IDs, source URLs, keywords, recent row timestamps and dates do not resolve that gap. No missing value is converted to a guessed closed status or invented event end.
+- **All / Unverified** is the default Explore listings view for `/hackathons` with no tab, retaining open, closed and uncertain public records. Explicit `tab=all` also remains valid; **Opportunities / For you** is separately addressable with `tab=recommended`. Saved, direct links and explicit registration filters still work. Past uses listed past dates as a browsing filter, while imported cards continue to say their schedule is unverified.
 - Cards and both detail views label imported schedules and listed dates unverified; team-size defaults are also marked unverified on details. Positive imported registration metadata says **Registration listed as open**, not provider verification. Unknown availability remains unverified. Official URLs, the existing community actions, identity/authorization, privacy, partner portals, saved records and confirmation behavior are unchanged.
 - The landing strip is limited to native upcoming schedules with eligible admission metadata. It does not promote unverified external date windows as upcoming. Its existing bounded eight-candidate query/Unstop exception remains; it may show fewer or no event cards while the neutral browse link remains visible.
 
@@ -23,7 +23,7 @@ Native denotes events hosted here; it is not a guarantee of independently verifi
 
 Exact current inventory, source/log/screenshot hashes and publication-time results: [VERIFICATION.json](VERIFICATION.json). Final-head CI results are recorded in the new Draft PR rather than predicted from local success.
 
-Local application selection: **400/400** passed, zero failed/skipped. It includes the exact record, all three provider origins, null origin, positive bounded registration, confirmed closure, missing-provider metadata, the synthetic 132-record cohort, native behavior and unverified official imports, raw-calendar history, public direct lookup, hero count/footer removal, existing metadata/visibility/auth/navigation/bookmark/community cases and India deadline boundaries.
+Local application selection: **402/402** passed, zero failed/skipped. It includes the exact record, all three provider origins, null origin, positive bounded registration, confirmed closure, missing-provider metadata, the synthetic 132-record cohort, native behavior and unverified official imports, raw-calendar history, public direct lookup, hero count/footer removal, existing metadata/visibility/auth/navigation/bookmark/community cases and India deadline boundaries.
 
 Existing calendar/ranking/auth fixtures now explicitly identify their native calendar contract. New imported-provider cases assert uncertainty and exclusion instead of preserving the erroneous assumption that external dates are trusted. No assertion is deleted/relaxed to hide a failure; existing native/community identity/status/capacity/record-preservation assertions remain strict.
 
@@ -41,7 +41,8 @@ Expected counts from that snapshot after this correction (before search/user fil
 
 | View / metric | Exact expected count |
 | --- | ---: |
-| Default Discover recommendations | 0 |
+| Default `/hackathons` Explore listings | 410 |
+| Opportunities / For you (`tab=recommended`) | 0 |
 | Upcoming | 0 |
 | Ongoing | 0 |
 | Homepage opportunity strip | 0 |
@@ -52,9 +53,21 @@ Expected counts from that snapshot after this correction (before search/user fil
 
 Saved remains the user's existing public saved subset, not a fabricated global count. Past remains an explicit listed-calendar filter; its exact production count is not supplied. Direct access to all 410 public records remains permitted. These are deterministic policy consequences of the founder snapshot, not new live observations; counts may change if the underlying catalog changes.
 
-The added tests cover all eight official metadata patterns, both official/external workshop ambiguity, renamed titles, misleading Hackathon tags, bounded registration fields, organizer IDs and recent row timestamps. A 410-row synthetic aggregate proves zero default/upcoming/ongoing and 410 All listings. Existing native calendar/filter/auth/bookmark assertions remain strict; provider-hostname tests explicitly use external records in All. Browser tests use an all-non-native default dataset, preserve eight official imports and Bootcamps in All, Saved and guest/member direct access, and retain community entry controls. A separate native fixture retains open admission and India final-day boundaries. No name-based runtime exclusion is used.
+The trust-policy tests cover all eight official metadata patterns, both official/external workshop ambiguity, renamed titles, misleading Hackathon tags, bounded registration fields, organizer IDs and recent row timestamps. A 410-row synthetic aggregate proves zero default/upcoming/ongoing and 410 All listings. Existing native calendar/filter/auth/bookmark assertions remain strict; provider-hostname tests explicitly use external records in All. Browser tests use an all-non-native default dataset, preserve eight official imports and Bootcamps in All, Saved and guest/member direct access, and retain community entry controls. A separate native fixture retains open admission and India final-day boundaries. No name-based runtime exclusion is used.
 
 Current final-head CI is reported on PR #98 after publication; earlier green results at 5a9808e do not qualify the follow-up.
+
+## Homepage-to-directory UX follow-up
+
+Reviewed head: `b7bb9dc225a39297eeccec497ac5a9cfcf19bc3b`. The hero's neutral Browse hackathons URL remains `/hackathons`. The shared settings parser now defaults missing/invalid tabs to `all` instead of `recommended`; URL serialization uses the same default so switching to Opportunities emits `tab=recommended` rather than accidentally losing it. All / Unverified is first in the tab order. Guest Opportunities and member For you remain separate, with their existing trust/eligibility logic unchanged.
+
+The page explicitly warns that imported schedules, categories **and registration availability** are unverified and that browsing a listing/date does not confirm open registration. General browsing intentionally includes closed, ended and uncertain public records. The previous policy qualification at b7bb9dc remains valid for Opportunities; it no longer describes the default directory view.
+
+Expected homepage journey for the founder's November 2 snapshot: **Browse hackathons → /hackathons → All / Unverified selected → 410 public listings (8 official + 402 external)**. Opportunities / For you remains **0**; Upcoming, Ongoing and the landing opportunity strip remain **0**. All 410 schedules remain unverified. Saved and direct visibility are unchanged. This is a prediction from the supplied catalog aggregate, not a production query or deployment result.
+
+Two new tests fail against b7bb9dc (15 cases: 13 pass / 2 fail), reproducing the wrong default and missing explicit recommended URL. Final focused selection is 402/402. Existing opportunity-only tests explicitly select tab=recommended rather than asserting their old rules against general browsing. New general tests use bare URLs and retain closed/uncertain records. Explicit all/recommended/upcoming/ongoing/saved/past, search/filter values, unrelated source context and invalid-tab fallback round-trip correctly. Real browser journeys at 390/768/1440px click the hero link, confirm a populated general view with the warning, switch to empty Opportunities/For you with an explicit URL, reload it, and use Back/Forward through a direct event link. Existing Saved, guest/member direct views, native cutoff and exact Rack checks are retained.
+
+Only discovery defaults/labels, focused tests and this evidence change. The lifecycle trust helper, importer, event records, registration writers and partner implementation are unchanged. Current-head CI is recorded on PR #98 after publication.
 
 ## Separately scoped source-refresh work
 

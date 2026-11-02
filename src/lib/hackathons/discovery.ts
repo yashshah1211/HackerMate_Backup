@@ -93,7 +93,7 @@ const tabs = ["recommended", "upcoming", "ongoing", "saved", "past", "all"];
 const sorts = ["relevant", "date", "recent", "prize-inr", "prize-usd"];
 export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): DiscoverySettings {
   const get = (key: string) => { const values = params.getAll(key); return values.length === 1 ? values[0].trim() : ""; };
-  const tab = (tabs.includes(get("tab")) ? get("tab") : "recommended") as DiscoveryTab;
+  const tab = (tabs.includes(get("tab")) ? get("tab") : "all") as DiscoveryTab;
   const choice = (key: string, options: string[]) => options.includes(get(key)) ? get(key) : "";
   const date = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(get(key)) && eventDate(get(key)) !== null ? get(key) : "";
   const requestedSort = get("sort") === "prize" ? "prize-inr" : get("sort");
@@ -109,7 +109,7 @@ export function discoveryQuery(params: URLSearchParams, patch: Partial<Discovery
   const settings = { ...readDiscoverySettings(params), ...patch };
   if (patch.tab && !params.has("sort") && !patch.sort) settings.sort = patch.tab === "recommended" ? "relevant" : "date";
   const defaults = readDiscoverySettings(new URLSearchParams(`tab=${settings.tab}`));
-  defaults.tab = "recommended";
+  defaults.tab = "all";
   const output = new URLSearchParams(params);
   for (const [key, value] of Object.entries(settings)) {
     output.delete(key);

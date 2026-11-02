@@ -364,12 +364,12 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   }
 
   const tabOptions: { value: Tab; label: string; count?: number }[] = [
-    { value: "recommended", label: access.kind === "guest" ? "Discover" : "For you" },
+    { value: "all", label: "All / Unverified" },
+    { value: "recommended", label: access.kind === "guest" ? "Opportunities" : "For you" },
     { value: "upcoming", label: "Upcoming", count: upcomingCount },
     { value: "ongoing", label: "Ongoing", count: ongoingCount },
     { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
     { value: "past", label: "Past" },
-    { value: "all", label: "All / Unverified" },
   ];
 
   const header = (
@@ -577,7 +577,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
       </div>
 
       <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
-      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates. Non-native schedules and event categories are unverified, including official imports. Review them in All / Unverified; listed registration metadata does not establish a verified hackathon opportunity.</p>
+      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates. Imported listings, including official imports, have unverified schedules, categories and registration availability. Browsing a listing or its dates does not confirm open registration. Opportunities / For you is a separate view and may be empty.</p>
       {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 
