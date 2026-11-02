@@ -1,4 +1,5 @@
 "use client";
+import { cancelRegistration, WriterBudget, WriterError, writerMessage } from "@/lib/writers";
 
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -204,6 +205,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   const [discovery, setDiscovery] = useState<DiscoveryPage | null>(null);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const discoveryRequest = useRef(0);
+  const cancellationPending = useRef(false);
   const [togglingDiscovery, setTogglingDiscovery] = useState(false);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const buildersList = discovery?.items || [];
@@ -726,25 +728,18 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
     });
   }
 
-  async function performCancel() {
+  async function performCancel(expectedActor: string) {
+    if (cancellationPending.current) return;
+    cancellationPending.current = true;
+    const budget = new WriterBudget();
     try {
-      const own = await loadOwnEventParticipation(supabase, hackathon!.id);
-      if (!own.userId || !own.registration) throw new Error("Participation not found");
-      if (own.registration.team_id) {
-        const { error } = await supabase.from("team_hackathons").delete()
-          .eq("team_id", own.registration.team_id).eq("hackathon_id", hackathon!.id);
-        if (error) throw error;
-      }
-      const { data, error } = await supabase.from("hackathon_registrations").delete()
-        .eq("hackathon_id", hackathon!.id).eq("user_id", own.userId).select("id");
-      if (error || !data || data.length !== 1) throw error || new Error("Unable to verify cancellation");
-
+      const own = await budget.run(() => loadOwnEventParticipation(supabase, hackathon!.id));
+      if (own.userId !== expectedActor || !own.registration) throw new WriterError("Your participation changed. Refresh before trying again.", 409);
+      await cancelRegistration(supabase, hackathon!.id, own.registration.id, expectedActor, budget);
       showToast(hackathon?.type === "native" ? "Registration cancelled." : "Left the HackerMate event community.", "info");
-      loadData();
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to cancel registration.", "error");
-    }
+      void loadData();
+    } catch (error) { console.error("[registration] cancellation failed:", error); showToast(writerMessage(error), "error"); }
+    finally { cancellationPending.current = false; }
   }
 
   // Cancel Native Registration
@@ -756,7 +751,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
       confirmText: hackathon.type === "native" ? "Cancel Registration" : "Leave community",
       cancelText: "Keep participation",
       onConfirm: () => {
-        performCancel();
+        void performCancel(currentUserId);
       }
     });
   }

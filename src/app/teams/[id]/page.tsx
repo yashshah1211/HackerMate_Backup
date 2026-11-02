@@ -1,4 +1,5 @@
 "use client";
+import { deleteTeam, removeTeamMember, WriterBudget, writerMessage } from "@/lib/writers";
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -287,27 +288,24 @@ function TeamDetailsContent({ currentUser, sessionIsCurrent, recheckSession }: {
     if (kind === "remove" || kind === "disband") { if (!isOwner) return; }
     if (kind === "leave" && !members.some(member => member.id === id && member.profiles.id === currentUser.id)) return;
     managing.current = true;
+    const budget = new WriterBudget();
     try {
-      const { data: auth, error: authError } = await supabase.auth.getUser();
+      const { data: auth, error: authError } = await budget.run(() => supabase.auth.getUser());
       if (!current(epoch)) return;
       if (authError) throw authError;
       if (auth.user?.id !== currentUser.id) { recheckSession(); return; }
-      const query = kind === "disband"
-        ? supabase.from("teams").delete().eq("id", teamId).eq("owner_id", currentUser.id)
-        : supabase.from("team_members").delete().eq("id", id).eq("team_id", teamId);
-      const { data, error } = await query.select("id");
+      const confirmed = kind === "disband"
+        ? await deleteTeam(supabase, teamId, currentUser.id, budget)
+        : await removeTeamMember(supabase, teamId, id, currentUser.id, budget);
       if (!current(epoch)) return;
-      if (error) throw error;
       const expectedId = kind === "disband" ? teamId : id;
-      if (!Array.isArray(data) || data.length !== 1 || data[0]?.id !== expectedId) {
-        throw new Error("The change could not be confirmed. Refresh the team before trying again.");
-      }
+      if (confirmed !== expectedId) throw new Error("The change could not be confirmed. Refresh before trying again.");
       showToast(kind === "remove" ? "Member removed from team" : kind === "leave" ? "You have left the team" : "Team disbanded successfully.", kind === "disband" ? "info" : "success");
       if (kind === "remove") void loadTeam(); else router.push("/teams");
     } catch (error) {
       console.error("[team] membership change could not be confirmed:", error);
       if (current(epoch)) {
-        showToast("Couldn't verify the change. Refresh the team before trying again.", "error");
+        showToast(writerMessage(error), "error");
         void loadTeam();
       }
     } finally { managing.current = false; }

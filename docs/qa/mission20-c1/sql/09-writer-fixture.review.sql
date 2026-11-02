@@ -30,18 +30,21 @@ CREATE FUNCTION public.is_team_member(p_team_id uuid) RETURNS boolean LANGUAGE s
  select public.is_team_owner(p_team_id) or exists(select 1 from public.team_members where team_id=p_team_id and user_id=auth.uid());
 $$;
 -- Fixture authorization model, not a claim of an additional deployed policy.
--- RPCs are INVOKER: no UPDATE policy is added to make project-role tests pass.
+-- C2 founder-confirmed live owner UPDATE and owner/admin DELETE policies.
 CREATE FUNCTION public.is_admin(user_id uuid) RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$
  SELECT EXISTS(SELECT 1 FROM public.profiles p WHERE p.id=user_id AND p.role='admin' AND p.is_banned IS FALSE);
 $$;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY teams_read ON public.teams FOR SELECT TO authenticated USING(true);
-CREATE POLICY teams_delete_owner ON public.teams FOR DELETE TO authenticated USING(owner_id=auth.uid());
+CREATE POLICY teams_delete_owner ON public.teams FOR DELETE TO authenticated USING(owner_id=auth.uid() OR public.is_admin(auth.uid()));
 CREATE POLICY teams_update_owner ON public.teams FOR UPDATE TO authenticated USING(owner_id=auth.uid()) WITH CHECK(owner_id=auth.uid());
 CREATE POLICY team_members_read ON public.team_members FOR SELECT TO authenticated USING(true);
 CREATE POLICY team_members_remove ON public.team_members FOR DELETE TO authenticated USING(user_id=auth.uid() OR public.is_team_owner(team_id));
-GRANT SELECT,DELETE,UPDATE ON public.teams,public.team_members TO authenticated;
+CREATE POLICY team_members_update ON public.team_members FOR UPDATE TO authenticated USING(public.is_team_owner(team_id)) WITH CHECK(public.is_team_owner(team_id));
+GRANT SELECT,DELETE,UPDATE ON public.teams TO authenticated;
+GRANT SELECT,DELETE ON public.team_members TO authenticated;
+GRANT UPDATE(project_role) ON public.team_members TO authenticated;
 REVOKE ALL ON FUNCTION public.is_team_member(uuid),public.is_admin(uuid) FROM PUBLIC,anon,service_role;
 GRANT EXECUTE ON FUNCTION public.is_team_member(uuid),public.is_admin(uuid) TO authenticated;
 

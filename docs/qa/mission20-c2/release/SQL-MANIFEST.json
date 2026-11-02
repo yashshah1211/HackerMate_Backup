@@ -1,0 +1,123 @@
+{
+  "status": "REVIEW_ONLY_NO_EXECUTION_AUTHORIZATION",
+  "baseline": "f918ee08fa6ad1f9f8dbccd8ed853744b55daf6f",
+  "newlineNormalization": "LF",
+  "hash": "SHA256 UTF-8 normalized source; not an applied-ledger receipt",
+  "activeMigrationVersionsAllocated": false,
+  "expectedDatabase": "PostgreSQL 17.6",
+  "fixtureHttp": "PostgREST 16.5; deployed version not confirmed",
+  "freezeAffects": [
+    "native admission",
+    "external/official community INSERT"
+  ],
+  "atomicFutureExpansion": [
+    "expand",
+    "per-team",
+    "writer-protocol",
+    "existing-writers",
+    "cancel"
+  ],
+  "afterExpansion": [
+    "adapter compatibility/version convergence",
+    "contract",
+    "post-migration acceptance",
+    "independently authorized unfreeze"
+  ],
+  "fixturesNeverPromote": [
+    "security-fixture",
+    "writer-fixture"
+  ],
+  "files": [
+    {
+      "id": "catalog",
+      "path": "docs/qa/mission20-c1/sql/00-preflight.review.sql",
+      "stage": "independent-read-only",
+      "candidateForSeparatelyReviewedPackaging": false,
+      "sha256": "8efeb051449b2c839f55d216b94e9479d7e1ccffbe9a3c401b1026f56a4a66a1"
+    },
+    {
+      "id": "freeze",
+      "path": "docs/qa/mission20-c1/sql/00-freeze-admission.proposed.sql",
+      "stage": "freeze-first-own-transaction",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "8873e37592d0441c9110bba1809b5f13682e2039ac0448f03e4c72b322cc8940"
+    },
+    {
+      "id": "expand",
+      "path": "docs/qa/mission20-c1/sql/01-expand.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "6767b8a3266f260762a53c6a16e66cab8bc6789c49f193667c0edc8556c8edf1"
+    },
+    {
+      "id": "contract",
+      "path": "docs/qa/mission20-c1/sql/02-contract.proposed.sql",
+      "stage": "after-adapters-and-last-freeze",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "22ad9fc015cd71a4b51172bd623221231d7b7bb8cb202bbb85d7bde41c66d397"
+    },
+    {
+      "id": "rollback-freeze",
+      "path": "docs/qa/mission20-c1/sql/03-rollback-freeze.proposed.sql",
+      "stage": "separate-emergency-authorization",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "84c013de70aa97c107c2a909f4f3b3558f179dbfd09ab5718760f0665c522a1e"
+    },
+    {
+      "id": "security-fixture",
+      "path": "docs/qa/mission20-c1/sql/04-security-tests.review.sql",
+      "stage": "fixture-never-promote",
+      "candidateForSeparatelyReviewedPackaging": false,
+      "sha256": "dec32a1c128fa4cab809bd2e2a609341864575d3e806291e0380f5bc16b372d7"
+    },
+    {
+      "id": "per-team",
+      "path": "docs/qa/mission20-c1/sql/05-per-team-roster.alternative.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "8e87e3e4b5740f9edf470dd727d02f81790b48bfcd0fbc3d83ff29fadc46b46a"
+    },
+    {
+      "id": "unfreeze",
+      "path": "docs/qa/mission20-c1/sql/06-unfreeze-admission.proposed.sql",
+      "stage": "independent-acceptance-authorization",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "3c003c6259aaf7bc5d24d6cf5adfbbc135c40280372fa837c56684c3594e06f4"
+    },
+    {
+      "id": "writer-protocol",
+      "path": "docs/qa/mission20-c1/sql/07-writer-protocol.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "1124b915f8846cc19459eda0de771056741e8f976413fdbd408b2993212e0d8e"
+    },
+    {
+      "id": "existing-writers",
+      "path": "docs/qa/mission20-c1/sql/08-existing-writers.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "1a52b48ce6b2927f0f9a3b60a30dac4259bd2186856ffda80ed946a9e03155fc"
+    },
+    {
+      "id": "writer-fixture",
+      "path": "docs/qa/mission20-c1/sql/09-writer-fixture.review.sql",
+      "stage": "fixture-never-promote",
+      "candidateForSeparatelyReviewedPackaging": false,
+      "sha256": "7ada4c559493e87fe8d59dd445ec488ac50db25c2bc328df41fc7f9be707f59b"
+    },
+    {
+      "id": "cancel",
+      "path": "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
+      "stage": "future-atomic-final-protocol",
+      "candidateForSeparatelyReviewedPackaging": true,
+      "sha256": "ce4baaaad3344f7d5987e6cfb46a5ddf0aa80bea81c8ff5c69975591e76de3ca"
+    }
+  ],
+  "blockers": [
+    "Complete current live catalog/body/ACL/ledger parity unsigned",
+    "Atomic review candidate produced; execution approval, raw-body parity and final version allocation remain blocked",
+    "Hosted Supabase Auth/gateway acceptance not established",
+    "Community pause, timeout and Vercel hold/drain decisions need independent approval"
+  ],
+  "atomicCandidate": "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json"
+}

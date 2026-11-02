@@ -1,4 +1,5 @@
 "use client";
+import { acceptTeamInvite, setProjectRole, writerMessage } from "@/lib/writers";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -192,14 +193,14 @@ export default function TeamOverviewView({
   const handleAcceptInvite = async () => {
     if (!pendingInvite) return;
     setInviteActionLoading(true);
-    const { error } = await supabase.rpc("accept_team_invite", { p_invite_id: pendingInvite.id });
-    if (error) showToast(error.message, "error");
-    else {
+    try {
+      if (!currentUserId) throw new Error("Sign in before accepting.");
+      await acceptTeamInvite(supabase, pendingInvite.id, team.id, currentUserId);
       showToast("You have successfully joined the team!", "success");
       setInviteStatus("accepted");
       window.dispatchEvent(new Event("hm:teams-changed"));
       if (refreshTeam) refreshTeam();
-    }
+    } catch (error) { console.error("[team] invitation failed:", error); showToast(writerMessage(error), "error"); }
     setInviteActionLoading(false);
   };
 
@@ -224,16 +225,14 @@ export default function TeamOverviewView({
   const handleSaveProjectRole = async (memberId: string) => {
     const roleToSave = projectRoleInput.trim() || "Developer";
     try {
-      const { error } = await supabase.from("team_members").update({ project_role: roleToSave }).eq("id", memberId);
-      if (error) showToast(error.message, "error");
-      else {
-        showToast("Project role updated successfully", "success");
-        setEditingRoleFor(null);
-        if (refreshTeam) refreshTeam();
-      }
+      if (!isOwner || !currentUserId) return;
+      await setProjectRole(supabase, team.id, memberId, roleToSave, currentUserId);
+      showToast("Project role updated successfully", "success");
+      setEditingRoleFor(null);
+      if (refreshTeam) refreshTeam();
     } catch (err) {
       console.error(err);
-      showToast("Failed to update project role", "error");
+      showToast(writerMessage(err), "error");
     }
   };
 

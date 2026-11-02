@@ -31,6 +31,7 @@ async function mount(t, options = {}) {
     },
     async rpc(name, args) { writes.push({ name, args }); return server.result ?? { data: 'fixture-team', error: null }; },
   };
+  require('./writer-test-client.cjs').writerTestClient(client, () => server.user);
   const passthrough = ({ children }) => React.createElement('div', null, children);
   const Component = harness({
     'next/navigation': { useParams: () => ({ id: 'fixture-team' }) },

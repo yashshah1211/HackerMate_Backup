@@ -53,12 +53,17 @@ async function mount(t, options = {}) {
     },
     async rpc(name, args) {
       writes.push({ name, args: JSON.parse(JSON.stringify(args)), user: server.user });
+      if (name.startsWith('mission20_')) {
+        const raw = server.deleteResult ? await server.deleteResult : {data: args.p_member_id || args.p_team_id,error:null};
+        return raw;
+      }
       const result = gates.rpc.length ? await gates.rpc.shift() : { data: '10000000-0000-4000-8000-000000000001', error: server.rpcError || null };
       if (!result.error && name === 'request_to_join_team') server.pending = true;
       if (!result.error && name === 'join_team_instantly') { server.member = true; server.pending = false; }
       return result;
     },
   };
+  require('./writer-test-client.cjs').writerTestClient(client, () => server.user);
   const notification = { showToast: (...args) => toasts.push(args), confirm: value => confirmations.push(value) };
   const Component = harness({
     'next/navigation': { useParams: () => ({ id: route }), useRouter: () => ({ push() {} }), useSearchParams: () => new URLSearchParams(server.search) },
@@ -258,7 +263,7 @@ test('member removal verifies returned ID and scopes the delete to its team', as
   const ui = await mount(t, { member: true, owner: A });
   await ui.flush(() => ui.overview().removeMember('fixture-member'));
   await ui.flush(() => ui.confirmations[0].onConfirm());
-  assert.equal(ui.writes.length, 1); assert.deepEqual(ui.writes[0].filters, { id: 'fixture-member', team_id: 'fixture-team' });
+  assert.equal(ui.writes.length, 1); assert.equal(ui.writes[0].name, 'mission20_remove_team_member'); assert.deepEqual(ui.writes[0].args, { p_member_id: 'fixture-member', p_team_id: 'fixture-team' });
   assert.equal(ui.toasts.filter(t => t[1] === 'success').length, 1);
 });
 test('stale member removal confirmation cannot write after account switching', async t => {
@@ -284,6 +289,6 @@ test('uncertain membership delete is never replayed or confirmed', async t => {
 test('late membership deletion after account switch has no success effects', async t => {
   const ui = await mount(t, { member: true, owner: A }); const gate = deferred(); ui.server.deleteResult = gate.promise;
   await ui.flush(() => { void ui.overview().leaveTeam('fixture-member'); }); await ui.auth(B);
-  await ui.flush(() => gate.resolve({ data: [{ id: 'fixture-member' }], error: null }));
+  await ui.flush(() => gate.resolve({ data: 'fixture-member', error: null }));
   assert.equal(ui.writes.length, 1); assert.deepEqual(ui.toasts, []);
 });

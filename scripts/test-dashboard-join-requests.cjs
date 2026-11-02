@@ -87,6 +87,7 @@ async function view(t, options = {}) {
     },
     channel: () => ({ on() { return this; } }),
   };
+  require('./writer-test-client.cjs').writerTestClient(client,()=>server.user);
   const element = tag => props => React.createElement(tag, {
     href: props.href, id: props.id, onClick: props.onClick, disabled: props.disabled || props.loading, title: props.title, 'data-variant': props.variant,
   }, props.children);

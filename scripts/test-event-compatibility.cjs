@@ -31,6 +31,17 @@ function fixture(options = {}) {
     async rpc(name, args) {
       state.rpcs.push({ name, args });
       if (state.rpcError) return { data: null, error: state.rpcError };
+      if (name === 'register_native_hackathon') {
+        assert.equal(args.p_hackathon_id,EVENT);assert(!('user_id' in args));assert(!('status' in args));
+        const existing=!!state.registration;
+        if(!existing)state.registration={...defaultRegistration,id:'native-registration',user_id:state.user.id,team_id:args.p_team_id,status:hackathon.max_participants!==null&&state.counts.confirmed_count>=hackathon.max_participants?'waitlisted':'confirmed'};
+        return {data:{status:state.registration.status,alreadyRegistered:existing},error:null};
+      }
+      if (name === 'mission20_cancel_registration') {
+        assert.equal(args.p_event_id,EVENT);assert.equal(args.p_registration_id,state.registration.id);assert.equal(state.registration.user_id,state.user.id);
+        if(state.mutationError)return {data:null,error:state.mutationError};
+        const id=state.registration.id;state.registration=null;return {data:id,error:null};
+      }
       if (name === 'get_hackathon_registration_counts') return { data: state.counts === null ? null : [state.counts], error: null };
       assert.equal(name, 'list_event_discovery_builders');
       return { data: { items: state.discoveryRows.slice(args.p_offset, args.p_offset + 50), total: state.total, offset: args.p_offset, limit: 50 }, error: null };
@@ -83,6 +94,7 @@ function fixture(options = {}) {
       return query;
     },
   };
+  require('./writer-test-client.cjs').writerTestClient(client,()=>state.user?.id);
   return { state, client, hackathon, partner };
 }
 
@@ -92,7 +104,7 @@ function loadModule(relative, overrides = {}, globals = {}) {
   const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(code, { exports, URL, console: { error() {}, warn() {} }, setTimeout, clearTimeout,
+  vm.runInNewContext(code, { exports, URL, AbortSignal, AbortController, console: { error() {}, warn() {} }, setTimeout, clearTimeout,
     require(name) {
       if (Object.hasOwn(overrides, name)) return overrides[name];
       if(name.startsWith('@/') || name.startsWith('.')) {
@@ -324,7 +336,7 @@ test('native registration capacity uses the RPC and records only the signed-in p
   await page.click('Review registration'); await page.click('Confirm');
   assert.equal(page.state.registration.user_id, USER); assert.equal(page.state.registration.status, 'waitlisted');
   assert(page.state.rpcs.filter(rpc => rpc.name === 'get_hackathon_registration_counts').length >= 2);
-  assert.equal(page.state.queries.filter(query => query.table === 'hackathon_registrations' && query.operation === 'insert').length, 1);
+  assert.equal(page.state.rpcs.filter(call => call.name === 'register_native_hackathon').length, 1); assert.equal(page.state.queries.filter(query => query.table === 'hackathon_registrations' && query.operation === 'insert').length, 0);
 });
 test('native count failure blocks registration instead of assuming zero capacity usage', async () => {
   const page = await pageHarness('event', { registration: null, hackathon: { type: 'native', max_participants: 2 }, rpcError: { code: 'PGRST202' } });
@@ -398,7 +410,7 @@ test('community join prevents repeat registration and handles a concurrent dupli
   await page.clickExact('Join community'); await page.clickExact('Join community');
   await page.click('View official details');
   assert(!page.controls.some(control => control.text === 'Join community'));
-  assert.equal(page.state.queries.filter(query => query.operation === 'insert').length, 1);
+  assert.equal(page.state.queries.filter(query => query.operation === 'insert').length, 1); assert.equal(page.state.rpcs.filter(call => call.name === 'register_native_hackathon').length, 0);
   const concurrent = await pageHarness('event', { registration: null });
   await concurrent.clickExact('Join community');
   concurrent.state.registration = { ...defaultRegistration };

@@ -1,4 +1,5 @@
 "use client";
+import { acceptTeamRequest, writerMessage, WriterBudget } from "@/lib/writers";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -127,14 +128,15 @@ function TeamRequestsContent() {
     const epoch = scope.current, expectedOwner = owner.current;
     setBusyId(request.id);
     ++read.current;
+    const budget = new WriterBudget();
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await budget.run(() => supabase.auth.getUser());
       if (!current(epoch)) return;
       if (authError) throw authError;
       if (user?.id !== expectedOwner) { ++scope.current; owner.current = null; setIsOwner(false); setRequests([]); return; }
       // The RPC enforces capacity and ownership transactionally; deletes remain team/pending scoped.
       const result = accept
-        ? await supabase.rpc("accept_team_join_request", { p_request_id: request.id })
+        ? { data: await acceptTeamRequest(supabase, request.id, teamId, expectedOwner, budget), error: null }
         : await supabase.from("team_join_requests").delete().eq("id", request.id)
           .eq("team_id", teamId).eq("status", "pending").select("id");
       if (!current(epoch)) return;
@@ -145,7 +147,7 @@ function TeamRequestsContent() {
       showToast(accept ? "Join request accepted!" : "Join request rejected.", accept ? "success" : "info");
     } catch (error) {
       console.error("[requests] decision could not be confirmed:", error);
-      if (current(epoch)) showToast("Couldn't verify the change. Refresh requests before trying again.", "error");
+      if (current(epoch)) showToast(writerMessage(error), "error");
     } finally {
       if (current(epoch)) {
         action.current = false; setBusyId(null);

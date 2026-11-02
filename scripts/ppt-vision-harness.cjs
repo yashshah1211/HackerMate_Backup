@@ -17,7 +17,7 @@ function harness(overrides = {}, globals = {}) {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
     }).outputText;
     vm.runInNewContext(code, {
-      exports, Buffer, URL, AbortSignal, Uint8Array, Response, Request, Headers, setTimeout, clearTimeout,
+      exports, Buffer, URL, AbortSignal, AbortController, Uint8Array, Response, Request, Headers, setTimeout, clearTimeout,
       process: { env }, console: { log() {}, warn() {}, error() {} },
       // Network is forbidden unless a test supplies an explicit mock.
       fetch: async () => { throw new Error('Unexpected live network call'); },

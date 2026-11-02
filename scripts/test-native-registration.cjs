@@ -6,7 +6,11 @@ function fixture(options={}) {
   const writes=[],reads=[];
   const event={id:ID,type:'native',status:'approved',archived:false,start_date:'2026-11-01',end_date:'2026-11-03',registration_start:'2026-10-01',registration_end:'2026-10-31',min_team_size:1,max_team_size:4,max_participants:2,...options.event};
   let eventReads=0;
-  const client={auth:{getUser:async()=>({data:{user:options.signedOut?null:{id:USER,email:'test@example.invalid'}},error:null})},rpc:async()=>({data:[{registration_count:2,confirmed_count:2,waitlisted_count:0}],error:options.countError||null}),from(table){
+  const client={auth:{getUser:async()=>({data:{user:options.signedOut?null:{id:USER,email:'test@example.invalid'}},error:null})},rpc:async(name,args)=>{
+      assert.equal(name,'register_native_hackathon');
+      if(!options.existing&&!options.writeError&&!options.countError)writes.push({name,payload:args});
+      return {data:{status:options.existing?.status||'waitlisted',alreadyRegistered:!!options.existing},error:options.writeError||options.countError||null};
+    },from(table){
     const filters=[];let payload;const query={select(){return this;},eq(k,v){filters.push([k,v]);return this;},maybeSingle(){return this;},insert(p){payload=p;return this;},then(resolve,reject){return Promise.resolve().then(()=>{
       reads.push({table,filters});if(payload){writes.push({table,payload});return {error:options.writeError||null};}
       if(table==='profiles')return {data:{id:USER,is_banned:false,onboarding_completed:true,...options.profile},error:null};
@@ -20,10 +24,11 @@ function fixture(options={}) {
       throw new Error('Unexpected query '+table);
     }).then(resolve,reject);}};return query;
   }};
+  require('./writer-test-client.cjs').writerTestClient(client,()=>options.signedOut?null:USER);
   const api=harness().load('src/lib/hackathons/nativeRegistration.ts');
   return {client,writes,reads,run:(team=null,review=true,time=NOW)=>api.registerNativeEvent(client,ID,team,review,()=>time)};
 }
-test('server derives caller and waitlist status; never accepts caller-supplied identity/status',async()=>{const f=fixture();assert.equal((await f.run()).status,'waitlisted');assert.equal(f.writes[0].payload.user_id,USER);assert.equal(f.writes[0].payload.hackathon_id,ID);assert(f.reads.filter(r=>r.table==='hackathons').length>=2);});
+test('server derives caller and waitlist status; never accepts caller-supplied identity/status',async()=>{const f=fixture();assert.equal((await f.run()).status,'waitlisted');assert.equal(f.writes[0].name,'register_native_hackathon');assert.equal(f.writes[0].payload.p_hackathon_id,ID);assert(!('user_id' in f.writes[0].payload));assert(!('status' in f.writes[0].payload));assert(f.reads.filter(r=>r.table==='hackathons').length>=2);});
 for(const [name,options] of [['deadline',{event:{registration_end:'2026-10-30'}}],['not yet',{event:{registration_start:'2026-11-01',registration_end:'2026-11-02'}}],['ended',{event:{start_date:'2026-10-29',end_date:'2026-10-30'}}],['explicit closed',{event:{registration_status:'closed'}}],['suspended',{profile:{is_banned:true}}],['incomplete',{profile:{onboarding_completed:false}}],['signed out',{signedOut:true}],['late closure',{closeDuringChecks:true}],['counts unavailable',{countError:{code:'42501'}}],['external',{event:{type:'external'}}],['unapproved',{event:{status:'pending'}}],['archived',{event:{archived:true}}]])test('server blocks '+name+' before insert',async()=>{const f=fixture(options);await assert.rejects(f.run());assert.equal(f.writes.length,0);});
 test('server honors final day, exact offsets, and unknown review consent',async()=>{
   const final=fixture();await final.run(null,true,Date.parse('2026-10-31T23:59:59.999+05:30'));assert.equal(final.writes.length,1);

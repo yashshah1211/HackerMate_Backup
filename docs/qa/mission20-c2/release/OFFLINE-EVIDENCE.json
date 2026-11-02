@@ -1,0 +1,118 @@
+{
+  "status": "NO_GO_PRODUCTION",
+  "baselineHead": "e4aa98f0679cdba4e7b0857a2134f66df8b39fd1",
+  "taskInventory": [
+    ".github/workflows/mission20-c2-qualification.yml",
+    "docs/qa/mission20-c2/VERIFICATION.json",
+    "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "docs/qa/mission20-c2/release/CATALOG-CLOSURE.select-only.sql",
+    "docs/qa/mission20-c2/release/CATALOG-COMPARISON.md",
+    "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+    "docs/qa/mission20-c2/release/OFFLINE-EVIDENCE.json",
+    "docs/qa/mission20-c2/release/OFFLINE-REHEARSAL.md",
+    "docs/qa/mission20-c2/release/README.md",
+    "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+    "docs/qa/mission20-c2/release/VERCEL-HOLD.md",
+    "docs/qa/mission20-c2/release/loader/LOADER-MANIFEST.json",
+    "docs/qa/mission20-c2/release/loader/contract.review.sql",
+    "docs/qa/mission20-c2/release/loader/expansion.review.sql",
+    "docs/qa/mission20-c2/release/loader/freeze.review.sql",
+    "docs/qa/mission20-c2/release/loader/unfreeze.review.sql",
+    "scripts/mission20-loader-package.cjs",
+    "scripts/qualify-mission20-atomic-candidate.cjs",
+    "scripts/qualify-mission20-offline-release.cjs",
+    "scripts/test-mission20-release-package.cjs"
+  ],
+  "localQualification": {
+    "offlineRelease": true,
+    "postgres": "17.6",
+    "supabaseCli": "2.75.0",
+    "checks": 11,
+    "baselineAssertions": 231,
+    "dumpSha256": "ffb991e8057249c3b654eb76c5c483d672605b4cf15104a2d0edbdc5aecefc8e",
+    "dumpMs": 292,
+    "restoreMs": 486,
+    "syntheticOnly": true,
+    "privateInput": false,
+    "hostedBackup": false,
+    "pitr": false,
+    "fsync": "off",
+    "physicalCrashDurability": false,
+    "applicationDeployments": 0,
+    "productionConnections": 0,
+    "releaseApproved": false
+  },
+  "existingSqlAssertionsPerVariant": 279,
+  "orchestrationChecksIncludingBaseline": 53,
+  "ownedClustersCleaned": 2,
+  "localSourceSha256": {
+    ".github/workflows/mission20-c2-qualification.yml": "1331449f8cbbcb58d6386e8e17c33ace350fb67173890fd31b23bab82b385f05",
+    "docs/qa/mission20-c2/release/CATALOG-CLOSURE.select-only.sql": "7ef58e827d7608eb4c9b62af38fcbf45200e16f566b99303e5b99a22cc8f3eb9",
+    "docs/qa/mission20-c2/release/loader/contract.review.sql": "866a9e219ca051569586f4b3b56285b24758070d4491fe6a571876a64ee2c60b",
+    "docs/qa/mission20-c2/release/loader/expansion.review.sql": "8ae4ca787e2d719eb176cf40e5588595c93561575e3b8a58d5ffabe4a0c951e4",
+    "docs/qa/mission20-c2/release/loader/freeze.review.sql": "7b6bfd2c591408aa0df29696296ecc37f47c1669292d23b04417d5652f34520b",
+    "docs/qa/mission20-c2/release/loader/unfreeze.review.sql": "22b7ce63cb544d283a418174329c3360fb556a9966b14fba4cc7134461bd266c",
+    "scripts/mission20-loader-package.cjs": "d41db34112eaa7064c994163c6dfbb127449729fb9eb64868d96b1368b7cf246",
+    "scripts/qualify-mission20-atomic-candidate.cjs": "d109ad7eba990ad825049f1308735ba261ae711e6bac74f36fa6e16aadaeaf97",
+    "scripts/qualify-mission20-offline-release.cjs": "f866b5857ffaa58115e915376eef3916b80a0934a18304caaf2f5e3ca3d0ebbf",
+    "scripts/test-mission20-release-package.cjs": "d57315f2d05788b44db52509ef26ebf0185e49ace5f994413ee85d03c70647dd"
+  },
+  "redactedLocalLogSha256": "b222f038b34bbb0c273b35864a4bdfefb27ffe5da78991bd774046293578b949",
+  "localOtherChecks": {
+    "scopedTests": {
+      "passed": 115,
+      "failed": 0,
+      "skipped": 0
+    },
+    "packageTests": 22,
+    "typeScript": "PASS",
+    "scopedLint": "PASS; zero new errors/warnings",
+    "existingLintDebt": {
+      "errors": 17,
+      "warnings": 7,
+      "unchanged": true
+    }
+  },
+  "priorTrials": [
+    {
+      "result": "BLOCKED before SQL",
+      "cause": "Sandbox temp initdb WAL rename permission denied; exact owned temporary root cleaned; final runs use approved native local execution."
+    },
+    {
+      "result": "FAIL before freeze",
+      "cause": "CLI classified allocated port as remote and required TLS despite URL sslmode=disable. Pinned source review found local host/port selection; fixed only disposable temporary CLI port configuration."
+    },
+    {
+      "result": "PASS earlier rehearsal",
+      "checks": 10,
+      "superseded": "Final run adds complete catalog packet syntax, graph restore and exact writer metadata rollback assertions."
+    },
+    {
+      "result": "Publication metadata audit corrected",
+      "cause": "Windows cp1252 default decoding miscomputed a source receipt hash for existing synthetic lambda literals; corrected explicit UTF8 encoding and added a real receipt-integrity regression. SQL and PG17.6 source/qualification unchanged."
+    }
+  ],
+  "publicCI": {
+    "status": "PENDING_CURRENT_FOLLOWUP",
+    "previousHead": "e4aa98f0679cdba4e7b0857a2134f66df8b39fd1",
+    "previousRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41338168265",
+    "rule": "Report actual new current-head results in PR96; local success is not a green GitHub workflow."
+  },
+  "boundaries": {
+    "productionConnections": 0,
+    "privateInput": false,
+    "activeMigrationChanges": 0,
+    "deploymentOrConfigChanges": 0,
+    "merges": 0,
+    "fingerprintSourceOrGuardsChanged": false
+  },
+  "openGates": [
+    "Full live catalog/dependency/effective permission/full ledger comparison and matching-schema acceptance",
+    "Final operator role/direct TLS endpoint/CLI pin/version allocation/hash and pending-inventory approval",
+    "Actual backup/PITR/cross-cluster globals and managed services restore; production-scale RTO/RPO and durability",
+    "Hosted Auth/gateway/session/schema-cache/exposed-schema/timeout parity",
+    "Verified Vercel containment across Git/hooks/manual/CI/queued paths and domains; stale-client and writer drain; compatible app rollback",
+    "Explicit founder decision on external/official community admission pause",
+    "Independent migration/configuration/merge/deployment/promotion/unfreeze authorizations"
+  ]
+}

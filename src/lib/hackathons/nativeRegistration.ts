@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { nativeRegistrationRestriction, registrationState } from "./lifecycle";
-import { loadEventRegistrationCounts } from "./eventParticipation";
+import { WriterBudget, writerRpc, nativeResult } from "@/lib/writers";
 import { loadPublicEvent } from "./publicBrowsing";
 
 export class RegistrationError extends Error {
@@ -8,15 +8,15 @@ export class RegistrationError extends Error {
 }
 
 /** Runs with the verified caller's RLS context, never service-role authority. */
-export async function registerNativeEvent(client: SupabaseClient, eventId: string, teamId: string | null, reviewedUnknown: boolean, clock = Date.now) {
-  const { data: { user }, error: authError } = await client.auth.getUser();
+export async function registerNativeEvent(client: SupabaseClient, eventId: string, teamId: string | null, reviewedUnknown: boolean, clock = Date.now, budget = new WriterBudget(), pinnedToken?: string) {
+  const { data: { user }, error: authError } = await budget.run(() => client.auth.getUser());
   if (authError) console.error("Native registration identity failed:", authError);
   if (authError || !user || !user.email || user.is_anonymous) throw new RegistrationError("Sign in to register.", 401);
-  const { data: profile, error: profileError } = await client.from("profiles").select("id,is_banned,onboarding_completed").eq("id", user.id).maybeSingle();
+  const { data: profile, error: profileError } = await budget.query(() => client.from("profiles").select("id,is_banned,onboarding_completed").eq("id", user.id).maybeSingle());
   if (profileError) { console.error("Native registration profile failed:", profileError); throw new RegistrationError("Account verification is unavailable.", 503); }
   if (!profile || profile.id !== user.id || profile.is_banned !== false || profile.onboarding_completed !== true) throw new RegistrationError("An active, completed profile is required.", 403);
   const readEvent = async () => {
-    const event = await loadPublicEvent(client, eventId);
+    const event = await budget.run(() => loadPublicEvent(client, eventId));
     if (!event || event.type !== "native") throw new RegistrationError("This native event is unavailable.", 404);
     const restriction = nativeRegistrationRestriction(event, clock());
     if (restriction) throw new RegistrationError(restriction);
@@ -24,16 +24,15 @@ export async function registerNativeEvent(client: SupabaseClient, eventId: strin
     return event;
   };
   const event = await readEvent();
-  const { data: existing, error: ownError } = await client.from("hackathon_registrations").select("id,status")
-    .eq("hackathon_id", eventId).eq("user_id", user.id).maybeSingle();
+  const { data: existing, error: ownError } = await budget.query(() => client.from("hackathon_registrations").select("id,status")
+    .eq("hackathon_id", eventId).eq("user_id", user.id).maybeSingle());
   if (ownError) { console.error("Native registration lookup failed:", ownError); throw new RegistrationError("Participation could not be verified.", 503); }
-  if (existing) return { status: existing.status, alreadyRegistered: true };
   let size = 1;
-  if (teamId) {
-    const { data: team, error: teamError } = await client.from("teams").select("id,owner_id").eq("id", teamId).maybeSingle();
+  if (teamId && !existing) {
+    const { data: team, error: teamError } = await budget.query(() => client.from("teams").select("id,owner_id").eq("id", teamId).maybeSingle());
     if (teamError) { console.error("Native registration team lookup failed:", teamError); throw new RegistrationError("Team could not be verified.", 503); }
     if (!team || team.owner_id !== user.id) throw new RegistrationError("Only a team owner can register that team.", 403);
-    const { data: members, count, error } = await client.from("team_members").select("user_id", { count: "exact" }).eq("team_id", teamId);
+    const { data: members, count, error } = await budget.query(() => client.from("team_members").select("user_id", { count: "exact" }).eq("team_id", teamId));
     if (error) { console.error("Native registration team size failed:", error); throw new RegistrationError("Team size could not be verified.", 503); }
     // Match matchmaking's distinct roster UNION owner, including legacy teams.
     // Reject incomplete/truncated reads rather than treating a partial roster as the full team.
@@ -44,13 +43,12 @@ export async function registerNativeEvent(client: SupabaseClient, eventId: strin
   const checkSize = (current: typeof event) => {
     if ((current.min_team_size != null && size < current.min_team_size) || (current.max_team_size != null && size > current.max_team_size)) throw new RegistrationError("Your selected participation does not meet the listed team-size requirements.");
   };
-  checkSize(event);
-  const totals = await loadEventRegistrationCounts(client, eventId);
+  if (!existing) checkSize(event);
   // Re-read restrictions after asynchronous identity/team/count checks; never trust the dialog's snapshot.
   const current = await readEvent();
-  checkSize(current);
-  const status = current.max_participants != null && totals.confirmed_count >= current.max_participants ? "waitlisted" : "confirmed";
-  const { error } = await client.from("hackathon_registrations").insert({ hackathon_id: eventId, user_id: user.id, team_id: teamId, status });
-  if (error) { console.error("Native registration insert failed:", error); throw new RegistrationError(error.code === "23505" ? "You are already registered. Reload your participation." : "Registration could not be saved.", error.code === "23505" ? 409 : 503); }
-  return { status, alreadyRegistered: false };
+  if (!existing) checkSize(current);
+  // Database owns capacity, status, clock and atomic insertion. No raw fallback.
+  return nativeResult(await writerRpc(client, "register_native_hackathon", {
+    p_hackathon_id: eventId, p_team_id: teamId, p_reviewed_unknown: reviewedUnknown,
+  }, user.id, budget, pinnedToken));
 }

@@ -1,0 +1,774 @@
+{
+  "base": "541ed465e7acfbbc0aa258d7712b97b6238d27ab",
+  "applicationBase": "4818052a944451c74ae0a7d7c4572f3e7c3d0f8e",
+  "branch": "fix/mission20-c2-safe-writer-adapters",
+  "releaseApproved": false,
+  "productionConnections": 0,
+  "activeMigrationChanges": 0,
+  "inventory": [
+    ".github/workflows/mission20-c2-qualification.yml",
+    "docs/qa/mission20-c1/sql/09-writer-fixture.review.sql",
+    "docs/qa/mission20-c2/BASELINE-METADATA.md",
+    "docs/qa/mission20-c2/README.md",
+    "docs/qa/mission20-c2/REVIEW-FOLLOWUP.md",
+    "docs/qa/mission20-c2/VERIFICATION.json",
+    "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "docs/qa/mission20-c2/release/CATALOG-CLOSURE.select-only.sql",
+    "docs/qa/mission20-c2/release/CATALOG-COMPARISON.md",
+    "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+    "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
+    "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+    "docs/qa/mission20-c2/release/OFFLINE-EVIDENCE.json",
+    "docs/qa/mission20-c2/release/OFFLINE-REHEARSAL.md",
+    "docs/qa/mission20-c2/release/README.md",
+    "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+    "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+    "docs/qa/mission20-c2/release/VERCEL-HOLD.md",
+    "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+    "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+    "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+    "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+    "docs/qa/mission20-c2/release/atomic/PRIVATE-QUALIFICATION.md",
+    "docs/qa/mission20-c2/release/atomic/README.md",
+    "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
+    "docs/qa/mission20-c2/release/loader/LOADER-MANIFEST.json",
+    "docs/qa/mission20-c2/release/loader/contract.review.sql",
+    "docs/qa/mission20-c2/release/loader/expansion.review.sql",
+    "docs/qa/mission20-c2/release/loader/freeze.review.sql",
+    "docs/qa/mission20-c2/release/loader/unfreeze.review.sql",
+    "docs/qa/mission20-c2/sql/01-cancel.proposed.sql",
+    "scripts/mission20-atomic-candidate.cjs",
+    "scripts/mission20-loader-package.cjs",
+    "scripts/mission20-private-audit.cjs",
+    "scripts/ppt-vision-harness.cjs",
+    "scripts/qualify-mission20-atomic-candidate.cjs",
+    "scripts/qualify-mission20-c1-postgres.cjs",
+    "scripts/qualify-mission20-c1-writers.cjs",
+    "scripts/qualify-mission20-c2-writers.cjs",
+    "scripts/qualify-mission20-offline-release.cjs",
+    "scripts/qualify-mission20-private-audit.cjs",
+    "scripts/qualify-mission20-release-postgrest.cjs",
+    "scripts/test-admin-delete-user.cjs",
+    "scripts/test-dashboard-join-requests.cjs",
+    "scripts/test-event-compatibility.cjs",
+    "scripts/test-invite-handoff.cjs",
+    "scripts/test-mission20-c1-design.cjs",
+    "scripts/test-mission20-c2-writers.cjs",
+    "scripts/test-mission20-native-http-sdk.cjs",
+    "scripts/test-mission20-release-package.cjs",
+    "scripts/test-native-registration.cjs",
+    "scripts/test-team-owner-review.cjs",
+    "scripts/test-team-request-lifecycle.cjs",
+    "scripts/writer-test-client.cjs",
+    "src/app/admin/_tabs/TeamsTab.tsx",
+    "src/app/api/admin/delete-user/route.ts",
+    "src/app/api/hackathons/[id]/register/route.ts",
+    "src/app/dashboard/useDashboardData.ts",
+    "src/app/hackathons/[id]/page.tsx",
+    "src/app/invites/page.tsx",
+    "src/app/profile/[id]/useProfileData.ts",
+    "src/app/teams/[id]/page.tsx",
+    "src/app/teams/[id]/requests/page.tsx",
+    "src/components/TeamOverviewView.tsx",
+    "src/components/TeamWorkspaceView.tsx",
+    "src/components/chatThread.tsx",
+    "src/components/settings/DeleteAccountSection.tsx",
+    "src/lib/hackathons/nativeRegistration.ts",
+    "src/lib/hackathons/registrationClient.ts",
+    "src/lib/writers.ts"
+  ],
+  "application": {
+    "command": "node --test --test-concurrency=1 scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-mission20-native-http-sdk.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs",
+    "testFiles": [
+      "scripts/test-mission20-c1-design.cjs",
+      "scripts/test-mission20-c2-writers.cjs",
+      "scripts/test-native-registration.cjs",
+      "scripts/test-mission20-native-http-sdk.cjs",
+      "scripts/test-hackathon-lifecycle.cjs",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-hackathon-discovery-page.cjs",
+      "scripts/test-hackathon-description.cjs",
+      "scripts/test-hackathon-create-dates.cjs",
+      "scripts/test-team-request-lifecycle.cjs",
+      "scripts/test-team-owner-review.cjs",
+      "scripts/test-invite-handoff.cjs",
+      "scripts/test-dashboard-join-requests.cjs",
+      "scripts/test-admin-delete-user.cjs",
+      "scripts/test-event-compatibility.cjs",
+      "scripts/test-rack-it-up-2026.cjs",
+      "scripts/test-rack-conversion-funnel.cjs",
+      "scripts/test-partner-presentation.cjs",
+      "scripts/test-partner-discovery-navigation.cjs",
+      "scripts/test-partner-admin.cjs",
+      "scripts/test-partner-authorization.cjs",
+      "scripts/test-partner-organizer-api.cjs",
+      "scripts/test-organizer-workspace.cjs",
+      "scripts/test-organizer-broadcast-authorization.cjs",
+      "scripts/test-certificate-verification-page.cjs",
+      "scripts/test-certificate-id-integrity.cjs",
+      "scripts/test-public-hackathon-browsing.cjs",
+      "scripts/test-public-hackathon-data.cjs",
+      "scripts/test-public-hackathon-metadata.cjs",
+      "scripts/test-public-hackathon-shell.cjs",
+      "scripts/test-auth-return-paths.cjs",
+      "scripts/test-auth-return-ui.cjs",
+      "scripts/test-onboarding-submission.cjs"
+    ],
+    "total": 1613,
+    "passed": 1613,
+    "failed": 0,
+    "skipped": 0,
+    "platform": "Windows local synchronized C2 merge",
+    "qualifiedHead": "850784d5a39d64b8cbf9e5f742fc8936365f101f",
+    "remainingFailures": [],
+    "resolvedBy": "e2e3643fae9643f92d91cc0e271955449536054a: three approved expected literal updates and five new strict cases; no application source changes"
+  },
+  "typeScript": {
+    "command": "npm run typecheck",
+    "exit": 0
+  },
+  "lint": {
+    "fullModifiedSourceExit": 1,
+    "errors": 17,
+    "warnings": 7,
+    "newDiagnostics": 0,
+    "baselineDiagnostics": [
+      {
+        "file": "app/admin/_tabs/TeamsTab.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "import { Search, Building2, Award, Users } from \"lucide-react\";",
+        "message": "'Users' is defined but never used."
+      },
+      {
+        "file": "app/dashboard/useDashboardData.ts",
+        "rule": "prefer-const",
+        "severity": 2,
+        "source": "let finalCampus: DashBuilder[] = [];",
+        "message": "'finalCampus' is never reassigned. Use 'const' instead."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": ".map((r: any) => r.teams)",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": ".sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": ".sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "allRelations.forEach((rel: any) => {",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "let teamsData: any[] = [];",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [isDescExpanded, setIsDescExpanded] = useState(false);",
+        "message": "'isDescExpanded' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [isDescExpanded, setIsDescExpanded] = useState(false);",
+        "message": "'setIsDescExpanded' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [organizerSearch, setOrganizerSearch] = useState(\"\");",
+        "message": "'organizerSearch' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [organizerSearch, setOrganizerSearch] = useState(\"\");",
+        "message": "'setOrganizerSearch' is assigned a value but never used."
+      },
+      {
+        "file": "app/hackathons/[id]/page.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "import { getTeamCategoryInfo } from \"@/lib/teamCategory\";",
+        "message": "'getTeamCategoryInfo' is defined but never used."
+      },
+      {
+        "file": "components/chatThread.tsx",
+        "rule": "react-hooks/purity",
+        "severity": 2,
+        "source": "id: `temp-${Date.now()}`,",
+        "message": "Error: Cannot call impure function during render"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "(l: any) => !l.hackathon_id || (currentHackathonId && l.hackathon_id === currentHackathonId)",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "const [commits, setCommits] = useState<any[]>([]);",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "const [taskComments, setTaskComments] = useState<any[]>([]);",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "const userPresences = state[key] as any[];",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "isOwnerOrMember={isOwner || members.some((m) => m.profiles?.id === currentUserId || (m as any).user_id === currentUserId)}",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "source": "members={members as any}",
+        "message": "Unexpected any. Specify a different type."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 1,
+        "source": "const [timeLeft, setTimeLeft] = useState(\"\");",
+        "message": "'timeLeft' is assigned a value but never used."
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "fetchCommits();",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "setTaskComments([]);",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "setTimeLeft(\"\");",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      },
+      {
+        "file": "components/TeamWorkspaceView.tsx",
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "source": "setWorkspaceTab(initialTab);",
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+      }
+    ],
+    "cleanAdapterCommand": "node node_modules/eslint/bin/eslint.js src/lib/writers.ts src/lib/hackathons/nativeRegistration.ts src/lib/hackathons/registrationClient.ts src/app/api/admin/delete-user/route.ts src/app/api/hackathons/[id]/register/route.ts src/app/profile/[id]/useProfileData.ts scripts/test-mission20-c2-writers.cjs scripts/qualify-mission20-c2-writers.cjs scripts/writer-test-client.cjs",
+    "cleanAdapterExit": 0
+  },
+  "postgres18": {
+    "command": "node scripts/qualify-mission20-c2-writers.cjs --local-only",
+    "version": "18.4",
+    "variants": 2,
+    "baselineSecurityAssertionsPerVariant": 279,
+    "orchestrationChecks": 72,
+    "globalChecks": 21,
+    "perTeamChecks": 51,
+    "exit": 0,
+    "ownedClustersCleaned": 2,
+    "historicalDeadlockDiagnostics": "Both old 40P01 schedules explicitly reproduced; revised schedules assert bounded results and rollback.",
+    "qualifiedHead": "b7dfc293292aab85f54d39560b629451abbfc7a1"
+  },
+  "postgres17": {
+    "version": "17.6",
+    "local": "BLOCKED: no local native PG17 binary; no existing/remote substitute used",
+    "ci": "PASS: exact official source-built disposable native PG17.6",
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b",
+    "job": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153/job/124839929405",
+    "variants": 2,
+    "baselineSecurityAssertionsPerVariant": 279,
+    "orchestrationChecks": 72,
+    "globalChecks": 21,
+    "perTeamChecks": 51,
+    "ownedClustersCleaned": 2,
+    "adapterTests": 31,
+    "exit": 0
+  },
+  "build": {
+    "command": "node qa/rack-qualification.cjs build",
+    "exit": 0,
+    "syntheticReads": 4,
+    "mutations": 0
+  },
+  "browser": {
+    "command": "node qa/rack-qualification.cjs funnel-browser",
+    "passed": 32,
+    "failed": 0,
+    "widths": [
+      390,
+      1440
+    ],
+    "externalRequests": 0,
+    "mutations": 0,
+    "syntheticOnly": true,
+    "evidenceDirectory": "scratch/rack-funnel",
+    "screenshots": [
+      "guest-1440.png",
+      "guest-390.png",
+      "incomplete-next-action-1440.png",
+      "incomplete-next-action-390.png",
+      "member-next-action-1440.png",
+      "member-next-action-390.png",
+      "portal-1440.png",
+      "portal-390.png"
+    ],
+    "screenshotsCommitted": false
+  },
+  "ci": {
+    "publicationSnapshot": "Phase B e2e3643 Pull Request Validation passed (run 41318663154); Rack qualification run 41318662993 was running. The final synchronized C2 head will run the unchanged build/browser/native PG17 jobs. Do not infer green from local checks; see current-head Actions/PR bodies for completed results."
+  },
+  "limitations": [
+    "No real JWT/PostgREST/server-disconnect proof from the psql bridge or synthetic SDK/browser tests.",
+    "Three unchanged baseline metadata failures; full modified-file lint retains 17 baseline errors and 7 warnings.",
+    "New cancellation function is an additional review-only SQL dependency.",
+    "Mixed old DB/new adapters and old destructive writers are unsupported; preserve freeze-first/drain gates."
+  ],
+  "reviewFollowup": {
+    "reviewedHead": "a7978690e25441025f3e54380e6c6d8ae9ef5604",
+    "reviewedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41304144336",
+    "workflowConclusion": "failure",
+    "jobs": [
+      {
+        "name": "native-pg17",
+        "id": 124840982744,
+        "conclusion": "success",
+        "version": "17.6",
+        "adapterTests": 31,
+        "sqlAssertionsPerVariant": 279,
+        "checks": 72,
+        "clustersCleaned": 2
+      },
+      {
+        "name": "application",
+        "id": 124840983083,
+        "conclusion": "failure",
+        "passed": 1585,
+        "total": 1588,
+        "failed": 3,
+        "failures": "Exactly the three unchanged metadata cases",
+        "typeScript": "success",
+        "adapterLint": "success",
+        "build": "success",
+        "rackPassed": 32,
+        "rackFailed": 0
+      }
+    ],
+    "sdk": {
+      "supabaseJs": "2.108.2",
+      "authJs": "2.108.2",
+      "command": "node --test scripts/test-mission20-native-http-sdk.cjs",
+      "passed": 20,
+      "failed": 0,
+      "mockedBoundary": "fetch only; actual installed SDK and real native route/preflight/public event reader/writer code",
+      "networkRequests": 0,
+      "productionCredentials": false,
+      "liveServices": false,
+      "limits": "In-memory Auth/PostgREST models do not verify deployed Auth JWT/session behavior or execute RLS/SQL."
+    },
+    "local": {
+      "command": "node --test scripts/test-mission20-native-http-sdk.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-hackathon-description.cjs",
+      "passed": 110,
+      "total": 113,
+      "failed": 3,
+      "typeScriptExit": 0,
+      "fullModifiedSourceLintErrors": 17,
+      "fullModifiedSourceLintWarnings": 7,
+      "newDiagnostics": 0,
+      "newTestLintExit": 0
+    },
+    "metadataCorrection": "docs/qa/mission20-c2/BASELINE-METADATA.md; exact source/current/expected literals and separate correction scope; assertions/renderers unchanged",
+    "followupInventory": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "scripts/test-mission20-native-http-sdk.cjs",
+      "docs/qa/mission20-c2/REVIEW-FOLLOWUP.md",
+      "docs/qa/mission20-c2/BASELINE-METADATA.md",
+      "docs/qa/mission20-c2/README.md",
+      "docs/qa/mission20-c2/VERIFICATION.json"
+    ],
+    "postPushEvidence": "Subsequent follow-up-head job results are recorded in PR #96 body and current-head Actions. This snapshot records the requested reviewed-head run and local follow-up evidence.",
+    "sourceChanges": 0,
+    "sqlChanges": 0,
+    "freezeFirstUnchanged": true
+  },
+  "reviewedC1Base": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+  "historicalApplicationQualification": {
+    "command": "node --test --test-concurrency=1 scripts/test-mission20-c1-design.cjs scripts/test-mission20-c2-writers.cjs scripts/test-native-registration.cjs scripts/test-hackathon-lifecycle.cjs scripts/test-hackathon-discovery.cjs scripts/test-hackathon-discovery-page.cjs scripts/test-hackathon-description.cjs scripts/test-hackathon-create-dates.cjs scripts/test-team-request-lifecycle.cjs scripts/test-team-owner-review.cjs scripts/test-invite-handoff.cjs scripts/test-dashboard-join-requests.cjs scripts/test-admin-delete-user.cjs scripts/test-event-compatibility.cjs scripts/test-rack-it-up-2026.cjs scripts/test-rack-conversion-funnel.cjs scripts/test-partner-presentation.cjs scripts/test-partner-discovery-navigation.cjs scripts/test-partner-admin.cjs scripts/test-partner-authorization.cjs scripts/test-partner-organizer-api.cjs scripts/test-organizer-workspace.cjs scripts/test-organizer-broadcast-authorization.cjs scripts/test-certificate-verification-page.cjs scripts/test-certificate-id-integrity.cjs scripts/test-public-hackathon-browsing.cjs scripts/test-public-hackathon-data.cjs scripts/test-public-hackathon-metadata.cjs scripts/test-public-hackathon-shell.cjs scripts/test-auth-return-paths.cjs scripts/test-auth-return-ui.cjs scripts/test-onboarding-submission.cjs",
+    "testFiles": [
+      "scripts/test-mission20-c1-design.cjs",
+      "scripts/test-mission20-c2-writers.cjs",
+      "scripts/test-native-registration.cjs",
+      "scripts/test-hackathon-lifecycle.cjs",
+      "scripts/test-hackathon-discovery.cjs",
+      "scripts/test-hackathon-discovery-page.cjs",
+      "scripts/test-hackathon-description.cjs",
+      "scripts/test-hackathon-create-dates.cjs",
+      "scripts/test-team-request-lifecycle.cjs",
+      "scripts/test-team-owner-review.cjs",
+      "scripts/test-invite-handoff.cjs",
+      "scripts/test-dashboard-join-requests.cjs",
+      "scripts/test-admin-delete-user.cjs",
+      "scripts/test-event-compatibility.cjs",
+      "scripts/test-rack-it-up-2026.cjs",
+      "scripts/test-rack-conversion-funnel.cjs",
+      "scripts/test-partner-presentation.cjs",
+      "scripts/test-partner-discovery-navigation.cjs",
+      "scripts/test-partner-admin.cjs",
+      "scripts/test-partner-authorization.cjs",
+      "scripts/test-partner-organizer-api.cjs",
+      "scripts/test-organizer-workspace.cjs",
+      "scripts/test-organizer-broadcast-authorization.cjs",
+      "scripts/test-certificate-verification-page.cjs",
+      "scripts/test-certificate-id-integrity.cjs",
+      "scripts/test-public-hackathon-browsing.cjs",
+      "scripts/test-public-hackathon-data.cjs",
+      "scripts/test-public-hackathon-metadata.cjs",
+      "scripts/test-public-hackathon-shell.cjs",
+      "scripts/test-auth-return-paths.cjs",
+      "scripts/test-auth-return-ui.cjs",
+      "scripts/test-onboarding-submission.cjs"
+    ],
+    "total": 1588,
+    "passed": 1585,
+    "failed": 3,
+    "skipped": 0,
+    "adapterTests": {
+      "passed": 31,
+      "failed": 0
+    },
+    "baselineReproduction": {
+      "head": "ac618ea003055c9c03495344234e32a1ed8dd07a",
+      "command": "node --test scripts/test-public-hackathon-metadata.cjs",
+      "total": 29,
+      "passed": 26,
+      "failed": 3
+    },
+    "remainingFailures": [
+      "approved metadata uses safe projection, visibility filters, anonymous client and canonical event URL",
+      "preview text: malformed formatting",
+      "preview text: headings preserve hashes and numeric entities"
+    ],
+    "action": "Separate metadata contract correction: reconcile old spacing/unclosed markup/numeric entity expectations with the reviewed faithful description renderer. C2 changes neither metadata source nor these assertions.",
+    "localPreviousFullSelection": {
+      "head": "33fc25830a421c5c7e77298427afc9d67027843a",
+      "total": 1587,
+      "passed": 1584,
+      "failed": 3
+    },
+    "platform": "Linux current source revision",
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b"
+  },
+  "metadataCorrection": {
+    "phaseB": "e2e3643fae9643f92d91cc0e271955449536054a",
+    "c1": "541ed465e7acfbbc0aa258d7712b97b6238d27ab",
+    "c2Synchronization": "850784d5a39d64b8cbf9e5f742fc8936365f101f",
+    "testFile": "scripts/test-public-hackathon-metadata.cjs",
+    "changedExpectedLiterals": 3,
+    "newStrictCases": 5,
+    "correctedMetadataCases": 34,
+    "originalAssertionsPreserved": true,
+    "sourceRenderingChanges": 0,
+    "localMetadataAndDescription": {
+      "passed": 41,
+      "failed": 0
+    },
+    "localC1AndMetadata": {
+      "passed": 50,
+      "failed": 0
+    },
+    "localBroad": {
+      "passed": 1613,
+      "failed": 0
+    },
+    "typeScriptExit": 0,
+    "scopedMetadataLintExit": 0,
+    "sqlAndFreezeFirstUnchanged": true,
+    "forcePush": false,
+    "prMerge": false,
+    "currentHeadEvidence": "Actual post-push workflow/job results and remaining gates are recorded in the three Draft PR bodies and GitHub Actions. Historical red runs below remain explicitly historical."
+  },
+  "historicalCi": {
+    "qualifiedHead": "e8a84ee854099779b5b4dd2ad8301c3b45c1939b",
+    "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153",
+    "nativePg17": "success",
+    "application": "failure: exactly three baseline metadata failures; 1585/1588 pass; TypeScript, scoped adapter lint, guarded build and 32 Rack checks pass",
+    "applicationJob": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41303782153/job/124839929245",
+    "browserArtifact": "mission20-c2-rack-browser",
+    "initialRun": {
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302335491",
+      "nativePg17": "official source build succeeded; scope assertion failed because shallow checkout omitted reviewed base; no SQL qualification executed",
+      "application": "1577/1586 pass: six missing-history errors plus three baseline metadata cases; build and 32 Rack checks passed",
+      "correction": "fetch-depth: 0 in both jobs; all six missing-history errors resolved without assertion changes"
+    },
+    "finalEvidenceCommit": "Historical a797869 was documentation-only relative to e8a84ee; its completed run 41304144336 is recorded in reviewFollowup. Subsequent follow-up adds tests/CI/docs only.",
+    "previousQualifiedRun": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41302768941",
+    "finalIdentityChecks": "31/31 adapter cases include local account switch while old token still verifies, and unknown connection/statement-completion responses; no automatic replay."
+  },
+  "releaseReadiness": {
+    "baseline": "f918ee08fa6ad1f9f8dbccd8ed853744b55daf6f",
+    "status": "NO_GO_PRODUCTION",
+    "package": "docs/qa/mission20-c2/release/README.md",
+    "schema": "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+    "queries": "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
+    "runbook": "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+    "manifest": "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+    "receipt": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "productionCatalogQueried": false,
+    "sourceSqlChanged": false,
+    "activeMigrationsCreated": false,
+    "hostedAuthAcceptance": false,
+    "actualFinalCi": "Final current-head Actions and PR #96 body; qualified source receipt is also stored under release/ACCEPTANCE-EVIDENCE.json.",
+    "blockers": [
+      "Fresh live catalog/body/ACL/ledger parity and deployed PostgREST version",
+      "Atomic final-protocol migration packaging/version allocation",
+      "Hosted Auth/gateway/session acceptance",
+      "Community outage/restore ACL decision",
+      "Vercel hold, direct-writer drain, backup/restore and founder release approval"
+    ],
+    "qualifiedSource": {
+      "head": "ee4e34202d4d3b91bce13473110e8a9f5d04117a",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41323221862",
+      "workflow": "success",
+      "application": {
+        "job": 124897658398,
+        "conclusion": "success",
+        "passed": 1616,
+        "failed": 0,
+        "skipped": 0,
+        "typeScript": "passed",
+        "scopedLint": "passed",
+        "build": "passed",
+        "rackPassed": 32,
+        "rackFailed": 0,
+        "mutations": 0
+      },
+      "native": {
+        "job": 124897658463,
+        "conclusion": "success",
+        "postgres": "17.6",
+        "postgrest": "16.5",
+        "sdkWriterPassed": 51,
+        "sqlAssertionsPerVariant": 279,
+        "totalOrchestrationChecks": 88,
+        "globalChecks": 21,
+        "perTeamChecks": 67,
+        "newGroups": 16,
+        "realHttpGroups": 15,
+        "catalogSyntaxGroups": 1,
+        "ownedClustersCleaned": 2,
+        "productionConnections": 0
+      },
+      "metricNote": "ee4e342 logged httpChecks=16 including the catalog SQL group. Final reporting distinguishes 15 real HTTP groups + 1 catalog group without changing any assertion or the total 88."
+    }
+  },
+  "atomicCandidateReview": {
+    "status": "NO_GO_PRODUCTION",
+    "taskBase": "be38ae6d67c43a850cf6bdf0fa595364c46da3d4",
+    "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json#atomicCandidateReview",
+    "candidateManifest": "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+    "followupFiles": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/CATALOG-REQUESTS.select-only.sql",
+      "docs/qa/mission20-c2/release/DEPLOYMENT-RUNBOOK.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/SQL-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "scripts/mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-c1-postgres.cjs",
+      "scripts/qualify-mission20-release-postgrest.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "qualifiedSource": {
+      "head": "e5667889b62baa11a05a9504d0795fc3f00b58c7",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41327981723",
+      "workflow": "success",
+      "application": {
+        "job": 124911857315,
+        "conclusion": "success",
+        "passed": 1620,
+        "failed": 0,
+        "skipped": 0,
+        "typeScript": "passed",
+        "scopedLint": "passed",
+        "build": "passed",
+        "rackPassed": 32,
+        "rackFailed": 0
+      },
+      "native": {
+        "job": 124911857652,
+        "conclusion": "success",
+        "postgres": "17.6",
+        "postgrest": "16.5",
+        "sdkWriterPassed": 51,
+        "sqlAssertionsPerVariant": 279,
+        "totalOrchestrationChecks": 100,
+        "existingChecks": 88,
+        "atomicCandidateGroups": 12,
+        "atomicFixturePrivacyAssertions": 231,
+        "realHttpGroups": 15,
+        "catalogSyntaxGroups": 1,
+        "ownedClustersCleaned": 2,
+        "productionConnections": 0
+      },
+      "candidateSha256": "5856a9e1c144d3c747753bbc035e88d739944cb1b494e53f72c70e49d0241630",
+      "limits": [
+        "No hosted Auth/gateway acceptance",
+        "No production dump/full schema parity",
+        "Synthetic freeze ledger receipt only, actual migration loader atomicity unqualified",
+        "No actual backup/restore or Vercel hold rehearsal"
+      ]
+    }
+  },
+  "functionFingerprintReview": {
+    "status": "NO_GO_PRODUCTION",
+    "taskBase": "89cda40f270e73b6952c29336212a1c69856f4cc",
+    "followupFiles": [
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/atomic/01-final-expansion.review.sql",
+      "docs/qa/mission20-c2/release/atomic/CANDIDATE-MANIFEST.json",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.review.json",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "docs/qa/mission20-c2/release/atomic/deployed-body-fixtures.review.json",
+      "scripts/mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+    "completeDeployedInstallation": "UNQUALIFIED",
+    "qualifiedSource": {
+      "head": "1e1f91fe71911dd7ac2b04470ea63267d6cef823",
+      "run": "https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41332969866",
+      "workflow": "success",
+      "application": {
+        "job": 124926750639,
+        "conclusion": "success",
+        "passed": 1625,
+        "failed": 0,
+        "skipped": 0,
+        "typeScript": "passed",
+        "scopedLint": "passed",
+        "build": "passed",
+        "rackPassed": 32,
+        "rackFailed": 0,
+        "browserArtifact": 13094500158
+      },
+      "native": {
+        "job": 124926750892,
+        "conclusion": "success",
+        "postgres": "17.6",
+        "postgrest": "16.5",
+        "sdkWriterPassed": 51,
+        "sqlAssertionsPerVariant": 279,
+        "atomicFixturePrivacyAssertions": 231,
+        "totalOrchestrationChecks": 108,
+        "globalChecks": 21,
+        "perTeamChecks": 87,
+        "atomicGroups": 20,
+        "realHttpGroups": 15,
+        "catalogSyntaxGroups": 1,
+        "exactDeployedFixtures": 4,
+        "completeDeployedBodyInstallation": "UNQUALIFIED",
+        "ownedClustersCleaned": 2,
+        "productionConnections": 0,
+        "hostedAuth": false,
+        "backupRestore": false
+      },
+      "candidateSha256": "e1faf07fb9620c6f2405e13b4adc04a36c27fd605ad3705fe1292163e6560ff7",
+      "qualificationLimits": [
+        "No exact deployed ensure_team_conversation bytes/current private audit bundle",
+        "Digest-only allowlist decisions do not prove installation of unavailable bytes",
+        "No hosted Auth/gateway or actual backup/restore",
+        "No full production schema/ACL/dependency/ledger or migration-loader parity"
+      ]
+    }
+  },
+  "privateFunctionAuditReview": {
+    "status": "NO_GO_PRODUCTION_ISOLATED_BODY_SET_PASS",
+    "taskBase": "c83d6ae4a62b291acd195d2935ed03f9351f4b0e",
+    "followupFiles": [
+      ".github/workflows/mission20-c2-qualification.yml",
+      "docs/qa/mission20-c2/VERIFICATION.json",
+      "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json",
+      "docs/qa/mission20-c2/release/CATALOG-RECONCILIATION.md",
+      "docs/qa/mission20-c2/release/README.md",
+      "docs/qa/mission20-c2/release/SCHEMA-COMPATIBILITY.md",
+      "docs/qa/mission20-c2/release/atomic/FUNCTION-FINGERPRINTS.md",
+      "docs/qa/mission20-c2/release/atomic/PRIVATE-QUALIFICATION.md",
+      "docs/qa/mission20-c2/release/atomic/README.md",
+      "scripts/mission20-private-audit.cjs",
+      "scripts/qualify-mission20-atomic-candidate.cjs",
+      "scripts/qualify-mission20-c1-postgres.cjs",
+      "scripts/qualify-mission20-private-audit.cjs",
+      "scripts/test-mission20-release-package.cjs"
+    ],
+    "evidence": "docs/qa/mission20-c2/release/ACCEPTANCE-EVIDENCE.json#privateFunctionAuditReview",
+    "bodyKeptOutsideGitAndCi": true,
+    "publicCiStillFourBody": true
+  },
+  "offlineReleaseRehearsal": {
+    "evidence": "docs/qa/mission20-c2/release/OFFLINE-EVIDENCE.json",
+    "status": "PASS_SYNTHETIC_PG17_6_ONLY",
+    "productionRelease": "NO_GO",
+    "privateFingerprintWorkRepeated": false
+  }
+}
