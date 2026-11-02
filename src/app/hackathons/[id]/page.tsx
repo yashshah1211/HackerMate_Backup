@@ -58,6 +58,8 @@ import {
   type MenuItem,
 } from "@/components/system";
 import { cn } from "@/lib/utils";
+import SourceInformation from "@/components/hackathons/SourceInformation";
+import { synchronizedEvent, registrationDestination } from "@/lib/hackathons/source";
 import { eventState, registrationState, registrationLabel, dateLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
 import { getTeamCategoryInfo } from "@/lib/teamCategory";
 
@@ -79,6 +81,7 @@ type Hackathon = {
   registration_start?: string | null;
   registration_end?: string | null;
   registration_status?: string | null;
+  source_metadata?: unknown;
   location: string | null;
   mode: string | null;
   prize_pool: string | null;
@@ -362,7 +365,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
 
       if (!hackathonData || !isPublicEvent(hackathonData)) { setHackathon(null); setLoading(false); return; }
       setLoadError(null);
-      setHackathon(hackathonData);
+      setHackathon(synchronizedEvent(hackathonData));
 
       // Fetch partner config if exists for this hackathon
       const { data: partnerData, error: partnerError } = await supabase
@@ -630,8 +633,10 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
 
   // Handle External Registration Flow
   function handleRegisterExternally() {
-    if (!hackathon || !hackathon.website_url) return;
-    window.open(hackathon.website_url, "_blank", "noopener,noreferrer");
+    if (!hackathon) return;
+    const destination = registrationDestination(hackathon);
+    if (!destination) return;
+    window.open(destination, "_blank", "noopener,noreferrer");
   }
 
   async function handleRegisterExternallyConfirm() {
@@ -1232,10 +1237,12 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
               </p>
             )}
             <p className="mt-1 font-mono text-[12.5px] text-ink-3 tabular">
-              {scheduleIsUnverified(hackathon) && "Listed dates, unverified: "}{formatDateRange(hackathon.start_date, hackathon.end_date)}
+              {scheduleIsUnverified(hackathon, now) && "Listed dates, unverified: "}{formatDateRange(hackathon.start_date, hackathon.end_date)}
 
             </p>
             <p className="mt-2 text-sm font-medium text-ink-2">{registrationLabel(hackathon, now)}</p>
+            <SourceInformation event={hackathon} now={now} />
+            <p className="mt-1 text-sm text-ink-3">Registration starts: {dateLabel(hackathon.registration_start)}</p>
             <p className="mt-1 text-sm text-ink-3">Registration deadline: {dateLabel(hackathon.registration_end)}</p>
             <p className="mt-1 max-w-prose text-sm leading-relaxed text-ink-2">{isNative
               ? registration === "unknown" ? "Availability could not be verified. Review the event details before proceeding; successful registration is not guaranteed." : "Registration availability is separate from the event schedule."
@@ -1674,14 +1681,14 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         <aside className="min-w-0 space-y-9">
           <Section title="At a glance">
             <dl className="divide-y divide-line rounded-lg border border-line">
-              <Fact label={scheduleIsUnverified(hackathon) ? "Listed dates (unverified)" : "Dates"} value={<span className="font-mono tabular">{formatDateRange(hackathon.start_date, hackathon.end_date)}</span>} stacked />
+              <Fact label={scheduleIsUnverified(hackathon, now) ? "Listed dates (unverified)" : "Dates"} value={<span className="font-mono tabular">{formatDateRange(hackathon.start_date, hackathon.end_date)}</span>} stacked />
               {hackathon.mode && <Fact label="Mode" value={<span className="capitalize">{hackathon.mode}</span>} />}
               {showLocation && <Fact label="Location" value={hackathon.location || "TBA"} stacked />}
               {organizerName && <Fact label={organizerLabel} value={organizerName} stacked />}
               {hackathon.prize_pool && (
                 <Fact label="Prize pool" value={<span className="whitespace-pre-wrap">{formatPrizeDisplay(hackathon.prize_pool, hackathon.currency)}</span>} stacked />
               )}
-              <Fact label={scheduleIsUnverified(hackathon) ? "Listed team size (unverified)" : "Team size"} value={teamSizeLabel} />
+              <Fact label={scheduleIsUnverified(hackathon, now) ? "Listed team size (unverified)" : "Team size"} value={teamSizeLabel} />
               {!!hackathon.rounds_count && hackathon.rounds_count > 0 && (
                 <Fact label="Rounds" value={<span className="font-mono tabular">{hackathon.rounds_count}</span>} />
               )}

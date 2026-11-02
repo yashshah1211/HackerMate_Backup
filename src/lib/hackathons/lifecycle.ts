@@ -1,24 +1,28 @@
-export type EventDates = { type?: string | null; start_date?: string | null; end_date?: string | null };
+import { sourceMetadata, sourceFresh, synchronizedEvent } from "./source";
+export type EventDates = { type?: string | null; source_metadata?: unknown; start_date?: string | null; end_date?: string | null };
 export type RegistrationDates = EventDates & { registration_start?: string | null; registration_end?: string | null; registration_status?: string | null };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
 export type RegistrationState = "open" | "closed" | "not-yet-open" | "unknown";
 
 /** Explicit registration evidence only: event timing never proves applications are open. */
 export function registrationState(event: RegistrationDates, now: number): RegistrationState {
-  const status = event.registration_status?.trim().toLowerCase();
+  if (event.type !== "native" && event.source_metadata != null && !sourceFresh(sourceMetadata(event.source_metadata), now)) return "unknown";
+  const value = synchronizedEvent(event);
+  const status = value.registration_status?.trim().toLowerCase();
   if (["closed", "finished", "cancelled"].includes(status || "")) return "closed";
-  const start = eventDate(event.registration_start), end = eventDate(event.registration_end, true);
+  const start = eventDate(value.registration_start), end = eventDate(value.registration_end, true);
   if (end !== null && now >= end) return "closed";
-  if ((event.registration_start && start === null) || (event.registration_end && end === null)
+  if ((value.registration_start && start === null) || (value.registration_end && end === null)
     || (start !== null && end !== null && start >= end)) return "unknown";
   if (start !== null && now < start) return "not-yet-open";
+  if (event.type !== "native" && sourceMetadata(event.source_metadata)?.facts.registration_status === "unknown") return "unknown";
   if ((start !== null && end !== null) || status === "open") return "open";
   return "unknown";
 }
 
 export function registrationLabel(event: RegistrationDates, now: number): string {
   const state = registrationState(event, now);
-  if (state === "open" && scheduleIsUnverified(event)) return "Registration listed as open";
+  if (state === "open" && scheduleIsUnverified(event, now)) return "Registration listed as open";
   return { open: "Registration open", closed: "Registration closed", "not-yet-open": "Registration not yet open", unknown: "Registration availability unverified" }[state];
 }
 
@@ -49,19 +53,23 @@ export function listedEventState(event: EventDates, now: number): EventState {
 }
 
 /** Native schedules describe events hosted here. Non-native classifications, including official,
- * provide no independently verified source freshness or hackathon category in the current schema. */
-export function scheduleIsUnverified(event: Pick<EventDates, "type">): boolean {
-  return event.type !== "native";
+ * need protected provider evidence; an official classification alone establishes no freshness or category. */
+export function scheduleIsUnverified(event: Pick<EventDates, "type" | "source_metadata">, now = Date.now()): boolean {
+  return event.type !== "native" && !sourceFresh(sourceMetadata(event.source_metadata), now);
 }
 export function eventState(event: EventDates, now: number): EventState {
-  return scheduleIsUnverified(event) ? "unknown" : listedEventState(event, now);
+  if (scheduleIsUnverified(event, now)) return "unknown";
+  const metadata = sourceMetadata(event.source_metadata);
+  if (event.type !== "native" && metadata?.event_status === "ended") return "ended";
+  return listedEventState(synchronizedEvent(event), now);
 }
 export function eventStateLabel(event: EventDates, now: number): string {
-  if (scheduleIsUnverified(event)) return "Event schedule unverified";
+  if (scheduleIsUnverified(event, now)) return "Event schedule unverified";
   return { upcoming: "Upcoming", ongoing: "Ongoing", ended: "Ended", unknown: "Dates unclear" }[eventState(event, now)];
 }
 export function activeOpportunity(event: RegistrationDates, now: number): boolean {
-  const registration = registrationState(event, now);
-  // Imported dates/status, an organizer ID and keywords cannot establish verified admission or event category.
-  return !scheduleIsUnverified(event) && registration !== "closed";
+  const metadata = sourceMetadata(event.source_metadata);
+  if (event.type !== "native" && (!sourceFresh(metadata, now) || metadata.category !== "hackathon")) return false;
+  const state = eventState(event, now);
+  return state !== "ended" && (registrationState(event, now) === "open" || state === "ongoing");
 }

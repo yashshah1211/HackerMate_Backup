@@ -27,6 +27,13 @@ const rows=[event(2,'Imported registration window'),event(3,'Closed applications
  ...Array.from({length:7},(_,i)=>event(20+i,'Official import '+(i+2),{type:'official',website_url:'https://unstop.com/synthetic-'+(i+2)})),
  event(30,'Build with AI: Bootcamps',{description:'Synthetic educational workshop replay; provider category supplied by independent review.'}),
  {...event(10,'AlgoRush replay'),...algorush}];
+// Fresh source evidence, synthetic provider facts; no production records are modified.
+const source=(row,category='hackathon')=>({version:1,provider:'unstop',provider_id:String(row.id),canonical_url:row.website_url,
+ checked_at:'2026-11-02T06:29:00Z',expires_at:'2026-11-03T08:29:00Z',check_status:'ok',category,event_status:row.name==='Ended event'?'ended':'unknown',
+ source_hash:'a'.repeat(64),parser_version:'browser-fixture',evidence:{},issues:[],facts:{...row,registration_status:row.registration_end==='2026-11-01'||row.registration_end==='2026-10-31'?'closed':'open',rounds_info:[]}});
+for(const n of [2,3,5,6,8]){const row=rows.find(r=>r.id===id(n));row.source_metadata=source(row);}
+const boot=rows.find(r=>r.id===id(30));boot.source_metadata=source(boot,'other');
+const algo=rows.find(r=>r.id===algorush.id);algo.source_metadata=source({...algo,start_date:'2026-08-15T00:00:00+05:30',end_date:'2026-08-30T07:05:00+05:30',registration_end:'2026-08-15T22:51:56+05:30',max_team_size:1});algo.source_metadata.provider_id='1737089';algo.source_metadata.category='unknown';algo.source_metadata.facts.registration_start='2026-08-15T00:00:00+05:30';algo.source_metadata.event_status='ended';algo.source_metadata.facts.registration_status='closed';
 const params=new URLSearchParams(location.search),member=params.get('role')==='member';
 const visible=params.get('case')==='boundary'?rows.filter(r=>r.id===id(8)).map(r=>({...r,type:'native'})):params.get('case')==='native'?rows.filter(r=>r.id===id(2)).map(r=>({...r,type:'native',name:'Native open event'})):rows;
 const user=member?{id:userId,email:'synthetic@example.invalid'}:null;

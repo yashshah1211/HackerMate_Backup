@@ -100,12 +100,12 @@ test('November 2 founder aggregate: 410 public listings, 0 native, 8 official an
 });
 
 
-test('bare directory opens general All browsing without changing imported trust or opportunity eligibility',()=>{
+test('bare directory opens active source-verified browsing; explicit All retains imported access',()=>{
  const rows=[record,{...record,id:'synthetic-closed-general',registration_status:'closed'},{...record,id:'synthetic-official-general',type:'official'}];
- assert.equal(discovery.readDiscoverySettings(new URLSearchParams()).tab,'all');
- assert.equal(list(rows,'').length,3);assert.equal(list(rows,'tab=recommended').length,0);
+ assert.equal(discovery.readDiscoverySettings(new URLSearchParams()).tab,'active');
+ assert.equal(list(rows,'').length,0);assert.equal(list(rows,'tab=all').length,3);assert.equal(list(rows,'tab=recommended').length,0);
  assert.equal(life.eventState(record,now),'unknown');assert.equal(life.activeOpportunity(record,now),false);
- assert.deepEqual(list(rows,'q=AlgoRush&registration=unknown'),[record.id,'synthetic-official-general']);
+ assert.deepEqual(list(rows,'tab=all&q=AlgoRush&registration=unknown'),[record.id,'synthetic-official-general']);
 });
 
 test('default All and explicit Opportunities round-trip tab URLs, search, filters and unrelated navigation context',()=>{
@@ -114,7 +114,7 @@ test('default All and explicit Opportunities round-trip tab URLs, search, filter
   assert.equal(discovery.readDiscoverySettings(next).tab,tab);assert.equal(next.get('source'),'partner');assert.equal(next.get('q'),'water');assert.equal(next.get('mode'),'online');
   if(tab==='recommended')assert.equal(next.get('tab'),'recommended');
  }
- assert.equal(discovery.readDiscoverySettings(new URLSearchParams('tab=bad')).tab,'all');
+ assert.equal(discovery.readDiscoverySettings(new URLSearchParams('tab=bad')).tab,'active');
 });
 
 
@@ -134,7 +134,10 @@ for(const tab of ['recommended','upcoming','ongoing'])for(const registration of 
   assert.deepEqual(list(rows,'tab='+tab+'&registration='+registration),[]);
  });
  test('genuine native '+tab+' applies admission before registration='+registration,()=>{
-  const rows=admissionRows('native',tab),expected=registration==='closed'?[]:registration==='all'||registration==='not-closed'?['native-open','native-unknown','native-not-yet-open']:registration==='recorded'?['native-open','native-not-yet-open']:['native-'+registration];
+  const rows=admissionRows('native',tab);
+  // Open OR actual ongoing admission is mandatory before an explicit registration filter.
+  const admitted=tab==='ongoing'?rows:rows.filter(r=>r.id==='native-open');
+  const expected=admitted.filter(r=>registration==='all'||registration==='not-closed'&&life.registrationState(r,now)!=='closed'||registration==='recorded'&&r.registration_end!==null||life.registrationState(r,now)===registration).map(r=>r.id);
   assert.deepEqual(new Set(list(rows,'tab='+tab+'&registration='+registration)),new Set(expected));
  });
 }

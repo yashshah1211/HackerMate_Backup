@@ -1,61 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { runMultiPlatformScraper } from "@/app/api/admin/scrape-unstop/route";
-import { autoSendPitchEmailsForLeads, autoRemoveUnopenedPitchedLeads } from "@/lib/admin/autoSendPitches";
-import { executeGmailInboxSync } from "@/lib/admin/gmailInboxSync";
+import { synchronizeCatalog } from "@/lib/hackathons/synchronize";
 
+export const maxDuration = 300;
+
+/** Existing daily Hobby cron, catalog only. Manual outreach remains a separate authorized action. */
 export async function GET(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.get("Authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return NextResponse.json({ error: "Catalog service unavailable" }, { status: 503 });
   try {
-    // 1. Authenticate Cron Request (Standard CRON_SECRET or Local Dev)
-    const authHeader = req.headers.get("Authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    const isCronAuthorized = cronSecret && authHeader === `Bearer ${cronSecret}`;
-    const isLocalDev = process.env.NODE_ENV !== "production";
-
-    if (!isCronAuthorized && !isLocalDev) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // 2. Initialize Service Role Supabase Client for background execution
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      return NextResponse.json({ error: "Missing Supabase service key" }, { status: 500 });
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-    // 3. Scan Gmail Inbox for new organizer replies & auto-update CRM status
-    const gmailSyncResult = await executeGmailInboxSync(supabaseAdmin);
-
-    // 4. Auto-remove any organizers pitched >= 5 days ago with status = pitch_sent (no open / response)
-    const autoRemoveResult = await autoRemoveUnopenedPitchedLeads(supabaseAdmin);
-
-    // 5. Execute Multi-Platform Scraper Pipeline
-    const scrapeResult = await runMultiPlatformScraper(supabaseAdmin);
-
-    // 6. Process older pending leads, never retry leads selected by the scraper in this invocation.
-    const prior = "autoPitchResult" in scrapeResult ? scrapeResult.autoPitchResult : null;
-    const unsafeToRepeat = prior && (prior.blocked || prior.unknown || prior.bookkeepingFailed || prior.accounting?.status === "failed");
-    const pitchResult = unsafeToRepeat ? { attempted: 0, sent: 0, blocked: true,
-      reason: "Earlier dispatch outcomes require reconciliation; no second send pass." }
-      : await autoSendPitchEmailsForLeads(supabaseAdmin, undefined, scrapeResult.leads.map((lead: { id: string }) => lead.id));
-
-    return NextResponse.json({
-      cronExecuted: true,
-      timestamp: new Date().toISOString(),
-      gmailSyncResult,
-      autoRemoveResult,
-      scrapeResult,
-      autoPitchResult: pitchResult,
-    });
-  } catch (err: any) {
-    console.error("[Cron Auto Scrape] Execution Error:", err);
-    return NextResponse.json(
-      { error: err.message || "Internal Server Error" },
-      { status: 500 }
-    );
+    const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const result = await synchronizeCatalog(client, { dryRun: false });
+    return NextResponse.json({ cronExecuted: true, timestamp: new Date().toISOString(), ...result });
+  } catch (error) {
+    console.error("[Catalog cron] Synchronization unavailable:", error);
+    return NextResponse.json({ error: "Catalog synchronization unavailable; no direct-write fallback." }, { status: 503 });
   }
 }

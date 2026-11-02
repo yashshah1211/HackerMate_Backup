@@ -1,0 +1,427 @@
+{
+  "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
+  "branch": "fix/hackathon-aggregator-sync",
+  "createdAt": "2026-11-02T13:58:57.987Z",
+  "publication": "PENDING exact-inventory authorization; no commit/push yet",
+  "recommendation": {
+    "draftReview": "GO",
+    "productionRelease": "NO-GO"
+  },
+  "fileCount": 47,
+  "inventory": [
+    ".github/workflows/aggregator-qualification.yml",
+    "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json",
+    "docs/qa/aggregator-repair/INVESTIGATION-AND-PLAN.md",
+    "docs/qa/aggregator-repair/README.md",
+    "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
+    "docs/qa/aggregator-repair/VERIFICATION.json",
+    "docs/qa/aggregator-repair/screenshots/algorush-detail-390.png",
+    "docs/qa/aggregator-repair/screenshots/guest-active-390.png",
+    "docs/qa/aggregator-repair/screenshots/guest-active-768.png",
+    "docs/qa/aggregator-repair/screenshots/member-active-1440.png",
+    "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+    "qa/fixtures/aggregator/provider-facts.cjs",
+    "qa/fixtures/mission20-hotfix-browser.jsx",
+    "scripts/aggregator-local-db.cjs",
+    "scripts/lint-aggregator.cjs",
+    "scripts/qualify-aggregator.cjs",
+    "scripts/reconcile-hackathon-catalog.cjs",
+    "scripts/test-aggregator-postgres.cjs",
+    "scripts/test-aggregator-sources.cjs",
+    "scripts/test-aggregator-transport.cjs",
+    "scripts/test-email-reliability.cjs",
+    "scripts/test-event-compatibility.cjs",
+    "scripts/test-hackathon-discovery-page.cjs",
+    "scripts/test-hackathon-discovery.cjs",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs",
+    "scripts/test-mission20-discovery-hotfix.cjs",
+    "scripts/test-mission20-unverified-opportunities.cjs",
+    "scripts/test-public-hackathon-browsing.cjs",
+    "scripts/test-public-hackathon-data.cjs",
+    "scripts/test-scraper-data-preservation.cjs",
+    "src/app/admin/_tabs/OutreachTab.tsx",
+    "src/app/api/admin/scrape-unstop/route.ts",
+    "src/app/api/cron/auto-scrape-leads/route.ts",
+    "src/app/hackathons/[id]/page.tsx",
+    "src/app/hackathons/page.tsx",
+    "src/components/hackathons/PublicHackathonDetail.tsx",
+    "src/components/hackathons/SourceInformation.tsx",
+    "src/components/landing/LandingHero.tsx",
+    "src/lib/getLandingData.ts",
+    "src/lib/hackathons/discovery.ts",
+    "src/lib/hackathons/lifecycle.ts",
+    "src/lib/hackathons/providers.ts",
+    "src/lib/hackathons/publicBrowsing.ts",
+    "src/lib/hackathons/source.ts",
+    "src/lib/hackathons/sourceTransport.ts",
+    "src/lib/hackathons/synchronize.ts",
+    "src/types/supabase.ts"
+  ],
+  "sourceHashes": {
+    ".github/workflows/aggregator-qualification.yml": {
+      "sha256": "6a41a3b5cd50a44956f9c4dfa2c735f966f56e4f92f49fd0ae44109b16b3ae84",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json": {
+      "sha256": "521bbcd6e14968580bb049dd0740c7a0438fd04914d13fabbd75d502c73987c7",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/INVESTIGATION-AND-PLAN.md": {
+      "sha256": "d38236f06221ed31aa2c402d24459a4efeebeeb890d6a6f8f04b8e2c0a1f9752",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/README.md": {
+      "sha256": "cd24e81aef9f83090faa4df372f1167c16dd55f1b2e3e9b6df0d581396e62560",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
+      "sha256": "0a0c99b06493ba19736e14f0446133ae04a826fdafbb3ecf9ead4250cdebc603",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/screenshots/algorush-detail-390.png": {
+      "sha256": "4187ff3248ad906866e71b7f0d32f55f4160b83eb99e121fa5f5c58580cd997a",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/screenshots/guest-active-390.png": {
+      "sha256": "7a278f4aed0f4bd17b18562554a7c4344fb78d4b77055698b5a48cbfb5157ace",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/screenshots/guest-active-768.png": {
+      "sha256": "9182dd62be650d35fd4f958d0989963146a15729e46f535fe267c1504d07e3b6",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/screenshots/member-active-1440.png": {
+      "sha256": "88cd48f7f15d2e189bc7bc1451fbff804b8ccfe706bd13e4c76f0c421deb91ae",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql": {
+      "sha256": "7ad4632806e87bde5ac05ade03f33f9a9103ee45b2b7466d8f8a5d3f6fda1b5a",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "qa/fixtures/aggregator/provider-facts.cjs": {
+      "sha256": "9d0ae110d13372f40c226fea5045e1a3fdeedcb923428747bef6a60ffb27c0f7",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "qa/fixtures/mission20-hotfix-browser.jsx": {
+      "sha256": "43fd4e30dc3af605844c2812ba44be9c17eb1601f783a1230b8f84f2b0db12e1",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/aggregator-local-db.cjs": {
+      "sha256": "6c96e8052584e1b23137fb144ef86e59f760b66e7e427f6fa58e9cbdeca3fb03",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/lint-aggregator.cjs": {
+      "sha256": "7702803473560c77bd5d923aad90b9af5ef750105f826796db7985e88ba09676",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/qualify-aggregator.cjs": {
+      "sha256": "b1e84e65bc4c6e8acf8ac8eca99c7471f4e4a5d122319ec113a64bb20648f5ec",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/reconcile-hackathon-catalog.cjs": {
+      "sha256": "a8668b36c957b7a13b3fe2739dd2accfa15e568e78ea2bd0317f4d2338a43fb0",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-postgres.cjs": {
+      "sha256": "9a29d8abee024e9979a9fd97189776a2a17ce4baa6ab31e52eaf696947fce754",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-sources.cjs": {
+      "sha256": "e1f4515a4b7f632f090f3bc2b4776cae759d97b1cd1977ad9019806531ba03b2",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-transport.cjs": {
+      "sha256": "cd9c563c64151450c6669a26bb5e5cd3c53a0be6e8b280dbfdf32a74d4208bf2",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-email-reliability.cjs": {
+      "sha256": "1f41b30d5f93a888b459b11931fc2e1fe44a9134bf364ce5adfb9a31003ae3ef",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-event-compatibility.cjs": {
+      "sha256": "844a2a8421763e0a9c0795a48db0ba076dfb1360feec9393a4bbeeae6add9e41",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-hackathon-discovery-page.cjs": {
+      "sha256": "dc7d30cc4866cd07790cd37bb863fe3a81b33901adbfc43219860607ca7537b8",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-hackathon-discovery.cjs": {
+      "sha256": "556ac77e201b1ced8a7a07b9e3620fea599263af64f5098eaacb1243b683f93d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": {
+      "sha256": "c0657f0e3ca98ab310d4245b51722a971fc0b2462d7ba2994b08200bffca8ac2",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-mission20-discovery-hotfix.cjs": {
+      "sha256": "69ffa6f887c9122ace0aca695f19ca3555d4db2d7d7eeb7931e9dbd3aed98804",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-mission20-unverified-opportunities.cjs": {
+      "sha256": "60ee3131742fa3e2969ce9e5f451573069e4af2eee5e5a30ab4ffbe562ebfd88",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-public-hackathon-browsing.cjs": {
+      "sha256": "5f4e727dc54cd0aa558e37d89a1ce03a7c5ee720db3f278768ddc8e9b4241271",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-public-hackathon-data.cjs": {
+      "sha256": "a4cff6c035f44f69d97098c381fd25b406816617b3d7d11ee9448467deda6aa5",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-scraper-data-preservation.cjs": {
+      "sha256": "62c7e3720070177b1b46c7d6a7560918471769ac76a9c7d83e84bc9f5572eaea",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/admin/_tabs/OutreachTab.tsx": {
+      "sha256": "f9e6414f3752de458bc3b52a769b3a912af0de53a826f642e8d3cb5abcf8c88d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/api/admin/scrape-unstop/route.ts": {
+      "sha256": "040515ee74f482456bf63f34c241ddda869faf0bd74cb3727c2e7bcfa5392724",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/api/cron/auto-scrape-leads/route.ts": {
+      "sha256": "9be71c5195634c18e1ae2a0be0a3384510c7ea64c1a4c6717b0d6408f853bafd",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/hackathons/[id]/page.tsx": {
+      "sha256": "254aa29a3de1975623aa1c654374682236224addf424837598b75c6af81219bf",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/hackathons/page.tsx": {
+      "sha256": "c7a81d1ab2ee9347689222657db833b45b3049c8c62ae74519012e87b7597aec",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/components/hackathons/PublicHackathonDetail.tsx": {
+      "sha256": "21b29c1b65f5577f491124608646d04824c3e2e4c17b857f5002190809609e21",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/components/hackathons/SourceInformation.tsx": {
+      "sha256": "2a832f8cfb058c9634278490c5706bf6e7786b039b45e623ffbb3ea3c1e80464",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/components/landing/LandingHero.tsx": {
+      "sha256": "103c55df6a0ea41e90fa8de34d46ee9c37163accc0d097664006eb05c0b8ebd4",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/getLandingData.ts": {
+      "sha256": "99166fc8438da95d58005fc716c7e91f17b99f7241e72c7ddf2c294021805e77",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/discovery.ts": {
+      "sha256": "8b40def8708c82b3f06bd6474a5a751732a4e646975e1876fd420a8ebb7648ef",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/lifecycle.ts": {
+      "sha256": "9540952a407c2e10b015071e68e408154387851956a43f4efd80b88cd73e4107",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/providers.ts": {
+      "sha256": "3a00d8ea45a36b23632e6510234f8a143635faf509d41620dc4e1e67c92c98ab",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/publicBrowsing.ts": {
+      "sha256": "2075f4b40abc721052da129cf24388ca42ff34db9a634ce5d3fd95d197ff1869",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/source.ts": {
+      "sha256": "c8133532dc528fac40dfc19167588a9580795a0e8933f36481b9bd3c4b073f26",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/sourceTransport.ts": {
+      "sha256": "2b71be376721c8c4e77929fdf262caa45f0da4dffc3114c1b58d5160fb47fcc2",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/synchronize.ts": {
+      "sha256": "f2bddcfe310e1af2e244a70bbdc5bef49ef2f7f6180d62da5ad6ee76e02b983e",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/types/supabase.ts": {
+      "sha256": "fae0feba494046f9a66418d6a34ec131b72ede0d930ce22e8ed90f31be9c223d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    }
+  },
+  "sourceTreeSha256": "0122e373d630680d259eb1065cfaba29ffabda86bf978c225c70be222a2f3648",
+  "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
+  "checks": {
+    "application": {
+      "command": "node scripts/qualify-aggregator.cjs",
+      "selectedFiles": 31,
+      "passed": 1651,
+      "failed": 0,
+      "skipped": 0
+    },
+    "postgres": {
+      "command": "AGGREGATOR_TEST_PG_BIN=<native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+      "version": "17.6",
+      "groups": 1,
+      "checks": 17,
+      "failed": 0,
+      "disposable": true
+    },
+    "browser": {
+      "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "widths": [
+        390,
+        768,
+        1440
+      ],
+      "roles": [
+        "guest",
+        "member"
+      ],
+      "passed": 3,
+      "failed": 0,
+      "visuallyInspected": true,
+      "externalRequests": 0,
+      "writes": 0
+    },
+    "rack": {
+      "command": "node qa/rack-qualification.cjs funnel-browser",
+      "passed": 32,
+      "failed": 0,
+      "assertionsUnchanged": true
+    },
+    "typescript": {
+      "command": "npm run typecheck",
+      "passed": true
+    },
+    "lint": {
+      "command": "node scripts/lint-aggregator.cjs",
+      "cleanFiles": 34,
+      "newErrors": 0,
+      "newWarnings": 0,
+      "unchangedBaselines": [
+        {
+          "file": "src/app/hackathons/[id]/page.tsx",
+          "errors": 5,
+          "warnings": 5
+        },
+        {
+          "file": "src/app/admin/_tabs/OutreachTab.tsx",
+          "errors": 12,
+          "warnings": 4
+        }
+      ]
+    },
+    "legacyLint": {
+      "command": "node scripts/lint-mission20-discovery-hotfix.cjs",
+      "passed": true
+    },
+    "build": {
+      "command": "node qa/rack-qualification.cjs build",
+      "passed": true,
+      "syntheticReads": 3,
+      "mutations": 0,
+      "existingWarnings": [
+        "Sentry instrumentation and client-config deprecation",
+        "Sentry token unavailable; no release or source-map upload",
+        "Webpack cache serialization"
+      ]
+    }
+  },
+  "reconciliation": {
+    "path": "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
+    "records": 410,
+    "providerURLs": {
+      "unstop": 403,
+      "devfolio": 5,
+      "hack2skill": 2
+    },
+    "counts": {
+      "unresolved": 86,
+      "confirmed_ended_propose_suppression": 208,
+      "registration_open": 85,
+      "ongoing_registration_closed": 31,
+      "confirmed_active": 116,
+      "confirmed_ongoing": 115,
+      "registration_open_and_ongoing": 84,
+      "note": "Active/ongoing totals overlap; the four classification groups sum to410."
+    },
+    "productionWrites": 0,
+    "emails": 0,
+    "prizeProposalsWithheld": 38,
+    "legacyBackfillApproved": false,
+    "observationsAreHistorical": true
+  },
+  "accessInventory": {
+    "path": "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json",
+    "files": 72,
+    "expressions": 190
+  },
+  "ci": {
+    "status": "NOT RUN: unpublished branch; local success is not GitHub success",
+    "expectedWorkflows": [
+      "Pull Request Validation",
+      "Rack portal isolated qualification",
+      "Mission 20 discovery hotfix qualification",
+      "Aggregator isolated qualification"
+    ],
+    "currentHeadResultsMustBeReportedAfterPublication": true
+  },
+  "boundaries": {
+    "activeMigrations": 0,
+    "sqlProposal": "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+    "productionOrStagingMutations": 0,
+    "deploymentsInitiated": 0,
+    "merges": 0,
+    "mailDispatches": 0,
+    "environmentChanges": 0,
+    "nativeRegistrationChanges": 0,
+    "mission20StackUntouched": [
+      92,
+      93,
+      96
+    ]
+  },
+  "remainingGates": [
+    "Independent code/SQL review and current-head Linux CI",
+    "Fresh live schema/grant/trigger/ledger acceptance by separately authorized operator",
+    "Verified deployment/cron hold before database/application transition",
+    "Separately authorized additive migration; no active migration in this package",
+    "Fresh field-level legacy adoption/backfill approval and backup/recovery acceptance",
+    "Hosted Supabase/PostgREST schema-cache and no-email acceptance",
+    "Bounded daily coverage/backlog and provider-change operational acceptance",
+    "Explicit founder release/unfreeze approval"
+  ],
+  "evidence": {
+    "application-release.log": {
+      "path": "scratch/aggregator-audit/application-release.log",
+      "sha256": "3b193478de010f2e28e4750b20a425d592ba42ccbbe9bd0cddf3984aef105f9a"
+    },
+    "postgres-release.log": {
+      "path": "scratch/aggregator-audit/postgres-release.log",
+      "sha256": "caa01f290fab79191db475363687798f465a04b7cf411e5562a5ef76ecdb047d"
+    },
+    "browser-release.log": {
+      "path": "scratch/aggregator-audit/browser-release.log",
+      "sha256": "fe3e23a749d55878b3248ceb94f7c6c1524a2dadd186b4a2169c32b74da03878"
+    },
+    "rack-funnel.log": {
+      "path": "scratch/aggregator-audit/rack-funnel.log",
+      "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+    },
+    "typecheck-release.log": {
+      "path": "scratch/aggregator-audit/typecheck-release.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "lint-inventory.log": {
+      "path": "scratch/aggregator-audit/lint-inventory.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "legacy-lint-accepted.log": {
+      "path": "scratch/aggregator-audit/legacy-lint-accepted.log",
+      "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
+    },
+    "build-release.log": {
+      "path": "scratch/aggregator-audit/build-release.log",
+      "sha256": "d888545df6c99a005bdb3f54e6833ba8f576ed3cb12f3d9dfabe823d8d393267"
+    },
+    "reconciliation-finished.log": {
+      "path": "scratch/aggregator-audit/reconciliation-finished.log",
+      "sha256": "c7751e239fb0f2f946a2487f0918fbdd5a1778043dc3c1b7b0d4b6f31183768e"
+    }
+  }
+}

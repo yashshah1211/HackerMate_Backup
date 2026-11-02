@@ -12,7 +12,8 @@ import { loadPublicEvents, verifyBrowsingAccess, browsingActionHref, type Browsi
 import { LogoMark } from "@/components/Logo";
 import { useNotification } from "@/context/NotificationContext";
 
-import { registrationLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
+import SourceInformation from "@/components/hackathons/SourceInformation";
+import { dateLabel, registrationLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
 import { cn } from "@/lib/utils";
 import { discoverEvents, readDiscoverySettings, discoveryQuery, eventState, eventDate, eventFormat,
   eventPlatform, knownLocation, eventTopics, listedTags, plainEventText, prizeLabel, discoveryReason,
@@ -179,7 +180,7 @@ function HackathonRow({
         <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
           <span className={cn("font-medium", state === "ongoing" ? "text-ok" : "text-ink-3")}>{eventStateLabel(h, now)}</span>
           <MetaDot />
-          <span className="text-ink-3">{scheduleIsUnverified(h) && "Listed dates, unverified: "}{formatDateRange(h.start_date, h.end_date)}</span>
+          <span className="text-ink-3">{scheduleIsUnverified(h, now) && "Listed dates, unverified: "}{formatDateRange(h.start_date, h.end_date)}</span>
 
           {prizeShort && (
             <>
@@ -197,7 +198,8 @@ function HackathonRow({
           </>}
         </div>
         <p className="mt-2 text-[13px] font-medium text-ink-2">{registrationLabel(h, now)}</p>
-        <p className="mt-1 text-[12.5px] text-ink-3">{deadline === null ? "Registration deadline not listed · check the organizer site" : `${now >= deadline ? "Registration deadline passed" : "Registration deadline"}: ${formatDateRange(h.registration_end!, null)}`}</p>
+        <p className="mt-1 text-[12.5px] text-ink-3">{deadline === null ? "Registration deadline not listed · check the organizer site" : `${now >= deadline ? "Registration deadline passed" : "Registration deadline"}: ${dateLabel(h.registration_end)}`}</p>
+        <SourceInformation event={h} now={now} compact />
         {reason && <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-3"><Target className="size-3 shrink-0" aria-hidden />{reason}</p>}
       </div>
       </div>
@@ -352,24 +354,22 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
   const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  const upcomingCount = discoverEvents(hackathons, { ...settings, tab: "upcoming" }, userSkills, savedIds, now).length;
+  const openCount = discoverEvents(hackathons, { ...settings, tab: "open" }, userSkills, savedIds, now).length;
   const ongoingCount = discoverEvents(hackathons, { ...settings, tab: "ongoing" }, userSkills, savedIds, now).length;
+  const activeCount = discoverEvents(hackathons, { ...settings, tab: "active" }, userSkills, savedIds, now).length;
   const unknownCount = hackathons.filter(h => eventState(h, now) === "unknown").length;
   const defaultSort = activeTab === "recommended" ? "relevant" : "date";
   const activeFilterCount = [search.trim(), modeFilter, platformFilter, settings.topic, settings.from, settings.to,
-    settings.participation, settings.registration, sortBy !== defaultSort ? sortBy : ""].filter(Boolean).length;
+    settings.participation, settings.registration, settings.registrationFrom, settings.registrationTo, sortBy !== defaultSort ? sortBy : ""].filter(Boolean).length;
   const hasAnyFilter = activeFilterCount > 0;
   function clearFilters() {
-    updateSettings({ q: "", mode: "", platform: "", topic: "", from: "", to: "", participation: "", registration: "", sort: defaultSort });
+    updateSettings({ q: "", mode: "", platform: "", topic: "", from: "", to: "", participation: "", registration: "", registrationFrom: "", registrationTo: "", sort: defaultSort });
   }
 
   const tabOptions: { value: Tab; label: string; count?: number }[] = [
-    { value: "all", label: "All / Unverified" },
-    { value: "recommended", label: access.kind === "guest" ? "Opportunities" : "For you" },
-    { value: "upcoming", label: "Upcoming", count: upcomingCount },
+    { value: "active", label: "All Active", count: activeCount },
+    { value: "open", label: "Registration Open", count: openCount },
     { value: "ongoing", label: "Ongoing", count: ongoingCount },
-    { value: "saved", label: "Saved", count: savedIds.size > 0 ? savedIds.size : undefined },
-    { value: "past", label: "Past" },
   ];
 
   const header = (
@@ -383,7 +383,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         ) : (
           <>
             <span className="font-medium text-ink-2 tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
-            <span className="font-medium text-ink-2 tabular-nums">{upcomingCount.toLocaleString("en-IN")}</span> upcoming ·{" "}
+            <span className="font-medium text-ink-2 tabular-nums">{openCount.toLocaleString("en-IN")}</span> registration open ·{" "}
             <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} schedules unverified or unclear{access.kind === "member" && !personalError ? ` · ${savedIds.size} saved` : ""}
           </>
         )
@@ -404,10 +404,12 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           ...topics.map(([value, label]) => ({ value, label }))]} /></div>
     <div><FieldLabel htmlFor={`hk-from-${suffix}`}>Starts from</FieldLabel><input id={`hk-from-${suffix}`} type="date" value={settings.from} onChange={e => updateSettings({ from: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
     <div><FieldLabel htmlFor={`hk-to-${suffix}`}>Starts by</FieldLabel><input id={`hk-to-${suffix}`} type="date" value={settings.to} onChange={e => updateSettings({ to: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
+    <div><FieldLabel htmlFor={`hk-registration-from-${suffix}`}>Registration deadline from</FieldLabel><input id={`hk-registration-from-${suffix}`} type="date" value={settings.registrationFrom} onChange={e => updateSettings({ registrationFrom: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
+    <div><FieldLabel htmlFor={`hk-registration-to-${suffix}`}>Registration deadline by</FieldLabel><input id={`hk-registration-to-${suffix}`} type="date" value={settings.registrationTo} onChange={e => updateSettings({ registrationTo: e.target.value })} className="h-9 w-full rounded-md bg-sunken px-3 text-[13px] text-ink ring-1 ring-line" /></div>
     <div><FieldLabel htmlFor={`hk-size-${suffix}`}>Participation</FieldLabel><DiscoveryDropdown id={`hk-size-${suffix}`} label="Participation" value={settings.participation} onChange={participation => updateSettings({ participation })}
         options={[{ value: "", label: "Any team size" }, { value: "solo", label: "Solo allowed (listed)" }, { value: "team", label: "Teams allowed (listed)" }]} /></div>
     <div><FieldLabel htmlFor={`hk-registration-${suffix}`}>Registration availability</FieldLabel><DiscoveryDropdown id={`hk-registration-${suffix}`} label="Registration availability" value={settings.registration} onChange={registration => updateSettings({ registration })}
-        options={[{ value: "", label: "Default for this view" }, { value: "open", label: "Registration listed as open" }, { value: "closed", label: "Registration closed" }, { value: "unknown", label: "Availability unverified" }, { value: "not-yet-open", label: "Not yet open" }, { value: "all", label: "Include closed registrations" }, { value: "not-closed", label: "Exclude confirmed closed" }, { value: "recorded", label: "Deadline listed (including closed)" }]} /></div>
+        options={[{ value: "", label: "Default for this view" }, { value: "open", label: "Registration open" }, { value: "closed", label: "Registration closed" }, { value: "unknown", label: "Availability unverified" }, { value: "not-yet-open", label: "Not yet open" }, { value: "all", label: "Include closed registrations" }, { value: "not-closed", label: "Exclude confirmed closed" }, { value: "recorded", label: "Deadline listed (including closed)" }]} /></div>
   </>;
 
   const filterGroups = (
@@ -484,10 +486,10 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const emptyBody = hasAnyFilter ? "No events match these settings. Clear filters to explore more events."
     : activeTab === "saved" ? "You haven't saved any listed events yet. Use a bookmark to keep an event here."
     : activeTab === "past" ? "No listings with past dates match this view. Imported schedules remain unverified."
-    : activeTab === "ongoing" ? "No native ongoing events match this view. Use All / Unverified to review imported listings."
-    : activeTab === "upcoming" ? "No native upcoming events match this view. Use All / Unverified to review imported listings."
+    : activeTab === "ongoing" ? "No currently verified ongoing hackathons match this view."
+    : activeTab === "upcoming" ? "No currently verified upcoming hackathons match this view."
     : activeTab === "all" ? "No public listings match this view."
-    : "No opportunities with sufficient verification match this view. Browse All / Unverified to review public listings.";
+    : "No active hackathons with current source evidence match this view. Saved events and all listings remain available.";
 
   return (
     <Page>
@@ -528,6 +530,11 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         </div>
       </div>
 
+      <nav aria-label="Other event views" className="mt-3 flex flex-wrap gap-4 text-sm text-ink-3">
+        <button onClick={() => setActiveTab("saved")} aria-current={activeTab === "saved" ? "page" : undefined}>Saved{savedIds.size ? ` (${savedIds.size})` : ""}</button>
+        <button onClick={() => setActiveTab("all")} aria-current={activeTab === "all" ? "page" : undefined}>All listings / Unverified</button>
+        <button onClick={() => setActiveTab("past")} aria-current={activeTab === "past" ? "page" : undefined}>Past listings</button>
+      </nav>
       {/* Desktop filters */}
       <div className="mt-4 hidden lg:flex flex-wrap items-center gap-x-6 gap-y-2">
         <div className="flex items-center gap-3">
@@ -577,10 +584,11 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
       </div>
 
       <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
-      <p className="mt-3 text-[12px] text-ink-3">Topic, date and team-size filters use listed details; events missing those details may be excluded. Registration deadlines are separate from event dates. Imported listings, including official imports, have unverified schedules, categories and registration availability. Browsing a listing or its dates does not confirm open registration. Opportunities / For you is a separate view and may be empty.</p>
+      <p className="mt-3 text-[12px] text-ink-3">Active listings require current source evidence: registration open or an ongoing hackathon. Ongoing does not mean registration is open. Source checks expire after 26 hours; dates and deadlines recalculate while you browse. All listings / Unverified retains unchecked and historical imports. Official registration stays on the provider’s site; joining the HackerMate community is separate.</p>
       {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 
+      {settings.registrationFrom && settings.registrationTo && settings.registrationFrom > settings.registrationTo && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a registration deadline end day on or after its start day.</p>}
       {/* Results count */}
       {!(loadError && hackathons.length === 0) && <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12.5px] text-ink-3">

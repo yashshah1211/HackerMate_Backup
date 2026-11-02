@@ -1,0 +1,26 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Real transport with synthetic GET responses; no provider requests. */
+const {test}=require('node:test'),assert=require('node:assert/strict'),{harness}=require('./ppt-vision-harness.cjs');
+const loader=harness({}, {URLSearchParams}),{SourceTransport,robotsAllowed}=loader.load('src/lib/hackathons/sourceTransport.ts'),{identifySource}=loader.load('src/lib/hackathons/providers.ts');
+for(const [body,path,allowed] of [
+ ['User-agent: *\nDisallow: /event/','/event/a',false],['User-agent: *\nDisallow: /event/\nAllow: /event/a$','/event/a',true],
+ ['User-agent: *\nDisallow: /\nUser-agent: HackerMate-Catalog\nAllow: /','/event/a',true],['User-agent: OtherBot\nDisallow: /','/event/a',true],
+ ['User-agent: *\nDisallow: /*?private=*','/event/a?private=true',false],['User-agent: *\nDisallow:','/event/a',true],
+])test('robots longest/specific matching '+JSON.stringify([body,path]),()=>assert.equal(robotsAllowed(body,path),allowed));
+test('source detail checks both canonical event robots and API rules before requesting data',async()=>{
+ const calls=[],t=new SourceTransport(async url=>{calls.push(url);return new Response('User-agent: *\nDisallow: /event/blocked');},10000,0);
+ await assert.rejects(t.detail(identifySource('https://hack2skill.com/event/blocked')),/disallows/);assert.deepEqual(calls,['https://hack2skill.com/robots.txt']);
+});
+for(const code of [301,302,307,401,403,429,500])test('HTTP '+code+' never triggers redirect/auth bypass or guessed success',async()=>{
+ const calls=[],t=new SourceTransport(async url=>{calls.push(url);return url.endsWith('robots.txt')?new Response(''):new Response('',{status:code,headers:{Location:'https://login.invalid'}});},10000,0);
+ await assert.rejects(t.detail(identifySource('https://unstop.com/hackathons/a-123')));assert.equal(calls.length,2);assert(calls.every(u=>u.startsWith('https://unstop.com/')));
+});
+test('oversized source response, robots failure and complete run timeout are controlled failures',async()=>{
+ const t=new SourceTransport(async url=>url.endsWith('robots.txt')?new Response(''):new Response('x'.repeat(2*1024*1024+1)),10000,0);await assert.rejects(t.get('https://unstop.com/api/public/competition/123'),/size limit/);
+ const unavailable=new SourceTransport(async()=>new Response('',{status:503}),10000,0);await assert.rejects(unavailable.get('https://devfolio.co/hackathons'),/robots/);
+ const expired=new SourceTransport(async()=>{throw Error('Must not fetch after budget');},0,0);await assert.rejects(expired.get('https://devfolio.co/hackathons'),/budget/);
+});
+for(const url of ['https://evil.invalid/data','http://unstop.com/api/public/competition/123','https://hack2skill.com/api/v1/innovator/team/list','https://127.0.0.1/'])test('not a permitted public provider origin/path '+url,async()=>{let calls=0;const t=new SourceTransport(async()=>{calls++;return new Response('');},10000,0);await assert.rejects(t.get(url));assert(calls<=1);});
+test('request includes honest user agent, manual redirects, no cache and bounded AbortSignal; hash covers exact response',async()=>{
+ const t=new SourceTransport(async(url,init)=>{assert.equal(init.headers['User-Agent'],'HackerMate-Catalog/1.0');assert.equal(init.redirect,'manual');assert.equal(init.cache,'no-store');assert(init.signal instanceof AbortSignal);return new Response(url.endsWith('robots.txt')?'':'synthetic source');},10000,0);
+ const r=await t.get('https://unstop.com/api/public/competition/123');assert.equal(r.hash,require('node:crypto').createHash('sha256').update('synthetic source').digest('hex'));
+});

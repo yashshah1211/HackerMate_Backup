@@ -93,20 +93,13 @@ export default function OutreachTab({
       const res = await fetch("/api/admin/scrape-unstop", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        showToast(
-          data.message ||
-            (data.count > 0
-              ? `Fetched ${data.count} hackathons from Unstop!`
-              : "Scrape complete - no new hackathons found."),
-          "success"
-        );
-        await loadLeads();
+        showToast(data.message || "Catalog preview complete. No records or organizer emails changed.", "success");
       } else {
-        showToast(data.error || "Failed to fetch Unstop hackathons", "error");
+        showToast(data.error || "Catalog preview unavailable", "error");
       }
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || "Failed to fetch Unstop hackathons", "error");
+      showToast(err.message || "Catalog preview unavailable", "error");
     }
     setFetchingUnstop(false);
   }
@@ -480,7 +473,7 @@ export default function OutreachTab({
               className="px-4 py-2 rounded-xl text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
             >
               <Search className={`w-3.5 h-3.5 ${fetchingUnstop ? "animate-spin" : ""}`} />
-              <span>{fetchingUnstop ? "Scanning Platforms..." : "Fetch Multi-Platform Leads"}</span>
+              <span>{fetchingUnstop ? "Checking sources..." : "Preview hackathon catalog"}</span>
             </button>
           </div>
         </div>

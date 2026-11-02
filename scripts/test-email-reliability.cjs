@@ -231,16 +231,16 @@ test('unavailable daily-report sources are not fabricated as category zero count
   assert.equal(body.categoryCounts.outreach, null); assert.equal(body.categoryCounts.contact_submissions, null);
 });
 for (const prior of [{ unknown: 1 }, { bookkeepingFailed: 1 }, { accounting: { status: 'failed' } }]) {
-  test(`cron does not immediately repeat an unsafe first dispatch pass: ${JSON.stringify(prior)}`, async () => {
+  test(`catalog cron sends no email, including prior uncertain dispatch: ${JSON.stringify(prior)}`, async () => {
     let secondPass = 0;
     const h = setup({ overrides: {
-      '@/app/api/admin/scrape-unstop/route': { runMultiPlatformScraper: async () => ({ success: true, autoPitchResult: prior }) },
+      '@/lib/hackathons/synchronize': { synchronizeCatalog: async () => ({ success: true, message: 'Catalog only' }) },
       '@/lib/admin/gmailInboxSync': { executeGmailInboxSync: async () => ({ skipped: true }) },
       '@/lib/admin/autoSendPitches': { autoRemoveUnopenedPitchedLeads: async () => ({ removedCount: 0 }),
         autoSendPitchEmailsForLeads: async () => { secondPass++; throw new Error('Unsafe repeated dispatch'); } },
     } });
     const response = await h.load('src/app/api/cron/auto-scrape-leads/route.ts').GET(new NextRequest('http://localhost/api/cron/auto-scrape-leads', { headers: { Authorization: 'Bearer offline-cron' } }));
-    const body = await response.json(); assert.equal(body.autoPitchResult.blocked, true); assert.equal(secondPass, 0); assert.equal(h.state.sends.length, 0);
+    const body = await response.json(); assert.equal(response.status, 200); assert.equal(body.cronExecuted, true); assert.equal(Object.hasOwn(body, 'autoPitchResult'), false); assert.equal(secondPass, 0); assert.equal(h.state.sends.length, 0);
   });
 }
 for (const table of ['organizer_leads', 'daily_email_stats']) test(`manual pitch: ${table} read failure blocks dispatch`, async () => {

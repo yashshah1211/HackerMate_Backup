@@ -1,8 +1,9 @@
+import { synchronizedEvent } from "./source";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DiscoveryEvent } from "./discovery";
 
 // Application read contract only. The database's broader anonymous grants/RLS are unchanged.
-export const PUBLIC_EVENT_COLUMNS = "id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived";
+export const PUBLIC_EVENT_COLUMNS = "id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived,source_metadata";
 export type PublicEvent = Omit<DiscoveryEvent, "organizer_id"> & {
   max_participants?: number | null;
   rounds_count?: number | null;
@@ -44,7 +45,7 @@ export async function loadPublicEvents(client: SupabaseClient, signal?: AbortSig
         throw new Error("Event pagination did not advance. Please retry.");
       }
       cursor = row.id;
-      if (isPublicEvent(row)) events.push(row as PublicEvent);
+      if (isPublicEvent(row)) events.push(synchronizedEvent(row as PublicEvent));
     }
   }
   console.error("Public event listing exceeded its request safety limit.");
@@ -55,7 +56,7 @@ export async function loadPublicEvent(client: SupabaseClient, id: string): Promi
   const { data, error } = await client.from("hackathons").select(PUBLIC_EVENT_COLUMNS)
     .eq("id", id).eq("status", "approved").eq("archived", false).maybeSingle();
   if (error) { console.error("Public event detail failed:", error); throw new Error("Event details are unavailable. Please retry."); }
-  return data && isPublicEvent(data) ? data as PublicEvent : null;
+  return data && isPublicEvent(data) ? synchronizedEvent(data as PublicEvent) : null;
 }
 
 export type BrowsingAccess = { kind: "guest" } | { kind: "member"; userId: string; onboarded: boolean }
