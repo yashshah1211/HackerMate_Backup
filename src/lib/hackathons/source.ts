@@ -21,14 +21,15 @@ export type SourceMetadata = {
   last_values?: Record<string, unknown>; protected_fields?: string[]; attempt_id?: string;
 };
 export const SOURCE_MAX_AGE_MS = 26 * 60 * 60 * 1000;
-export const UNSTOP_EVENT_DATE_BASIS = "published_hackathon_build_stage";
+export const UNSTOP_EVENT_DATE_BASIS = "explicit_hackathon_build_stage_v2";
 export const object = (v: unknown): Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export const text = (v: unknown): string | null => typeof v === "string" && v.trim() ? v.trim() : null;
 export const array = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const integer = (v: unknown): number | null => typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= 10000 ? v : null;
 
 /** Unstop competition windows and generic rounds are not an actual hackathon schedule.
- * Older observations remain useful for registration, never for inferred event timing. */
+ * Older observations (including the permissive v1 stage predicate) remain useful for
+ * registration, never for inferred event timing; only a new check can grant v2 provenance. */
 export function hasEventScheduleEvidence(m: SourceMetadata): boolean {
   return m.provider !== "unstop" || object(m.evidence).event_date_basis === UNSTOP_EVENT_DATE_BASIS;
 }

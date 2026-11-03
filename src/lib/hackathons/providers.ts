@@ -3,7 +3,7 @@ import { array, integer, object, text, SOURCE_MAX_AGE_MS, UNSTOP_EVENT_DATE_BASI
 
 export type SourceIdentity = { provider: Provider; provider_id: string; canonical_url: string; slug?: string };
 export type Observation = SourceMetadata;
-export const PARSER_VERSION = "aggregator-5";
+export const PARSER_VERSION = "aggregator-6";
 const plain = (v: unknown, limit = 1000) => (text(v) || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, limit);
 const timestamp = (v: unknown): string | null => { const s = text(v); return s && eventDate(s) !== null ? s : null; };
 
@@ -36,6 +36,32 @@ function action(value: unknown): string | null {
   try { const u = new URL(String(value || "")); return u.protocol === "https:" && !u.username && !u.password ? u.href : null; } catch { return null; }
 }
 function invalidDates(values: unknown[]): string[] { return values.some(v => v != null && v !== "" && timestamp(v) === null) ? ["invalid_published_date"] : []; }
+
+// Deliberately limited statement grammar, not a general prose classifier. Both the activity
+// label and the complete assertion must identify building in THIS stage. Extra clauses,
+// adjacent activities, negations, questions and unfamiliar formats remain unverified.
+const BUILD_TITLE = /^(?:(?:actual|final|offline) )?(?:hackathon )?(?:build|building|coding|solution development)(?: (?:phase|period|round|stage))?[.!:]?$/i;
+const BUILD_STATEMENTS = [
+  /^the (?:actual|final) hackathon (?:build|building|coding|solution development)(?: (?:phase|period))? takes place (?:in|during) this (?:stage|round)[.!]?$/i,
+  /^this (?:stage|round) is the (?:actual|final) hackathon (?:build|building|coding|solution development) (?:phase|period)[.!]?$/i,
+];
+function stageText(value: unknown, limit: number): string | null {
+  const raw = text(value);
+  if (!raw || raw.length > limit) return null; // Never classify a truncated prefix.
+  const stripped = raw.replace(/<\/?(?:p|b|strong|em|i)\s*>|<br\s*\/?>/gi, " ");
+  // Only simple emphasis/paragraph markup is understood; hidden/deleted/link content is not evidence.
+  return /[<>]/.test(stripped) ? null : stripped.replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+}
+function explicitBuildStage(stage: Record<string, unknown>, round: Record<string, unknown>): boolean {
+  for (const flag of ["is_hidden", "is_inactive"]) if (stage[flag] !== undefined && stage[flag] !== 0) return false;
+  if (stage.entity_type !== undefined && stage.entity_type !== round.entity_type) return false;
+  if (stage.status !== undefined && stage.status !== round.status) return false;
+  const title = stageText(stage.title, 200), description = stageText(stage.display_text, 4000);
+  if (!title || !BUILD_TITLE.test(title) || !description || !BUILD_STATEMENTS.some(pattern => pattern.test(description))) return false;
+  // Optional parent labels must not contradict the detail that supplies the dated window.
+  if (round.title !== undefined && !BUILD_TITLE.test(stageText(round.title, 200) || "")) return false;
+  return round.display_text === undefined || BUILD_STATEMENTS.some(pattern => pattern.test(stageText(round.display_text, 4000) || ""));
+}
 function base(identity: SourceIdentity): SourceFacts {
   return { name: "", description: "", website_url: identity.canonical_url, college: null, start_date: null, end_date: null,
     registration_start: null, registration_end: null, registration_status: "unknown", min_team_size: null, max_team_size: null,
@@ -73,13 +99,11 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   if (String(c.id) !== identity.provider_id) throw new Error("Provider identity mismatch");
   f.name = plain(c.title, 200); f.college = plain(object(c.organisation).name, 200) || null;
   // The provider's competition window can span registration/assessments, not the actual build.
-  // Accept only one public typed offline stage explicitly described as the actual/final hackathon.
+  // Accept only one public typed offline stage explicitly identifying the actual build activity.
   // A generic round merely mentioning a hackathon is not whole-event schedule evidence.
   const buildStages = array(c.rounds).map(object).filter(r => r.entity_type === "App\\Model\\OfflineRound"
     && r.is_hidden === 0 && r.is_inactive === 0 && ["LIVE", "STARTED", "UPCOMING", "FINISHED"].includes(String(r.status)))
-    .flatMap(r => array(r.details).map(object)).filter(r => /\b(?:actual|final)\b[^.!?]{0,150}\bhackathons?\b/i.test(plain(r.display_text, 20000))
-      && !/\b(?:not|before|after)\b[^.!?]{0,80}\bhackathons?\b/i.test(plain(r.display_text, 20000))
-      && !/\b(?:screening|registration|assessment|submission|presentation|pitch|judging|results?)\b/i.test(plain(r.title, 200)));
+    .flatMap(r => array(r.details).map(object).filter(stage => explicitBuildStage(stage, r)));
   if (buildStages.length === 1) {
     const stage = buildStages[0];
     issues.push(...invalidDates([stage.start_date,stage.end_date]));
@@ -121,7 +145,7 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   if (/CANCELLED|CANCELED/i.test(String(c.event_status))) issues.push("unrecognized_or_cancelled_event_status");
   registration(f, reg.reg_status, now);
   return finish(identity, f, category, null, now, hash, {
-    event_dates: f.start_date && f.end_date ? "single public OfflineRound explicitly describing the actual/final hackathon; competition window ignored" : "actual event dates unverified; competition window and generic stages ignored",
+    event_dates: f.start_date && f.end_date ? "single public OfflineRound with an explicit build activity label and complete stage-bound build statement; competition window ignored" : "actual event dates unverified; competition window and ambiguous/adjacent stages ignored",
     event_date_basis: f.start_date && f.end_date ? UNSTOP_EVENT_DATE_BASIS : "unverified",
     competition_window: "not an actual event schedule; never used for lifecycle",
     registration: "competition.regnRequirements", publication_status: String(c.status || "not published"),

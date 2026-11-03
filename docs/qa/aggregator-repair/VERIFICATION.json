@@ -2,11 +2,11 @@
   "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
   "branch": "fix/hackathon-aggregator-sync",
   "createdAt": "2026-11-02T13:58:57.987Z",
-  "publication": "Uncommitted lifecycle date-semantics correction; founder explicitly prohibits commit/push/merge/deploy until review.",
+  "publication": "Targeted follow-up to reviewed d0a9e0bf; user authorizes one new local commit only. Push, merge, deployment, PR state changes and production adoption remain unauthorized.",
   "recommendation": {
     "draftReview": "GO",
     "productionRelease": "NO-GO",
-    "commitReadiness": "READY_FOR_USER_APPROVAL"
+    "commitReadiness": "LOCAL_FOLLOW_UP_VALIDATED"
   },
   "fileCount": 52,
   "inventory": [
@@ -77,7 +77,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/README.md": {
-      "sha256": "1fa23492bf9fc39e1015d72bf96898ba58b8a59245feec5c827a3eb6c3bd07e6",
+      "sha256": "b86ccdc62d1f9e337ed4232a1d2eb944fd42e147e0dd993beef95b26ab0e6450",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
@@ -109,7 +109,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "qa/fixtures/mission20-hotfix-browser.jsx": {
-      "sha256": "c6643fed25446d492534e6728c5c84d27311fe001abbe3925bdb557a3f1ee571",
+      "sha256": "58e4b44151749fc0aa023b4bc929adb6ef7781ef0193a2c9338572d3a8b7195e",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/aggregator-local-db.cjs": {
@@ -129,11 +129,11 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-postgres.cjs": {
-      "sha256": "482c470f79d3d3339b7fe0b5bcddee165aa02cb250fd07462d0b90f72f22a7ea",
+      "sha256": "fcb47283d9d45fc7913475cf962a898e0dfa49beac0c08de90feba52e7c5bdb4",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-sources.cjs": {
-      "sha256": "f3a427676201449c71b649501e28d291f16b4da4798db2f04cb98b31c61f5648",
+      "sha256": "2904ba971e2e0d203f861f7d66b97f842abc9bc5b2c545ca6ccef043a3187b58",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-transport.cjs": {
@@ -157,7 +157,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-mission20-discovery-hotfix-browser.cjs": {
-      "sha256": "32ef7b93cf64ec18b7ba42f2c6b06de9c6affd51778aa66c8f66664e265acbfe",
+      "sha256": "513caa932cbf07022541bbd3c380a0b135cf892decc3912835d19ad5dbeae298",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-mission20-discovery-hotfix.cjs": {
@@ -225,7 +225,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/providers.ts": {
-      "sha256": "3ab191628df4713bc77d2b51691e6cbb9ec7c1f12c87ecb41b011cc8124246c0",
+      "sha256": "a7c7adae8254f5ad2dd244de0b082b43d7a7c63dbdeb862365f1817cf39ea9ea",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/publicBrowsing.ts": {
@@ -233,7 +233,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/source.ts": {
-      "sha256": "14c48218dfe154fae142a0c58aee7a4e8086b92eac87ee3e55217cd1e6ab9a4e",
+      "sha256": "480bbb55dde7c5551eb9ea5a2e209aab960a1adbf15d52fea736ae9fb5876c9b",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/sourceTransport.ts": {
@@ -269,7 +269,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     }
   },
-  "sourceTreeSha256": "e7d9c0124a998943c273174576fcd6b56a6f0d4cec166ee66659894627b26650",
+  "sourceTreeSha256": "36056ec0d450ae7c182bdf1d4aefbb3c7c0dd7cd086867f379b3397a25dae4cf",
   "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
   "checks": {
     "application": {
@@ -379,7 +379,7 @@
     "expressions": 190
   },
   "ci": {
-    "status": "No new-head CI: uncommitted date-semantics correction. Prior d6499a3 workflow success is historical only.",
+    "status": "Follow-up remains local; no new-head GitHub CI. Prior workflow results are historical only.",
     "expectedWorkflows": [
       "Pull Request Validation",
       "Rack portal isolated qualification",
@@ -457,7 +457,7 @@
     "migrationExecutionAuthorized": false
   },
   "remainingGates": [
-    "Independent review of uncommitted date-semantics correction",
+    "Fresh independent publication review of the final local follow-up commit recommended; local Standards and Spec review passes are recorded below",
     "Explicit future publication authorization and then current-head Linux CI",
     "Fresh per-record registration/category/event uncertainty/mode/team/editorial/control evidence and separate adoption approval",
     "Hosted positive-cohort acceptance and real refresh coverage/best-effort daily decision",
@@ -666,7 +666,7 @@
     "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
     "inventoryUnchanged": true
   },
-  "updatedAt": "2026-11-02T17:34:03.326Z",
+  "updatedAt": "2026-11-03T11:05:43.210Z",
   "reviewFollowup": {
     "base": "ce82618a815527327f256c3599cca2c00a013e4d",
     "files": [
@@ -1252,6 +1252,242 @@
           "Sentry token unavailable; no release or source-map upload",
           "Webpack cache serialization"
         ]
+      }
+    }
+  },
+  "stageEligibilityCorrection": {
+    "reviewedParent": "d0a9e0bf8411a431c1789df600d4d336ddea445b",
+    "status": "LOCAL_VALIDATION_COMPLETE_NOT_PUBLISHED",
+    "changedFiles": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "qa/fixtures/mission20-hotfix-browser.jsx",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-aggregator-sources.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "src/lib/hackathons/providers.ts",
+      "src/lib/hackathons/source.ts"
+    ],
+    "rootCause": "Loose actual/final-before-hackathon description matching and title-only adjacent-activity exclusions minted authoritative schedule provenance for judging, presentations and orientation.",
+    "correction": "Require both a complete build activity label and a complete statement directly identifying this stage as the actual/final build period. Two supported statement forms only; unknown/mixed/preparatory language remains unverified. Reject contradictory parent/detail metadata and hidden/deleted/unknown markup; never classify truncated prefixes.",
+    "provenance": {
+      "parserVersion": "aggregator-6",
+      "current": "explicit_hackathon_build_stage_v2",
+      "revoked": "published_hackathon_build_stage",
+      "oldObservationsRequireFreshCheck": true,
+      "registrationEvidenceRemainsIndependent": true
+    },
+    "redPhase": {
+      "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=spec scripts/test-aggregator-sources.cjs",
+      "tests": 127,
+      "passed": 78,
+      "failed": 49,
+      "cancelled": 0,
+      "skipped": 0,
+      "note": "Initial added regression matrix against unmodified implementation; final matrix expanded afterward."
+    },
+    "checks": {
+      "source": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=spec scripts/test-aggregator-sources.cjs",
+        "tests": 146,
+        "passed": 146,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "application": {
+        "command": "node scripts/qualify-aggregator.cjs",
+        "tests": 1786,
+        "passed": 1786,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "postgres": {
+        "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "checks": 29,
+        "version": "17.6",
+        "disposable": true,
+        "cleanup": "finally stops cluster and removes its verified temporary directory",
+        "productionConnections": 0,
+        "productionWrites": 0
+      },
+      "browser": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "widths": [
+          390,
+          768,
+          1440
+        ],
+        "roles": [
+          "guest",
+          "member"
+        ],
+        "reportedFalsePositiveCases": 3,
+        "windows": [
+          "ongoing",
+          "past"
+        ],
+        "externalRequests": 0,
+        "writes": 0,
+        "note": "Assertions exercise actual parser-produced adjacent-stage observations in directory and guest/member details; no new visual design claim."
+      },
+      "typescript": {
+        "command": "npm run typecheck -- --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "scopedFiles": 34,
+        "newErrors": 0,
+        "newWarnings": 0,
+        "baselines": [
+          {
+            "file": "src/app/hackathons/[id]/page.tsx",
+            "errors": 5,
+            "warnings": 5
+          },
+          {
+            "file": "src/app/admin/_tabs/OutreachTab.tsx",
+            "errors": 12,
+            "warnings": 4
+          }
+        ],
+        "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1"
+      },
+      "build": {
+        "command": "node qa/rack-qualification.cjs build",
+        "passed": true,
+        "syntheticReads": 3,
+        "mutations": 0,
+        "externalApplicationNetwork": "denied",
+        "credentials": "scrubbed; .env files refused"
+      }
+    },
+    "matrix": {
+      "adjacentOrAmbiguousDescriptions": {
+        "passed": 68
+      },
+      "contradictoryParentOrDetailMetadata": {
+        "passed": 6
+      },
+      "unequivocalBuildDescriptions": {
+        "passed": 18
+      },
+      "independentOpenRegistration": {
+        "passed": 1
+      },
+      "revokedCachedProvenance": {
+        "passed": 2
+      },
+      "additionalIndiaUtcMalformedNativeCheck": {
+        "passed": 1
+      },
+      "existingSourceTests": 50
+    },
+    "downstreamInspected": [
+      "provider parsing",
+      "provenance gate",
+      "lifecycle derivation",
+      "active/open/ongoing filtering",
+      "shared public projection",
+      "refresh queue",
+      "sourcePatch",
+      "reconciliation suppression",
+      "retained-report reinterpretation",
+      "real SDK/SQL/public-reader refresh",
+      "guest/member labels"
+    ],
+    "audit": {
+      "regeneratedCommand": "node scripts/reassess-aggregator-lifecycle.cjs",
+      "originalEvidenceUnchanged": true,
+      "derivedArtifactsContentUnchanged": true,
+      "records": 410,
+      "uniqueRecords": 410,
+      "derivedHistoricalCounts": {
+        "requires_fresh_evidence": 322,
+        "historical_registration_open_candidate": 84,
+        "historical_supported_event_end": 4
+      },
+      "withdrawnClaims": {
+        "unstopOngoing": 115,
+        "additionalUnresolvedUnstopOngoingObservations": 81,
+        "unstopEnded": 204
+      },
+      "currentVerifiedCounts": null,
+      "approvedForWrite": 0
+    },
+    "localReview": {
+      "standards": "PASS; no material finding",
+      "spec": "PASS after rejecting preparatory-for-hackathon forms; reviewer independently ran final 146-test source suite",
+      "anotherIndependentReviewBeforePush": "recommended"
+    },
+    "limitations": [
+      "Only two direct stage-identity statement forms are supported; unfamiliar legitimate prose remains unverified by design.",
+      "No live provider recheck, hosted gateway test, production query, adoption, PR mutation, push or deployment occurred.",
+      "GitHub/Linux CI is pending separately authorized publication.",
+      "Initial sandbox PG initdb WAL rename, Chrome crash handler and build directory creation were denied. Final fixtures/build ran outside the Windows filesystem sandbox, retaining their synthetic-data, environment and network guards.",
+      "Initial expanded browser fixture violated ID ordering; rows now honor the public reader ORDER BY id contract without weakening pagination assertions.",
+      "Existing Sentry instrumentation/deprecation/token and webpack-cache warnings remain; no production credentials were supplied."
+    ],
+    "evidence": {
+      "stage-hardening-before.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-before.log",
+        "sha256": "78168ad3e7c651c39143a5b737be0f903b5630c50a49d759a007d6ee4ab076c3"
+      },
+      "stage-hardening-sources-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-sources-final.log",
+        "sha256": "a55dd45e45b550c78f884bad49288c97786dce5b7ae35fcb2136763802cbe520"
+      },
+      "stage-hardening-application-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-application-final.log",
+        "sha256": "128b7259e5aef716d45a0eca787739539ca5b096b8dfa115e0f5c09a06d0817b"
+      },
+      "stage-hardening-postgres-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-postgres-final.log",
+        "sha256": "46417f150f0e2c0c4b9516967ecd43e36cdc8b01a0c78aff3ce118fa4dd0cc34"
+      },
+      "stage-hardening-browser-current.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-browser-current.log",
+        "sha256": "6838a1d295d3cb7a28d4881f5f2f7c8cd3965fdcfef69cac6e22ae03cd78ac83"
+      },
+      "stage-hardening-typecheck-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-typecheck-final.log",
+        "sha256": "2712bcfedaa448473286eb8eddfafbd140e5f86179ad29c81a1b1c5232e67fa0"
+      },
+      "stage-hardening-lint-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-lint-final.log",
+        "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+      },
+      "stage-hardening-build-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-build-final.log",
+        "sha256": "5a583eb2d33f674946a47e42f53d587e1a71645114a4c795594fd1801295f6c6"
+      },
+      "stage-hardening-postgres.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-postgres.log",
+        "sha256": "25a923f2d90e2f6386f9337c4488dbc9c63a34360886903e39b792abae4232c7"
+      },
+      "stage-hardening-browser.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-browser.log",
+        "sha256": "09334320bc2b10d40d52c103eebbb26d6fc49c250cf1099aad054268e999dc2d"
+      },
+      "stage-hardening-build.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-build.log",
+        "sha256": "05d72090f0380953b0d6eca80b9b9dfbde45155c3151adf01616d316d698130e"
+      },
+      "stage-hardening-browser-qualified.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-browser-qualified.log",
+        "sha256": "01386adb83fe400f4077225b4d55aee1f58e971d57570336f0c50321ce8fda4f"
       }
     }
   }
