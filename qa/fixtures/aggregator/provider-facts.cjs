@@ -1,8 +1,12 @@
 /* Public factual fields only. These are synthetic parser inputs shaped by the read-only provider audit, not raw page copies. */
 const buildStage=(start_date,end_date)=>({entity_type:'App\\Model\\OfflineRound',status:'LIVE',is_hidden:0,is_inactive:0,
  details:[{title:'Offline build',display_text:'The actual hackathon build takes place in this stage.',start_date,end_date}]});
+const incompleteInventory=(start,end,laterStart,laterEnd)=>{
+ const later=buildStage(laterStart,laterEnd);Object.assign(later.details[0],{title:'Final coding',display_text:'Teams build prototypes for the final hackathon.'});
+ return [buildStage(start,end),later];
+};
 module.exports = {
- buildStage,
+ buildStage,incompleteInventory,
  unstopDiscrepancies:[
   {id:1768100,title:'Ooty Hacks',region:'hybrid',start_date:'2026-10-09T00:00:00+05:30',end_date:'2026-11-25T00:00:00+05:30',details:'A hackathon. Event Dates: 19–20 December 2026. Mode: Offline. Team Size: 1–4 Members.',min:1,max:4,rounds:[]},
   {id:1783256,title:'AGENTX 2.0',region:'hybrid',start_date:'2026-10-29T00:00:00+05:30',end_date:'2026-11-10T00:00:00+05:30',details:'A hackathon. Event Date: 14 November 2026. Team Size: 2–4 Members.',min:2,max:4,rounds:[]},

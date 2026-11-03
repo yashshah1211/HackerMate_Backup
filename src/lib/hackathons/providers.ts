@@ -3,7 +3,7 @@ import { array, integer, object, text, SOURCE_MAX_AGE_MS, UNSTOP_EVENT_DATE_BASI
 
 export type SourceIdentity = { provider: Provider; provider_id: string; canonical_url: string; slug?: string };
 export type Observation = SourceMetadata;
-export const PARSER_VERSION = "aggregator-6";
+export const PARSER_VERSION = "aggregator-7";
 const plain = (v: unknown, limit = 1000) => (text(v) || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, limit);
 const timestamp = (v: unknown): string | null => { const s = text(v); return s && eventDate(s) !== null ? s : null; };
 
@@ -62,6 +62,80 @@ function explicitBuildStage(stage: Record<string, unknown>, round: Record<string
   if (round.title !== undefined && !BUILD_TITLE.test(stageText(round.title, 200) || "")) return false;
   return round.display_text === undefined || BUILD_STATEMENTS.some(pattern => pattern.test(stageText(round.display_text, 4000) || ""));
 }
+type StageEntry = { stage: Record<string, unknown>; round: Record<string, unknown> };
+type StageWindow = { start: string; end: string; from: number; until: number };
+function stageWindow(stage: Record<string, unknown>): StageWindow | null {
+  const start = timestamp(stage.start_date), end = timestamp(stage.end_date);
+  if (!start || !end) return null;
+  const from = eventDate(start)!, until = eventDate(end, true)!;
+  return from < until ? { start, end, from, until } : null;
+}
+// A complete exclusion statement is evidence of a separate activity. A label or keyword
+// alone never makes an unknown/mixed stage safe to omit from the inventory.
+function explicitlyUnrelated({ stage, round }: StageEntry): boolean {
+  const activity = stageText(stage.title, 200)?.toLowerCase();
+  if (!activity || !["judging", "registration", "presentations", "orientation"].includes(activity)) return false;
+  const statement = `this stage is for ${activity} only. no building takes place in this stage.`;
+  if (stageText(stage.display_text, 4000)?.toLowerCase() !== statement) return false;
+  if (round.title !== undefined && stageText(round.title, 200)?.toLowerCase() !== activity) return false;
+  if (round.display_text !== undefined && stageText(round.display_text, 4000)?.toLowerCase() !== statement) return false;
+  for (const flag of ["is_hidden", "is_inactive"]) if (stage[flag] !== undefined && stage[flag] !== 0) return false;
+  if (stage.entity_type !== undefined && stage.entity_type !== round.entity_type) return false;
+  if (stage.status !== undefined && stage.status !== round.status) return false;
+  const dates = [stage.start_date, stage.end_date];
+  if (invalidDates(dates).length) return false;
+  return !dates.every(v => timestamp(v)) || stageWindow(stage) !== null;
+}
+function reconciledBuildWindow(value: unknown, issues: string[]): StageWindow | null {
+  const inventory: StageEntry[] = [];
+  let incomplete = !Array.isArray(value);
+  for (const raw of array(value)) {
+    const round = object(raw);
+    // Explicitly private/disabled rounds cannot supply public event timing. Unknown
+    // visibility, status, types and malformed inventory remain potentially relevant.
+    if (round.is_hidden === 1 || round.is_inactive === 1 || round.status === "DRAFT") continue;
+    if (!Array.isArray(round.details) || !round.details.length) { incomplete = true; continue; }
+    for (const detail of round.details) inventory.push({ stage: object(detail), round });
+  }
+  const publicEnabled = (round: Record<string, unknown>) => round.is_hidden === 0 && round.is_inactive === 0
+    && ["LIVE", "STARTED", "UPCOMING", "FINISHED"].some(status => round.status === status);
+  const builds = inventory.filter(({ stage, round }) => publicEnabled(round)
+    && round.entity_type === "App\\Model\\OfflineRound" && explicitBuildStage(stage, round));
+  if (!builds.length) return null;
+  const buildSet = new Set(builds);
+  if (incomplete || inventory.some(entry => !buildSet.has(entry) && !(publicEnabled(entry.round) && explicitlyUnrelated(entry)))) {
+    issues.push("event_schedule_requires_reconciliation"); return null;
+  }
+  const windows = builds.map(({ stage }) => stageWindow(stage));
+  if (windows.some(window => !window)) {
+    issues.push("incomplete_or_contradictory_build_window");
+    if (builds.some(({ stage }) => invalidDates([stage.start_date, stage.end_date]).length)) issues.push("invalid_published_date");
+    if (builds.some(({ stage }) => timestamp(stage.start_date) && timestamp(stage.end_date) && !stageWindow(stage))) issues.push("event_window_contradiction");
+    return null;
+  }
+  const complete = windows as StageWindow[], first = complete[0], last = complete[complete.length - 1];
+  const groups = new Map<Record<string, unknown>, StageWindow[]>();
+  builds.forEach((entry, i) => { const group = groups.get(entry.round) || []; group.push(complete[i]); groups.set(entry.round, group); });
+  // Parent timing, when supplied, must be complete and agree with its own children.
+  for (const [round, children] of groups) {
+    if (round.start_date !== undefined || round.end_date !== undefined) {
+      const parent = stageWindow(round);
+      if (!parent || parent.from !== children[0].from || parent.until !== children[children.length - 1].until) {
+        issues.push("event_schedule_requires_reconciliation"); return null;
+      }
+    }
+  }
+  if (complete.every(window => window.from === first.from && window.until === first.until)) return first;
+  // Distinct build windows need an explicit common build parent defining the whole
+  // period. Never infer an envelope from independent rounds or bridge unknown gaps.
+  const parent = builds[0].round, whole = stageWindow(parent);
+  if (builds.some(entry => entry.round !== parent) || !whole || !explicitBuildStage(parent, parent)
+    || whole.from !== first.from || whole.until !== last.until
+    || complete.some((window, i) => i > 0 && window.from !== complete[i - 1].until)) {
+    issues.push("ambiguous_hackathon_build_stages"); return null;
+  }
+  return { ...first, end: last.end, until: last.until };
+}
 function base(identity: SourceIdentity): SourceFacts {
   return { name: "", description: "", website_url: identity.canonical_url, college: null, start_date: null, end_date: null,
     registration_start: null, registration_end: null, registration_status: "unknown", min_team_size: null, max_team_size: null,
@@ -99,25 +173,9 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   if (String(c.id) !== identity.provider_id) throw new Error("Provider identity mismatch");
   f.name = plain(c.title, 200); f.college = plain(object(c.organisation).name, 200) || null;
   // The provider's competition window can span registration/assessments, not the actual build.
-  // Accept only one public typed offline stage explicitly identifying the actual build activity.
-  // A generic round merely mentioning a hackathon is not whole-event schedule evidence.
-  const buildStages = array(c.rounds).map(object).filter(r => r.entity_type === "App\\Model\\OfflineRound"
-    && r.is_hidden === 0 && r.is_inactive === 0 && ["LIVE", "STARTED", "UPCOMING", "FINISHED"].includes(String(r.status)))
-    .flatMap(r => array(r.details).map(object).filter(stage => explicitBuildStage(stage, r)));
-  if (buildStages.length === 1) {
-    const stage = buildStages[0];
-    issues.push(...invalidDates([stage.start_date,stage.end_date]));
-    const start = timestamp(stage.start_date), end = timestamp(stage.end_date);
-    // Do not automatically reconcile prose dates or envelope multiple stages into an event.
-    const otherEnds = array(c.rounds).map(object).filter(r => r.is_hidden === 0 && r.is_inactive === 0)
-      .flatMap(r => array(r.details).map(object)).filter(r => r !== stage)
-      .some(r => end && (eventDate(timestamp(r.end_date), true) ?? -Infinity) > (eventDate(end, true) ?? Infinity));
-    if (otherEnds || /\bEvent Dates?\s*:/i.test(plain(c.details, 20000))) issues.push("event_schedule_requires_reconciliation");
-    else if (start && end) {
-      if (eventDate(end, true)! <= eventDate(start)!) issues.push("event_window_contradiction");
-      else { f.start_date = start; f.end_date = end; }
-    }
-  } else if (buildStages.length > 1) issues.push("ambiguous_hackathon_build_stages");
+  const window = reconciledBuildWindow(c.rounds, issues);
+  if (window && /\bEvent Dates?\s*:/i.test(plain(c.details, 20000))) issues.push("event_schedule_requires_reconciliation");
+  else if (window) { f.start_date = window.start; f.end_date = window.end; }
   f.registration_start = timestamp(reg.start_regn_dt); f.registration_end = timestamp(reg.end_regn_dt);
   f.min_team_size = integer(reg.min_team_size); f.max_team_size = integer(reg.max_team_size);
   f.mode = ["online", "offline", "hybrid"].includes(String(c.region)) ? c.region === "offline" ? "in-person" : String(c.region) : null;
@@ -145,7 +203,7 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   if (/CANCELLED|CANCELED/i.test(String(c.event_status))) issues.push("unrecognized_or_cancelled_event_status");
   registration(f, reg.reg_status, now);
   return finish(identity, f, category, null, now, hash, {
-    event_dates: f.start_date && f.end_date ? "single public OfflineRound with an explicit build activity label and complete stage-bound build statement; competition window ignored" : "actual event dates unverified; competition window and ambiguous/adjacent stages ignored",
+    event_dates: f.start_date && f.end_date ? "complete reconciled public build-stage inventory; explicit activity and stage-bound statements; competition window ignored" : "actual event dates unverified; competition window ignored; unresolved stage relationships held",
     event_date_basis: f.start_date && f.end_date ? UNSTOP_EVENT_DATE_BASIS : "unverified",
     competition_window: "not an actual event schedule; never used for lifecycle",
     registration: "competition.regnRequirements", publication_status: String(c.status || "not published"),

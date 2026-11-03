@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identifySource, parseDevfolio, parseHack2skill, parseUnstop, type Observation, type SourceIdentity } from "./providers";
-import { hasEventScheduleEvidence, object, sourceMetadata, text } from "./source";
+import { hasEventScheduleEvidence, object, sourceMetadata, sourceProvider, text } from "./source";
 import { discoverSources, SourceTransport } from "./sourceTransport";
 import { eventDate, listedEventState, registrationState } from "./lifecycle";
 
@@ -23,6 +23,7 @@ function deadline(value: string): string {
   return value.length === 10 ? new Date(Date.parse(value + "T00:00:00+05:30") + 86400000).toISOString() : value;
 }
 export function sourcePatch(observation: Observation): Record<string, unknown> {
+  if (!sourceMetadata(observation)) return {};
   const f = observation.facts, patch: Record<string, unknown> = {};
   for (const field of fields) {
     if (field === "tags" || field === "rounds_count") continue;
@@ -46,9 +47,9 @@ export function reconciliation(record: CatalogRecord | undefined, observation: O
     if (JSON.stringify(before) !== JSON.stringify(value)) changes[key] = { before: key === "description" ? "[existing text; protected pending review]" : before, after: value };
   }
   const state = hasEventScheduleEvidence(observation) ? observation.event_status : "unknown", registration = observation.facts.registration_status;
-  const classification = observation.check_status !== "ok" ? "unresolved" : state === "ended" ? "confirmed_ended_propose_suppression" : observation.category !== "hackathon" ? "unresolved"
+  const classification = !sourceMetadata(observation) || observation.check_status !== "ok" ? "unresolved" : state === "ended" ? "confirmed_ended_propose_suppression" : observation.category !== "hackathon" ? "unresolved"
     : registration === "open" ? "registration_open" : state === "ongoing" ? registration === "closed" ? "ongoing_registration_closed" : "ongoing" : "unresolved";
-  return { id: record?.id || null, name: observation.facts.name, provider: observation.provider, status: "dry_run", classification, changes,
+  return { id: record?.id || null, name: observation.facts.name, provider: sourceProvider(observation.provider), status: "dry_run", classification, changes,
     requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata)), evidence: observation };
 }
 

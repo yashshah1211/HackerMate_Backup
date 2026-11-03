@@ -2,13 +2,13 @@
   "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
   "branch": "fix/hackathon-aggregator-sync",
   "createdAt": "2026-11-02T13:58:57.987Z",
-  "publication": "Targeted follow-up to reviewed d0a9e0bf; user authorizes one new local commit only. Push, merge, deployment, PR state changes and production adoption remain unauthorized.",
+  "publication": "User explicitly authorizes exactly one new local follow-up commit after validation and final review. No push, PR state change, merge, deployment, production SQL or adoption writes are authorized.",
   "recommendation": {
     "draftReview": "GO",
     "productionRelease": "NO-GO",
-    "commitReadiness": "LOCAL_FOLLOW_UP_VALIDATED"
+    "commitReadiness": "VALIDATED_AUTHORIZED_LOCAL_FOLLOW_UP"
   },
-  "fileCount": 52,
+  "fileCount": 53,
   "inventory": [
     ".github/workflows/aggregator-qualification.yml",
     "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
@@ -31,6 +31,7 @@
     "scripts/qualify-aggregator.cjs",
     "scripts/reassess-aggregator-lifecycle.cjs",
     "scripts/reconcile-hackathon-catalog.cjs",
+    "scripts/test-aggregator-lifecycle-evidence.cjs",
     "scripts/test-aggregator-postgres.cjs",
     "scripts/test-aggregator-sources.cjs",
     "scripts/test-aggregator-transport.cjs",
@@ -77,7 +78,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/README.md": {
-      "sha256": "b86ccdc62d1f9e337ed4232a1d2eb944fd42e147e0dd993beef95b26ab0e6450",
+      "sha256": "57e8b53ebfe77d4900d6ceb2e9b5de26b2ecf0d1f6192d9f2c1835022913dd16",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
@@ -105,11 +106,11 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "qa/fixtures/aggregator/provider-facts.cjs": {
-      "sha256": "8cf59c856c0110e3da33d80c317a2d52952472b89f5c103e8865e13b45b82dc0",
+      "sha256": "79b3a518d455d99789b88514b244a663c88de28e2f3e85cc54da38fda892f1be",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "qa/fixtures/mission20-hotfix-browser.jsx": {
-      "sha256": "58e4b44151749fc0aa023b4bc929adb6ef7781ef0193a2c9338572d3a8b7195e",
+      "sha256": "94b42519918f37ba7806de1ce7f5ce9db5f365d2d7050df594480952ca9c75f7",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/aggregator-local-db.cjs": {
@@ -121,15 +122,15 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/qualify-aggregator.cjs": {
-      "sha256": "b1e84e65bc4c6e8acf8ac8eca99c7471f4e4a5d122319ec113a64bb20648f5ec",
+      "sha256": "8ac62a8492c5941cdb9bf5dfbb76405a3cc755fe400a843257fe02e10688a882",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/reconcile-hackathon-catalog.cjs": {
-      "sha256": "28451e47c2b5154afe80beea1c08002918b2de227df94e1499239b416e585487",
+      "sha256": "34f1308c127a6f73ace21aca357b677f98e8c8541514a74037290faf31414364",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-postgres.cjs": {
-      "sha256": "fcb47283d9d45fc7913475cf962a898e0dfa49beac0c08de90feba52e7c5bdb4",
+      "sha256": "28c9509562181a7e3e1e144d308225d7f20be8bf63e89bd9f1f1e37f90fac90c",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-aggregator-sources.cjs": {
@@ -157,7 +158,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-mission20-discovery-hotfix-browser.cjs": {
-      "sha256": "513caa932cbf07022541bbd3c380a0b135cf892decc3912835d19ad5dbeae298",
+      "sha256": "67108860823e0f14ea9f8f12545c0c0f6856cfcf0f5d2928f42e412358e60466",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "scripts/test-mission20-discovery-hotfix.cjs": {
@@ -225,7 +226,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/providers.ts": {
-      "sha256": "a7c7adae8254f5ad2dd244de0b082b43d7a7c63dbdeb862365f1817cf39ea9ea",
+      "sha256": "350e7193ee48c85a33913c1f8f5318271aa0e1cc498507bffa56c58004a45b83",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/publicBrowsing.ts": {
@@ -233,7 +234,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/source.ts": {
-      "sha256": "480bbb55dde7c5551eb9ea5a2e209aab960a1adbf15d52fea736ae9fb5876c9b",
+      "sha256": "5b90e8fd8ad320da13d9a953f88c6c1fe159dd07d4a19b32e4f34830da5e2be0",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/sourceTransport.ts": {
@@ -241,7 +242,7 @@
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/lib/hackathons/synchronize.ts": {
-      "sha256": "3d407ad615a0a4d532cdcd76c5c47efc30a16029f3b691afac71782d8bd1f280",
+      "sha256": "82def609abd0ba270679046e5bc09f0261076e886fdce627958bb25f08aa27a7",
       "encoding": "UTF-8, CRLF normalized to LF"
     },
     "src/types/supabase.ts": {
@@ -267,9 +268,13 @@
     "scripts/reassess-aggregator-lifecycle.cjs": {
       "sha256": "1cdce3a9b7aaca0dbf43250a2b01f0aad9a92076ce276965de65ba3603cf662c",
       "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-lifecycle-evidence.cjs": {
+      "sha256": "a23d20e49b57c1c8b6b89d8e81c3e0a5256d69aafd00a2396d010e48d4ffdf96",
+      "encoding": "UTF-8, CRLF normalized to LF"
     }
   },
-  "sourceTreeSha256": "36056ec0d450ae7c182bdf1d4aefbb3c7c0dd7cd086867f379b3397a25dae4cf",
+  "sourceTreeSha256": "1e6a9a49177dbf76b9795e40be4d17e0109e0559a7074bdc452f0c7c24162e04",
   "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
   "checks": {
     "application": {
@@ -666,7 +671,7 @@
     "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
     "inventoryUnchanged": true
   },
-  "updatedAt": "2026-11-03T11:05:43.210Z",
+  "updatedAt": "2026-11-03T11:38:18.768Z",
   "reviewFollowup": {
     "base": "ce82618a815527327f256c3599cca2c00a013e4d",
     "files": [
@@ -1489,6 +1494,313 @@
         "path": "scratch/aggregator-audit/stage-hardening-browser-qualified.log",
         "sha256": "01386adb83fe400f4077225b4d55aee1f58e971d57570336f0c50321ce8fda4f"
       }
+    }
+  },
+  "incompleteEvidenceCorrection": {
+    "reviewedParent": "a9ec8160384f3504120a0fb78e11d177a9088560",
+    "status": "LOCAL_VALIDATION_COMPLETE_READY_FOR_INDEPENDENT_REVIEW",
+    "changedFiles": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "qa/fixtures/aggregator/provider-facts.cjs",
+      "qa/fixtures/mission20-hotfix-browser.jsx",
+      "scripts/qualify-aggregator.cjs",
+      "scripts/reconcile-hackathon-catalog.cjs",
+      "scripts/test-aggregator-lifecycle-evidence.cjs",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "src/lib/hackathons/providers.ts",
+      "src/lib/hackathons/source.ts",
+      "src/lib/hackathons/synchronize.ts"
+    ],
+    "authorization": {
+      "planExplicitlyApproved": true,
+      "localFollowupCommitsAuthorized": 1,
+      "message": "fix(aggregator): fail closed on incomplete lifecycle evidence",
+      "preservePriorCommits": true,
+      "push": false,
+      "merge": false,
+      "deploy": false,
+      "productionWrites": false,
+      "prRemainsDraft": true
+    },
+    "rootCausesAndFixes": [
+      {
+        "finding": "Medium: discarded sibling stages permitted false whole-event certainty",
+        "rootCause": "The positive predicate removed ambiguous stages before reconciliation; only remaining sibling end dates were compared.",
+        "fix": "Reconcile the full potentially public inventory. Unknown semantics, incomplete or contradictory relevant windows, incoherent ordering and parent/child disagreements hold the schedule. Complete no-building assertions distinguish unrelated activity. Equal complete windows or explicitly parent-linked adjoining build stages remain supported."
+      },
+      {
+        "finding": "Medium: evidence-less retained reports preserved unsafe proposals",
+        "rootCause": "reinterpretRetained returned results with no evidence unchanged.",
+        "fix": "Validate evidence before reinterpretation. Missing/malformed evidence yields unresolved plus empty changes. Preserve original claims/evidence, mark every retained result requires_fresh_verification, and test both resume modes through serialized reload/replay. The status resume selector also checks issues as an array before membership testing."
+      },
+      {
+        "finding": "Low: coerced provider metadata bypassed provenance",
+        "rootCause": "String(provider) enum validation disagreed with raw strict provider comparison.",
+        "fix": "Centralize exact primitive provider identity validation. Reject malformed identity fields and enum arrays. Source projection, schedule evidence, patching and reconciliation use validated metadata/identity."
+      }
+    ],
+    "provenance": {
+      "parserVersion": "aggregator-7",
+      "current": "reconciled_hackathon_build_stages_v3",
+      "revoked": [
+        "published_hackathon_build_stage",
+        "explicit_hackathon_build_stage_v2"
+      ],
+      "newCheckRequired": true,
+      "noSchemaChanges": true
+    },
+    "decisions": {
+      "unrelatedActivities": "Full supported no-building statement plus agreeing activity label/optional parent semantics; no title-only keyword exclusions. Missing unrelated boundaries are permitted, supplied malformed/contradictory dates are held.",
+      "multipleBuildStages": "Matching complete boundaries, or a shared explicit whole-build parent with matching complete boundaries and ordered exactly adjoining child windows. No inferred union across independent rounds, unknown gaps or partial overlap.",
+      "unknownRelationships": "Fail closed regardless of where the opaque stage falls relative to the supported build.",
+      "runtime": "Set/Map inventory processing is linear; existing transport/runtime limits and dependencies unchanged."
+    },
+    "redPhase": {
+      "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=tap scripts/test-aggregator-lifecycle-evidence.cjs",
+      "productionCodeUnchanged": true,
+      "tests": 71,
+      "passed": 24,
+      "failed": 47,
+      "skipped": 0,
+      "allThreeFindingsReproduced": true,
+      "note": "Final suite expanded to 81 tests with more lifecycle-state, UTC/India, malformed-issues and repeated-report-replay assertions."
+    },
+    "beforeAfter": {
+      "futureSiblingPast": {
+        "before": [
+          "v2",
+          "ended",
+          "event-date patches",
+          "confirmed_ended_propose_suppression"
+        ],
+        "after": [
+          "unverified",
+          "unknown",
+          "no event-date patches",
+          "unresolved"
+        ]
+      },
+      "futureSiblingOngoing": {
+        "before": [
+          "v2",
+          "ongoing",
+          "Active selected",
+          "event-date patches"
+        ],
+        "after": [
+          "unverified",
+          "unknown",
+          "not Active",
+          "no event-date patches"
+        ]
+      },
+      "evidenceLessReport": {
+        "before": "Suppression and date proposals retained unchanged",
+        "after": "Unresolved; current changes empty; originals retained; requires fresh verification"
+      },
+      "arrayProvider": {
+        "before": "Accepted as Unstop by coercion, then bypassed marker and authorized lifecycle/patches",
+        "after": "Rejected metadata; no schedule evidence, Active selection or date patches"
+      },
+      "originalThreeExploits": "Grand Finale, Presentations and Orientation remain rejected with ongoing/past windows."
+    },
+    "checks": {
+      "focused": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=tap scripts/test-aggregator-lifecycle-evidence.cjs scripts/test-aggregator-sources.cjs",
+        "tests": 227,
+        "passed": 227,
+        "failed": 0,
+        "skipped": 0,
+        "newTests": 81,
+        "priorSourceTests": 146
+      },
+      "application": {
+        "command": "node scripts/qualify-aggregator.cjs",
+        "tests": 1867,
+        "passed": 1867,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "selectedFiles": 32
+      },
+      "postgres": {
+        "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "checks": 30,
+        "version": "17.6",
+        "newInventoryWindows": 8,
+        "productionConnections": 0,
+        "productionWrites": 0,
+        "disposable": true,
+        "cleanup": "Existing finally stops and removes its verified temporary cluster"
+      },
+      "browser": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "widths": [
+          390,
+          768,
+          1440
+        ],
+        "roles": [
+          "guest",
+          "member"
+        ],
+        "originalExploitRows": 6,
+        "newInventoryRows": 8,
+        "malformedOrV2CacheRows": 2,
+        "externalRequests": 0,
+        "writes": 0
+      },
+      "typescript": {
+        "command": "node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "passed": true,
+        "scopedFiles": 35,
+        "newErrors": 0,
+        "newWarnings": 0,
+        "preservedLegacyBaselines": [
+          {
+            "file": "src/app/hackathons/[id]/page.tsx",
+            "errors": 5,
+            "warnings": 5
+          },
+          {
+            "file": "src/app/admin/_tabs/OutreachTab.tsx",
+            "errors": 12,
+            "warnings": 4
+          }
+        ]
+      },
+      "build": {
+        "command": "node qa/rack-qualification.cjs build",
+        "passed": true,
+        "syntheticReads": 3,
+        "mutations": 0,
+        "credentials": "Scrubbed; .env files refused",
+        "externalApplicationNetwork": "Denied"
+      },
+      "diffCheck": {
+        "command": "git diff --check",
+        "passed": true
+      }
+    },
+    "initialFailuresAndRecovery": [
+      "Expected red phase: 47 failing new tests before production changes.",
+      "Scoped lint rejected a test-local module variable; renamed to reportModule and final lint passed.",
+      "Sandbox PG initdb WAL rename, Chrome crash-handler launch and Next .next directory creation were denied. Same guarded synthetic fixtures/build passed outside the filesystem sandbox.",
+      "First unsandboxed browser assertions expected Registration closed for unresolved inventory observations. Corrected to the existing Registration availability unverified behavior, with closed retained for valid closed-registration observations. Final three journeys passed.",
+      "Initial audit wrapper attempted a non-exported main function. Re-ran the actual CLI twice; original and derived artifacts remained byte-identical.",
+      "Additional red phase found one malformed issues-object status-resume failure; added an array check and re-ran all 1867 application tests successfully.",
+      "A final historical-file comparison exceeded the default child-process output buffer; the bounded Git diff check and prior byte-for-byte CLI regeneration verification passed."
+    ],
+    "audit": {
+      "deterministic": true,
+      "allOriginalAndDerivedFilesByteIdentical": true,
+      "sourceSha256": "0a0c99b06493ba19736e14f0446133ae04a826fdafbb3ecf9ead4250cdebc603",
+      "records": 410,
+      "uniqueIds": 410,
+      "derived": {
+        "requires_fresh_evidence": 322,
+        "historical_registration_open_candidate": 84,
+        "historical_supported_event_end": 4
+      },
+      "withdrawn": {
+        "unstopOngoing": 115,
+        "additionalUnresolvedUnstopOngoingObservations": 81,
+        "unstopEnded": 204
+      },
+      "currentVerifiedCounts": null,
+      "approvedForWrite": 0
+    },
+    "localReview": {
+      "standards": "PASS; zero findings",
+      "spec": "PASS; zero actionable findings; 44 additional malformed-inventory in-memory probes passed; final malformed-issues selector and README reviewed again with no new findings",
+      "root": "PASS; complete production/test/documentation diff and exact 12-file scope inspected; all requested offline checks passed; no unrelated files."
+    },
+    "limitations": [
+      "No live provider recheck, hosted Auth/gateway acceptance, production query, adoption, PR mutation, push, merge or deployment occurred.",
+      "Only the documented complete grammar and coherent linked/matching multi-stage contracts are supported; unfamiliar genuine stages conservatively remain unverified.",
+      "V2 cached schedules intentionally lose authority until refreshed. Unresolved source checks keep registration availability unverified under existing freshness rules.",
+      "SQL remains unchanged and trusts service-generated patches; current application writer uses the guarded sourcePatch.",
+      "Existing middleware/Sentry instrumentation, missing-token and webpack-cache warnings remain; build uses no production credentials.",
+      "Final independent re-review and separately authorized current-head GitHub/Linux CI remain publication gates."
+    ],
+    "evidence": {
+      "before": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-before.log",
+        "sha256": "0f5f1b6bd2ade79d83e9e636c6edc69e54aa7e79c1012fa86ad83e300018fed7"
+      },
+      "focused": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-focused.log",
+        "sha256": "8acf386985b4cc68ecb2dead29bf59f9bcf639fc8229dd5309ce1479d1fd72c2"
+      },
+      "application": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-application.log",
+        "sha256": "6552c7de8edd4da84d6d7aa3257c0bd6fd30e03e81ba7f64eea251202a6b2d8c"
+      },
+      "postgres": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-postgres.log",
+        "sha256": "858000392e8481ca7273da509b59191005ee93089a1a2594d4cd30acd9202614"
+      },
+      "postgres-sandbox": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-postgres-sandbox.log",
+        "sha256": "2d84e1040d8094f756f0ae373cb60574a7af07f65380eaba4c2198dd56f2375a"
+      },
+      "browser": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-browser.log",
+        "sha256": "ca9576e5fb031825bcab18ab5b2c19538ad4a6bb973cbf87a364b73c3c2d9fb7"
+      },
+      "browser-sandbox": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-browser-sandbox.log",
+        "sha256": "78f978ffe293c617f49f7cde0c80bc3fab6a760dd5254e750cb693a574b0ebf2"
+      },
+      "browser-first": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-browser-first.log",
+        "sha256": "1be4e6da51a9baee435081fd01e12f3879e174bc1658f21b6dacf25762638945"
+      },
+      "typecheck": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "lint": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-lint.log",
+        "sha256": "4e633e6500d57da07884d2dce42e29f4c8919434b31cbb2b5cbd375dcd801e93"
+      },
+      "build": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-build.log",
+        "sha256": "f6da13751050177eca42adae8df5f3c5c5d5604f72dc06cbdd9b5495707421a9"
+      },
+      "build-sandbox": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-build-sandbox.log",
+        "sha256": "3498b9e871f8f8d6cdac2031fec96bdc0dab0ecce13a87a5b40874cc0459297c"
+      },
+      "audit": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-audit.log",
+        "sha256": "0044f45523c72a0cbc56281655d3afc5c9ea35e2be17529e9d4012208e86a2b2"
+      },
+      "resume-before": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-resume-before.log",
+        "sha256": "fd6a54919bdb4350775ce52a896c544ab6fbe723f91bbcf51b2655875216c7ba"
+      }
+    },
+    "additionalRedPhase": {
+      "tests": 81,
+      "passed": 80,
+      "failed": 1,
+      "case": "--recheck-status-from with evidence.issues = {} aborted before reinterpretation",
+      "fix": "Require an actual issues array before inspecting its status marker; malformed evidence is routed through fail-closed reinterpretation."
     }
   }
 }

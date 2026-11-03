@@ -2,11 +2,14 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {harness}=require('./ppt-vision-harness.cjs');
 const offline=harness({}, {URLSearchParams}).load('src/lib/hackathons/synchronize.ts');
+const {sourceMetadata}=harness().load('src/lib/hackathons/source.ts');
 function reinterpretRetained(row,result){
- if(!result.evidence)return result;
- const current=offline.reconciliation(row,result.evidence);
+ const evidence=sourceMetadata(result.evidence);
+ const current=evidence?offline.reconciliation(row,evidence):{classification:'unresolved',changes:{}};
  return {...result,original_classification:result.original_classification||result.classification,
+  original_changes:result.original_changes??result.changes??{},
   classification:current.classification,changes:current.changes,
+  status:'requires_fresh_verification',requires_fresh_verification:true,
   retainedInterpretation:'Original observation/check time retained; classification and patch re-evaluated under current evidence rules, not freshly verified.'};
 }
 async function main(){
@@ -20,7 +23,7 @@ async function main(){
  const resumeKey=args.includes('--recheck-status-from')?'--recheck-status-from':'--recheck-active-from';
  const prior=args.includes(resumeKey)?JSON.parse(fs.readFileSync(path.resolve(get(resumeKey)),'utf8')):null;
  if(prior&&(prior.snapshotSha256!==crypto.createHash('sha256').update(input).digest('hex')||prior.records!==rows.length))throw Error('Resume evidence does not match snapshot');
- const retained=new Map((prior?.results||[]).filter(r=>resumeKey==='--recheck-status-from'?!r.evidence?.issues?.includes('not_publicly_live'):!['registration_open','ongoing_registration_closed','ongoing'].includes(r.classification)).map(r=>[r.id,r]));
+ const retained=new Map((prior?.results||[]).filter(r=>resumeKey==='--recheck-status-from'?!(Array.isArray(r.evidence?.issues)&&r.evidence.issues.includes('not_publicly_live')):!['registration_open','ongoing_registration_closed','ongoing'].includes(r.classification)).map(r=>[r.id,r]));
  const results=[],startedAt=new Date().toISOString();
  for(let i=0;i<rows.length;i++){
   const row=rows[i];if(retained.has(row.id)){results.push(reinterpretRetained(row,retained.get(row.id)));continue;}

@@ -21,31 +21,36 @@ export type SourceMetadata = {
   last_values?: Record<string, unknown>; protected_fields?: string[]; attempt_id?: string;
 };
 export const SOURCE_MAX_AGE_MS = 26 * 60 * 60 * 1000;
-export const UNSTOP_EVENT_DATE_BASIS = "explicit_hackathon_build_stage_v2";
+export const UNSTOP_EVENT_DATE_BASIS = "reconciled_hackathon_build_stages_v3";
 export const object = (v: unknown): Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export const text = (v: unknown): string | null => typeof v === "string" && v.trim() ? v.trim() : null;
 export const array = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const integer = (v: unknown): number | null => typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= 10000 ? v : null;
+export const sourceProvider = (v: unknown): Provider | null => v === "unstop" || v === "devfolio" || v === "hack2skill" ? v : null;
+function hasSourceIdentity(m: Record<string, unknown>): boolean {
+  return sourceProvider(m.provider) !== null && text(m.provider_id) !== null && text(m.canonical_url) !== null;
+}
 
 /** Unstop competition windows and generic rounds are not an actual hackathon schedule.
- * Older observations (including the permissive v1 stage predicate) remain useful for
- * registration, never for inferred event timing; only a new check can grant v2 provenance. */
-export function hasEventScheduleEvidence(m: SourceMetadata): boolean {
-  return m.provider !== "unstop" || object(m.evidence).event_date_basis === UNSTOP_EVENT_DATE_BASIS;
+ * Older observations (including the incomplete v2 inventory check) remain useful for
+ * registration, never for inferred event timing; only a new check can grant v3 provenance. */
+export function hasEventScheduleEvidence(value: unknown): boolean {
+  const m = object(value);
+  return hasSourceIdentity(m) && (m.provider !== "unstop" || object(m.evidence).event_date_basis === UNSTOP_EVENT_DATE_BASIS);
 }
 
 export function sourceMetadata(v: unknown): SourceMetadata | null {
   const m = object(v), f = object(m.facts);
-  if (m.version !== 1 || !["unstop", "devfolio", "hack2skill"].includes(String(m.provider))
-    || !text(m.provider_id) || !text(m.canonical_url) || !["ok", "failed", "checking", "unresolved"].includes(String(m.check_status))
-    || !["hackathon", "other", "unknown"].includes(String(m.category)) || !text(f.name) || !text(m.checked_at) || !text(m.expires_at)
-    || !["open", "closed", "not-yet-open", "unknown"].includes(String(f.registration_status))) return null;
+  if (m.version !== 1 || !hasSourceIdentity(m)
+    || !["ok", "failed", "checking", "unresolved"].some(v => v === m.check_status)
+    || !["hackathon", "other", "unknown"].some(v => v === m.category) || !text(f.name) || !text(m.checked_at) || !text(m.expires_at)
+    || !["open", "closed", "not-yet-open", "unknown"].some(v => v === f.registration_status)) return null;
   if (m.protected_fields !== undefined && (!Array.isArray(m.protected_fields) || !m.protected_fields.every(v => typeof v === "string"))) return null;
   for (const key of ["start_date", "end_date", "registration_start", "registration_end"]) if (f[key] !== null && f[key] !== undefined && typeof f[key] !== "string") return null;
   if (!text(f.website_url) || typeof f.description !== "string" || !Array.isArray(f.rounds_info)
     || !f.rounds_info.every(r => typeof object(r).name === "string")
-    || !["upcoming", "ongoing", "ended", "unknown"].includes(String(m.event_status))
-    || !/^[0-9a-f]{64}$/.test(String(m.source_hash))) return null;
+    || !["upcoming", "ongoing", "ended", "unknown"].some(v => v === m.event_status)
+    || typeof m.source_hash !== "string" || !/^[0-9a-f]{64}$/.test(m.source_hash)) return null;
   for (const key of ["min_team_size", "max_team_size"]) if (f[key] != null && integer(f[key]) === null) return null;
   for (const key of ["description", "website_url", "college", "mode", "location", "prize_pool", "currency", "eligibility", "registration_url"]) {
     if (f[key] != null && typeof f[key] !== "string") return null;
