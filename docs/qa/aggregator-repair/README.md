@@ -4,6 +4,10 @@ Base/current `main`: `3a0b4d0488128fe730607ae1ef024a3bf52992e1`, independently r
 
 **Unstop lifecycle correction: ready for local review; production adoption remains NO-GO.** Founder-reported state: migration `20261102123742` installed/verified, ledger148, old scraper endpoints firewall-blocked, all Vercel cron disabled, zero legacy adoption. This follow-up neither connects to production nor changes/reapplies SQL, ledger, holds or data. PR#99 stays Draft/unmerged. See the corrected interpretation below; historical counts are not release targets.
 
+## Shared validation follow-up
+
+The approved local follow-up at baseline `9ef49c63` replaces structural trust with a shared identity/date/evidence validation contract. See [SHARED-VALIDATION.md](SHARED-VALIDATION.md) for the finite acceptance matrix, before/after reproductions, qualification results, file inventory and explicit limits. Previous evidence and audit records remain historical. No schema, adoption, Git, deployment or PR-state operation is authorized by this result.
+
 ## Incomplete-evidence correction following the second independent review
 
 This follow-up supersedes the stage-only v2 contract below. It addresses the three confirmed findings at `a9ec8160`: ambiguous siblings disappearing from reconciliation, evidence-less resume results retaining actionable claims, and coerced provider identities bypassing the Unstop marker. The scope and six-step plan were explicitly approved before implementation. No schema or dependencies change; the existing transport/runtime bounds remain in place.

@@ -2,7 +2,7 @@
 const {ESLint}=require('eslint'),{execFileSync}=require('node:child_process'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const lint=new ESLint(),legacy=['src/app/hackathons/[id]/page.tsx','src/app/admin/_tabs/OutreachTab.tsx'],base='3a0b4d0488128fe730607ae1ef024a3bf52992e1';
- const files=['src/lib/hackathons/source.ts','src/lib/hackathons/providers.ts','src/lib/hackathons/sourceTransport.ts','src/lib/hackathons/synchronize.ts',
+ const files=['src/lib/hackathons/sourceEvidence.ts','src/lib/hackathons/source.ts','src/lib/hackathons/providers.ts','src/lib/hackathons/sourceTransport.ts','src/lib/hackathons/synchronize.ts',
  'src/lib/hackathons/lifecycle.ts','src/lib/hackathons/discovery.ts','src/lib/hackathons/publicBrowsing.ts','src/lib/getLandingData.ts','src/types/supabase.ts',
  'src/app/api/admin/scrape-unstop/route.ts','src/app/api/cron/auto-scrape-leads/route.ts','src/app/hackathons/page.tsx','src/components/hackathons/SourceInformation.tsx',
  'src/components/hackathons/PublicHackathonDetail.tsx','src/components/landing/LandingHero.tsx',

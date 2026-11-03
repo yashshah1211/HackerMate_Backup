@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { identifySource, nextData, type SourceIdentity } from "./providers";
+import { validatedSourceIdentity } from "./sourceEvidence";
 import { array, object, text } from "./source";
 
 export type SourceResponse = { body: string; hash: string; checkedAt: number };
@@ -84,6 +85,7 @@ export class SourceTransport {
     return r;
   }
   async detail(identity: SourceIdentity): Promise<SourceResponse> {
+    if (!validatedSourceIdentity(identity)) throw new SourceUnavailable("Invalid source identity");
     // Respect an event-specific restriction even if its JSON API is otherwise public.
     await this.allowed(identity.canonical_url);
     return this.get(identity.provider === "unstop" ? `https://unstop.com/api/public/competition/${identity.provider_id}`

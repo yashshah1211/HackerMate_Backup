@@ -2,15 +2,16 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identifySource, parseDevfolio, parseHack2skill, parseUnstop, type Observation, type SourceIdentity } from "./providers";
-import { hasEventScheduleEvidence, object, sourceMetadata, sourceProvider, text } from "./source";
+import { hasEventScheduleEvidence, object, sourceMetadata, sourceProvider, text, validateSourceObservation } from "./source";
 import { discoverSources, SourceTransport } from "./sourceTransport";
-import { eventDate, listedEventState, registrationState } from "./lifecycle";
+import { eventDate, registrationState } from "./lifecycle";
+import { windowState, validatedSourceIdentity } from "./sourceEvidence";
 
 export const CATALOG_COLUMNS = "id,name,description,website_url,college,start_date,end_date,registration_start,registration_end,registration_status,min_team_size,max_team_size,mode,location,prize_pool,currency,rounds_info,rounds_count,tags,type,organizer_id,status,archived,source_metadata";
 export type CatalogRecord = Record<string, unknown> & { id: string; name: string; website_url: string | null };
 export type Reconciliation = {
   id: string | null; name: string; provider: string | null; status: string; classification: string;
-  changes: Record<string, { before: unknown; after: unknown }>; evidence?: Observation;
+  changes: Record<string, { before: unknown; after: unknown }>; evidence?: unknown; validation_errors?: string[];
   requires_adoption: boolean; reason?: string;
 };
 const fields = ["name", "description", "website_url", "college", "start_date", "end_date", "registration_start", "registration_end", "registration_status", "min_team_size", "max_team_size", "mode", "location", "prize_pool", "currency", "rounds_info", "rounds_count", "tags"];
@@ -22,44 +23,56 @@ function calendar(value: string): string {
 function deadline(value: string): string {
   return value.length === 10 ? new Date(Date.parse(value + "T00:00:00+05:30") + 86400000).toISOString() : value;
 }
-export function sourcePatch(observation: Observation): Record<string, unknown> {
-  if (!sourceMetadata(observation)) return {};
+export function sourcePatch(value: unknown, expected?: unknown): Record<string, unknown> {
+  const validated = validateSourceObservation(value, expected), observation = validated.metadata;
+  if (!observation || observation.check_status !== "ok" || observation.issues.length) return {};
   const f = observation.facts, patch: Record<string, unknown> = {};
   for (const field of fields) {
     if (field === "tags" || field === "rounds_count") continue;
-    if ((field === "start_date" || field === "end_date") && !hasEventScheduleEvidence(observation)) continue;
+    if ((field === "start_date" || field === "end_date") && !validated.schedule) continue;
     const value = object(f)[field];
     if (value === null || value === undefined || field === "registration_status" && value === "unknown" || field === "rounds_info" && !f.rounds_info.length) continue;
     patch[field] = value;
   }
-  if (f.start_date && hasEventScheduleEvidence(observation)) patch.start_date = calendar(f.start_date);
-  if (f.end_date && hasEventScheduleEvidence(observation)) patch.end_date = calendar(f.end_date);
+  if (f.start_date && validated.schedule) patch.start_date = calendar(f.start_date);
+  if (f.end_date && validated.schedule) patch.end_date = calendar(f.end_date);
   if (f.registration_end) patch.registration_end = deadline(f.registration_end);
   if (f.registration_start?.length === 10) patch.registration_start = new Date(f.registration_start + "T00:00:00+05:30").toISOString();
   if (f.rounds_info.length) patch.rounds_count = f.rounds_info.length;
   patch.tags = [observation.provider, ...(observation.category === "hackathon" ? ["Hackathon"] : [])];
   return patch;
 }
-export function reconciliation(record: CatalogRecord | undefined, observation: Observation): Reconciliation {
-  const patch = sourcePatch(observation), changes: Reconciliation["changes"] = {};
+export function reconciliation(record: CatalogRecord | undefined, value: unknown): Reconciliation {
+  const validated = validateSourceObservation(value, record?.website_url), observation = validated.metadata;
+  if (!observation) return { id: record?.id || null, name: record?.name || text(object(object(value).facts).name) || "Unverified source",
+    provider: sourceProvider(object(value).provider), status: "unresolved", classification: "unresolved", changes: {},
+    requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata, record.website_url)), evidence: value, validation_errors: validated.errors };
+  const patch = sourcePatch(observation, record?.website_url), changes: Reconciliation["changes"] = {};
   for (const [key, value] of Object.entries(patch)) {
     const before = record?.[key] ?? null;
     if (JSON.stringify(before) !== JSON.stringify(value)) changes[key] = { before: key === "description" ? "[existing text; protected pending review]" : before, after: value };
   }
-  const state = hasEventScheduleEvidence(observation) ? observation.event_status : "unknown", registration = observation.facts.registration_status;
-  const classification = !sourceMetadata(observation) || observation.check_status !== "ok" ? "unresolved" : state === "ended" ? "confirmed_ended_propose_suppression" : observation.category !== "hackathon" ? "unresolved"
+  const state = validated.schedule ? windowState(observation.facts.start_date, observation.facts.end_date, Date.parse(observation.checked_at)) : "unknown", registration = observation.facts.registration_status;
+  const classification = observation.check_status !== "ok" ? "unresolved" : state === "ended" ? "confirmed_ended_propose_suppression" : observation.category !== "hackathon" ? "unresolved"
     : registration === "open" ? "registration_open" : state === "ongoing" ? registration === "closed" ? "ongoing_registration_closed" : "ongoing" : "unresolved";
   return { id: record?.id || null, name: observation.facts.name, provider: sourceProvider(observation.provider), status: "dry_run", classification, changes,
-    requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata)), evidence: observation };
+    requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata, record.website_url)), evidence: value, validation_errors: validated.errors };
 }
 
 export async function observe(identity: SourceIdentity, transport: SourceTransport): Promise<Observation> {
+  if (!validatedSourceIdentity(identity)) throw new Error("Invalid source identity");
   const r = await transport.detail(identity);
   const observation = identity.provider === "unstop" ? parseUnstop(identity, JSON.parse(r.body), r.checkedAt, r.hash)
     : identity.provider === "devfolio" ? parseDevfolio(identity, r.body, r.checkedAt, r.hash)
     : parseHack2skill(identity, JSON.parse(r.body), r.checkedAt, r.hash);
   if (identity.provider === "hack2skill" && !/^[0-9a-f]{24}$/.test(identity.provider_id)) {
     observation.check_status = "unresolved"; observation.issues.push("provider_id_not_confirmed_by_listing");
+  }
+  const expected = identity.provider === "devfolio" && identity.provider_id === identity.slug ? identity.canonical_url : identity;
+  const validated = validateSourceObservation(observation, expected);
+  if (!validated.metadata) {
+    observation.check_status = "unresolved";
+    observation.issues = [...new Set([...observation.issues, ...validated.errors])];
   }
   return observation;
 }
@@ -93,32 +106,40 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
   const byUrl = new Map(discovery.identities.map(i => [i.canonical_url, i]));
   const discoveredIds = new Map(discovery.identities.map(i => [i.provider + ":" + i.provider_id, i]));
   const knownIds = new Map(records.flatMap(r => {
-    const m = sourceMetadata(r.source_metadata), legacy = identifySource(r.website_url);
+    const m = validateSourceObservation(r.source_metadata, r.website_url).identity, legacy = identifySource(r.website_url);
     const identity = m || (legacy?.provider === "unstop" ? legacy : null);
     return identity ? [[identity.provider + ":" + identity.provider_id, r] as const] : [];
   }));
   const work: { record?: CatalogRecord; identity: SourceIdentity }[] = [];
   // Give confirmed current/near-term hackathons priority, then rotate the remaining backlog by check time.
   // Cached facts only order checks; they never establish fresh admission without a successful recheck.
-  const relevant = (row: CatalogRecord) => { const m = sourceMetadata(row.source_metadata);
+  const relevant = (row: CatalogRecord) => { const m = sourceMetadata(row.source_metadata, row.website_url);
     if (!m || m.protected_fields?.length || m.category !== "hackathon" || m.check_status !== "ok") return false;
-    const facts = m.facts, clock = Date.now(), verifiedSchedule = hasEventScheduleEvidence(m), state = verifiedSchedule ? listedEventState(facts, clock) : "unknown";
-    if (verifiedSchedule && (m.event_status === "ended" || state === "ended")) return false;
+    const facts = m.facts, clock = Date.now(), verifiedSchedule = hasEventScheduleEvidence(m), state = verifiedSchedule ? windowState(facts.start_date, facts.end_date, clock) : "unknown";
+    if (verifiedSchedule && state === "ended") return false;
     return state === "ongoing" || registrationState({ ...facts, type: "native" }, clock) === "open"
       || (eventDate(facts.registration_start) ?? 0) > clock && (eventDate(facts.registration_start) ?? Infinity) < clock + 86400000;
   };
   const ordered = [...records].sort((a, b) => {
-    const am = sourceMetadata(a.source_metadata), bm = sourceMetadata(b.source_metadata);
-    return Number(!am) - Number(!bm) || Number(relevant(b)) - Number(relevant(a)) || (am ? Date.parse(am.checked_at) : 0) - (bm ? Date.parse(bm.checked_at) : 0);
+    const av = validateSourceObservation(a.source_metadata, a.website_url), bv = validateSourceObservation(b.source_metadata, b.website_url);
+    // A sound identity may be rechecked even when cached facts are unusable. Check time
+    // only orders this backlog; it cannot grant eligibility or patch authority.
+    return Number(!av.identity) - Number(!bv.identity) || Number(relevant(b)) - Number(relevant(a))
+      || (eventDate(object(a.source_metadata).checked_at) ?? 0) - (eventDate(object(b.source_metadata).checked_at) ?? 0);
   });
   for (const record of ordered) {
     if (record.organizer_id || !["external", "official"].includes(String(record.type)) || protectedIds.has(record.id) || protectedUrls.has(record.website_url)) continue;
-    const meta = sourceMetadata(record.source_metadata), inferred = identifySource(meta?.canonical_url || record.website_url);
+    const validated = validateSourceObservation(record.source_metadata, record.website_url), meta = validated.metadata;
+    if (record.source_metadata != null && !validated.identity) {
+      results.push({ id: record.id, name: record.name, provider: null, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: false,
+        reason: "invalid_cached_observation", validation_errors: validateSourceObservation(record.source_metadata, record.website_url).errors }); continue;
+    }
+    const inferred = identifySource(meta?.canonical_url || record.website_url);
     if (!inferred) { results.push({ id: record.id, name: record.name, provider: null, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: !meta, reason: "unsupported_source_identity" }); continue; }
-    const knownIdentity = meta || (inferred.provider === "unstop" ? inferred : null);
-    const identity = (knownIdentity && discoveredIds.get(knownIdentity.provider + ":" + knownIdentity.provider_id)) || byUrl.get(inferred.canonical_url) || (meta ? { ...inferred, provider_id: meta.provider_id } : inferred);
+    const knownIdentity = validated.identity || (inferred.provider === "unstop" ? inferred : null);
+    const identity = (knownIdentity && discoveredIds.get(knownIdentity.provider + ":" + knownIdentity.provider_id)) || byUrl.get(inferred.canonical_url) || (validated.identity || inferred);
     // Routine cron must not perform the unapproved legacy backfill, including metadata adoption.
-    if (!dryRun && !meta) { results.push({ id: record.id, name: record.name, provider: identity.provider, status: "requires_adoption", classification: "unresolved", changes: {}, requires_adoption: true }); continue; }
+    if (!dryRun && record.source_metadata == null) { results.push({ id: record.id, name: record.name, provider: identity.provider, status: "requires_adoption", classification: "unresolved", changes: {}, requires_adoption: true }); continue; }
     work.push({ record, identity });
   }
   const seen = new Set(work.map(w => w.identity.canonical_url));
@@ -148,9 +169,11 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
       expected = value.snapshot; leased = true;
     }
     checked++;
+    let evidence: Observation | undefined;
     try {
-      const observation = await observe(identity, transport), preview = reconciliation(record, observation);
+      const observation = evidence = await observe(identity, transport), preview = reconciliation(record, observation);
       if (dryRun) { results.push(preview); continue; }
+      if (!sourceMetadata(observation, record?.website_url)) throw new Error("invalid_source_observation");
       const result = await client.rpc("apply_hackathon_source_check", {
         p_id: record?.id || null, p_identity: { provider: observation.provider, provider_id: observation.provider_id, canonical_url: observation.canonical_url },
         p_observation: observation, p_patch: sourcePatch(observation), p_expected: expected, p_attempt: attempt,
@@ -164,7 +187,7 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
           p_patch: {}, p_expected: null, p_attempt: attempt, p_failure: "source_check_unsuccessful" }).abortSignal(signal);
         if (failed.error) { console.error("Source failure receipt unavailable; lease remains fail-closed:", failed.error); }
       }
-      results.push({ id: record?.id || null, name: record?.name || identity.canonical_url, provider: identity.provider, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata)), reason: "source_check_unsuccessful" });
+      results.push({ id: record?.id || null, name: record?.name || identity.canonical_url, provider: identity.provider, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata, record.website_url)), reason: "source_check_unsuccessful", evidence, validation_errors: evidence ? validateSourceObservation(evidence, record?.website_url).errors : [] });
     }
   }
   return { success: true, dryRun, checked, discovered: discovery.identities.length, discoveryFailures: discovery.failures,

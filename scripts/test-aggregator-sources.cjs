@@ -4,14 +4,14 @@ const fixture=require('../qa/fixtures/aggregator/provider-facts.cjs'),{record}=r
 const loader=harness({}, {URLSearchParams}),p=loader.load('src/lib/hackathons/providers.ts'),life=loader.load('src/lib/hackathons/lifecycle.ts'),s=loader.load('src/lib/hackathons/source.ts'),d=loader.load('src/lib/hackathons/discovery.ts'),sync=loader.load('src/lib/hackathons/synchronize.ts');
 const now=Date.parse('2026-11-02T12:00:00+05:30'),hash='a'.repeat(64),clone=x=>JSON.parse(JSON.stringify(x)),u=p.identifySource('https://unstop.com/hackathons/synthetic-1234');
 const observe=(patch={})=>{const raw=clone(fixture.unstop);Object.assign(raw.data.competition,patch);return p.parseUnstop(u,raw,now,hash);};
-const event=(m=observe())=>({...record,id:'synthetic',name:m.facts.name,source_metadata:m});
+const event=(m=observe())=>({...record,id:'synthetic',name:m.facts.name,website_url:m.canonical_url,source_metadata:m});
 const list=(rows,q='',clock=now)=>Array.from(d.discoverEvents(rows,d.readDiscoverySettings(new URLSearchParams(q)),[],new Set(rows.map(r=>r.id)),clock),r=>r.id);
 const html=x=>'<script id="__NEXT_DATA__" type="application/json">'+JSON.stringify(x)+'</script>';
 test('AlgoRush keeps stage/deadline/team facts without turning its competition or contest window into event completion',()=>{
  const m=p.parseUnstop(p.identifySource(record.website_url),fixture.algorush,now,hash),row=event(m),effective=s.synchronizedEvent(row);
  assert.equal(effective.start_date,null);assert.equal(effective.end_date,null);assert.equal(effective.registration_end,'2026-08-15T22:51:56+05:30');assert.equal(effective.max_team_size,1);
  assert.equal(m.facts.rounds_info[0].start_date,'2026-08-16T07:05:00+05:30');assert.equal(life.eventState(row,now),'unknown');assert.equal(life.registrationState(row,now),'closed');assert.deepEqual(list([row]),[]);
- assert.equal(list([row],'tab=all').length,1);assert.equal(list([row],'tab=saved').length,1);assert.equal(sync.reconciliation(record,m).classification,'unresolved');
+ assert.equal(list([row],'tab=all').length,1);assert.equal(list([row],'tab=saved').length,1);assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'unresolved');
 });
 test('new source-verified future open hackathon appears; imported physical dates are not substituted',()=>{
  const row=event();assert.deepEqual(list([row]),['synthetic']);assert.deepEqual(list([row],'tab=open'),['synthetic']);assert.equal(life.eventState(row,now),'upcoming');assert.equal(life.registrationState(row,now),'open');
@@ -80,7 +80,7 @@ test('source JSON projection never overwrites public identity, approval, archiva
 });
 
 test('an unresolved source observation is not promoted to confirmed-ended merely because it carries past dates',()=>{
- const m=observe({status:'UNPUBLISHED',start_date:'2026-08-01',end_date:'2026-08-02'});assert.equal(m.check_status,'unresolved');assert.equal(sync.reconciliation(record,m).classification,'unresolved');
+ const m=observe({status:'UNPUBLISHED',start_date:'2026-08-01',end_date:'2026-08-02'});assert.equal(m.check_status,'unresolved');assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'unresolved');
 });
 
 test('FINISHED publication never establishes actual event completion or contradicts an independently supported future build',()=>{
@@ -99,11 +99,11 @@ for(const item of fixture.unstopDiscrepancies)test('real discrepancy '+item.id+'
 
 test('past competition end and closed registration alone leave actual event unknown, not ended',()=>{
  const m=observe({rounds:[],start_date:'2026-10-01',end_date:'2026-11-01',status:'FINISHED',regnRequirements:{start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-01',reg_status:'FINISHED'}});
- assert.equal(m.event_status,'unknown');assert.equal(m.facts.start_date,null);assert.equal(m.facts.registration_status,'closed');assert.equal(sync.reconciliation(record,m).classification,'unresolved');assert.deepEqual(list([event(m)]),[]);
+ assert.equal(m.event_status,'unknown');assert.equal(m.facts.start_date,null);assert.equal(m.facts.registration_status,'closed');assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'unresolved');assert.deepEqual(list([event(m)]),[]);
 });
 test('old Unstop observations cannot promote unsafe dates, label ongoing/ended or patch event dates',()=>{
  const m=observe();delete m.evidence.event_date_basis;m.event_status='ended';m.parser_version='aggregator-4';
- assert.equal(life.eventState(event(m),now),'unknown');assert.equal(s.synchronizedEvent(event(m)).start_date,null);assert(!Object.hasOwn(sync.sourcePatch(m),'start_date'));assert.equal(sync.reconciliation(record,m).classification,'registration_open');
+ assert.equal(life.eventState(event(m),now),'unknown');assert.equal(s.synchronizedEvent(event(m)).start_date,null);assert(!Object.hasOwn(sync.sourcePatch(m),'start_date'));assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'registration_open');
  m.facts.registration_status='closed';assert.deepEqual(list([event(m)]),[]);
 });
 for(const field of ['is_hidden','is_inactive','status','entity_type'])test('unsupported/private/draft stage cannot establish actual dates: '+field,()=>{
@@ -125,7 +125,7 @@ test('a typed stage mentioning a hackathon is insufficient, and unreconciled pro
 
 test('actual build dates include the full India final calendar day and preserve explicit timezone instants',()=>{
  const m=observe({rounds:[fixture.buildStage('2026-11-02','2026-11-02')]});
- m.checked_at='2026-11-01T23:59:00+05:30';m.expires_at='2026-11-03T01:59:00+05:30';
+ m.checked_at='2026-11-01T23:59:00+05:30';m.event_status='upcoming';m.expires_at='2026-11-03T01:59:00+05:30';
  for(const [time,state]of [['2026-11-01T23:59:59.999+05:30','upcoming'],['2026-11-02T00:00:00+05:30','ongoing'],['2026-11-02T23:59:59.999+05:30','ongoing'],['2026-11-03T00:00:00+05:30','ended']])assert.equal(life.eventState(event(m),Date.parse(time)),state);
  const offset=observe({rounds:[fixture.buildStage('2026-11-02T18:30:00Z','2026-11-03T01:00:00+05:30')]});assert.equal(life.eventState(event(offset),Date.parse('2026-11-03T00:00:00+05:30')),'ongoing');
 });
@@ -192,18 +192,18 @@ for(const [index,[title,display_text]]of rejectedStages.entries())for(const wind
  assert.equal(life.eventState(row,now),'unknown');assert.equal(life.eventStateLabel(row,now),'Event schedule unverified');assert.equal(life.activeOpportunity(row,now),false);
  assert.deepEqual(list([row]),[]);assert.deepEqual(list([row],'tab=ongoing'),[]);assert.equal(s.synchronizedEvent(row).start_date,null);
  const patch=sync.sourcePatch(m);assert(!Object.hasOwn(patch,'start_date'));assert(!Object.hasOwn(patch,'end_date'));
- assert.equal(sync.reconciliation(record,m).classification,'unresolved');assert.equal(life.registrationState(row,now),'closed');
+ assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'unresolved');assert.equal(life.registrationState(row,now),'closed');
 });
 for(const [field,value]of [['entity_type','App\\Models\\AssessmentRound\\Assessment'],['is_hidden',1],['is_inactive',1],['status','DRAFT']])test('contradictory detail metadata cannot override public parent stage: '+field,()=>{
  const stage=fixture.buildStage('2026-11-01','2026-11-03');stage.details[0][field]=value;
  const m=observe({rounds:[stage],regnRequirements:{...fixture.unstop.data.competition.regnRequirements,reg_status:'CLOSED'}});
  assert.equal(s.hasEventScheduleEvidence(m),false);assert.equal(m.facts.start_date,null);assert.equal(m.event_status,'unknown');assert.equal(life.activeOpportunity(event(m),now),false);
- assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));assert.equal(sync.reconciliation(record,m).classification,'unresolved');
+ assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'unresolved');
 });
 for(const patch of [{title:'Judging'},{display_text:'The actual hackathon build and judging take place in this stage.'}])test('contradictory parent semantics cannot be hidden by a build detail: '+JSON.stringify(patch),()=>{
  const stage=Object.assign(fixture.buildStage('2026-11-01','2026-11-03'),patch),m=observe({rounds:[stage]});
  assert.equal(s.hasEventScheduleEvidence(m),false);assert.equal(m.facts.start_date,null);assert.equal(life.eventState(event(m),now),'unknown');
- assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));assert.notEqual(sync.reconciliation(record,m).classification,'confirmed_ended_propose_suppression');
+ assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));assert.notEqual(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'confirmed_ended_propose_suppression');
 });
 const supportedStages=[
  ['Offline build',explicitBuild],
@@ -220,19 +220,19 @@ for(const [title,display_text]of supportedStages)for(const window of ['upcoming'
  assert.equal(m.check_status,'ok');assert.equal(s.hasEventScheduleEvidence(m),true);assert.equal(life.eventState(row,now),window);assert.equal(life.registrationState(row,now),'closed');
  assert.equal(life.activeOpportunity(row,now),window==='ongoing');assert.equal(list([row],'tab=ongoing').length,window==='ongoing'?1:0);
  assert.equal(sync.sourcePatch(m).start_date,start);assert.equal(sync.sourcePatch(m).end_date,end);
- assert.equal(sync.reconciliation(record,m).classification,window==='ended'?'confirmed_ended_propose_suppression':window==='ongoing'?'ongoing_registration_closed':'unresolved');
+ assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,window==='ended'?'confirmed_ended_propose_suppression':window==='ongoing'?'ongoing_registration_closed':'unresolved');
 });
 test('ambiguous actual stage keeps independently open registration without claiming ongoing',()=>{
  const stage=fixture.buildStage('2026-11-01','2026-11-03');Object.assign(stage.details[0],{title:'Grand Finale',display_text:'Final judging of the hackathon.'});
  const m=observe({rounds:[stage]}),row=event(m);
  assert.equal(life.registrationState(row,now),'open');assert.equal(life.eventState(row,now),'unknown');assert.equal(life.registrationLabel(row,now),'Registration listed as open');
- assert.equal(list([row],'tab=open').length,1);assert.deepEqual(list([row],'tab=ongoing'),[]);assert.equal(sync.reconciliation(record,m).classification,'registration_open');
+ assert.equal(list([row],'tab=open').length,1);assert.deepEqual(list([row],'tab=ongoing'),[]);assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'registration_open');
 });
 for(const state of ['ongoing','ended'])test('pre-fix stage provenance cannot survive through cached '+state+' facts',()=>{
  const m=observe({rounds:[fixture.buildStage('2026-11-01',state==='ended'?'2026-11-01':'2026-11-03')],regnRequirements:{...fixture.unstop.data.competition.regnRequirements,reg_status:'CLOSED'}});
  m.parser_version='aggregator-5';m.evidence.event_date_basis='published_hackathon_build_stage';
  const row=event(m);assert.equal(s.hasEventScheduleEvidence(m),false);assert.equal(life.eventState(row,now),'unknown');assert.equal(life.activeOpportunity(row,now),false);
- assert.equal(s.synchronizedEvent(row).start_date,null);assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));assert.equal(sync.reconciliation(record,m).classification,'unresolved');
+ assert.equal(s.synchronizedEvent(row).start_date,null);assert(!Object.hasOwn(sync.sourcePatch(m),'end_date'));assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'unresolved');
  const {reinterpretRetained}=require('./reconcile-hackathon-catalog.cjs');const retained=reinterpretRetained(record,{classification:'confirmed_ended_propose_suppression',evidence:m});
  assert.equal(retained.classification,'unresolved');assert(!Object.hasOwn(retained.changes,'end_date'));
 });

@@ -3,7 +3,6 @@ import {useSyncExternalStore} from 'react';
 import {record as algorush} from './mission20-unverified/algorush.json';
 import providerFacts from './aggregator/provider-facts.cjs';
 import {identifySource,parseUnstop} from '@/lib/hackathons/providers';
-import {UNSTOP_EVENT_DATE_BASIS} from '@/lib/hackathons/source';
 export default function Link({href,children,...props}) { return <a href={href} {...props}>{children}</a>; }
 const replace=history.replaceState.bind(history);
 history.replaceState=(...args)=>{replace(...args);window.dispatchEvent(new Event('popstate'));};
@@ -23,7 +22,7 @@ const event=(n,name,fields={})=>({id:id(n),name,description:'Synthetic event det
 const rows=[event(2,'Imported registration window'),event(3,'Closed applications future event',{registration_end:'2026-11-01'}),
  event(4,'Unverified availability event',{registration_start:null,registration_end:null}),
  event(5,'Ongoing event closed applications',{start_date:'2026-11-01',registration_end:'2026-10-31'}),
- event(6,'Ended event',{start_date:'2026-10-01',end_date:'2026-10-02',registration_end:'2026-09-30'}),
+ event(6,'Ended event',{start_date:'2026-10-01',end_date:'2026-10-02',registration_start:'2026-09-01',registration_end:'2026-09-30'}),
  event(7,'Registration opens later',{registration_start:'2026-11-04',registration_end:'2026-11-05'}),
  event(8,'India final day deadline',{registration_end:'2026-11-02'}),
  event(9,'Official import 1',{type:'official',website_url:'https://unstop.com/synthetic-1',start_date:'2026-11-01',registration_start:null,registration_end:null}),
@@ -31,12 +30,19 @@ const rows=[event(2,'Imported registration window'),event(3,'Closed applications
  event(30,'Build with AI: Bootcamps',{description:'Synthetic educational workshop replay; provider category supplied by independent review.'}),
  {...event(10,'AlgoRush replay'),...algorush}];
 // Fresh source evidence, synthetic provider facts; no production records are modified.
-const source=(row,category='hackathon')=>({version:1,provider:'unstop',provider_id:String(row.id),canonical_url:row.website_url,
- checked_at:'2026-11-02T06:29:00Z',expires_at:'2026-11-03T08:29:00Z',check_status:'ok',category,event_status:row.name==='Ended event'?'ended':'unknown',
- source_hash:'a'.repeat(64),parser_version:'browser-fixture',evidence:{event_date_basis:UNSTOP_EVENT_DATE_BASIS},issues:[],facts:{...row,registration_status:row.registration_end==='2026-11-01'||row.registration_end==='2026-10-31'?'closed':'open',rounds_info:[]}});
+const source=(row,category='hackathon')=>{
+ const existing=identifySource(row.website_url),providerId=existing?.provider==='unstop'?existing.provider_id:String(parseInt(row.id.slice(-12),16));
+ const canonical=existing?.canonical_url||'https://unstop.com/hackathons/synthetic-'+providerId,official=row.website_url;
+ row.website_url=canonical;
+ const raw={data:{competition:{id:providerId,title:row.name,type:'hackathons',status:'LIVE',details:'A hackathon.',region:row.mode,
+  regnRequirements:{start_regn_dt:row.registration_start,end_regn_dt:row.registration_end,reg_status:['2026-11-01','2026-10-31'].includes(row.registration_end)?'CLOSED':undefined},
+  rounds:[providerFacts.buildStage(row.start_date,row.end_date)]}}};
+ const m=parseUnstop(identifySource(canonical),raw,Date.parse('2026-11-02T06:29:00Z'),'a'.repeat(64));
+ m.category=category;m.facts.registration_url=official;return m;
+};
 for(const n of [2,3,5,6,8]){const row=rows.find(r=>r.id===id(n));row.source_metadata=source(row);}
 const boot=rows.find(r=>r.id===id(30));boot.source_metadata=source(boot,'other');
-const algo=rows.find(r=>r.id===algorush.id);algo.source_metadata=source({...algo,start_date:'2026-08-15T00:00:00+05:30',end_date:'2026-08-30T07:05:00+05:30',registration_end:'2026-08-15T22:51:56+05:30',max_team_size:1});algo.source_metadata.provider_id='1737089';algo.source_metadata.category='unknown';algo.source_metadata.facts.registration_start='2026-08-15T00:00:00+05:30';algo.source_metadata.event_status='unknown';algo.source_metadata.evidence={event_date_basis:'unverified'};algo.source_metadata.facts.registration_status='closed';
+const algo=rows.find(r=>r.id===algorush.id);algo.source_metadata=parseUnstop(identifySource(algorush.website_url),providerFacts.algorush,Date.parse('2026-11-02T06:29:00Z'),'a'.repeat(64));
 const params=new URLSearchParams(location.search),member=params.get('role')==='member';
 // Actual parser outputs, rather than hand-minted provenance, exercise adjacent-stage rejection.
 for(const [index,[title,display_text]]of [['Grand Finale','Final judging of the hackathon.'],['Presentations','The actual hackathon presentations take place in this stage.'],['Orientation','The actual hackathon participants attend a compulsory orientation session.']].entries())for(const past of [false,true]){
@@ -51,7 +57,7 @@ for(const [index,end]of [null,'not-a-date','2026-11-01','2026-11-06'].entries())
  const m=parseUnstop(identifySource('https://unstop.com/hackathons/synthetic-1234'),raw,Date.parse('2026-11-02T12:00:00+05:30'),'a'.repeat(64));
  rows.push({...event(n,c.title),...m.facts,source_metadata:m});
 }
-for(const [n,malform]of [[45,m=>{m.provider=['unstop'];delete m.evidence.event_date_basis;}],[46,m=>{m.evidence.event_date_basis='explicit_hackathon_build_stage_v2';}]]){
+for(const [n,malform]of [[45,m=>{m.provider=['unstop'];delete m.evidence.event_date_basis;}],[46,m=>{m.evidence.event_date_basis='explicit_hackathon_build_stage_v2';}],[47,m=>{m.provider='devfolio';delete m.evidence.event_date_basis;}],[48,m=>{m.facts.start_date='2026-11-05';m.facts.end_date='2026-11-01';m.event_status='ended';}],[49,m=>{m.facts.registration_end='abcdefghij';}]]){
  const fixture=event(n,'Invalid cache '+n,{start_date:'2026-11-01',registration_end:'2026-10-31'}),m=source(fixture);malform(m);rows.push({...fixture,source_metadata:m});
 }
 rows.sort((a,b)=>a.id.localeCompare(b.id)); // Match the public reader's ORDER BY id contract.

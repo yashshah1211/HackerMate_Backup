@@ -82,7 +82,12 @@ async function sustainedBacklog({detailMs=1200,failFirst=false,expiredFirst=fals
   return {id,...m.facts,type:'external',organizer_id:null,status:'approved',archived:false,tags:[],source_metadata:m};
  });
  if(endedVariant){const m=rows[0].source_metadata;m.category='hackathon';m.check_status='ok';
-  if(endedVariant==='reported')m.event_status='ended';else m.facts.end_date='2026-11-01';
+  if(endedVariant==='reported')m.event_status='ended';
+  else if(endedVariant==='dated')m.facts.end_date='2026-11-01';
+  else {
+   const raw=structuredClone(facts.unstop);Object.assign(raw.data.competition,{id:9000,rounds:[facts.buildStage('2026-10-30','2026-10-31')],regnRequirements:{start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-03',reg_status:'STARTED'}});
+   rows[0].source_metadata=parser.parseUnstop(parser.identifySource(rows[0].website_url),raw,Date.parse(m.checked_at),'a'.repeat(64));
+  }
  }
  if(expiredFirst)assert.equal(life.activeOpportunity(rows[82],base),false,'Expired evidence must remain ineligible until rechecked');
  const client=createClient('https://queue.invalid','synthetic-only',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(input,init)=>{
@@ -149,9 +154,9 @@ test('priority refresh failure is recorded fail-closed, never counted as success
  assert.equal(f.eligible.length,116);assert.equal(f.metrics.eligibleSuccesses,115);assert.equal(f.rows[82].source_metadata.check_status,'failed');assert.equal(f.life.activeOpportunity(f.rows[82],f.clock),false);
 });
 
-test('reported or factually ended records cannot gain priority from a cached open registration',async()=>{
- for(const endedVariant of ['reported','dated']){
+test('cached ended claims never gain priority; sound identities allow fresh lower-priority rechecking',async()=>{
+ for(const endedVariant of ['reported','dated','verified']){
   const f=await sustainedBacklog({endedVariant});assert.equal(f.checked[0].id,f.rows[82].id);assert.equal(f.eligible.length,116);
-  assert(f.lower.some(c=>c.id===f.rows[0].id),'Ended records retain lower-priority rechecking');
+  assert(f.lower.some(c=>c.id===f.rows[0].id),'Verified identities retain lower-priority fresh rechecking without trusting cached schedule claims');
  }
 });

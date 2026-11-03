@@ -29,12 +29,12 @@ test('longer canonical-path Disallow stops detail requests despite a shorter All
  const calls=[],transport=new SourceTransport(async url=>{
   calls.push(url);return new Response('User-agent: *\nAllow: /event/\nDisallow: /event/private');
  },10000,0);
- await assert.rejects(transport.detail(identifySource('https://hack2skill.com/event/private-entry')),/disallows/);
+ await assert.rejects(transport.detail({...identifySource('https://hack2skill.com/event/private-entry'),provider_id:'a'.repeat(24)}),/disallows/);
  assert.deepEqual(calls,['https://hack2skill.com/robots.txt']);
 });
 test('source detail checks both canonical event robots and API rules before requesting data',async()=>{
  const calls=[],t=new SourceTransport(async url=>{calls.push(url);return new Response('User-agent: *\nDisallow: /event/blocked');},10000,0);
- await assert.rejects(t.detail(identifySource('https://hack2skill.com/event/blocked')),/disallows/);assert.deepEqual(calls,['https://hack2skill.com/robots.txt']);
+ await assert.rejects(t.detail({...identifySource('https://hack2skill.com/event/blocked'),provider_id:'a'.repeat(24)}),/disallows/);assert.deepEqual(calls,['https://hack2skill.com/robots.txt']);
 });
 for(const code of [301,302,307,401,403,429,500])test('HTTP '+code+' never triggers redirect/auth bypass or guessed success',async()=>{
  const calls=[],t=new SourceTransport(async url=>{calls.push(url);return url.endsWith('robots.txt')?new Response(''):new Response('',{status:code,headers:{Location:'https://login.invalid'}});},10000,0);

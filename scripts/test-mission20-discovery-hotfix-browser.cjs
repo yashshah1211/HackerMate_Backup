@@ -35,7 +35,7 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    assert(await page.getByText(/Active listings require current source evidence/).isVisible());
    assert(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).isVisible());
    for(let n=31;n<=36;n++)assert.equal(await page.getByRole('link',{name:'Adjacent stage '+n,exact:true}).count(),0);
-   for(let n=37;n<=46;n++)assert.equal(await page.getByRole('link',{name:(n<=44?'Unresolved inventory ':'Invalid cache ')+n,exact:true}).count(),0);
+   for(let n=37;n<=49;n++)assert.equal(await page.getByRole('link',{name:(n<=44?'Unresolved inventory ':'Invalid cache ')+n,exact:true}).count(),0);
    for(const name of ['Closed applications future event','Ended event',algorush.name,'Unverified availability event','Build with AI: Bootcamps',...Array.from({length:8},(_,i)=>'Official import '+(i+1))])assert.equal(await page.getByRole('link',{name,exact:true}).count(),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-discovery-${width}.png`),fullPage:true});
    await page.getByRole('tab',{name:/^Registration Open/}).click();
@@ -95,7 +95,7 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    if(role==='guest')assert.equal(await page.getByRole('link',{name:/View event website/}).getAttribute('href'),algorush.website_url);
    assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-algorush-detail-${width}.png`),fullPage:true});
-   for(let n=31;n<=46;n++){
+   for(let n=31;n<=49;n++){
     await page.goto(BASE+`/hackathons/${id(n)}?role=${role}`);
     await page.getByRole('heading',{name:(n<=36?'Adjacent stage ':n<=44?'Unresolved inventory ':'Invalid cache ')+n,exact:true}).waitFor();
     assert(await page.getByText('Event schedule unverified',{exact:true}).isVisible());
