@@ -80,6 +80,7 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  // Actual parser -> installed SDK -> orchestration -> real PostgreSQL writer -> public projection.
  const {harness}=require('./ppt-vision-harness.cjs'),{createClient}=require('@supabase/supabase-js');
  const h=harness({}, {URLSearchParams}),{SourceTransport}=h.load('src/lib/hackathons/sourceTransport.ts'),{synchronizeCatalog,CATALOG_COLUMNS}=h.load('src/lib/hackathons/synchronize.ts');
+ const rpcTrace=[];let catalogScopeId=null;
  const {loadPublicEvent}=h.load('src/lib/hackathons/publicBrowsing.ts'),{activeOpportunity,registrationState}=h.load('src/lib/hackathons/lifecycle.ts');
  const api=createClient('https://synthetic.invalid','synthetic-only',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(input,init)=>{
   const url=new URL(typeof input==='string'?input:input.url);assert.equal(url.origin,'https://synthetic.invalid');
@@ -88,12 +89,13 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
     const body=JSON.parse(init.body),name=url.pathname.split('/').at(-1);let statement;
     if(name==='begin_hackathon_source_check')statement=`SELECT begin_hackathon_source_check('${body.p_id}','${body.p_attempt}')`;
     else {assert.equal(name,'apply_hackathon_source_check');statement=`SELECT apply_hackathon_source_check(${body.p_id?"'"+body.p_id+"'":'NULL'},${q(body.p_identity)},${body.p_observation?q(body.p_observation):'NULL'},${q(body.p_patch)},${body.p_expected?q(body.p_expected):'NULL'},'${body.p_attempt}',${body.p_failure?"'"+body.p_failure+"'":'NULL'},NULL)`;}
-    return Response.json(JSON.parse(db.sql('SET ROLE service_role;'+statement+';')));
+    const result=JSON.parse(db.sql('SET ROLE service_role;'+statement+';'));rpcTrace.push({name,body,result});return Response.json(result);
    }
    const table=url.pathname.split('/').at(-1);assert(['hackathons','partner_configs'].includes(table));
    if(table==='partner_configs')return Response.json([{hackathon_id:uid(778),features:{}}]);
    const identityFilter=url.searchParams.get('id'),where=identityFilter?(identityFilter.startsWith('gt.')?`WHERE id>'${identityFilter.slice(3)}'`:`WHERE id='${identityFilter.slice(3)}'`):'';
-   const rows=JSON.parse(db.sql(`SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM(SELECT ${CATALOG_COLUMNS} FROM hackathons ${where} ORDER BY id LIMIT 250)x;`));
+   const scope=catalogScopeId?`${where?' AND':' WHERE'} id='${catalogScopeId}'`:'';
+   const rows=JSON.parse(db.sql(`SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM(SELECT ${CATALOG_COLUMNS} FROM hackathons ${where}${scope} ORDER BY id LIMIT 250)x;`));
    const single=String(init?.headers?.get?.('Accept')||'').includes('object');return Response.json(single?rows[0]||null:rows);
   }catch(e){return Response.json({message:e.message,code:'FIXTURE_SQL'},{status:400});}
  }}});
@@ -137,16 +139,74 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
   assert.equal(db.sql(`SELECT start_date::text||'/'||end_date::text FROM hackathons WHERE id='${actual.id}'`),preservedDates);
  }
  pass('six adjacent-stage ongoing/past cases survive real parser/SDK/PG refresh with no date patches, authoritative lifecycle or suppression');
+ // The full-catalog chain above remains intact. Scope these lifecycle cases to their
+ // dedicated synthetic row so every other persisted row/link can be compared unchanged.
+ catalogScopeId=actual.id;
+ const {validateSourceObservation,hasEventScheduleEvidence}=h.load('src/lib/hackathons/source.ts');
+ const persisted=()=>JSON.parse(db.sql(`SELECT to_jsonb(h) FROM hackathons h WHERE id='${actual.id}'`));
+ const unrelated=()=>JSON.stringify(['hackathons','hackathon_registrations','team_hackathons','saved_hackathons','partner_configs'].map(table=>
+  db.sql(`SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]') FROM ${table} t${table==='hackathons'?` WHERE id<>'${actual.id}'`:''}`)));
+ async function verifyInventory(label,expected){
+  const previous=persisted(),others=unrelated(),traceStart=rpcTrace.length;
+  const result=await synchronizeCatalog(api,syncOptions()),receipt=result.results.find(r=>r.id===actual.id),projected=await loadPublicEvent(api,actual.id),stored=persisted();
+  assert(receipt,label+': synchronization receipt');
+  const observation=receipt.evidence,validation=validateSourceObservation(observation,actual.website_url);
+  const calls=rpcTrace.slice(traceStart),targetCalls=calls.filter(r=>r.body.p_id===actual.id),applyCall=targetCalls.find(r=>r.name==='apply_hackathon_source_check');
+  console.log(JSON.stringify({lifecycleCase:label,parserStatus:observation.check_status,eventStatus:observation.event_status,validationErrors:Array.from(validation.errors),syncStatus:receipt.status,sqlStatus:applyCall?.result.status,persistedCheckStatus:stored.source_metadata.check_status}));
+  assert.equal(receipt.status,expected.sync,label+': synchronization status');assert.equal(receipt.classification,expected.classification,label+': classification');
+  assert.notEqual(receipt.classification,'confirmed_ended_propose_suppression',label+': no suppression');
+  assert.deepEqual(Array.from(validation.errors),expected.errors,label+': shared validation errors');
+  assert.equal(observation.check_status,expected.supported?'ok':'unresolved',label+': parser status');
+  assert.equal(observation.event_status,expected.supported?'ongoing':'unknown',label+': parser lifecycle');
+  assert.equal(hasEventScheduleEvidence(observation),expected.supported,label+': schedule authority');
+  assert.equal(calls.length,targetCalls.length,label+': no unrelated RPC');assert.equal(targetCalls.length,2,label+': lease and one apply');
+  assert.equal(targetCalls[0].name,'begin_hackathon_source_check',label+': lease call');assert.equal(targetCalls[0].result.status,'leased',label+': lease response');
+  assert.equal(applyCall.result.status,expected.sql,label+': SQL response');assert.equal(stored.source_metadata.check_status,expected.stored,label+': persisted check status');
+  assert.equal(eventState(projected,Date.now()),expected.supported?'ongoing':'unknown',label+': public lifecycle');
+  assert.equal(activeOpportunity(projected,Date.now()),expected.supported,label+': intended Active selection');
+  if(expected.supported){
+   for(const field of ['start_date','end_date']){
+    assert.equal(projected[field],observation.facts[field],label+': supported public '+field);
+    const indiaDay=new Date(Date.parse(observation.facts[field])+19800000).toISOString().slice(0,10);
+    assert.equal(applyCall.body.p_patch[field],indiaDay,label+': supported patch '+field);assert.equal(stored[field],indiaDay,label+': persisted '+field);
+   }
+   assert.equal(registrationState(projected,Date.now()),'closed',label+': registration independent of ongoing build');
+  }else{
+   assert.deepEqual(Object.keys(receipt.changes),[],label+': no actionable patch');assert.deepEqual(applyCall.body.p_patch,{},label+': empty SQL patch');
+   for(const field of ['start_date','end_date']){
+    assert.equal(observation.facts[field],null,label+': unsupported parser '+field);assert.equal(projected[field],null,label+': unsupported public '+field);
+    assert.equal(stored[field],previous[field],label+': existing '+field+' protected');
+   }
+  }
+  if(expected.errors.length){
+   assert.equal(validation.metadata,null,label+': contradictory observation rejected');assert.equal(receipt.reason,'source_check_unsuccessful',label+': failure reason');
+   assert.deepEqual(Array.from(receipt.validation_errors),expected.errors,label+': receipt validation errors');
+   assert.equal(applyCall.body.p_observation,null,label+': no invalid observation sent to SQL');assert.equal(applyCall.body.p_failure,'source_check_unsuccessful',label+': failure receipt only');
+   assert.deepEqual(stored.source_metadata.facts,previous.source_metadata.facts,label+': last-known facts preserved');
+  }else{
+   assert(validation.metadata,label+': structurally usable observation');assert(applyCall.body.p_observation,label+': observation persisted');assert.equal(applyCall.body.p_failure,undefined,label+': no failure receipt');
+  }
+  for(const field of ['id','type','status','archived','organizer_id'])assert.equal(stored[field],previous[field],label+': catalog control '+field);
+  assert.equal(unrelated(),others,label+': unrelated records and links unchanged');
+ }
+ const insufficient={sync:'refreshed',sql:'refreshed',stored:'unresolved',classification:'unresolved',supported:false,errors:[]};
  for(const past of [false,true])for(const variant of ['missing','malformed','contradictory','complete']){
   const start=new Date(Date.now()-2*86400000).toISOString(),end=new Date(Date.now()+(past?-1:1)*86400000).toISOString(),laterStart=new Date(Date.now()+2*86400000).toISOString();
   const laterEnd=variant==='missing'?null:variant==='malformed'?'not-a-date':variant==='contradictory'?start:new Date(Date.now()+3*86400000).toISOString();
   inventoryOverride=require('../qa/fixtures/aggregator/provider-facts.cjs').incompleteInventory(start,end,laterStart,laterEnd);
-  const result=await synchronizeCatalog(api,syncOptions()),receipt=result.results.find(r=>r.id===actual.id),projected=await loadPublicEvent(api,actual.id);
-  assert.equal(receipt.status,'refreshed');assert.equal(receipt.classification,'unresolved');assert(!Object.hasOwn(receipt.changes,'start_date'));assert(!Object.hasOwn(receipt.changes,'end_date'));
-  assert.equal(projected.start_date,null);assert.equal(projected.end_date,null);assert.equal(eventState(projected,Date.now()),'unknown');assert.equal(activeOpportunity(projected,Date.now()),false);
+  const expected=variant==='contradictory'?{...insufficient,sync:'unresolved',sql:'failed',stored:'failed',errors:['contradictory_stage_window']}:insufficient;
+  await verifyInventory(`past=${past}, variant=${variant}`,expected);
   assert.equal(db.sql(`SELECT start_date::text||'/'||end_date::text FROM hackathons WHERE id='${actual.id}'`),preservedDates);
  }
  pass('eight incomplete/contradictory multi-stage inventories cannot patch dates or authorize lifecycle/suppression through real PG refresh');
+ const {buildStage}=require('../qa/fixtures/aggregator/provider-facts.cjs');
+ for(const variant of ['agreeing','linked']){
+  const start=new Date(Date.now()-2*86400000).toISOString(),middle=new Date(Date.now()-86400000).toISOString(),end=new Date(Date.now()+86400000).toISOString();
+  if(variant==='agreeing')inventoryOverride=[buildStage(start,end),buildStage(start,end)];
+  else {const parent={...buildStage(start,end),title:'Hackathon build',display_text:'The actual hackathon build takes place in this stage.',start_date:start,end_date:end};parent.details=[buildStage(start,middle).details[0],buildStage(middle,end).details[0]];inventoryOverride=[parent];}
+  await verifyInventory(`valid multi-stage=${variant}`,{sync:'refreshed',sql:'refreshed',stored:'ok',classification:'ongoing_registration_closed',supported:true,errors:[]});
+ }
+ pass('valid agreeing and explicitly linked multi-stage schedules refresh with supported dates and intended ongoing selection');
  // Application rollback compatibility, not a live Vercel routing/rollback claim.
  const {execFileSync}=require('node:child_process'),vm=require('node:vm'),ts=require('typescript');
  assert.equal(execFileSync(process.execPath,['-e','process.exit(0)'],{encoding:'utf8'}),'');pass('proposed Ignored Build Step command returns documented skip exit code locally');
