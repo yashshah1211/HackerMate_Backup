@@ -1,4 +1,4 @@
--- REVIEW ONLY. Never executed by this PR or its offline qualification.
+-- Release migration. Qualified only in the disposable native PG17.6 fixture; no production execution is authorized.
 -- Add a service-only metadata channel; existing factual writers and partner guards are unchanged.
 BEGIN;
 SET LOCAL lock_timeout = '2s';
@@ -106,10 +106,10 @@ BEGIN
   -- A conflicting organizer registration edit remains protected as well; no field is overwritten.
   FOREACH field IN ARRAY ARRAY['registration_start','registration_end','registration_status'] LOOP
     IF to_jsonb(h)->field IS NOT NULL AND to_jsonb(h)->field<>'null'::jsonb
-      AND to_jsonb(h)->field IS DISTINCT FROM CASE field
+      AND to_jsonb(h)->field IS DISTINCT FROM (CASE field
         WHEN 'registration_start' THEN coalesce(to_jsonb(reg_start),'null'::jsonb)
         WHEN 'registration_end' THEN coalesce(to_jsonb(reg_end),'null'::jsonb)
-        ELSE facts->field END
+        ELSE facts->field END)
       AND NOT locked ? field THEN locked := locked||jsonb_build_array(field); END IF;
   END LOOP;
   metadata := (p_observation - 'last_values' - 'protected_fields' - 'attempt_id')||jsonb_build_object(

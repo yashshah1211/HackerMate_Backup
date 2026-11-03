@@ -2,7 +2,7 @@
 
 ## November 3 partner-evidence follow-up
 
-The historical release/audit entries below describe earlier work. The focused follow-up at merge baseline `218d03e3` is documented in [PARTNER-EVIDENCE.md](PARTNER-EVIDENCE.md): captured provider-format support, metadata-only partner evidence, field-aware projection, bounded legacy review and useful unverified browsing. Its additive migration is committed for later approval and has **not** been executed. Production migration state is **UNVERIFIED** pending a separately approved read-only preflight; earlier installed-state statements below are historical claims, not a current verification.
+The historical release/audit entries below describe earlier work. The focused follow-up at merge baseline `218d03e3` is documented in [PARTNER-EVIDENCE.md](PARTNER-EVIDENCE.md): captured provider-format support, metadata-only partner evidence, field-aware projection, bounded legacy review and useful unverified browsing. Its additive migration is exercised only in the disposable native PostgreSQL 17.6 qualification fixture; it has **not** been executed against production. Production migration state is **UNVERIFIED** pending a separately approved read-only preflight; earlier installed-state statements below are historical claims, not a current verification.
 
 Base/current `main`: `3a0b4d0488128fe730607ae1ef024a3bf52992e1`, independently rechecked on GitHub November 2, 2026. Isolated worktree/branch: `hackathon-aggregator-repair` / `fix/hackathon-aggregator-sync`. The pre-interruption work and private audit material are preserved. Mission 20 #92/#93/#96 are untouched. This package introduces no native registration or C1/C2 adapter dependency.
 
