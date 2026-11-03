@@ -42,6 +42,10 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  assert.equal(db.sql("SELECT (name='hackathon_source_sync' AND statements=ARRAY["+"$reviewed$"+ddl+"$reviewed$"+"]) FROM supabase_migrations.schema_migrations WHERE version='20261102123742'"),'t');
  assert.throws(()=>db.sql(migration),/ledger differs/);assert.equal(db.sql("SELECT count(*) FROM supabase_migrations.schema_migrations"),'148');
  pass('single-file install records exact version/name/DDL atomically; replay fails closed');
+ const evidenceMigration=fs.readFileSync(path.join(db.root,'supabase/migrations/20261103154847_verified_source_evidence.sql'),'utf8');
+ db.sql(evidenceMigration);
+ assert.equal(db.sql("SELECT NOT prosecdef FROM pg_proc WHERE oid='public.store_hackathon_source_evidence(uuid,jsonb,jsonb,jsonb,uuid,text,boolean)'::regprocedure"),'t');
+ pass('actual partner evidence migration installs after the original migration as SECURITY INVOKER');
  const identity={provider:'unstop',provider_id:'1001',canonical_url:'https://unstop.com/hackathons/synthetic-1001'},attempt=uid(101);
  function observation(i=identity){const now=new Date();return {version:1,...i,checked_at:now.toISOString(),expires_at:new Date(+now+26*3600000).toISOString(),check_status:'ok',category:'hackathon',event_status:'upcoming',source_hash:'a'.repeat(64),parser_version:'fixture',facts:{name:'Synthetic source hackathon',description:'Original factual summary.',website_url:i.canonical_url,start_date:'2027-01-01T00:00:00+05:30',end_date:'2027-01-02T12:00:00+05:30',registration_start:now.toISOString(),registration_end:'2027-01-01T00:00:00+05:30',registration_status:'open',min_team_size:1,max_team_size:1,rounds_info:[],college:null,location:null,mode:'online',prize_pool:null,currency:null,eligibility:null},issues:[],evidence:{dates:'published fields',event_date_basis:UNSTOP_EVENT_DATE_BASIS}};}
  function patch(o){return {...o.facts,start_date:'2027-01-01',end_date:'2027-01-02',eligibility:undefined,rounds_count:null,tags:['unstop','Hackathon']};}
@@ -88,11 +92,12 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
    if(url.pathname.includes('/rpc/')){
     const body=JSON.parse(init.body),name=url.pathname.split('/').at(-1);let statement;
     if(name==='begin_hackathon_source_check')statement=`SELECT begin_hackathon_source_check('${body.p_id}','${body.p_attempt}')`;
+    else if(name==='store_hackathon_source_evidence')statement=`SELECT store_hackathon_source_evidence('${body.p_id}',${q(body.p_identity)},${body.p_observation?q(body.p_observation):'NULL'},${body.p_expected?q(body.p_expected):'NULL'},'${body.p_attempt}','${body.p_action}',${body.p_allow_initial})`;
     else {assert.equal(name,'apply_hackathon_source_check');statement=`SELECT apply_hackathon_source_check(${body.p_id?"'"+body.p_id+"'":'NULL'},${q(body.p_identity)},${body.p_observation?q(body.p_observation):'NULL'},${q(body.p_patch)},${body.p_expected?q(body.p_expected):'NULL'},'${body.p_attempt}',${body.p_failure?"'"+body.p_failure+"'":'NULL'},NULL)`;}
     const result=JSON.parse(db.sql('SET ROLE service_role;'+statement+';'));rpcTrace.push({name,body,result});return Response.json(result);
    }
    const table=url.pathname.split('/').at(-1);assert(['hackathons','partner_configs'].includes(table));
-   if(table==='partner_configs')return Response.json([{hackathon_id:uid(778),features:{}}]);
+   if(table==='partner_configs')return Response.json(JSON.parse(db.sql("SELECT coalesce(jsonb_agg(to_jsonb(p)),'[]') FROM partner_configs p")));
    const identityFilter=url.searchParams.get('id'),where=identityFilter?(identityFilter.startsWith('gt.')?`WHERE id>'${identityFilter.slice(3)}'`:`WHERE id='${identityFilter.slice(3)}'`):'';
    const scope=catalogScopeId?`${where?' AND':' WHERE'} id='${catalogScopeId}'`:'';
    const rows=JSON.parse(db.sql(`SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM(SELECT ${CATALOG_COLUMNS} FROM hackathons ${where}${scope} ORDER BY id LIMIT 250)x;`));
@@ -100,12 +105,13 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
   }catch(e){return Response.json({message:e.message,code:'FIXTURE_SQL'},{status:400});}
  }}});
  const futureStart=new Date(Date.now()+2*86400000).toISOString(),futureEnd=new Date(Date.now()+3*86400000).toISOString(),futureDeadline=new Date(Date.now()+86400000).toISOString();
- let verifiedBuildWindow=true,adjacentStage=null,inventoryOverride=null;
+ let verifiedBuildWindow=true,adjacentStage=null,inventoryOverride=null,partnerPayload=null,partnerSourceFailure=false;
  const fetchSource=async input=>{const u=new URL(input);
   if(u.pathname==='/robots.txt')return new Response('User-agent: *\nAllow: /');
-  if(u.pathname.endsWith('search-result'))return Response.json({data:{data:u.searchParams.get('page')==='1'&&u.searchParams.get('oppstatus')==='open'?[{id:9876,public_url:'hackathons/synthetic-9876'}]:[]}});
+  if(u.pathname.endsWith('search-result')){const sourceId=partnerPayload?1777639:9876;return Response.json({data:{data:u.searchParams.get('page')==='1'&&u.searchParams.get('oppstatus')==='open'?[{id:sourceId,public_url:'hackathons/synthetic-'+sourceId}]:[]}});}
   if(u.hostname==='devfolio.co')return new Response('<script id="__NEXT_DATA__">'+JSON.stringify({props:{pageProps:{dehydratedState:{queries:[{queryKey:'fetchAllHackathonTypes',state:{data:{open_hackathons:[],upcoming_hackathons:[]}}}]}}}})+'</script>');
   if(u.pathname.endsWith('/event/list'))return Response.json({data:{flagshipEvents:[],communityEvents:[]}});
+  if(partnerPayload){if(partnerSourceFailure)throw Error('Synthetic partner provider unavailable');return Response.json(partnerPayload);}
   const raw=JSON.parse(JSON.stringify(require('../qa/fixtures/aggregator/provider-facts.cjs').unstop));
   raw.data.competition.id=Number(u.pathname.split('/').at(-1));raw.data.competition.start_date=futureStart;raw.data.competition.end_date=futureEnd;raw.data.competition.rounds=verifiedBuildWindow?[require('../qa/fixtures/aggregator/provider-facts.cjs').buildStage(futureStart,futureEnd)]:[];
   raw.data.competition.regnRequirements={start_regn_dt:'2026-01-01T00:00:00+05:30',end_regn_dt:futureDeadline,min_team_size:1,max_team_size:2};
@@ -207,6 +213,90 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
   await verifyInventory(`valid multi-stage=${variant}`,{sync:'refreshed',sql:'refreshed',stored:'ok',classification:'ongoing_registration_closed',supported:true,errors:[]});
  }
  pass('valid agreeing and explicitly linked multi-stage schedules refresh with supported dates and intended ongoing selection');
+ // Date-shift the captured provider format to keep real SQL freshness checks meaningful
+ // on later CI runs. These are synthetic observations, never a new live Rack check.
+ const capture=require('../qa/fixtures/aggregator/rack-it-up-captured.json'),partnerId=uid(9000),partnerIdentity=capture.identity;
+ const stageStart=Math.floor((Date.now()+19800000)/86400000)*86400000-19800000+3*86400000+18*3600000,stageEnd=stageStart+48*3600000;
+ const iso=n=>new Date(n).toISOString(),words=n=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',weekday:'short',day:'numeric',month:'short',year:'numeric'}).format(new Date(n)).replace(',','')+' 6 PM';
+ const rounds=structuredClone(capture.rounds);
+ Object.assign(rounds[0].details[0],{start_date:iso(Date.now()-86400000),end_date:iso(stageStart-86400000),display_text:'<ul><li>Register on Unstop and build your team.</li><li>Registrations close before the hack.</li></ul>'});
+ Object.assign(rounds[1].details[0],{start_date:iso(stageStart),end_date:iso(stageEnd),display_text:`<ul><li>Build and deploy your project in 48 hours, from ${words(stageStart)} to ${words(stageEnd)} IST. Submit on Unstop before the deadline: your deployed project and public repository.</li></ul>`});
+ Object.assign(rounds[2].details[0],{start_date:iso(stageEnd+86400000),end_date:iso(stageEnd+2*86400000)});
+ partnerPayload={data:{competition:{id:1777639,title:'Synthetic captured-format partner hackathon',type:'hackathons',details:'A hackathon competition.',status:'LIVE',region:'online',rounds,
+  regnRequirements:{start_regn_dt:rounds[0].details[0].start_date,end_regn_dt:rounds[0].details[0].end_date,reg_status:'STARTED',min_team_size:1,max_team_size:4}}}};
+ db.sql(`INSERT INTO hackathons(id,name,description,website_url,college,start_date,end_date,registration_start,registration_end,registration_status,min_team_size,max_team_size,mode,location,prize_pool,currency,rounds_info,rounds_count,tags,type,organizer_id,status,archived,banner_url,max_participants,ai_feedback)
+ VALUES('${partnerId}','Organizer partner title','Complete organizer-managed description','https://unstop.com/o/1777639','Organizer campus','2030-01-01','2030-01-03','${rounds[0].details[0].start_date}','${rounds[0].details[0].end_date}','open',2,7,'offline','Organizer venue','Organizer awards','INR','[{"name":"Organizer round"}]',1,ARRAY['Editorial','Partner'],'external','${uid(1)}','approved',false,'https://example.invalid/banner.png',123,'{"editorial":"keep"}');
+ INSERT INTO partner_configs(hackathon_id,features)VALUES('${partnerId}','{"slug":"synthetic-partner","registration_enabled":true,"settings":{"theme":"organizer","team_size":7}}');
+ INSERT INTO hackathon_registrations(id,hackathon_id)VALUES('${uid(9001)}','${partnerId}');
+ INSERT INTO team_hackathons(id,hackathon_id)VALUES('${uid(9002)}','${partnerId}');
+ INSERT INTO saved_hackathons(id,hackathon_id)VALUES('${uid(9003)}','${partnerId}');`);
+ const partnerRow=()=>JSON.parse(db.sql(`SELECT to_jsonb(h) FROM hackathons h WHERE id='${partnerId}'`));
+ const dataSnapshot=(includeMetadata=true)=>JSON.stringify(['hackathons','hackathon_registrations','team_hackathons','saved_hackathons','partner_configs','profiles'].map(table=>
+  db.sql(`SELECT coalesce(jsonb_agg(${!includeMetadata&&table==='hackathons'?`CASE WHEN t.id='${partnerId}' THEN to_jsonb(t)-'source_metadata' ELSE to_jsonb(t) END`:'to_jsonb(t)'} ORDER BY to_jsonb(t)::text),'[]') FROM ${table} t`)));
+ const protectedData=dataSnapshot(false),assertProtected=()=>assert.equal(dataSnapshot(false),protectedData,'all event columns and every participant/team/saved/partner/profile row preserved');
+ const metadataSql=({action='apply',initial=false,attempt=uid(9010),value=null,expected=h.load('src/lib/hackathons/sourceEvidenceWriter.ts').evidenceSnapshot(partnerRow()),role='service_role'}={})=>
+  `SET ROLE ${role};SELECT store_hackathon_source_evidence('${partnerId}',${q(partnerIdentity)},${value?q(value):'NULL'},${q(expected)},'${attempt}','${action}',${initial});`;
+ const metadataCall=opts=>JSON.parse(db.sql(metadataSql(opts)));
+ const freshPartner=()=>{const checked=Date.now(),raw=JSON.stringify(partnerPayload);return h.load('src/lib/hackathons/providers.ts').parseUnstop(partnerIdentity,partnerPayload,checked,require('node:crypto').createHash('sha256').update(raw).digest('hex'));};
+ const assertNoMutation=fn=>{const before=dataSnapshot();fn();assert.equal(dataSnapshot(),before,'rejected call is atomic and changes no row');};
+ const signature='public.store_hackathon_source_evidence(uuid,jsonb,jsonb,jsonb,uuid,text,boolean)';
+ for(const role of ['anon','authenticated']){
+  assert.equal(db.sql(`SELECT has_function_privilege('${role}','${signature}','EXECUTE')`),'f');
+  assertNoMutation(()=>assert.throws(()=>metadataCall({role,initial:true,value:freshPartner()}),/permission denied/));
+ }
+ assert.equal(db.sql(`SELECT has_function_privilege('service_role','${signature}','EXECUTE')`),'t');
+ pass('real partner evidence function denies anonymous/authenticated direct access without mutation');
+ assertNoMutation(()=>assert.equal(metadataCall({value:freshPartner()}).status,'requires_adoption'));
+ const stale=freshPartner();stale.checked_at=iso(Date.now()-6*60000);stale.expires_at=iso(Date.parse(stale.checked_at)+26*3600000);
+ assertNoMutation(()=>assert.throws(()=>metadataCall({initial:true,value:stale}),/Stale source evidence/));
+ const mismatched=freshPartner();mismatched.facts.website_url='https://unstop.com/hackathons/other-999999';
+ assertNoMutation(()=>assert.throws(()=>metadataCall({initial:true,value:mismatched}),/Fact URL identity conflict/));
+ const {persistApprovedSourceEvidence}=h.load('src/lib/hackathons/sourceEvidenceWriter.ts'),m=freshPartner();
+ const approval={record_id:partnerId,provider_id:m.provider_id,source_hash:m.source_hash,checked_at:m.checked_at,approved_by:'synthetic CI reviewer',approved_at:iso(Date.now())};
+ const approvalTrace=rpcTrace.length,unapproved=dataSnapshot();
+ await assert.rejects(persistApprovedSourceEvidence(api,partnerRow(),m,{...approval,source_hash:'0'.repeat(64)}),/approval required/);
+ assert.equal(rpcTrace.length,approvalTrace);assert.equal(dataSnapshot(),unapproved);
+ const approved=await persistApprovedSourceEvidence(api,partnerRow(),m,approval);
+ assert.equal(approved.status,'evidence_refreshed');assert.equal(rpcTrace.length,approvalTrace+1);assertProtected();
+ catalogScopeId=partnerId;
+ let projectedPartner=await loadPublicEvent(api,partnerId);
+ assert.equal(registrationState(projectedPartner,Date.now()),'open');assert.equal(activeOpportunity(projectedPartner,Date.now()),true);assert.equal(eventState(projectedPartner,Date.now()),'unknown');
+ assert.equal(partnerRow().source_metadata.evidence_only,true);assert.equal(projectedPartner.description,'Complete organizer-managed description');assert.deepEqual(projectedPartner.tags,['Editorial','Partner']);
+ assert.equal(projectedPartner.start_date,'2030-01-01');assert.equal(projectedPartner.end_date,'2030-01-03');
+ pass('approved parser/SDK/real SQL partner adoption grants registration only and preserves complete organizer and relationship data; missing approval and stale initial evidence rejected');
+ db.sql(`INSERT INTO hackathons(id,name,type,website_url)VALUES('${uid(9004)}','Duplicate partner alias','external','https://unstop.com/hackathons/duplicate-1777639');`);
+ try{assertNoMutation(()=>assert.throws(()=>metadataCall({action:'lease'}),/duplicate source identity/));}finally{db.sql(`DELETE FROM hackathons WHERE id='${uid(9004)}';`);}
+ assertProtected();pass('real stable-identity duplicate detection rejects a different canonical alias without changes');
+ const leaseAttempt=uid(9011),partnerLease=metadataCall({action:'lease',attempt:leaseAttempt});assert.equal(partnerLease.status,'leased');assertProtected();
+ assert.equal(activeOpportunity(partnerRow(),Date.now()),false);
+ assertNoMutation(()=>assert.equal(metadataCall({action:'lease',attempt:uid(9012)}).status,'busy'));
+ assertNoMutation(()=>assert.equal(metadataCall({attempt:uid(9012),value:freshPartner()}).status,'superseded'));
+ assertNoMutation(()=>assert.throws(()=>metadataCall({attempt:leaseAttempt,value:stale,expected:partnerLease.snapshot}),/Stale source evidence/));
+ const conflict=freshPartner();Object.assign(conflict.facts,{registration_start:iso(Date.parse(conflict.facts.registration_start)-3600000),registration_end:iso(Date.parse(conflict.facts.registration_end)+3600000),registration_status:'closed'});
+ const beforeConflict=dataSnapshot(),conflictOutputs=db.sql('BEGIN;'+metadataSql({attempt:leaseAttempt,value:conflict,expected:partnerLease.snapshot})+`SELECT to_jsonb(h) FROM hackathons h WHERE id='${partnerId}';ROLLBACK;`).split('\n').map(line=>JSON.parse(line));
+ assert.equal(conflictOutputs[0].status,'evidence_refreshed');
+ for(const field of ['registration_start','registration_end','registration_status']){
+  assert(conflictOutputs[1].source_metadata.protected_fields.includes(field));assert.equal(conflictOutputs[1][field],partnerRow()[field]);
+ }
+ assert.equal(registrationState(conflictOutputs[1],Date.now()),'unknown');assert.equal(activeOpportunity(conflictOutputs[1],Date.now()),false);
+ assert.equal(dataSnapshot(),beforeConflict,'rollback-only registration conflict probe leaves every row unchanged');assertProtected();
+ pass('real registration CASE comparisons protect conflicting timestamp/status fields and withdraw registration authority');
+ const beforeFailure=partnerRow().source_metadata;
+ assert.equal(metadataCall({action:'failure',attempt:leaseAttempt}).status,'failed');assertProtected();
+ assert.deepEqual(partnerRow().source_metadata.facts,beforeFailure.facts);assert.equal(registrationState(partnerRow(),Date.now()),'unknown');assert.equal(activeOpportunity(partnerRow(),Date.now()),false);
+ pass('real lease/busy/superseded/stale refresh/failure receipts fail closed and preserve last-known evidence and all protected data');
+ catalogScopeId=partnerId;inventoryOverride=null;adjacentStage=null;
+ for(const fail of [false,true,false]){
+  partnerSourceFailure=fail;const traceStart=rpcTrace.length,beforeFacts=partnerRow().source_metadata.facts;
+  const result=await synchronizeCatalog(api,{...syncOptions(),maxChecks:1}),receipt=result.results.find(r=>r.id===partnerId),calls=rpcTrace.slice(traceStart);
+  assert(receipt);assert.equal(receipt.status,fail?'unresolved':'evidence_refreshed');assert.deepEqual(Object.keys(receipt.changes),[]);
+  assert.equal(calls.length,2);assert(calls.every(c=>c.name==='store_hackathon_source_evidence'&&c.body.p_id===partnerId&&c.body.p_allow_initial===false&&c.body.p_patch===undefined));
+  assert.deepEqual(calls.map(c=>c.body.p_action),['lease',fail?'failure':'apply']);
+  assert.equal(calls[1].result.status,fail?'failed':'evidence_refreshed');assertProtected();
+  projectedPartner=await loadPublicEvent(api,partnerId);assert.equal(registrationState(projectedPartner,Date.now()),fail?'unknown':'open');assert.equal(activeOpportunity(projectedPartner,Date.now()),!fail);
+  if(fail)assert.deepEqual(partnerRow().source_metadata.facts,beforeFacts);
+ }
+ pass('real partner parser/SDK/orchestrator/SQL refresh, provider failure and recovery use metadata-only receipts and truthful public registration');
  // Application rollback compatibility, not a live Vercel routing/rollback claim.
  const {execFileSync}=require('node:child_process'),vm=require('node:vm'),ts=require('typescript');
  assert.equal(execFileSync(process.execPath,['-e','process.exit(0)'],{encoding:'utf8'}),'');pass('proposed Ignored Build Step command returns documented skip exit code locally');

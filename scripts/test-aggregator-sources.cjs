@@ -31,7 +31,8 @@ test('deadlines and final event instant recalculate without a scrape, using incl
 });
 for(const state of ['failed','checking','unresolved'])test(state+' removes promotion while preserving details and direct links',()=>{const m={...observe(),check_status:state},row=event(m);assert.equal(life.registrationState(row,now),'unknown');assert.deepEqual(list([row]),[]);assert.equal(list([row],'tab=all').length,1);assert.equal(s.synchronizedEvent(row).website_url,u.canonical_url);});
 test('missed daily check expires at 26h even if deadline is still future; forged future check and extended expiry fail closed',()=>{
- const m=observe();for(const bad of [{...m,expires_at:new Date(now+27*3600000).toISOString()},{...m,checked_at:new Date(now+120000).toISOString()},{...m,protected_fields:['name']}])assert.equal(life.activeOpportunity(event(bad),now),false);
+ const m=observe();for(const bad of [{...m,expires_at:new Date(now+27*3600000).toISOString()},{...m,checked_at:new Date(now+120000).toISOString()},{...m,protected_fields:['registration_status']}])assert.equal(life.activeOpportunity(event(bad),now),false);
+ assert.equal(life.activeOpportunity(event({...m,protected_fields:['name']}),now),true);
  assert.equal(life.activeOpportunity(event(m),now+26*3600000-1),true);assert.equal(life.activeOpportunity(event(m),now+26*3600000),false);
 });
 for(const patch of [{type:'workshops'}, {details:'A hackathon bootcamp workshop.'},{details:'Case study challenge.'},{rounds:[fixture.buildStage('2026-02-30','2026-11-07')]}, {rounds:[fixture.buildStage('2026-11-08','2026-11-07')]},{regnRequirements:{start_regn_dt:'2026-11-10',end_regn_dt:'2026-11-01'}},{regnRequirements:{min_team_size:4,max_team_size:1}}])test('ambiguous/contradictory publication cannot promote '+JSON.stringify(patch),()=>assert.deepEqual(list([event(observe(patch))]),[]));
@@ -107,7 +108,7 @@ test('old Unstop observations cannot promote unsafe dates, label ongoing/ended o
  m.facts.registration_status='closed';assert.deepEqual(list([event(m)]),[]);
 });
 for(const field of ['is_hidden','is_inactive','status','entity_type'])test('unsupported/private/draft stage cannot establish actual dates: '+field,()=>{
- const stage=fixture.buildStage('2026-11-01','2026-11-07');stage[field]=field==='status'?'DRAFT':field==='entity_type'?'App\\Model\\Rounds':1;
+ const stage=fixture.buildStage('2026-11-01','2026-11-07');stage[field]=field==='status'?'DRAFT':field==='entity_type'?'App\\Model\\AssessmentRound':1;
  const m=observe({rounds:[stage]});assert.equal(m.facts.start_date,null);assert.equal(life.eventState(event(m),now),'unknown');
 });
 test('multiple build stages are ambiguous, and conflicting labeled team bounds are held',()=>{
@@ -225,7 +226,7 @@ for(const [title,display_text]of supportedStages)for(const window of ['upcoming'
 test('ambiguous actual stage keeps independently open registration without claiming ongoing',()=>{
  const stage=fixture.buildStage('2026-11-01','2026-11-03');Object.assign(stage.details[0],{title:'Grand Finale',display_text:'Final judging of the hackathon.'});
  const m=observe({rounds:[stage]}),row=event(m);
- assert.equal(life.registrationState(row,now),'open');assert.equal(life.eventState(row,now),'unknown');assert.equal(life.registrationLabel(row,now),'Registration listed as open');
+ assert.equal(life.registrationState(row,now),'open');assert.equal(life.eventState(row,now),'unknown');assert.equal(life.registrationLabel(row,now),'Registration open');
  assert.equal(list([row],'tab=open').length,1);assert.deepEqual(list([row],'tab=ongoing'),[]);assert.equal(sync.reconciliation({...record,website_url:m.canonical_url},m).classification,'registration_open');
 });
 for(const state of ['ongoing','ended'])test('pre-fix stage provenance cannot survive through cached '+state+' facts',()=>{

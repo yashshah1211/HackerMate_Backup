@@ -10,6 +10,7 @@ const {ESLint}=require('eslint'),{execFileSync}=require('node:child_process'),fs
  'scripts/qualify-aggregator.cjs','scripts/test-public-hackathon-data.cjs','scripts/test-public-hackathon-browsing.cjs','qa/fixtures/mission20-hotfix-browser.jsx','qa/fixtures/aggregator/provider-facts.cjs',
  'scripts/test-scraper-data-preservation.cjs','scripts/test-email-reliability.cjs','scripts/test-event-compatibility.cjs','scripts/test-hackathon-discovery.cjs','scripts/test-hackathon-discovery-page.cjs',
  'scripts/test-mission20-discovery-hotfix.cjs','scripts/test-mission20-unverified-opportunities.cjs','scripts/test-mission20-discovery-hotfix-browser.cjs'];
+ files.push('src/lib/hackathons/sourceEvidenceWriter.ts','src/lib/hackathons/legacyEvidence.ts','scripts/review-source-evidence.cjs');
  const result=await lint.lintFiles(files);const diagnostics=result.filter(r=>r.messages.length).map(r=>({file:r.filePath,messages:r.messages}));
  if(diagnostics.length)console.log(JSON.stringify(diagnostics,null,2));
  assert.equal(result.reduce((n,r)=>n+r.errorCount+r.warningCount,0),0,'No new scoped diagnostics permitted');

@@ -1,0 +1,71 @@
+{
+  "provenance": {
+    "kind": "captured_contract_fields_not_full_raw_response",
+    "checked_at": "2026-11-03T15:26:35.099Z",
+    "original_response_sha256": "abe9efb958c4a03830ca9b1cdb0f5c8b12ca740b4be83b1b39f2addee2a61902",
+    "original_response_bytes": 35648,
+    "note": "Exact retained round objects and provider registration values from the completed live observation. Full raw response was not archived. Category/details wrapper in tests is synthetic and never presented as live evidence.",
+    "inventory_sha256": "c178df17c418aa4dc8f9c334cb41cffb43acb24ad67534e92fd4d286352f77ea"
+  },
+  "identity": {
+    "provider": "unstop",
+    "provider_id": "1777639",
+    "canonical_url": "https://unstop.com/hackathons/rack-it-up-2026-48-hour-online-hackathon-by-rackem-karma-enterprises-1777639"
+  },
+  "name": "Rack It Up 2026: 48-Hour Online Hackathon by Rack'Em",
+  "organizer": "Karma Enterprises",
+  "registration": {
+    "start": "2026-10-30T00:00:00+05:30",
+    "end": "2026-12-09T23:59:00+05:30",
+    "status": "STARTED",
+    "minTeamSize": 1,
+    "maxTeamSize": 4
+  },
+  "rounds": [
+    {
+      "entity_type": "App\\Model\\OfflineRound",
+      "status": "LIVE",
+      "is_hidden": 0,
+      "is_inactive": 0,
+      "details": [
+        {
+          "status": "LIVE",
+          "title": "Round 1: Registration & Team Formation",
+          "display_text": "<ul>\n<li>Register on Unstop and build your team of 1 to 4 members (solo is welcome, and cross-college and cross-city teams are allowed).</li>\n<li>Registrations close on 9 Dec, 11:59 PM IST.</li>\n<li>Updates come by email, and live mentor hours run on Zoom. Sponsor problem statements and prize amounts are announced between 2 and 5 Dec.</li>\n</ul>",
+          "start_date": "2026-10-30T00:00:00+05:30",
+          "end_date": "2026-12-09T23:59:00+05:30"
+        }
+      ]
+    },
+    {
+      "entity_type": "App\\Model\\Rounds",
+      "status": "NOT_STARTED",
+      "is_hidden": 0,
+      "is_inactive": 0,
+      "details": [
+        {
+          "status": "NOT_STARTED",
+          "title": "Round 2: The Hack (48 hours)",
+          "display_text": "<ul>\n<li>Build and deploy your project in 48 hours, from Fri 11 Dec 6 PM to Sun 13 Dec 6 PM IST. Submit on Unstop before the deadline: your project name and theme, a live deployed link (any hosting is fine), your public code repository, and a demo video of up to 3 minutes.</li>\n<li>Mentor hours run live on Zoom during the hack.</li>\n</ul>",
+          "start_date": "2026-12-11T18:00:00+05:30",
+          "end_date": "2026-12-13T18:00:00+05:30"
+        }
+      ]
+    },
+    {
+      "entity_type": "App\\Model\\OfflineRound",
+      "status": "NOT_STARTED",
+      "is_hidden": 0,
+      "is_inactive": 0,
+      "details": [
+        {
+          "status": "NOT_STARTED",
+          "title": "Round 3: Finals (Top 10 live demos)",
+          "display_text": "<ul>\n<li>The top 10 teams from Round 2 demo their live projects to the judges and sponsors on Zoom on Mon 14 Dec.</li>\n<li>Shortlisted teams get the schedule and Zoom link by email. Results are announced on Tue 15 Dec.</li>\n</ul>",
+          "start_date": "2026-12-14T10:00:00+05:30",
+          "end_date": "2026-12-15T18:00:00+05:30"
+        }
+      ]
+    }
+  ]
+}

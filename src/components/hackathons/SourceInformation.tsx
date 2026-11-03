@@ -13,6 +13,7 @@ export default function SourceInformation({ event, now, compact = false }: {
     <p>{source.provider} · {fresh ? "Source checked" : "Source check unavailable or expired"}: {dateLabel(source.checked_at)}.
       {" "}{source.category === "hackathon" ? "Hackathon category confirmed by source." : "Hackathon category unverified; excluded from active discovery."}</p>
     {source.provider === "unstop" && !hasEventScheduleEvidence(source) && <p>Actual event dates unverified. Registration timing is assessed separately.</p>}
+    {source.evidence_only && <p>Registration evidence is shown separately. Organizer-managed event details are preserved.</p>}
     {Array.isArray(source.issues) && source.issues.some(issue => ["mode_contradiction", "team_size_contradiction"].includes(issue)) && <p>Source facts conflict. Confirm mode and team size on the official page.</p>}
     {!compact && <>
       <p>Evidence expires: {dateLabel(source.expires_at)}. Provider availability may change between checks.</p>

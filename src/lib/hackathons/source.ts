@@ -21,7 +21,10 @@ export type SourceMetadata = {
   source_hash: string; parser_version: string; facts: SourceFacts;
   evidence: Record<string, unknown>; issues: string[];
   last_values?: Record<string, unknown>; protected_fields?: string[]; attempt_id?: string;
+  evidence_only?: boolean;
 };
+export const REGISTRATION_FIELDS = ["registration_start", "registration_end", "registration_status"];
+export const EVENT_FIELDS = ["start_date", "end_date"];
 export const SOURCE_MAX_AGE_MS = 26 * 60 * 60 * 1000;
 export const UNSTOP_EVENT_DATE_BASIS = "reconciled_hackathon_build_stages_v3";
 export const sourceProvider = (v: unknown): Provider | null => v === "unstop" || v === "devfolio" || v === "hack2skill" ? v : null;
@@ -34,6 +37,7 @@ function decodeMetadata(v: unknown): SourceMetadata | null {
     || !["hackathon", "other", "unknown"].some(v => v === m.category) || !text(f.name) || !text(m.checked_at) || !text(m.expires_at)
     || !["open", "closed", "not-yet-open", "unknown"].some(v => v === f.registration_status)) return null;
   if (m.protected_fields !== undefined && (!Array.isArray(m.protected_fields) || !m.protected_fields.every(v => typeof v === "string"))) return null;
+  if (m.evidence_only !== undefined && typeof m.evidence_only !== "boolean") return null;
   for (const key of ["start_date", "end_date", "registration_start", "registration_end"]) if (f[key] !== null && f[key] !== undefined && typeof f[key] !== "string") return null;
   if (!text(f.website_url) || typeof f.description !== "string" || !Array.isArray(f.rounds_info)
     || !f.rounds_info.every(r => typeof object(r).name === "string")
@@ -85,7 +89,7 @@ export function validateSourceObservation(value: unknown, expected?: unknown): V
   if (m.provider === "unstop") {
     if (m.evidence.event_date_basis === UNSTOP_EVENT_DATE_BASIS) {
       const inventory = retainBuildInventory(m.evidence.build_inventory), stageIssues: string[] = [];
-      const window = inventory && reconciledBuildWindow(inventory, stageIssues);
+      const window = inventory && reconciledBuildWindow(inventory, stageIssues, checked ?? undefined);
       if (!window || stageIssues.length || start !== window.from || end !== window.until) errors.push("unsupported_build_schedule");
       else schedule = { start: f.start_date!, end: f.end_date! };
     }
@@ -111,7 +115,8 @@ export function sourceMetadata(value: unknown, expected?: unknown): SourceMetada
 }
 export function hasEventScheduleEvidence(value: unknown): boolean {
   const validated = validateSourceObservation(value);
-  return validated.metadata?.check_status === "ok" && validated.schedule !== null;
+  return !!validated.metadata && usableCheck(validated.metadata) && validated.schedule !== null
+    && !EVENT_FIELDS.some(field => validated.metadata?.protected_fields?.includes(field));
 }
 export function registrationDestination(event: { website_url?: string | null; source_metadata?: unknown }): string | null {
   const value = sourceMetadata(event.source_metadata, event.website_url)?.facts.registration_url || event.website_url;
@@ -120,9 +125,13 @@ export function registrationDestination(event: { website_url?: string | null; so
     return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.href : null;
   } catch { return null; }
 }
-export function sourceFresh(m: SourceMetadata | null, now: number): m is SourceMetadata {
+function usableCheck(m: SourceMetadata): boolean {
+  return m.check_status === "ok" || m.check_status === "unresolved" && !!m.protected_fields?.length
+    && m.issues.length > 0 && m.issues.every(issue => ["protected_fields", "editorial_override"].includes(issue));
+}
+export function sourceFresh(m: SourceMetadata | null, now: number, fields: readonly string[] = []): m is SourceMetadata {
   m = sourceMetadata(m);
-  if (!m || m.check_status !== "ok" || (m.protected_fields?.length ?? 0) > 0) return false;
+  if (!m || !usableCheck(m) || fields.some(field => m.protected_fields?.includes(field))) return false;
   const checked = Date.parse(m.checked_at), expires = Date.parse(m.expires_at);
   return Number.isFinite(checked) && Number.isFinite(expires) && checked <= now + 60000 && checked <= expires
     && now < expires && now - checked < SOURCE_MAX_AGE_MS && expires - checked <= SOURCE_MAX_AGE_MS;
@@ -132,13 +141,16 @@ export function synchronizedEvent<T extends { type?: string | null; source_metad
   const validated = validateSourceObservation(event.source_metadata, event.website_url), m = validated.metadata;
   if (event.type === "native") return event;
   if (!m) return event.source_metadata == null ? event : { ...event, start_date: null, end_date: null };
-  if (m.protected_fields?.length) return event;
   const facts: Record<string, unknown> = {};
   for (const key of ["name", "description", "website_url", "college", "start_date", "end_date", "registration_start", "registration_end",
     "registration_status", "min_team_size", "max_team_size", "mode", "location", "prize_pool", "currency", "rounds_info"]) {
+    if (m.protected_fields?.includes(key) || m.evidence_only && !REGISTRATION_FIELDS.includes(key)) continue;
     facts[key] = object(m.facts)[key];
   }
-  if (m.check_status !== "ok" || !validated.schedule) { facts.start_date = null; facts.end_date = null; }
+  if (!m.evidence_only && (!usableCheck(m) || !validated.schedule)) {
+    if (!m.protected_fields?.includes("start_date")) facts.start_date = null;
+    if (!m.protected_fields?.includes("end_date")) facts.end_date = null;
+  }
   // Never overlay identity, approval, ownership, archival or community fields from JSON.
   return { ...event, ...facts };
 }
