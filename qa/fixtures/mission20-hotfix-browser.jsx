@@ -2,6 +2,7 @@
 import {useSyncExternalStore} from 'react';
 import {record as algorush} from './mission20-unverified/algorush.json';
 import providerFacts from './aggregator/provider-facts.cjs';
+import capture from './aggregator/rack-it-up-captured.json';
 import {identifySource,parseUnstop} from '@/lib/hackathons/providers';
 export default function Link({href,children,...props}) { return <a href={href} {...props}>{children}</a>; }
 const replace=history.replaceState.bind(history);
@@ -61,7 +62,11 @@ for(const [n,malform]of [[45,m=>{m.provider=['unstop'];delete m.evidence.event_d
  const fixture=event(n,'Invalid cache '+n,{start_date:'2026-11-01',registration_end:'2026-10-31'}),m=source(fixture);malform(m);rows.push({...fixture,source_metadata:m});
 }
 rows.sort((a,b)=>a.id.localeCompare(b.id)); // Match the public reader's ORDER BY id contract.
-const visible=params.get('case')==='boundary'?rows.filter(r=>r.id===id(8)).map(r=>({...r,type:'native'})):params.get('case')==='native'?rows.filter(r=>r.id===id(2)).map(r=>({...r,type:'native',name:'Native open event'})):rows;
+const captured=parseUnstop(capture.identity,{data:{competition:{id:1777639,title:capture.name,type:'hackathons',details:'A hackathon.',status:'LIVE',region:'online',regnRequirements:{start_regn_dt:capture.registration.start,end_regn_dt:capture.registration.end,reg_status:capture.registration.status},rounds:capture.rounds}}},Date.parse('2026-11-02T06:29:00Z'),'b'.repeat(64));
+captured.evidence_only=true;captured.protected_fields=['name','description','website_url','college','start_date','end_date','min_team_size','max_team_size','mode','location','prize_pool','currency','rounds_info','rounds_count','tags'];
+captured.check_status='unresolved';captured.issues=['editorial_override'];
+const partnerEvidence=event(50,'Organizer partner event',{website_url:capture.identity.canonical_url,description:'Organizer-owned complete description',start_date:'2026-12-11',end_date:'2026-12-13',registration_start:null,registration_end:null,registration_status:null,tags:['Editorial tag'],source_metadata:captured});
+const visible=params.get('case')==='partner-evidence'?[partnerEvidence]:params.get('case')==='empty-verified'?[rows.find(r=>r.id===id(9))]:params.get('case')==='boundary'?rows.filter(r=>r.id===id(8)).map(r=>({...r,type:'native'})):params.get('case')==='native'?rows.filter(r=>r.id===id(2)).map(r=>({...r,type:'native',name:'Native open event'})):rows;
 const user=member?{id:userId,email:'synthetic@example.invalid'}:null;
 export const supabase={auth:{getSession:async()=>({data:{session:user?{user}:null},error:null}),getUser:async()=>({data:{user},error:null}),
  onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},

@@ -1,6 +1,6 @@
 import { eventDate, windowState } from "./sourceEvidence";
 export { eventDate } from "./sourceEvidence";
-import { hasEventScheduleEvidence, sourceMetadata, sourceFresh, synchronizedEvent } from "./source";
+import { EVENT_FIELDS, REGISTRATION_FIELDS, hasEventScheduleEvidence, sourceMetadata, sourceFresh, synchronizedEvent } from "./source";
 export type EventDates = { type?: string | null; source_metadata?: unknown; website_url?: string | null; start_date?: string | null; end_date?: string | null };
 export type RegistrationDates = EventDates & { registration_start?: string | null; registration_end?: string | null; registration_status?: string | null };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
@@ -8,7 +8,7 @@ export type RegistrationState = "open" | "closed" | "not-yet-open" | "unknown";
 
 /** Explicit registration evidence only: event timing never proves applications are open. */
 export function registrationState(event: RegistrationDates, now: number): RegistrationState {
-  if (event.type !== "native" && event.source_metadata != null && !sourceFresh(sourceMetadata(event.source_metadata, event.website_url), now)) return "unknown";
+  if (event.type !== "native" && event.source_metadata != null && !sourceFresh(sourceMetadata(event.source_metadata, event.website_url), now, REGISTRATION_FIELDS)) return "unknown";
   const value = synchronizedEvent(event);
   const status = value.registration_status?.trim().toLowerCase();
   if (["closed", "finished", "cancelled"].includes(status || "")) return "closed";
@@ -24,7 +24,7 @@ export function registrationState(event: RegistrationDates, now: number): Regist
 
 export function registrationLabel(event: RegistrationDates, now: number): string {
   const state = registrationState(event, now);
-  if (state === "open" && scheduleIsUnverified(event, now)) return "Registration listed as open";
+  if (state === "open" && event.type !== "native" && !sourceFresh(sourceMetadata(event.source_metadata, event.website_url), now, REGISTRATION_FIELDS)) return "Registration listed as open";
   return { open: "Registration open", closed: "Registration closed", "not-yet-open": "Registration not yet open", unknown: "Registration availability unverified" }[state];
 }
 
@@ -49,7 +49,7 @@ export function listedEventState(event: EventDates, now: number): EventState {
 export function scheduleIsUnverified(event: Pick<EventDates, "type" | "source_metadata" | "website_url">, now = Date.now()): boolean {
   if (event.type === "native") return false;
   const metadata = sourceMetadata(event.source_metadata, event.website_url);
-  return !sourceFresh(metadata, now) || !hasEventScheduleEvidence(metadata);
+  return !sourceFresh(metadata, now, EVENT_FIELDS) || !hasEventScheduleEvidence(metadata);
 }
 export function eventState(event: EventDates, now: number): EventState {
   if (scheduleIsUnverified(event, now)) return "unknown";

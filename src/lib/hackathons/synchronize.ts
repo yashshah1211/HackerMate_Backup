@@ -2,10 +2,11 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identifySource, parseDevfolio, parseHack2skill, parseUnstop, type Observation, type SourceIdentity } from "./providers";
-import { hasEventScheduleEvidence, object, sourceMetadata, sourceProvider, text, validateSourceObservation } from "./source";
+import { REGISTRATION_FIELDS, hasEventScheduleEvidence, object, sourceFresh, sourceMetadata, sourceProvider, text, validateSourceObservation } from "./source";
 import { discoverSources, SourceTransport } from "./sourceTransport";
 import { eventDate, registrationState } from "./lifecycle";
 import { windowState, validatedSourceIdentity } from "./sourceEvidence";
+import { evidenceSnapshot } from "./sourceEvidenceWriter";
 
 export const CATALOG_COLUMNS = "id,name,description,website_url,college,start_date,end_date,registration_start,registration_end,registration_status,min_team_size,max_team_size,mode,location,prize_pool,currency,rounds_info,rounds_count,tags,type,organizer_id,status,archived,source_metadata";
 export type CatalogRecord = Record<string, unknown> & { id: string; name: string; website_url: string | null };
@@ -25,7 +26,7 @@ function deadline(value: string): string {
 }
 export function sourcePatch(value: unknown, expected?: unknown): Record<string, unknown> {
   const validated = validateSourceObservation(value, expected), observation = validated.metadata;
-  if (!observation || observation.check_status !== "ok" || observation.issues.length) return {};
+  if (!observation || observation.evidence_only || observation.check_status !== "ok" || observation.issues.length) return {};
   const f = observation.facts, patch: Record<string, unknown> = {};
   for (const field of fields) {
     if (field === "tags" || field === "rounds_count") continue;
@@ -110,15 +111,18 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     const identity = m || (legacy?.provider === "unstop" ? legacy : null);
     return identity ? [[identity.provider + ":" + identity.provider_id, r] as const] : [];
   }));
-  const work: { record?: CatalogRecord; identity: SourceIdentity }[] = [];
+  const work: { record?: CatalogRecord; identity: SourceIdentity; evidenceOnly?: boolean }[] = [];
   // Give confirmed current/near-term hackathons priority, then rotate the remaining backlog by check time.
   // Cached facts only order checks; they never establish fresh admission without a successful recheck.
   const relevant = (row: CatalogRecord) => { const m = sourceMetadata(row.source_metadata, row.website_url);
-    if (!m || m.protected_fields?.length || m.category !== "hackathon" || m.check_status !== "ok") return false;
+    if (!m || m.category !== "hackathon") return false;
     const facts = m.facts, clock = Date.now(), verifiedSchedule = hasEventScheduleEvidence(m), state = verifiedSchedule ? windowState(facts.start_date, facts.end_date, clock) : "unknown";
     if (verifiedSchedule && state === "ended") return false;
-    return state === "ongoing" || registrationState({ ...facts, type: "native" }, clock) === "open"
-      || (eventDate(facts.registration_start) ?? 0) > clock && (eventDate(facts.registration_start) ?? Infinity) < clock + 86400000;
+    // Evaluate authority at the original check for queue priority only, so expired valid
+    // observations can recover. Public admission still uses the actual current clock.
+    const registrationSupported = sourceFresh(m, Date.parse(m.checked_at), REGISTRATION_FIELDS);
+    return state === "ongoing" || registrationSupported && (registrationState({ ...facts, type: "native" }, clock) === "open"
+      || (eventDate(facts.registration_start) ?? 0) > clock && (eventDate(facts.registration_start) ?? Infinity) < clock + 86400000);
   };
   const ordered = [...records].sort((a, b) => {
     const av = validateSourceObservation(a.source_metadata, a.website_url), bv = validateSourceObservation(b.source_metadata, b.website_url);
@@ -128,7 +132,8 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
       || (eventDate(object(a.source_metadata).checked_at) ?? 0) - (eventDate(object(b.source_metadata).checked_at) ?? 0);
   });
   for (const record of ordered) {
-    if (record.organizer_id || !["external", "official"].includes(String(record.type)) || protectedIds.has(record.id) || protectedUrls.has(record.website_url)) continue;
+    const evidenceOnly = sourceMetadata(record.source_metadata, record.website_url)?.evidence_only === true;
+    if (!["external", "official"].includes(String(record.type)) || !evidenceOnly && (record.organizer_id || protectedIds.has(record.id) || protectedUrls.has(record.website_url))) continue;
     const validated = validateSourceObservation(record.source_metadata, record.website_url), meta = validated.metadata;
     if (record.source_metadata != null && !validated.identity) {
       results.push({ id: record.id, name: record.name, provider: null, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: false,
@@ -140,7 +145,7 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     const identity = (knownIdentity && discoveredIds.get(knownIdentity.provider + ":" + knownIdentity.provider_id)) || byUrl.get(inferred.canonical_url) || (validated.identity || inferred);
     // Routine cron must not perform the unapproved legacy backfill, including metadata adoption.
     if (!dryRun && record.source_metadata == null) { results.push({ id: record.id, name: record.name, provider: identity.provider, status: "requires_adoption", classification: "unresolved", changes: {}, requires_adoption: true }); continue; }
-    work.push({ record, identity });
+    work.push({ record, identity, evidenceOnly });
   }
   const seen = new Set(work.map(w => w.identity.canonical_url));
   for (const identity of discovery.identities) {
@@ -161,9 +166,11 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
   const cap = Math.min(150, options.maxChecks ?? 150); let checked = 0;
   for (const item of scheduled) {
     if (checked >= cap || transport.remaining() < 15000) break;
-    const { record, identity } = item, attempt = randomUUID(); let expected: unknown = null, leased = false;
+    const { record, identity, evidenceOnly } = item, attempt = randomUUID(); let expected: unknown = null, leased = false;
     if (!dryRun && record) {
-      const lease = await client.rpc("begin_hackathon_source_check", { p_id: record.id, p_attempt: attempt }).abortSignal(signal);
+      const lease = await client.rpc(evidenceOnly ? "store_hackathon_source_evidence" : "begin_hackathon_source_check", evidenceOnly
+        ? { p_id: record.id, p_identity: identity, p_observation: null, p_expected: evidenceSnapshot(record), p_attempt: attempt, p_action: "lease", p_allow_initial: false }
+        : { p_id: record.id, p_attempt: attempt }).abortSignal(signal);
       if (lease.error) { console.error("Source check lease failed:", lease.error); throw new Error("Source writer unavailable; synchronization stopped without fallback."); }
       const value = object(lease.data); if (value.status !== "leased") continue;
       expected = value.snapshot; leased = true;
@@ -172,9 +179,12 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     let evidence: Observation | undefined;
     try {
       const observation = evidence = await observe(identity, transport), preview = reconciliation(record, observation);
+      if (evidenceOnly) preview.changes = {};
       if (dryRun) { results.push(preview); continue; }
       if (!sourceMetadata(observation, record?.website_url)) throw new Error("invalid_source_observation");
-      const result = await client.rpc("apply_hackathon_source_check", {
+      const result = await client.rpc(evidenceOnly ? "store_hackathon_source_evidence" : "apply_hackathon_source_check", evidenceOnly ? {
+        p_id: record!.id, p_identity: identity, p_observation: observation, p_expected: expected, p_attempt: attempt, p_action: "apply", p_allow_initial: false,
+      } : {
         p_id: record?.id || null, p_identity: { provider: observation.provider, provider_id: observation.provider_id, canonical_url: observation.canonical_url },
         p_observation: observation, p_patch: sourcePatch(observation), p_expected: expected, p_attempt: attempt,
       }).abortSignal(signal);
@@ -183,7 +193,9 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     } catch (e) {
       console.error("Source check failed:", identity.provider, identity.provider_id, e);
       if (leased) {
-        const failed = await client.rpc("apply_hackathon_source_check", { p_id: record!.id, p_identity: identity, p_observation: null,
+        const failed = await client.rpc(evidenceOnly ? "store_hackathon_source_evidence" : "apply_hackathon_source_check", evidenceOnly ? {
+          p_id: record!.id, p_identity: identity, p_observation: null, p_expected: expected, p_attempt: attempt, p_action: "failure", p_allow_initial: false,
+        } : { p_id: record!.id, p_identity: identity, p_observation: null,
           p_patch: {}, p_expected: null, p_attempt: attempt, p_failure: "source_check_unsuccessful" }).abortSignal(signal);
         if (failed.error) { console.error("Source failure receipt unavailable; lease remains fail-closed:", failed.error); }
       }

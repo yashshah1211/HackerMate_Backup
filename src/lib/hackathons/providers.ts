@@ -5,7 +5,7 @@ export type { SourceIdentity } from "./sourceEvidence";
 import { array, integer, object, text, validateSourceObservation, SOURCE_MAX_AGE_MS, UNSTOP_EVENT_DATE_BASIS, type SourceFacts, type SourceMetadata } from "./source";
 
 export type Observation = SourceMetadata;
-export const PARSER_VERSION = "aggregator-8";
+export const PARSER_VERSION = "aggregator-9";
 const plain = (v: unknown, limit = 1000) => (text(v) || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, limit);
 const timestamp = (v: unknown): string | null => { const s = text(v); return s && eventDate(s) !== null ? s : null; };
 
@@ -63,7 +63,7 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   f.name = plain(c.title, 200); f.college = plain(object(c.organisation).name, 200) || null;
   // The provider's competition window can span registration/assessments, not the actual build.
   const inventory = retainBuildInventory(c.rounds);
-  const window = reconciledBuildWindow(inventory, issues);
+  const window = reconciledBuildWindow(inventory, issues, now);
   if (!inventory) issues.push("build_inventory_unavailable_or_oversized");
   if (window && /\bEvent Dates?\s*:/i.test(plain(c.details, 20000))) issues.push("event_schedule_requires_reconciliation");
   else if (window) { f.start_date = window.start; f.end_date = window.end; }

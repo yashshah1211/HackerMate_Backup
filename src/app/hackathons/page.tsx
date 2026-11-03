@@ -627,7 +627,11 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           title="No events found"
           body={emptyBody}
           action={
-            hasAnyFilter ? (
+            ["active", "open", "ongoing"].includes(activeTab) && hackathons.length > 0 ? (
+              <Button size="sm" variant="secondary" onClick={() => setActiveTab("all")}>
+                Browse all listings ({hackathons.length})
+              </Button>
+            ) : hasAnyFilter ? (
               <Button size="sm" variant="secondary" onClick={clearFilters}>
                 Clear filters
               </Button>

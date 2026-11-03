@@ -51,16 +51,41 @@ const BUILD_STATEMENTS = [
 function stageText(value: unknown, limit: number): string | null {
   const raw = text(value);
   if (!raw || raw.length > limit) return null; // Never classify a truncated prefix.
-  const stripped = raw.replace(/<\/?(?:p|b|strong|em|i)\s*>|<br\s*\/?>/gi, " ");
-  // Only simple emphasis/paragraph markup is understood; hidden/deleted/link content is not evidence.
+  const stripped = raw.replace(/<\/?(?:p|b|strong|em|i|ul|ol|li)\s*>|<br\s*\/?>/gi, " ");
+  // Only plain emphasis/paragraph/list markup is understood; hidden/deleted/link content is not evidence.
   return /[<>]/.test(stripped) ? null : stripped.replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+}
+function activityTitle(value: string): string {
+  return value.replace(/^(?:round|stage|phase)\s+\d+\s*[:.-]\s*/i, "");
+}
+/** A dated provider statement must agree with the structured instants, not just contain a build keyword. */
+export function indiaStageInstant(value: string, year: number): number | null {
+  const match = value.trim().match(/^(?:(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+)?(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s+(\d{4}))?\s*,?\s*(\d{1,2})(?::([0-5]\d))?\s*(AM|PM)(?:\s+IST)?$/i);
+  if (!match || Number(match[5]) < 1 || Number(match[5]) > 12) return null;
+  const month = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(match[3].toLowerCase());
+  const y = match[4] ? Number(match[4]) : year, day = Number(match[2]);
+  const date = new Date(Date.UTC(y, month, day));
+  if (date.getUTCMonth() !== month || date.getUTCDate() !== day || (match[1] && ["sun","mon","tue","wed","thu","fri","sat"][date.getUTCDay()] !== match[1].toLowerCase())) return null;
+  return Date.UTC(y, month, day, Number(match[5]) % 12 + (match[7].toUpperCase() === "PM" ? 12 : 0), Number(match[6] || 0)) - 19800000;
+}
+function providerBuildStage(stage: Record<string, unknown>): boolean {
+  const title = activityTitle(stageText(stage.title, 200) || ""), body = stageText(stage.display_text, 4000), window = stageWindow(stage);
+  const label = title.match(/^(?:the )?hack(?:\s*\((\d+) hours?\))?$/i);
+  const claim = body?.match(/^Build and deploy your project in (\d+) hours?, from (.+?) to (.+?) IST\.\s*(.*)$/i);
+  if (!label || !claim || !window || /\b(?:not|no|never|only judging|orientation|presentations?|assessment)\b/i.test(body!)) return false;
+  const hours = Number(claim[1]);
+  return hours > 0 && hours <= 744 && (!label[1] || Number(label[1]) === hours)
+    && window.until - window.from === hours * 3600000
+    && indiaStageInstant(claim[2], Number(window.start.slice(0, 4))) === window.from
+    && indiaStageInstant(claim[3], Number(window.end.slice(0, 4))) === window.until
+    && /^(?:Submit on Unstop before the deadline:|Teams (?:build|submit)\b)/i.test(claim[4]);
 }
 function explicitBuildStage(stage: Record<string, unknown>, round: Record<string, unknown>): boolean {
   for (const flag of ["is_hidden", "is_inactive"]) if (stage[flag] !== undefined && stage[flag] !== 0) return false;
   if (stage.entity_type !== undefined && stage.entity_type !== round.entity_type) return false;
   if (stage.status !== undefined && stage.status !== round.status) return false;
-  const title = stageText(stage.title, 200), description = stageText(stage.display_text, 4000);
-  if (!title || !BUILD_TITLE.test(title) || !description || !BUILD_STATEMENTS.some(pattern => pattern.test(description))) return false;
+  const title = activityTitle(stageText(stage.title, 200) || ""), description = stageText(stage.display_text, 4000);
+  if (!title || !description || !(BUILD_TITLE.test(title) && BUILD_STATEMENTS.some(pattern => pattern.test(description))) && !providerBuildStage(stage)) return false;
   // Optional parent labels must not contradict the detail that supplies the dated window.
   if (round.title !== undefined && !BUILD_TITLE.test(stageText(round.title, 200) || "")) return false;
   return round.display_text === undefined || BUILD_STATEMENTS.some(pattern => pattern.test(stageText(round.display_text, 4000) || ""));
@@ -89,7 +114,26 @@ function explicitlyUnrelated({ stage, round }: StageEntry): boolean {
   if (invalidDates(dates).length) return false;
   return !dates.every(v => timestamp(v)) || stageWindow(stage) !== null;
 }
-export function reconciledBuildWindow(value: unknown, issues: string[]): StageWindow | null {
+/** Provider activities are excluded only with matching semantics, complete boundaries and relative timing. */
+function providerActivity({ stage, round }: StageEntry, first: StageWindow, last: StageWindow, buildNumbers: string[]): boolean {
+  const title = activityTitle(stageText(stage.title, 200) || ""), body = stageText(stage.display_text, 4000), window = stageWindow(stage);
+  if (!body || !window) return false;
+  for (const flag of ["is_hidden", "is_inactive"]) if (stage[flag] !== undefined && stage[flag] !== 0) return false;
+  if (stage.entity_type !== undefined && stage.entity_type !== round.entity_type || stage.status !== undefined && stage.status !== round.status) return false;
+  if (round.title !== undefined && activityTitle(stageText(round.title, 200) || "") !== title
+    || round.display_text !== undefined && stageText(round.display_text, 4000) !== body) return false;
+  if (round.start_date !== undefined || round.end_date !== undefined) {
+    const parent = stageWindow(round);
+    if (!parent || parent.from !== window.from || parent.until !== window.until) return false;
+  }
+  const withoutTeam = body.replace(/\bbuild your team\b/gi, "form your team");
+  if (/\b(?:build|building|coding|develop|prototype|hackathon)\b/i.test(withoutTeam)) return false;
+  if (/^Registration(?: & Team Formation)?$/i.test(title)) return /^Register on Unstop and (?:build|form) your team\b/i.test(body)
+    && /\bRegistrations close\b/i.test(body) && window.until <= first.from;
+  const finals = title.match(/^Finals \(Top (\d+) live demos\)$/i), reference = body.match(/^The top (\d+) teams from Round (\d+) demo their live projects to the judges and sponsors\b/i);
+  return !!finals && !!reference && finals[1] === reference[1] && buildNumbers.includes(reference[2]) && window.from >= last.until;
+}
+export function reconciledBuildWindow(value: unknown, issues: string[], observedAt?: number): StageWindow | null {
   const inventory: StageEntry[] = [];
   let incomplete = !Array.isArray(value);
   for (const raw of array(value)) {
@@ -101,14 +145,11 @@ export function reconciledBuildWindow(value: unknown, issues: string[]): StageWi
     for (const detail of round.details) inventory.push({ stage: object(detail), round });
   }
   const publicEnabled = (round: Record<string, unknown>) => round.is_hidden === 0 && round.is_inactive === 0
-    && ["LIVE", "STARTED", "UPCOMING", "FINISHED"].some(status => round.status === status);
+    && ["LIVE", "STARTED", "UPCOMING", "FINISHED", "NOT_STARTED"].some(status => round.status === status);
   const builds = inventory.filter(({ stage, round }) => publicEnabled(round)
-    && round.entity_type === "App\\Model\\OfflineRound" && explicitBuildStage(stage, round));
+    && ["App\\Model\\OfflineRound", "App\\Model\\Rounds"].includes(String(round.entity_type)) && explicitBuildStage(stage, round));
   if (!builds.length) return null;
   const buildSet = new Set(builds);
-  if (incomplete || inventory.some(entry => !buildSet.has(entry) && !(publicEnabled(entry.round) && explicitlyUnrelated(entry)))) {
-    issues.push("event_schedule_requires_reconciliation"); return null;
-  }
   const windows = builds.map(({ stage }) => stageWindow(stage));
   if (windows.some(window => !window)) {
     issues.push("incomplete_or_contradictory_build_window");
@@ -117,6 +158,13 @@ export function reconciledBuildWindow(value: unknown, issues: string[]): StageWi
     return null;
   }
   const complete = windows as StageWindow[], first = complete[0], last = complete[complete.length - 1];
+  const buildNumbers = builds.map(({ stage }) => String(stage.title).match(/^Round\s+(\d+)\s*:/i)?.[1]).filter((n): n is string => !!n);
+  if (incomplete || inventory.some(entry => !buildSet.has(entry) && !(publicEnabled(entry.round) && (explicitlyUnrelated(entry) || providerActivity(entry, first, last, buildNumbers))))) {
+    issues.push("event_schedule_requires_reconciliation"); return null;
+  }
+  if (observedAt !== undefined && builds.some((entry, i) => entry.round.status === "NOT_STARTED" && complete[i].from < observedAt)) {
+    issues.push("contradictory_stage_status"); return null;
+  }
   const groups = new Map<Record<string, unknown>, StageWindow[]>();
   builds.forEach((entry, i) => { const group = groups.get(entry.round) || []; group.push(complete[i]); groups.set(entry.round, group); });
   // Parent timing, when supplied, must be complete and agree with its own children.

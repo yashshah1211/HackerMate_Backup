@@ -1,5 +1,9 @@
 # Hackathon aggregator repair — review package
 
+## November 3 partner-evidence follow-up
+
+The historical release/audit entries below describe earlier work. The focused follow-up at merge baseline `218d03e3` is documented in [PARTNER-EVIDENCE.md](PARTNER-EVIDENCE.md): captured provider-format support, metadata-only partner evidence, field-aware projection, bounded legacy review and useful unverified browsing. Its additive migration is committed for later approval and has **not** been executed. Production migration state is **UNVERIFIED** pending a separately approved read-only preflight; earlier installed-state statements below are historical claims, not a current verification.
+
 Base/current `main`: `3a0b4d0488128fe730607ae1ef024a3bf52992e1`, independently rechecked on GitHub November 2, 2026. Isolated worktree/branch: `hackathon-aggregator-repair` / `fix/hackathon-aggregator-sync`. The pre-interruption work and private audit material are preserved. Mission 20 #92/#93/#96 are untouched. This package introduces no native registration or C1/C2 adapter dependency.
 
 **Unstop lifecycle correction: ready for local review; production adoption remains NO-GO.** Founder-reported state: migration `20261102123742` installed/verified, ledger148, old scraper endpoints firewall-blocked, all Vercel cron disabled, zero legacy adoption. This follow-up neither connects to production nor changes/reapplies SQL, ledger, holds or data. PR#99 stays Draft/unmerged. See the corrected interpretation below; historical counts are not release targets.
